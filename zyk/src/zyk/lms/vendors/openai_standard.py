@@ -1,10 +1,13 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List
+
+import pydantic_core
+
+from zyk.src.zyk.lms.caching.initialize import (
+    get_cache_handler,
+)
 from zyk.src.zyk.lms.vendors.base import VendorBase
 from zyk.src.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
-from zyk.src.zyk.lms.caching.initialize import cache_handler, ephemeral_cache_handler, get_cache_handler
-from zyk.src.zyk.lms.vendors.retries import backoff, BACKOFF_TOLERANCE
-import pydantic_core
+from zyk.src.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 DEFAULT_EXCEPTIONS_TO_RETRY = [
     pydantic_core._pydantic_core.ValidationError
@@ -33,10 +36,10 @@ class OpenAIStandard(VendorBase):
         max_tries=BACKOFF_TOLERANCE,
         on_giveup=lambda e: print(e)
     )
-    async def _hit_api_async(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache: bool = False) -> str:
+    async def _hit_api_async(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache_only: bool = False) -> str:
         assert lm_config.get("response_model", None) is None, "response_model is not supported for standard calls"
         messages = special_orion_transform(model, messages)
-        used_cache_handler = get_cache_handler(use_ephemeral_cache)
+        used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
         cache_result = used_cache_handler.hit_managed_cache(model, messages, lm_config=lm_config)
         if cache_result:
             return cache_result["response"] if isinstance(cache_result, dict) else cache_result
@@ -55,10 +58,10 @@ class OpenAIStandard(VendorBase):
         max_tries=BACKOFF_TOLERANCE,
         on_giveup=lambda e: print(e)
     )
-    def _hit_api_sync(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache: bool = False) -> str:
+    def _hit_api_sync(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache_only: bool = False) -> str:
         assert lm_config.get("response_model", None) is None, "response_model is not supported for standard calls"
         messages = special_orion_transform(model, messages)
-        used_cache_handler = get_cache_handler(use_ephemeral_cache=use_ephemeral_cache)
+        used_cache_handler = get_cache_handler(use_ephemeral_cache_only=use_ephemeral_cache_only)
         cache_result = used_cache_handler.hit_managed_cache(model, messages, lm_config=lm_config)
         if cache_result:
             return cache_result["response"] if isinstance(cache_result, dict) else cache_result

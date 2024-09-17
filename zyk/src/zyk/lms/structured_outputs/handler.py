@@ -1,12 +1,15 @@
-from zyk.src.zyk.lms.vendors.base import VendorBase
-from zyk.src.zyk.lms.structured_outputs.inject import inject_structured_output_instructions
-from zyk.src.zyk.lms.structured_outputs.rehabilitate import pull_out_structured_output
 import json
-from typing import List, Dict, Any, Optional, Literal, Callable, Union
-from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from zyk.src.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
+from pydantic import BaseModel
+
+from zyk.src.zyk.lms.structured_outputs.inject import (
+    inject_structured_output_instructions,
+)
+from zyk.src.zyk.lms.structured_outputs.rehabilitate import pull_out_structured_output
+from zyk.src.zyk.lms.vendors.base import VendorBase
+from zyk.src.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
 
 
 class StructuredHandlerBase(ABC):
@@ -32,7 +35,7 @@ class StructuredHandlerBase(ABC):
         model: str,
         response_model: BaseModel,
         temperature: float = 0.0,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
@@ -42,7 +45,7 @@ class StructuredHandlerBase(ABC):
             response_model=response_model,
             api_call_method = self.core_client._hit_api_async_structured_output if (not not response_model and self.structured_output_mode == "forced_json") else self.core_client._hit_api_async,
             temperature = temperature,
-            use_ephemeral_cache = use_ephemeral_cache
+            use_ephemeral_cache_only = use_ephemeral_cache_only
         )
 
     def call_sync(
@@ -51,7 +54,7 @@ class StructuredHandlerBase(ABC):
         response_model: BaseModel,
         model: str,
         temperature: float = 0.0,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
@@ -61,7 +64,7 @@ class StructuredHandlerBase(ABC):
             response_model=response_model,
             api_call_method = self.core_client._hit_api_sync_structured_output if (not not response_model and self.structured_output_mode == "forced_json") else self.core_client._hit_api_sync,
             temperature = temperature,
-            use_ephemeral_cache = use_ephemeral_cache
+            use_ephemeral_cache_only = use_ephemeral_cache_only
         )
 
     @abstractmethod
@@ -71,7 +74,7 @@ class StructuredHandlerBase(ABC):
         model: str,
         response_model: BaseModel,
         api_call_method,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
         pass
 
@@ -96,7 +99,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         response_model: BaseModel,
         temperature: float,
         api_call_method: Callable,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
         assert isinstance(api_call_method, Callable), "api_call_method must be a callable"
         assert response_model is not None, "Don't use this handler for unstructured outputs"
@@ -117,7 +120,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                     "response_model": None,
                     "temperature": temperature
                 },
-                use_ephemeral_cache = use_ephemeral_cache
+                use_ephemeral_cache_only = use_ephemeral_cache_only
             )
             if not isinstance(raw_text_response_or_cached_hit, str):
                 return raw_text_response_or_cached_hit
@@ -126,7 +129,8 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             try:
                 structured_output = pull_out_structured_output(raw_text_response, response_model)
                 break
-            except json.JSONDecodeError as e:
+            except Exception as e:
+                print("Error in pull_out_structured_output")
                 previously_failed_error_messages.append(
                     f"Generated attempt and got error. Attempt:\n\n{raw_text_response}\n\nError:\n\n{e}"
                 )
@@ -157,10 +161,10 @@ class ForcedJSONHandler(StructuredHandlerBase):
         response_model: BaseModel,
         api_call_method: Callable,
         temperature: float = 0.0,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
         assert response_model is not None, "Don't use this handler for unstructured outputs"
-        return await api_call_method(messages=messages, model=model, response_model=response_model, temperature=temperature, use_ephemeral_cache=use_ephemeral_cache)
+        return await api_call_method(messages=messages, model=model, response_model=response_model, temperature=temperature, use_ephemeral_cache_only=use_ephemeral_cache_only)
 
 
 class StructuredOutputHandler:
@@ -187,15 +191,15 @@ class StructuredOutputHandler:
         messages: List[Dict[str, Any]],
         model: str,
         response_model: BaseModel,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
-        return await self.handler.call_async(messages=messages, model=model, response_model=response_model, use_ephemeral_cache=use_ephemeral_cache)
+        return await self.handler.call_async(messages=messages, model=model, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
 
     def call_sync(
         self,
         messages: List[Dict[str, Any]],
         model: str,
         response_model: BaseModel,
-        use_ephemeral_cache: bool = False
+        use_ephemeral_cache_only: bool = False
     ) -> BaseModel:
-        return self.handler.call_sync(messages=messages, model=model, response_model=response_model, use_ephemeral_cache=use_ephemeral_cache)
+        return self.handler.call_sync(messages=messages, model=model, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)

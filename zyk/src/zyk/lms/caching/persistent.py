@@ -18,6 +18,8 @@ class PersistentCache:
     def hit_cache(self, key: str, response_model: Type[BaseModel]) -> Optional[Dict]:
         self.cursor.execute("SELECT response FROM cache WHERE key = ?", (key,))
         result = self.cursor.fetchone()
+        if not result:
+            return None
         result = json.loads(result[0])
         if result and response_model:
             return response_model(**result)

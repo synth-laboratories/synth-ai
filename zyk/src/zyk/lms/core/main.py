@@ -1,9 +1,13 @@
-from typing import List, Dict, Optional, Literal, Any
-from zyk.src.zyk.lms.core.vendor_clients import anthropic_naming_regexes, openai_naming_regexes, get_client
-from zyk.src.zyk.lms.caching.handler import CacheHandler
-from zyk.src.zyk.lms.structured_outputs.handler import StructuredOutputHandler
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
+
+from zyk.src.zyk.lms.core.vendor_clients import (
+    anthropic_naming_regexes,
+    get_client,
+    openai_naming_regexes,
+)
+from zyk.src.zyk.lms.structured_outputs.handler import StructuredOutputHandler
 
 def build_messages(
     sys_msg: str,
@@ -67,19 +71,19 @@ class LM:
         self.lm_config = {"temperature": temperature}
         self.model_name = model_name
     
-    def respond_sync(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache: bool = False):
+    def respond_sync(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
-            return self.structured_output_handler.call_sync(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache=use_ephemeral_cache)
+            return self.structured_output_handler.call_sync(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
         else:
-            return self.client._hit_api_sync(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache=use_ephemeral_cache)
+            return self.client._hit_api_sync(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache_only=use_ephemeral_cache_only)
     
-    async def respond_async(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache: bool = False):
+    async def respond_async(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
-            return await self.structured_output_handler.call_async(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache=use_ephemeral_cache)
+            return await self.structured_output_handler.call_async(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
         else:
-            return await self.client._hit_api_async(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache=use_ephemeral_cache)
+            return await self.client._hit_api_async(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache_only=use_ephemeral_cache_only)
         
 if __name__ == "__main__":
     import asyncio
@@ -88,11 +92,15 @@ if __name__ == "__main__":
         emotion: str
         concern: str
         action: str
-    lm = LM(model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=0.0, max_retries="Few", structured_output_mode="stringified_json")
-    print(lm.respond_sync(system_message="You are a helpful  assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache=False))
-    print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache=False)))
-    print(asyncio.run(lm.respond_async(system_message="You are  a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache=False)))
-    lm = LM(model_name="o1-mini", formatting_model_name="gpt-4o-mini", temperature=1, max_retries="Few", structured_output_mode="stringified_json")
-    print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache=False))
-    print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache=False)))
-    print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache=False)))
+    # lm = LM(model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=0.0, max_retries="Few", structured_output_mode="stringified_json")
+    # print(lm.respond_sync(system_message="You are a helpful  assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False))
+    # print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
+    # print(asyncio.run(lm.respond_async(system_message="You are  a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
+    # lm = LM(model_name="o1-mini", formatting_model_name="gpt-4o-mini", temperature=1, max_retries="Few", structured_output_mode="stringified_json")
+    # print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False))
+    # print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
+    # print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
+    lm = LM(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", formatting_model_name="gpt-4o-mini", temperature=1, max_retries="Few", structured_output_mode="stringified_json")
+    print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False))
+    print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
+    print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
