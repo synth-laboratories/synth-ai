@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zyk"
+version = "0.1.0"
+description = "Simple LM api wrappers for production"
+readme = "README.md"
+authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["zyk"]
+dependencies = [
+    "openai",
+    "pydantic",
+    "diskcache",
+    "backoff>=2.2.1",
+]
+requires-python = ">=3.9"
+
+[project.urls]
+Homepage = "https://github.com/JoshuaPurtell/jazyk"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zyk"]
