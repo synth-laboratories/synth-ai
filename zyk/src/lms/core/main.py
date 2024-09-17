@@ -2,12 +2,14 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel
 
-from zyk.src.zyk.lms.core.vendor_clients import (
+from zyk.src.lms.core.vendor_clients import (
     anthropic_naming_regexes,
     get_client,
     openai_naming_regexes,
 )
-from zyk.src.zyk.lms.structured_outputs.handler import StructuredOutputHandler
+from zyk.src.lms.vendors.base import VendorBase
+from zyk.src.lms.structured_outputs.handler import StructuredOutputHandler
+
 
 def build_messages(
     sys_msg: str,
@@ -60,9 +62,11 @@ def build_messages(
 class LM:
     # if str
     model_name: str
-    structured_output_fallback_model_name: str = 'gpt-4o-mini'
-    
-    def __init__(self, model_name: str, formatting_model_name: str, temperature: float, max_retries: Literal["None","Few","Many"], structured_output_mode: Literal["stringified_json","forced_json"]):
+    client: VendorBase
+    lm_config: Dict[str, Any]
+    structured_output_handler: StructuredOutputHandler
+
+    def __init__(self, model_name: str, formatting_model_name: str ='gpt-4o-mini', temperature: float = 0.0, max_retries: Literal["None","Few","Many"] = "Few", structured_output_mode: Literal["stringified_json","forced_json"] = "stringified_json"):
         self.client = get_client(model_name, with_formatting= structured_output_mode == "forced_json")
         formatting_client = get_client(formatting_model_name, with_formatting=True)
 
@@ -71,14 +75,14 @@ class LM:
         self.lm_config = {"temperature": temperature}
         self.model_name = model_name
     
-    def respond_sync(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
+    def respond_sync(self, system_message: str, user_message: str, images_as_bytes: List[Any] = [], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
             return self.structured_output_handler.call_sync(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
         else:
             return self.client._hit_api_sync(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache_only=use_ephemeral_cache_only)
     
-    async def respond_async(self, system_message: str, user_message: str, images_as_bytes: List[Any], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
+    async def respond_async(self, system_message: str, user_message: str, images_as_bytes: List[Any] = [], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
             return await self.structured_output_handler.call_async(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)

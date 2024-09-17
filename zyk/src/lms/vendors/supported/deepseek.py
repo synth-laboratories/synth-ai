@@ -1,8 +1,9 @@
-from openai import OpenAI
-from openai import AsyncOpenAI
 import os
-from zyk.src.zyk.lms.vendors.base import VendorBase
-from zyk.src.zyk.lms.vendors.openai_standard import OpenAIStandard
+
+from openai import AsyncOpenAI, OpenAI
+
+from zyk.src.lms.vendors.openai_standard import OpenAIStandard
+
 
 class DeepSeekAPI(OpenAIStandard):
     def __init__(self):

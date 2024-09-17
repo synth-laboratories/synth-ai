@@ -1,7 +1,9 @@
-from together import Together, AsyncTogether
 import os
-from zyk.src.zyk.lms.vendors.base import VendorBase
-from zyk.src.zyk.lms.vendors.openai_standard import OpenAIStandard
+
+from together import AsyncTogether, Together
+
+from zyk.src.lms.vendors.openai_standard import OpenAIStandard
+
 
 class TogetherAPI(OpenAIStandard):
     def __init__(self):

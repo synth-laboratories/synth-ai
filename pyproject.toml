@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zyk"
-version = "0.1.0"
+version = "0.1.8"
 description = "Simple LM api wrappers for production"
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]
@@ -20,6 +20,10 @@ dependencies = [
     "pydantic",
     "diskcache",
     "backoff>=2.2.1",
+    "anthropic>=0.34.2",
+    "google>=3.0.0",
+    "google-generativeai>=0.8.1",
+    "together>=1.2.12",
 ]
 requires-python = ">=3.9"
 
@@ -27,4 +31,4 @@ requires-python = ">=3.9"
 Homepage = "https://github.com/JoshuaPurtell/jazyk"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/zyk"]
+packages = ["zyk"]
