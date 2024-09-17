@@ -1,6 +1,6 @@
 from typing import Any, List, Pattern
 import re
-from zyk.src.zyk.lms.core.all import OpenAIClient, OpenAIStructuredOutputClient, AnthropicClient
+from zyk.src.zyk.lms.core.all import OpenAIClient, OpenAIStructuredOutputClient, AnthropicClient, GeminiClient, DeepSeekClient, TogetherClient
 
 openai_naming_regexes: List[Pattern] = [
     re.compile(r'^o1-.*$'),
@@ -9,9 +9,17 @@ openai_naming_regexes: List[Pattern] = [
 openai_formatting_model_regexes: List[Pattern] = [
     re.compile(r'^gpt-4o-.*$'), 
 ]
-
 anthropic_naming_regexes: List[Pattern] = [
     re.compile(r'^claude-.*$'),
+]
+gemini_naming_regexes: List[Pattern] = [
+    re.compile(r'^gemini-.*$'),
+]
+deepseek_naming_regexes: List[Pattern] = [
+    re.compile(r'^deepseek-.*$'),
+]
+together_naming_regexes: List[Pattern] = [
+    re.compile(r'^.*\/.*$'),
 ]
 
 def get_client(
@@ -30,5 +38,11 @@ def get_client(
             #eturn AnthropicStructuredOutputClient(used_for_structured_outputs=False)
         else:
             return AnthropicClient()
+    elif any(regex.match(model_name) for regex in gemini_naming_regexes):
+        return GeminiClient()
+    elif any(regex.match(model_name) for regex in deepseek_naming_regexes):
+        return DeepSeekClient()
+    elif any(regex.match(model_name) for regex in together_naming_regexes):
+        return TogetherClient()
     else:
         raise ValueError(f"Invalid model name: {model_name}")
