@@ -9,6 +9,11 @@ Supports:
 - DeepSeek
 - Together
 
+Key Features:
+- Structured Output logic (with retries)
+- Caching (ephemeral in-memory and/or on-disk sqlite)
+- Supports images for Anthropic and OpenAI
+
 Add a PR if you want to add another provider!
 
 ## Installation
