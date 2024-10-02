@@ -25,8 +25,12 @@ def generate_type_map() -> Dict[Any, str]:
             if collection is Optional:
                 type_map[Optional[base_type]] = name
             elif collection is Dict:
+                # Handle generic Dict type
+                type_map[Dict] = "Dict[Any,Any]"
                 # Provide both key and value types for Dict
                 type_map[Dict[base_type, base_type]] = f"{collection_name}[{name},{name}]"
+                # Handle Dict[Any, Any] explicitly
+                type_map[Dict[Any, Any]] = "Dict[Any,Any]"
             else:
                 type_map[collection[base_type]] = f"{collection_name}[{name}]"
     return type_map
@@ -49,6 +53,10 @@ def generate_example_dict() -> Dict[str, Any]:
             example_dict[f"Dict[str,{key.split('[')[1]}"] = {value: value}
         elif key.startswith("Dict"):
             example_dict[key] = {value: value}
+    
+    # Add example for Dict[Any,Any]
+    example_dict["Dict[Any,Any]"] = {"<key>": "<value>"}
+    
     return example_dict
 
 def add_json_instructions_to_messages(
@@ -74,7 +82,9 @@ def add_json_instructions_to_messages(
         for key in type_hints:
             if type_hints[key] not in example_dict.keys():
                 raise ValueError(f"Type {type_hints[key]} not supported. key- {key}")
-            stringified += f"{key}: {example_dict[type_hints[key]]}\n"
+            field_description = response_model.__fields__[key].description#field_info.
+            description = f" ({field_description})" if field_description else ""
+            stringified += f"{key}: {example_dict[type_hints[key]]}{description}\n"
         system_message += f"""\n\n
 Please deliver your response in the following json format:
 ```json
@@ -108,3 +118,4 @@ def inject_structured_output_instructions(
     messages[0]["content"] = system_message
     messages[1]["content"] = user_message
     return messages
+

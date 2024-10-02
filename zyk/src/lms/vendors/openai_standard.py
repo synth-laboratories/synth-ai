@@ -9,9 +9,9 @@ from zyk.src.lms.vendors.base import VendorBase
 from zyk.src.lms.vendors.constants import SPECIAL_BASE_TEMPS
 from zyk.src.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
-DEFAULT_EXCEPTIONS_TO_RETRY = [
-    pydantic_core._pydantic_core.ValidationError
-]
+DEFAULT_EXCEPTIONS_TO_RETRY = (
+    pydantic_core._pydantic_core.ValidationError,
+)
 
 def special_orion_transform(model: str, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if "o1-" in model:

@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from zyk.src.lms.core.vendor_clients import (
     anthropic_naming_regexes,
@@ -92,7 +92,7 @@ class LM:
 if __name__ == "__main__":
     import asyncio
     class TestModel(BaseModel):
-        thought: str
+        thought: Dict[Any, Any] = Field(..., description="A dictionary containing any thoughts")
         emotion: str
         concern: str
         action: str
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     # print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False))
     # print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
     # print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
-    lm = LM(model_name="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", formatting_model_name="gpt-4o-mini", temperature=1, max_retries="Few", structured_output_mode="stringified_json")
-    print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False))
-    print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
-    print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
+    lm = LM(model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=1, max_retries="Few", structured_output_mode="stringified_json")
+    print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
+    #print(asyncio.run(lm.respond_async(system_message="You are a helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=None, use_ephemeral_cache_only=False)))
+    #print(asyncio.run(lm.respond_async(system_message="You are a  helpful assistant", user_message="Hello, how are you?", images_as_bytes=[], response_model=TestModel, use_ephemeral_cache_only=False)))
