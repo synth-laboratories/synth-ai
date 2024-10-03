@@ -190,15 +190,17 @@ class StructuredOutputHandler:
         messages: List[Dict[str, Any]],
         model: str,
         response_model: BaseModel,
-        use_ephemeral_cache_only: bool = False
+        use_ephemeral_cache_only: bool = False,
+        lm_config: Dict[str, Any] = {}
     ) -> BaseModel:
-        return await self.handler.call_async(messages=messages, model=model, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
+        return await self.handler.call_async(messages=messages, model=model, response_model=response_model, temperature=lm_config.get("temperature",SPECIAL_BASE_TEMPS.get(model, 0.0)), use_ephemeral_cache_only=use_ephemeral_cache_only)
 
     def call_sync(
         self,
         messages: List[Dict[str, Any]],
         model: str,
         response_model: BaseModel,
-        use_ephemeral_cache_only: bool = False
+        use_ephemeral_cache_only: bool = False,
+        lm_config: Dict[str, Any] = {}
     ) -> BaseModel:
-        return self.handler.call_sync(messages=messages, model=model, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
+        return self.handler.call_sync(messages=messages, model=model, response_model=response_model, temperature=lm_config.get("temperature",SPECIAL_BASE_TEMPS.get(model, 0.0)), use_ephemeral_cache_only=use_ephemeral_cache_only)

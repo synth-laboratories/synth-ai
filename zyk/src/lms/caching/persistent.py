@@ -21,8 +21,10 @@ class PersistentCache:
         if not result:
             return None
         result = json.loads(result[0])
-        if result and response_model:
+        if result and response_model and "response" not in result:
             return response_model(**result)
+        elif result and response_model:
+            return response_model(**json.loads(result["response"]))
         elif result and not isinstance(result, dict):
             return result
         elif result and isinstance(result, dict) and "response" in result:

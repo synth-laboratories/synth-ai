@@ -26,13 +26,7 @@ class EphemeralCache:
                     response = cache_data["response"]
                     return response_model(**response)
             if isinstance(cache_data, str):
-                print("Cache hit: ", cache_data)
                 return cache_data
-            #     # cache_data = {
-            #         "response": cache_data,
-            #         "response_class": None,
-            #     }
-            # return cache_data["response"]
         return None
 
     def add_to_cache(self, key: str, response: Union[BaseModel, str]) -> None:

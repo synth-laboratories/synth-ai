@@ -43,7 +43,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             response_format=response_model
         )
         api_result = response_model(**json.loads(output.choices[0].message.content))
-        used_cache_handler.add_to_cache(model, messages, lm_config, output=output.choices[0].message.content)
+        used_cache_handler.add_to_managed_cache(model, messages, lm_config, output=output.choices[0].message.content)
         return api_result
     def _hit_api_sync_structured_output(self, model: str, messages: List[Dict[str, Any]], response_model: BaseModel, temperature: float, use_ephemeral_cache_only: bool = False) -> str:
         lm_config = {"temperature": temperature, "response_model": response_model}
@@ -58,7 +58,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             response_format=response_model
         )
         api_result = response_model(**json.loads(output.choices[0].message.content))
-        used_cache_handler.add_to_cache(model, messages, lm_config=lm_config, output=output.choices[0].message.content)
+        used_cache_handler.add_to_managed_cache(model, messages, lm_config=lm_config, output=output.choices[0].message.content)
         return api_result
     
 class OpenAIPrivate(OpenAIStandard):

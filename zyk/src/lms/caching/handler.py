@@ -43,7 +43,6 @@ class CacheHandler:
         assert isinstance(lm_config, dict), "lm_config must be a dictionary"
         key = map_params_to_key(messages, model, lm_config.get("temperature",0.0), lm_config.get("response_model",None))
 
-        #print(lm_config.get("response_model",None).schema() if lm_config.get("response_model",None) else "None")
         if self.use_persistent_store:
             return persistent_cache.hit_cache(key=key, response_model=lm_config.get("response_model",None))
         elif self.use_ephemeral_store:
