@@ -18,6 +18,7 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
     openai.APIError,
     openai.Timeout,
     openai.InternalServerError,
+    openai.APIConnectionError,
 )
 
 class OpenAIStructuredOutputClient(OpenAIStandard):

@@ -9,6 +9,7 @@ from zyk.src.lms.core.vendor_clients import (
 )
 from zyk.src.lms.vendors.base import VendorBase
 from zyk.src.lms.structured_outputs.handler import StructuredOutputHandler
+from zyk.src.lms.core.exceptions import StructuredOutputCoercionFailureException
 
 
 def build_messages(
@@ -72,20 +73,51 @@ class LM:
 
         max_retries_dict = {"None": 0, "Few": 2, "Many": 5}
         self.structured_output_handler = StructuredOutputHandler(self.client, formatting_client, structured_output_mode, {"max_retries": max_retries_dict.get(max_retries, 2)})
+        self.backup_structured_output_handler = StructuredOutputHandler(self.client, formatting_client, "forced_json", {"max_retries": max_retries_dict.get(max_retries, 2)})
         self.lm_config = {"temperature": temperature}
         self.model_name = model_name
     
     def respond_sync(self, system_message: str, user_message: str, images_as_bytes: List[Any] = [], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
-            return self.structured_output_handler.call_sync(messages, model=self.model_name, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
+            try:
+                return self.structured_output_handler.call_sync(
+                    messages,
+                    model=self.model_name,
+                    lm_config=self.lm_config,
+                    response_model=response_model,
+                    use_ephemeral_cache_only=use_ephemeral_cache_only,
+                )
+            except StructuredOutputCoercionFailureException:
+                return self.backup_structured_output_handler.call_sync(
+                    messages,
+                    model=self.model_name,
+                    lm_config=self.lm_config,
+                    response_model=response_model,
+                    use_ephemeral_cache_only=use_ephemeral_cache_only,
+                )
         else:
             return self.client._hit_api_sync(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache_only=use_ephemeral_cache_only)
     
     async def respond_async(self, system_message: str, user_message: str, images_as_bytes: List[Any] = [], response_model: Optional[BaseModel] = None, use_ephemeral_cache_only: bool = False):
         messages = build_messages(system_message, user_message, images_as_bytes, self.model_name)
         if response_model:
-            return await self.structured_output_handler.call_async(messages, model=self.model_name, lm_config=self.lm_config, response_model=response_model, use_ephemeral_cache_only=use_ephemeral_cache_only)
+            try:
+                return await self.structured_output_handler.call_async(
+                    messages,
+                    model=self.model_name,
+                    lm_config=self.lm_config,
+                    response_model=response_model,
+                    use_ephemeral_cache_only=use_ephemeral_cache_only
+                )
+            except StructuredOutputCoercionFailureException:
+                return await self.backup_structured_output_handler.call_async(
+                    messages,
+                    model=self.model_name,
+                    lm_config=self.lm_config,
+                    response_model=response_model,
+                    use_ephemeral_cache_only=use_ephemeral_cache_only
+                )
         else:
             return await self.client._hit_api_async(messages=messages, model=self.model_name, lm_config=self.lm_config, use_ephemeral_cache_only=use_ephemeral_cache_only)
         

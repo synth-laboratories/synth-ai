@@ -1,5 +1,5 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, get_type_hints
-
+import json
+from typing import Any, Dict, List, Optional, Tuple, Type, get_type_hints, get_args, get_origin, Union
 from pydantic import BaseModel
 
 
@@ -59,6 +59,63 @@ def generate_example_dict() -> Dict[str, Any]:
     
     return example_dict
 
+base_type_examples = {
+    int: ("int", 42),
+    float: ("float", 3.14),
+    bool: ("bool", True),
+    str: ("str", "example"),
+    Any: ("Any", "<Any value>"),
+}
+
+def get_type_string(type_hint):
+    origin = get_origin(type_hint)
+    args = get_args(type_hint)
+
+    if origin is None:
+        if isinstance(type_hint, type) and issubclass(type_hint, BaseModel):
+            return type_hint.__name__
+        else:
+            return base_type_examples.get(type_hint, ("Unknown", "unknown"))[0]
+    elif origin in (list, List):
+        elem_type = get_type_string(args[0])
+        return f"List[{elem_type}]"
+    elif origin in (dict, Dict):
+        key_type = get_type_string(args[0])
+        value_type = get_type_string(args[1])
+        return f"Dict[{key_type}, {value_type}]"
+    elif origin is Union:
+        non_none_types = [t for t in args if t is not type(None)]
+        if len(non_none_types) == 1:
+            return f"Optional[{get_type_string(non_none_types[0])}]"
+        else:
+            union_types = ", ".join(get_type_string(t) for t in non_none_types)
+            return f"Union[{union_types}]"
+    else:
+        return "Any"
+
+def get_example_value(type_hint):
+    origin = get_origin(type_hint)
+    args = get_args(type_hint)
+    
+    if origin is None:
+        if isinstance(type_hint, type) and issubclass(type_hint, BaseModel):
+            example = {}
+            for field_name, field_info in type_hint.model_fields.items():
+                # Updated attribute from type_ to annotation
+                example[field_name] = get_example_value(field_info.annotation)
+            return example
+        else:
+            return base_type_examples.get(type_hint, ("Unknown", "unknown"))[1]
+    elif origin in (list, List):
+        return [get_example_value(args[0])]
+    elif origin in (dict, Dict):
+        return {get_example_value(args[0]): get_example_value(args[1])}
+    elif origin is Union:
+        non_none_types = [t for t in args if t is not type(None)]
+        return get_example_value(non_none_types[0])
+    else:
+        return "<Unknown>"
+
 def add_json_instructions_to_messages(
     system_message,
     user_message,
@@ -66,34 +123,34 @@ def add_json_instructions_to_messages(
     previously_failed_error_messages: List[str] = [],
 ) -> Tuple[str, str]:
     if response_model:
-        dictified = response_model.schema()
-
-        if "$defs" in dictified:
-            raise ValueError("Nesting not supported in response model")
         type_hints = get_type_hints(response_model)
-
-        type_map = generate_type_map()
-        for k, v in type_hints.items():
-            if v in type_map:
-                type_hints[k] = type_map[v]
-        
-        example_dict = generate_example_dict()
-        stringified = ""
-        for key in type_hints:
-            if type_hints[key] not in example_dict.keys():
-                raise ValueError(f"Type {type_hints[key]} not supported. key- {key}")
-            field_description = response_model.__fields__[key].description#field_info.
-            description = f" ({field_description})" if field_description else ""
-            stringified += f"{key}: {example_dict[type_hints[key]]}{description}\n"
+        stringified_fields = {}
+        for key, type_hint in type_hints.items():
+            example_value = get_example_value(type_hint)
+            field = response_model.model_fields[key]  # Updated for Pydantic v2
+            
+            # Adjusted for Pydantic v2
+            field_description = field.description if hasattr(field, 'description') else None
+            
+            if field_description:
+                stringified_fields[key] = (example_value, field_description)
+            else:
+                stringified_fields[key] = example_value
+        example_json = json.dumps(
+            {k: v[0] if isinstance(v, tuple) else v for k, v in stringified_fields.items()},
+            indent=4
+        )
+        description_comments = "\n".join(
+            f'// {k}: {v[1]}' for k, v in stringified_fields.items() if isinstance(v, tuple)
+        )
         system_message += f"""\n\n
-Please deliver your response in the following json format:
+Please deliver your response in the following JSON format:
 ```json
-{{
-{stringified}
-}}
+{example_json}
 ```
+{description_comments}
 """
-    if len(previously_failed_error_messages)!=0:
+    if len(previously_failed_error_messages) != 0:
         system_message += f"""\n\n
 Please take special care to follow the format exactly.
 Keep in mind the following:
@@ -118,4 +175,3 @@ def inject_structured_output_instructions(
     messages[0]["content"] = system_message
     messages[1]["content"] = user_message
     return messages
-

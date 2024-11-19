@@ -2,11 +2,11 @@ from setuptools import find_packages, setup
 
 setup(
     name="zyk",
-    version="0.1.15",
+    version="0.2.20",
     packages=find_packages(),
     install_requires=[
         "openai",
-        "pydantic",
+        "pydantic>=2.9.2",
         "diskcache",
         "backoff>=2.2.1",
         "anthropic>=0.34.2",

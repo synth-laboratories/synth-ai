@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zyk"
-version = "0.1.15"
+version = "0.2.20"
 description = "Simple LM api wrappers for production"
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]

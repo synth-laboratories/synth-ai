@@ -1,3 +1,3 @@
 import backoff
 
-BACKOFF_TOLERANCE = 15
+BACKOFF_TOLERANCE = 20
