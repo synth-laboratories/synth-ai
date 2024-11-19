@@ -11,11 +11,10 @@ from zyk.src.lms.core.all import (
 )
 
 openai_naming_regexes: List[Pattern] = [
-    re.compile(r'^o1-.*$'),
-    re.compile(r'^gpt-.*$'),
+    re.compile(r'^(ft:)?(o1-.*|gpt-.*)$'),
 ]
 openai_formatting_model_regexes: List[Pattern] = [
-    re.compile(r'^gpt-4o-.*$'), 
+    re.compile(r'^(ft:)?gpt-4o-.*$'), 
 ]
 anthropic_naming_regexes: List[Pattern] = [
     re.compile(r'^claude-.*$'),

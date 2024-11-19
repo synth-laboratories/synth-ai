@@ -38,3 +38,7 @@ print(lm.respond_sync(system_message="You are a helpful assistant", user_message
 ## Name
 
 ZYK is short for "Z you know"
+
+python -m build                   
+twine check dist/*
+twine upload dist/*

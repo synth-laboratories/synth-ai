@@ -8,15 +8,27 @@ from zyk.src.lms.caching.initialize import (
 from zyk.src.lms.vendors.base import VendorBase
 from zyk.src.lms.vendors.constants import SPECIAL_BASE_TEMPS
 from zyk.src.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
+import openai
 
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,
+    openai.APIConnectionError,
 )
 
 def special_orion_transform(model: str, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if "o1-" in model:
         messages = [{"role": "user", "content": f"<instructions>{messages[0]['content']}</instructions><information>{messages[1]}</information>"}]
     return messages
+
+def on_backoff_handler_async(details):
+    # Print every 5th retry attempt, excluding the first retry
+    if details['tries'] > 1 and (details['tries'] - 1) % 5 == 0:
+        print(f"Retrying async API call (attempt {details['tries'] - 1})")
+
+def on_backoff_handler_sync(details):
+    # Print every 5th retry attempt, excluding the first retry
+    if details['tries'] > 1 and (details['tries'] - 1) % 5 == 0:
+        print(f"Retrying sync API call (attempt {details['tries'] - 1})")
 
 class OpenAIStandard(VendorBase):
     used_for_structured_outputs: bool = True
@@ -34,6 +46,7 @@ class OpenAIStandard(VendorBase):
         backoff.expo,
         exceptions_to_retry,
         max_tries=BACKOFF_TOLERANCE,
+        on_backoff=on_backoff_handler_async,
         on_giveup=lambda e: print(e)
     )
     async def _hit_api_async(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache_only: bool = False) -> str:
@@ -56,6 +69,7 @@ class OpenAIStandard(VendorBase):
         backoff.expo,
         exceptions_to_retry,
         max_tries=BACKOFF_TOLERANCE,
+        on_backoff=on_backoff_handler_sync,
         on_giveup=lambda e: print(e)
     )
     def _hit_api_sync(self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any], use_ephemeral_cache_only: bool = False) -> str:
@@ -73,4 +87,3 @@ class OpenAIStandard(VendorBase):
         api_result = output.choices[0].message.content
         used_cache_handler.add_to_managed_cache(model, messages, lm_config=lm_config, output=api_result)
         return api_result
-

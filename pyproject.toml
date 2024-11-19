@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zyk"
-version = "0.1.8"
+version = "0.2.20"
 description = "Simple LM api wrappers for production"
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]
@@ -32,3 +32,8 @@ Homepage = "https://github.com/JoshuaPurtell/jazyk"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zyk"]
+
+[tool.hatch.upload.pypi]
+repository = "https://upload.pypi.org/legacy/"
+username = "__token__"
+password = "${PYPI_API_TOKEN}"
