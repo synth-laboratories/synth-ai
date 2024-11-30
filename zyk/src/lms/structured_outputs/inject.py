@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional, Tuple, Type, get_type_hints, get_args, get_origin, Union
 from pydantic import BaseModel
+import warnings
 
 
 def generate_type_map() -> Dict[Any, str]:
@@ -109,6 +110,13 @@ def get_example_value(type_hint):
     elif origin in (list, List):
         return [get_example_value(args[0])]
     elif origin in (dict, Dict):
+        if not args or len(args) < 2:
+            warnings.warn(
+                f"Dictionary type hint {type_hint} missing type arguments. "
+                "Defaulting to Dict[str, Any].",
+                UserWarning
+            )
+            return {"example_key": "<Any value>"}  # Default for Dict[str, Any]
         return {get_example_value(args[0]): get_example_value(args[1])}
     elif origin is Union:
         non_none_types = [t for t in args if t is not type(None)]

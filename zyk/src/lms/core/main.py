@@ -67,8 +67,8 @@ class LM:
     lm_config: Dict[str, Any]
     structured_output_handler: StructuredOutputHandler
 
-    def __init__(self, model_name: str, formatting_model_name: str, temperature: float, max_retries: Literal["None","Few","Many"] = "Few", structured_output_mode: Literal["stringified_json","forced_json"] = "stringified_json"):
-        self.client = get_client(model_name, with_formatting= structured_output_mode == "forced_json")
+    def __init__(self, model_name: str, formatting_model_name: str, temperature: float, max_retries: Literal["None","Few","Many"] = "Few", structured_output_mode: Literal["stringified_json","forced_json"] = "stringified_json", synth_logging: bool = False):
+        self.client = get_client(model_name, with_formatting= structured_output_mode == "forced_json", synth_logging=synth_logging)
         formatting_client = get_client(formatting_model_name, with_formatting=True)
 
         max_retries_dict = {"None": 0, "Few": 2, "Many": 5}

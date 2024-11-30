@@ -10,8 +10,10 @@ from zyk.src.lms.vendors.supported.together import TogetherAPI
 
 
 class OpenAIClient(OpenAIPrivate):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, synth_logging: bool = False):
+        super().__init__(
+            synth_logging=synth_logging,
+        )
 
 class AnthropicClient(AnthropicAPI):
     def __init__(self):

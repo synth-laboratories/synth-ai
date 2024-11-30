@@ -31,14 +31,19 @@ together_naming_regexes: List[Pattern] = [
 
 def get_client(
     model_name: str,
-    with_formatting: bool = False
+    with_formatting: bool = False,
+    synth_logging: bool = False,
 ) -> Any:
     if any(regex.match(model_name) for regex in openai_naming_regexes):
         use_structured = with_formatting and any(regex.match(model_name) for regex in openai_formatting_model_regexes)
         if use_structured:
-            return OpenAIStructuredOutputClient()
+            return OpenAIStructuredOutputClient(
+                synth_logging=synth_logging,
+            )
         else:
-            return OpenAIClient()
+            return OpenAIClient(
+                synth_logging=synth_logging,
+            )
     elif any(regex.match(model_name) for regex in anthropic_naming_regexes):
         if with_formatting:
             raise NotImplementedError("Structured outputs not supported for Anthropic")

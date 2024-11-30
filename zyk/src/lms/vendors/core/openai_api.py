@@ -3,7 +3,9 @@ from typing import Any, Dict, List, Tuple, Type
 
 import openai
 import pydantic_core
-from openai import AsyncOpenAI, OpenAI
+import openai
+import synth_sdk
+#from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
 from zyk.src.lms.caching.initialize import get_cache_handler
@@ -23,7 +25,12 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
 
 class OpenAIStructuredOutputClient(OpenAIStandard):
 
-    def __init__(self):
+    def __init__(self, synth_logging: bool = False):
+        if synth_logging:
+            from synth_sdk import OpenAI, AsyncOpenAI
+        else:
+            from openai import OpenAI, AsyncOpenAI
+
         super().__init__(
             used_for_structured_outputs=True,
             exceptions_to_retry=OPENAI_EXCEPTIONS_TO_RETRY,
@@ -63,17 +70,22 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         return api_result
     
 class OpenAIPrivate(OpenAIStandard):
-    def __init__(self):
+    def __init__(self, synth_logging: bool = False):
+        if synth_logging:
+            from synth_sdk import OpenAI, AsyncOpenAI
+        else:
+            from openai import OpenAI, AsyncOpenAI
+
         self.sync_client = OpenAI()
         self.async_client = AsyncOpenAI()
 
 
 if __name__ == "__main__":
     client = OpenAIStructuredOutputClient(
-        sync_client=OpenAI(),
-        async_client=AsyncOpenAI(),
+        sync_client=openai.OpenAI(),
+        async_client=openai.AsyncOpenAI(),
         used_for_structured_outputs=True,
-        exceptions_to_retry=[]
+        exceptions_to_retry=[],
     )
     class TestModel(BaseModel):
         name: str
