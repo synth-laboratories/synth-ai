@@ -13,6 +13,7 @@ import openai
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,
     openai.APIConnectionError,
+    openai.APITimeoutError,
 )
 
 def special_orion_transform(model: str, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
