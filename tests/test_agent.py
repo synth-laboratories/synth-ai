@@ -1,7 +1,10 @@
-from typing import List, Union
-from pydantic import BaseModel
 import unittest
-from zyk.src.lms.core.main import LM
+from typing import List, Union
+
+from pydantic import BaseModel
+
+from zyk.lms.core.main import LM
+
 
 class UnitTestDict(BaseModel):
     test_description: str
@@ -23,8 +26,7 @@ class ReAct(BaseModel):
     action_args: List[ActionArgument]  # Dict#[str, Dict]
 
 
-
-system= """
+system = """
 <System Message> 
 # Premise
 You are a software engineer
@@ -157,7 +159,7 @@ You will be given a code_prompt_for_answer, which contains imports and the funct
  
 """
 
-user= """
+user = """
 <User Message> 
 # Recent Actions / Thoughts
 
@@ -479,7 +481,9 @@ class TestLMStructuredOutputs(unittest.TestCase):
         user_message = user
 
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
-            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
+            with self.subTest(
+                mode=lm.structured_output_handler.handler.structured_output_mode
+            ):
                 result = lm.respond_sync(
                     system_message=system_message,
                     user_message=user_message,
@@ -492,7 +496,8 @@ class TestLMStructuredOutputs(unittest.TestCase):
                 for arg in result.action_args:
                     self.assertIsInstance(arg, ActionArgument)
                     self.assertIsInstance(arg.key, str)
-                    #self.assertIsInstance(arg.value, str)
+                    # self.assertIsInstance(arg.value, str)
+
     def test_sync_react_response_hard_content(self):
         system_message = hard_system
 
@@ -514,7 +519,9 @@ class TestLMStructuredOutputs(unittest.TestCase):
                 for arg in result.action_args:
                     self.assertIsInstance(arg, ActionArgument)
                     self.assertIsInstance(arg.key, str)
-                    #self.assertIsInstance(arg.value, str)
+                    # self.assertIsInstance(arg.value, str)
+
+
 # use non-trivial fallback?
 
 if __name__ == "__main__":

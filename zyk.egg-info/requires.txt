@@ -1,0 +1,10 @@
+openai
+pydantic
+diskcache
+backoff>=2.2.1
+anthropic>=0.34.2
+google>=3.0.0
+google-generativeai>=0.8.1
+together>=1.2.12
+langfuse>=2.56.1
+synth-sdk>=0.2.113

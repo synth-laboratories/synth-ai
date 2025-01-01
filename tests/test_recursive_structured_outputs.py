@@ -1,9 +1,10 @@
-import unittest
 import asyncio
+import unittest
 from typing import List
+
 from pydantic import BaseModel, Field
 
-from zyk.src.lms.core.main import LM
+from zyk.lms.core.main import LM
 
 
 # Define example structured output models
@@ -30,30 +31,36 @@ class Address(BaseModel):
     city: str
     country: str
 
+
 class PersonalInfo(BaseModel):
     name: str
     age: int
     address: Address
+
 
 class WorkInfo(BaseModel):
     company: str
     position: str
     years_experience: int
 
+
 class NestedPersonResponse(BaseModel):
     personal: PersonalInfo
     work: WorkInfo
     skills: List[str]
+
 
 class ProjectDetails(BaseModel):
     name: str
     description: str
     technologies: List[str]
 
+
 class NestedPortfolioResponse(BaseModel):
     developer: PersonalInfo
     projects: List[ProjectDetails]
     total_experience: int
+
 
 class NestedCompanyResponse(BaseModel):
     name: str

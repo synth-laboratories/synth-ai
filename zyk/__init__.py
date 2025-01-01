@@ -1,3 +1,3 @@
-from zyk.src.lms.core.main import LM
+from zyk.lms.core.main import LM
 
 __all__ = ["LM"]
