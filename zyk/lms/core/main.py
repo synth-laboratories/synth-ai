@@ -107,15 +107,25 @@ class LM:
 
     def respond_sync(
         self,
-        system_message: str,
-        user_message: str,
+        system_message: Optional[str] = None,
+        user_message: Optional[str] = None,
+        messages: Optional[List[Dict]] = None,
         images_as_bytes: List[Any] = [],
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
     ):
-        messages = build_messages(
-            system_message, user_message, images_as_bytes, self.model_name
-        )
+        assert (system_message is None) == (
+            user_message is None
+        ), "Must provide both system_message and user_message or neither"
+        assert (
+            (messages is None) != (system_message is None)
+        ), "Must provide either messages or system_message/user_message pair, but not both"
+
+        if messages is None:
+            messages = build_messages(
+                system_message, user_message, images_as_bytes, self.model_name
+            )
+
         if response_model:
             try:
                 return self.structured_output_handler.call_sync(
@@ -143,15 +153,25 @@ class LM:
 
     async def respond_async(
         self,
-        system_message: str,
-        user_message: str,
+        system_message: Optional[str] = None,
+        user_message: Optional[str] = None,
+        messages: Optional[List[Dict]] = None,
         images_as_bytes: List[Any] = [],
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
     ):
-        messages = build_messages(
-            system_message, user_message, images_as_bytes, self.model_name
-        )
+        assert (system_message is None) == (
+            user_message is None
+        ), "Must provide both system_message and user_message or neither"
+        assert (
+            (messages is None) != (system_message is None)
+        ), "Must provide either messages or system_message/user_message pair, but not both"
+
+        if messages is None:
+            messages = build_messages(
+                system_message, user_message, images_as_bytes, self.model_name
+            )
+
         if response_model:
             try:
                 return await self.structured_output_handler.call_async(
