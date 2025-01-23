@@ -12,6 +12,7 @@ zyk.egg-info/dependency_links.txt
 zyk.egg-info/requires.txt
 zyk.egg-info/top_level.txt
 zyk/lms/__init__.py
+zyk/lms/config.py
 zyk/lms/caching/__init__.py
 zyk/lms/caching/constants.py
 zyk/lms/caching/dbs.py

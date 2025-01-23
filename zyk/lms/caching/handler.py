@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from zyk.lms.caching.ephemeral import EphemeralCache
 from zyk.lms.caching.persistent import PersistentCache
+from zyk.lms.config import should_use_cache
 
 persistent_cache = PersistentCache()
 ephemeral_cache = EphemeralCache()
@@ -46,6 +47,9 @@ class CacheHandler:
     def hit_managed_cache(
         self, model: str, messages: List[Dict[str, Any]], lm_config: Dict[str, Any] = {}
     ) -> str:
+        if not should_use_cache():
+            return None
+
         assert isinstance(lm_config, dict), "lm_config must be a dictionary"
         key = map_params_to_key(
             messages,
@@ -72,6 +76,9 @@ class CacheHandler:
         lm_config: Dict[str, Any],
         output: Union[str, BaseModel],
     ) -> None:
+        if not should_use_cache():
+            return
+
         assert isinstance(lm_config, dict), "lm_config must be a dictionary"
         key = map_params_to_key(
             messages,
