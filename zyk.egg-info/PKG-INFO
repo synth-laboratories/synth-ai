@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: zyk
-Version: 0.2.36
+Version: 0.2.38
 Summary: Simple LM api wrappers for production
 Home-page: https://github.com/JoshuaPurtell/jazyk
 Author: Josh Purtell
@@ -44,7 +44,9 @@ Requires-Dist: google>=3.0.0
 Requires-Dist: google-generativeai>=0.8.1
 Requires-Dist: together>=1.2.12
 Requires-Dist: langfuse>=2.56.1
-Requires-Dist: synth-sdk>=0.2.113
+Requires-Dist: synth-sdk>=0.2.115
+Dynamic: author
+Dynamic: home-page
 
 # jaZYK
 

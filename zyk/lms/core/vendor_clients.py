@@ -14,7 +14,7 @@ openai_naming_regexes: List[Pattern] = [
     re.compile(r"^(ft:)?(o1(-.*)?|gpt-.*)$"),
 ]
 openai_formatting_model_regexes: List[Pattern] = [
-    re.compile(r"^(ft:)?gpt-4o-.*$"),
+    re.compile(r"^(ft:)?gpt-4o(-.*)?$"),
 ]
 anthropic_naming_regexes: List[Pattern] = [
     re.compile(r"^claude-.*$"),
@@ -35,10 +35,16 @@ def get_client(
     with_formatting: bool = False,
     synth_logging: bool = False,
 ) -> Any:
+    print("With formatting", with_formatting)
     if any(regex.match(model_name) for regex in openai_naming_regexes):
-        use_structured = with_formatting and any(
+        print("Openai model regexes", openai_naming_regexes)
+        print("Model name", model_name)
+        model_match = any(
             regex.match(model_name) for regex in openai_formatting_model_regexes
         )
+        print("Model match", model_match)
+        use_structured = with_formatting and model_match
+        print("use_structured", use_structured)
         if use_structured:
             return OpenAIStructuredOutputClient(
                 synth_logging=synth_logging,

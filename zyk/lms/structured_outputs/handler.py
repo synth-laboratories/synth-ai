@@ -342,6 +342,7 @@ class StructuredOutputHandler:
                 core_client, retry_client, handler_params
             )
         elif self.mode == "forced_json":
+            print("Forced JSON")
             self.handler = ForcedJSONHandler(core_client, retry_client, handler_params)
         else:
             raise ValueError(f"Invalid mode: {mode}")
