@@ -1,12 +1,16 @@
+import json
 from typing import Any, Dict, List, Tuple, Type
 
 import anthropic
+import pydantic
+from pydantic import BaseModel
 
 from zyk.lms.caching.initialize import (
     get_cache_handler,
 )
 from zyk.lms.vendors.base import VendorBase
 from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
 from zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
@@ -29,6 +33,7 @@ class AnthropicAPI(VendorBase):
         self.async_client = anthropic.AsyncAnthropic()
         self.used_for_structured_outputs = used_for_structured_outputs
         self.exceptions_to_retry = exceptions_to_retry
+        self._openai_fallback = None
 
     @backoff.on_exception(
         backoff.expo,
@@ -109,3 +114,69 @@ class AnthropicAPI(VendorBase):
             model, messages, lm_config=lm_config, output=api_result
         )
         return api_result
+
+    async def _hit_api_async_structured_output(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        response_model: BaseModel,
+        temperature: float,
+        use_ephemeral_cache_only: bool = False,
+    ) -> str:
+        try:
+            # First try with Anthropic
+            response = await self.async_client.messages.create(
+                system=messages[0]["content"],
+                messages=messages[1:],
+                model=model,
+                max_tokens=4096,
+                temperature=temperature,
+            )
+            result = response.content[0].text
+            # Try to parse the result as JSON
+            parsed = json.loads(result)
+            return response_model(**parsed)
+        except (json.JSONDecodeError, pydantic.ValidationError):
+            # If Anthropic fails, fallback to OpenAI
+            if self._openai_fallback is None:
+                self._openai_fallback = OpenAIStructuredOutputClient()
+            return await self._openai_fallback._hit_api_async_structured_output(
+                model="gpt-4o",  # Fallback to GPT-4
+                messages=messages,
+                response_model=response_model,
+                temperature=temperature,
+                use_ephemeral_cache_only=use_ephemeral_cache_only,
+            )
+
+    def _hit_api_sync_structured_output(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        response_model: BaseModel,
+        temperature: float,
+        use_ephemeral_cache_only: bool = False,
+    ) -> str:
+        try:
+            # First try with Anthropic
+            response = self.sync_client.messages.create(
+                system=messages[0]["content"],
+                messages=messages[1:],
+                model=model,
+                max_tokens=4096,
+                temperature=temperature,
+            )
+            result = response.content[0].text
+            # Try to parse the result as JSON
+            parsed = json.loads(result)
+            return response_model(**parsed)
+        except (json.JSONDecodeError, pydantic.ValidationError):
+            # If Anthropic fails, fallback to OpenAI
+            if self._openai_fallback is None:
+                self._openai_fallback = OpenAIStructuredOutputClient()
+            return self._openai_fallback._hit_api_sync_structured_output(
+                model="gpt-4o",  # Fallback to GPT-4
+                messages=messages,
+                response_model=response_model,
+                temperature=temperature,
+                use_ephemeral_cache_only=use_ephemeral_cache_only,
+            )

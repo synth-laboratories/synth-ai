@@ -82,13 +82,13 @@ class LM:
         ] = "stringified_json",
         synth_logging: bool = False,
     ):
-        print("Structured output mode", structured_output_mode)
+        #print("Structured output mode", structured_output_mode)
         self.client = get_client(
             model_name,
             with_formatting=structured_output_mode == "forced_json",
             synth_logging=synth_logging,
         )
-        print(self.client.__class__)
+        #print(self.client.__class__)
 
         formatting_client = get_client(formatting_model_name, with_formatting=True)
 
