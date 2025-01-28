@@ -39,23 +39,22 @@ def get_client(
     if any(regex.match(model_name) for regex in openai_naming_regexes):
         # print("Openai model regexes", openai_naming_regexes)
         # print("Model name", model_name)
-        model_match = any(
-            regex.match(model_name) for regex in openai_formatting_model_regexes
+        # model_match = any(
+        #     regex.match(model_name) for regex in openai_formatting_model_regexes
+        # )
+        # # print("Model match", model_match)
+        # use_structured = with_formatting and model_match
+        # # print("use_structured", use_structured)
+        #if use_structured:
+        return OpenAIStructuredOutputClient(
+            synth_logging=synth_logging,
         )
-        # print("Model match", model_match)
-        use_structured = with_formatting and model_match
-        # print("use_structured", use_structured)
-        if use_structured:
-            return OpenAIStructuredOutputClient(
-                synth_logging=synth_logging,
-            )
-        else:
-            return OpenAIClient(
-                synth_logging=synth_logging,
-            )
+        # else:
+        #     return OpenAIClient(
+        #         synth_logging=synth_logging,
+        #     )
     elif any(regex.match(model_name) for regex in anthropic_naming_regexes):
         if with_formatting:
-            # Instead of raising error, return a client that will fallback to OpenAI
             client = AnthropicClient()
             client._hit_api_async_structured_output = OpenAIStructuredOutputClient(
                 synth_logging=synth_logging

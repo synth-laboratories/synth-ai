@@ -1,7 +1,7 @@
 
 [project]
 name = "zyk"
-version = "0.2.40"
+version = "0.2.42"
 description = "Simple LM api wrappers for production"
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]
