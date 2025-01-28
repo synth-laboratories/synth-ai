@@ -5,7 +5,7 @@ from zyk.lms.core.all import (
     AnthropicClient,
     DeepSeekClient,
     GeminiClient,
-    OpenAIClient,
+    #OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
 )
@@ -37,22 +37,10 @@ def get_client(
 ) -> Any:
     # print("With formatting", with_formatting)
     if any(regex.match(model_name) for regex in openai_naming_regexes):
-        # print("Openai model regexes", openai_naming_regexes)
-        # print("Model name", model_name)
-        # model_match = any(
-        #     regex.match(model_name) for regex in openai_formatting_model_regexes
-        # )
-        # # print("Model match", model_match)
-        # use_structured = with_formatting and model_match
-        # # print("use_structured", use_structured)
-        #if use_structured:
+        print("Returning OpenAIStructuredOutputClient")
         return OpenAIStructuredOutputClient(
             synth_logging=synth_logging,
         )
-        # else:
-        #     return OpenAIClient(
-        #         synth_logging=synth_logging,
-        #     )
     elif any(regex.match(model_name) for regex in anthropic_naming_regexes):
         if with_formatting:
             client = AnthropicClient()
