@@ -37,7 +37,7 @@ def get_client(
 ) -> Any:
     # print("With formatting", with_formatting)
     if any(regex.match(model_name) for regex in openai_naming_regexes):
-        print("Returning OpenAIStructuredOutputClient")
+        #print("Returning OpenAIStructuredOutputClient")
         return OpenAIStructuredOutputClient(
             synth_logging=synth_logging,
         )
