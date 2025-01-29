@@ -1829,7 +1829,7 @@ wheels = [
 
 [[package]]
 name = "synth-sdk"
-version = "0.2.117"
+version = "0.2.121"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyncio" },
@@ -1851,9 +1851,9 @@ dependencies = [
     { name = "twine" },
     { name = "zyk" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/0a/caf7807b15fe94000572677b0fc5a821df3d871442c8ab839441e2fb7605/synth_sdk-0.2.117.tar.gz", hash = "sha256:6d7146d6e940748ab85d4629ccd0bacdb1416f0b2919bd1811f57308aa11cd27", size = 24173 }
+sdist = { url = "https://files.pythonhosted.org/packages/15/b9/03e131428654e2e7017edb494adea241bd5696aa5039192a9d547755eac3/synth_sdk-0.2.121.tar.gz", hash = "sha256:fdfe25602155835097962833e119f86152a6a527f065ddd21a099b0d10292e51", size = 31805 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/fd/be6ead6a39076dd1c52de7a01cd0206755ae18b4070c4eed960bc48734ba/synth_sdk-0.2.117-py3-none-any.whl", hash = "sha256:56885f052a06f43bc3713f30ff66341950571eb45668ba6c3ea75a5461597c25", size = 30960 },
+    { url = "https://files.pythonhosted.org/packages/4c/87/bde58d6a2e478baa28a3538b24e27f498799e9a33a359c1c30270909b883/synth_sdk-0.2.121-py3-none-any.whl", hash = "sha256:650755af84c2920118dbaf62c4810d0b61c22991ddc63d96b4757904d97bf483", size = 36921 },
 ]
 
 [[package]]
@@ -2145,7 +2145,7 @@ wheels = [
 
 [[package]]
 name = "zyk"
-version = "0.2.41"
+version = "0.2.46"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },
@@ -2170,6 +2170,6 @@ requires-dist = [
     { name = "langfuse", specifier = ">=2.56.1" },
     { name = "openai" },
     { name = "pydantic" },
-    { name = "synth-sdk", specifier = ">=0.2.115" },
+    { name = "synth-sdk", specifier = "==0.2.121" },
     { name = "together", specifier = ">=1.2.12" },
 ]
