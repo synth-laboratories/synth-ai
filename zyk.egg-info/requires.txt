@@ -7,5 +7,5 @@ google>=3.0.0
 google-generativeai>=0.8.1
 together>=1.2.12
 langfuse>=2.56.1
-synth-sdk==0.2.123
+synth-sdk==0.2.125
 datasets>=3.2.0

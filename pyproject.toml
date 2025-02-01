@@ -1,7 +1,7 @@
 
 [project]
 name = "zyk"
-version = "0.2.51"
+version = "0.2.52"
 description = "Simple LM api wrappers for production"
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "jmvpurtell@gmail.com" }]
@@ -22,7 +22,7 @@ dependencies = [
     "google-generativeai>=0.8.1",
     "together>=1.2.12",
     "langfuse>=2.56.1",
-    "synth-sdk==0.2.124",
+    "synth-sdk==0.2.125",
     "datasets>=3.2.0",
 ]
 requires-python = ">=3.10"
