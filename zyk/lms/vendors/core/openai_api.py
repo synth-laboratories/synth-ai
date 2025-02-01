@@ -24,10 +24,12 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
 
 
 class OpenAIStructuredOutputClient(OpenAIStandard):
-    def __init__(self, synth_logging: bool = False):
+    def __init__(self, synth_logging: bool = True):
         if synth_logging:
+            #print("Using synth logging - OpenAIStructuredOutputClient")
             from synth_sdk import AsyncOpenAI, OpenAI
         else:
+            #print("Not using synth logging - OpenAIStructuredOutputClient")
             from openai import AsyncOpenAI, OpenAI
 
         super().__init__(
@@ -45,6 +47,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         temperature: float,
         use_ephemeral_cache_only: bool = False,
     ) -> str:
+        #"Hit client")
         lm_config = {"temperature": temperature, "response_model": response_model}
         used_cache_handler = get_cache_handler(
             use_ephemeral_cache_only=use_ephemeral_cache_only
@@ -53,6 +56,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             model, messages, lm_config=lm_config
         )
         if cache_result:
+            #print("Hit cache")
             return (
                 cache_result["response"]
                 if isinstance(cache_result, dict)
@@ -64,6 +68,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
             response_format=response_model,
         )
+        #"Output", output)
         api_result = response_model(**json.loads(output.choices[0].message.content))
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config, output=output.choices[0].message.content
@@ -108,10 +113,12 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
 
 
 class OpenAIPrivate(OpenAIStandard):
-    def __init__(self, synth_logging: bool = False):
+    def __init__(self, synth_logging: bool = True):
         if synth_logging:
+            #print("Using synth logging - OpenAIPrivate")
             from synth_sdk import AsyncOpenAI, OpenAI
         else:
+            #print("Not using synth logging - OpenAIPrivate")
             from openai import AsyncOpenAI, OpenAI
 
         self.sync_client = OpenAI()
@@ -135,4 +142,4 @@ if __name__ == "__main__":
         response_model=TestModel,
         temperature=0.0,
     )
-    print(sync_model_response)
+    #print(sync_model_response)

@@ -102,6 +102,9 @@ class AnthropicAPI(VendorBase):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
+        #print("Calling Anthropic API")
+        #import time
+        #t = time.time()
         response = self.sync_client.messages.create(
             system=messages[0]["content"],
             messages=messages[1:],
@@ -109,6 +112,7 @@ class AnthropicAPI(VendorBase):
             max_tokens=lm_config.get("max_tokens", 4096),
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
         )
+        #print("Time taken for API call", time.time() - t)
         api_result = response.content[0].text
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result
@@ -158,6 +162,8 @@ class AnthropicAPI(VendorBase):
     ) -> str:
         try:
             # First try with Anthropic
+            import time
+            #t = time.time()
             response = self.sync_client.messages.create(
                 system=messages[0]["content"],
                 messages=messages[1:],
@@ -165,12 +171,14 @@ class AnthropicAPI(VendorBase):
                 max_tokens=4096,
                 temperature=temperature,
             )
+            #print("Time taken for API call", time.time() - t)
             result = response.content[0].text
             # Try to parse the result as JSON
             parsed = json.loads(result)
             return response_model(**parsed)
         except (json.JSONDecodeError, pydantic.ValidationError):
             # If Anthropic fails, fallback to OpenAI
+            print("WARNING - Falling back to OpenAI - THIS IS SLOW")
             if self._openai_fallback is None:
                 self._openai_fallback = OpenAIStructuredOutputClient()
             return self._openai_fallback._hit_api_sync_structured_output(

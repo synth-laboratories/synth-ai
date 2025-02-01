@@ -80,15 +80,15 @@ class LM:
         structured_output_mode: Literal[
             "stringified_json", "forced_json"
         ] = "stringified_json",
-        synth_logging: bool = False,
+        synth_logging: bool = True,
     ):
-        #print("Structured output mode", structured_output_mode)
+        # print("Structured output mode", structured_output_mode)
         self.client = get_client(
             model_name,
             with_formatting=structured_output_mode == "forced_json",
             synth_logging=synth_logging,
         )
-        #print(self.client.__class__)
+        # print(self.client.__class__)
 
         formatting_client = get_client(formatting_model_name, with_formatting=True)
 
@@ -139,6 +139,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
             except StructuredOutputCoercionFailureException:
+                #print("Falling back to backup handler")
                 return self.backup_structured_output_handler.call_sync(
                     messages,
                     model=self.model_name,
@@ -163,6 +164,7 @@ class LM:
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
     ):
+        #"In respond_async")
         assert (system_message is None) == (
             user_message is None
         ), "Must provide both system_message and user_message or neither"
@@ -177,6 +179,7 @@ class LM:
 
         if response_model:
             try:
+                #"Trying structured output handler")
                 return await self.structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
@@ -185,6 +188,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
             except StructuredOutputCoercionFailureException:
+                #print("Falling back to backup handler")
                 return await self.backup_structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
@@ -193,6 +197,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
         else:
+            #print("Calling API no response model")
             return await self.client._hit_api_async(
                 messages=messages,
                 model=self.model_name,

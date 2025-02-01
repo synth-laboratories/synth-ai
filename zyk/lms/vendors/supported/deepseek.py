@@ -7,7 +7,7 @@ from zyk.lms.vendors.openai_standard import OpenAIStandard
 
 class DeepSeekAPI(OpenAIStandard):
     def __init__(self):
-        print("Setting up DeepSeek API")
+        #print("Setting up DeepSeek API")
         self.sync_client = OpenAI(
             api_key=os.environ.get("DEEPSEEK_API_KEY"),
             base_url="https://api.deepseek.com",

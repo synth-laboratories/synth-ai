@@ -66,6 +66,7 @@ def fix_errant_stringified_json_sync(
     try:
         return pull_out_structured_output(response_raw, response_model)
     except ValueError as e:
+        #print("")
         mini_client = OpenAIStructuredOutputClient()
         messages = [
             {

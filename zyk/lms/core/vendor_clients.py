@@ -5,7 +5,7 @@ from zyk.lms.core.all import (
     AnthropicClient,
     DeepSeekClient,
     GeminiClient,
-    #OpenAIClient,
+    # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
 )
@@ -33,11 +33,11 @@ together_naming_regexes: List[Pattern] = [
 def get_client(
     model_name: str,
     with_formatting: bool = False,
-    synth_logging: bool = False,
+    synth_logging: bool = True,
 ) -> Any:
     # print("With formatting", with_formatting)
     if any(regex.match(model_name) for regex in openai_naming_regexes):
-        #print("Returning OpenAIStructuredOutputClient")
+        # print("Returning OpenAIStructuredOutputClient")
         return OpenAIStructuredOutputClient(
             synth_logging=synth_logging,
         )

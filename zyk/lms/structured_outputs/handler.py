@@ -51,6 +51,7 @@ class StructuredHandlerBase(ABC):
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
+        #print("Calling from base")
         return await self._process_call_async(
             messages=messages,
             model=model,
@@ -133,6 +134,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         api_call_method: Callable,
         use_ephemeral_cache_only: bool = False,
     ) -> BaseModel:
+        #print("In _process_call_async")
         assert isinstance(
             api_call_method, Callable
         ), "api_call_method must be a callable"
@@ -175,7 +177,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             except Exception as e:
                 try:
                     # t0 = time.time()
-                    # print(f"Got error {e}, attempting to fix")
+                    #print(f"Got error {e}, attempting to fix")
                     structured_output = await fix_errant_forced_async(
                         messages_with_json_formatting_instructions,
                         raw_text_response,
@@ -292,6 +294,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
     ) -> BaseModel:
+        #print("Forced JSON")
         assert (
             response_model is not None
         ), "Don't use this handler for unstructured outputs"
@@ -355,6 +358,7 @@ class StructuredOutputHandler:
         use_ephemeral_cache_only: bool = False,
         lm_config: Dict[str, Any] = {},
     ) -> BaseModel:
+        #print("Output handler call async")
         return await self.handler.call_async(
             messages=messages,
             model=model,

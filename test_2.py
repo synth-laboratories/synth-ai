@@ -614,7 +614,8 @@ user_message = """<objective>No objective set</objective>
 <final_results>No results yet</final_results>"""
 
 from zyk import LM
-
+import time
+t = time.time()
 output = LM(
     model_name="claude-3-5-sonnet-20241022",
     formatting_model_name="gpt-4o-mini",
@@ -626,3 +627,5 @@ output = LM(
     response_model=LLMResponse,
 )
 print(output)
+print(time.time()-t)
+
