@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="zyk",
-    version="0.2.52",
+    version="0.2.53",
     packages=find_packages(),
     install_requires=[
         "openai",

@@ -11,7 +11,7 @@ from zyk.lms.core.all import (
 )
 
 openai_naming_regexes: List[Pattern] = [
-    re.compile(r"^(ft:)?(o1(-.*)?|gpt-.*)$"),
+    re.compile(r"^(ft:)?(o[1,3](-.*)?|gpt-.*)$"),
 ]
 openai_formatting_model_regexes: List[Pattern] = [
     re.compile(r"^(ft:)?gpt-4o(-.*)?$"),
