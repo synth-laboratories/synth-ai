@@ -1,8 +1,8 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="zyk",
-    version="0.2.53",
+    name="synth-ai",
+    version="0.0.0.dev1",
     packages=find_packages(),
     install_requires=[
         "openai",
@@ -15,10 +15,10 @@ setup(
         "together>=1.2.12",
     ],
     author="Josh Purtell",
-    author_email="jmvpurtell@gmail.com",
+    author_email="josh@usesynth.com",
     description="",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/JoshuaPurtell/jazyk",
+    url="https://github.com/synth-laboratories/synth-ai",
     license="MIT",
 )
