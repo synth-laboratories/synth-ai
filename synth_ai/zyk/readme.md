@@ -34,11 +34,3 @@ class HelpfulResponse(BaseModel):
     name: str
 print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", response_model=HelpfulResponse))
 ```
-
-## Name
-
-ZYK is short for "Z you know"
-
-python -m build                   
-twine check dist/*
-twine upload dist/*
