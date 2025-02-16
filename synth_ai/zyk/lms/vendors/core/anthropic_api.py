@@ -5,13 +5,13 @@ import anthropic
 import pydantic
 from pydantic import BaseModel
 
-from zyk.lms.caching.initialize import (
+from synth_ai.zyk.lms.caching.initialize import (
     get_cache_handler,
 )
-from zyk.lms.vendors.base import VendorBase
-from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
-from zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
-from zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
+from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
+from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
 
@@ -102,9 +102,9 @@ class AnthropicAPI(VendorBase):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
-        #print("Calling Anthropic API")
-        #import time
-        #t = time.time()
+        # print("Calling Anthropic API")
+        # import time
+        # t = time.time()
         response = self.sync_client.messages.create(
             system=messages[0]["content"],
             messages=messages[1:],
@@ -112,7 +112,7 @@ class AnthropicAPI(VendorBase):
             max_tokens=lm_config.get("max_tokens", 4096),
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
         )
-        #print("Time taken for API call", time.time() - t)
+        # print("Time taken for API call", time.time() - t)
         api_result = response.content[0].text
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result
@@ -163,7 +163,8 @@ class AnthropicAPI(VendorBase):
         try:
             # First try with Anthropic
             import time
-            #t = time.time()
+
+            # t = time.time()
             response = self.sync_client.messages.create(
                 system=messages[0]["content"],
                 messages=messages[1:],
@@ -171,7 +172,7 @@ class AnthropicAPI(VendorBase):
                 max_tokens=4096,
                 temperature=temperature,
             )
-            #print("Time taken for API call", time.time() - t)
+            # print("Time taken for API call", time.time() - t)
             result = response.content[0].text
             # Try to parse the result as JSON
             parsed = json.loads(result)

@@ -2,7 +2,7 @@ import os
 
 from together import AsyncTogether, Together
 
-from zyk.lms.vendors.openai_standard import OpenAIStandard
+from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
 
 
 class TogetherAPI(OpenAIStandard):

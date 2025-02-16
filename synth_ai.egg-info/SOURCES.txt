@@ -1,9 +1,13 @@
 LICENSE
 README.md
 pyproject.toml
+setup.py
 synth_ai/__init__.py
 synth_ai.egg-info/PKG-INFO
 synth_ai.egg-info/SOURCES.txt
 synth_ai.egg-info/dependency_links.txt
 synth_ai.egg-info/requires.txt
 synth_ai.egg-info/top_level.txt
+tests/test_agent.py
+tests/test_recursive_structured_outputs.py
+tests/test_structured_outputs.py

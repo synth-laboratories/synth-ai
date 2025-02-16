@@ -6,8 +6,8 @@ from typing import Dict, List, Type, Union
 
 from pydantic import BaseModel
 
-from zyk.lms.vendors.base import VendorBase
-from zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
+from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
 
 
 def pull_out_structured_output(
@@ -66,7 +66,7 @@ def fix_errant_stringified_json_sync(
     try:
         return pull_out_structured_output(response_raw, response_model)
     except ValueError as e:
-        #print("")
+        # print("")
         mini_client = OpenAIStructuredOutputClient()
         messages = [
             {

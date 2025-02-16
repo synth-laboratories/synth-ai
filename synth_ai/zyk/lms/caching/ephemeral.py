@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union
 from diskcache import Cache
 from pydantic import BaseModel
 
-from zyk.lms.caching.constants import DISKCACHE_SIZE_LIMIT
+from synth_ai.zyk.lms.caching.constants import DISKCACHE_SIZE_LIMIT
 
 
 @dataclass

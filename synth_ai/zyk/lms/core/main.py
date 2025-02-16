@@ -2,14 +2,16 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from zyk.lms.core.exceptions import StructuredOutputCoercionFailureException
-from zyk.lms.core.vendor_clients import (
+from synth_ai.zyk.lms.core.exceptions import StructuredOutputCoercionFailureException
+from synth_ai.zyk.lms.core.vendor_clients import (
     anthropic_naming_regexes,
     get_client,
     openai_naming_regexes,
 )
-from zyk.lms.structured_outputs.handler import StructuredOutputHandler
-from zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.structured_outputs.handler import StructuredOutputHandler
+from synth_ai.zyk.lms.vendors.base import VendorBase
+
+REASONING_MODELS = ["deepseek-reasoner", "o1-mini", "o1-preview", "o1", "o3"]
 
 
 def build_messages(
@@ -105,7 +107,9 @@ class LM:
             "forced_json",
             {"max_retries": max_retries_dict.get(max_retries, 2)},
         )
-        self.lm_config = {"temperature": temperature}
+        # Override temperature to 1 for reasoning models
+        effective_temperature = 1.0 if model_name in REASONING_MODELS else temperature
+        self.lm_config = {"temperature": effective_temperature}
         self.model_name = model_name
 
     def respond_sync(
@@ -139,7 +143,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
             except StructuredOutputCoercionFailureException:
-                #print("Falling back to backup handler")
+                # print("Falling back to backup handler")
                 return self.backup_structured_output_handler.call_sync(
                     messages,
                     model=self.model_name,
@@ -164,7 +168,7 @@ class LM:
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
     ):
-        #"In respond_async")
+        # "In respond_async")
         assert (system_message is None) == (
             user_message is None
         ), "Must provide both system_message and user_message or neither"
@@ -179,7 +183,7 @@ class LM:
 
         if response_model:
             try:
-                #"Trying structured output handler")
+                # "Trying structured output handler")
                 return await self.structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
@@ -188,7 +192,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
             except StructuredOutputCoercionFailureException:
-                #print("Falling back to backup handler")
+                # print("Falling back to backup handler")
                 return await self.backup_structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
@@ -197,7 +201,7 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
         else:
-            #print("Calling API no response model")
+            # print("Calling API no response model")
             return await self.client._hit_api_async(
                 messages=messages,
                 model=self.model_name,

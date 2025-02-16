@@ -4,19 +4,19 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel
 
-from zyk.lms.core.exceptions import StructuredOutputCoercionFailureException
-from zyk.lms.structured_outputs.inject import (
+from synth_ai.zyk.lms.core.exceptions import StructuredOutputCoercionFailureException
+from synth_ai.zyk.lms.structured_outputs.inject import (
     inject_structured_output_instructions,
 )
-from zyk.lms.structured_outputs.rehabilitate import (
+from synth_ai.zyk.lms.structured_outputs.rehabilitate import (
     fix_errant_forced_async,
     fix_errant_forced_sync,
     fix_errant_stringified_json_async,
     fix_errant_stringified_json_sync,
     pull_out_structured_output,
 )
-from zyk.lms.vendors.base import VendorBase
-from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
 
 
 class StructuredHandlerBase(ABC):
@@ -51,7 +51,7 @@ class StructuredHandlerBase(ABC):
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
-        #print("Calling from base")
+        # print("Calling from base")
         return await self._process_call_async(
             messages=messages,
             model=model,
@@ -134,7 +134,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         api_call_method: Callable,
         use_ephemeral_cache_only: bool = False,
     ) -> BaseModel:
-        #print("In _process_call_async")
+        # print("In _process_call_async")
         assert isinstance(
             api_call_method, Callable
         ), "api_call_method must be a callable"
@@ -177,7 +177,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             except Exception as e:
                 try:
                     # t0 = time.time()
-                    #print(f"Got error {e}, attempting to fix")
+                    # print(f"Got error {e}, attempting to fix")
                     structured_output = await fix_errant_forced_async(
                         messages_with_json_formatting_instructions,
                         raw_text_response,
@@ -294,7 +294,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
     ) -> BaseModel:
-        #print("Forced JSON")
+        # print("Forced JSON")
         assert (
             response_model is not None
         ), "Don't use this handler for unstructured outputs"
@@ -345,7 +345,7 @@ class StructuredOutputHandler:
                 core_client, retry_client, handler_params
             )
         elif self.mode == "forced_json":
-            #print("Forced JSON")
+            # print("Forced JSON")
             self.handler = ForcedJSONHandler(core_client, retry_client, handler_params)
         else:
             raise ValueError(f"Invalid mode: {mode}")
@@ -358,7 +358,7 @@ class StructuredOutputHandler:
         use_ephemeral_cache_only: bool = False,
         lm_config: Dict[str, Any] = {},
     ) -> BaseModel:
-        #print("Output handler call async")
+        # print("Output handler call async")
         return await self.handler.call_async(
             messages=messages,
             model=model,

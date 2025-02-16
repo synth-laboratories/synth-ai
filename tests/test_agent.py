@@ -3,7 +3,7 @@ from typing import List, Union
 
 from pydantic import BaseModel
 
-from zyk.lms.core.main import LM
+from synth_ai.zyk.lms.core.main import LM
 
 
 class UnitTestDict(BaseModel):

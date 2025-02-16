@@ -1,8 +1,12 @@
-from zyk.lms.vendors.core.anthropic_api import AnthropicAPI
-from zyk.lms.vendors.core.gemini_api import GeminiAPI
-from zyk.lms.vendors.core.openai_api import OpenAIPrivate, OpenAIStructuredOutputClient
-from zyk.lms.vendors.supported.deepseek import DeepSeekAPI
-from zyk.lms.vendors.supported.together import TogetherAPI
+from synth_ai.zyk.lms.vendors.core.anthropic_api import AnthropicAPI
+from synth_ai.zyk.lms.vendors.core.gemini_api import GeminiAPI
+from synth_ai.zyk.lms.vendors.core.openai_api import (
+    OpenAIPrivate,
+    OpenAIStructuredOutputClient,
+)
+from synth_ai.zyk.lms.vendors.supported.deepseek import DeepSeekAPI
+from synth_ai.zyk.lms.vendors.supported.together import TogetherAPI
+from synth_ai.zyk.lms.vendors.supported.groq import GroqAPI
 
 
 class OpenAIClient(OpenAIPrivate):

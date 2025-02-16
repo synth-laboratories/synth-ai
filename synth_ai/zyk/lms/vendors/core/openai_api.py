@@ -7,9 +7,9 @@ import pydantic_core
 # from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-from zyk.lms.caching.initialize import get_cache_handler
-from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
-from zyk.lms.vendors.openai_standard import OpenAIStandard
+from synth_ai.zyk.lms.caching.initialize import get_cache_handler
+from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
 
 OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
     pydantic_core._pydantic_core.ValidationError,
@@ -26,10 +26,10 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
 class OpenAIStructuredOutputClient(OpenAIStandard):
     def __init__(self, synth_logging: bool = True):
         if synth_logging:
-            #print("Using synth logging - OpenAIStructuredOutputClient")
+            # print("Using synth logging - OpenAIStructuredOutputClient")
             from synth_sdk import AsyncOpenAI, OpenAI
         else:
-            #print("Not using synth logging - OpenAIStructuredOutputClient")
+            # print("Not using synth logging - OpenAIStructuredOutputClient")
             from openai import AsyncOpenAI, OpenAI
 
         super().__init__(
@@ -47,7 +47,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         temperature: float,
         use_ephemeral_cache_only: bool = False,
     ) -> str:
-        #"Hit client")
+        # "Hit client")
         lm_config = {"temperature": temperature, "response_model": response_model}
         used_cache_handler = get_cache_handler(
             use_ephemeral_cache_only=use_ephemeral_cache_only
@@ -56,7 +56,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             model, messages, lm_config=lm_config
         )
         if cache_result:
-            #print("Hit cache")
+            # print("Hit cache")
             return (
                 cache_result["response"]
                 if isinstance(cache_result, dict)
@@ -68,7 +68,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
             response_format=response_model,
         )
-        #"Output", output)
+        # "Output", output)
         api_result = response_model(**json.loads(output.choices[0].message.content))
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config, output=output.choices[0].message.content
@@ -115,10 +115,10 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
 class OpenAIPrivate(OpenAIStandard):
     def __init__(self, synth_logging: bool = True):
         if synth_logging:
-            #print("Using synth logging - OpenAIPrivate")
+            # print("Using synth logging - OpenAIPrivate")
             from synth_sdk import AsyncOpenAI, OpenAI
         else:
-            #print("Not using synth logging - OpenAIPrivate")
+            # print("Not using synth logging - OpenAIPrivate")
             from openai import AsyncOpenAI, OpenAI
 
         self.sync_client = OpenAI()
@@ -142,4 +142,4 @@ if __name__ == "__main__":
         response_model=TestModel,
         temperature=0.0,
     )
-    #print(sync_model_response)
+    # print(sync_model_response)

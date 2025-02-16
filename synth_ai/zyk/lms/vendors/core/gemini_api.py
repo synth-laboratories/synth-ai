@@ -7,12 +7,12 @@ import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted
 from google.generativeai.types import HarmBlockThreshold, HarmCategory
 
-from zyk.lms.caching.initialize import (
+from synth_ai.zyk.lms.caching.initialize import (
     get_cache_handler,
 )
-from zyk.lms.vendors.base import VendorBase
-from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
-from zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
+from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 GEMINI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (ResourceExhausted,)
 logging.getLogger("google.generativeai").setLevel(logging.ERROR)

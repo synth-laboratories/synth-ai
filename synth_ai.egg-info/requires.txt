@@ -7,5 +7,7 @@ google>=3.0.0
 google-generativeai>=0.8.1
 together>=1.2.12
 langfuse>=2.56.1
-synth-sdk==0.3.0
+synth-sdk>=0.3.1.dev3
 datasets>=3.2.0
+groq>=0.18.0
+pytest-timeout>=2.3.1

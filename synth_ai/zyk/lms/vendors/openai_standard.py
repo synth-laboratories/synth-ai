@@ -3,12 +3,12 @@ from typing import Any, Dict, List
 import openai
 import pydantic_core
 
-from zyk.lms.caching.initialize import (
+from synth_ai.zyk.lms.caching.initialize import (
     get_cache_handler,
 )
-from zyk.lms.vendors.base import VendorBase
-from zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
-from zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
+from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,

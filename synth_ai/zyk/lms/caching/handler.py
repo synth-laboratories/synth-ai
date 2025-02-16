@@ -3,9 +3,9 @@ from typing import Any, Dict, List, Type, Union
 
 from pydantic import BaseModel
 
-from zyk.lms.caching.ephemeral import EphemeralCache
-from zyk.lms.caching.persistent import PersistentCache
-from zyk.lms.config import should_use_cache
+from synth_ai.zyk.lms.caching.ephemeral import EphemeralCache
+from synth_ai.zyk.lms.caching.persistent import PersistentCache
+from synth_ai.zyk.lms.config import should_use_cache
 
 persistent_cache = PersistentCache()
 ephemeral_cache = EphemeralCache()

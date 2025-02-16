@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from zyk.lms.core.main import LM
+from synth_ai.zyk.lms.core.main import LM
 
 
 # Define example structured output models
