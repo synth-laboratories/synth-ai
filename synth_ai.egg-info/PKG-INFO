@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: synth-ai
-Version: 0.1.0.dev11
+Version: 0.1.0.dev15
 Summary: Software for aiding the best and multiplying the will.
 Home-page: https://github.com/synth-laboratories/synth-ai
 Author: Josh Purtell
@@ -44,7 +44,7 @@ Requires-Dist: google>=3.0.0
 Requires-Dist: google-generativeai>=0.8.1
 Requires-Dist: together>=1.2.12
 Requires-Dist: langfuse>=2.56.1
-Requires-Dist: synth-sdk>=0.3.1.dev3
+Requires-Dist: synth-sdk>=0.3.1.dev4
 Requires-Dist: datasets>=3.2.0
 Requires-Dist: groq>=0.18.0
 Requires-Dist: pytest-timeout>=2.3.1

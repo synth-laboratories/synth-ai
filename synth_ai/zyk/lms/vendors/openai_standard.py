@@ -9,11 +9,14 @@ from synth_ai.zyk.lms.caching.initialize import (
 from synth_ai.zyk.lms.vendors.base import VendorBase
 from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
 from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
-
+import groq
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,
     openai.APIConnectionError,
     openai.APITimeoutError,
+    groq.InternalServerError,
+    groq.APITimeoutError,
+    groq.APIConnectionError,
 )
 
 
