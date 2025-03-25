@@ -1,10 +1,13 @@
 LICENSE
 README.md
 pyproject.toml
+setup.cfg
 setup.py
 private_tests/try_synth_sdk.py
 public_tests/test_agent.py
 public_tests/test_all_structured_outputs.py
+public_tests/test_models.py
+public_tests/test_reasoning_models.py
 public_tests/test_recursive_structured_outputs.py
 public_tests/test_structured_outputs.py
 public_tests/test_synth_sdk.py

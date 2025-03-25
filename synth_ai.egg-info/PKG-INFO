@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: synth-ai
-Version: 0.1.0.dev15
+Version: 0.1.0.dev16
 Summary: Software for aiding the best and multiplying the will.
-Home-page: https://github.com/synth-laboratories/synth-ai
 Author: Josh Purtell
 Author-email: Josh Purtell <josh@usesynth.ai>
 License: MIT License
@@ -51,8 +50,6 @@ Requires-Dist: pytest-timeout>=2.3.1
 Requires-Dist: lock>=2018.3.25.2110
 Requires-Dist: ollama>=0.4.7
 Requires-Dist: mistralai>=1.5.0
-Dynamic: author
-Dynamic: home-page
 Dynamic: license-file
 
 AI Infra used by the Synth AI Team

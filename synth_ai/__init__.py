@@ -2,7 +2,4 @@
 Synth AI - Software for aiding the best and multiplying the will.
 """
 
-from importlib.metadata import version
-
-
-__version__ = version("synth-ai")  # Gets version from installed package metadata
+__version__ = "0.1.0.dev16"  # Hardcode version matching pyproject.toml
