@@ -39,7 +39,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
             structured_output_mode="forced_json",
         )
         cls.lm_stringified_json = LM(
-            model_name="gpt-4o-mini",
+            model_name="gemma3-27b-it",
             formatting_model_name="gpt-4o-mini",
             temperature=0.7,
             max_retries="Few",

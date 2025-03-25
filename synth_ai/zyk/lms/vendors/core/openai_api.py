@@ -46,6 +46,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         # "Hit client")
         lm_config = {"temperature": temperature, "response_model": response_model}
@@ -62,12 +63,27 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
-        output = await self.async_client.beta.chat.completions.parse(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-            response_format=response_model,
-        )
+
+        # Common API call params
+        api_params = {
+            "model": model,
+            "messages": messages,
+            "response_format": response_model,
+        }
+
+        # Only add temperature for non o1/o3 models
+        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+            api_params["temperature"] = lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            )
+
+        # Add reasoning_effort only for o3-mini
+        if model in ["o3-mini"]:
+            print("Reasoning effort:", reasoning_effort)
+            api_params["reasoning_effort"] = reasoning_effort
+
+        output = await self.async_client.beta.chat.completions.parse(**api_params)
+
         # "Output", output)
         api_result = response_model(**json.loads(output.choices[0].message.content))
         used_cache_handler.add_to_managed_cache(
@@ -82,6 +98,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         lm_config = {"temperature": temperature, "response_model": response_model}
         used_cache_handler = get_cache_handler(
@@ -96,12 +113,26 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
-        output = self.sync_client.beta.chat.completions.parse(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-            response_format=response_model,
-        )
+
+        # Common API call params
+        api_params = {
+            "model": model,
+            "messages": messages,
+            "response_format": response_model,
+        }
+
+        # Only add temperature for non o1/o3 models
+        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+            api_params["temperature"] = lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            )
+
+        # Add reasoning_effort only for o3-mini
+        if model in ["o3-mini"]:
+            api_params["reasoning_effort"] = reasoning_effort
+
+        output = self.sync_client.beta.chat.completions.parse(**api_params)
+
         api_result = response_model(**json.loads(output.choices[0].message.content))
         used_cache_handler.add_to_managed_cache(
             model,

@@ -76,6 +76,7 @@ class OpenAIStandard(VendorBase):
         messages: List[Dict[str, Any]],
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         assert (
             lm_config.get("response_model", None) is None
@@ -91,11 +92,26 @@ class OpenAIStandard(VendorBase):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
-        output = await self.async_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-        )
+
+        # Common API call params
+        api_params = {
+            "model": model,
+            "messages": messages,
+        }
+
+        # Only add temperature for non o1/o3 models
+        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+            api_params["temperature"] = lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            )
+
+        # Add reasoning_effort only for o3-mini
+        if model in ["o3-mini"]:
+            print("Reasoning effort:", reasoning_effort)
+            api_params["reasoning_effort"] = reasoning_effort
+
+        output = await self.async_client.chat.completions.create(**api_params)
+
         api_result = output.choices[0].message.content
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result
@@ -115,6 +131,7 @@ class OpenAIStandard(VendorBase):
         messages: List[Dict[str, Any]],
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         assert (
             lm_config.get("response_model", None) is None
@@ -132,11 +149,25 @@ class OpenAIStandard(VendorBase):
                 if isinstance(cache_result, dict)
                 else cache_result
             )
-        output = self.sync_client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-        )
+
+        # Common API call params
+        api_params = {
+            "model": model,
+            "messages": messages,
+        }
+
+        # Only add temperature for non o1/o3 models
+        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+            api_params["temperature"] = lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            )
+
+        # Add reasoning_effort only for o3-mini
+        if model in ["o3-mini"]:
+            api_params["reasoning_effort"] = reasoning_effort
+
+        output = self.sync_client.chat.completions.create(**api_params)
+
         api_result = output.choices[0].message.content
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result

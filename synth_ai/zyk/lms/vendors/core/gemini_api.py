@@ -46,6 +46,7 @@ class GeminiAPI(VendorBase):
         messages: List[Dict],
         temperature: float = 0,
         model_name: str = "gemini-1.5-flash",
+        reasoning_effort: str = "high",
     ) -> str:
         code_generation_model = genai.GenerativeModel(
             model_name=model_name,
@@ -63,6 +64,7 @@ class GeminiAPI(VendorBase):
         messages: List[Dict],
         temperature: float = 0,
         model_name: str = "gemini-1.5-flash",
+        reasoning_effort: str = "high",
     ) -> str:
         code_generation_model = genai.GenerativeModel(
             model_name=model_name,
@@ -87,6 +89,7 @@ class GeminiAPI(VendorBase):
         messages: List[Dict[str, Any]],
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         assert (
             lm_config.get("response_model", None) is None
@@ -104,6 +107,7 @@ class GeminiAPI(VendorBase):
         api_result = await self._private_request_async(
             messages,
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
+            reasoning_effort=reasoning_effort,
         )
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result
@@ -122,6 +126,7 @@ class GeminiAPI(VendorBase):
         messages: List[Dict[str, Any]],
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> str:
         assert (
             lm_config.get("response_model", None) is None
@@ -139,6 +144,7 @@ class GeminiAPI(VendorBase):
         api_result = self._private_request_sync(
             messages,
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
+            reasoning_effort=reasoning_effort,
         )
         used_cache_handler.add_to_managed_cache(
             model, messages, lm_config=lm_config, output=api_result

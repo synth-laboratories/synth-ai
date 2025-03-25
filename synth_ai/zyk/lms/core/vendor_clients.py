@@ -5,11 +5,10 @@ from synth_ai.zyk.lms.core.all import (
     AnthropicClient,
     DeepSeekClient,
     GeminiClient,
+    GroqAPI,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
-    GroqAPI,
-    MistralAPI,
 )
 
 openai_naming_regexes: List[Pattern] = [
@@ -23,6 +22,7 @@ anthropic_naming_regexes: List[Pattern] = [
 ]
 gemini_naming_regexes: List[Pattern] = [
     re.compile(r"^gemini-.*$"),
+    re.compile(r"^gemma[2-9].*$"),
 ]
 deepseek_naming_regexes: List[Pattern] = [
     re.compile(r"^deepseek-.*$"),

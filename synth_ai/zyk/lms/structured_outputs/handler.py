@@ -48,6 +48,7 @@ class StructuredHandlerBase(ABC):
         response_model: BaseModel,
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
@@ -61,6 +62,7 @@ class StructuredHandlerBase(ABC):
             else self.core_client._hit_api_async,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
 
     def call_sync(
@@ -70,6 +72,7 @@ class StructuredHandlerBase(ABC):
         model: str,
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         if temperature == 0.0:
             temperature = SPECIAL_BASE_TEMPS.get(model, 0.0)
@@ -82,6 +85,7 @@ class StructuredHandlerBase(ABC):
             else self.core_client._hit_api_sync,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
 
     @abstractmethod
@@ -92,6 +96,7 @@ class StructuredHandlerBase(ABC):
         response_model: BaseModel,
         api_call_method,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         pass
 
@@ -103,6 +108,7 @@ class StructuredHandlerBase(ABC):
         response_model: BaseModel,
         api_call_method,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         pass
 
@@ -133,6 +139,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         temperature: float,
         api_call_method: Callable,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         # print("In _process_call_async")
         assert isinstance(
@@ -159,6 +166,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 model=model,
                 lm_config={"response_model": None, "temperature": temperature},
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
+                reasoning_effort=reasoning_effort,
             )
             # print(f"Time to get response: {time.time() - t0}")
             if not isinstance(raw_text_response_or_cached_hit, str):
@@ -206,6 +214,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         temperature: float,
         api_call_method: Callable,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         assert isinstance(
             api_call_method, Callable
@@ -231,6 +240,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 model=model,
                 lm_config={"response_model": None, "temperature": temperature},
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
+                reasoning_effort=reasoning_effort,
             )
             # print(f"Time to get response: {time.time() - t0}")
             if not isinstance(raw_text_response_or_cached_hit, str):
@@ -277,6 +287,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
         core_client: VendorBase,
         retry_client: VendorBase,
         handler_params: Dict[str, Any] = {},
+        reasoning_effort: str = "high",
     ):
         super().__init__(
             core_client,
@@ -284,7 +295,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
             handler_params,
             structured_output_mode="forced_json",
         )
-
+        self.reasoning_effort = reasoning_effort
     async def _process_call_async(
         self,
         messages: List[Dict[str, Any]],
@@ -293,6 +304,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
         api_call_method: Callable,
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         # print("Forced JSON")
         assert (
@@ -304,6 +316,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
             response_model=response_model,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
 
     def _process_call_sync(
@@ -314,7 +327,8 @@ class ForcedJSONHandler(StructuredHandlerBase):
         api_call_method: Callable,
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
-    ) -> BaseModel:
+        reasoning_effort: str = "high",
+        ) -> BaseModel:
         assert (
             response_model is not None
         ), "Don't use this handler for unstructured outputs"
@@ -324,6 +338,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
             response_model=response_model,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
 
 
@@ -357,6 +372,7 @@ class StructuredOutputHandler:
         response_model: BaseModel,
         use_ephemeral_cache_only: bool = False,
         lm_config: Dict[str, Any] = {},
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         # print("Output handler call async")
         return await self.handler.call_async(
@@ -367,6 +383,7 @@ class StructuredOutputHandler:
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0.0)
             ),
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
 
     def call_sync(
@@ -376,6 +393,7 @@ class StructuredOutputHandler:
         response_model: BaseModel,
         use_ephemeral_cache_only: bool = False,
         lm_config: Dict[str, Any] = {},
+        reasoning_effort: str = "high",
     ) -> BaseModel:
         return self.handler.call_sync(
             messages=messages,
@@ -385,4 +403,5 @@ class StructuredOutputHandler:
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0.0)
             ),
             use_ephemeral_cache_only=use_ephemeral_cache_only,
+            reasoning_effort=reasoning_effort,
         )
