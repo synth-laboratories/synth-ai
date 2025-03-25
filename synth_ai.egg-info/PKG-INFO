@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: synth-ai
 Version: 0.0.0.dev2
 Summary: Software for aiding the best and multiplying the will.
@@ -50,6 +50,7 @@ Requires-Dist: groq>=0.18.0
 Requires-Dist: pytest-timeout>=2.3.1
 Dynamic: author
 Dynamic: home-page
+Dynamic: license-file
 
 AI Infra used by the Synth AI Team
 ```
