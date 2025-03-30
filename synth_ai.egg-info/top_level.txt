@@ -1,6 +1,0 @@
-dev
-dist
-private_tests
-public_tests
-synth_ai
-tests

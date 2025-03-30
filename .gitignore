@@ -7,3 +7,12 @@
 **/.venv
 **/.env
 **/*.pyc
+
+dev/
+dist/
+build/
+*.egg-info/
+*.whl
+*.tar.gz
+*.zip
+*.tar.bz2
