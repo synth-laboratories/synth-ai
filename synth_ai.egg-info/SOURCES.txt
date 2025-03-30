@@ -65,3 +65,6 @@ synth_ai/zyk/lms/vendors/supported/deepseek.py
 synth_ai/zyk/lms/vendors/supported/groq.py
 synth_ai/zyk/lms/vendors/supported/ollama.py
 synth_ai/zyk/lms/vendors/supported/together.py
+tests/test_agent.py
+tests/test_recursive_structured_outputs.py
+tests/test_structured_outputs.py
