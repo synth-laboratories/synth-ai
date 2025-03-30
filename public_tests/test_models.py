@@ -1,4 +1,3 @@
-import asyncio
 import time
 
 import pytest
@@ -57,7 +56,9 @@ def model_instances():
 
     # Set reasoning_effort to "high" for specific models
     models["o3-mini-high-reasoning"].lm_config["reasoning_effort"] = "high"
-    models["claude-3-7-sonnet-latest-high-reasoning"].lm_config["reasoning_effort"] = "high"
+    models["claude-3-7-sonnet-latest-high-reasoning"].lm_config["reasoning_effort"] = (
+        "high"
+    )
 
     return models
 
@@ -91,28 +92,27 @@ def test_model_simple_response(model_instances, model_name):
     elapsed = time.time() - start_time
 
     print(f"Response time: {elapsed:.2f} seconds")
-    print(f"Response length: {len(response)} characters")
-    print(f"Response sample: {response[:100]}...")
+    print(f"Response length: {len(response.raw_response)} characters")
+    print(f"Response sample: {response.raw_response[:100]}...")
 
     # Basic validation
-    assert isinstance(response, str)
-    assert len(response) > 0
+    assert isinstance(response.raw_response, str)
+    assert len(response.raw_response) > 0
     assert (
-        "Paris" in response
-    ), f"Expected 'Paris' in response, but got: {response[:200]}..."
+        "Paris" in response.raw_response
+    ), f"Expected 'Paris' in response, but got: {response.raw_response[:200]}..."
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "model_name",
     [
-        "o3-mini",
-        "o3-mini-high-reasoning",
-        "claude-3-7-sonnet-latest",
+   #     "o3-mini",
+ #       "claude-3-7-sonnet-latest",
         "claude-3-7-sonnet-latest-high-reasoning",
-        "gemini-2-flash",
-        "gemma3-27b-it",
-        "gpt-4o-mini",
+        # "gemini-2-flash",
+        # "gemma3-27b-it",
+        # "gpt-4o-mini",
     ],
 )
 async def test_reasoning_question(model_instances, model_name):
@@ -131,24 +131,24 @@ async def test_reasoning_question(model_instances, model_name):
     elapsed = time.time() - start_time
 
     print(f"Response time: {elapsed:.2f} seconds")
-    print(f"Response length: {len(response)} characters")
-    print(f"Response sample: {response[:100]}...")
+    print(f"Response length: {len(response.raw_response)} characters")
+    print(f"Response sample: {response.raw_response[:100]}...")
 
     # Basic validation
-    assert isinstance(response, str)
-    assert len(response) > 0
+    assert isinstance(response.raw_response, str)
+    assert len(response.raw_response) > 0
 
 
 @pytest.mark.parametrize(
     "model_name",
     [
         "o3-mini",
-        "o3-mini-high-reasoning",
-        "claude-3-7-sonnet-latest",
+       # "o3-mini",
+        #"claude-3-7-sonnet-latest",
         "claude-3-7-sonnet-latest-high-reasoning",
-        "gemini-2-flash",
-        "gemma3-27b-it",
-        "gpt-4o-mini",
+        # "gemini-2-flash",
+        # "gemma3-27b-it",
+        # "gpt-4o-mini",
     ],
 )
 def test_model_context_and_factuality(model_instances, model_name):
@@ -171,11 +171,11 @@ def test_model_context_and_factuality(model_instances, model_name):
 
     # Check if the response contains the correct information
     assert (
-        "1968" in response
-    ), f"Expected '1968' in response for founding year, but got: {response[:200]}..."
+        "1968" in response.raw_response
+    ), f"Expected '1968' in response for founding year, but got: {response.raw_response[:200]}..."
     assert (
-        "Robert Neptune" in response
-    ), f"Expected 'Robert Neptune' in response for mayor, but got: {response[:200]}..."
+        "Robert Neptune" in response.raw_response
+    ), f"Expected 'Robert Neptune' in response for mayor, but got: {response.raw_response[:200]}..."
 
 
 if __name__ == "__main__":

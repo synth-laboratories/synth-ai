@@ -6,6 +6,7 @@ from synth_ai.zyk.lms.core.all import (
     DeepSeekClient,
     GeminiClient,
     GroqAPI,
+    MistralAPI,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,

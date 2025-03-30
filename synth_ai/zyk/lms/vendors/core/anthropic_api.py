@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import anthropic
 import pydantic
@@ -8,13 +8,19 @@ from pydantic import BaseModel
 from synth_ai.zyk.lms.caching.initialize import (
     get_cache_handler,
 )
-from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.tools.base import BaseTool
+from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
 from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
 from synth_ai.zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
-from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
 
+
+sonnet_37_budgets = {
+    "high": 4000,
+    "medium": 2000,
+    "low": 1000,
+}
 
 class AnthropicAPI(VendorBase):
     used_for_structured_outputs: bool = True
@@ -37,12 +43,12 @@ class AnthropicAPI(VendorBase):
         self._openai_fallback = None
         self.reasoning_effort = reasoning_effort
 
-    @backoff.on_exception(
-        backoff.expo,
-        exceptions_to_retry,
-        max_tries=BACKOFF_TOLERANCE,
-        on_giveup=lambda e: print(e),
-    )
+    # @backoff.on_exception(
+    #     backoff.expo,
+    #     exceptions_to_retry,
+    #     max_tries=BACKOFF_TOLERANCE,
+    #     on_giveup=lambda e: print(e),
+    # )
     async def _hit_api_async(
         self,
         model: str,
@@ -50,64 +56,90 @@ class AnthropicAPI(VendorBase):
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
+        tools: Optional[List[BaseTool]] = None,
         **vendor_params: Dict[str, Any],
-    ) -> str:
+    ) -> BaseLMResponse:
         assert (
             lm_config.get("response_model", None) is None
         ), "response_model is not supported for standard calls"
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
         cache_result = used_cache_handler.hit_managed_cache(
-            model, messages, lm_config=lm_config
+            model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result:
-            return (
-                cache_result["response"]
-                if isinstance(cache_result, dict)
-                else cache_result
-            )
-            
+            return cache_result
+
         # Common API parameters
         api_params = {
             "system": messages[0]["content"],
             "messages": messages[1:],
             "model": model,
             "max_tokens": lm_config.get("max_tokens", 4096),
-            "temperature": lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
+            "temperature": lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            ),
         }
-        
-        # Only try to add thinking if supported by the SDK (check if Claude 3.7 and if reasoning_effort is set)
-        # Try to detect capabilities without causing an error
+
+        # Add tools if provided
+        if tools:
+            api_params["tools"] = [tool.to_anthropic_tool() for tool in tools]
+
+        # Only try to add thinking if supported by the SDK
         try:
             import inspect
+
             create_sig = inspect.signature(self.async_client.messages.create)
             if "thinking" in create_sig.parameters and "claude-3-7" in model:
                 if reasoning_effort in ["high", "medium"]:
-                    budgets = {
-                        "high": 32000,
-                        "medium": 16000,
-                        "low": 8000,
+                    budget = sonnet_37_budgets[reasoning_effort]    
+                    api_params["thinking"] = {
+                        "type": "enabled",
+                        "budget_tokens": budget,
                     }
-                    budget = budgets[reasoning_effort]
-                    api_params["thinking"] = {"type": "enabled", "budget_tokens": budget}
+                    api_params["max_tokens"] = budget+4096
+                    api_params["temperature"] = 1
         except (ImportError, AttributeError, TypeError):
-            # If we can't inspect or the parameter doesn't exist, just continue without it
             pass
-        
+
         # Make the API call
         response = await self.async_client.messages.create(**api_params)
-        
-        api_result = response.content[0].text
-        used_cache_handler.add_to_managed_cache(
-            model, messages, lm_config=lm_config, output=api_result
-        )
-        return api_result
 
-    @backoff.on_exception(
-        backoff.expo,
-        exceptions_to_retry,
-        max_tries=BACKOFF_TOLERANCE,
-        on_giveup=lambda e: print(e),
-    )
+        # Extract text content and tool calls
+        raw_response = ""
+        tool_calls = []
+
+        for content in response.content:
+            if content.type == "text":
+                raw_response += content.text
+            elif content.type == "tool_use":
+                tool_calls.append(
+                    {
+                        "id": content.id,
+                        "type": "function",
+                        "function": {
+                            "name": content.name,
+                            "arguments": json.dumps(content.input),
+                        },
+                    }
+                )
+
+        lm_response = BaseLMResponse(
+            raw_response=raw_response,
+            structured_output=None,
+            tool_calls=tool_calls if tool_calls else None,
+        )
+
+        used_cache_handler.add_to_managed_cache(
+            model, messages, lm_config=lm_config, output=lm_response, tools=tools
+        )
+        return lm_response
+
+    # @backoff.on_exception(
+    #     backoff.expo,
+    #     exceptions_to_retry,
+    #     max_tries=BACKOFF_TOLERANCE,
+    #     on_giveup=lambda e: print(e),
+    # )
     def _hit_api_sync(
         self,
         model: str,
@@ -115,8 +147,9 @@ class AnthropicAPI(VendorBase):
         lm_config: Dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
+        tools: Optional[List[BaseTool]] = None,
         **vendor_params: Dict[str, Any],
-    ) -> str:
+    ) -> BaseLMResponse:
         assert (
             lm_config.get("response_model", None) is None
         ), "response_model is not supported for standard calls"
@@ -124,50 +157,77 @@ class AnthropicAPI(VendorBase):
             use_ephemeral_cache_only=use_ephemeral_cache_only
         )
         cache_result = used_cache_handler.hit_managed_cache(
-            model, messages, lm_config=lm_config
+            model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result:
-            return (
-                cache_result["response"]
-                if isinstance(cache_result, dict)
-                else cache_result
-            )
-        
+            return cache_result
+
         # Common API parameters
         api_params = {
             "system": messages[0]["content"],
             "messages": messages[1:],
             "model": model,
             "max_tokens": lm_config.get("max_tokens", 4096),
-            "temperature": lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
+            "temperature": lm_config.get(
+                "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+            ),
         }
-        
-        # Only try to add thinking if supported by the SDK (check if Claude 3.7 and if reasoning_effort is set)
-        # Try to detect capabilities without causing an error
+
+        # Add tools if provided
+        if tools:
+            api_params["tools"] = [tool.to_anthropic_tool() for tool in tools]
+
+        # Only try to add thinking if supported by the SDK
         try:
             import inspect
+
             create_sig = inspect.signature(self.sync_client.messages.create)
             if "thinking" in create_sig.parameters and "claude-3-7" in model:
+                api_params["temperature"] = 1
                 if reasoning_effort in ["high", "medium"]:
-                    budgets = {
-                        "high": 32000,
-                        "medium": 16000,
-                        "low": 8000,
-                    }
+                    budgets = sonnet_37_budgets
                     budget = budgets[reasoning_effort]
-                    api_params["thinking"] = {"type": "enabled", "budget_tokens": budget}
+                    api_params["thinking"] = {
+                        "type": "enabled",
+                        "budget_tokens": budget,
+                    }
+                    api_params["max_tokens"] = budget+4096
+                    api_params["temperature"] = 1
         except (ImportError, AttributeError, TypeError):
-            # If we can't inspect or the parameter doesn't exist, just continue without it
             pass
-            
+
         # Make the API call
         response = self.sync_client.messages.create(**api_params)
-        
-        api_result = response.content[0].text
-        used_cache_handler.add_to_managed_cache(
-            model, messages, lm_config=lm_config, output=api_result
+
+        # Extract text content and tool calls
+        raw_response = ""
+        tool_calls = []
+
+        for content in response.content:
+            if content.type == "text":
+                raw_response += content.text
+            elif content.type == "tool_use":
+                tool_calls.append(
+                    {
+                        "id": content.id,
+                        "type": "function",
+                        "function": {
+                            "name": content.name,
+                            "arguments": json.dumps(content.input),
+                        },
+                    }
+                )
+
+        lm_response = BaseLMResponse(
+            raw_response=raw_response,
+            structured_output=None,
+            tool_calls=tool_calls if tool_calls else None,
         )
-        return api_result
+
+        used_cache_handler.add_to_managed_cache(
+            model, messages, lm_config=lm_config, output=lm_response, tools=tools
+        )
+        return lm_response
 
     async def _hit_api_async_structured_output(
         self,
@@ -178,36 +238,42 @@ class AnthropicAPI(VendorBase):
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
         **vendor_params: Dict[str, Any],
-    ) -> str:
+    ) -> BaseLMResponse:
         try:
             # First try with Anthropic
             reasoning_effort = vendor_params.get("reasoning_effort", reasoning_effort)
             if "claude-3-7" in model:
-                if reasoning_effort in ["high", "medium"]:
-                    budgets = {
-                        "high": 32000,
-                        "medium": 16000,
-                        "low": 8000,
-                    }
-                    budget = budgets[reasoning_effort]
+
+                #if reasoning_effort in ["high", "medium"]:
+                budgets = sonnet_37_budgets
+                budget = budgets[reasoning_effort]
+                max_tokens = budget+4096
+                temperature = 1
+                
                 response = await self.async_client.messages.create(
                     system=messages[0]["content"],
                     messages=messages[1:],
                     model=model,
-                    max_tokens=4096,
+                    max_tokens=max_tokens,
                     thinking={"type": "enabled", "budget_tokens": budget},
+                    temperature=temperature,
                 )
             else:
                 response = await self.async_client.messages.create(
                     system=messages[0]["content"],
                     messages=messages[1:],
                     model=model,
-                    max_tokens=4096,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
                 )
             result = response.content[0].text
-            # Try to parse the result as JSON
             parsed = json.loads(result)
-            return response_model(**parsed)
+            lm_response = BaseLMResponse(
+                raw_response="",
+                structured_output=response_model(**parsed),
+                tool_calls=None,
+            )
+            return lm_response
         except (json.JSONDecodeError, pydantic.ValidationError):
             # If Anthropic fails, fallback to OpenAI
             if self._openai_fallback is None:
@@ -229,7 +295,7 @@ class AnthropicAPI(VendorBase):
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
         **vendor_params: Dict[str, Any],
-    ) -> str:
+    ) -> BaseLMResponse:
         try:
             # First try with Anthropic
             reasoning_effort = vendor_params.get("reasoning_effort", reasoning_effort)
@@ -237,17 +303,15 @@ class AnthropicAPI(VendorBase):
 
             if "claude-3-7" in model:
                 if reasoning_effort in ["high", "medium"]:
-                    budgets = {
-                        "high": 32000,
-                        "medium": 16000,
-                        "low": 8000,
-                    }
+                    budgets = sonnet_37_budgets
                     budget = budgets[reasoning_effort]
+                    max_tokens = budget+4096
+                    temperature = 1
                 response = self.sync_client.messages.create(
                     system=messages[0]["content"],
                     messages=messages[1:],
                     model=model,
-                    max_tokens=4096,
+                    max_tokens=max_tokens,
                     temperature=temperature,
                     thinking={"type": "enabled", "budget_tokens": budget},
                 )
@@ -256,14 +320,19 @@ class AnthropicAPI(VendorBase):
                     system=messages[0]["content"],
                     messages=messages[1:],
                     model=model,
-                    max_tokens=4096,
+                    max_tokens=max_tokens,
                     temperature=temperature,
                 )
             # print("Time taken for API call", time.time() - t)
             result = response.content[0].text
             # Try to parse the result as JSON
             parsed = json.loads(result)
-            return response_model(**parsed)
+            lm_response = BaseLMResponse(
+                raw_response="",
+                structured_output=response_model(**parsed),
+                tool_calls=None,
+            )
+            return lm_response
         except (json.JSONDecodeError, pydantic.ValidationError):
             # If Anthropic fails, fallback to OpenAI
             print("WARNING - Falling back to OpenAI - THIS IS SLOW")

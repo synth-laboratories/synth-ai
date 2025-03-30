@@ -1,11 +1,12 @@
 import os
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 from diskcache import Cache
 from pydantic import BaseModel
 
 from synth_ai.zyk.lms.caching.constants import DISKCACHE_SIZE_LIMIT
+from synth_ai.zyk.lms.vendors.base import BaseLMResponse
 
 
 @dataclass
@@ -14,37 +15,58 @@ class EphemeralCache:
         os.makedirs(fast_cache_dir, exist_ok=True)
         self.fast_cache = Cache(fast_cache_dir, size_limit=DISKCACHE_SIZE_LIMIT)
 
-    def hit_cache(self, key: str, response_model: BaseModel) -> Optional[Dict]:
-        assert isinstance(response_model, BaseModel)
-        if key in self.fast_cache:
-            try:
-                cache_data = self.fast_cache[key]
-            except AttributeError:
-                return None
-            if response_model is not None:
-                if isinstance(cache_data["response"], dict):
-                    response = cache_data["response"]
-                    return response_model(**response)
-            if isinstance(cache_data, str):
-                return cache_data
-        return None
+    def hit_cache(
+        self, key: str, response_model: Optional[BaseModel] = None
+    ) -> Optional[BaseLMResponse]:
+        if key not in self.fast_cache:
+            return None
 
-    def add_to_cache(self, key: str, response: Union[BaseModel, str]) -> None:
-        if isinstance(response, BaseModel):
-            response_dict = response.model_dump()
-            response_class = response.__class__.__name__
-        elif isinstance(response, str):
-            response_dict = response
-            response_class = None
-        else:
-            raise ValueError(f"Invalid response type: {type(response)}")
+        try:
+            cache_data = self.fast_cache[key]
+        except AttributeError:
+            return None
 
-        cache_data = {
-            "response": response_dict,
-            "response_class": response_class,
-        }
-        self.fast_cache[key] = cache_data
-        return key
+        if not isinstance(cache_data, dict):
+            return BaseLMResponse(
+                raw_response=cache_data, structured_output=None, tool_calls=None
+            )
+
+        raw_response = cache_data.get("raw_response")
+        tool_calls = cache_data.get("tool_calls")
+        structured_output = cache_data.get("structured_output")
+
+        if response_model and structured_output:
+            structured_output = response_model(**structured_output)
+
+        return BaseLMResponse(
+            raw_response=raw_response,
+            structured_output=structured_output,
+            tool_calls=tool_calls,
+        )
+
+    def add_to_cache(self, key: str, response: Union[BaseLMResponse, str]) -> None:
+        if isinstance(response, str):
+            self.fast_cache[key] = response
+            return
+
+        if isinstance(response, BaseLMResponse):
+            cache_data = {
+                "raw_response": response.raw_response
+                if response.raw_response is not None
+                else None,
+                "tool_calls": response.tool_calls
+                if response.tool_calls is not None
+                else None,
+                "structured_output": (
+                    response.structured_output.model_dump()
+                    if response.structured_output is not None
+                    else None
+                ),
+            }
+            self.fast_cache[key] = cache_data
+            return
+
+        raise ValueError(f"Invalid response type: {type(response)}")
 
     def close(self):
         self.fast_cache.close()

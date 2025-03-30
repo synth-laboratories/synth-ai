@@ -6,11 +6,19 @@ setup.py
 private_tests/try_synth_sdk.py
 public_tests/test_agent.py
 public_tests/test_all_structured_outputs.py
+public_tests/test_anthropic_structured_outputs.py
+public_tests/test_deepseek_structured_outputs.py
+public_tests/test_deepseek_tools.py
+public_tests/test_gemini_structured_outputs.py
 public_tests/test_models.py
+public_tests/test_openai_structured_outputs.py
 public_tests/test_reasoning_models.py
 public_tests/test_recursive_structured_outputs.py
+public_tests/test_structured.py
 public_tests/test_structured_outputs.py
 public_tests/test_synth_sdk.py
+public_tests/test_text.py
+public_tests/test_tools.py
 synth_ai/__init__.py
 synth_ai.egg-info/PKG-INFO
 synth_ai.egg-info/SOURCES.txt
@@ -39,6 +47,7 @@ synth_ai/zyk/lms/structured_outputs/__init__.py
 synth_ai/zyk/lms/structured_outputs/handler.py
 synth_ai/zyk/lms/structured_outputs/inject.py
 synth_ai/zyk/lms/structured_outputs/rehabilitate.py
+synth_ai/zyk/lms/tools/base.py
 synth_ai/zyk/lms/vendors/__init__.py
 synth_ai/zyk/lms/vendors/base.py
 synth_ai/zyk/lms/vendors/constants.py
@@ -56,6 +65,3 @@ synth_ai/zyk/lms/vendors/supported/deepseek.py
 synth_ai/zyk/lms/vendors/supported/groq.py
 synth_ai/zyk/lms/vendors/supported/ollama.py
 synth_ai/zyk/lms/vendors/supported/together.py
-tests/test_agent.py
-tests/test_recursive_structured_outputs.py
-tests/test_structured_outputs.py

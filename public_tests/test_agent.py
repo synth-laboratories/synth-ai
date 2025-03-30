@@ -311,7 +311,7 @@ You will be given a code_prompt_for_answer, which contains imports and the funct
 
 Your next actions / thought:  
 
-Structured output: reasoning="I need to implement the function 'task_func' that replaces values in a DataFrame based on a dictionary and calculates the Pearson correlation coefficient between the columns. I will also ensure to handle the case where the input is not a DataFrame by raising a ValueError." action_name='edit_submission' action_args=[ActionArgument(key='first_line', value=4), ActionArgument(key='last_line', value=4), ActionArgument(key='new_code', value="    if not isinstance(df, pd.DataFrame):\n        raise ValueError('Input must be a DataFrame')\n    df.replace(dct, inplace=True)\n    return df.corr(method='pearson')")]
+Structured output: reasoning="I need to implement the function 'task_func' that replaces values in a DataFrame based on a dictionary and calculates the Pearson correlation coefficient between each pair of columns. I will also ensure to handle the case where the input is not a DataFrame by raising a ValueError." action_name='edit_submission' action_args=[ActionArgument(key='first_line', value=4), ActionArgument(key='last_line', value=4), ActionArgument(key='new_code', value="    if not isinstance(df, pd.DataFrame):\n        raise ValueError('Input must be a DataFrame')\n    df.replace(dct, inplace=True)\n    return df.corr(method='pearson')")]
 <System Message> 
 # Premise
 You are a software engineer
@@ -489,11 +489,11 @@ class TestLMStructuredOutputs(unittest.TestCase):
                     user_message=user_message,
                     response_model=ReAct,
                 )
-                self.assertIsInstance(result, ReAct)
-                self.assertIsInstance(result.reasoning, str)
-                self.assertIsInstance(result.action_name, str)
-                self.assertIsInstance(result.action_args, list)
-                for arg in result.action_args:
+                self.assertIsInstance(result.structured_output, ReAct)
+                self.assertIsInstance(result.structured_output.reasoning, str)
+                self.assertIsInstance(result.structured_output.action_name, str)
+                self.assertIsInstance(result.structured_output.action_args, list)
+                for arg in result.structured_output.action_args:
                     self.assertIsInstance(arg, ActionArgument)
                     self.assertIsInstance(arg.key, str)
                     # self.assertIsInstance(arg.value, str)
@@ -512,11 +512,11 @@ class TestLMStructuredOutputs(unittest.TestCase):
                     user_message=user_message,
                     response_model=ReAct,
                 )
-                self.assertIsInstance(result, ReAct)
-                self.assertIsInstance(result.reasoning, str)
-                self.assertIsInstance(result.action_name, str)
-                self.assertIsInstance(result.action_args, list)
-                for arg in result.action_args:
+                self.assertIsInstance(result.structured_output, ReAct)
+                self.assertIsInstance(result.structured_output.reasoning, str)
+                self.assertIsInstance(result.structured_output.action_name, str)
+                self.assertIsInstance(result.structured_output.action_args, list)
+                for arg in result.structured_output.action_args:
                     self.assertIsInstance(arg, ActionArgument)
                     self.assertIsInstance(arg.key, str)
                     # self.assertIsInstance(arg.value, str)

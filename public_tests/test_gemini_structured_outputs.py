@@ -5,7 +5,6 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from synth_ai.zyk.lms.core.main import LM
-from synth_ai.zyk import BaseLMResponse
 
 
 # Define example structured output models
@@ -90,8 +89,6 @@ class TestLMStructuredOutputs(unittest.TestCase):
             user_message="Categorize 'Python' and provide a brief description.",
             response_model=NestedResponse,
         )
-        print("Result:")
-        assert not isinstance(result.structured_output, BaseLMResponse), "Structured output must be a Pydantic model or None - got BaseLMResponse"
         self.assertIsInstance(result.structured_output, NestedResponse)
         self.assertIsInstance(result.structured_output.main_category, str)
         self.assertIsInstance(result.structured_output.subcategories, list)

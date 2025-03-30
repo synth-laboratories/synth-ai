@@ -43,7 +43,7 @@ async def test_reasoning_effort():
     high_time = time.time() - start_time
 
     print(f"Time taken: {high_time:.2f} seconds")
-    print(f"Response length: {len(high_result)} characters")
+    print(f"Response length: {len(high_result.raw_response)} characters")
     print("-" * 60)
 
     # Create a separate instance for LOW reasoning
@@ -65,7 +65,7 @@ async def test_reasoning_effort():
     low_time = time.time() - start_time
 
     print(f"Time taken: {low_time:.2f} seconds")
-    print(f"Response length: {len(low_result)} characters")
+    print(f"Response length: {len(low_result.raw_response)} characters")
     print("-" * 60)
 
     # Print comparison
@@ -75,15 +75,17 @@ async def test_reasoning_effort():
     print(
         f"Difference: {high_time - low_time:.2f} seconds ({(high_time/low_time - 1)*100:.1f}% difference)"
     )
-    print(f"High response length: {len(high_result)} characters")
-    print(f"Low response length: {len(low_result)} characters")
-    print(f"Response length ratio: {len(high_result)/len(low_result):.2f}x")
+    print(f"High response length: {len(high_result.raw_response)} characters")
+    print(f"Low response length: {len(low_result.raw_response)} characters")
+    print(
+        f"Response length ratio: {len(high_result.raw_response)/len(low_result.raw_response):.2f}x"
+    )
 
     # Print response samples
     print("\nHIGH Response Sample (first 200 chars):")
-    print(high_result[:200] + "...")
+    print(high_result.raw_response[:200] + "...")
     print("\nLOW Response Sample (first 200 chars):")
-    print(low_result[:200] + "...")
+    print(low_result.raw_response[:200] + "...")
 
 
 if __name__ == "__main__":

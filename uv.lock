@@ -2241,7 +2241,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.1.0.dev10"
+version = "0.1.0.dev17"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -2278,13 +2278,13 @@ requires-dist = [
     { name = "openai" },
     { name = "pydantic" },
     { name = "pytest-timeout", specifier = ">=2.3.1" },
-    { name = "synth-sdk", specifier = ">=0.3.1.dev3" },
+    { name = "synth-sdk", specifier = "==0.3.1.dev5" },
     { name = "together", specifier = ">=1.2.12" },
 ]
 
 [[package]]
 name = "synth-sdk"
-version = "0.3.1.dev3"
+version = "0.3.1.dev5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asyncio" },
@@ -2307,9 +2307,9 @@ dependencies = [
     { name = "twine" },
     { name = "typing-inspect" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/47/2af5ead21421e669490a0949d8c27eb80ee67a0d3622facf870b45315fc0/synth_sdk-0.3.1.dev3.tar.gz", hash = "sha256:c6983b3d047010fe3203cba3144b3cfde3933c0ac4f0c4ea73300db554621f34", size = 39591 }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/a4/5d191d0a2d691687fd0d92233605d10f211275c1211badb428ca4726aebe/synth_sdk-0.3.1.dev5.tar.gz", hash = "sha256:81448a15d17f5a5c1597d4e4d684a5e4227fcb4fe79cc6034563631aceb72304", size = 40006 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/de/d77e329783622ebee3e2c4fcf9df454c5575cf69f9e7878e3201823fd4b5/synth_sdk-0.3.1.dev3-py3-none-any.whl", hash = "sha256:decde997419e7a3756c6e3c7e091a819c91e5af96578267731b19735cad7abe4", size = 48069 },
+    { url = "https://files.pythonhosted.org/packages/10/57/935dab5895bc7930f2f10b9a2c8528fdaad27edc9b26437ea62c202ae230/synth_sdk-0.3.1.dev5-py3-none-any.whl", hash = "sha256:0ff387e9c84959952f48dfe33c26aed3efb3a0e73d4254472425aa0fd410c135", size = 48427 },
 ]
 
 [[package]]
