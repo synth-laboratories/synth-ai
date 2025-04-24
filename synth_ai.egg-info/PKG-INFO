@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: synth-ai
 Version: 0.0.0.dev2
 Summary: Software for aiding the best and multiplying the will.
@@ -35,21 +35,21 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: openai
-Requires-Dist: pydantic
-Requires-Dist: diskcache
+Requires-Dist: openai>=1.0.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: diskcache>=5.0.0
 Requires-Dist: backoff>=2.2.1
 Requires-Dist: anthropic>=0.34.2
 Requires-Dist: google>=3.0.0
 Requires-Dist: google-generativeai>=0.8.1
 Requires-Dist: together>=1.2.12
 Requires-Dist: langfuse>=2.56.1
-Requires-Dist: synth-sdk>=0.3.1.dev3
 Requires-Dist: datasets>=3.2.0
 Requires-Dist: groq>=0.18.0
 Requires-Dist: pytest-timeout>=2.3.1
 Dynamic: author
 Dynamic: home-page
+Dynamic: license-file
 
 AI Infra used by the Synth AI Team
 ```
