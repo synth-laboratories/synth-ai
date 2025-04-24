@@ -1,0 +1,95 @@
+Metadata-Version: 2.2
+Name: zyk
+Version: 0.2.52
+Summary: Simple LM api wrappers for production
+Home-page: https://github.com/JoshuaPurtell/jazyk
+Author: Josh Purtell
+Author-email: Josh Purtell <jmvpurtell@gmail.com>
+License: MIT License
+        
+        Copyright (c) 2024 Josh Purtell
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Project-URL: Homepage, https://github.com/JoshuaPurtell/jazyk
+Keywords: zyk
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: openai
+Requires-Dist: pydantic
+Requires-Dist: diskcache
+Requires-Dist: backoff>=2.2.1
+Requires-Dist: anthropic>=0.34.2
+Requires-Dist: google>=3.0.0
+Requires-Dist: google-generativeai>=0.8.1
+Requires-Dist: together>=1.2.12
+Requires-Dist: langfuse>=2.56.1
+Requires-Dist: synth-sdk==0.2.125
+Requires-Dist: datasets>=3.2.0
+Dynamic: author
+Dynamic: home-page
+
+# jaZYK
+
+Simple LM api wrappers for production
+
+Supports:
+- OpenAI
+- Anthropic
+- Gemini
+- DeepSeek
+- Together
+
+Key Features:
+- Structured Output logic (with retries)
+- Caching (ephemeral in-memory and/or on-disk sqlite)
+- Supports images for Anthropic and OpenAI
+
+Add a PR if you want to add another provider!
+
+## Installation
+```
+uv add zyk
+```
+or
+```
+pip install zyk
+```
+
+## Usage
+```
+from zyk import LM
+lm = LM(model_name="gpt-4o-mini", temperature=0.0)
+class HelpfulResponse(BaseModel):
+    greeting: str
+    name: str
+print(lm.respond_sync(system_message="You are a helpful assistant", user_message="Hello, how are you?", response_model=HelpfulResponse))
+```
+
+## Name
+
+ZYK is short for "Z you know"
+
+python -m build                   
+twine check dist/*
+twine upload dist/*

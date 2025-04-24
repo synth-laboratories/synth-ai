@@ -1,0 +1,44 @@
+[project]
+name = "synth-ai"
+version = "0.0.0.dev2"
+description = "Software for aiding the best and multiplying the will."
+readme = "README.md"
+authors = [{ name = "Josh Purtell", email = "josh@usesynth.ai" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["synth-ai"]
+dependencies = [
+    "openai",
+    "pydantic",
+    "diskcache",
+    "backoff>=2.2.1",
+    "anthropic>=0.34.2",
+    "google>=3.0.0",
+    "google-generativeai>=0.8.1",
+    "together>=1.2.12",
+    "langfuse>=2.56.1",
+    "synth-sdk>=0.3.1.dev3",
+    "datasets>=3.2.0",
+    "groq>=0.18.0",
+    "pytest-timeout>=2.3.1",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+Homepage = "https://github.com/synth-laboratories/synth-ai"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["synth_ai"]
+package-dir = {"synth_ai" = "synth_ai"}
+
+# Explicitly exclude test directories and files
+[tool.setuptools.exclude-package-data]
+"*" = ["tests/*", "public_tests/*", "private_tests/*", "dev/*"]

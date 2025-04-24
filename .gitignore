@@ -1,0 +1,9 @@
+.cache
+.DS_Store
+.venv
+.env
+**/.DS_Store
+**/.cache
+**/.venv
+**/.env
+**/*.pyc
