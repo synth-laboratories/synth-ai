@@ -4,7 +4,7 @@ diskcache>=5.0.0
 backoff>=2.2.1
 anthropic>=0.34.2
 google>=3.0.0
-google-generativeai>=0.8.1
+google-genai
 together>=1.2.12
 langfuse>=2.56.1
 datasets>=3.2.0

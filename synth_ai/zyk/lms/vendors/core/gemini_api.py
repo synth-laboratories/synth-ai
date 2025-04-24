@@ -4,31 +4,38 @@ import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-import google.generativeai as genai
+from google import genai
 from google.api_core.exceptions import ResourceExhausted
-from google.generativeai.types import HarmBlockThreshold, HarmCategory, Tool
 from google.genai import types
-
-from synth_ai.zyk.lms.caching.initialize import (
-    get_cache_handler,
-)
+from synth_ai.zyk.lms.caching.initialize import get_cache_handler
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS, GEMINI_REASONING_MODELS, GEMINI_THINKING_MODELS, GEMINI_THINKING_BUDGETS
+from synth_ai.zyk.lms.constants import (
+    SPECIAL_BASE_TEMPS,
+    GEMINI_REASONING_MODELS,
+    GEMINI_THINKING_BUDGETS,
+)
 from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
+import logging
 
+
+ALIASES = {
+    "gemini-2.5-flash": "gemini-2.5-flash-preview-04-17",
+}
+
+logger = logging.getLogger(__name__)
+_CLIENT = genai.Client()  # one client for everything
 GEMINI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (ResourceExhausted,)
-logging.getLogger("google.generativeai").setLevel(logging.ERROR)
+logging.getLogger("google.genai").setLevel(logging.ERROR)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
-# Suppress TensorFlow logging
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 warnings.filterwarnings("ignore")
 
 SAFETY_SETTINGS = {
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    types.HarmCategory.HARM_CATEGORY_HATE_SPEECH: types.HarmBlockThreshold.BLOCK_NONE,
+    types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: types.HarmBlockThreshold.BLOCK_NONE,
+    types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.BLOCK_NONE,
+    types.HarmCategory.HARM_CATEGORY_HARASSMENT: types.HarmBlockThreshold.BLOCK_NONE,
 }
 
 
@@ -44,162 +51,137 @@ class GeminiAPI(VendorBase):
         self.used_for_structured_outputs = used_for_structured_outputs
         self.exceptions_to_retry = exceptions_to_retry
 
-    def _convert_messages_to_contents(
-        self, messages: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+
+    def get_aliased_model_name(self, model_name: str) -> str:
+        if model_name in ALIASES:
+            return ALIASES[model_name]
+        return model_name
+
+    @staticmethod
+    def _msg_to_contents(messages: List[Dict[str, Any]]) -> List[types.Content]:
+        # contents, sys_instr = [], None
         contents = []
-        system_instruction = None
-        for message in messages:
-            if message["role"] == "system":
-                system_instruction = (
-                    f"<instructions>\n{message['content']}\n</instructions>"
-                )
+        for m in messages:
+            # if m["role"] == "system":
+            #     sys_instr = f"<instructions>\n{m['content']}\n</instructions>"
+            #     continue
+            # text = (sys_instr + "\n" + m["content"]) if sys_instr else m["content"]
+            if m["role"].lower() not in ["user", "assistant"]:
                 continue
-            elif system_instruction:
-                text = system_instruction + "\n" + message["content"]
-            else:
-                text = message["content"]
-            contents.append(
-                {
-                    "role": message["role"],
-                    "parts": [{"text": text}],
-                }
-            )
+            role = "user" if m["role"] == "user" else "assistant"
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
         return contents
 
-    def _convert_tools_to_gemini_format(self, tools: List[BaseTool]) -> Tool:
-        function_declarations = []
-        for tool in tools:
-            function_declarations.append(tool.to_gemini_tool())
-        return Tool(function_declarations=function_declarations)
+    @staticmethod
+    def _tools_to_genai(tools: List[BaseTool]) -> List[types.Tool]:
+        """Convert internal BaseTool → genai Tool."""
+        out: List[types.Tool] = []
+        for t in tools:
+            # Assume t.to_gemini_tool() now correctly returns a FunctionDeclaration
+            #func_decl = t.to_gemini_tool()
+            if isinstance(t, dict):
+                func_decl = t
+            else:
+                func_decl = t.to_gemini_tool()
+            if not isinstance(func_decl, types.FunctionDeclaration):
+                 # Or fetch schema parts if to_gemini_tool still returns dict
+                 # This depends on BaseTool.to_gemini_tool implementation
+                tool_dict = func_decl # Assuming it's a dict for now
+                func_decl = types.FunctionDeclaration(
+                    name=tool_dict['name'],
+                    description=tool_dict['description'],
+                    parameters=tool_dict['parameters'], # Expects OpenAPI-style dict
+                )
+            out.append(types.Tool(function_declarations=[func_decl]))
+        return out
 
-    async def _private_request_async(
+    async def _gen_content_async(
         self,
         messages: List[Dict],
-        temperature: float = 0,
-        model_name: str = "gemini-1.5-flash",
-        reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        lm_config: Optional[Dict[str, Any]] = None,
+        temperature: float,
+        model_name: str,
+        reasoning_effort: str,
+        tools: Optional[List[BaseTool]],
+        lm_config: Optional[Dict[str, Any]],
     ) -> Tuple[str, Optional[List[Dict]]]:
-        generation_config = {
-            "temperature": temperature,
-        }
-
-        tools_config = None
-        if tools:
-            tools_config = self._convert_tools_to_gemini_format(tools)
-
-        # Extract tool_config from lm_config if provided
-        tool_config = lm_config.get("tool_config") if lm_config else {
-            "function_calling_config": {
-                "mode": "any"
-            }
-        }
-
-        # Add thinking_config if model supports it and reasoning_effort is set
-        thinking_config = None
-        if model_name in GEMINI_THINKING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
-            thinking_config = types.ThinkingConfig(thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort])
-            generation_config = types.GenerateContentConfig(
-                temperature=temperature,
-                thinking_config=thinking_config
+        model_name = self.get_aliased_model_name(model_name)
+        cfg_kwargs: Dict[str, Any] = {"temperature": temperature}
+        if model_name in GEMINI_REASONING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
+            cfg_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort]
             )
         
-        code_generation_model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config=generation_config,
-            tools=tools_config if tools_config else None,
-            tool_config=tool_config,
+        if any(m["role"] == "system" for m in messages):
+            cfg_kwargs["system_instruction"] = next(m["content"] for m in messages if m["role"] == "system")
+        
+        generation_config = types.GenerateContentConfig(
+            **cfg_kwargs,
+            tool_config=lm_config.get("tool_config") if lm_config else None,
+            tools=self._tools_to_genai(tools) if tools else None
         )
-
-        contents = self._convert_messages_to_contents(messages)
-        result = await code_generation_model.generate_content_async(
-            contents=contents,
-            safety_settings=SAFETY_SETTINGS,
+        resp = await _CLIENT.aio.models.generate_content(
+            model=model_name,
+            contents=self._msg_to_contents(messages),
+            config=generation_config,
+            #safety_settings=SAFETY_SETTINGS,
         )
+        return self._extract(resp)
 
-        text = result.candidates[0].content.parts[0].text
-        tool_calls = []
-        for part in result.candidates[0].content.parts:
-            if part.function_call:
-                # Convert MapComposite args to dict
-                args_dict = dict(part.function_call.args)
-                tool_calls.append(
-                    {
-                        "id": f"call_{len(tool_calls) + 1}",  # Generate unique IDs
-                        "type": "function",
-                        "function": {
-                            "name": part.function_call.name,
-                            "arguments": json.dumps(args_dict),
-                        },
-                    }
-                )
-        return text, tool_calls if tool_calls else None
-
-    def _private_request_sync(
+    def _gen_content_sync(
         self,
         messages: List[Dict],
-        temperature: float = 0,
-        model_name: str = "gemini-1.5-flash",
-        reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        lm_config: Optional[Dict[str, Any]] = None,
+        temperature: float,
+        model_name: str,
+        reasoning_effort: str,
+        tools: Optional[List[BaseTool]],
+        lm_config: Optional[Dict[str, Any]],
     ) -> Tuple[str, Optional[List[Dict]]]:
-        generation_config = {
-            "temperature": temperature,
-        }
-
-        tools_config = None
-        if tools:
-            tools_config = self._convert_tools_to_gemini_format(tools)
-
-        # Extract tool_config from lm_config if provided
-        tool_config = lm_config.get("tool_config") if lm_config else {
-            "function_calling_config": {
-                "mode": "any"
-            }
-        }
-
-        # Add thinking_config if model supports it and reasoning_effort is set
-        thinking_config = None
-        if model_name in GEMINI_THINKING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
-            thinking_config = types.ThinkingConfig(thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort])
-            generation_config = types.GenerateContentConfig(
-                temperature=temperature,
-                thinking_config=thinking_config
+        model_name = self.get_aliased_model_name(model_name)
+        cfg_kwargs: Dict[str, Any] = {"temperature": temperature}
+        if model_name in GEMINI_REASONING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
+            cfg_kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort]
             )
-        
-        code_generation_model = genai.GenerativeModel(
-            model_name=model_name,
-            generation_config=generation_config,
-            tools=tools_config if tools_config else None,
-            tool_config=tool_config,
+        if any(m["role"] == "system" for m in messages):
+            cfg_kwargs["system_instruction"] = next(m["content"] for m in messages if m["role"] == "system")
+        generation_config = types.GenerateContentConfig(
+            **cfg_kwargs,
+            tool_config=lm_config.get("tool_config") if lm_config else None,
+            tools=self._tools_to_genai(tools) if tools else None
         )
 
-        contents = self._convert_messages_to_contents(messages)
-        result = code_generation_model.generate_content(
-            contents=contents,
+        resp = _CLIENT.models.generate_content(
+            model=model_name,
+            contents=self._msg_to_contents(messages),
             safety_settings=SAFETY_SETTINGS,
+            config=generation_config,
         )
+        return self._extract(resp)
 
-        text = result.candidates[0].content.parts[0].text
-        tool_calls = []
-        for part in result.candidates[0].content.parts:
-            if part.function_call:
-                # Convert MapComposite args to dict
-                args_dict = dict(part.function_call.args)
-                tool_calls.append(
-                    {
-                        "id": f"call_{len(tool_calls) + 1}",  # Generate unique IDs
-                        "type": "function",
-                        "function": {
-                            "name": part.function_call.name,
-                            "arguments": json.dumps(args_dict),
-                        },
-                    }
-                )
-        return text, tool_calls if tool_calls else None
+    @staticmethod
+    def _extract(response) -> Tuple[str, Optional[List[Dict]]]:
+        # Extract text, handling cases where it might be missing
+        try:
+            text = response.text
+        except ValueError: # Handle cases where only non-text parts exist
+            text = "" 
+
+        calls = []
+        # Access parts through candidates[0].content
+        if response.candidates and response.candidates[0].content:
+            for part in response.candidates[0].content.parts:
+                if part.function_call:
+                    calls.append(
+                        {
+                            "id": f"call_{len(calls) + 1}",
+                            "type": "function",
+                            "function": {
+                                "name": part.function_call.name,
+                                "arguments": json.dumps(dict(part.function_call.args)),
+                            },
+                        }
+                    )
+        return text, calls or None
 
     @backoff.on_exception(
         backoff.expo,
@@ -227,13 +209,16 @@ class GeminiAPI(VendorBase):
         if cache_result:
             return cache_result
 
-        raw_response, tool_calls = await self._private_request_async(
+        raw_response, tool_calls = await self._gen_content_async(
             messages,
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
             reasoning_effort=reasoning_effort,
             tools=tools,
+            lm_config=lm_config,
+            model_name=model,
         )
-
+        if not raw_response:
+            raw_response = ""
         lm_response = BaseLMResponse(
             raw_response=raw_response,
             structured_output=None,
@@ -274,13 +259,16 @@ class GeminiAPI(VendorBase):
         if cache_result:
             return cache_result
 
-        raw_response, tool_calls = self._private_request_sync(
+        raw_response, tool_calls = self._gen_content_sync(
             messages,
             temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
             reasoning_effort=reasoning_effort,
             tools=tools,
+            lm_config=lm_config,
+            model_name=model,
         )
-
+        if not raw_response:
+            raw_response = ""
         lm_response = BaseLMResponse(
             raw_response=raw_response,
             structured_output=None,

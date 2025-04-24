@@ -3,7 +3,7 @@ CLAUDE_REASONING_MODELS = ["claude-3-7-sonnet-latest"]
 GEMINI_REASONING_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
 
 # Gemini models that support thinking
-GEMINI_THINKING_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
+GEMINI_REASONING_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro"]
 GEMINI_THINKING_BUDGETS = {
     "high": 10000,
     "medium": 5000,
