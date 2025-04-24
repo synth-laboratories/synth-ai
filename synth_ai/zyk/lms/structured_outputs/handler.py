@@ -15,7 +15,7 @@ from synth_ai.zyk.lms.structured_outputs.rehabilitate import (
     pull_out_structured_output,
 )
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS
 
 logger = logging.getLogger(__name__)
 

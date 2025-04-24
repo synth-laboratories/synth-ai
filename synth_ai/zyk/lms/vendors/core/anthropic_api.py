@@ -10,17 +10,11 @@ from synth_ai.zyk.lms.caching.initialize import (
 )
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS, CLAUDE_REASONING_MODELS, SONNET_37_BUDGETS
 from synth_ai.zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
 
 ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
 
-
-sonnet_37_budgets = {
-    "high": 4000,
-    "medium": 2000,
-    "low": 1000,
-}
 
 class AnthropicAPI(VendorBase):
     used_for_structured_outputs: bool = True
@@ -90,9 +84,9 @@ class AnthropicAPI(VendorBase):
             import inspect
 
             create_sig = inspect.signature(self.async_client.messages.create)
-            if "thinking" in create_sig.parameters and "claude-3-7" in model:
+            if "thinking" in create_sig.parameters and model in CLAUDE_REASONING_MODELS:
                 if reasoning_effort in ["high", "medium"]:
-                    budget = sonnet_37_budgets[reasoning_effort]    
+                    budget = SONNET_37_BUDGETS[reasoning_effort]    
                     api_params["thinking"] = {
                         "type": "enabled",
                         "budget_tokens": budget,
@@ -185,10 +179,10 @@ class AnthropicAPI(VendorBase):
             import inspect
 
             create_sig = inspect.signature(self.sync_client.messages.create)
-            if "thinking" in create_sig.parameters and "claude-3-7" in model:
+            if "thinking" in create_sig.parameters and model in CLAUDE_REASONING_MODELS:
                 api_params["temperature"] = 1
                 if reasoning_effort in ["high", "medium"]:
-                    budgets = sonnet_37_budgets
+                    budgets = SONNET_37_BUDGETS
                     budget = budgets[reasoning_effort]
                     api_params["thinking"] = {
                         "type": "enabled",
@@ -246,10 +240,10 @@ class AnthropicAPI(VendorBase):
         try:
             # First try with Anthropic
             reasoning_effort = vendor_params.get("reasoning_effort", reasoning_effort)
-            if "claude-3-7" in model:
+            if model in CLAUDE_REASONING_MODELS:
 
                 #if reasoning_effort in ["high", "medium"]:
-                budgets = sonnet_37_budgets
+                budgets = SONNET_37_BUDGETS
                 budget = budgets[reasoning_effort]
                 max_tokens = budget+4096
                 temperature = 1
@@ -305,9 +299,9 @@ class AnthropicAPI(VendorBase):
             reasoning_effort = vendor_params.get("reasoning_effort", reasoning_effort)
             import time
 
-            if "claude-3-7" in model:
+            if model in CLAUDE_REASONING_MODELS:
                 if reasoning_effort in ["high", "medium"]:
-                    budgets = sonnet_37_budgets
+                    budgets = SONNET_37_BUDGETS
                     budget = budgets[reasoning_effort]
                     max_tokens = budget+4096
                     temperature = 1

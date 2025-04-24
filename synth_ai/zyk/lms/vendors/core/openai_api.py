@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from synth_ai.zyk.lms.caching.initialize import get_cache_handler
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS, OPENAI_REASONING_MODELS
 from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
 
 OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
@@ -70,7 +70,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             return (
                 cache_result["response"] if type(cache_result) == dict else cache_result
             )
-        if model in ["o3-mini", "o3", "o1-mini", "o1"]:
+        if model in OPENAI_REASONING_MODELS:
             output = await self.async_client.beta.chat.completions.parse(
                 model=model,
                 messages=messages,
@@ -125,7 +125,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             return (
                 cache_result["response"] if type(cache_result) == dict else cache_result
             )
-        if model in ["o3-mini", "o3", "o1-mini", "o1"]:
+        if model in OPENAI_REASONING_MODELS:
             output = self.sync_client.beta.chat.completions.parse(
                 model=model,
                 messages=messages,

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from synth_ai.zyk.lms.caching.initialize import get_cache_handler
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS
 from synth_ai.zyk.lms.vendors.core.openai_api import OpenAIStructuredOutputClient
 
 # Since the mistralai package doesn't expose an exceptions module,

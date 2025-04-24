@@ -7,13 +7,14 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted
 from google.generativeai.types import HarmBlockThreshold, HarmCategory, Tool
+from google.genai import types
 
 from synth_ai.zyk.lms.caching.initialize import (
     get_cache_handler,
 )
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS, GEMINI_REASONING_MODELS, GEMINI_THINKING_MODELS, GEMINI_THINKING_BUDGETS
 from synth_ai.zyk.lms.vendors.retries import BACKOFF_TOLERANCE, backoff
 
 GEMINI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (ResourceExhausted,)
@@ -96,6 +97,15 @@ class GeminiAPI(VendorBase):
             }
         }
 
+        # Add thinking_config if model supports it and reasoning_effort is set
+        thinking_config = None
+        if model_name in GEMINI_THINKING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
+            thinking_config = types.ThinkingConfig(thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort])
+            generation_config = types.GenerateContentConfig(
+                temperature=temperature,
+                thinking_config=thinking_config
+            )
+        
         code_generation_model = genai.GenerativeModel(
             model_name=model_name,
             generation_config=generation_config,
@@ -151,6 +161,15 @@ class GeminiAPI(VendorBase):
             }
         }
 
+        # Add thinking_config if model supports it and reasoning_effort is set
+        thinking_config = None
+        if model_name in GEMINI_THINKING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
+            thinking_config = types.ThinkingConfig(thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort])
+            generation_config = types.GenerateContentConfig(
+                temperature=temperature,
+                thinking_config=thinking_config
+            )
+        
         code_generation_model = genai.GenerativeModel(
             model_name=model_name,
             generation_config=generation_config,

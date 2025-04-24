@@ -27,11 +27,11 @@ def map_params_to_key(
     normalized_model = model
     normalized_temperature = f"{temperature:.2f}"[:4]
     normalized_response_model = str(response_model.schema()) if response_model else ""
-    normalized_reasoning_effort = reasoning_effort
+    normalized_reasoning_effort = reasoning_effort if reasoning_effort else ""
 
     # Normalize tools if present
     normalized_tools = ""
-    if tools:
+    if tools and all(isinstance(tool, BaseTool) for tool in tools):
         tool_schemas = []
         for tool in sorted(tools, key=lambda x: x.name):  # Sort by name for consistency
             tool_schema = {
@@ -41,6 +41,8 @@ def map_params_to_key(
             }
             tool_schemas.append(str(tool_schema))
         normalized_tools = "".join(tool_schemas)
+    elif tools:
+        normalized_tools = "".join([str(tool) for tool in tools])
 
     return hashlib.sha256(
         (

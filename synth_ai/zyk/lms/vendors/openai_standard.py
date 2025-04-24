@@ -10,7 +10,7 @@ from synth_ai.zyk.lms.caching.initialize import (
 )
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_ai.zyk.lms.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
+from synth_ai.zyk.lms.constants import SPECIAL_BASE_TEMPS
 
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,
@@ -100,8 +100,10 @@ class OpenAIStandard(VendorBase):
         }
 
         # Add tools if provided
-        if tools:
+        if tools and all(isinstance(tool, BaseTool) for tool in tools):
             api_params["tools"] = [tool.to_openai_tool() for tool in tools]
+        elif tools:
+            api_params["tools"] = tools
 
         # Only add temperature for non o1/o3 models
         if not any(prefix in model for prefix in ["o1-", "o3-"]):
@@ -180,8 +182,10 @@ class OpenAIStandard(VendorBase):
         }
 
         # Add tools if provided
-        if tools:
+        if tools and all(isinstance(tool, BaseTool) for tool in tools):
             api_params["tools"] = [tool.to_openai_tool() for tool in tools]
+        elif tools:
+            api_params["tools"] = tools
 
         # Only add temperature for non o1/o3 models
         if not any(prefix in model for prefix in ["o1-", "o3-"]):
@@ -249,8 +253,10 @@ class OpenAIStandard(VendorBase):
         }
 
         # Add tools if provided
-        if tools:
+        if tools and all(isinstance(tool, BaseTool) for tool in tools):
             api_params["tools"] = [tool.to_openai_tool() for tool in tools]
+        elif tools:
+            api_params["tools"] = tools
 
         # Only add temperature for non o1/o3 models
         if not any(prefix in model for prefix in ["o1-", "o3-"]):
@@ -306,8 +312,10 @@ class OpenAIStandard(VendorBase):
         }
 
         # Add tools if provided
-        if tools:
+        if tools and all(isinstance(tool, BaseTool) for tool in tools):
             api_params["tools"] = [tool.to_openai_tool() for tool in tools]
+        elif tools:
+            api_params["tools"] = tools
 
         # Only add temperature for non o1/o3 models
         if not any(prefix in model for prefix in ["o1-", "o3-"]):
