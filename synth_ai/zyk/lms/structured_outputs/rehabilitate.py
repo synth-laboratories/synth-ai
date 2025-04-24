@@ -55,6 +55,7 @@ def pull_out_structured_output(
         raise ValueError(
             f"Failed to parse response as {response_model}: {e} - {response_prepared}"
         )
+    assert isinstance(final, BaseModel), "Structured output must be a Pydantic model"
     return final
 
 
@@ -157,7 +158,7 @@ async def fix_errant_forced_async(
         )
         # print("Fixed response:")
         # print(fixed_response)
-        return fixed_response
+        return fixed_response.structured_output
 
 
 def fix_errant_forced_sync(
@@ -183,4 +184,4 @@ def fix_errant_forced_sync(
     )
     # print("Fixed response:")
     # print(fixed_response)
-    return fixed_response
+    return fixed_response.structured_output

@@ -11,9 +11,7 @@ from synth_ai.zyk.lms.core.vendor_clients import (
 from synth_ai.zyk.lms.structured_outputs.handler import StructuredOutputHandler
 from synth_ai.zyk.lms.vendors.base import VendorBase
 from synth_ai.zyk.lms.tools.base import BaseTool
-
-REASONING_MODELS = ["deepseek-reasoner", "o1-mini", "o1-preview", "o1", "o3"]
-
+from synth_ai.zyk.lms.config import reasoning_models
 
 def build_messages(
     sys_msg: str,
@@ -109,7 +107,7 @@ class LM:
             {"max_retries": max_retries_dict.get(max_retries, 2)},
         )
         # Override temperature to 1 for reasoning models
-        effective_temperature = 1.0 if model_name in REASONING_MODELS else temperature
+        effective_temperature = 1.0 if model_name in reasoning_models else temperature
         self.lm_config = {"temperature": effective_temperature}
         self.model_name = model_name
 
@@ -122,6 +120,7 @@ class LM:
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
+        reasoning_effort: str = "low",
     ):
         assert (system_message is None) == (
             user_message is None
@@ -129,9 +128,7 @@ class LM:
         assert (
             (messages is None) != (system_message is None)
         ), "Must provide either messages or system_message/user_message pair, but not both"
-        assert not (
-            response_model and tools
-        ), "Cannot provide both response_model and tools"
+        assert not (response_model and tools), "Cannot provide both response_model and tools"
         if messages is None:
             messages = build_messages(
                 system_message, user_message, images_as_bytes, self.model_name
@@ -145,6 +142,7 @@ class LM:
                     lm_config=self.lm_config,
                     response_model=response_model,
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
+                    reasoning_effort=reasoning_effort,
                 )
             except StructuredOutputCoercionFailureException:
                 # print("Falling back to backup handler")
@@ -154,6 +152,7 @@ class LM:
                     lm_config=self.lm_config,
                     response_model=response_model,
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
+                    reasoning_effort=reasoning_effort,
                 )
         else:
             result = self.client._hit_api_sync(
@@ -162,15 +161,11 @@ class LM:
                 lm_config=self.lm_config,
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
                 tools=tools,
+                reasoning_effort=reasoning_effort,
             )
         assert isinstance(result.raw_response, str), "Raw response must be a string"
-        assert (
-            isinstance(result.structured_output, BaseModel)
-            or result.structured_output is None
-        ), "Structured output must be a Pydantic model or None"
-        assert (
-            isinstance(result.tool_calls, list) or result.tool_calls is None
-        ), "Tool calls must be a list or None"
+        assert (isinstance(result.structured_output, BaseModel) or result.structured_output is None), "Structured output must be a Pydantic model or None"
+        assert (isinstance(result.tool_calls, list) or result.tool_calls is None), "Tool calls must be a list or None"
         return result
 
     async def respond_async(
@@ -182,6 +177,7 @@ class LM:
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
+        reasoning_effort: str = "low",
     ):
         # "In respond_async")
         assert (system_message is None) == (
@@ -191,9 +187,7 @@ class LM:
             (messages is None) != (system_message is None)
         ), "Must provide either messages or system_message/user_message pair, but not both"
 
-        assert not (
-            response_model and tools
-        ), "Cannot provide both response_model and tools"
+        assert not (response_model and tools), "Cannot provide both response_model and tools"
         if messages is None:
             messages = build_messages(
                 system_message, user_message, images_as_bytes, self.model_name
@@ -208,6 +202,7 @@ class LM:
                     lm_config=self.lm_config,
                     response_model=response_model,
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
+                    reasoning_effort=reasoning_effort,
                 )
             except StructuredOutputCoercionFailureException:
                 print("Falling back to backup handler")
@@ -217,6 +212,7 @@ class LM:
                     lm_config=self.lm_config,
                     response_model=response_model,
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
+                    reasoning_effort=reasoning_effort,
                 )
         else:
             print("Calling API no response model")
@@ -226,17 +222,12 @@ class LM:
                 lm_config=self.lm_config,
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
                 tools=tools,
+                reasoning_effort=reasoning_effort,
             )
         assert isinstance(result.raw_response, str), "Raw response must be a string"
-        assert (
-            isinstance(result.structured_output, BaseModel)
-            or result.structured_output is None
-        ), "Structured output must be a Pydantic model or None"
-        assert (
-            isinstance(result.tool_calls, list) or result.tool_calls is None
-        ), "Tool calls must be a list or None"
+        assert (isinstance(result.structured_output, BaseModel) or result.structured_output is None), "Structured output must be a Pydantic model or None"
+        assert (isinstance(result.tool_calls, list) or result.tool_calls is None), "Tool calls must be a list or None"
         return result
-
 
 if __name__ == "__main__":
     import asyncio

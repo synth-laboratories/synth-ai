@@ -10,3 +10,4 @@ langfuse>=2.56.1
 datasets>=3.2.0
 groq>=0.18.0
 pytest-timeout>=2.3.1
+mistralai

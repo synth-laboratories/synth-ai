@@ -1,6 +1,6 @@
 # jaZYK
 
-Simple LM api wrappers for dev use
+Simple LM api wrappers for prod
 
 Supports:
 - OpenAI
@@ -16,18 +16,9 @@ Key Features:
 
 Add a PR if you want to add another provider!
 
-## Installation
-```
-uv add zyk
-```
-or
-```
-pip install zyk
-```
-
 ## Usage
 ```
-from zyk import LM
+from synth_ai.zyk import LM
 lm = LM(model_name="gpt-4o-mini", temperature=0.0)
 class HelpfulResponse(BaseModel):
     greeting: str
