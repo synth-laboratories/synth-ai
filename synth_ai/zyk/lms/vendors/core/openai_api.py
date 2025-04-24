@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import openai
 import pydantic_core
@@ -8,6 +8,8 @@ import pydantic_core
 from pydantic import BaseModel
 
 from synth_ai.zyk.lms.caching.initialize import get_cache_handler
+from synth_ai.zyk.lms.tools.base import BaseTool
+from synth_ai.zyk.lms.vendors.base import BaseLMResponse
 from synth_ai.zyk.lms.vendors.constants import SPECIAL_BASE_TEMPS
 from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
 
@@ -46,9 +48,13 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
+        tools: Optional[List[BaseTool]] = None,
+        reasoning_effort: str = "high",
     ) -> str:
+        if tools:
+            raise ValueError("Tools are not supported for async structured output")
         # "Hit client")
-        lm_config = {"temperature": temperature, "response_model": response_model}
+        lm_config = {"temperature": temperature, "response_model": response_model, "reasoning_effort": reasoning_effort}
         used_cache_handler = get_cache_handler(
             use_ephemeral_cache_only=use_ephemeral_cache_only
         )
@@ -57,23 +63,40 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         )
         if cache_result:
             # print("Hit cache")
+            assert type(cache_result) in [
+                dict,
+                BaseLMResponse,
+            ], f"Expected dict or BaseLMResponse, got {type(cache_result)}"
             return (
-                cache_result["response"]
-                if isinstance(cache_result, dict)
-                else cache_result
+                cache_result["response"] if type(cache_result) == dict else cache_result
             )
-        output = await self.async_client.beta.chat.completions.parse(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-            response_format=response_model,
-        )
+        if model in ["o3-mini", "o3", "o1-mini", "o1"]:
+            output = await self.async_client.beta.chat.completions.parse(
+                model=model,
+                messages=messages,
+                temperature=lm_config.get(
+                    "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+                ),
+                response_format=response_model,
+                reasoning_effort=reasoning_effort,
+            )
+        else:
+            output = await self.async_client.beta.chat.completions.parse(
+                model=model,
+                messages=messages,
+                response_format=response_model,
+            )
         # "Output", output)
         api_result = response_model(**json.loads(output.choices[0].message.content))
-        used_cache_handler.add_to_managed_cache(
-            model, messages, lm_config, output=output.choices[0].message.content
+        lm_response = BaseLMResponse(
+            raw_response="",
+            structured_output=api_result,
+            tool_calls=None,
         )
-        return api_result
+        used_cache_handler.add_to_managed_cache(
+            model, messages, lm_config, output=lm_response
+        )
+        return lm_response
 
     def _hit_api_sync_structured_output(
         self,
@@ -82,8 +105,12 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
+        tools: Optional[List[BaseTool]] = None,
+        reasoning_effort: str = "high",
     ) -> str:
-        lm_config = {"temperature": temperature, "response_model": response_model}
+        if tools:
+            raise ValueError("Tools are not supported for sync structured output")
+        lm_config = {"temperature": temperature, "response_model": response_model, "reasoning_effort": reasoning_effort}
         used_cache_handler = get_cache_handler(
             use_ephemeral_cache_only=use_ephemeral_cache_only
         )
@@ -91,25 +118,40 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
             model, messages, lm_config=lm_config
         )
         if cache_result:
+            assert type(cache_result) in [
+                dict,
+                BaseLMResponse,
+            ], f"Expected dict or BaseLMResponse, got {type(cache_result)}"
             return (
-                cache_result["response"]
-                if isinstance(cache_result, dict)
-                else cache_result
+                cache_result["response"] if type(cache_result) == dict else cache_result
             )
-        output = self.sync_client.beta.chat.completions.parse(
-            model=model,
-            messages=messages,
-            temperature=lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
-            response_format=response_model,
-        )
+        if model in ["o3-mini", "o3", "o1-mini", "o1"]:
+            output = self.sync_client.beta.chat.completions.parse(
+                model=model,
+                messages=messages,
+                temperature=lm_config.get(
+                    "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
+                ),
+                response_format=response_model,
+                reasoning_effort=reasoning_effort,
+            )
+        else:
+            output = self.sync_client.beta.chat.completions.parse(
+                model=model,
+                messages=messages,
+                response_format=response_model,
+            )
         api_result = response_model(**json.loads(output.choices[0].message.content))
-        used_cache_handler.add_to_managed_cache(
-            model,
-            messages,
-            lm_config=lm_config,
-            output=output.choices[0].message.content,
+
+        lm_response = BaseLMResponse(
+            raw_response="",
+            structured_output=api_result,
+            tool_calls=None,
         )
-        return api_result
+        used_cache_handler.add_to_managed_cache(
+            model, messages, lm_config=lm_config, output=lm_response
+        )
+        return lm_response
 
 
 class OpenAIPrivate(OpenAIStandard):
