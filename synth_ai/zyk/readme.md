@@ -1,6 +1,6 @@
 # jaZYK
 
-Simple LM api wrappers for production
+Simple LM api wrappers for dev use
 
 Supports:
 - OpenAI

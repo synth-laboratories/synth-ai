@@ -7,3 +7,4 @@
 **/.venv
 **/.env
 **/*.pyc
+private_tests/
