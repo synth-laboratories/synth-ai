@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.0.0.dev4"
+version = "0.0.0.dev5"
 description = "Software for aiding the best and multiplying the will."
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "josh@usesynth.ai" }]
