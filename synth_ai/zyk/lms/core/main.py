@@ -10,6 +10,7 @@ from synth_ai.zyk.lms.core.vendor_clients import (
 )
 from synth_ai.zyk.lms.structured_outputs.handler import StructuredOutputHandler
 from synth_ai.zyk.lms.vendors.base import VendorBase
+from synth_ai.zyk.lms.tools.base import BaseTool
 
 REASONING_MODELS = ["deepseek-reasoner", "o1-mini", "o1-preview", "o1", "o3"]
 
@@ -120,6 +121,7 @@ class LM:
         images_as_bytes: List[Any] = [],
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
+        tools: Optional[List[BaseTool]] = None,
     ):
         assert (system_message is None) == (
             user_message is None
@@ -127,15 +129,17 @@ class LM:
         assert (
             (messages is None) != (system_message is None)
         ), "Must provide either messages or system_message/user_message pair, but not both"
-
+        assert not (
+            response_model and tools
+        ), "Cannot provide both response_model and tools"
         if messages is None:
             messages = build_messages(
                 system_message, user_message, images_as_bytes, self.model_name
             )
-
+        result = None
         if response_model:
             try:
-                return self.structured_output_handler.call_sync(
+                result = self.structured_output_handler.call_sync(
                     messages,
                     model=self.model_name,
                     lm_config=self.lm_config,
@@ -144,7 +148,7 @@ class LM:
                 )
             except StructuredOutputCoercionFailureException:
                 # print("Falling back to backup handler")
-                return self.backup_structured_output_handler.call_sync(
+                result = self.backup_structured_output_handler.call_sync(
                     messages,
                     model=self.model_name,
                     lm_config=self.lm_config,
@@ -152,12 +156,22 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
         else:
-            return self.client._hit_api_sync(
+            result = self.client._hit_api_sync(
                 messages=messages,
                 model=self.model_name,
                 lm_config=self.lm_config,
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
+                tools=tools,
             )
+        assert isinstance(result.raw_response, str), "Raw response must be a string"
+        assert (
+            isinstance(result.structured_output, BaseModel)
+            or result.structured_output is None
+        ), "Structured output must be a Pydantic model or None"
+        assert (
+            isinstance(result.tool_calls, list) or result.tool_calls is None
+        ), "Tool calls must be a list or None"
+        return result
 
     async def respond_async(
         self,
@@ -167,6 +181,7 @@ class LM:
         images_as_bytes: List[Any] = [],
         response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
+        tools: Optional[List[BaseTool]] = None,
     ):
         # "In respond_async")
         assert (system_message is None) == (
@@ -176,15 +191,18 @@ class LM:
             (messages is None) != (system_message is None)
         ), "Must provide either messages or system_message/user_message pair, but not both"
 
+        assert not (
+            response_model and tools
+        ), "Cannot provide both response_model and tools"
         if messages is None:
             messages = build_messages(
                 system_message, user_message, images_as_bytes, self.model_name
             )
-
+        result = None
         if response_model:
             try:
-                # "Trying structured output handler")
-                return await self.structured_output_handler.call_async(
+                print("Trying structured output handler")
+                result = await self.structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
                     lm_config=self.lm_config,
@@ -192,8 +210,8 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
             except StructuredOutputCoercionFailureException:
-                # print("Falling back to backup handler")
-                return await self.backup_structured_output_handler.call_async(
+                print("Falling back to backup handler")
+                result = await self.backup_structured_output_handler.call_async(
                     messages,
                     model=self.model_name,
                     lm_config=self.lm_config,
@@ -201,13 +219,23 @@ class LM:
                     use_ephemeral_cache_only=use_ephemeral_cache_only,
                 )
         else:
-            # print("Calling API no response model")
-            return await self.client._hit_api_async(
+            print("Calling API no response model")
+            result = await self.client._hit_api_async(
                 messages=messages,
                 model=self.model_name,
                 lm_config=self.lm_config,
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
+                tools=tools,
             )
+        assert isinstance(result.raw_response, str), "Raw response must be a string"
+        assert (
+            isinstance(result.structured_output, BaseModel)
+            or result.structured_output is None
+        ), "Structured output must be a Pydantic model or None"
+        assert (
+            isinstance(result.tool_calls, list) or result.tool_calls is None
+        ), "Tool calls must be a list or None"
+        return result
 
 
 if __name__ == "__main__":
