@@ -11,6 +11,8 @@ from synth_ai.zyk.lms.vendors.base import BaseLMResponse
 persistent_cache = PersistentCache()
 ephemeral_cache = EphemeralCache()
 
+import logging
+logger = logging.getLogger(__name__)
 
 def map_params_to_key(
     messages: List[Dict],
@@ -20,6 +22,8 @@ def map_params_to_key(
     tools: Optional[List[BaseTool]] = None,
     reasoning_effort: str = "low",
 ) -> str:
+    if any(m is None for m in messages):
+        raise ValueError("Messages cannot contain None values - messages: ", messages)
     if not all([isinstance(msg["content"], str) for msg in messages]):
         normalized_messages = "".join([str(msg["content"]) for msg in messages])
     else:
@@ -40,20 +44,26 @@ def map_params_to_key(
                 "arguments": tool.arguments.schema(),
             }
             tool_schemas.append(str(tool_schema))
+        #logger.error(f"Tool schemas: {tool_schemas}")
         normalized_tools = "".join(tool_schemas)
     elif tools:
+        logger.error(f"Tools: {tools}")
         normalized_tools = "".join([str(tool) for tool in tools])
 
-    return hashlib.sha256(
-        (
-            normalized_messages
-            + normalized_model
-            + normalized_temperature
-            + normalized_response_model
-            + normalized_tools
-            + normalized_reasoning_effort
-        ).encode()
-    ).hexdigest()
+    key_str = ""
+    components = [
+        normalized_messages,
+        normalized_model,
+        normalized_temperature,
+        normalized_response_model,
+        normalized_tools,
+        normalized_reasoning_effort
+    ]
+    for component in components:
+        if component:
+            key_str += str(component)
+
+    return hashlib.sha256(key_str.encode()).hexdigest() 
 
 
 class CacheHandler:

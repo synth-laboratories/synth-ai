@@ -13,6 +13,20 @@ class BaseTool(BaseModel):
         schema = self.arguments.model_json_schema()
         schema["additionalProperties"] = False
 
+        if "properties" in schema:
+            for prop_name, prop_schema in schema["properties"].items():
+                if prop_schema.get("type") == "array":
+                    items_schema = prop_schema.get("items", {})
+                    if not isinstance(items_schema, dict) or not items_schema.get("type"):
+                        prop_schema["items"] = {"type": "string"}
+
+                elif "anyOf" in prop_schema:
+                    for sub_schema in prop_schema["anyOf"]:
+                        if isinstance(sub_schema, dict) and sub_schema.get("type") == "array":
+                            items_schema = sub_schema.get("items", {})
+                            if not isinstance(items_schema, dict) or not items_schema.get("type"):
+                                sub_schema["items"] = {"type": "string"}
+
         return {
             "type": "function",
             "function": {

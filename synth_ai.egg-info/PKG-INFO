@@ -41,7 +41,8 @@ Requires-Dist: diskcache>=5.0.0
 Requires-Dist: backoff>=2.2.1
 Requires-Dist: anthropic>=0.34.2
 Requires-Dist: google>=3.0.0
-Requires-Dist: google-genai
+Requires-Dist: google-api-core
+Requires-Dist: google-generativeai
 Requires-Dist: together>=1.2.12
 Requires-Dist: langfuse>=2.56.1
 Requires-Dist: datasets>=3.2.0
