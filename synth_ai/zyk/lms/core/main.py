@@ -215,7 +215,7 @@ class LM:
                     reasoning_effort=reasoning_effort,
                 )
         else:
-            print("Calling API no response model")
+            #print("Calling API no response model")
             result = await self.client._hit_api_async(
                 messages=messages,
                 model=self.model_name,
