@@ -142,7 +142,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
     ) -> BaseLMResponse:
-        logger.info(f"Processing structured output call for model: {model}")
+        #ogger.info(f"Processing structured output call for model: {model}")
         assert callable(api_call_method), "api_call_method must be a callable"
         assert (
             response_model is not None
@@ -167,7 +167,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 use_ephemeral_cache_only=use_ephemeral_cache_only,
                 reasoning_effort=reasoning_effort,
             )
-            logger.debug(f"Time to get response: {time.time() - t0:.2f}s")
+            #logger.debug(f"Time to get response: {time.time() - t0:.2f}s")
 
             # Check if we got a cached BaseLMResponse
             assert (
@@ -178,15 +178,15 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 raw_text_response = raw_text_response_or_cached_hit.raw_response
             else:
                 raw_text_response = raw_text_response_or_cached_hit
-            logger.debug(f"Raw response from model:\n{raw_text_response}")
+            #logger.debug(f"Raw response from model:\n{raw_text_response}")
 
-            print("Trying to parse structured output")
+            #print("Trying to parse structured output")
             try:
                 structured_output = pull_out_structured_output(
                     raw_text_response, response_model
                 )
 
-                print("Successfully parsed structured output on first attempt")
+                #print("Successfully parsed structured output on first attempt")
                 break
             except Exception as e:
                 logger.warning(f"Failed to parse structured output: {str(e)}")
@@ -215,8 +215,8 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             raise StructuredOutputCoercionFailureException(
                 "Failed to get structured output"
             )
-        print("Successfully parsed structured output")
-        print(structured_output)
+        #print("Successfully parsed structured output")
+        #print(structured_output)
         assert isinstance(structured_output, BaseModel), "Structured output must be a Pydantic model"
         assert not isinstance(structured_output, BaseLMResponse),"Got BaseLMResponse instead of Pydantic model" 
         return BaseLMResponse(
@@ -235,7 +235,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
     ) -> BaseLMResponse:
-        logger.info(f"Processing structured output call for model: {model}")
+        #logger.info(f"Processing structured output call for model: {model}")
         assert callable(api_call_method), "api_call_method must be a callable"
         assert (
             response_model is not None
@@ -271,13 +271,13 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 raw_text_response = raw_text_response_or_cached_hit.raw_response
             else:   
                 raw_text_response = raw_text_response_or_cached_hit
-            logger.debug(f"Raw response from model:\n{raw_text_response}")
+            #logger.debug(f"Raw response from model:\n{raw_text_response}")
 
             try:
                 structured_output = pull_out_structured_output(
                     raw_text_response, response_model
                 )
-                print("Successfully parsed structured output on first attempt")
+                #print("Successfully parsed structured output on first attempt")
                 break
             except Exception as e:
                 logger.warning(f"Failed to parse structured output: {str(e)}")
@@ -296,8 +296,8 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                     remaining_retries -= 1
                     logger.warning(f"Retries remaining: {remaining_retries}")
 
-        print("Successfully parsed structured output")
-        print(structured_output)
+        #print("Successfully parsed structured output")
+        #print(structured_output)
         if structured_output is None:
             logger.error("Failed to get structured output after all retries")
             raise StructuredOutputCoercionFailureException(

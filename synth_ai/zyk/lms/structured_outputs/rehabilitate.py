@@ -14,7 +14,7 @@ def pull_out_structured_output(
     response_raw: str, response_model: Type[BaseModel]
 ) -> BaseModel:
     logger = logging.getLogger(__name__)
-    logger.debug(f"Raw response received: {response_raw}")
+    #logger.debug(f"Raw response received: {response_raw}")
 
     assert isinstance(
         response_raw, str
