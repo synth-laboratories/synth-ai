@@ -174,7 +174,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 type(raw_text_response_or_cached_hit) in [str, BaseLMResponse]
             ), f"Expected str or BaseLMResponse, got {type(raw_text_response_or_cached_hit)}"
             if type(raw_text_response_or_cached_hit) == BaseLMResponse:
-                print("Got cached hit, returning directly")
+                #print("Got cached hit, returning directly")
                 raw_text_response = raw_text_response_or_cached_hit.raw_response
             else:
                 raw_text_response = raw_text_response_or_cached_hit

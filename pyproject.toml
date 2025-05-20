@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.1.0.dev49"
+version = "0.1.0.dev53"
 description = "Software for aiding the best and multiplying the will."
 readme = "README.md"
 authors = [{ name = "Josh Purtell", email = "josh@usesynth.ai" }]
@@ -20,6 +20,7 @@ dependencies = [
     "google>=3.0.0",
     "google-api-core",
     "google-generativeai",
+    "google-genai",
     "together>=1.2.12",
     "langfuse>=2.56.1",
     "datasets>=3.2.0",
@@ -36,9 +37,9 @@ Homepage = "https://github.com/synth-laboratories/synth-ai"
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["synth_ai"]
-package-dir = {"synth_ai" = "synth_ai"}
+[tool.setuptools.packages.find]
+where = ["."]  # Assumes 'synth_ai' package is in a dir named 'synth_ai' at this level
+include = ["synth_ai*"]
 
 # Explicitly exclude test directories and files
 [tool.setuptools.exclude-package-data]

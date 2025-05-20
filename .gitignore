@@ -8,3 +8,7 @@
 **/.env
 **/*.pyc
 private_tests/
+
+dev/
+build/
+dist/

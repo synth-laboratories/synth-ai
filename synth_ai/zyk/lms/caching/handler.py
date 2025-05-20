@@ -47,7 +47,7 @@ def map_params_to_key(
         #logger.error(f"Tool schemas: {tool_schemas}")
         normalized_tools = "".join(tool_schemas)
     elif tools:
-        logger.error(f"Tools: {tools}")
+        #logger.error(f"Tools: {tools}")
         normalized_tools = "".join([str(tool) for tool in tools])
 
     key_str = ""
