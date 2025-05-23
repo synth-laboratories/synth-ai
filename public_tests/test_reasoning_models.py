@@ -8,7 +8,7 @@ from synth_ai.zyk import LM
 
 
 def get_openai_api_key():
-    # Get API key from environment variable
+    # Get API key from src.environment variable
     return os.environ.get("OPENAI_API_KEY")
 
 
