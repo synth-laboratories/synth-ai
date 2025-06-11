@@ -45,7 +45,7 @@ Requires-Dist: google-api-core
 Requires-Dist: google-generativeai
 Requires-Dist: google-genai
 Requires-Dist: together>=1.2.12
-Requires-Dist: langfuse>=2.56.1
+Requires-Dist: langfuse<3.0.0,>=2.53.9
 Requires-Dist: datasets>=3.2.0
 Requires-Dist: groq>=0.18.0
 Requires-Dist: pytest-timeout>=2.3.1
