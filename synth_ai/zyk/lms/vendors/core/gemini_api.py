@@ -24,7 +24,7 @@ ALIASES = {
 }
 
 logger = logging.getLogger(__name__)
-_CLIENT = genai.Client()  # one client for everything
+_CLIENT = None  # Initialize lazily when needed
 GEMINI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (ResourceExhausted,)
 logging.getLogger("google.genai").setLevel(logging.ERROR)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
@@ -37,6 +37,14 @@ SAFETY_SETTINGS = {
     types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: types.HarmBlockThreshold.BLOCK_NONE,
     types.HarmCategory.HARM_CATEGORY_HARASSMENT: types.HarmBlockThreshold.BLOCK_NONE,
 }
+
+
+def _get_client():
+    """Get or create the Gemini client lazily."""
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = genai.Client()
+    return _CLIENT
 
 
 class GeminiAPI(VendorBase):
@@ -119,7 +127,8 @@ class GeminiAPI(VendorBase):
             tool_config=lm_config.get("tool_config") if lm_config else None,
             tools=self._tools_to_genai(tools) if tools else None
         )
-        resp = await _CLIENT.aio.models.generate_content(
+        client = _get_client()
+        resp = await client.aio.models.generate_content(
             model=model_name,
             contents=self._msg_to_contents(messages),
             config=generation_config,
@@ -150,7 +159,8 @@ class GeminiAPI(VendorBase):
             tools=self._tools_to_genai(tools) if tools else None
         )
 
-        resp = _CLIENT.models.generate_content(
+        client = _get_client()
+        resp = client.models.generate_content(
             model=model_name,
             contents=self._msg_to_contents(messages),
             safety_settings=SAFETY_SETTINGS,
