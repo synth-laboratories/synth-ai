@@ -5,11 +5,12 @@ from synth_ai.zyk.lms.core.all import (
     AnthropicClient,
     DeepSeekClient,
     GeminiClient,
-    GroqAPI,
-    MistralAPI,
+    GroqClient,
+    MistralClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
+    CustomEndpointClient,
 )
 
 openai_naming_regexes: List[Pattern] = [
@@ -44,10 +45,22 @@ groq_naming_regexes: List[Pattern] = [
     re.compile(r"^llama-3.2-3b-preview$"),
     re.compile(r"^llama-3.2-11b-vision-preview$"),
     re.compile(r"^llama-3.2-90b-vision-preview$"),
+    re.compile(r"^meta-llama/llama-4-scout-17b-16e-instruct$"),
+    re.compile(r"^meta-llama/llama-4-maverick-17b-128e-instruct$"),
+    re.compile(r"^qwen/qwen3-32b$"),
 ]
 
 mistral_naming_regexes: List[Pattern] = [
     re.compile(r"^mistral-.*$"),
+]
+
+# Custom endpoint patterns - check these before generic patterns
+custom_endpoint_naming_regexes: List[Pattern] = [
+    # Modal endpoints: org--app.modal.run
+    re.compile(r"^[a-zA-Z0-9\-]+--[a-zA-Z0-9\-]+\.modal\.run$"),
+    # Generic domain patterns for custom endpoints
+    re.compile(r"^[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+\.[a-zA-Z]+$"),  # domain.tld
+    re.compile(r"^[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+\.[a-zA-Z]+\/[a-zA-Z0-9\-\/]+$"),  # domain.tld/path
 ]
 
 
@@ -75,11 +88,14 @@ def get_client(
         return GeminiClient()
     elif any(regex.match(model_name) for regex in deepseek_naming_regexes):
         return DeepSeekClient()
+    elif any(regex.match(model_name) for regex in groq_naming_regexes):
+        return GroqClient()
+    elif any(regex.match(model_name) for regex in mistral_naming_regexes):
+        return MistralClient()
+    elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):
+        # Custom endpoints are passed as the endpoint URL
+        return CustomEndpointClient(endpoint_url=model_name)
     elif any(regex.match(model_name) for regex in together_naming_regexes):
         return TogetherClient()
-    elif any(regex.match(model_name) for regex in groq_naming_regexes):
-        return GroqAPI()
-    elif any(regex.match(model_name) for regex in mistral_naming_regexes):
-        return MistralAPI()
     else:
         raise ValueError(f"Invalid model name: {model_name}")
