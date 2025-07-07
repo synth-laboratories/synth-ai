@@ -8,6 +8,7 @@ from synth_ai.zyk.lms.vendors.supported.deepseek import DeepSeekAPI
 from synth_ai.zyk.lms.vendors.supported.together import TogetherAPI
 from synth_ai.zyk.lms.vendors.supported.groq import GroqAPI
 from synth_ai.zyk.lms.vendors.core.mistral_api import MistralAPI
+from synth_ai.zyk.lms.vendors.supported.custom_endpoint import CustomEndpointAPI
 
 
 class OpenAIClient(OpenAIPrivate):
@@ -45,3 +46,8 @@ class GroqClient(GroqAPI):
 class MistralClient(MistralAPI):
     def __init__(self):
         super().__init__()
+
+
+class CustomEndpointClient(CustomEndpointAPI):
+    def __init__(self, endpoint_url: str):
+        super().__init__(endpoint_url=endpoint_url)
