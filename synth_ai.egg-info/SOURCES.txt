@@ -30,6 +30,8 @@ synth_ai/zyk/lms/structured_outputs/__init__.py
 synth_ai/zyk/lms/structured_outputs/handler.py
 synth_ai/zyk/lms/structured_outputs/inject.py
 synth_ai/zyk/lms/structured_outputs/rehabilitate.py
+synth_ai/zyk/lms/tools/__init__.py
+synth_ai/zyk/lms/tools/base.py
 synth_ai/zyk/lms/vendors/__init__.py
 synth_ai/zyk/lms/vendors/base.py
 synth_ai/zyk/lms/vendors/openai_standard.py
