@@ -7,6 +7,7 @@ from synth_ai.zyk.lms.vendors.core.openai_api import (
 from synth_ai.zyk.lms.vendors.supported.deepseek import DeepSeekAPI
 from synth_ai.zyk.lms.vendors.supported.together import TogetherAPI
 from synth_ai.zyk.lms.vendors.supported.groq import GroqAPI
+from synth_ai.zyk.lms.vendors.supported.grok import GrokAPI
 from synth_ai.zyk.lms.vendors.core.mistral_api import MistralAPI
 from synth_ai.zyk.lms.vendors.supported.custom_endpoint import CustomEndpointAPI
 
@@ -39,6 +40,11 @@ class TogetherClient(TogetherAPI):
 
 
 class GroqClient(GroqAPI):
+    def __init__(self):
+        super().__init__()
+
+
+class GrokClient(GrokAPI):
     def __init__(self):
         super().__init__()
 

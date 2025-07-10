@@ -91,7 +91,7 @@ class LM:
         )
         # print(self.client.__class__)
 
-        formatting_client = get_client(formatting_model_name, with_formatting=True)
+        formatting_client = get_client(formatting_model_name, with_formatting=True, synth_logging=synth_logging)
 
         max_retries_dict = {"None": 0, "Few": 2, "Many": 5}
         self.structured_output_handler = StructuredOutputHandler(

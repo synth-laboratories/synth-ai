@@ -6,6 +6,7 @@ from synth_ai.zyk.lms.core.all import (
     DeepSeekClient,
     GeminiClient,
     GroqClient,
+    GrokClient,
     MistralClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
@@ -50,6 +51,13 @@ groq_naming_regexes: List[Pattern] = [
     re.compile(r"^qwen/qwen3-32b$"),
 ]
 
+grok_naming_regexes: List[Pattern] = [
+    re.compile(r"^grok-3-beta$"),
+    re.compile(r"^grok-3-mini-beta$"),
+    re.compile(r"^grok-beta$"),
+    re.compile(r"^grok-.*$"),  # Catch-all for future Grok models
+]
+
 mistral_naming_regexes: List[Pattern] = [
     re.compile(r"^mistral-.*$"),
 ]
@@ -90,6 +98,8 @@ def get_client(
         return DeepSeekClient()
     elif any(regex.match(model_name) for regex in groq_naming_regexes):
         return GroqClient()
+    elif any(regex.match(model_name) for regex in grok_naming_regexes):
+        return GrokClient()
     elif any(regex.match(model_name) for regex in mistral_naming_regexes):
         return MistralClient()
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):
