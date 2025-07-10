@@ -6,6 +6,7 @@ Supports:
 - OpenAI
 - Anthropic
 - Gemini
+- Grok (xAI)
 - DeepSeek
 - Together
 
