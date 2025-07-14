@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="synth-ai",
-    version="0.1.6",
+    version="0.1.7",
     packages=find_packages(),
     install_requires=[
         "openai",
