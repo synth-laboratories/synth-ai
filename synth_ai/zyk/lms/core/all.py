@@ -10,6 +10,7 @@ from synth_ai.zyk.lms.vendors.supported.groq import GroqAPI
 from synth_ai.zyk.lms.vendors.supported.grok import GrokAPI
 from synth_ai.zyk.lms.vendors.core.mistral_api import MistralAPI
 from synth_ai.zyk.lms.vendors.supported.custom_endpoint import CustomEndpointAPI
+from synth_ai.zyk.lms.vendors.supported.openrouter import OpenRouterAPI
 
 
 class OpenAIClient(OpenAIPrivate):
@@ -57,3 +58,8 @@ class MistralClient(MistralAPI):
 class CustomEndpointClient(CustomEndpointAPI):
     def __init__(self, endpoint_url: str):
         super().__init__(endpoint_url=endpoint_url)
+
+
+class OpenRouterClient(OpenRouterAPI):
+    def __init__(self):
+        super().__init__()
