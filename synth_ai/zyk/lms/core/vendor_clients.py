@@ -49,6 +49,7 @@ groq_naming_regexes: List[Pattern] = [
     re.compile(r"^meta-llama/llama-4-scout-17b-16e-instruct$"),
     re.compile(r"^meta-llama/llama-4-maverick-17b-128e-instruct$"),
     re.compile(r"^qwen/qwen3-32b$"),
+    re.compile(r"^moonshotai/kimi-k2-instruct$"),
 ]
 
 mistral_naming_regexes: List[Pattern] = [
