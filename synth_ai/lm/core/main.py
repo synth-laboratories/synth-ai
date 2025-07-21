@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Type, Union
 import os
 
 from pydantic import BaseModel, Field
@@ -153,7 +153,7 @@ class LM:
         user_message: Optional[str] = None,
         messages: Optional[List[Dict]] = None,
         images_as_bytes: List[Any] = [],
-        response_model: Optional[BaseModel] = None,
+        response_model: Optional[Type[BaseModel]] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
         reasoning_effort: str = "low",
@@ -214,7 +214,7 @@ class LM:
         user_message: Optional[str] = None,
         messages: Optional[List[Dict]] = None,
         images_as_bytes: List[Any] = [],
-        response_model: Optional[BaseModel] = None,
+        response_model: Optional[Type[BaseModel]] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
         reasoning_effort: str = "low",
