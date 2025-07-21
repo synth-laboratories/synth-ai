@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from requests.exceptions import HTTPError
 from synth_ai.tracing.abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
@@ -30,6 +31,7 @@ from synth_ai.tracing.upload import (
 )
 
 import time
+from datetime import datetime
 from synth_ai.tracing.events.store import event_store
 
 
@@ -55,8 +57,8 @@ def create_test_event(**kwargs):
         "partition_index": 0,
         "agent_compute_step": AgentComputeStep(
             event_order=1,
-            compute_began=base_time,
-            compute_ended=base_time + 0.5,
+            compute_began=datetime.fromtimestamp(base_time),
+            compute_ended=datetime.fromtimestamp(base_time + 0.5),
             compute_input=[MessageInputs(messages=[{"role": "user", "content": "test"}])],
             compute_output=[
                 MessageOutputs(messages=[{"role": "assistant", "content": "response"}])
@@ -65,8 +67,8 @@ def create_test_event(**kwargs):
         "environment_compute_steps": [
             EnvironmentComputeStep(
                 event_order=2,
-                compute_began=base_time + 0.5,
-                compute_ended=base_time + 1,
+                compute_began=datetime.fromtimestamp(base_time + 0.5),
+                compute_ended=datetime.fromtimestamp(base_time + 1),
                 compute_input=[ArbitraryInputs(inputs={"key": "value"})],
                 compute_output=[ArbitraryOutputs(outputs={"result": "success"})],
             )
@@ -349,7 +351,7 @@ class TestUploadFunction:
         """Test upload handles HTTP errors."""
         # Setup mocks
         mock_event_store.get_system_traces.return_value = []
-        mock_send_s3.side_effect = requests.exceptions.HTTPError("404 Not Found")
+        mock_send_s3.side_effect = HTTPError("404 Not Found")
 
         # Create test data
         dataset = Dataset(questions=[], reward_signals=[])
@@ -362,7 +364,7 @@ class TestUploadFunction:
             partition=[partition],
         )
 
-        with pytest.raises(requests.exceptions.HTTPError):
+        with pytest.raises(HTTPError):
             upload(dataset, [trace])
 
 

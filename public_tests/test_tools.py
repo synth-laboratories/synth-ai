@@ -114,10 +114,11 @@ def test_weather_tool_anthropic_direct():
     )
 
     assert response.tool_calls is not None
-    assert len(response.tool_calls) > 0
-    assert response.tool_calls[0]["function"]["name"] == "get_weather"
-    assert "arguments" in response.tool_calls[0]["function"]
-    arguments = response.tool_calls[0]["function"]["arguments"]
+    tool_calls = response.tool_calls  # Type narrowing
+    assert len(tool_calls) > 0  # type: ignore[arg-type]
+    assert tool_calls[0]["function"]["name"] == "get_weather"  # type: ignore[index]
+    assert "arguments" in tool_calls[0]["function"]  # type: ignore[index]
+    arguments = tool_calls[0]["function"]["arguments"]  # type: ignore[index]
     assert isinstance(arguments, str)
     assert "location" in arguments
     assert "Paris" in arguments
@@ -137,10 +138,11 @@ def test_weather_tool_anthropic_lm():
     )
 
     assert response.tool_calls is not None
-    assert len(response.tool_calls) > 0
-    assert response.tool_calls[0]["function"]["name"] == "get_weather"
-    assert "arguments" in response.tool_calls[0]["function"]
-    arguments = response.tool_calls[0]["function"]["arguments"]
+    tool_calls = response.tool_calls  # Type narrowing
+    assert len(tool_calls) > 0  # type: ignore[arg-type]
+    assert tool_calls[0]["function"]["name"] == "get_weather"  # type: ignore[index]
+    assert "arguments" in tool_calls[0]["function"]  # type: ignore[index]
+    arguments = tool_calls[0]["function"]["arguments"]  # type: ignore[index]
     assert isinstance(arguments, str)
     assert "location" in arguments
     assert "Paris" in arguments

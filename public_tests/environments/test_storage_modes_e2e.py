@@ -16,6 +16,7 @@ import sys
 import subprocess
 import time
 import requests
+from requests.exceptions import RequestException
 import json
 import tempfile
 import signal
@@ -37,7 +38,7 @@ TEST_TIMEOUT = 60  # seconds per test mode
 class ServiceManager:
     """Manages the synth-env service for testing."""
 
-    def __init__(self, port: int, env_vars: Dict[str, str] = None):
+    def __init__(self, port: int, env_vars: Optional[Dict[str, str]] = None):
         self.port = port
         self.process: Optional[subprocess.Popen] = None
         self.env_vars = env_vars or {}
@@ -87,7 +88,7 @@ class ServiceManager:
                     if response.status_code == 200:
                         logger.info(f"✅ Service started successfully after {attempt + 1}s")
                         return True
-                except requests.exceptions.RequestException:
+                except RequestException:
                     time.sleep(1)
 
             logger.error(f"❌ Service failed to start within {STARTUP_TIMEOUT}s")

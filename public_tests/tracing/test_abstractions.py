@@ -2,6 +2,7 @@
 
 import time
 import uuid
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -33,8 +34,8 @@ def create_test_event(**kwargs):
         "partition_index": 0,
         "agent_compute_step": AgentComputeStep(
             event_order=1,
-            compute_began=base_time,
-            compute_ended=base_time + 0.5,
+            compute_began=datetime.fromtimestamp(base_time),
+            compute_ended=datetime.fromtimestamp(base_time + 0.5),
             compute_input=[MessageInputs(messages=[{"role": "user", "content": "test"}])],
             compute_output=[
                 MessageOutputs(messages=[{"role": "assistant", "content": "response"}])
@@ -43,8 +44,8 @@ def create_test_event(**kwargs):
         "environment_compute_steps": [
             EnvironmentComputeStep(
                 event_order=2,
-                compute_began=base_time + 0.5,
-                compute_ended=base_time + 1,
+                compute_began=datetime.fromtimestamp(base_time + 0.5),
+                compute_ended=datetime.fromtimestamp(base_time + 1),
                 compute_input=[ArbitraryInputs(inputs={"key": "value"})],
                 compute_output=[ArbitraryOutputs(outputs={"result": "success"})],
             )
@@ -82,10 +83,11 @@ class TestAgentComputeStep:
 
     def test_agent_compute_step_creation(self):
         """Test creating an AgentComputeStep instance."""
+        current_time = time.time()
         step = AgentComputeStep(
             event_order=1,
-            compute_began=time.time(),
-            compute_ended=time.time() + 1,
+            compute_began=datetime.fromtimestamp(current_time),
+            compute_ended=datetime.fromtimestamp(current_time + 1),
             compute_input=[MessageInputs(messages=[{"role": "user", "content": "test"}])],
             compute_output=[
                 MessageOutputs(messages=[{"role": "assistant", "content": "response"}])
@@ -98,10 +100,11 @@ class TestAgentComputeStep:
 
     def test_agent_compute_step_optional_fields(self):
         """Test AgentComputeStep with optional fields."""
+        current_time = time.time()
         step = AgentComputeStep(
             event_order=1,
-            compute_began=time.time(),
-            compute_ended=time.time() + 1,
+            compute_began=datetime.fromtimestamp(current_time),
+            compute_ended=datetime.fromtimestamp(current_time + 1),
             compute_input=[],
             compute_output=[],
         )
@@ -113,10 +116,11 @@ class TestEnvironmentComputeStep:
 
     def test_environment_compute_step_creation(self):
         """Test creating an EnvironmentComputeStep instance."""
+        current_time = time.time()
         step = EnvironmentComputeStep(
             event_order=1,
-            compute_began=time.time(),
-            compute_ended=time.time() + 1,
+            compute_began=datetime.fromtimestamp(current_time),
+            compute_ended=datetime.fromtimestamp(current_time + 1),
             compute_input=[ArbitraryInputs(inputs={"action": "test"})],
             compute_output=[ArbitraryOutputs(outputs={"result": "success"})],
         )

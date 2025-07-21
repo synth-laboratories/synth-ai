@@ -46,7 +46,7 @@ def create_task_instance(
         metadata=SokobanTaskInstanceMetadata(
             difficulty=difficulty,
             num_boxes=num_boxes,
-            dim_room=tuple(dim_room),
+            dim_room=(dim_room[0], dim_room[1]),
             max_steps=max_steps,
             shortest_path_length=-1,
             seed=-1,
@@ -266,7 +266,7 @@ class TestSokobanQStar:
             id=uuid4(),
             impetus=Impetus(instructions="Solve the Sokoban puzzle"),
             intent=Intent(
-                rubric="Push all boxes onto targets",
+                rubric={"goal": "Push all boxes onto targets"},
                 gold_trajectories=None,
                 gold_state_diff={},
                 deterministic_eval_functions=[],
@@ -281,7 +281,7 @@ class TestSokobanQStar:
         obs = await env.initialize()
 
         # Disable image rendering for speed
-        env.engine.package_sokoban_env.observation_mode = "raw"
+        env.engine.package_sokoban_env.observation_mode = "raw"  # type: ignore[attr-defined]
 
         # Initial observation should show puzzle state
         assert "room_text" in obs
@@ -414,7 +414,7 @@ class TestSokobanQStar:
             id=uuid4(),
             impetus=Impetus(instructions="Solve the Sokoban puzzle"),
             intent=Intent(
-                rubric="Push all boxes onto targets",
+                rubric={"goal": "Push all boxes onto targets"},
                 gold_trajectories=None,
                 gold_state_diff={},
                 deterministic_eval_functions=[],
