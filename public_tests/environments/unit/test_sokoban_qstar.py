@@ -26,12 +26,14 @@ from synth_ai.environments.examples.sokoban.units.astar_common import (
 
 
 # Helper function to create task instance
-def create_task_instance(puzzle_snapshot: Dict[str, Any], difficulty: str = "test") -> SokobanTaskInstance:
+def create_task_instance(
+    puzzle_snapshot: Dict[str, Any], difficulty: str = "test"
+) -> SokobanTaskInstance:
     """Create a SokobanTaskInstance with the given puzzle snapshot."""
     dim_room = puzzle_snapshot.get("dim_room", [5, 5])
     num_boxes = puzzle_snapshot.get("num_boxes", 1)
     max_steps = puzzle_snapshot.get("max_steps", 50)
-    
+
     return SokobanTaskInstance(
         id=uuid4(),
         impetus=Impetus(instructions="Solve the Sokoban puzzle"),
@@ -66,12 +68,17 @@ TRIVIAL_PUZZLE: Dict[str, Any] = {
     "box_mapping": [],  # Empty since box is already on target
     "num_env_steps": 0,
     "player_position": [0, 0],
-    "reward_last": 0
+    "reward_last": 0,
 }
 
 SIMPLE_PUZZLE: Dict[str, Any] = {
     "dim_room": [4, 3],
-    "room_fixed": [[0, 0, 0], [0, 2, 0], [0, 1, 0], [0, 1, 0]],  # Target at [1,1], floors at [2,1] and [3,1]
+    "room_fixed": [
+        [0, 0, 0],
+        [0, 2, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+    ],  # Target at [1,1], floors at [2,1] and [3,1]
     "room_state": [[0, 0, 0], [0, 2, 0], [0, 4, 0], [0, 5, 0]],  # Box at [2,1], player at [3,1]
     "boxes_on_target": 0,
     "max_steps": 10,
@@ -79,7 +86,7 @@ SIMPLE_PUZZLE: Dict[str, Any] = {
     "box_mapping": [],
     "num_env_steps": 0,
     "player_position": [3, 1],
-    "reward_last": 0
+    "reward_last": 0,
 }
 
 MEDIUM_PUZZLE: Dict[str, Any] = {
@@ -104,7 +111,7 @@ MEDIUM_PUZZLE: Dict[str, Any] = {
     "box_mapping": [],
     "num_env_steps": 0,
     "player_position": [2, 2],
-    "reward_last": 0
+    "reward_last": 0,
 }
 
 
@@ -226,11 +233,11 @@ class TestSokobanQStar:
 
         # Find solution - medium puzzle might need more nodes
         plan = await ENGINE_ASTAR(engine, max_nodes=2000)
-        
+
         # If A* can't find a solution within the limit, skip the test
         if not plan:
-            pytest.skip("Medium puzzle too complex for A* within node limit")
-        
+            pytest.skip("Medium puzzle too complex for A* within node limit")  # type: ignore[no-untyped-call]
+
         assert plan is not None
         assert len(plan) > 0
 

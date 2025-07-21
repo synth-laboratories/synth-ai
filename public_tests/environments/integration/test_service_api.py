@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 import httpx
-from tests.environments.utils import check_service_running
+from public_tests.environments.utils import check_service_running
 
 from synth_ai.environments.service.app import app
 from synth_ai.environments.service.core_routes import instances
@@ -58,17 +58,18 @@ class TestServiceAPI:
         # Check if service is running first
         try:
             import requests
+
             resp = requests.get("http://localhost:8901/health", timeout=1.0)
             if resp.status_code != 200:
-                pytest.skip("Environment service not running on port 8901")
+                pytest.skip("Environment service not running on port 8901")  # type: ignore[no-untyped-call]
         except:
-            pytest.fail(
+            pytest.fail(  # type: ignore[no-untyped-call]
                 "\n\nEnvironment service is not running on port 8901!\n"
                 "Please start the service with:\n"
                 "  uvicorn synth_ai.environments.service.app:app --port 8901\n"
                 "You should see: INFO:     Uvicorn running on http://0.0.0.0:8901 (Press CTRL+C to quit)\n"
             )
-        
+
         response = client.get("/health")
         assert response.status_code == 200
 
@@ -319,7 +320,7 @@ class TestServiceAPI:
         ):
             # The startup event would normally run, but we're just testing
             # that the mechanism exists and doesn't crash
-            from service.external_registry import ExternalRegistryConfig
+            from synth_ai.environments.service.external_registry import ExternalRegistryConfig
 
             config = ExternalRegistryConfig(external_environments=[{"module": "fake_module"}])
             assert len(config.external_environments) == 1

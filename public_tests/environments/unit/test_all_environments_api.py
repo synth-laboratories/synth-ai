@@ -21,7 +21,7 @@ import httpx
 import json
 from typing import Dict, Any, List
 import traceback
-from tests.environments.utils import check_service_running
+from public_tests.environments.utils import check_service_running
 
 
 class TestAllEnvironmentsAPI:

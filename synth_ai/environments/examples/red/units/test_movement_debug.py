@@ -127,7 +127,7 @@ async def test_deterministic_left_movement():
         obs_payload = await env.initialize()
 
         if "error" in obs_payload:
-            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")
+            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")  # type: ignore[no-untyped-call]
 
         print("[DEBUG] Environment initialized successfully")
         print(f"[DEBUG] Initial observation keys: {list(obs_payload.keys())}")
@@ -158,7 +158,7 @@ async def test_deterministic_left_movement():
             step_result = await env.step([[PressButtonCall("LEFT")]])
 
             if "error" in step_result:
-                pytest.fail(f"Environment step {step} failed: {step_result['error']}")
+                pytest.fail(f"Environment step {step} failed: {step_result['error']}")  # type: ignore[no-untyped-call]
 
             # Get new state
             new_pub = step_result["public"]

@@ -5,7 +5,7 @@ Tests various Sokoban scenarios and edge cases.
 
 import pytest
 import httpx
-from tests.environments.utils import check_service_running
+from public_tests.environments.utils import check_service_running
 
 from synth_ai.environments.service.app import app
 from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR
@@ -23,7 +23,7 @@ PUZZLES = {
         "box_mapping": [],
         "num_env_steps": 0,
         "player_position": [2, 1],
-        "reward_last": 0
+        "reward_last": 0,
     },
     "one_move": {
         "dim_room": [3, 3],
@@ -35,7 +35,7 @@ PUZZLES = {
         "box_mapping": [],
         "num_env_steps": 0,
         "player_position": [2, 1],
-        "reward_last": 0
+        "reward_last": 0,
     },
     "corridor": {
         "dim_room": [1, 5],
@@ -47,7 +47,7 @@ PUZZLES = {
         "box_mapping": [],
         "num_env_steps": 0,
         "player_position": [0, 3],
-        "reward_last": 0
+        "reward_last": 0,
     },
     "two_boxes": {
         "dim_room": [5, 5],
@@ -71,7 +71,7 @@ PUZZLES = {
         "box_mapping": [],
         "num_env_steps": 0,
         "player_position": [2, 2],
-        "reward_last": 0
+        "reward_last": 0,
     },
 }
 
@@ -132,7 +132,7 @@ class TestSokobanService:
         env_id = init_resp.json()["env_id"]
 
         # Get environment to solve with A*
-        from service.core_routes import instances
+        from synth_ai.environments.service.core_routes import instances
 
         env = instances[env_id]
         env.engine.package_sokoban_env.observation_mode = "raw"
@@ -173,7 +173,7 @@ class TestSokobanService:
         assert obs["boxes_on_target"] == 0
 
         # Solve with A*
-        from service.core_routes import instances
+        from synth_ai.environments.service.core_routes import instances
 
         env = instances[env_id]
         env.engine.package_sokoban_env.observation_mode = "raw"

@@ -1,5 +1,6 @@
 from synth_ai.core.system import System
 
+
 class Environment(System):
     """
     Base class for all environments, providing a name attribute.

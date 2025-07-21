@@ -32,7 +32,7 @@ def test_grok_api_direct():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -50,7 +50,7 @@ def test_grok_api_no_model_error():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -99,7 +99,7 @@ def test_grok_lm_interface(model_name):
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -123,7 +123,7 @@ async def test_grok_lm_async():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -155,7 +155,7 @@ def test_grok_structured_output():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -184,7 +184,7 @@ def test_grok_reasoning_question():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 
@@ -213,7 +213,7 @@ def test_grok_context_following():
 
     except ValueError as e:
         if "XAI_API_KEY" in str(e):
-            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")
+            pytest.skip("XAI_API_KEY not set - skipping Grok integration test")  # type: ignore[no-untyped-call]
         raise
 
 

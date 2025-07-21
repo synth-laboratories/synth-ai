@@ -134,7 +134,7 @@ async def test_menu_close_bug_reproduction():
         print("Initializing environment...")
         obs_payload = await env.initialize()
         if "error" in obs_payload:
-            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")
+            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")  # type: ignore[no-untyped-call]
 
         initial_menu_state = obs_payload.get("menu_state")
         initial_screen_hash = obs_payload.get("screen_hash")
@@ -238,7 +238,7 @@ async def test_menu_close_bug_reproduction():
             print("\n⚠️ Test inconclusive: No menu was open initially")
 
     except Exception as e:
-        pytest.fail(f"Test failed with exception: {e}")
+        pytest.fail(f"Test failed with exception: {e}")  # type: ignore[no-untyped-call]
 
 
 @pytest.mark.asyncio
@@ -337,7 +337,7 @@ async def test_menu_close_bug_fix_verification():
         print("Initializing environment...")
         obs_payload = await env.initialize()
         if "error" in obs_payload:
-            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")
+            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")  # type: ignore[no-untyped-call]
 
         initial_menu_state = obs_payload.get("menu_state")
         initial_screen_hash = obs_payload.get("screen_hash")
@@ -359,7 +359,7 @@ async def test_menu_close_bug_fix_verification():
         step_result = await env.step(PressButtonCall("B"))
 
         if "error" in step_result:
-            pytest.fail(f"Step failed: {step_result['error']}")
+            pytest.fail(f"Step failed: {step_result['error']}")  # type: ignore[no-untyped-call]
 
         final_menu_state = step_result.get("menu_state")
         final_screen_hash = step_result.get("screen_hash")
@@ -388,7 +388,7 @@ async def test_menu_close_bug_fix_verification():
             print("   This might indicate an actual menu was open and closed")
 
     except Exception as e:
-        pytest.fail(f"Test failed with exception: {e}")
+        pytest.fail(f"Test failed with exception: {e}")  # type: ignore[no-untyped-call]
 
 
 @pytest.mark.asyncio
