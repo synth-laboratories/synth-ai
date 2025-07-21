@@ -7,11 +7,11 @@ import pytest
 from pydantic import BaseModel, Field
 
 from synth_ai.zyk import LM
-from synth_ai.zyk.lms.tools.base import BaseTool
-from synth_ai.zyk.lms.vendors.core.anthropic_api import AnthropicAPI
-from synth_ai.zyk.lms.vendors.core.gemini_api import GeminiAPI
-from synth_ai.zyk.lms.vendors.core.mistral_api import MistralAPI
-from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
+from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
+from synth_ai.lm.vendors.core.gemini_api import GeminiAPI
+from synth_ai.lm.vendors.core.mistral_api import MistralAPI
+from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 
 class WeatherParams(BaseModel):
@@ -73,9 +73,7 @@ def test_weather_tool_oai_direct():
 
 
 def test_weather_tool_oai_lm():
-    lm = LM(
-        model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=0
-    )
+    lm = LM(model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=0)
 
     response = lm.respond_sync(
         system_message="",

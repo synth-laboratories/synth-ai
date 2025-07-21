@@ -1,0 +1,24 @@
+[evaluation]
+# Maximum number of turns per agent
+max_turns = 100
+
+# Number of trajectories per model-difficulty combination  
+trajectories_per_condition = 10
+
+# Difficulty modes to test
+difficulties = ["easy"]
+
+# Models to evaluate
+models = [
+    "gpt-4.1-nano",
+    "gpt-4o-mini"
+]
+
+# Parallel execution settings
+parallel_episodes = true
+timeout_seconds = 300
+
+# Output settings
+show_progress_bars = true
+show_detailed_logging = false
+show_final_table = true 

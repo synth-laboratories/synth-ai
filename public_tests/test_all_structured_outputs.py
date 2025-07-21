@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from synth_ai.zyk import LM, BaseLMResponse
 
+
 class StateUpdate(BaseModel):
     """Response model for state updates from LLM"""
 
@@ -116,8 +117,8 @@ def current_state():
 @pytest.mark.parametrize(
     "model_name",
     [
-       "gpt-4o-mini",
-       "gemini-1.5-flash",
+        "gpt-4o-mini",
+        "gemini-1.5-flash",
         "claude-3-haiku-20240307",
         "deepseek-chat",
         "llama-3.1-8b-instant",
@@ -131,7 +132,7 @@ def test_state_delta_handling(
     state_delta_instructions = """Update the final_results to include findings about code quality issues. Add a recommendation to improve error handling."""
     user_message = f"Current state: {current_state}\nState delta instructions: {state_delta_instructions}\n\nHow should the state be updated?"
 
-    #try:
+    # try:
     result: BaseLMResponse = models[model_name].respond_sync(
         system_message=system_message,
         user_message=user_message,
@@ -165,9 +166,7 @@ def test_state_delta_handling(
         "llama-3.1-8b-instant",
     ],
 )
-def test_state_delta_protected_fields(
-    model_name: str, models: Dict[str, LM], system_message: str
-):
+def test_state_delta_protected_fields(model_name: str, models: Dict[str, LM], system_message: str):
     """Test that models respect protected fields"""
 
     current_state = {
@@ -186,7 +185,7 @@ def test_state_delta_protected_fields(
     state_delta_instructions = """Update the message history to include new findings and update step summaries with recent progress."""
     user_message = f"Current state: {current_state}\nState delta instructions: {state_delta_instructions}\n\nHow should the state be updated?"
 
-    #try:
+    # try:
     result = models[model_name].respond_sync(
         system_message=system_message,
         user_message=user_message,

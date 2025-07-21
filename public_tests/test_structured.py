@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from synth_ai.zyk import LM
 
+
 class Person(BaseModel):
     name: str
     age: int
@@ -35,6 +36,7 @@ def test_openai_structured_lm():
         "hiking",
         "photography",
     }
+
 
 def test_anthropic_structured_lm():
     lm = LM(
@@ -109,6 +111,7 @@ def test_gemini_structured_lm():
         "hiking",
         "photography",
     }
+
 
 def test_mistral_structured_lm():
     lm = LM(

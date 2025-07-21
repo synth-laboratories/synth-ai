@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 
-from synth_ai.zyk.lms.core.main import LM
-from synth_ai.zyk.lms.tools.base import BaseTool
-from synth_ai.zyk.lms.vendors.supported.deepseek import DeepSeekAPI
+from synth_ai.lm.core.main import LM
+from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.supported.deepseek import DeepSeekAPI
 
 
 class WeatherParams(BaseModel):
