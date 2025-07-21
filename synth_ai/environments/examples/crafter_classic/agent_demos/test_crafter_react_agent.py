@@ -23,8 +23,8 @@ from tqdm.asyncio import tqdm_asyncio
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "src"))
 
-from synth_ai.zyk import LM
-from synth_ai.zyk.lms.tools.base import BaseTool
+from synth_ai.lm.core.main import LM
+from synth_ai.lm.tools.base import BaseTool
 import numpy as np
 
 
@@ -111,7 +111,7 @@ class CrafterConfig:
         """Add ft: regex pattern to OpenAI naming regexes if not already present."""
         try:
             import re
-            from synth_ai.zyk.lms.core import vendor_clients
+            from synth_ai.lm.core import vendor_clients
 
             # Check if ft: pattern already exists
             ft_pattern = re.compile(r"^ft:.*$")

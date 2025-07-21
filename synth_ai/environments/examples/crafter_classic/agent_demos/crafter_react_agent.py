@@ -7,8 +7,8 @@ from typing import Dict, Any, List, Optional, Deque, Set, Union
 from pydantic import BaseModel, Field
 from collections import deque
 import toml
-from synth_ai.zyk import LM
-from synth_ai.zyk.lms.tools.base import BaseTool
+from synth_ai.lm.core.main import LM
+from synth_ai.lm.tools.base import BaseTool
 from synth_sdk.tracing.decorators import trace_event_async
 from synth_sdk.tracing.trackers import SynthTracker
 from synth_sdk.tracing.abstractions import RewardSignal, Dataset, TrainingQuestion
