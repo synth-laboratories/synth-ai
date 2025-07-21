@@ -4,16 +4,14 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from synth_ai.zyk.lms.core.main import LM
+from synth_ai.lm.core.main import LM
 from synth_ai.zyk import BaseLMResponse
 
 
 # Define example structured output models
 class SimpleResponse(BaseModel):
     message: str
-    confidence_between_zero_one: float = Field(
-        ..., description="Confidence level between 0 and 1"
-    )
+    confidence_between_zero_one: float = Field(..., description="Confidence level between 0 and 1")
 
 
 class ComplexResponse(BaseModel):
@@ -49,9 +47,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
 
     def test_sync_simple_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
-            with self.subTest(
-                mode=lm.structured_output_handler.handler.structured_output_mode
-            ):
+            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
                 result = lm.respond_sync(
                     system_message="You are a helpful assistant.",
                     user_message="Give me a short greeting and your confidence level.",
@@ -59,21 +55,13 @@ class TestLMStructuredOutputs(unittest.TestCase):
                 )
                 self.assertIsInstance(result.structured_output, SimpleResponse)
                 self.assertIsInstance(result.structured_output.message, str)
-                self.assertIsInstance(
-                    result.structured_output.confidence_between_zero_one, float
-                )
-                self.assertGreaterEqual(
-                    result.structured_output.confidence_between_zero_one, 0
-                )
-                self.assertLessEqual(
-                    result.structured_output.confidence_between_zero_one, 1
-                )
+                self.assertIsInstance(result.structured_output.confidence_between_zero_one, float)
+                self.assertGreaterEqual(result.structured_output.confidence_between_zero_one, 0)
+                self.assertLessEqual(result.structured_output.confidence_between_zero_one, 1)
 
     def test_sync_complex_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
-            with self.subTest(
-                mode=lm.structured_output_handler.handler.structured_output_mode
-            ):
+            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
                 result = lm.respond_sync(
                     system_message="You are a content creator.",
                     user_message="Create a short blog post about AI.",
@@ -91,7 +79,9 @@ class TestLMStructuredOutputs(unittest.TestCase):
             response_model=NestedResponse,
         )
         print("Result:")
-        assert not isinstance(result.structured_output, BaseLMResponse), "Structured output must be a Pydantic model or None - got BaseLMResponse"
+        assert not isinstance(result.structured_output, BaseLMResponse), (
+            "Structured output must be a Pydantic model or None - got BaseLMResponse"
+        )
         self.assertIsInstance(result.structured_output, NestedResponse)
         self.assertIsInstance(result.structured_output.main_category, str)
         self.assertIsInstance(result.structured_output.subcategories, list)
@@ -99,9 +89,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
 
     def test_async_nested_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:  #
-            with self.subTest(
-                mode=lm.structured_output_handler.handler.structured_output_mode
-            ):
+            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
                 asyncio.run(self.async_nested_response(lm))
 
 

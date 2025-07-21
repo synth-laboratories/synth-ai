@@ -142,7 +142,7 @@
 #                 content: str
 #             response = await self.lm.respond_async(
 #                 system_message="""You are an AI assisting a colleague in completing a mathematics problem.
-# You will be given a mathematics problem statement. Your task is to create a detailed plan to solve the problem, 
+# You will be given a mathematics problem statement. Your task is to create a detailed plan to solve the problem,
 # breaking it down into clear, logical steps.""",
 #                 user_message=f"""Please provide a detailed, step-by-step plan to solve this math problem:
 # {math_question}

@@ -73,12 +73,12 @@ async def test_reasoning_effort():
     print(f"High reasoning time: {high_time:.2f} seconds")
     print(f"Low reasoning time: {low_time:.2f} seconds")
     print(
-        f"Difference: {high_time - low_time:.2f} seconds ({(high_time/low_time - 1)*100:.1f}% difference)"
+        f"Difference: {high_time - low_time:.2f} seconds ({(high_time / low_time - 1) * 100:.1f}% difference)"
     )
     print(f"High response length: {len(high_result.raw_response)} characters")
     print(f"Low response length: {len(low_result.raw_response)} characters")
     print(
-        f"Response length ratio: {len(high_result.raw_response)/len(low_result.raw_response):.2f}x"
+        f"Response length ratio: {len(high_result.raw_response) / len(low_result.raw_response):.2f}x"
     )
 
     # Print response samples

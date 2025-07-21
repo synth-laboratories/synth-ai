@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from synth_ai.zyk.lms.core.main import LM
+from synth_ai.lm.core.main import LM
 
 
 # Define example structured output models
@@ -88,11 +88,11 @@ class TestLMStructuredOutputs(unittest.TestCase):
             user_message="Give me a short greeting and your confidence level.",
             response_model=SimpleResponse,
         )
-        self.assertIsInstance(result, SimpleResponse)
-        self.assertIsInstance(result.message, str)
-        self.assertIsInstance(result.confidence, float)
-        self.assertGreaterEqual(result.confidence, 0)
-        self.assertLessEqual(result.confidence, 1)
+        self.assertIsInstance(result.structured_output, SimpleResponse)
+        self.assertIsInstance(result.structured_output.message, str)
+        self.assertIsInstance(result.structured_output.confidence, float)
+        self.assertGreaterEqual(result.structured_output.confidence, 0)
+        self.assertLessEqual(result.structured_output.confidence, 1)
 
     def test_sync_complex_response(self):
         result = self.lm.respond_sync(
@@ -100,10 +100,10 @@ class TestLMStructuredOutputs(unittest.TestCase):
             user_message="Create a short blog post about AI.",
             response_model=ComplexResponse,
         )
-        self.assertIsInstance(result, ComplexResponse)
-        self.assertIsInstance(result.title, str)
-        self.assertIsInstance(result.tags, list)
-        self.assertIsInstance(result.content, str)
+        self.assertIsInstance(result.structured_output, ComplexResponse)
+        self.assertIsInstance(result.structured_output.title, str)
+        self.assertIsInstance(result.structured_output.tags, list)
+        self.assertIsInstance(result.structured_output.content, str)
 
     async def async_nested_response(self):
         result = await self.lm.respond_async(
@@ -111,10 +111,10 @@ class TestLMStructuredOutputs(unittest.TestCase):
             user_message="Categorize 'Python' and provide a brief description.",
             response_model=NestedResponse,
         )
-        self.assertIsInstance(result, NestedResponse)
-        self.assertIsInstance(result.main_category, str)
-        self.assertIsInstance(result.subcategories, list)
-        self.assertIsInstance(result.details, SimpleResponse)
+        self.assertIsInstance(result.structured_output, NestedResponse)
+        self.assertIsInstance(result.structured_output.main_category, str)
+        self.assertIsInstance(result.structured_output.subcategories, list)
+        self.assertIsInstance(result.structured_output.details, SimpleResponse)
 
     def test_async_nested_response(self):
         asyncio.run(self.async_nested_response())
@@ -138,11 +138,11 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
             user_message="Provide detailed information about a fictional employee named John Doe.",
             response_model=NestedPersonResponse,
         )
-        self.assertIsInstance(result, NestedPersonResponse)
-        self.assertIsInstance(result.personal, PersonalInfo)
-        self.assertIsInstance(result.personal.address, Address)
-        self.assertIsInstance(result.work, WorkInfo)
-        self.assertIsInstance(result.skills, list)
+        self.assertIsInstance(result.structured_output, NestedPersonResponse)
+        self.assertIsInstance(result.structured_output.personal, PersonalInfo)
+        self.assertIsInstance(result.structured_output.personal.address, Address)
+        self.assertIsInstance(result.structured_output.work, WorkInfo)
+        self.assertIsInstance(result.structured_output.skills, list)
 
     def test_sync_nested_portfolio_response(self):
         result = self.lm.respond_sync(
@@ -150,13 +150,13 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
             user_message="Create a portfolio for a fictional software developer with multiple projects.",
             response_model=NestedPortfolioResponse,
         )
-        self.assertIsInstance(result, NestedPortfolioResponse)
-        self.assertIsInstance(result.developer, PersonalInfo)
-        self.assertIsInstance(result.developer.address, Address)
-        self.assertIsInstance(result.projects, list)
-        for project in result.projects:
+        self.assertIsInstance(result.structured_output, NestedPortfolioResponse)
+        self.assertIsInstance(result.structured_output.developer, PersonalInfo)
+        self.assertIsInstance(result.structured_output.developer.address, Address)
+        self.assertIsInstance(result.structured_output.projects, list)
+        for project in result.structured_output.projects:
             self.assertIsInstance(project, ProjectDetails)
-        self.assertIsInstance(result.total_experience, int)
+        self.assertIsInstance(result.structured_output.total_experience, int)
 
     async def async_nested_company_response(self):
         result = await self.lm.respond_async(
@@ -164,13 +164,13 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
             user_message="Provide detailed information about a fictional tech company.",
             response_model=NestedCompanyResponse,
         )
-        self.assertIsInstance(result, NestedCompanyResponse)
-        self.assertIsInstance(result.headquarters, Address)
-        self.assertIsInstance(result.employees, list)
-        for employee in result.employees:
+        self.assertIsInstance(result.structured_output, NestedCompanyResponse)
+        self.assertIsInstance(result.structured_output.headquarters, Address)
+        self.assertIsInstance(result.structured_output.employees, list)
+        for employee in result.structured_output.employees:
             self.assertIsInstance(employee, PersonalInfo)
             self.assertIsInstance(employee.address, Address)
-        self.assertIsInstance(result.main_products, list)
+        self.assertIsInstance(result.structured_output.main_products, list)
 
     def test_async_nested_company_response(self):
         asyncio.run(self.async_nested_company_response())

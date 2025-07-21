@@ -1,10 +1,10 @@
 import openai
 
 from synth_ai.zyk import LM
-from synth_ai.zyk.lms.vendors.core.anthropic_api import AnthropicAPI
-from synth_ai.zyk.lms.vendors.core.gemini_api import GeminiAPI
-from synth_ai.zyk.lms.vendors.core.mistral_api import MistralAPI
-from synth_ai.zyk.lms.vendors.openai_standard import OpenAIStandard
+from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
+from synth_ai.lm.vendors.core.gemini_api import GeminiAPI
+from synth_ai.lm.vendors.core.mistral_api import MistralAPI
+from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 TEST_PROMPT = "What is 2+2? Answer with just the number."
 

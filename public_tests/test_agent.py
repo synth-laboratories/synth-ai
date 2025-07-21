@@ -3,7 +3,7 @@ from typing import List, Union
 
 from pydantic import BaseModel
 
-from synth_ai.zyk.lms.core.main import LM
+from synth_ai.lm.core.main import LM
 
 
 class UnitTestDict(BaseModel):
@@ -481,9 +481,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
         user_message = user
 
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
-            with self.subTest(
-                mode=lm.structured_output_handler.handler.structured_output_mode
-            ):
+            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
                 result = lm.respond_sync(
                     system_message=system_message,
                     user_message=user_message,
@@ -504,9 +502,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
         user_message = hard_user
 
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
-            with self.subTest(
-                mode=lm.structured_output_handler.handler.structured_output_mode
-            ):
+            with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
                 result = lm.respond_sync(
                     system_message=system_message,
                     user_message=user_message,
