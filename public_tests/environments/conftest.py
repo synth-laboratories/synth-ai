@@ -18,7 +18,7 @@ def cleanup_instances():
     yield
     # Clean up any leftover instances
     try:
-        from service.core_routes import instances
+        from synth_ai.environments.service.core_routes import instances
 
         instances.clear()
     except ImportError:

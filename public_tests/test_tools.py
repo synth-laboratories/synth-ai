@@ -197,7 +197,7 @@ def test_weather_tool_gemini_lm():
 @pytest.mark.asyncio
 async def test_mistral_tool_async():
     if not os.getenv("MISTRAL_API_KEY"):
-        pytest.skip("MISTRAL_API_KEY not set")
+        pytest.skip("MISTRAL_API_KEY not set")  # type: ignore[no-untyped-call]
 
     client = MistralAPI()
     tool = TestTool()
@@ -234,7 +234,7 @@ async def test_mistral_tool_async():
 
 def test_mistral_tool_sync():
     if not os.getenv("MISTRAL_API_KEY"):
-        pytest.skip("MISTRAL_API_KEY not set")
+        pytest.skip("MISTRAL_API_KEY not set")  # type: ignore[no-untyped-call]
 
     client = MistralAPI()
     tool = TestTool()

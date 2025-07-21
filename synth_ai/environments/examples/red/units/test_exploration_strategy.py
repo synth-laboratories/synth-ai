@@ -79,7 +79,7 @@ async def test_exploration_when_stuck():
         obs_payload = await env.initialize()
 
         if "error" in obs_payload:
-            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")
+            pytest.fail(f"Environment initialization failed: {obs_payload['error']}")  # type: ignore[no-untyped-call]
 
         print("[DEBUG] Environment initialized successfully")
 
