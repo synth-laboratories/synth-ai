@@ -22,7 +22,7 @@ from synth_ai.lm.provider_support.anthropic import Anthropic, AsyncAnthropic
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
 
-__version__ = "0.1.9"
+__version__ = "0.2.1.dev0"
 __all__ = [
     "LM",
     "tracing",

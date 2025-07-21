@@ -131,7 +131,7 @@ class FullCrafterEvalFramework(CrafterEvalFramework):
             CrafterTaskInstanceMetadata,
         )
         from src.synth_env.tasks.core import Impetus, Intent
-        from synth_ai.zyk import LM
+        from synth_ai.lm.core.main import LM
 
         # Create task instance
         metadata = CrafterTaskInstanceMetadata(

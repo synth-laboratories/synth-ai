@@ -14,6 +14,7 @@ import uuid
 
 import pandas as pd
 from tqdm import tqdm
+from synth_ai.lm.core.main import LM
 
 # Achievement categories based on difficulty/complexity
 ACHIEVEMENT_CATEGORIES = {
@@ -247,12 +248,12 @@ class CrafterEvalFramework:
         from src.synth_env.examples.crafter_classic.environment import (
             CrafterClassicEnvironment,
         )
-        from src.synth_env.examples.crafter_classic.taskset import (
+        from synth_ai.environments.examples.crafter_classic.taskset import (
             CrafterTaskInstance,
             CrafterTaskInstanceMetadata,
         )
-        from src.synth_env.tasks.core import Impetus, Intent
-        from synth_ai.zyk import LM
+        from synth_ai.environments.tasks.core import Impetus, Intent
+        # LM import moved to top level
 
         # Create task instance
         metadata = CrafterTaskInstanceMetadata(
