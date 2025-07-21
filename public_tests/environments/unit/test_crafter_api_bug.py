@@ -13,7 +13,7 @@ import pytest
 import asyncio
 import httpx
 import json
-from typing import Dict, Any
+from typing import Dict, Any, AsyncGenerator
 from public_tests.environments.utils import check_service_running
 
 
@@ -26,7 +26,7 @@ class TestCrafterApiBugFix:
         return "http://localhost:8901"
 
     @pytest.fixture
-    async def environment_instance(self, service_url: str) -> str:
+    async def environment_instance(self, service_url: str) -> AsyncGenerator[str, None]:
         """Create a Crafter environment instance for testing."""
         await check_service_running(8901)
         async with httpx.AsyncClient() as client:
