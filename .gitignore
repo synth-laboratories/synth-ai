@@ -12,3 +12,10 @@ private_tests/
 dev/
 build/
 dist/
+
+__pycache__
+
+private_tests
+.ruff_cache
+.pytest_cache
+.claude
