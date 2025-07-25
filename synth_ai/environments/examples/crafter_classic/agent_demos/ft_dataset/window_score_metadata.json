@@ -1,0 +1,134 @@
+{
+  "window_size": 5,
+  "threshold": 1.0,
+  "total_traces": 134,
+  "traces_with_qualifying_windows": 54,
+  "total_windows_extracted": 63,
+  "total_examples": 315,
+  "avg_examples_per_window": 5.0,
+  "window_score_distribution": {
+    "1": 63
+  },
+  "window_details": [
+    {
+      "trace_file": "session_crafter_episode_10_c7da07b3-be4e-42de-b0fe-0b812695dfd6_20250724_160225.json",
+      "window": "[5-9]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_0b92db24-91a6-4c9d-bdf7-dcbe52f821fc_20250724_154446.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_0c046af9-e1d9-4b39-89fe-0d6a8c0947cb_20250724_151053.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_1d1bbea7-0f64-483e-b001-920937143ad4_20250724_164759.json",
+      "window": "[15-19]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_21ec2150-a593-44f8-aa90-501cce61fe3d_20250724_141702.json",
+      "window": "[7-11]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_24103374-3dce-494a-aafd-7729cf797d43_20250724_155323.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_27cc8b74-5c39-4e70-8395-cb91247df9de_20250724_162628.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_2d1037f1-9d9d-4632-b98a-698e099423fa_20250724_151910.json",
+      "window": "[0-4]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_2d1037f1-9d9d-4632-b98a-698e099423fa_20250724_151910.json",
+      "window": "[5-9]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_2fe651b7-bb4a-4f03-bda3-2816405da736_20250724_141119.json",
+      "window": "[6-10]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_311d97a1-48db-46d9-82c4-2bd0e03577a3_20250724_160931.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_311d97a1-48db-46d9-82c4-2bd0e03577a3_20250724_160931.json",
+      "window": "[8-12]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_59fa53c1-e331-44e1-bf12-90f5524f884e_20250724_142335.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_69ba4ca6-a81e-47fa-afd9-6a7c5076865c_20250724_155723.json",
+      "window": "[12-16]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_69c651f4-1806-4083-b5bb-0f4ce0b4e0c2_20250724_165625.json",
+      "window": "[14-18]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_75941062-45ba-4d2c-abe0-cd105d76f57d_20250724_161853.json",
+      "window": "[10-14]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_7956d05e-b5dc-4d5c-aacb-192afe33955f_20250724_140821.json",
+      "window": "[6-10]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_8295f683-e64a-46d7-8a23-1921f9ea111f_20250724_162504.json",
+      "window": "[3-7]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_8cc7f5ea-ce8d-47a9-a484-0b633927fd3b_20250724_142106.json",
+      "window": "[6-10]",
+      "score": 1,
+      "num_examples": 5
+    },
+    {
+      "trace_file": "session_crafter_episode_1_9dde9148-1912-4eab-a22b-ac03ea474a14_20250724_140105.json",
+      "window": "[1-5]",
+      "score": 1,
+      "num_examples": 5
+    }
+  ]
+}

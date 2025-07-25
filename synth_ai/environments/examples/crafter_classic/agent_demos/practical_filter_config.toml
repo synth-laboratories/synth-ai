@@ -1,0 +1,33 @@
+# Practical configuration for filtering Crafter traces
+
+[trajectory_filtering]
+# Include trajectories with 2+ achievements
+score_threshold = 2.0
+
+[window_filtering]
+# 5-turn windows that unlock at least 1 achievement
+window_size = 5
+score_threshold = 1.0
+
+[hook_filtering]
+# If we had hook data, we could filter out invalid actions
+# exclude_hooks = ["invalid_action", "error", "timeout"]
+exclude_hooks = []
+include_hooks = []
+
+[quality_filtering]
+# More practical quality filters for Crafter
+
+# Don't require minimum length since many responses are just tool calls
+min_response_length = 0
+
+# Don't require tool calls (some responses might be reasoning)
+require_tool_calls = false
+
+# Exclude obvious errors or confused responses
+exclude_keywords = ["error occurred", "I apologize", "I cannot"]
+
+[output]
+trajectory_file = "trajectory_practical.jsonl"
+window_file = "window_practical.jsonl"
+metadata_file = "metadata_practical.json"

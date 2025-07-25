@@ -1,0 +1,28 @@
+# Test configuration for filtering with quality checks
+
+[trajectory_filtering]
+score_threshold = 2.0
+
+[window_filtering]
+window_size = 5
+score_threshold = 1.0
+
+[hook_filtering]
+# Since traces don't have hooks_triggered field, we'll skip this for now
+exclude_hooks = []
+include_hooks = []
+
+[quality_filtering]
+# Filter out short responses that might be low quality
+min_response_length = 50
+
+# Require that the agent uses tools (shows it's actually playing)
+require_tool_calls = true
+
+# Exclude responses with certain phrases
+exclude_keywords = ["I don't know", "I'm not sure", "error", "sorry"]
+
+[output]
+trajectory_file = "trajectory_filtered.jsonl"
+window_file = "window_filtered.jsonl"
+metadata_file = "filter_metadata.json"

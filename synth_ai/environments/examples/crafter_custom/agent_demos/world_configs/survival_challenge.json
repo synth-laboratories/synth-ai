@@ -1,0 +1,18 @@
+{
+    "name": "Survival Challenge",
+    "description": "Difficult world with scarce resources and many enemies",
+    "spawn_multipliers": {
+        "tree": 0.3,
+        "coal": 0.2,
+        "iron": 0.2,
+        "diamond": 0.1,
+        "cow": 0.2,
+        "zombie": 5.0,
+        "skeleton": 5.0
+    },
+    "spawn_distances": {
+        "zombie": 3,
+        "skeleton": 3,
+        "cow": 10
+    }
+}

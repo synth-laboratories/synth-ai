@@ -1,0 +1,130 @@
+{
+  "session_metadata": [
+    {
+      "metadata_type": "episode_results",
+      "data": {
+        "num_achievements": 2,
+        "achievements": {
+          "collect_wood": true,
+          "collect_sapling": true
+        }
+      }
+    }
+  ],
+  "event_history": [
+    {
+      "system_instance_id": "crafter-react-agent-001",
+      "time_record": {"message_time": 0},
+      "hooks_triggered": [],
+      "llm_call_records": [
+        {
+          "messages": [
+            {"role": "system", "content": "You are playing Crafter."},
+            {"role": "user", "content": "What do you see?"}
+          ],
+          "response": {
+            "choices": [{
+              "message": {
+                "role": "assistant",
+                "content": "I see grass and trees around me. I should collect wood to start crafting.",
+                "tool_calls": [
+                  {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {
+                      "name": "move",
+                      "arguments": "{\"direction\": \"north\"}"
+                    }
+                  }
+                ]
+              }
+            }]
+          }
+        }
+      ]
+    },
+    {
+      "system_instance_id": "crafter-react-agent-001",
+      "time_record": {"message_time": 1},
+      "hooks_triggered": ["invalid_action"],
+      "llm_call_records": [
+        {
+          "messages": [
+            {"role": "user", "content": "You hit a wall."}
+          ],
+          "response": {
+            "choices": [{
+              "message": {
+                "role": "assistant",
+                "content": "Oops, let me try a different direction.",
+                "tool_calls": [
+                  {
+                    "id": "call_2",
+                    "type": "function",
+                    "function": {
+                      "name": "move",
+                      "arguments": "{\"direction\": \"east\"}"
+                    }
+                  }
+                ]
+              }
+            }]
+          }
+        }
+      ]
+    },
+    {
+      "system_instance_id": "crafter-react-agent-001",
+      "time_record": {"message_time": 2},
+      "hooks_triggered": [],
+      "llm_call_records": [
+        {
+          "messages": [
+            {"role": "user", "content": "You moved east. You see a tree."}
+          ],
+          "response": {
+            "choices": [{
+              "message": {
+                "role": "assistant",
+                "content": "Great! I found a tree. Let me collect wood from it.",
+                "tool_calls": [
+                  {
+                    "id": "call_3",
+                    "type": "function",
+                    "function": {
+                      "name": "interact",
+                      "arguments": "{\"action\": \"chop\"}"
+                    }
+                  }
+                ]
+              }
+            }]
+          }
+        }
+      ]
+    }
+  ],
+  "message_history": [
+    {
+      "time_record": {"message_time": -1},
+      "message_type": "observation",
+      "content": {
+        "payload": {
+          "achievements_status": {}
+        }
+      }
+    },
+    {
+      "time_record": {"message_time": 2},
+      "message_type": "observation",
+      "content": {
+        "payload": {
+          "achievements_status": {
+            "collect_wood": true,
+            "collect_sapling": true
+          }
+        }
+      }
+    }
+  ]
+}

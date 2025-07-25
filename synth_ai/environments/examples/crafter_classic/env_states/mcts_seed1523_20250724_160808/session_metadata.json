@@ -1,0 +1,8 @@
+{
+  "seed": 1523,
+  "timestamp": "20250724_160808",
+  "root_node_id": "601b6f93739a72d263be43da096159789bb1d5b33e278391fcb1e9fa7d467688",
+  "task_id": "f463a0aa-564c-4d92-96bb-27e25e4903f9",
+  "max_depth": 30,
+  "rollouts_per_action": 3
+}

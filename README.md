@@ -26,3 +26,7 @@ pip install synth-ai[research]
 # Full installation with all providers
 pip install synth-ai[all]
 ```
+
+### Spinning Up
+uv run python -m uvicorn synth_ai.environments.service.app:app --host 0.0.0.0 --port 8901
+uvpm synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash

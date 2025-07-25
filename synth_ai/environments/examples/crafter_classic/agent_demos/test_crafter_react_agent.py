@@ -464,6 +464,72 @@ Be strategic and use the map view to find resources! Focus on unlocking achievem
         )
 
 
+def print_termination_breakdown(termination_reasons: List[str]):
+    """Print episode termination breakdown."""
+    print("\n" + "=" * 80)
+    print("🏁 EPISODE TERMINATION BREAKDOWN")
+    print("=" * 80)
+    
+    if not termination_reasons:
+        print("No termination data available.")
+        return
+    
+    # Count termination reasons
+    reason_counts = {}
+    for reason in termination_reasons:
+        reason_counts[reason] = reason_counts.get(reason, 0) + 1
+    
+    # Sort by count descending
+    sorted_reasons = sorted(reason_counts.items(), key=lambda x: x[1], reverse=True)
+    
+    total_episodes = len(termination_reasons)
+    
+    print(f"{'Termination Reason':<40} {'Count':<10} {'Percentage':<12} {'Description'}")
+    print("-" * 80)
+    
+    # Descriptions for different termination types
+    descriptions = {
+        "max_turns_reached": "Episode completed all turns",
+        "death": "Agent died (health <= 0)",
+        "environment_terminated": "Environment ended episode",
+        "no_actions_provided": "Agent failed to provide actions"
+    }
+    
+    for reason, count in sorted_reasons:
+        percentage = (count / total_episodes * 100) if total_episodes > 0 else 0
+        
+        # Parse complex reasons
+        display_reason = reason
+        description = "Other termination reason"
+        
+        if reason == "max_turns_reached":
+            description = descriptions.get(reason, "Episode completed all turns")
+        elif reason == "death":
+            description = descriptions.get(reason, "Agent died (health <= 0)")
+        elif reason == "environment_terminated":
+            description = descriptions.get(reason, "Environment ended episode")
+        elif reason.startswith("agent_terminate:"):
+            display_reason = "agent_terminate"
+            description = f"Agent chose to quit: {reason.split(':', 1)[1][:30]}"
+        elif reason.startswith("http_error:"):
+            display_reason = "http_error"
+            description = f"API request failed: {reason.split(':', 1)[1]}"
+        elif reason.startswith("exception:"):
+            display_reason = "exception"
+            description = f"Runtime error: {reason.split(':', 1)[1][:30]}"
+        elif reason.startswith("outer_exception:"):
+            display_reason = "outer_exception"
+            description = f"Fatal error: {reason.split(':', 1)[1][:30]}"
+        elif reason == "no_actions_provided":
+            description = descriptions.get(reason, "Agent failed to provide actions")
+        
+        print(f"{display_reason:<40} {count:<10} {percentage:<11.1f}% {description}")
+    
+    print("-" * 80)
+    print(f"{'TOTAL':<40} {total_episodes:<10} {'100.0%':<11}")
+    print("=" * 80)
+
+
 # --- Episode Runner ---
 async def run_single_episode(
     client: AsyncClient, agent: CrafterReActAgent, task_instance, instance_num: int
@@ -496,9 +562,9 @@ async def run_single_episode(
         formatted_obs = agent.format_observation(obs)
 
         # DEBUG: Print initial state (minimal)
-        print(
-            f"\n  Instance {instance_num}: Starting Crafter survival ({task_instance.metadata.difficulty}, {agent.max_turns} turns max)"
-        )
+        # print(
+        #     f"\n  Instance {instance_num}: Starting Crafter survival ({task_instance.metadata.difficulty}, {agent.max_turns} turns max)"
+        # )
 
         # Track episode metrics
         total_reward = 0.0
@@ -506,6 +572,7 @@ async def run_single_episode(
         num_achievements = 0
         terminated = False
         rollout_length = 0
+        termination_reason = "max_turns_reached"  # Default assumption
 
         # Run episode
         for turn in range(agent.max_turns):
@@ -528,6 +595,7 @@ async def run_single_episode(
                     reason = action.get("parameters", {}).get(
                         "reason", action.get("arguments", {}).get("reason", "no reason given")
                     )
+                    termination_reason = f"agent_terminate: {reason}"
                     print(f"  Agent terminated: {reason}")
                     break
 
@@ -537,7 +605,8 @@ async def run_single_episode(
                 )
                 if not action_sequence:
                     print(f"  ⚠️  No actions found in: {action}")
-                    continue
+                    termination_reason = "no_actions_provided"
+                    break
 
                 # Convert action names to integers using the proper action map
                 # Define the proper Crafter action mapping
@@ -586,6 +655,7 @@ async def run_single_episode(
                         print(
                             f"    ❌ Action {i + 1} failed: {step_resp.status_code}: {step_resp.text}"
                         )
+                        termination_reason = f"http_error: {step_resp.status_code}"
                         break
 
                     # Update observation after each action
@@ -593,6 +663,7 @@ async def run_single_episode(
 
                 # Check final response status
                 if step_resp.status_code != 200:
+                    termination_reason = f"http_error: {step_resp.status_code}"
                     break
 
                 # Show final state after all actions
@@ -620,6 +691,12 @@ async def run_single_episode(
                 num_achievements = sum(1 for v in achievements.values() if v) if achievements else 0
 
                 if terminated:
+                    # Check if it's death or other environment termination
+                    health = obs.get("health", 9)  # Default health value
+                    if health <= 0:
+                        termination_reason = "death"
+                    else:
+                        termination_reason = "environment_terminated"
                     print(
                         f"  ✅ Instance {instance_num}: Episode completed! Achievements: {num_achievements}, Total reward: {total_reward:.3f}"
                     )
@@ -627,6 +704,7 @@ async def run_single_episode(
 
             except Exception as e:
                 print(f"  ❌ Error in turn {turn + 1}: {e}")
+                termination_reason = f"exception: {str(e)[:50]}"
                 import traceback
 
                 traceback.print_exc()
@@ -711,6 +789,7 @@ async def run_single_episode(
             "achievements": final_achievements,
             "rollout_length": rollout_length,
             "terminated": terminated,
+            "termination_reason": termination_reason,
             "error": False,
         }
 
@@ -725,6 +804,7 @@ async def run_single_episode(
             "total_reward": 0.0,
             "num_achievements": 0,
             "terminated": False,
+            "termination_reason": f"outer_exception: {str(e)[:50]}",
             "error": True,
         }
 
@@ -773,17 +853,17 @@ async def evaluate_crafter_batch() -> Dict[str, Any]:
     async with AsyncClient(
         base_url=config.service_base_url, timeout=config.service_timeout
     ) as client:
-        # Run trajectories in parallel batches of 4
-        batch_size = 4
+        # Run trajectories in parallel batches of 10
+        batch_size = 10
         all_results = []
 
         for batch_start in range(0, len(easy_task_instances), batch_size):
             batch_end = min(batch_start + batch_size, len(easy_task_instances))
             batch_instances = easy_task_instances[batch_start:batch_end]
 
-            print(
-                f"  🚀 Running batch {batch_start // batch_size + 1} ({len(batch_instances)} episodes)..."
-            )
+            # print(
+            #     f"  🚀 Running batch {batch_start // batch_size + 1} ({len(batch_instances)} episodes)..."
+            # )
 
             # Create tasks for this batch
             batch_tasks = []
@@ -804,7 +884,14 @@ async def evaluate_crafter_batch() -> Dict[str, Any]:
         results = all_results
 
         # Filter out error results
-        valid_results = [r for r in results if not r.get("error", False)]
+        valid_results = []
+        all_termination_reasons = []
+        for r in results:
+            if r.get("error", False):
+                all_termination_reasons.append(r.get("termination_reason", "unknown_error"))
+                continue
+            valid_results.append(r)
+            all_termination_reasons.append(r.get("termination_reason", "unknown"))
 
         if not valid_results:
             return {
@@ -891,6 +978,7 @@ async def evaluate_crafter_batch() -> Dict[str, Any]:
             "q2_rollout": q2_rollout,
             "p90_rollout": p90_rollout,
             "max_rollout": max_rollout,
+            "termination_reasons": all_termination_reasons,
         }
 
 
@@ -898,10 +986,11 @@ async def main():
     """Run Crafter evaluation."""
     # Configure logging to reduce verbosity
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("google_genai").setLevel(logging.WARNING)
-    logging.getLogger("google.generativeai").setLevel(logging.WARNING)
-    logging.getLogger("google_genai.models").setLevel(logging.WARNING)
-    logging.getLogger("google_genai.types").setLevel(logging.WARNING)
+    logging.getLogger("google_genai").setLevel(logging.ERROR)
+    logging.getLogger("google.generativeai").setLevel(logging.ERROR)
+    logging.getLogger("google_genai.models").setLevel(logging.ERROR)
+    logging.getLogger("google_genai.types").setLevel(logging.ERROR)
+    logging.getLogger("google_genai._api_client").setLevel(logging.ERROR)
 
     print(f"🎮 Crafter ReAct Agent Evaluation")
     print(f"Model: {config.model_name}")
@@ -1014,6 +1103,11 @@ async def main():
         else:
             print("📈 Learning phase - focus on basic survival and resource gathering")
 
+        # Display termination breakdown
+        termination_reasons = results.get("termination_reasons", [])
+        if termination_reasons:
+            print_termination_breakdown(termination_reasons)
+
         # Output markdown table row for README collation
         print(f"\n📋 MARKDOWN TABLE ROW:")
         print(
@@ -1049,6 +1143,8 @@ async def main():
 
 
 if __name__ == "__main__":
+    
+
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Run Crafter ReAct Agent Evaluation")
     parser.add_argument("--config", "-c", type=str, help="Path to TOML configuration file")

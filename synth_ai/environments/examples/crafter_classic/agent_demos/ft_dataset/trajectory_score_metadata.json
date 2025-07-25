@@ -1,0 +1,161 @@
+{
+  "threshold": 2.0,
+  "total_traces": 134,
+  "included_traces": 15,
+  "excluded_traces": 119,
+  "yield_rate": 11.194029850746269,
+  "total_examples": 285,
+  "avg_examples_per_trace": 19.0,
+  "score_distribution": {
+    "1": 50,
+    "0": 69,
+    "3": 1,
+    "2": 14
+  },
+  "achievement_distribution": {
+    "collect_wood": 46,
+    "collect_sapling": 30,
+    "make_wood_pickaxe": 1,
+    "place_table": 1,
+    "collect_drink": 2,
+    "defeat_skeleton": 1
+  },
+  "included_trace_details": [
+    {
+      "trace_file": "session_crafter_episode_1_2d1037f1-9d9d-4632-b98a-698e099423fa_20250724_151910.json",
+      "score": 3.0,
+      "num_llm_calls": 10,
+      "achievements": [
+        "collect_wood",
+        "make_wood_pickaxe",
+        "place_table"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_1_311d97a1-48db-46d9-82c4-2bd0e03577a3_20250724_160931.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_1_a980fb09-e347-49d3-920f-fce83412064c_20250724_142700.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_1_c5fdc9e3-01d4-460a-8b26-fbe849e93c53_20250724_141544.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_1_de01654b-b889-4468-ba33-c543003197cc_20250724_161317.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_1_f2cea96d-34b6-46a3-9991-fe74ef263462_20250724_162140.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_2_0cb90e0a-0fed-47cc-aad4-cd3018b2305d_20250724_164807.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_2_35efe35f-a51a-47f6-82d3-969ce5993ee2_20250724_165629.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_drink",
+        "defeat_skeleton"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_2_73367d88-7751-48d5-b777-5c77df7b7dc3_20250724_155935.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_2_82554643-9bba-434f-bb19-ff3caae8a22f_20250724_160930.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_2_ef5603a6-8019-48b3-8b3a-a6c41f289b2d_20250724_165050.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_3_1b2e0f69-0038-4ba6-9f36-7a5cb9fa2e83_20250724_170412.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_3_56a314e3-0bd4-4a29-96e2-e65e3b50bd4f_20250724_160930.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_7_7835a905-3f17-4526-ad1c-b97e9db29500_20250724_160133.json",
+      "score": 2.0,
+      "num_llm_calls": 20,
+      "achievements": [
+        "collect_sapling",
+        "collect_wood"
+      ]
+    },
+    {
+      "trace_file": "session_crafter_episode_8_29731393-2461-4e9a-a33c-f4575b5910fe_20250724_160128.json",
+      "score": 2.0,
+      "num_llm_calls": 15,
+      "achievements": [
+        "collect_drink",
+        "collect_wood"
+      ]
+    }
+  ]
+}

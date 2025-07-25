@@ -1,0 +1,3198 @@
+{
+  "session_id": "crafter_episode_1_a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+  "session_metadata": [
+    {
+      "metadata_type": "episode_config",
+      "data": {
+        "instance_num": 1,
+        "task_instance_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+        "difficulty": "easy",
+        "max_turns": 4,
+        "model_name": "gpt-4o-mini",
+        "agent_type": "crafter-react-agent"
+      },
+      "timestamp": "2025-07-25T12:25:11.021791"
+    },
+    {
+      "metadata_type": "system_ids",
+      "data": {
+        "agent": "2515ee99-ccc4-4845-bedb-f79709ce73bd",
+        "runtime": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "environment": "a638a2a2-c41f-45dc-afeb-3689ea301e6b"
+      },
+      "timestamp": "2025-07-25T12:25:11.021831"
+    },
+    {
+      "metadata_type": "episode_results",
+      "data": {
+        "total_reward": 0.0,
+        "num_achievements": 0,
+        "achievements": {
+          "collect_coal": false,
+          "collect_diamond": false,
+          "collect_drink": false,
+          "collect_iron": false,
+          "collect_sapling": false,
+          "collect_stone": false,
+          "collect_wood": false,
+          "defeat_skeleton": false,
+          "defeat_zombie": false,
+          "eat_cow": false,
+          "eat_plant": false,
+          "make_iron_pickaxe": false,
+          "make_iron_sword": false,
+          "make_stone_pickaxe": false,
+          "make_stone_sword": false,
+          "make_wood_pickaxe": false,
+          "make_wood_sword": false,
+          "place_furnace": false,
+          "place_plant": false,
+          "place_stone": false,
+          "place_table": false,
+          "wake_up": false
+        },
+        "rollout_length": 10,
+        "terminated": false
+      },
+      "timestamp": "2025-07-25T12:25:38.383061"
+    }
+  ],
+  "message_history": [
+    {
+      "content": {
+        "origin_system_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 274871,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "timestamp": "2025-07-25T12:25:11.997503",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:11.997492",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "2515ee99-ccc4-4845-bedb-f79709ce73bd",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_up",
+                "move_up",
+                "move_left",
+                "move_left",
+                "move_down"
+              ],
+              "reasoning": "Moving up and left to explore the area for potential resources, as the current position only has grass."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-25T12:25:13.666591",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.666586",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:13.667516",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.667511",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:13.667521",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.667519",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 1,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:13.667524",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.667523",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 1,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:13.667527",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.667526",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 4,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:13.667530",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.667529",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            30,
+            30
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 4,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 476770,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "timestamp": "2025-07-25T12:25:19.840146",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:19.840138",
+        "message_time": 1
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "2515ee99-ccc4-4845-bedb-f79709ce73bd",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_left",
+                "do"
+              ],
+              "reasoning": "Moving left to the tree to collect wood."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-25T12:25:21.840772",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:21.840765",
+        "message_time": 1
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 1,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:21.842728",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:21.842719",
+        "message_time": 1
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 5,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:21.842737",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:21.842734",
+        "message_time": 1
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            29,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 6,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 180501,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "timestamp": "2025-07-25T12:25:29.165395",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:29.165384",
+        "message_time": 2
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "2515ee99-ccc4-4845-bedb-f79709ce73bd",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_left",
+                "do"
+              ],
+              "reasoning": "Moving left to the tree to collect wood."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-25T12:25:30.684536",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:30.684533",
+        "message_time": 2
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 1,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:30.685403",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:30.685401",
+        "message_time": 2
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 5,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:30.685406",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:30.685405",
+        "message_time": 2
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            28,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 8,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater grass grass grass grass grass tree\nsand grass tree tree grass grass grass\nsand tree grass grass grass grass grass\ntree grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 173004,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "timestamp": "2025-07-25T12:25:31.048361",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:31.048353",
+        "message_time": 3
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "2515ee99-ccc4-4845-bedb-f79709ce73bd",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_left",
+                "do"
+              ],
+              "reasoning": "Moving left to collect wood from the tree."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-25T12:25:32.143535",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:32.143528",
+        "message_time": 3
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 1,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:32.145387",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:32.145376",
+        "message_time": 3
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "915e542c-5b41-478b-b386-a5c471e3fcfc",
+        "payload": {
+          "action": 5,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T12:25:32.145396",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T12:25:32.145393",
+        "message_time": 3
+      }
+    }
+  ],
+  "event_history": [
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:13.666547",
+        "message_time": 0
+      },
+      "system_instance_id": "crafter-react-agent_gpt-4o-mini",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_Jk4zqzofZdi7hVJVN36RXphe",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_left\",\"move_left\",\"move_down\"],\"reasoning\":\"Moving up and left to explore the area for potential resources, as the current position only has grass.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 2/4\n\nCrafter Game State:\nStep: 4\nHealth: 9\nPosition: [30, 30]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass tree grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_JdlnqK5t8rrChkNVFvCkBt8M",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 3/4\n\nCrafter Game State:\nStep: 6\nHealth: 9\nPosition: [29, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ntree tree grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_ddMSmNbcLFGBNcL1LFFdcpB2",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 4/4\n\nCrafter Game State:\nStep: 8\nHealth: 9\nPosition: [28, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass tree tree grass grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_uyCybJIYCSXe7Ur0SarODF2N",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to collect wood from the tree.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 4,
+        "total_tokens_used": 0,
+        "tool_calls_made": 0,
+        "current_turn": 0
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_Jk4zqzofZdi7hVJVN36RXphe",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_left\",\"move_left\",\"move_down\"],\"reasoning\":\"Moving up and left to explore the area for potential resources, as the current position only has grass.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 2/4\n\nCrafter Game State:\nStep: 4\nHealth: 9\nPosition: [30, 30]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass tree grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_JdlnqK5t8rrChkNVFvCkBt8M",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 3/4\n\nCrafter Game State:\nStep: 6\nHealth: 9\nPosition: [29, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ntree tree grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_ddMSmNbcLFGBNcL1LFFdcpB2",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          },
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 4/4\n\nCrafter Game State:\nStep: 8\nHealth: 9\nPosition: [28, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass tree tree grass grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_uyCybJIYCSXe7Ur0SarODF2N",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to collect wood from the tree.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 4,
+        "total_tokens_used": 840,
+        "tool_calls_made": 1,
+        "current_turn": 0
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-4o-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-BxIKWBpuY7Aqavas8kyGoMW8bksVO",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_Jk4zqzofZdi7hVJVN36RXphe",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_left\",\"move_left\",\"move_down\"],\"reasoning\":\"Moving up and left to explore the area for potential resources, as the current position only has grass.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 788,
+              "completion_tokens": 52,
+              "total_tokens": 840
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-4o-mini",
+        "prompt_tokens": 788,
+        "completion_tokens": 52,
+        "total_tokens": 840,
+        "turn": 0
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:19.835265",
+        "message_time": 0
+      },
+      "system_instance_id": "runtime",
+      "system_state_before": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 274871,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "system_state_after": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            30,
+            30
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 4,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 476770,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "actions": [
+        3,
+        3,
+        1,
+        1,
+        4
+      ],
+      "metadata": {
+        "action_names": [
+          "move_up",
+          "move_up",
+          "move_left",
+          "move_left",
+          "move_down"
+        ],
+        "action_reasoning": "Moving up and left to explore the area for potential resources, as the current position only has grass.",
+        "turn": 0
+      },
+      "event_metadata": [
+        {
+          "hook_name": "invalid_action",
+          "description": "Invalid move_up: Expected position change [0, -1], got [-2, -2]",
+          "data": {
+            "action": "move_up",
+            "reason": "Expected position change [0, -1], got [-2, -2]",
+            "before_state": {
+              "inventory": {
+                "health": 9,
+                "food": 9,
+                "drink": 9,
+                "energy": 9,
+                "sapling": 0,
+                "wood": 0,
+                "stone": 0,
+                "coal": 0,
+                "iron": 0,
+                "diamond": 0,
+                "wood_pickaxe": 0,
+                "stone_pickaxe": 0,
+                "iron_pickaxe": 0,
+                "wood_sword": 0,
+                "stone_sword": 0,
+                "iron_sword": 0
+              },
+              "achievements_status": {
+                "collect_coal": false,
+                "collect_diamond": false,
+                "collect_drink": false,
+                "collect_iron": false,
+                "collect_sapling": false,
+                "collect_stone": false,
+                "collect_wood": false,
+                "defeat_skeleton": false,
+                "defeat_zombie": false,
+                "eat_cow": false,
+                "eat_plant": false,
+                "make_iron_pickaxe": false,
+                "make_iron_sword": false,
+                "make_stone_pickaxe": false,
+                "make_stone_sword": false,
+                "make_wood_pickaxe": false,
+                "make_wood_sword": false,
+                "place_furnace": false,
+                "place_plant": false,
+                "place_stone": false,
+                "place_table": false,
+                "wake_up": false
+              },
+              "player_position": [
+                32,
+                32
+              ],
+              "player_direction": [
+                0,
+                1
+              ],
+              "num_steps_taken": 0,
+              "max_steps_episode": 10000,
+              "error_info": null,
+              "reward_last_step": 0.0,
+              "total_reward_episode": 0.0,
+              "terminated": false,
+              "truncated": false,
+              "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+              "observation_image_shape": [
+                64,
+                64,
+                3
+              ],
+              "observation_image_size_kb": 12.0,
+              "observation_image_hash": 274871,
+              "world_material_map_shape": [
+                64,
+                64
+              ],
+              "world_material_map_size_kb": 4.0,
+              "world_material_map_hash": 978630
+            },
+            "after_state": {
+              "inventory": {
+                "health": 9,
+                "food": 9,
+                "drink": 9,
+                "energy": 9,
+                "sapling": 0,
+                "wood": 0,
+                "stone": 0,
+                "coal": 0,
+                "iron": 0,
+                "diamond": 0,
+                "wood_pickaxe": 0,
+                "stone_pickaxe": 0,
+                "iron_pickaxe": 0,
+                "wood_sword": 0,
+                "stone_sword": 0,
+                "iron_sword": 0
+              },
+              "achievements_status": {
+                "collect_coal": false,
+                "collect_diamond": false,
+                "collect_drink": false,
+                "collect_iron": false,
+                "collect_sapling": false,
+                "collect_stone": false,
+                "collect_wood": false,
+                "defeat_skeleton": false,
+                "defeat_zombie": false,
+                "eat_cow": false,
+                "eat_plant": false,
+                "make_iron_pickaxe": false,
+                "make_iron_sword": false,
+                "make_stone_pickaxe": false,
+                "make_stone_sword": false,
+                "make_wood_pickaxe": false,
+                "make_wood_sword": false,
+                "place_furnace": false,
+                "place_plant": false,
+                "place_stone": false,
+                "place_table": false,
+                "wake_up": false
+              },
+              "player_position": [
+                30,
+                30
+              ],
+              "player_direction": [
+                -1,
+                0
+              ],
+              "num_steps_taken": 4,
+              "max_steps_episode": 10000,
+              "error_info": null,
+              "reward_last_step": 0.0,
+              "total_reward_episode": 0.0,
+              "terminated": false,
+              "truncated": false,
+              "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+              "observation_image_shape": [
+                64,
+                64,
+                3
+              ],
+              "observation_image_size_kb": 12.0,
+              "observation_image_hash": 476770,
+              "world_material_map_shape": [
+                64,
+                64
+              ],
+              "world_material_map_size_kb": 4.0,
+              "world_material_map_hash": 978630
+            }
+          },
+          "timestamp": "2025-07-25T12:25:19.835322",
+          "code": "X",
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:19.835696",
+        "message_time": 0
+      },
+      "system_instance_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+      "system_state_before": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 274871,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "system_state_after": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            30,
+            30
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 4,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 476770,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {
+        "actions_executed": [
+          "move_up",
+          "move_up",
+          "move_left",
+          "move_left",
+          "move_down"
+        ],
+        "turn": 0
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:21.840717",
+        "message_time": 1
+      },
+      "system_instance_id": "crafter-react-agent_gpt-4o-mini",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 2/4\n\nCrafter Game State:\nStep: 4\nHealth: 9\nPosition: [30, 30]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass tree grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          }
+        ],
+        "steps_taken": 1,
+        "steps_remaining": 3,
+        "total_tokens_used": 840,
+        "tool_calls_made": 1,
+        "current_turn": 1
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "user",
+            "content": "Turn 2/4\n\nCrafter Game State:\nStep: 4\nHealth: 9\nPosition: [30, 30]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass tree grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_JdlnqK5t8rrChkNVFvCkBt8M",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 1,
+        "steps_remaining": 3,
+        "total_tokens_used": 1661,
+        "tool_calls_made": 2,
+        "current_turn": 1
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-4o-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 2/4\n\nCrafter Game State:\nStep: 4\nHealth: 9\nPosition: [30, 30]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass tree grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-BxIKeC3nEqc2uG1Wt2idxZwXrP2BU",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_JdlnqK5t8rrChkNVFvCkBt8M",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 790,
+              "completion_tokens": 31,
+              "total_tokens": 821
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-4o-mini",
+        "prompt_tokens": 790,
+        "completion_tokens": 31,
+        "total_tokens": 821,
+        "turn": 1
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:29.162119",
+        "message_time": 0
+      },
+      "system_instance_id": "runtime",
+      "system_state_before": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            30,
+            30
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 4,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 476770,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "system_state_after": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            29,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 6,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 180501,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "actions": [
+        1,
+        5
+      ],
+      "metadata": {
+        "action_names": [
+          "move_left",
+          "do"
+        ],
+        "action_reasoning": "Moving left to the tree to collect wood.",
+        "turn": 1
+      },
+      "event_metadata": [
+        {
+          "hook_name": "invalid_action",
+          "description": "Invalid move_left: Expected position change [-1, 0], got [-1, 1]",
+          "data": {
+            "action": "move_left",
+            "reason": "Expected position change [-1, 0], got [-1, 1]",
+            "before_state": {
+              "inventory": {
+                "health": 9,
+                "food": 9,
+                "drink": 9,
+                "energy": 9,
+                "sapling": 0,
+                "wood": 0,
+                "stone": 0,
+                "coal": 0,
+                "iron": 0,
+                "diamond": 0,
+                "wood_pickaxe": 0,
+                "stone_pickaxe": 0,
+                "iron_pickaxe": 0,
+                "wood_sword": 0,
+                "stone_sword": 0,
+                "iron_sword": 0
+              },
+              "achievements_status": {
+                "collect_coal": false,
+                "collect_diamond": false,
+                "collect_drink": false,
+                "collect_iron": false,
+                "collect_sapling": false,
+                "collect_stone": false,
+                "collect_wood": false,
+                "defeat_skeleton": false,
+                "defeat_zombie": false,
+                "eat_cow": false,
+                "eat_plant": false,
+                "make_iron_pickaxe": false,
+                "make_iron_sword": false,
+                "make_stone_pickaxe": false,
+                "make_stone_sword": false,
+                "make_wood_pickaxe": false,
+                "make_wood_sword": false,
+                "place_furnace": false,
+                "place_plant": false,
+                "place_stone": false,
+                "place_table": false,
+                "wake_up": false
+              },
+              "player_position": [
+                30,
+                30
+              ],
+              "player_direction": [
+                -1,
+                0
+              ],
+              "num_steps_taken": 4,
+              "max_steps_episode": 10000,
+              "error_info": null,
+              "reward_last_step": 0.0,
+              "total_reward_episode": 0.0,
+              "terminated": false,
+              "truncated": false,
+              "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+              "observation_image_shape": [
+                64,
+                64,
+                3
+              ],
+              "observation_image_size_kb": 12.0,
+              "observation_image_hash": 476770,
+              "world_material_map_shape": [
+                64,
+                64
+              ],
+              "world_material_map_size_kb": 4.0,
+              "world_material_map_hash": 978630
+            },
+            "after_state": {
+              "inventory": {
+                "health": 9,
+                "food": 9,
+                "drink": 9,
+                "energy": 9,
+                "sapling": 0,
+                "wood": 0,
+                "stone": 0,
+                "coal": 0,
+                "iron": 0,
+                "diamond": 0,
+                "wood_pickaxe": 0,
+                "stone_pickaxe": 0,
+                "iron_pickaxe": 0,
+                "wood_sword": 0,
+                "stone_sword": 0,
+                "iron_sword": 0
+              },
+              "achievements_status": {
+                "collect_coal": false,
+                "collect_diamond": false,
+                "collect_drink": false,
+                "collect_iron": false,
+                "collect_sapling": false,
+                "collect_stone": false,
+                "collect_wood": false,
+                "defeat_skeleton": false,
+                "defeat_zombie": false,
+                "eat_cow": false,
+                "eat_plant": false,
+                "make_iron_pickaxe": false,
+                "make_iron_sword": false,
+                "make_stone_pickaxe": false,
+                "make_stone_sword": false,
+                "make_wood_pickaxe": false,
+                "make_wood_sword": false,
+                "place_furnace": false,
+                "place_plant": false,
+                "place_stone": false,
+                "place_table": false,
+                "wake_up": false
+              },
+              "player_position": [
+                29,
+                31
+              ],
+              "player_direction": [
+                -1,
+                0
+              ],
+              "num_steps_taken": 6,
+              "max_steps_episode": 10000,
+              "error_info": null,
+              "reward_last_step": 0.0,
+              "total_reward_episode": 0.0,
+              "terminated": false,
+              "truncated": false,
+              "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+              "observation_image_shape": [
+                64,
+                64,
+                3
+              ],
+              "observation_image_size_kb": 12.0,
+              "observation_image_hash": 180501,
+              "world_material_map_shape": [
+                64,
+                64
+              ],
+              "world_material_map_size_kb": 4.0,
+              "world_material_map_hash": 978630
+            }
+          },
+          "timestamp": "2025-07-25T12:25:29.162155",
+          "code": "X",
+          "priority": 2
+        }
+      ]
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:29.162322",
+        "message_time": 1
+      },
+      "system_instance_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+      "system_state_before": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            30,
+            30
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 4,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass tree grass grass grass\ngrass grass grass grass tree grass grass\ntree tree grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 476770,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "system_state_after": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            29,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 6,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 180501,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {
+        "actions_executed": [
+          "move_left",
+          "do"
+        ],
+        "turn": 1
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:30.684510",
+        "message_time": 2
+      },
+      "system_instance_id": "crafter-react-agent_gpt-4o-mini",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 3/4\n\nCrafter Game State:\nStep: 6\nHealth: 9\nPosition: [29, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ntree tree grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          }
+        ],
+        "steps_taken": 2,
+        "steps_remaining": 2,
+        "total_tokens_used": 1661,
+        "tool_calls_made": 2,
+        "current_turn": 2
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "user",
+            "content": "Turn 3/4\n\nCrafter Game State:\nStep: 6\nHealth: 9\nPosition: [29, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ntree tree grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_ddMSmNbcLFGBNcL1LFFdcpB2",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 2,
+        "steps_remaining": 2,
+        "total_tokens_used": 2482,
+        "tool_calls_made": 3,
+        "current_turn": 2
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-4o-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 3/4\n\nCrafter Game State:\nStep: 6\nHealth: 9\nPosition: [29, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ntree tree grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-BxIKng2gyGnfwHIWyQLy0LMP76ok9",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_ddMSmNbcLFGBNcL1LFFdcpB2",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to the tree to collect wood.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 790,
+              "completion_tokens": 31,
+              "total_tokens": 821
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-4o-mini",
+        "prompt_tokens": 790,
+        "completion_tokens": 31,
+        "total_tokens": 821,
+        "turn": 2
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:31.044321",
+        "message_time": 0
+      },
+      "system_instance_id": "runtime",
+      "system_state_before": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            29,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 6,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 180501,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "system_state_after": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            28,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 8,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater grass grass grass grass grass tree\nsand grass tree tree grass grass grass\nsand tree grass grass grass grass grass\ntree grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 173004,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "actions": [
+        1,
+        5
+      ],
+      "metadata": {
+        "action_names": [
+          "move_left",
+          "do"
+        ],
+        "action_reasoning": "Moving left to the tree to collect wood.",
+        "turn": 2
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:31.044374",
+        "message_time": 2
+      },
+      "system_instance_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+      "system_state_before": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            29,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 6,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass tree grass\ngrass tree tree grass grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 180501,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "system_state_after": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            28,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 8,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater grass grass grass grass grass tree\nsand grass tree tree grass grass grass\nsand tree grass grass grass grass grass\ntree grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 173004,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {
+        "actions_executed": [
+          "move_left",
+          "do"
+        ],
+        "turn": 2
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:32.143491",
+        "message_time": 3
+      },
+      "system_instance_id": "crafter-react-agent_gpt-4o-mini",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 4/4\n\nCrafter Game State:\nStep: 8\nHealth: 9\nPosition: [28, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass tree tree grass grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          }
+        ],
+        "steps_taken": 3,
+        "steps_remaining": 1,
+        "total_tokens_used": 2482,
+        "tool_calls_made": 3,
+        "current_turn": 3
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/4\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          "... truncated ...",
+          {
+            "role": "user",
+            "content": "Turn 4/4\n\nCrafter Game State:\nStep: 8\nHealth: 9\nPosition: [28, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass tree tree grass grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_uyCybJIYCSXe7Ur0SarODF2N",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to collect wood from the tree.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 3,
+        "steps_remaining": 1,
+        "total_tokens_used": 3303,
+        "tool_calls_made": 4,
+        "current_turn": 3
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-4o-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 4/4\n\nCrafter Game State:\nStep: 8\nHealth: 9\nPosition: [28, 31]\nDirection: [-1, 0]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass tree tree grass grass\ntree grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass, tree\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-BxIKpMRWRL4ozMeFyrHxdrgvXaWe7",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_uyCybJIYCSXe7Ur0SarODF2N",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_left\",\"do\"],\"reasoning\":\"Moving left to collect wood from the tree.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 790,
+              "completion_tokens": 31,
+              "total_tokens": 821
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-4o-mini",
+        "prompt_tokens": 790,
+        "completion_tokens": 31,
+        "total_tokens": 821,
+        "turn": 3
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:33.656366",
+        "message_time": 0
+      },
+      "system_instance_id": "runtime",
+      "system_state_before": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            28,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 8,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater grass grass grass grass grass tree\nsand grass tree tree grass grass grass\nsand tree grass grass grass grass grass\ntree grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 173004,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "system_state_after": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            27,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 10,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater water grass grass grass grass grass\nsand sand grass tree tree grass grass\nsand sand tree grass grass grass grass\nsand tree grass player grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 787715,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        }
+      },
+      "actions": [
+        1,
+        5
+      ],
+      "metadata": {
+        "action_names": [
+          "move_left",
+          "do"
+        ],
+        "action_reasoning": "Moving left to collect wood from the tree.",
+        "turn": 3
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T12:25:33.656446",
+        "message_time": 3
+      },
+      "system_instance_id": "a638a2a2-c41f-45dc-afeb-3689ea301e6b",
+      "system_state_before": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            28,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 8,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater grass grass grass grass grass tree\nsand grass tree tree grass grass grass\nsand tree grass grass grass grass grass\ntree grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 173004,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "system_state_after": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            27,
+            31
+          ],
+          "player_direction": [
+            -1,
+            0
+          ],
+          "num_steps_taken": 10,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\nwater water grass grass grass grass grass\nsand sand grass tree tree grass grass\nsand sand tree grass grass grass grass\nsand tree grass player grass grass grass\ntree grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, sand, tree, water",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "observation_image_size_kb": 12.0,
+          "observation_image_hash": 787715,
+          "world_material_map_shape": [
+            64,
+            64
+          ],
+          "world_material_map_size_kb": 4.0,
+          "world_material_map_hash": 978630
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {
+        "actions_executed": [
+          "move_left",
+          "do"
+        ],
+        "turn": 3
+      },
+      "event_metadata": []
+    }
+  ],
+  "created_at": "2025-07-25T12:25:11.021676"
+}

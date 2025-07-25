@@ -49,6 +49,8 @@ Requires-Dist: setuptools>=80.8.0
 Requires-Dist: gymnasium>=1.1.1
 Requires-Dist: ty>=0.0.1a5
 Requires-Dist: gym>=0.23.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: nle>=0.9.1
 Provides-Extra: dev
 Requires-Dist: build>=1.2.2.post1; extra == "dev"
 Requires-Dist: twine>=4.0.0; extra == "dev"
@@ -113,3 +115,7 @@ pip install synth-ai[research]
 # Full installation with all providers
 pip install synth-ai[all]
 ```
+
+### Spinning Up
+uv run python -m uvicorn synth_ai.environments.service.app:app --host 0.0.0.0 --port 8901
+uvpm synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash

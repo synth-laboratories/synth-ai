@@ -1,0 +1,56 @@
+{
+  "dataset_creation": {
+    "source_traces_dir": "traces",
+    "num_source_traces": 134,
+    "filtering_methods": [
+      "trajectory_score",
+      "window_score"
+    ],
+    "config_used": {
+      "trajectory_filtering": {
+        "score_threshold": 2.0
+      },
+      "window_filtering": {
+        "window_size": 5,
+        "score_threshold": 1.0
+      },
+      "hook_filtering": {
+        "exclude_hooks": [],
+        "include_hooks": []
+      },
+      "quality_filtering": {
+        "min_response_length": 50,
+        "require_tool_calls": true,
+        "exclude_keywords": [
+          "I don't know",
+          "I'm not sure",
+          "error",
+          "sorry"
+        ]
+      },
+      "output": {
+        "trajectory_file": "trajectory_filtered.jsonl",
+        "window_file": "window_filtered.jsonl",
+        "metadata_file": "filter_metadata.json"
+      }
+    }
+  },
+  "trajectory_filtering": {
+    "threshold": 2.0,
+    "total_traces": 134,
+    "included_traces": 15,
+    "excluded_traces": 119,
+    "yield_rate": 11.194029850746269,
+    "total_examples": 285,
+    "avg_examples_per_trace": 19.0
+  },
+  "window_filtering": {
+    "window_size": 5,
+    "threshold": 1.0,
+    "total_traces": 134,
+    "traces_with_qualifying_windows": 54,
+    "total_windows_extracted": 249,
+    "total_examples": 315,
+    "avg_examples_per_window": 5
+  }
+}

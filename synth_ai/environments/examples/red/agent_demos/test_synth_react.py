@@ -1377,15 +1377,10 @@ async def eval_react_pokemon_red(
         import time
 
         start_time = time.time()
-        print(
-            f"[DEBUG] Starting asyncio.gather for {len(current_difficulty_instances)} episodes at {start_time}"
-        )
         results = await asyncio.gather(
             *(run_episode_eval(inst, max_episode_turns) for inst in current_difficulty_instances)
         )
         end_time = time.time()
-        print(f"[DEBUG] Completed asyncio.gather in {end_time - start_time:.2f} seconds")
-        print(f"[DEBUG] Results: {results}")
 
         num_successful_runs = sum(1 for r_success, _, _, _ in results if r_success)
         total_badges = sum(r_badges for _, r_badges, _, _ in results)

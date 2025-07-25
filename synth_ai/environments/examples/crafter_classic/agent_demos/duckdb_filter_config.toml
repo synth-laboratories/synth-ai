@@ -1,0 +1,33 @@
+# Configuration for filtering traces from DuckDB for fine-tuning
+
+# Filtering mode: "trajectory" or "window"
+mode = "trajectory"
+
+[filters]
+# Minimum total reward to include a session
+min_total_reward = 1.0
+
+# Minimum achievements (items collected) to include
+min_achievements = 0
+
+# Maximum cost (in dollars) per session
+max_cost = 1.0
+
+# Maximum total tokens per session
+max_tokens = 50000
+
+# Model whitelist (if specified, only include these models)
+# model_whitelist = ["gpt-4", "gpt-3.5-turbo"]
+
+[output]
+# Format: "openai" or "gemini"
+format = "openai"
+
+# Include metadata in output
+include_metadata = true
+
+[window]
+# Settings for window mode (if mode = "window")
+window_size = 10
+stride = 5
+min_window_reward = 0.5

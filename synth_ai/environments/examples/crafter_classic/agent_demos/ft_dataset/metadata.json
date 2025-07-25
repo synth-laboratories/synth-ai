@@ -1,0 +1,40 @@
+{
+  "dataset_creation": {
+    "source_traces_dir": "traces_mini",
+    "num_source_traces": 34,
+    "filtering_methods": [
+      "trajectory_score",
+      "window_score"
+    ],
+    "config_used": {
+      "trajectory_filtering": {
+        "score_threshold": 2.0
+      },
+      "window_filtering": {
+        "score_threshold": 1.0
+      },
+      "output": {
+        "trajectory_file": "mini_policy_data_traj.jsonl",
+        "window_file": "mini_policy_data_window.jsonl"
+      }
+    }
+  },
+  "trajectory_filtering": {
+    "threshold": 2.0,
+    "total_traces": 34,
+    "included_traces": 21,
+    "excluded_traces": 13,
+    "yield_rate": 61.76470588235294,
+    "total_examples": 409,
+    "avg_examples_per_trace": 19.476190476190474
+  },
+  "window_filtering": {
+    "window_size": 5,
+    "threshold": 1.0,
+    "total_traces": 34,
+    "traces_with_qualifying_windows": 28,
+    "total_windows_extracted": 202,
+    "total_examples": 255,
+    "avg_examples_per_window": 5
+  }
+}

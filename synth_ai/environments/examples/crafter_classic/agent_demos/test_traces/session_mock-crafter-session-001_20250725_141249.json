@@ -1,0 +1,768 @@
+{
+  "session_id": "mock-crafter-session-001",
+  "session_time_steps": [
+    {
+      "step_id": "step-0",
+      "events": [
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545702",
+            "message_time": 0
+          },
+          "system_instance_id": "llm-agent",
+          "system_state_before": {
+            "thinking": true
+          },
+          "system_state_after": {
+            "action_chosen": "collect_wood_0"
+          },
+          "llm_call_records": [],
+          "span_id": null,
+          "trace_id": null,
+          "model_name": "gpt-3.5-turbo",
+          "prompt_tokens": 150,
+          "completion_tokens": 50,
+          "total_tokens": 200,
+          "cost": 0.001,
+          "latency_ms": 100,
+          "metadata": {},
+          "event_metadata": []
+        },
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545715",
+            "message_time": 1
+          },
+          "system_instance_id": "crafter-env",
+          "system_state_before": {
+            "inventory": {
+              "wood": 0
+            }
+          },
+          "system_state_after": {
+            "inventory": {
+              "wood": 1
+            }
+          },
+          "reward": 0.0,
+          "terminated": false,
+          "observation_diff": null,
+          "metadata": {},
+          "event_metadata": []
+        }
+      ],
+      "step_messages": [
+        {
+          "content": {
+            "role": "user",
+            "text": "Current state: Health: 20, Inventory: wood=0, Position: (0, 0)"
+          },
+          "timestamp": "2025-07-25T14:12:49.545699",
+          "message_type": "user_input",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545696",
+            "message_time": 0
+          }
+        },
+        {
+          "content": {
+            "role": "assistant",
+            "text": "I'll collect wood at position (0, 0). This will help me craft tools later."
+          },
+          "timestamp": "2025-07-25T14:12:49.545713",
+          "message_type": "assistant_response",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545711",
+            "message_time": 1
+          }
+        }
+      ],
+      "timestamp": "2025-07-25T14:12:49.545693",
+      "step_metadata": {}
+    },
+    {
+      "step_id": "step-1",
+      "events": [
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545727",
+            "message_time": 2
+          },
+          "system_instance_id": "llm-agent",
+          "system_state_before": {
+            "thinking": true
+          },
+          "system_state_after": {
+            "action_chosen": "collect_wood_1"
+          },
+          "llm_call_records": [],
+          "span_id": null,
+          "trace_id": null,
+          "model_name": "gpt-3.5-turbo",
+          "prompt_tokens": 160,
+          "completion_tokens": 55,
+          "total_tokens": 215,
+          "cost": 0.002,
+          "latency_ms": 120,
+          "metadata": {},
+          "event_metadata": []
+        },
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545732",
+            "message_time": 3
+          },
+          "system_instance_id": "crafter-env",
+          "system_state_before": {
+            "inventory": {
+              "wood": 1
+            }
+          },
+          "system_state_after": {
+            "inventory": {
+              "wood": 2
+            }
+          },
+          "reward": 0.0,
+          "terminated": false,
+          "observation_diff": null,
+          "metadata": {},
+          "event_metadata": []
+        }
+      ],
+      "step_messages": [
+        {
+          "content": {
+            "role": "user",
+            "text": "Current state: Health: 19, Inventory: wood=1, Position: (1, 1)"
+          },
+          "timestamp": "2025-07-25T14:12:49.545725",
+          "message_type": "user_input",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545724",
+            "message_time": 2
+          }
+        },
+        {
+          "content": {
+            "role": "assistant",
+            "text": "I'll collect wood at position (1, 1). This will help me craft tools later."
+          },
+          "timestamp": "2025-07-25T14:12:49.545731",
+          "message_type": "assistant_response",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545730",
+            "message_time": 3
+          }
+        }
+      ],
+      "timestamp": "2025-07-25T14:12:49.545722",
+      "step_metadata": {}
+    },
+    {
+      "step_id": "step-2",
+      "events": [
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545740",
+            "message_time": 4
+          },
+          "system_instance_id": "llm-agent",
+          "system_state_before": {
+            "thinking": true
+          },
+          "system_state_after": {
+            "action_chosen": "collect_wood_2"
+          },
+          "llm_call_records": [],
+          "span_id": null,
+          "trace_id": null,
+          "model_name": "gpt-3.5-turbo",
+          "prompt_tokens": 170,
+          "completion_tokens": 60,
+          "total_tokens": 230,
+          "cost": 0.003,
+          "latency_ms": 140,
+          "metadata": {},
+          "event_metadata": []
+        },
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545747",
+            "message_time": 5
+          },
+          "system_instance_id": "crafter-env",
+          "system_state_before": {
+            "inventory": {
+              "wood": 2
+            }
+          },
+          "system_state_after": {
+            "inventory": {
+              "wood": 3
+            }
+          },
+          "reward": 0.0,
+          "terminated": false,
+          "observation_diff": null,
+          "metadata": {},
+          "event_metadata": []
+        }
+      ],
+      "step_messages": [
+        {
+          "content": {
+            "role": "user",
+            "text": "Current state: Health: 18, Inventory: wood=2, Position: (2, 2)"
+          },
+          "timestamp": "2025-07-25T14:12:49.545738",
+          "message_type": "user_input",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545737",
+            "message_time": 4
+          }
+        },
+        {
+          "content": {
+            "role": "assistant",
+            "text": "I'll collect wood at position (2, 2). This will help me craft tools later."
+          },
+          "timestamp": "2025-07-25T14:12:49.545745",
+          "message_type": "assistant_response",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545744",
+            "message_time": 5
+          }
+        }
+      ],
+      "timestamp": "2025-07-25T14:12:49.545736",
+      "step_metadata": {}
+    },
+    {
+      "step_id": "step-3",
+      "events": [
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545753",
+            "message_time": 6
+          },
+          "system_instance_id": "llm-agent",
+          "system_state_before": {
+            "thinking": true
+          },
+          "system_state_after": {
+            "action_chosen": "collect_wood_3"
+          },
+          "llm_call_records": [],
+          "span_id": null,
+          "trace_id": null,
+          "model_name": "gpt-3.5-turbo",
+          "prompt_tokens": 180,
+          "completion_tokens": 65,
+          "total_tokens": 245,
+          "cost": 0.004,
+          "latency_ms": 160,
+          "metadata": {},
+          "event_metadata": []
+        },
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545761",
+            "message_time": 7
+          },
+          "system_instance_id": "crafter-env",
+          "system_state_before": {
+            "inventory": {
+              "wood": 3
+            }
+          },
+          "system_state_after": {
+            "inventory": {
+              "wood": 4
+            }
+          },
+          "reward": 1.0,
+          "terminated": false,
+          "observation_diff": null,
+          "metadata": {},
+          "event_metadata": []
+        }
+      ],
+      "step_messages": [
+        {
+          "content": {
+            "role": "user",
+            "text": "Current state: Health: 17, Inventory: wood=3, Position: (3, 3)"
+          },
+          "timestamp": "2025-07-25T14:12:49.545752",
+          "message_type": "user_input",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545751",
+            "message_time": 6
+          }
+        },
+        {
+          "content": {
+            "role": "assistant",
+            "text": "I'll collect wood at position (3, 3). This will help me craft tools later."
+          },
+          "timestamp": "2025-07-25T14:12:49.545758",
+          "message_type": "assistant_response",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545756",
+            "message_time": 7
+          }
+        }
+      ],
+      "timestamp": "2025-07-25T14:12:49.545749",
+      "step_metadata": {}
+    },
+    {
+      "step_id": "step-4",
+      "events": [
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545770",
+            "message_time": 8
+          },
+          "system_instance_id": "llm-agent",
+          "system_state_before": {
+            "thinking": true
+          },
+          "system_state_after": {
+            "action_chosen": "collect_wood_4"
+          },
+          "llm_call_records": [],
+          "span_id": null,
+          "trace_id": null,
+          "model_name": "gpt-3.5-turbo",
+          "prompt_tokens": 190,
+          "completion_tokens": 70,
+          "total_tokens": 260,
+          "cost": 0.005,
+          "latency_ms": 180,
+          "metadata": {},
+          "event_metadata": []
+        },
+        {
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545775",
+            "message_time": 9
+          },
+          "system_instance_id": "crafter-env",
+          "system_state_before": {
+            "inventory": {
+              "wood": 4
+            }
+          },
+          "system_state_after": {
+            "inventory": {
+              "wood": 5
+            }
+          },
+          "reward": 1.0,
+          "terminated": false,
+          "observation_diff": null,
+          "metadata": {},
+          "event_metadata": []
+        }
+      ],
+      "step_messages": [
+        {
+          "content": {
+            "role": "user",
+            "text": "Current state: Health: 16, Inventory: wood=4, Position: (4, 4)"
+          },
+          "timestamp": "2025-07-25T14:12:49.545768",
+          "message_type": "user_input",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545767",
+            "message_time": 8
+          }
+        },
+        {
+          "content": {
+            "role": "assistant",
+            "text": "I'll collect wood at position (4, 4). This will help me craft tools later."
+          },
+          "timestamp": "2025-07-25T14:12:49.545773",
+          "message_type": "assistant_response",
+          "time_record": {
+            "event_time": "2025-07-25T14:12:49.545772",
+            "message_time": 9
+          }
+        }
+      ],
+      "timestamp": "2025-07-25T14:12:49.545765",
+      "step_metadata": {}
+    }
+  ],
+  "session_metadata": [
+    {
+      "metadata_type": "episode_config",
+      "data": {
+        "instance_num": 0,
+        "task_instance_id": "test-123",
+        "difficulty": "easy",
+        "max_turns": 20,
+        "model": "gpt-3.5-turbo"
+      },
+      "timestamp": "2025-07-25T14:12:49.545684"
+    }
+  ],
+  "message_history": [
+    {
+      "content": {
+        "role": "user",
+        "text": "Current state: Health: 20, Inventory: wood=0, Position: (0, 0)"
+      },
+      "timestamp": "2025-07-25T14:12:49.545699",
+      "message_type": "user_input",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545696",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "role": "assistant",
+        "text": "I'll collect wood at position (0, 0). This will help me craft tools later."
+      },
+      "timestamp": "2025-07-25T14:12:49.545713",
+      "message_type": "assistant_response",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545711",
+        "message_time": 1
+      }
+    },
+    {
+      "content": {
+        "role": "user",
+        "text": "Current state: Health: 19, Inventory: wood=1, Position: (1, 1)"
+      },
+      "timestamp": "2025-07-25T14:12:49.545725",
+      "message_type": "user_input",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545724",
+        "message_time": 2
+      }
+    },
+    {
+      "content": {
+        "role": "assistant",
+        "text": "I'll collect wood at position (1, 1). This will help me craft tools later."
+      },
+      "timestamp": "2025-07-25T14:12:49.545731",
+      "message_type": "assistant_response",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545730",
+        "message_time": 3
+      }
+    },
+    {
+      "content": {
+        "role": "user",
+        "text": "Current state: Health: 18, Inventory: wood=2, Position: (2, 2)"
+      },
+      "timestamp": "2025-07-25T14:12:49.545738",
+      "message_type": "user_input",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545737",
+        "message_time": 4
+      }
+    },
+    {
+      "content": {
+        "role": "assistant",
+        "text": "I'll collect wood at position (2, 2). This will help me craft tools later."
+      },
+      "timestamp": "2025-07-25T14:12:49.545745",
+      "message_type": "assistant_response",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545744",
+        "message_time": 5
+      }
+    },
+    {
+      "content": {
+        "role": "user",
+        "text": "Current state: Health: 17, Inventory: wood=3, Position: (3, 3)"
+      },
+      "timestamp": "2025-07-25T14:12:49.545752",
+      "message_type": "user_input",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545751",
+        "message_time": 6
+      }
+    },
+    {
+      "content": {
+        "role": "assistant",
+        "text": "I'll collect wood at position (3, 3). This will help me craft tools later."
+      },
+      "timestamp": "2025-07-25T14:12:49.545758",
+      "message_type": "assistant_response",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545756",
+        "message_time": 7
+      }
+    },
+    {
+      "content": {
+        "role": "user",
+        "text": "Current state: Health: 16, Inventory: wood=4, Position: (4, 4)"
+      },
+      "timestamp": "2025-07-25T14:12:49.545768",
+      "message_type": "user_input",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545767",
+        "message_time": 8
+      }
+    },
+    {
+      "content": {
+        "role": "assistant",
+        "text": "I'll collect wood at position (4, 4). This will help me craft tools later."
+      },
+      "timestamp": "2025-07-25T14:12:49.545773",
+      "message_type": "assistant_response",
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545772",
+        "message_time": 9
+      }
+    }
+  ],
+  "event_history": [
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545702",
+        "message_time": 0
+      },
+      "system_instance_id": "llm-agent",
+      "system_state_before": {
+        "thinking": true
+      },
+      "system_state_after": {
+        "action_chosen": "collect_wood_0"
+      },
+      "llm_call_records": [],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": "gpt-3.5-turbo",
+      "prompt_tokens": 150,
+      "completion_tokens": 50,
+      "total_tokens": 200,
+      "cost": 0.001,
+      "latency_ms": 100,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545715",
+        "message_time": 1
+      },
+      "system_instance_id": "crafter-env",
+      "system_state_before": {
+        "inventory": {
+          "wood": 0
+        }
+      },
+      "system_state_after": {
+        "inventory": {
+          "wood": 1
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545727",
+        "message_time": 2
+      },
+      "system_instance_id": "llm-agent",
+      "system_state_before": {
+        "thinking": true
+      },
+      "system_state_after": {
+        "action_chosen": "collect_wood_1"
+      },
+      "llm_call_records": [],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": "gpt-3.5-turbo",
+      "prompt_tokens": 160,
+      "completion_tokens": 55,
+      "total_tokens": 215,
+      "cost": 0.002,
+      "latency_ms": 120,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545732",
+        "message_time": 3
+      },
+      "system_instance_id": "crafter-env",
+      "system_state_before": {
+        "inventory": {
+          "wood": 1
+        }
+      },
+      "system_state_after": {
+        "inventory": {
+          "wood": 2
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545740",
+        "message_time": 4
+      },
+      "system_instance_id": "llm-agent",
+      "system_state_before": {
+        "thinking": true
+      },
+      "system_state_after": {
+        "action_chosen": "collect_wood_2"
+      },
+      "llm_call_records": [],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": "gpt-3.5-turbo",
+      "prompt_tokens": 170,
+      "completion_tokens": 60,
+      "total_tokens": 230,
+      "cost": 0.003,
+      "latency_ms": 140,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545747",
+        "message_time": 5
+      },
+      "system_instance_id": "crafter-env",
+      "system_state_before": {
+        "inventory": {
+          "wood": 2
+        }
+      },
+      "system_state_after": {
+        "inventory": {
+          "wood": 3
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545753",
+        "message_time": 6
+      },
+      "system_instance_id": "llm-agent",
+      "system_state_before": {
+        "thinking": true
+      },
+      "system_state_after": {
+        "action_chosen": "collect_wood_3"
+      },
+      "llm_call_records": [],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": "gpt-3.5-turbo",
+      "prompt_tokens": 180,
+      "completion_tokens": 65,
+      "total_tokens": 245,
+      "cost": 0.004,
+      "latency_ms": 160,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545761",
+        "message_time": 7
+      },
+      "system_instance_id": "crafter-env",
+      "system_state_before": {
+        "inventory": {
+          "wood": 3
+        }
+      },
+      "system_state_after": {
+        "inventory": {
+          "wood": 4
+        }
+      },
+      "reward": 1.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545770",
+        "message_time": 8
+      },
+      "system_instance_id": "llm-agent",
+      "system_state_before": {
+        "thinking": true
+      },
+      "system_state_after": {
+        "action_chosen": "collect_wood_4"
+      },
+      "llm_call_records": [],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": "gpt-3.5-turbo",
+      "prompt_tokens": 190,
+      "completion_tokens": 70,
+      "total_tokens": 260,
+      "cost": 0.005,
+      "latency_ms": 180,
+      "metadata": {},
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T14:12:49.545775",
+        "message_time": 9
+      },
+      "system_instance_id": "crafter-env",
+      "system_state_before": {
+        "inventory": {
+          "wood": 4
+        }
+      },
+      "system_state_after": {
+        "inventory": {
+          "wood": 5
+        }
+      },
+      "reward": 1.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {},
+      "event_metadata": []
+    }
+  ],
+  "created_at": "2025-07-25T14:12:49.545668"
+}

@@ -1,0 +1,403 @@
+{
+  "session_id": "crafter_episode_4_e39448f3-f4d0-4142-be29-99fd17e6f14c",
+  "session_metadata": [
+    {
+      "metadata_type": "episode_config",
+      "data": {
+        "instance_num": 4,
+        "task_instance_id": "e39448f3-f4d0-4142-be29-99fd17e6f14c",
+        "difficulty": "easy",
+        "max_turns": 20,
+        "model_name": "gpt-4.1-mini",
+        "agent_type": "crafter-react-agent"
+      },
+      "timestamp": "2025-07-24T18:37:35.194104"
+    },
+    {
+      "metadata_type": "system_ids",
+      "data": {
+        "agent": "eff38081-487a-464d-9950-6cab02073735",
+        "runtime": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "environment": "e39448f3-f4d0-4142-be29-99fd17e6f14c"
+      },
+      "timestamp": "2025-07-24T18:37:35.194113"
+    },
+    {
+      "metadata_type": "episode_results",
+      "data": {
+        "total_reward": 0.0,
+        "num_achievements": 0,
+        "achievements": {},
+        "rollout_length": 0,
+        "terminated": false
+      },
+      "timestamp": "2025-07-24T18:37:44.072033"
+    }
+  ],
+  "message_history": [
+    {
+      "content": {
+        "origin_system_id": "e39448f3-f4d0-4142-be29-99fd17e6f14c",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_base64": "FowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbxZhvFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbxZhvFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNdbnGHo6hHo6hHo6hF2RzFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbF2RzdbnGHo6hF2RzdbnGFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbxZhvsJmNgV1IW0E02MOzDlMJFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYN4+QU4+QU4+QUCjsJHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNsJmN4+QUW0E0CjsJCkYQFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAFowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAFowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgIGAgIDBAMDAwMEAwgEAwICBgIDAwMDBAMDCQgDAgICAgMDAwQDAwQEAgIGAgIFAQEBAQEBAQEBAQEBAQICAgIEBAQEBAQEBAQEBAMIBAMDAgICAgMDAwMDBgYCBgICAgICCAMEAwMEBAMCAgICBQEBAQEBAQEBAQEBAQEBAgIJCQkDCQMECAMDAwQDBAQEBAICBgYCBAQEAgYCBgICAgIGBgIDBAMDBAQDAgICAgUBAQEBAQEBAQEBAQEBAQICAwMDAwMDBAMDAwMEAwMDBAMCAgICBgICBgYCAgYCAgICAgYGAgQDAwQEAwICAgICBQEBAQEBAQEBAQEBAQEBAgMDAwMDAwQDAwMCBQUFBQUFAgICBgICBgICAgIGAgYCAgIGAgYCAwMEBAMCAgICAgIFAQEBAQEBAQEBAQEBAQIEAwMDAwMEAwMCAgIBBQUFBQUCAgICAgYCAgICAgICAgICAgYCAgIDBAQDAgICAgICBgEBAQEBAQEBAQEBAQICBAMDAwMDAwMDAgICAQEFBQUFBQIGAgICAgYCAgICAgICAgICAgICAwMDCAQCAgICAgICAQEBAQEBAQEBAQECAgQDAwMDAwMDAwICAgIBAQUFBQUFAgICAgICAgICAgICAgICAgICAgIDAwMECAICAgIGAgIBAQEBAQEBAQEBAgIEBAMDAwMDAwICAgICAgEBBQUFBQICAgICAgICBgICBgICAgICAgICBgMDBAMDAwICAgICAQEBAQEBAQEBAQICBAQDAwgDAwMGAgIGAgIBAQEFBQICAgICAgICAgICAgICAgICAgYCAgIIAwQEAwMDAgICBgIBAQEBAQEBAQEFAgQEBAQEBAQEBgYCAgYCAQEBAgUCAgICAgICAgYCAgYCAgYCAgIGAgYCAwgEBAQEAwMDAwQDAwEBAQEBAQEBAQUEBAMIAwMDAwICAgICAgEBAgICAgICAgICAgICAgYGAgIGAgICBgICAgIDAwQEBAQEBwMEAwMDAQEBAQEBAQEBBAQDAwMDAwMCAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgYCAggEAwQEBAMDAwMDAwMBAQEBAQEBAQICAwICAwMDAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICBgYCBgICAgMEAwMDAwMDAwMDBAEBAQEBAQECAgICAgICAgICAgYCAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIICQMDAwMDAwoDBwQEAQEBAQEBAgICAgICAgICAgICAgYCBgICAgYCAgICAgICAgICAgICAgICAgICAgYGAgICAwMDAwMDAwMDAwcEBAEBAQEBAQICAgYCAgYCAgICAgYCAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgICAggDAwMDAwMDAwMEBAQDAQEBAQEGAgICBgICBgICBgICAgICAgICAgIGAgICAgICAgICAgICAgICAgIGAgICBgYDAwQEBAQEBAMDBAQEAwEBAQEBAgIGAgICAgYCBgICAgYCAgICAgICAgICAgICAgICAgICBQUFAgICBgIGAgICAwkDAwMDAwMDAwMEBAEBAQEBAQICAgICAgICBgYCAgICAgICAgICAgICAgICAgICAgICBQUFBQICAgICAgICAgMDAwMDAwMDAwMDBAEBAQEBAQECAgICAgICAgIGAgICAgICAgICAgICAgYCAgICAgIFBQUFBQUCAgICBgICAgIDAwMDAwMDAwMDAQEBAQEBAQEBAgICAgICAgICAgICAgICAgICAgICAgYCAgIGAgIFBQUFBQUCAgIGAgIGAgIDCAMDAwMHAwMIAwEBAQEBAQEBAQICBgICAgICAgICAgICAgICAgICAgYCAgICAgICBQUFBQUFAgICAgICAgYCAwMIAwMDAwMDAwMBAQEBAQEBAQECAgIGBgICAgICAgICAgICAgICAgICAgICAgYCAgICAgUFAgICAgYCAgIGCAMEBAQEBAQEAwMDAQEBAQEBAQEBAgICAgICAgYCAgICAgICAgICAgIGAgICAgICBgICAgICAgICBgICAgICAwkDAwMDCAMDAwMDAwEBAQEBAQEBAQICAgYCAgICAgICAgICAgICAgICAgYCAgYCAgYCAgICAgICAgYGAgICBgMDCQgDCAQEBAQEBAQBAQEBAQEBAQECAgYGAgICAgICAgICAgICAgICAgYCBgICAgICAgICAgICAgICAgICAgICAwMDCAMIAwgDAwMDAQEBAQEBAQEBAgICAgIGAgICAgICAgYGAgICAgICBgICBgICAgICAgYGAgIGAgICBgICAgIIAwMDAwgDAwMDAwEBAQEBAQEBAQICAgYCAgICBgYGAgICBgICBgICAgICAgICAgICBgICAgIGBgICBgYCBQUFBQMDAwMDAwMDCQMEAgICBQUFBQUCAgICAgICAgYCAgICBgICAgICAgICAgICAgICAgICAgICAgICAgIGBQUFAQUIBAgDCAMDAwkDAwMCAgICAgYCAgICAgICAgICAgYCAgICAgICAgICAgICAgICAgICAgICAgICBgYGAgUBAQEBAwQDAwMEBAQDAwMDAwIGAgICAgICAgICAgICAgICAgICBgICAgICAgICAgICAgICAgICAgICAgICAgIFAQEBAQMDAwMDAwQDAwMDAwMIBgYCAgICAgICAgICAgICAgICBgICBQUFBQUCAgICAgICAgICAgICAgICAgICAQEBAQEDAwMDBAQEBAMDAwMIAwYCAgICAgICAgICAgICAgICAgICBQUFBQUFBQICAgICAgICAgICAgICAgIBAQEBAQEBBQMDAwMEBAQEBAMDAwMIAgICAgUFBQUCAgICAgICAgYCAgIFBQUFBQUCAgICAgICAgICAgICAgICAQEBAQEBAQUCAwMDAwQEBAQEAwMDAgICAgIBAQEFBQUFBQUFAgICAgICBQUFBQUCAgICAgICAgICAgICAgICAgEBAQEBAQEBAgICAggEBAQEBAQDAwIGAgICAQEBAQEBAQEBAQUFAgICBQUFBQUCBgYCAgICAgICAgICAgICAgEBAQEBAQEBAQUCAgICAgQEBAQEBAICAgICAgEBAQEBAQEBAQEBBQUFBQUFBQUFAgICBAMEAgICAgICAgICAgEBAQEBAQEBAQECAgICAgICCAQEAwMCAgICAgIBAQEBAQEBAQEBAQEFBQUFBQUFBQICAwMDBAMDAwgCAgICAgUBAQEBAQEBAQEBBgICBgICAgIEAwMDAgICAgICAQEBAQEBAQEBAQEBBQUFBQUFBQIDAwQEAwMEBAQDAwICAgUBAQEBAQEBAQEBAQYCAgICAgICAgMIAwICAgICAgEBAQEBAQEBAQEBAQUFBQUGBgYEAwQEBAQEBAQEBAMCAgUBAQEBAQEBAQEBAQEGAgICAgICAgICBgICAgICAgIBAQEBAQEBAQEBAQEFBQIGAgIDBAQEBAQEBAQEBAQIAwUBAQEBAQEBAQEBAQECAgICAgICAgICAgICBgICAgICAQEBAQEBAQEBAQEBBQUCAgIDAwQEBAQEBAQEBAQIAwQEBAQBAQEBAQEBAQEBBgYGBgICAgICAgICAgYGBgYGBgUFBQEBAQEBAQEBAQEFBQICAwMEBAQEBAQEBAQDAwMDAwQEAwEBAQMIAQEBAQIGAgYCAgICAgICAgICBgIGAgICBgUFBQEBAQEBAQEBAQUCAgQDBAQEBAQEBAQEBAMDAwMEBAQEBAQEAwMBAQUCAgICAgICAgICBgICAgICAgICAgYCAgUFBQUFAQEBAQEBAQICAwQEBAQEBAQEBAQEAwMDBAQEBAQEBAQEAQEFBgYGAgICAgICAgICAgICAgICAgIGAgICAgIFBQEBAQEBAQEBAgQDBAQEBAQEBAQEBAMJBQEBAQMDBAQEBAEBAQICAgICAgICAgICAgIGAgICAgICAgICAgICAgUBAQEBAQEBAQIEAwQEBAQEBAQEBAQDAgUBAQEDAwMDAQEBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgIFBQEBAQEBAQECBAMDBAQEBAQEBAQEAwIFAQEBAQMDAQEBAQEBBQICAgICAgICAgICAgICAgIGAgICAgICAgICBQUBAQEBAQEBBAMDCQMDAwQEBAQEAwMCAQEBAQEDAwEBAQEBAQUCAgICAgICAgICAgICAgYCBgICAgICAgICAgIFAQEBAQEBAQQDAwMDAwMDBAQEBAMDAgEBAQEBAwMDAwEBAQEFAgICAgICAgICAgICAgICAgIGAgICAgICAgICBQUBAQEBAQEFAwMDCQMDAwQEBAMDAwIBAQEBAQEEBAQEAQEBBQIEAwICAgICAgICAgICAgYCAgICAgICAgICAgIFAQEBAQEBAQMDAwMDCgMEBAMDAwMCAQEBAQEBAQMDAwMBAQUDAwMDAgICAgICAgIFBQUFBQUCAgICAgICAgICAgEBAQEBAQEDAwMDAwQEBAMDAwICAgUBAQEBAQEDAwMBAQECAwMDAwICAgICAgIFBQEBAQEBAgICAgICBgICAgICAQEBAQEBAQMIAwMEBAMDAgICAgYFAQEBAQEBAQEBAQEBAgMEAwMDAgICAgICBQEBAQEBAQICAgICAgICAgICAgEBAQEBAQEDAwMDBAMDAwYCAgYCAQEBAQEBAQEBAQEBAQIDBAMDAwMCAgICBQEBAQEBAQECAgICAgICAgICAgICAQEBAQEBAQMDAwQDAwIGAgICBQEBAQEBAQEBAQEBAQECAwMEBAMDAwICBQEBAQEBAQEBAgYCAgICAgICAgICAgEBAQEBAQEBBQMEAwMCAgICAgUBAQEBAQEBAQEBAQEBAgMDAwMEBAMEBQUBAQEBAQEBAQICAgICBgICAgICAgIBAQEBAQEBAQEFBAMDAgYCAgYFAQEBAQEBAQEBAQEBAQQEBAMDAwQEBAUBAQEBAQEBAQECAgICAgIGAgICAgICAQEBAQEBAQEBAQQDAwICAgICBQEBAQEBAQEBAQEBAQEDAwMDAwMJBAQFAQEBAQEBAQEBAgIGAgYGAgICAgICAgUBAQEBAQEBAQEEAwUCBgICAgUBAQEBAQEBAQEBAQEBAwMDAwMDAwMEBQEBAQEBAQEBBQICAgICAgIGBgICAgICBQEBAQEBAQEBAQUFBgICAgUFAQEBAQEBAQEBAQEBAQEDAwMDAwMDAwUFBQEBAQEFBQICAgICBgICBgICAgICAgUFAQEBAQEBAQEBBQUCAgYCAQEBAQEBAQEBAQEBAQEBBQMDAwMDAwICAgICAgICAgICAwICAgICAgICBgYCAgYGBQEBAQEBAQEBAQEFBQYCAQEBAQEBAQEBAQEBAQEBAQUCAwMDAwICAgICAgICBgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "timestamp": "2025-07-24T18:37:38.916620",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:38.916600",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "eff38081-487a-464d-9950-6cab02073735",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_up",
+                "move_up",
+                "move_up",
+                "move_up",
+                "move_up"
+              ],
+              "reasoning": "Currently on grass with no resources nearby. Move up to explore and find trees or stone deposits to collect wood or stone for crafting progression."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-24T18:37:40.897405",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.897399",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-24T18:37:40.930665",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.930655",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-24T18:37:40.930692",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.930690",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-24T18:37:40.930696",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.930695",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-24T18:37:40.930706",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.930698",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "13a6163a-3efc-45b3-ad80-66b0221cbb70",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-24T18:37:40.930715",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.930713",
+        "message_time": 0
+      }
+    }
+  ],
+  "event_history": [
+    {
+      "time_record": {
+        "event_time": "2025-07-24T18:37:40.897356",
+        "message_time": 0
+      },
+      "system_instance_id": "crafter-react-agent_gpt-4.1-mini",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/20\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_DZDtDhu2P8VDeFCelT7r8tSt",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_up\",\"move_up\",\"move_up\"],\"reasoning\":\"Currently on grass with no resources nearby. Move up to explore and find trees or stone deposits to collect wood or stone for crafting progression.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 20,
+        "total_tokens_used": 0,
+        "tool_calls_made": 0,
+        "current_turn": 0
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/20\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_DZDtDhu2P8VDeFCelT7r8tSt",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_up\",\"move_up\",\"move_up\"],\"reasoning\":\"Currently on grass with no resources nearby. Move up to explore and find trees or stone deposits to collect wood or stone for crafting progression.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 20,
+        "total_tokens_used": 847,
+        "tool_calls_made": 1,
+        "current_turn": 0
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-4.1-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 1/20\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-Bx1fPeWEnnBDV4tU3vDDnnb7MMD0i",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_DZDtDhu2P8VDeFCelT7r8tSt",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_up\",\"move_up\",\"move_up\",\"move_up\",\"move_up\"],\"reasoning\":\"Currently on grass with no resources nearby. Move up to explore and find trees or stone deposits to collect wood or stone for crafting progression.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 788,
+              "completion_tokens": 59,
+              "total_tokens": 847
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-4.1-mini",
+        "prompt_tokens": 788,
+        "completion_tokens": 59,
+        "total_tokens": 847,
+        "turn": 0
+      },
+      "event_metadata": []
+    }
+  ],
+  "created_at": "2025-07-24T18:37:35.194090"
+}

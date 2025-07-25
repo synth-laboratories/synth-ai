@@ -10,10 +10,22 @@ import base64
 import numpy as np
 import tempfile
 from dataclasses import dataclass
+import time
+import logging
 
 from synth_ai.environments.service.registry import get_environment_cls, list_supported_env_types
 from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import EnvToolCall
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Import tracing abstractions
+from synth_ai.tracing_v2.abstractions import (
+    RuntimeEvent,
+    SessionMessage,
+    TimeRecord,
+)
 
 # Try to import Redis for persistent storage
 try:
@@ -171,7 +183,7 @@ async def reconstruct_task_instance_from_serialized(
 
         return await SokobanTaskInstance.deserialize(serialized_data)
 
-    elif env_name in ["CrafterClassic", "TicTacToe"]:
+    elif env_name in ["CrafterClassic", "CrafterCustom", "TicTacToe"]:
         # These environments work with SimpleNamespace - convert serialized data back to SimpleNamespace
         from types import SimpleNamespace
         from uuid import UUID
@@ -582,6 +594,9 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
         file=sys.stderr,
     )
 
+    # Track timing
+    start_time = time.time()
+    
     # Log call stack to see where this HTTP request comes from
     import traceback
 
@@ -648,16 +663,10 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
             file=sys.stderr,
         )
 
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: About to store environment back to storage",
-            file=sys.stderr,
-        )
+        logger.debug(f"🌐 [{request_id}] Storing updated environment state...")
         # Store the updated environment state
         await storage.store(request.env_id, env)
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Environment stored successfully",
-            file=sys.stderr,
-        )
+        logger.debug(f"🌐 [{request_id}] Environment stored successfully")
 
         # Format response
         # FIX: StatefulEnvironment.step() returns observation dict directly,
@@ -675,24 +684,23 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
         # Convert numpy types to Python types for JSON serialization
         response_serializable = convert_numpy_types(response)
 
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Returning response with keys: {list(response_serializable.keys())}",
-            file=sys.stderr,
-        )
+        elapsed_time = time.time() - start_time
+        logger.info(f"🌐 [{request_id}] STEP COMPLETE - env: {env_name}, time: {elapsed_time:.3f}s, done: {response.get('done', False)}")
+        logger.debug(f"🌐 [{request_id}] Response keys: {list(response_serializable.keys())}")
         return response_serializable
     except Exception as e:
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Exception during step: {type(e).__name__} - {e}",
-            file=sys.stderr,
-        )
+        elapsed_time = time.time() - start_time
+        logger.error(f"🌐 [{request_id}] STEP FAILED - env: {env_name}, time: {elapsed_time:.3f}s, error: {type(e).__name__} - {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @api_router.post("/env/{env_name}/terminate")
 async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) -> Dict[str, Any]:
     """Terminate an environment instance."""
+    logger.info(f"🚪 Terminating environment: {env_name}, env_id: {request.env_id}")
     env = await storage.remove(request.env_id)
     if not env:
+        logger.error(f"❌ Environment instance {request.env_id} not found for termination")
         raise HTTPException(
             status_code=404, detail=f"Environment instance {request.env_id} not found"
         )
@@ -708,6 +716,52 @@ async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) ->
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/env/{env_name}/metadata")
+async def get_env_metadata(env_name: str, env_id: str) -> Dict[str, Any]:
+    """Get metadata about an environment instance."""
+    env = await storage.get(env_id)
+    if not env:
+        raise HTTPException(
+            status_code=404, detail=f"Environment instance {env_id} not found"
+        )
+    
+    try:
+        # Check if environment has get_metadata method
+        if hasattr(env, 'get_metadata'):
+            metadata = await env.get_metadata()
+        else:
+            # Fallback to basic metadata
+            metadata = {
+                "env_name": env_name,
+                "env_id": env_id,
+                "env_class": env.__class__.__name__,
+            }
+            
+            # Try to get some common attributes
+            if hasattr(env, 'task_instance'):
+                metadata["has_task_instance"] = True
+                if hasattr(env.task_instance, 'metadata'):
+                    metadata["task_metadata"] = {
+                        k: v for k, v in vars(env.task_instance.metadata).items()
+                        if not k.startswith('_')
+                    }
+            
+            if hasattr(env, 'engine'):
+                metadata["has_engine"] = True
+                if hasattr(env.engine, 'env'):
+                    metadata["engine_info"] = {
+                        "seed": getattr(env.engine.env, '_seed', None),
+                        "area": getattr(env.engine.env, '_area', None),
+                        "length": getattr(env.engine.env, '_length', None),
+                        "step": getattr(env.engine.env, '_step', None),
+                    }
+        
+        return metadata
+    except Exception as e:
+        logger.error(f"Error getting metadata for environment {env_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Keep backward compatibility endpoints but mark as deprecated

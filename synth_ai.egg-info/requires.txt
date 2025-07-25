@@ -37,6 +37,8 @@ setuptools>=80.8.0
 gymnasium>=1.1.1
 ty>=0.0.1a5
 gym>=0.23.0
+toml>=0.10.2
+nle>=0.9.1
 
 [all]
 google-api-core>=2.0.0

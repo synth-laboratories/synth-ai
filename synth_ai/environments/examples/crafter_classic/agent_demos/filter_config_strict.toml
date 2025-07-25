@@ -1,0 +1,42 @@
+# Filtering configuration for creating SFT datasets from traces
+
+[trajectory_filtering]
+# Minimum score (number of achievements) for including entire trajectories
+score_threshold = 2.0
+
+[window_filtering]
+# Size of sliding window (number of turns)
+window_size = 5
+# Minimum score (achievements unlocked in window) for inclusion
+score_threshold = 1.0
+
+[hook_filtering]
+# Exclude events that triggered these hooks
+# Common hooks to exclude:
+# - "invalid_action": Actions that were rejected by the environment
+# - "error": Events that resulted in errors
+# - "timeout": Events that timed out
+exclude_hooks = ["invalid_action"]
+
+# Only include events that triggered these hooks (if empty, include all)
+# include_hooks = ["valid_action", "achievement_unlocked"]
+include_hooks = []
+
+[quality_filtering]
+# Additional quality filters
+
+# Exclude events with empty or very short responses
+min_response_length = 10
+
+# Exclude events where the agent didn't use any tools
+require_tool_calls = false
+
+# Exclude events with certain keywords in the response
+exclude_keywords = []
+# exclude_keywords = ["I don't know", "I'm not sure", "error"]
+
+[output]
+# Output file names
+trajectory_file = "trajectory_score.jsonl"
+window_file = "window_score.jsonl"
+metadata_file = "metadata.json"

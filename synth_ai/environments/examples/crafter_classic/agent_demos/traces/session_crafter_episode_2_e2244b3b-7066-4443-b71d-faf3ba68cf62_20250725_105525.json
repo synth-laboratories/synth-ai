@@ -1,0 +1,37 @@
+{
+  "session_id": "crafter_episode_2_e2244b3b-7066-4443-b71d-faf3ba68cf62",
+  "session_time_steps": [],
+  "session_metadata": [
+    {
+      "metadata_type": "episode_config",
+      "data": {
+        "instance_num": 2,
+        "task_instance_id": "e2244b3b-7066-4443-b71d-faf3ba68cf62",
+        "difficulty": "easy",
+        "max_turns": 4,
+        "model_name": "gpt-4o-mini",
+        "agent_type": "crafter-react-agent"
+      },
+      "timestamp": "2025-07-25T10:55:18.537901"
+    },
+    {
+      "metadata_type": "system_ids",
+      "data": {
+        "agent": "04cad017-98cb-48e7-a997-4fc78eb37e82",
+        "runtime": "0fcf5e3a-48d2-4d6c-a044-23d4b480d6ea",
+        "environment": "e2244b3b-7066-4443-b71d-faf3ba68cf62"
+      },
+      "timestamp": "2025-07-25T10:55:18.537911"
+    },
+    {
+      "metadata_type": "error",
+      "data": {
+        "error_message": ""
+      },
+      "timestamp": "2025-07-25T10:55:25.577941"
+    }
+  ],
+  "message_history": [],
+  "event_history": [],
+  "created_at": "2025-07-25T10:55:18.537872"
+}

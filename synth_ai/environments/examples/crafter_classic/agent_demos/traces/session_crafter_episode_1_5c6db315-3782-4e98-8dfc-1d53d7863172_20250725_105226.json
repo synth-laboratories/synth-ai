@@ -1,0 +1,712 @@
+{
+  "session_id": "crafter_episode_1_5c6db315-3782-4e98-8dfc-1d53d7863172",
+  "session_metadata": [
+    {
+      "metadata_type": "episode_config",
+      "data": {
+        "instance_num": 1,
+        "task_instance_id": "5c6db315-3782-4e98-8dfc-1d53d7863172",
+        "difficulty": "easy",
+        "max_turns": 1,
+        "model_name": "gpt-3.5-turbo",
+        "agent_type": "crafter-react-agent"
+      },
+      "timestamp": "2025-07-25T10:52:24.132330"
+    },
+    {
+      "metadata_type": "system_ids",
+      "data": {
+        "agent": "0f189ed0-a0c7-4dd9-b3e0-85f7293670bb",
+        "runtime": "63f50049-d402-4bd4-9711-9ec135b89719",
+        "environment": "5c6db315-3782-4e98-8dfc-1d53d7863172"
+      },
+      "timestamp": "2025-07-25T10:52:24.132337"
+    },
+    {
+      "metadata_type": "episode_results",
+      "data": {
+        "total_reward": 0.0,
+        "num_achievements": 0,
+        "achievements": {
+          "collect_coal": false,
+          "collect_diamond": false,
+          "collect_drink": false,
+          "collect_iron": false,
+          "collect_sapling": false,
+          "collect_stone": false,
+          "collect_wood": false,
+          "defeat_skeleton": false,
+          "defeat_zombie": false,
+          "eat_cow": false,
+          "eat_plant": false,
+          "make_iron_pickaxe": false,
+          "make_iron_sword": false,
+          "make_stone_pickaxe": false,
+          "make_stone_sword": false,
+          "make_wood_pickaxe": false,
+          "make_wood_sword": false,
+          "place_furnace": false,
+          "place_plant": false,
+          "place_stone": false,
+          "place_table": false,
+          "wake_up": false
+        },
+        "rollout_length": 1,
+        "terminated": false
+      },
+      "timestamp": "2025-07-25T10:52:26.861833"
+    }
+  ],
+  "message_history": [
+    {
+      "content": {
+        "origin_system_id": "5c6db315-3782-4e98-8dfc-1d53d7863172",
+        "payload": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_base64": "FowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbxZhvFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbxZhvFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNh2FSXzorFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNdbnGHo6hHo6hHo6hF2RzFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbXzorXzorwsPIh2FSh2FSwsPIFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbF2RzdbnGHo6hF2RzdbnGFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbh2FSwsPIXzorwsPIXzorFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbxZhvsJmNgV1IW0E02MOzDlMJFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbwsPIFowbCkYQCkYQwsPIDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYN4+QU4+QU4+QUCjsJHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbRScbDlMJHaYNFowbRScbDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNsJmN4+QUW0E0CjsJCkYQFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbFowbA1EJA1EJAjQJA1EJAjQJFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbA1EJAS0IPiofA1EJGmwhAjQJGmwhAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbPiofAjQJgF1GPiofZU08hmxXA1EJAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbZU08hmxXAjQJZU08AjQJWT4tAjQJAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbZU08FYkaCEQKDmYKAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNZU08CFEOCEQKDWAKAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNZU08PiofRy8gCEQKFowbAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgYGBgIGAgICAgICBQUBAQEBAQEBAQEBAQEBAgYCAgICAgICAgICAgICAgICAgICAgYGAgIGAgICAgICBQEBAQIGAgICAgICAgICAgIGBQUFBQEBAQEBAQEBAgICBgYGAgICAgICAgYCAgICAgICAgIGAgICAgICAgICBQEBAQECBgICAgICAgICAgICAgYCAgICAgEBAQEBBgICAgICAgICAgYDAwMEAwMCAgICAgICAgICAgICAgICBQEBAQEBAgIGBgICAgICAgICAgYCAgICAgICAgICAgYCAgICAgICAgIDAwgIBAMIAwICAgIGAgICAgIGAgICAgUBAQEBAQUCBgIGAgICAgICAgICAgICAgICAgICAgICBgIGAgICAgIGAwMEBAQDCAMDAgICAgICBgICAgICAgIFAQEBAQECBQYGAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIEBAQEBAMDAwICAgICAgIGAgICAgICAgUFAQEBAQICAgICAgICAgICAgIGAgYCAgICAgICAgYCAgYCAgICAgICBAQEBAQDAwMCAgICAgICAgICBgICAgICBQEBAQECAgICAgICAgICAgICAgICAgICAgICAgIGAgIGAgYCAgICAgMDBAQECAMDAgICAgICAgICAgICAgICAgUBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDBAQEAwMDAwICAgICAgICAgICAgICAgIFAQEBBgICAgICBgICAgICAgICBgICAgICAgICAgICAgIGAgICAwMDBAQEBAMDAwQCAgICAgICAgICAgYCAgICBQEBAQICBgIDAwMCAgICAgICAgICAgICAgICAgICBQICAgICAgMDAwQEBAQDAwMDAgICAgICAgICBgYCAgICAgIBAQECAgIDAwgDAgICAgICAgICAgICAgICAgIBAQUCAgIGAgIDAwMDBAQEAwMDAwMGAgICAgICAgICAgICAgICAgIBAQIDAwMDAwICCAMCAgIGAwICAgICAgIBAQEFBQICAgICAgMEBAQEBAQDAwMDBgICAgICAgICAgICAgICAgICAQECAwMDAwMCAgMDAwICAwMDAwICAgIBAQEBAQUGAgYCAgIDAwMDBAMDAwMDAwMCAgICAgICAgICAgICAgICAgIBAgMDAwMCAgICAwICAgMDCAMDAgICAQEBAQEFAgYCAgICAwMDAwQHBAQEBAMDAgICAgICAgICAgICAgICAgIBAQIDAwMDAgICAgkCAgICAwMDAwMCBQUBAQEBBQICBgICAgMDCAcEBAQEBAQDCAICAgICAgICAgICAgICAgICAQECAwMDAwICAgkIAgICAgMDAwMDAwUBAQEBAQEFAgICAgICAwMIBAQEBAQEAwMCAgICAgICAgICAgICAgICAQEBAgICAgICAgIDAwMCAgICAwMDAwMFAQEBAQEBAQUCAgICBgIIAwQEBAQEBAMDAgICAgICAgICAgICAgICBQEBBQICAgICAgICAgMDAgICAwgEBAQCAgUBAQEBAQEFAgYCBgICAgMEBAQEBAMDAwMCAgICAgICAgICAgICAgUBAQICAgICAgICAgICAgICAwMGAgICAgYFAQEBAQEBAQUGBgICAgYGBAQEBAQEBAQEBAQCAgICAgICAgICAgIFAQECAgICAgICAgICAgICAgICAgICAgICBQEBAQEBAQEFAgICAgICAgIEBAQEBAQEAwMEAwQEAwICBgYCAgICBQEBAgICAgICAgICAgICAgICAgIGAgICAgUFAQEBAQEBBQYGAgICAgICAwoEBAMDAwMDBAQEBAMKAwICAgYCAgUBAQICAgICAgICAgICAgICAgICBgICAgICBQEBAQEBAQEFBgYGAgICBgIDCAQEBAQEBAQEBAQEAwMCAgICAwQEBAQCAgICAgICAgICAgICBgICAgICAgICAgUFAQEBAQEBBQYCBgYCAgICBAQEBAQEBAQEBAQEBAQDBAIIAwMEAwMEAgICAgICAgICAgICAgICBgICAgICAgICAgIBBQEFBQUGAgICAgICAgMDBAQEBAQEBAQEBAQEAwQDAwMEBAcDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIBBQUGAgICAgICAgIDAwQEBAQEBAQEBAQEBAQEAwMEBAQHAwMCAgYCAgICAgICAgICAgYGAgICAgICAgICAgICAgIGAgICAgICAgICAwMHBwcHBwQEBAQDAwMDBAMDAwMEAwMFAgYCAgICAgICAgICAgICAgICAgICAgIGAgIGAgIGAgICAgICAgICAgMDAwMDAwMDBAMEAgICAwQDAwMDBAMCAgICAgICBgICAgICAgICBgICAgICAgIGAgICAgICBgICAgICAgICAgICAwMDAwMDAwQDAgICAgICAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgICAgICAgICAgICAgIDBAQECAMDAgICAgICAgICAgICAgIGAgICBgICAgICAgICBQICAgICAgIGAgICAgICBgICAgICAgICAgICAgICAgIIAwMDAgICAgICAgICBgYCAgICAgICAgICAgYGAgICBQUFAgICAgICBgICBgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYGBgYCAgICAgICAgIGBQUFBQUCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgUFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICBgIGAgMCAgICAgICAgYCAgYCAgICAgICAgICAgICAgIFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDAwMCAgICAgICAgYCAgICAgICAgICAgICAgICAwgEAgYCAgICAgICAgICAgICAgICAgICAgIGAgICBgYGAgMDAwMIAwMCAgICAgICBgICAgICAgICAgICAwMDAwMDAwICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgMDAwMDAwMDAwICAgICAgICAgICAgICAgICAwMDAwMIAwMEBgYCAgICAgICAgYCAgICAgICAgICAgICAgIGAgIDAwMDAwMDCAMCAgICAgICAgICAgICAgICAwMEBAMDAwMDBAICAgIGAgICAgICAgICBgICAgIGBgIGAgYCAgYCAgICAwMDAwMDAwICAgICAgICAgICAgYCAwMEBAQDAwMDAwQCAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIDAwMDAwMIAgICAgICAgICAgYCAwMEBAQDAwMEBAQEBgYCAgICAgYCAgICAgIGAgICBgYCAgICAgYCAgYGAgICAwMIAwMDAwMCAgICAgICAgICAgMDBAQEAwMDBAQEBAICBgICAgYCAgIGAgICAgICAgICBgIGAgYCAgIGAgICAwMDAwMIAwMDAwICAgICAgICAgIDAwQEAwMDAwQEBAQDAgICAgIGAgICAgICBgICAgYGAgIGAgICAgICAgICAgMDAwMDCAgEBAgJAgICAgICAgYGAwMEAwMIAwMEBAQEBAMCAgIGAgICAgICAgICAgICAgIGAgICAgICAgICBgIEAwMDAwMDBAQECAMCAgICAgICBgMDBAMDAwgDBAQEBAQDAgICBgICAgYCAgICAgICAgYGAgIGAgICAgICAgICBAMDAwgDBAQEBAQECAICAgICAgIDCQQIAwMDAwQEBAQDAwICAgIGAgICAgICAgICAgIGAgIGBQUCAgYGAgYCAgQEBAQEBAQEBAQEBAQDAwMGAgIECQMDAwMDAwMEBAQEAwICBgICAgYCAgICAgICAgYCAgIBAQEBBQUCAgICAgYCAwMDBAMEBAQEBAQDAwMDAgICAwkEAwMIAwcHBAQEBAMGBgIGAgIGAgICAgICAgICAgICAQEBAQEFBQICAgICAgMDAwMDBAQEBAQEBAQEBAMGAgMEBAcHCAcHBAQEBAQDAgICAgICAgICAgICBAQCAgICBQEBAQEBAQUFBgICBgICAgMDAwMECQMIAwgDAwMDBAQDBAQEBwcHBAQEBAQEAwICAgIGAgICAgICAwMDBAQCAgEBAQEBAQEBBQUFAgICAgICAwMDBAMDBAQEBAQEBAQEBAQEBAQEBAQEBAQECAMCAgYCBgIGAgICAgMDAwQEAwUBAQEBAQEBAQUFAgICBgICBgMDAwQDAwgIAwQEBAQEBgQEBAQEBAQEBAQEBAMDAgICAgICAgICAgIICAQEBAMDAQEBAQEBAQEFBQICAgICAgIDAwMEAwMDAwMEBAQEBAYEBAQEBAQEAwMDAwMICAICAgICAgICAgIEBAQEBAQEBAEBAQEBAQEBBQICAgICBgIDAwgDBAQEBAQEBAQEBAQCBAMEBAMDAwMDAwMCAgICAgICAgICAgICAwMDBAgEBwMBAQEBAQEBAQUCAgICAgYGAgMDAwQIAwoDAwQEBAQEAwQDBAQDAwMDAwMCAgICAgICAgICAgICAggDCAQDBAcDAQEBAQEBAQUCAgICAgICBQIDAwMEAwMDAwMHAwQEBAMEBAQEBAMDAwMCAgICAgICAgYCAgYCAgICAwMDAwQIAwEBAwMDAwMCAgICAgICAgUCAgMDBAMIAwMHBwcDAwQDBAQEBAQDAwMDAgICAgIGAgICAgICAgICAgMDAwQEAwICAgMJAwMEBAQCAgICAgIFAgIGAgICAwMDBAMHAwMEAwQEBAQDCQQEBAICAgICAgICAgICBgICAgICAgICAgICAgIDAwMDAwMEAwMCAgICAgIGAgIGAgYGAgQDAwQEBAMIBAQDCQMJAgICAgIGAgYGAgICBgYCAgICBgIGBgIGAgICCQMDAwMDBAMDAwQDAwICAgICAgICAgYCAgIIAwQDCAMIAwYCAgICAgICAgICAgIGAgICAgICAgICAgIGBgICAgMDAwMDAwQEBAQEBAICBQUGBgIGAgICAgICBgYCAwMDAwICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgIDAwMDAwMEBAQDBAkCBQUFBQYCAgIGAgIGAgYCAgQEBAQCAgIGAgICBgICAgICAgICAgICAgICAgICAgIGAgYDAwMDAwMDAwMDAwQCAgUFAQUCAgICAgIGAgYCBgYDAwgCAgICAgYCAgICAgICBgICAgICAgICAgICAgICAgICAgMDAwMDAwMDAwMEAgIFAQEFAgICBgYGBgICAgICAwMGBgIGAgICBgICBgICBgICAgUFBQUFBQUCAgICAgICAgICCAMDAwMDAwMDBAIFBQEFBQICAgIGAgICAgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "timestamp": "2025-07-25T10:52:25.451062",
+      "message_type": "observation",
+      "time_record": {
+        "event_time": "2025-07-25T10:52:25.451019",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "0f189ed0-a0c7-4dd9-b3e0-85f7293670bb",
+        "payload": [
+          {
+            "tool": "interact",
+            "args": {
+              "actions": [
+                "move_up",
+                "do"
+              ],
+              "reasoning": "Moving up to explore and collect resources by performing the 'do' action."
+            }
+          }
+        ]
+      },
+      "timestamp": "2025-07-25T10:52:26.756423",
+      "message_type": "tool_call",
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.756413",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "63f50049-d402-4bd4-9711-9ec135b89719",
+        "payload": {
+          "action": 3,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T10:52:26.776896",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.776885",
+        "message_time": 0
+      }
+    },
+    {
+      "content": {
+        "origin_system_id": "63f50049-d402-4bd4-9711-9ec135b89719",
+        "payload": {
+          "action": 5,
+          "action_type": "crafter_action"
+        }
+      },
+      "timestamp": "2025-07-25T10:52:26.776902",
+      "message_type": "action",
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.776900",
+        "message_time": 0
+      }
+    }
+  ],
+  "event_history": [
+    {
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.756333",
+        "message_time": 0
+      },
+      "system_instance_id": "crafter-react-agent_gpt-3.5-turbo",
+      "system_state_before": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/1\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_b7jtYFRAmiCRIWrQi7FNy5Dt",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"do\"],\"reasoning\":\"Moving up to explore and collect resources by performing the 'do' action.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 1,
+        "total_tokens_used": 0,
+        "tool_calls_made": 0,
+        "current_turn": 0
+      },
+      "system_state_after": {
+        "message_history": [
+          {
+            "role": "system",
+            "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+          },
+          {
+            "role": "user",
+            "content": "Turn 1/1\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_b7jtYFRAmiCRIWrQi7FNy5Dt",
+                "function": {
+                  "name": "interact",
+                  "arguments": "{\"actions\":[\"move_up\",\"do\"],\"reasoning\":\"Moving up to explore and collect resources by performing the 'do' action.\"}"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        ],
+        "steps_taken": 0,
+        "steps_remaining": 1,
+        "total_tokens_used": 831,
+        "tool_calls_made": 1,
+        "current_turn": 0
+      },
+      "llm_call_records": [
+        {
+          "model": "gpt-3.5-turbo",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.\n\nYou will see a semantic map view showing your surroundings. Use this to navigate toward resources.\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources first\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\u2022 Use semantic map view to navigate toward resources you can see\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nStrategy:\n1. Look at the semantic map to see what's around you\n2. Move toward trees to collect wood with 'do'\n3. Once you have wood, place a table to enable crafting\n4. Make a wood pickaxe to collect stone more efficiently\n5. Progress to stone pickaxe, then iron tools\n6. Eat food when health is low, sleep when energy is low\n\nYou should provide 1-5 actions in sequence for efficient gameplay. Use the semantic map view to navigate toward visible resources.\n\nExample good action sequences:\n- ['move_right', 'move_right', 'do'] (move to tree and collect wood)\n- ['place_table', 'make_wood_pickaxe'] (craft progression)\n- ['move_up', 'do', 'move_down', 'do'] (collect from multiple resources)\n\nBe strategic and use the map view to find resources! Focus on unlocking achievements."
+            },
+            {
+              "role": "user",
+              "content": "Turn 1/1\n\nCrafter Game State:\nStep: 0\nHealth: 9\nPosition: [32, 32]\nDirection: [0, 1]\nInventory: food: 9, drink: 9, energy: 9\nAchievements: none\nTerminated: False\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\nVisible items: grass\n\nAvailable actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop\n\nKey mechanics:\n\u2022 'do' action: collect wood from trees, stone from deposits, food from cows/plants\n\u2022 'do' does nothing on grass/water - move to find resources\n\u2022 Craft progression: wood \u2192 table \u2192 wood_pickaxe \u2192 stone \u2192 stone_pickaxe \u2192 iron tools\n\u2022 Sleep when energy low to restore and unlock wake_up achievement\n\nChoose 1-5 actions to execute in sequence. Focus on exploring to find resources and crafting tools to unlock achievements."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'mine_down'])"
+                    },
+                    "reasoning": {
+                      "type": "string",
+                      "description": "Brief explanation of why these actions were chosen"
+                    }
+                  },
+                  "required": [
+                    "actions",
+                    "reasoning"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "reason": {
+                      "type": "string",
+                      "description": "Reason for termination"
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ]
+                }
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "temperature": 0.0,
+          "response": {
+            "id": "chatcmpl-BxGskLpzqesFWVGkdkpX6lqnJXT4a",
+            "choices": [
+              {
+                "index": 0,
+                "message": {
+                  "role": "assistant",
+                  "content": null,
+                  "tool_calls": [
+                    {
+                      "id": "call_b7jtYFRAmiCRIWrQi7FNy5Dt",
+                      "function": {
+                        "name": "interact",
+                        "arguments": "{\"actions\":[\"move_up\",\"do\"],\"reasoning\":\"Moving up to explore and collect resources by performing the 'do' action.\"}"
+                      },
+                      "type": "function"
+                    }
+                  ]
+                },
+                "finish_reason": "tool_calls"
+              }
+            ],
+            "usage": {
+              "prompt_tokens": 795,
+              "completion_tokens": 36,
+              "total_tokens": 831
+            }
+          }
+        }
+      ],
+      "span_id": null,
+      "trace_id": null,
+      "model_name": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cost": null,
+      "latency_ms": null,
+      "metadata": {
+        "model_name": "gpt-3.5-turbo",
+        "prompt_tokens": 795,
+        "completion_tokens": 36,
+        "total_tokens": 831,
+        "turn": 0
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.830834",
+        "message_time": 0
+      },
+      "system_instance_id": "runtime",
+      "system_state_before": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_base64": "FowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbxZhvFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbxZhvFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNh2FSXzorFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNdbnGHo6hHo6hHo6hF2RzFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbXzorXzorwsPIh2FSh2FSwsPIFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbF2RzdbnGHo6hF2RzdbnGFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbh2FSwsPIXzorwsPIXzorFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbxZhvsJmNgV1IW0E02MOzDlMJFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbwsPIFowbCkYQCkYQwsPIDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYN4+QU4+QU4+QUCjsJHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbRScbDlMJHaYNFowbRScbDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNsJmN4+QUW0E0CjsJCkYQFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbFowbA1EJA1EJAjQJA1EJAjQJFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbA1EJAS0IPiofA1EJGmwhAjQJGmwhAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbPiofAjQJgF1GPiofZU08hmxXA1EJAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbZU08hmxXAjQJZU08AjQJWT4tAjQJAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbZU08FYkaCEQKDmYKAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNZU08CFEOCEQKDWAKAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNZU08PiofRy8gCEQKFowbAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgYGBgIGAgICAgICBQUBAQEBAQEBAQEBAQEBAgYCAgICAgICAgICAgICAgICAgICAgYGAgIGAgICAgICBQEBAQIGAgICAgICAgICAgIGBQUFBQEBAQEBAQEBAgICBgYGAgICAgICAgYCAgICAgICAgIGAgICAgICAgICBQEBAQECBgICAgICAgICAgICAgYCAgICAgEBAQEBBgICAgICAgICAgYDAwMEAwMCAgICAgICAgICAgICAgICBQEBAQEBAgIGBgICAgICAgICAgYCAgICAgICAgICAgYCAgICAgICAgIDAwgIBAMIAwICAgIGAgICAgIGAgICAgUBAQEBAQUCBgIGAgICAgICAgICAgICAgICAgICAgICBgIGAgICAgIGAwMEBAQDCAMDAgICAgICBgICAgICAgIFAQEBAQECBQYGAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIEBAQEBAMDAwICAgICAgIGAgICAgICAgUFAQEBAQICAgICAgICAgICAgIGAgYCAgICAgICAgYCAgYCAgICAgICBAQEBAQDAwMCAgICAgICAgICBgICAgICBQEBAQECAgICAgICAgICAgICAgICAgICAgICAgIGAgIGAgYCAgICAgMDBAQECAMDAgICAgICAgICAgICAgICAgUBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDBAQEAwMDAwICAgICAgICAgICAgICAgIFAQEBBgICAgICBgICAgICAgICBgICAgICAgICAgICAgIGAgICAwMDBAQEBAMDAwQCAgICAgICAgICAgYCAgICBQEBAQICBgIDAwMCAgICAgICAgICAgICAgICAgICBQICAgICAgMDAwQEBAQDAwMDAgICAgICAgICBgYCAgICAgIBAQECAgIDAwgDAgICAgICAgICAgICAgICAgIBAQUCAgIGAgIDAwMDBAQEAwMDAwMGAgICAgICAgICAgICAgICAgIBAQIDAwMDAwICCAMCAgIGAwICAgICAgIBAQEFBQICAgICAgMEBAQEBAQDAwMDBgICAgICAgICAgICAgICAgICAQECAwMDAwMCAgMDAwICAwMDAwICAgIBAQEBAQUGAgYCAgIDAwMDBAMDAwMDAwMCAgICAgICAgICAgICAgICAgIBAgMDAwMCAgICAwICAgMDCAMDAgICAQEBAQEFAgYCAgICAwMDAwQHBAQEBAMDAgICAgICAgICAgICAgICAgIBAQIDAwMDAgICAgkCAgICAwMDAwMCBQUBAQEBBQICBgICAgMDCAcEBAQEBAQDCAICAgICAgICAgICAgICAgICAQECAwMDAwICAgkIAgICAgMDAwMDAwUBAQEBAQEFAgICAgICAwMIBAQEBAQEAwMCAgICAgICAgICAgICAgICAQEBAgICAgICAgIDAwMCAgICAwMDAwMFAQEBAQEBAQUCAgICBgIIAwQEBAQEBAMDAgICAgICAgICAgICAgICBQEBBQICAgICAgICAgMDAgICAwgEBAQCAgUBAQEBAQEFAgYCBgICAgMEBAQEBAMDAwMCAgICAgICAgICAgICAgUBAQICAgICAgICAgICAgICAwMGAgICAgYFAQEBAQEBAQUGBgICAgYGBAQEBAQEBAQEBAQCAgICAgICAgICAgIFAQECAgICAgICAgICAgICAgICAgICAgICBQEBAQEBAQEFAgICAgICAgIEBAQEBAQEAwMEAwQEAwICBgYCAgICBQEBAgICAgICAgICAgICAgICAgIGAgICAgUFAQEBAQEBBQYGAgICAgICAwoEBAMDAwMDBAQEBAMKAwICAgYCAgUBAQICAgICAgICAgICAgICAgICBgICAgICBQEBAQEBAQEFBgYGAgICBgIDCAQEBAQEBAQEBAQEAwMCAgICAwQEBAQCAgICAgICAgICAgICBgICAgICAgICAgUFAQEBAQEBBQYCBgYCAgICBAQEBAQEBAQEBAQEBAQDBAIIAwMEAwMEAgICAgICAgICAgICAgICBgICAgICAgICAgIBBQEFBQUGAgICAgICAgMDBAQEBAQEBAQEBAQEAwQDAwMEBAcDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIBBQUGAgICAgICAgIDAwQEBAQEBAQEBAQEBAQEAwMEBAQHAwMCAgYCAgICAgICAgICAgYGAgICAgICAgICAgICAgIGAgICAgICAgICAwMHBwcHBwQEBAQDAwMDBAMDAwMEAwMFAgYCAgICAgICAgICAgICAgICAgICAgIGAgIGAgIGAgICAgICAgICAgMDAwMDAwMDBAMEAgICAwQDAwMDBAMCAgICAgICBgICAgICAgICBgICAgICAgIGAgICAgICBgICAgICAgICAgICAwMDAwMDAwQDAgICAgICAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgICAgICAgICAgICAgIDBAQECAMDAgICAgICAgICAgICAgIGAgICBgICAgICAgICBQICAgICAgIGAgICAgICBgICAgICAgICAgICAgICAgIIAwMDAgICAgICAgICBgYCAgICAgICAgICAgYGAgICBQUFAgICAgICBgICBgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYGBgYCAgICAgICAgIGBQUFBQUCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgUFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICBgIGAgMCAgICAgICAgYCAgYCAgICAgICAgICAgICAgIFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDAwMCAgICAgICAgYCAgICAgICAgICAgICAgICAwgEAgYCAgICAgICAgICAgICAgICAgICAgIGAgICBgYGAgMDAwMIAwMCAgICAgICBgICAgICAgICAgICAwMDAwMDAwICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgMDAwMDAwMDAwICAgICAgICAgICAgICAgICAwMDAwMIAwMEBgYCAgICAgICAgYCAgICAgICAgICAgICAgIGAgIDAwMDAwMDCAMCAgICAgICAgICAgICAgICAwMEBAMDAwMDBAICAgIGAgICAgICAgICBgICAgIGBgIGAgYCAgYCAgICAwMDAwMDAwICAgICAgICAgICAgYCAwMEBAQDAwMDAwQCAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIDAwMDAwMIAgICAgICAgICAgYCAwMEBAQDAwMEBAQEBgYCAgICAgYCAgICAgIGAgICBgYCAgICAgYCAgYGAgICAwMIAwMDAwMCAgICAgICAgICAgMDBAQEAwMDBAQEBAICBgICAgYCAgIGAgICAgICAgICBgIGAgYCAgIGAgICAwMDAwMIAwMDAwICAgICAgICAgIDAwQEAwMDAwQEBAQDAgICAgIGAgICAgICBgICAgYGAgIGAgICAgICAgICAgMDAwMDCAgEBAgJAgICAgICAgYGAwMEAwMIAwMEBAQEBAMCAgIGAgICAgICAgICAgICAgIGAgICAgICAgICBgIEAwMDAwMDBAQECAMCAgICAgICBgMDBAMDAwgDBAQEBAQDAgICBgICAgYCAgICAgICAgYGAgIGAgICAgICAgICBAMDAwgDBAQEBAQECAICAgICAgIDCQQIAwMDAwQEBAQDAwICAgIGAgICAgICAgICAgIGAgIGBQUCAgYGAgYCAgQEBAQEBAQEBAQEBAQDAwMGAgIECQMDAwMDAwMEBAQEAwICBgICAgYCAgICAgICAgYCAgIBAQEBBQUCAgICAgYCAwMDBAMEBAQEBAQDAwMDAgICAwkEAwMIAwcHBAQEBAMGBgIGAgIGAgICAgICAgICAgICAQEBAQEFBQICAgICAgMDAwMDBAQEBAQEBAQEBAMGAgMEBAcHCAcHBAQEBAQDAgICAgICAgICAgICBAQCAgICBQEBAQEBAQUFBgICBgICAgMDAwMECQMIAwgDAwMDBAQDBAQEBwcHBAQEBAQEAwICAgIGAgICAgICAwMDBAQCAgEBAQEBAQEBBQUFAgICAgICAwMDBAMDBAQEBAQEBAQEBAQEBAQEBAQEBAQECAMCAgYCBgIGAgICAgMDAwQEAwUBAQEBAQEBAQUFAgICBgICBgMDAwQDAwgIAwQEBAQEBgQEBAQEBAQEBAQEBAMDAgICAgICAgICAgIICAQEBAMDAQEBAQEBAQEFBQICAgICAgIDAwMEAwMDAwMEBAQEBAYEBAQEBAQEAwMDAwMICAICAgICAgICAgIEBAQEBAQEBAEBAQEBAQEBBQICAgICBgIDAwgDBAQEBAQEBAQEBAQCBAMEBAMDAwMDAwMCAgICAgICAgICAgICAwMDBAgEBwMBAQEBAQEBAQUCAgICAgYGAgMDAwQIAwoDAwQEBAQEAwQDBAQDAwMDAwMCAgICAgICAgICAgICAggDCAQDBAcDAQEBAQEBAQUCAgICAgICBQIDAwMEAwMDAwMHAwQEBAMEBAQEBAMDAwMCAgICAgICAgYCAgYCAgICAwMDAwQIAwEBAwMDAwMCAgICAgICAgUCAgMDBAMIAwMHBwcDAwQDBAQEBAQDAwMDAgICAgIGAgICAgICAgICAgMDAwQEAwICAgMJAwMEBAQCAgICAgIFAgIGAgICAwMDBAMHAwMEAwQEBAQDCQQEBAICAgICAgICAgICBgICAgICAgICAgICAgIDAwMDAwMEAwMCAgICAgIGAgIGAgYGAgQDAwQEBAMIBAQDCQMJAgICAgIGAgYGAgICBgYCAgICBgIGBgIGAgICCQMDAwMDBAMDAwQDAwICAgICAgICAgYCAgIIAwQDCAMIAwYCAgICAgICAgICAgIGAgICAgICAgICAgIGBgICAgMDAwMDAwQEBAQEBAICBQUGBgIGAgICAgICBgYCAwMDAwICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgIDAwMDAwMEBAQDBAkCBQUFBQYCAgIGAgIGAgYCAgQEBAQCAgIGAgICBgICAgICAgICAgICAgICAgICAgIGAgYDAwMDAwMDAwMDAwQCAgUFAQUCAgICAgIGAgYCBgYDAwgCAgICAgYCAgICAgICBgICAgICAgICAgICAgICAgICAgMDAwMDAwMDAwMEAgIFAQEFAgICBgYGBgICAgICAwMGBgIGAgICBgICBgICBgICAgUFBQUFBQUCAgICAgICAgICCAMDAwMDAwMDBAIFBQEFBQICAgIGAgICAgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "system_state_after": {
+        "observation": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            31
+          ],
+          "player_direction": [
+            0,
+            -1
+          ],
+          "num_steps_taken": 1,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass tree grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_base64": "HacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bFY0bA1EJA1EJAjQIA1EJAjQIFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bA1EJAS0HPiofA1EJGm0gAjQIGm0gHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bPiofAjQIgF5GPiofZk08h2xXA1EJHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bZk08h2xXAjQIZk08AjQIWT4tAjQIFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bZk08FIoaCEQJDmYKFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNZk08CFEOCEQJDWAKFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMZk08PiofRy8gCEQJFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAFY0bA1EJA1EJAjQIA1EJAjQIFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAA1EJAS0HPiofA1EJGm0gAjQIGm0gHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAPiofAjQIgF5GPiofZk08h2xXA1EJHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAZk08h2xXAjQIZk08AjQIWT4tAjQIFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bZk08FIoaCEQJDmYKFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNZk08CFEOCEQJDWAKFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMZk08PiofRy8gCEQJFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0b5OYTFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0b5OYT5OYT5OYTHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNh2FSYDsrFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNdbrHHo6hHo6hHo6hF2VzFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bYDsrYDsrw8TJh2FSh2FSw8TJFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bF2VzdbrHHo6hF2VzdbrHFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bh2FSw8TJYDsrw8TJYDsrFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bxphvsZqOgV5IW0I02cSzDlMJFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bw8TJFY0bCkcPCkcPw8TJDlMJAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMsZqOHacNW0I0CjsIHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bRScbDlMJHacNFY0bRScbDlMJAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMsZqODlMJW0I0CjsICkcPFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgYGBgIGAgICAgICBQUBAQEBAQEBAQEBAQEBAgYCAgICAgICAgICAgICAgICAgICAgYGAgIGAgICAgICBQEBAQIGAgICAgICAgICAgIGBQUFBQEBAQEBAQEBAgICBgYGAgICAgICAgYCAgICAgICAgIGAgICAgICAgICBQEBAQECBgICAgICAgICAgICAgYCAgICAgEBAQEBBgICAgICAgICAgYDAwMEAwMCAgICAgICAgICAgICAgICBQEBAQEBAgIGBgICAgICAgICAgYCAgICAgICAgICAgYCAgICAgICAgIDAwgIBAMIAwICAgIGAgICAgIGAgICAgUBAQEBAQUCBgIGAgICAgICAgICAgICAgICAgICAgICBgIGAgICAgIGAwMEBAQDCAMDAgICAgICBgICAgICAgIFAQEBAQECBQYGAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIEBAQEBAMDAwICAgICAgIGAgICAgICAgUFAQEBAQICAgICAgICAgICAgIGAgYCAgICAgICAgYCAgYCAgICAgICBAQEBAQDAwMCAgICAgICAgICBgICAgICBQEBAQECAgICAgICAgICAgICAgICAgICAgICAgIGAgIGAgYCAgICAgMDBAQECAMDAgICAgICAgICAgICAgICAgUBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDBAQEAwMDAwICAgICAgICAgICAgICAgIFAQEBBgICAgICBgICAgICAgICBgICAgICAgICAgICAgIGAgICAwMDBAQEBAMDAwQCAgICAgICAgICAgYCAgICBQEBAQICBgIDAwMCAgICAgICAgICAgICAgICAgICBQICAgICAgMDAwQEBAQDAwMDAgICAgICAgICBgYCAgICAgIBAQECAgIDAwgDAgICAgICAgICAgICAgICAgIBAQUCAgIGAgIDAwMDBAQEAwMDAwMGAgICAgICAgICAgICAgICAgIBAQIDAwMDAwICCAMCAgIGAwICAgICAgIBAQEFBQICAgICAgMEBAQEBAQDAwMDBgICAgICAgICAgICAgICAgICAQECAwMDAwMCAgMDAwICAwMDAwICAgIBAQEBAQUGAgYCAgIDAwMDBAMDAwMDAwMCAgICAgICAgICAgICAgICAgIBAgMDAwMCAgICAwICAgMDCAMDAgICAQEBAQEFAgYCAgICAwMDAwQHBAQEBAMDAgICAgICAgICAgICAgICAgIBAQIDAwMDAgICAgkCAgICAwMDAwMCBQUBAQEBBQICBgICAgMDCAcEBAQEBAQDCAICAgICAgICAgICAgICAgICAQECAwMDAwICAgkIAgICAgMDAwMDAwUBAQEBAQEFAgICAgICAwMIBAQEBAQEAwMCAgICAgICAgICAgICAgICAQEBAgICAgICAgIDAwMCAgICAwMDAwMFAQEBAQEBAQUCAgICBgIIAwQEBAQEBAMDAgICAgICAgICAgICAgICBQEBBQICAgICAgICAgMDAgICAwgEBAQCAgUBAQEBAQEFAgYCBgICAgMEBAQEBAMDAwMCAgICAgICAgICAgICAgUBAQICAgICAgICAgICAgICAwMGAgICAgYFAQEBAQEBAQUGBgICAgYGBAQEBAQEBAQEBAQCAgICAgICAgICAgIFAQECAgICAgICAgICAgICAgICAgICAgICBQEBAQEBAQEFAgICAgICAgIEBAQEBAQEAwMEAwQEAwICBgYCAgICBQEBAgICAgICAgICAgICAgICAgIGAgICAgUFAQEBAQEBBQYGAgICAgICAwoEBAMDAwMDBAQEBAMKAwICAgYCAgUBAQICAgICAgICAgICAgICAgICBgICAgICBQEBAQEBAQEFBgYGAgICBgIDCAQEBAQEBAQEBAQEAwMCAgICAwQEBAQCAgICAgICAgICAgICBgICAgICAgICAgUFAQEBAQEBBQYCBgYCAgICBAQEBAQEBAQEBAQEBAQDBAIIAwMEAwMEAgICAgICAgICAgICAgICBgICAgICAgICAgIBBQEFBQUGAgICAgICAgMDBAQEBAQEBAQEBAQEAwQDAwMEBAcDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIBBQUGAgICAgICAgIDAwQEBAQEBAQEBAQEBAQEAwMEBAQHAwMCAgYCAgICAgICAgICAgYGAgICAgICAgICAgICAgIGAgICAgICAgICAwMHBwcHBwQEBAQDAwMDBAMDAwMEAwMFAgYCAgICAgICAgICAgICAgICAgICAgIGAgIGAgIGAgICAgICAgICAgMDAwMDAwMDBAMEAgICAwQDAwMDBAMCAgICAgICBgICAgICAgICBgICAgICAgIGAgICAgICBgICAgICAgICAgICAwMDAwMDAwQDAgICAgICAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgICAgICAgICAgICAgIDBAQECAMDAgICAgICAgICAgICAgIGAgICBgICAgICAgICBQICAgICAgIGAgICAgICBgICAgICAgICAgICAgICAgIIAwMDAgICAgICAgICBgYCAgICAgICAgICAgYGAgICBQUFAgICAgICBgICBgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYGBgYCAgICAgICAgIGBQUFBQUCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgUFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICBgIGAgMCAgICAgICAgYCAgYCAgICAgICAgICAgICAgIFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDAwMCAgICAgICAgYCAgICAgICAgICAgICAgICAwgEAgYCAgICAgICAgICAgICAgICAgICAgIGAgICBgYGAgMDAwMIAwMCAgICAgICBgICAgICAgICAgICAwMDAwMDAwICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgMDAwMDAwMDAwICAgICAgICAgICAgICAgICAwMDAwMIAwMEBgYCAgICAgICAgYCAgICAgICAgICAgICAgIGAgIDAwMDAwMDCAMCAgICAgICAgICAgICAgICAwMEBAMDAwMDBAICAgIGAgICAgICAgICBgICAgIGBgIGAgYCAgYCAgICAwMDAwMDAwICAgICAgICAgICAgYCAwMEBAQDAwMDAwQCAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIDAwMDAwMIAgICAgICAgICAgYCAwMEBAQDAwMEBAQEBgYCAgICAgYCAgICAgIGAgICBgYCAgICAgYCAgYGAgICAwMIAwMDAwMCAgICAgICAgICAgMDBAQEAwMDBAQEBAICBgICAgYCAgIGAgICAgICAgICBgIGAgYCAgIGAgICAwMDAwMIAwMDAwICAgICAgICAgIDAwQEAwMDAwQEBAQDAgICAgIGAgICAgICBgICAgYGAgIGAgICAgICAgICAgMDAwMDCAgEBAgJAgICAgICAgYGAwMEAwMIAwMEBAQEBAMCAgIGAgICAgICAgICAgICAgIGAgICAgICAgICBgIEAwMDAwMDBAQECAMCAgICAgICBgMDBAMDAwgDBAQEBAQDAgICBgICAgYCAgICAgICAgYGAgIGAgICAgICAgICBAMDAwgDBAQEBAQECAICAgICAgIDCQQIAwMDAwQEBAQDAwICAgIGAgICAgICAgICAgIGAgIGBQUCAgYGAgYCAgQEBAQEBAQEBAQEBAQDAwMGAgIECQMDAwMDAwMEBAQEAwICBgICAgYCAgICAgICAgYCAgIBAQEBBQUCAgICAgYCAwMDBAMEBAQEBAQDAwMDAgICAwkEAwMIAwcHBAQEBAMGBgIGAgIGAgICAgICAgICAgICAQEBAQEFBQICAgICAgMDAwMDBAQEBAQEBAQEBAMGAgMEBAcHCAcHBAQEBAQDAgICAgICAgICAgICBAQCAgICBQEBAQEBAQUFBgICBgICAgMDAwMECQMIAwgDAwMDBAQDBAQEBwcHBAQEBAQEAwICAgIGAgICAgICAwMDBAQCAgEBAQEBAQEBBQUFAgICAgICAwMDBAMDBAQEBAQEBAQEBAQEBAQEBAQEBAQECAMCAgYCBgIGAgICAgMDAwQEAwUBAQEBAQEBAQUFAgICBgICBgMDAwQDAwgIAwQEBAQEBgQEBAQEBAQEBAQEBAMDAgICAgICAgICAgIICAQEBAMDAQEBAQEBAQEFBQICAgICAgIDAwMEAwMDAwMEBAQEBAYEBAQEBAQEAwMDAwMICAICAgICAgICAgIEBAQEBAQEBAEBAQEBAQEBBQICAgICBgIDAwgDBAQEBAQEBAQEBAQCBAMEBAMDAwMDAwMCAgICAgICAgICAgICAwMDBAgEBwMBAQEBAQEBAQUCAgICAgYGAgMDAwQIAwoDAwQEBAQEAwQDBAQDAwMDAwMCAgICAgICAgICAgICAggDCAQDBAcDAQEBAQEBAQUCAgICAgICBQIDAwMEAwMDAwMHAwQEBAMEBAQEBAMDAwMCAgICAgICAgYCAgYCAgICAwMDAwQIAwEBAwMDAwMCAgICAgICAgUCAgMDBAMIAwMHBwcDAwQDBAQEBAQDAwMDAgICAgIGAgICAgICAgICAgMDAwQEAwICAgMJAwMEBAQCAgICAgIFAgIGAgICAwMDBAMHAwMEAwQEBAQDCQQEBAICAgICAgICAgICBgICAgICAgICAgICAgIDAwMDAwMEAwMCAgICAgIGAgIGAgYGAgQDAwQEBAMIBAQDCQMJAgICAgIGAgYGAgICBgYCAgICBgIGBgIGAgICCQMDAwMDBAMDAwQDAwICAgICAgICAgYCAgIIAwQDCAMIAwYCAgICAgICAgICAgIGAgICAgICAgICAgIGBgICAgMDAwMDAwQEBAQEBAICBQUGBgIGAgICAgICBgYCAwMDAwICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgIDAwMDAwMEBAQDBAkCBQUFBQYCAgIGAgIGAgYCAgQEBAQCAgIGAgICBgICAgICAgICAgICAgICAgICAgIGAgYDAwMDAwMDAwMDAwQCAgUFAQUCAgICAgIGAgYCBgYDAwgCAgICAgYCAgICAgICBgICAgICAgICAgICAgICAgICAgMDAwMDAwMDAwMEAgIFAQEFAgICBgYGBgICAgICAwMGBgIGAgICBgICBgICBgICAgUFBQUFBQUCAgICAgICAgICCAMDAwMDAwMDBAIFBQEFBQICAgIGAgICAgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        }
+      },
+      "actions": [
+        3,
+        5
+      ],
+      "metadata": {
+        "action_names": [
+          "move_up",
+          "do"
+        ],
+        "action_reasoning": "Moving up to explore and collect resources by performing the 'do' action.",
+        "turn": 0
+      },
+      "event_metadata": []
+    },
+    {
+      "time_record": {
+        "event_time": "2025-07-25T10:52:26.830873",
+        "message_time": 0
+      },
+      "system_instance_id": "5c6db315-3782-4e98-8dfc-1d53d7863172",
+      "system_state_before": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            32
+          ],
+          "player_direction": [
+            0,
+            1
+          ],
+          "num_steps_taken": 0,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass",
+          "observation_image_base64": "FowbA1EJA1EJAjQJA1EJAjQJFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAA1EJAS0IPiofA1EJGmwhAjQJGmwhHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAPiofAjQJgF1GPiofZU08hmxXA1EJHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAZU08hmxXAjQJZU08AjQJWT4tAjQJFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbZU08FYkaCEQKDmYKFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNZU08CFEOCEQKDWAKFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNZU08PiofRy8gCEQKFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbxZhvFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbxZhvFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNh2FSXzorFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNdbnGHo6hHo6hHo6hF2RzFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbXzorXzorwsPIh2FSh2FSwsPIFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbF2RzdbnGHo6hF2RzdbnGFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbh2FSwsPIXzorwsPIXzorFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbxZhvsJmNgV1IW0E02MOzDlMJFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbwsPIFowbCkYQCkYQwsPIDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYN4+QU4+QU4+QUCjsJHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbRScbDlMJHaYNFowbRScbDlMJAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNsJmN4+QUW0E0CjsJCkYQFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbAAAAHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbHaYNFowbFowbFowbFnYNFowbFowbFowbA1EJA1EJAjQJA1EJAjQJFowbAAAAHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbHaYNFowbFowbFnYNFnYNHaYNFowbA1EJAS0IPiofA1EJGmwhAjQJGmwhAAAAHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbHaYNFowbFowbFnYNHaYNHaYNFowbPiofAjQJgF1GPiofZU08hmxXA1EJAAAAFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbFowbFowbFowbFnYNHaYNFnYNFowbZU08hmxXAjQJZU08AjQJWT4tAjQJAAAAFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbFowbFowbFnYNHaYNFowbFnYNFowbZU08FYkaCEQKDmYKAAAAFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNHaYNFowbFnYNHaYNFowbFnYNHaYNZU08CFEOCEQKDWAKAAAAFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNHaYNHaYNFowbFnYNFowbFowbFnYNZU08PiofRy8gCEQKFowbAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgYGBgIGAgICAgICBQUBAQEBAQEBAQEBAQEBAgYCAgICAgICAgICAgICAgICAgICAgYGAgIGAgICAgICBQEBAQIGAgICAgICAgICAgIGBQUFBQEBAQEBAQEBAgICBgYGAgICAgICAgYCAgICAgICAgIGAgICAgICAgICBQEBAQECBgICAgICAgICAgICAgYCAgICAgEBAQEBBgICAgICAgICAgYDAwMEAwMCAgICAgICAgICAgICAgICBQEBAQEBAgIGBgICAgICAgICAgYCAgICAgICAgICAgYCAgICAgICAgIDAwgIBAMIAwICAgIGAgICAgIGAgICAgUBAQEBAQUCBgIGAgICAgICAgICAgICAgICAgICAgICBgIGAgICAgIGAwMEBAQDCAMDAgICAgICBgICAgICAgIFAQEBAQECBQYGAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIEBAQEBAMDAwICAgICAgIGAgICAgICAgUFAQEBAQICAgICAgICAgICAgIGAgYCAgICAgICAgYCAgYCAgICAgICBAQEBAQDAwMCAgICAgICAgICBgICAgICBQEBAQECAgICAgICAgICAgICAgICAgICAgICAgIGAgIGAgYCAgICAgMDBAQECAMDAgICAgICAgICAgICAgICAgUBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDBAQEAwMDAwICAgICAgICAgICAgICAgIFAQEBBgICAgICBgICAgICAgICBgICAgICAgICAgICAgIGAgICAwMDBAQEBAMDAwQCAgICAgICAgICAgYCAgICBQEBAQICBgIDAwMCAgICAgICAgICAgICAgICAgICBQICAgICAgMDAwQEBAQDAwMDAgICAgICAgICBgYCAgICAgIBAQECAgIDAwgDAgICAgICAgICAgICAgICAgIBAQUCAgIGAgIDAwMDBAQEAwMDAwMGAgICAgICAgICAgICAgICAgIBAQIDAwMDAwICCAMCAgIGAwICAgICAgIBAQEFBQICAgICAgMEBAQEBAQDAwMDBgICAgICAgICAgICAgICAgICAQECAwMDAwMCAgMDAwICAwMDAwICAgIBAQEBAQUGAgYCAgIDAwMDBAMDAwMDAwMCAgICAgICAgICAgICAgICAgIBAgMDAwMCAgICAwICAgMDCAMDAgICAQEBAQEFAgYCAgICAwMDAwQHBAQEBAMDAgICAgICAgICAgICAgICAgIBAQIDAwMDAgICAgkCAgICAwMDAwMCBQUBAQEBBQICBgICAgMDCAcEBAQEBAQDCAICAgICAgICAgICAgICAgICAQECAwMDAwICAgkIAgICAgMDAwMDAwUBAQEBAQEFAgICAgICAwMIBAQEBAQEAwMCAgICAgICAgICAgICAgICAQEBAgICAgICAgIDAwMCAgICAwMDAwMFAQEBAQEBAQUCAgICBgIIAwQEBAQEBAMDAgICAgICAgICAgICAgICBQEBBQICAgICAgICAgMDAgICAwgEBAQCAgUBAQEBAQEFAgYCBgICAgMEBAQEBAMDAwMCAgICAgICAgICAgICAgUBAQICAgICAgICAgICAgICAwMGAgICAgYFAQEBAQEBAQUGBgICAgYGBAQEBAQEBAQEBAQCAgICAgICAgICAgIFAQECAgICAgICAgICAgICAgICAgICAgICBQEBAQEBAQEFAgICAgICAgIEBAQEBAQEAwMEAwQEAwICBgYCAgICBQEBAgICAgICAgICAgICAgICAgIGAgICAgUFAQEBAQEBBQYGAgICAgICAwoEBAMDAwMDBAQEBAMKAwICAgYCAgUBAQICAgICAgICAgICAgICAgICBgICAgICBQEBAQEBAQEFBgYGAgICBgIDCAQEBAQEBAQEBAQEAwMCAgICAwQEBAQCAgICAgICAgICAgICBgICAgICAgICAgUFAQEBAQEBBQYCBgYCAgICBAQEBAQEBAQEBAQEBAQDBAIIAwMEAwMEAgICAgICAgICAgICAgICBgICAgICAgICAgIBBQEFBQUGAgICAgICAgMDBAQEBAQEBAQEBAQEAwQDAwMEBAcDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIBBQUGAgICAgICAgIDAwQEBAQEBAQEBAQEBAQEAwMEBAQHAwMCAgYCAgICAgICAgICAgYGAgICAgICAgICAgICAgIGAgICAgICAgICAwMHBwcHBwQEBAQDAwMDBAMDAwMEAwMFAgYCAgICAgICAgICAgICAgICAgICAgIGAgIGAgIGAgICAgICAgICAgMDAwMDAwMDBAMEAgICAwQDAwMDBAMCAgICAgICBgICAgICAgICBgICAgICAgIGAgICAgICBgICAgICAgICAgICAwMDAwMDAwQDAgICAgICAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgICAgICAgICAgICAgIDBAQECAMDAgICAgICAgICAgICAgIGAgICBgICAgICAgICBQICAgICAgIGAgICAgICBgICAgICAgICAgICAgICAgIIAwMDAgICAgICAgICBgYCAgICAgICAgICAgYGAgICBQUFAgICAgICBgICBgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYGBgYCAgICAgICAgIGBQUFBQUCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgUFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICBgIGAgMCAgICAgICAgYCAgYCAgICAgICAgICAgICAgIFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDAwMCAgICAgICAgYCAgICAgICAgICAgICAgICAwgEAgYCAgICAgICAgICAgICAgICAgICAgIGAgICBgYGAgMDAwMIAwMCAgICAgICBgICAgICAgICAgICAwMDAwMDAwICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgMDAwMDAwMDAwICAgICAgICAgICAgICAgICAwMDAwMIAwMEBgYCAgICAgICAgYCAgICAgICAgICAgICAgIGAgIDAwMDAwMDCAMCAgICAgICAgICAgICAgICAwMEBAMDAwMDBAICAgIGAgICAgICAgICBgICAgIGBgIGAgYCAgYCAgICAwMDAwMDAwICAgICAgICAgICAgYCAwMEBAQDAwMDAwQCAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIDAwMDAwMIAgICAgICAgICAgYCAwMEBAQDAwMEBAQEBgYCAgICAgYCAgICAgIGAgICBgYCAgICAgYCAgYGAgICAwMIAwMDAwMCAgICAgICAgICAgMDBAQEAwMDBAQEBAICBgICAgYCAgIGAgICAgICAgICBgIGAgYCAgIGAgICAwMDAwMIAwMDAwICAgICAgICAgIDAwQEAwMDAwQEBAQDAgICAgIGAgICAgICBgICAgYGAgIGAgICAgICAgICAgMDAwMDCAgEBAgJAgICAgICAgYGAwMEAwMIAwMEBAQEBAMCAgIGAgICAgICAgICAgICAgIGAgICAgICAgICBgIEAwMDAwMDBAQECAMCAgICAgICBgMDBAMDAwgDBAQEBAQDAgICBgICAgYCAgICAgICAgYGAgIGAgICAgICAgICBAMDAwgDBAQEBAQECAICAgICAgIDCQQIAwMDAwQEBAQDAwICAgIGAgICAgICAgICAgIGAgIGBQUCAgYGAgYCAgQEBAQEBAQEBAQEBAQDAwMGAgIECQMDAwMDAwMEBAQEAwICBgICAgYCAgICAgICAgYCAgIBAQEBBQUCAgICAgYCAwMDBAMEBAQEBAQDAwMDAgICAwkEAwMIAwcHBAQEBAMGBgIGAgIGAgICAgICAgICAgICAQEBAQEFBQICAgICAgMDAwMDBAQEBAQEBAQEBAMGAgMEBAcHCAcHBAQEBAQDAgICAgICAgICAgICBAQCAgICBQEBAQEBAQUFBgICBgICAgMDAwMECQMIAwgDAwMDBAQDBAQEBwcHBAQEBAQEAwICAgIGAgICAgICAwMDBAQCAgEBAQEBAQEBBQUFAgICAgICAwMDBAMDBAQEBAQEBAQEBAQEBAQEBAQEBAQECAMCAgYCBgIGAgICAgMDAwQEAwUBAQEBAQEBAQUFAgICBgICBgMDAwQDAwgIAwQEBAQEBgQEBAQEBAQEBAQEBAMDAgICAgICAgICAgIICAQEBAMDAQEBAQEBAQEFBQICAgICAgIDAwMEAwMDAwMEBAQEBAYEBAQEBAQEAwMDAwMICAICAgICAgICAgIEBAQEBAQEBAEBAQEBAQEBBQICAgICBgIDAwgDBAQEBAQEBAQEBAQCBAMEBAMDAwMDAwMCAgICAgICAgICAgICAwMDBAgEBwMBAQEBAQEBAQUCAgICAgYGAgMDAwQIAwoDAwQEBAQEAwQDBAQDAwMDAwMCAgICAgICAgICAgICAggDCAQDBAcDAQEBAQEBAQUCAgICAgICBQIDAwMEAwMDAwMHAwQEBAMEBAQEBAMDAwMCAgICAgICAgYCAgYCAgICAwMDAwQIAwEBAwMDAwMCAgICAgICAgUCAgMDBAMIAwMHBwcDAwQDBAQEBAQDAwMDAgICAgIGAgICAgICAgICAgMDAwQEAwICAgMJAwMEBAQCAgICAgIFAgIGAgICAwMDBAMHAwMEAwQEBAQDCQQEBAICAgICAgICAgICBgICAgICAgICAgICAgIDAwMDAwMEAwMCAgICAgIGAgIGAgYGAgQDAwQEBAMIBAQDCQMJAgICAgIGAgYGAgICBgYCAgICBgIGBgIGAgICCQMDAwMDBAMDAwQDAwICAgICAgICAgYCAgIIAwQDCAMIAwYCAgICAgICAgICAgIGAgICAgICAgICAgIGBgICAgMDAwMDAwQEBAQEBAICBQUGBgIGAgICAgICBgYCAwMDAwICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgIDAwMDAwMEBAQDBAkCBQUFBQYCAgIGAgIGAgYCAgQEBAQCAgIGAgICBgICAgICAgICAgICAgICAgICAgIGAgYDAwMDAwMDAwMDAwQCAgUFAQUCAgICAgIGAgYCBgYDAwgCAgICAgYCAgICAgICBgICAgICAgICAgICAgICAgICAgMDAwMDAwMDAwMEAgIFAQEFAgICBgYGBgICAgICAwMGBgIGAgICBgICBgICBgICAgUFBQUFBQUCAgICAgICAgICCAMDAwMDAwMDBAIFBQEFBQICAgIGAgICAgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "system_state_after": {
+        "public_state": {
+          "inventory": {
+            "health": 9,
+            "food": 9,
+            "drink": 9,
+            "energy": 9,
+            "sapling": 0,
+            "wood": 0,
+            "stone": 0,
+            "coal": 0,
+            "iron": 0,
+            "diamond": 0,
+            "wood_pickaxe": 0,
+            "stone_pickaxe": 0,
+            "iron_pickaxe": 0,
+            "wood_sword": 0,
+            "stone_sword": 0,
+            "iron_sword": 0
+          },
+          "achievements_status": {
+            "collect_coal": false,
+            "collect_diamond": false,
+            "collect_drink": false,
+            "collect_iron": false,
+            "collect_sapling": false,
+            "collect_stone": false,
+            "collect_wood": false,
+            "defeat_skeleton": false,
+            "defeat_zombie": false,
+            "eat_cow": false,
+            "eat_plant": false,
+            "make_iron_pickaxe": false,
+            "make_iron_sword": false,
+            "make_stone_pickaxe": false,
+            "make_stone_sword": false,
+            "make_wood_pickaxe": false,
+            "make_wood_sword": false,
+            "place_furnace": false,
+            "place_plant": false,
+            "place_stone": false,
+            "place_table": false,
+            "wake_up": false
+          },
+          "player_position": [
+            32,
+            31
+          ],
+          "player_direction": [
+            0,
+            -1
+          ],
+          "num_steps_taken": 1,
+          "max_steps_episode": 10000,
+          "error_info": null,
+          "semantic_map_text": "\nLocal Map View (7x7):\ngrass grass tree grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass player grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\ngrass grass grass grass grass grass grass\nVisible items: grass, tree",
+          "observation_image_base64": "HacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bFY0bA1EJA1EJAjQIA1EJAjQIFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bA1EJAS0HPiofA1EJGm0gAjQIGm0gHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bPiofAjQIgF5GPiofZk08h2xXA1EJHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bZk08h2xXAjQIZk08AjQIWT4tAjQIFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bZk08FIoaCEQJDmYKFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNZk08CFEOCEQJDWAKFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMZk08PiofRy8gCEQJFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAFY0bA1EJA1EJAjQIA1EJAjQIFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAA1EJAS0HPiofA1EJGm0gAjQIGm0gHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAPiofAjQIgF5GPiofZk08h2xXA1EJHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAZk08h2xXAjQIZk08AjQIWT4tAjQIFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bZk08FIoaCEQJDmYKFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNZk08CFEOCEQJDWAKFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMZk08PiofRy8gCEQJFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0b5OYTFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0b5OYT5OYT5OYTHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNh2FSYDsrFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNdbrHHo6hHo6hHo6hF2VzFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bYDsrYDsrw8TJh2FSh2FSw8TJFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bF2VzdbrHHo6hF2VzdbrHFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bh2FSw8TJYDsrw8TJYDsrFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bxphvsZqOgV5IW0I02cSzDlMJFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bw8TJFY0bCkcPCkcPw8TJDlMJAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMsZqOHacNW0I0CjsIHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bRScbDlMJHacNFY0bRScbDlMJAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMsZqODlMJW0I0CjsICkcPFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bHacNFY0bFY0bFY0bFncMFY0bFY0bAAAAHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bHacNFY0bFY0bFncMFncMHacNFY0bAAAAHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bHacNFY0bFY0bFncMHacNHacNFY0bAAAAFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bFY0bFY0bFY0bFncMHacNFncMFY0bAAAAFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNFY0bFncMFY0bFY0bFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNFY0bFncMHacNHacNFY0bFncMHacNAAAAFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bFY0bFncMHacNHacNFY0bFncMFY0bAAAAAAAA/dzcAAAA+szMAAAAAAAAAAAAAAAAAAAAonFPrHlXsX9dAAAAAAAAAAAAAAAAp7PlAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/cLC/Z6e+5iY9oCA0UtLAAAAAAAAAAAAAAAAe1U7hFs/pHNQAAAAAAAAAAAAAAAAhpjbAAAAAAAAAAAAAAAAAAAAOqs3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+nh4+z8/+C0t////////////AAAAAAAAOSMSVDUc////////////AAAAAAAAq7fnRG3T////////////AAAAAAAADX0ODYoP////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7hkZ4gkJ////AAAA////AAAA////09PTPSYS////AAAA////AAAAAAAAe5DaIFvI////AAAA////AAAAAAAAAAAAF4gV////AAAA////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAuAICAAAA////////AAAAsrKy////AAAAAAAA////////AAAAAAAARWa9CUWhATR/////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAA////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "observation_image_shape": [
+            64,
+            64,
+            3
+          ],
+          "world_material_map_base64": "AgYGBgIGAgICAgICBQUBAQEBAQEBAQEBAQEBAgYCAgICAgICAgICAgICAgICAgICAgYGAgIGAgICAgICBQEBAQIGAgICAgICAgICAgIGBQUFBQEBAQEBAQEBAgICBgYGAgICAgICAgYCAgICAgICAgIGAgICAgICAgICBQEBAQECBgICAgICAgICAgICAgYCAgICAgEBAQEBBgICAgICAgICAgYDAwMEAwMCAgICAgICAgICAgICAgICBQEBAQEBAgIGBgICAgICAgICAgYCAgICAgICAgICAgYCAgICAgICAgIDAwgIBAMIAwICAgIGAgICAgIGAgICAgUBAQEBAQUCBgIGAgICAgICAgICAgICAgICAgICAgICBgIGAgICAgIGAwMEBAQDCAMDAgICAgICBgICAgICAgIFAQEBAQECBQYGAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIEBAQEBAMDAwICAgICAgIGAgICAgICAgUFAQEBAQICAgICAgICAgICAgIGAgYCAgICAgICAgYCAgYCAgICAgICBAQEBAQDAwMCAgICAgICAgICBgICAgICBQEBAQECAgICAgICAgICAgICAgICAgICAgICAgIGAgIGAgYCAgICAgMDBAQECAMDAgICAgICAgICAgICAgICAgUBAQECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDBAQEAwMDAwICAgICAgICAgICAgICAgIFAQEBBgICAgICBgICAgICAgICBgICAgICAgICAgICAgIGAgICAwMDBAQEBAMDAwQCAgICAgICAgICAgYCAgICBQEBAQICBgIDAwMCAgICAgICAgICAgICAgICAgICBQICAgICAgMDAwQEBAQDAwMDAgICAgICAgICBgYCAgICAgIBAQECAgIDAwgDAgICAgICAgICAgICAgICAgIBAQUCAgIGAgIDAwMDBAQEAwMDAwMGAgICAgICAgICAgICAgICAgIBAQIDAwMDAwICCAMCAgIGAwICAgICAgIBAQEFBQICAgICAgMEBAQEBAQDAwMDBgICAgICAgICAgICAgICAgICAQECAwMDAwMCAgMDAwICAwMDAwICAgIBAQEBAQUGAgYCAgIDAwMDBAMDAwMDAwMCAgICAgICAgICAgICAgICAgIBAgMDAwMCAgICAwICAgMDCAMDAgICAQEBAQEFAgYCAgICAwMDAwQHBAQEBAMDAgICAgICAgICAgICAgICAgIBAQIDAwMDAgICAgkCAgICAwMDAwMCBQUBAQEBBQICBgICAgMDCAcEBAQEBAQDCAICAgICAgICAgICAgICAgICAQECAwMDAwICAgkIAgICAgMDAwMDAwUBAQEBAQEFAgICAgICAwMIBAQEBAQEAwMCAgICAgICAgICAgICAgICAQEBAgICAgICAgIDAwMCAgICAwMDAwMFAQEBAQEBAQUCAgICBgIIAwQEBAQEBAMDAgICAgICAgICAgICAgICBQEBBQICAgICAgICAgMDAgICAwgEBAQCAgUBAQEBAQEFAgYCBgICAgMEBAQEBAMDAwMCAgICAgICAgICAgICAgUBAQICAgICAgICAgICAgICAwMGAgICAgYFAQEBAQEBAQUGBgICAgYGBAQEBAQEBAQEBAQCAgICAgICAgICAgIFAQECAgICAgICAgICAgICAgICAgICAgICBQEBAQEBAQEFAgICAgICAgIEBAQEBAQEAwMEAwQEAwICBgYCAgICBQEBAgICAgICAgICAgICAgICAgIGAgICAgUFAQEBAQEBBQYGAgICAgICAwoEBAMDAwMDBAQEBAMKAwICAgYCAgUBAQICAgICAgICAgICAgICAgICBgICAgICBQEBAQEBAQEFBgYGAgICBgIDCAQEBAQEBAQEBAQEAwMCAgICAwQEBAQCAgICAgICAgICAgICBgICAgICAgICAgUFAQEBAQEBBQYCBgYCAgICBAQEBAQEBAQEBAQEBAQDBAIIAwMEAwMEAgICAgICAgICAgICAgICBgICAgICAgICAgIBBQEFBQUGAgICAgICAgMDBAQEBAQEBAQEBAQEAwQDAwMEBAcDAwICAgICAgICAgICAgICAgICAgICAgICAgICAgIBBQUGAgICAgICAgIDAwQEBAQEBAQEBAQEBAQEAwMEBAQHAwMCAgYCAgICAgICAgICAgYGAgICAgICAgICAgICAgIGAgICAgICAgICAwMHBwcHBwQEBAQDAwMDBAMDAwMEAwMFAgYCAgICAgICAgICAgICAgICAgICAgIGAgIGAgIGAgICAgICAgICAgMDAwMDAwMDBAMEAgICAwQDAwMDBAMCAgICAgICBgICAgICAgICBgICAgICAgIGAgICAgICBgICAgICAgICAgICAwMDAwMDAwQDAgICAgICAwMCAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgICAgICAgICAgICAgIDBAQECAMDAgICAgICAgICAgICAgIGAgICBgICAgICAgICBQICAgICAgIGAgICAgICBgICAgICAgICAgICAgICAgIIAwMDAgICAgICAgICBgYCAgICAgICAgICAgYGAgICBQUFAgICAgICBgICBgICAgIGAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYGBgYCAgICAgICAgIGBQUFBQUCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGAgICAgICAgICAgICAgICAgUFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICBgIGAgMCAgICAgICAgYCAgYCAgICAgICAgICAgICAgIFBQUFAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgMDAwMCAgICAgICAgYCAgICAgICAgICAgICAgICAwgEAgYCAgICAgICAgICAgICAgICAgICAgIGAgICBgYGAgMDAwMIAwMCAgICAgICBgICAgICAgICAgICAwMDAwMDAwICAgICAgICAgICAgICAgICAgICAgIGAgICBgICAgMDAwMDAwMDAwICAgICAgICAgICAgICAgICAwMDAwMIAwMEBgYCAgICAgICAgYCAgICAgICAgICAgICAgIGAgIDAwMDAwMDCAMCAgICAgICAgICAgICAgICAwMEBAMDAwMDBAICAgIGAgICAgICAgICBgICAgIGBgIGAgYCAgYCAgICAwMDAwMDAwICAgICAgICAgICAgYCAwMEBAQDAwMDAwQCAgICAgICAgICAgICAgICAgICAgICAgYCAgICAgICAgIDAwMDAwMIAgICAgICAgICAgYCAwMEBAQDAwMEBAQEBgYCAgICAgYCAgICAgIGAgICBgYCAgICAgYCAgYGAgICAwMIAwMDAwMCAgICAgICAgICAgMDBAQEAwMDBAQEBAICBgICAgYCAgIGAgICAgICAgICBgIGAgYCAgIGAgICAwMDAwMIAwMDAwICAgICAgICAgIDAwQEAwMDAwQEBAQDAgICAgIGAgICAgICBgICAgYGAgIGAgICAgICAgICAgMDAwMDCAgEBAgJAgICAgICAgYGAwMEAwMIAwMEBAQEBAMCAgIGAgICAgICAgICAgICAgIGAgICAgICAgICBgIEAwMDAwMDBAQECAMCAgICAgICBgMDBAMDAwgDBAQEBAQDAgICBgICAgYCAgICAgICAgYGAgIGAgICAgICAgICBAMDAwgDBAQEBAQECAICAgICAgIDCQQIAwMDAwQEBAQDAwICAgIGAgICAgICAgICAgIGAgIGBQUCAgYGAgYCAgQEBAQEBAQEBAQEBAQDAwMGAgIECQMDAwMDAwMEBAQEAwICBgICAgYCAgICAgICAgYCAgIBAQEBBQUCAgICAgYCAwMDBAMEBAQEBAQDAwMDAgICAwkEAwMIAwcHBAQEBAMGBgIGAgIGAgICAgICAgICAgICAQEBAQEFBQICAgICAgMDAwMDBAQEBAQEBAQEBAMGAgMEBAcHCAcHBAQEBAQDAgICAgICAgICAgICBAQCAgICBQEBAQEBAQUFBgICBgICAgMDAwMECQMIAwgDAwMDBAQDBAQEBwcHBAQEBAQEAwICAgIGAgICAgICAwMDBAQCAgEBAQEBAQEBBQUFAgICAgICAwMDBAMDBAQEBAQEBAQEBAQEBAQEBAQEBAQECAMCAgYCBgIGAgICAgMDAwQEAwUBAQEBAQEBAQUFAgICBgICBgMDAwQDAwgIAwQEBAQEBgQEBAQEBAQEBAQEBAMDAgICAgICAgICAgIICAQEBAMDAQEBAQEBAQEFBQICAgICAgIDAwMEAwMDAwMEBAQEBAYEBAQEBAQEAwMDAwMICAICAgICAgICAgIEBAQEBAQEBAEBAQEBAQEBBQICAgICBgIDAwgDBAQEBAQEBAQEBAQCBAMEBAMDAwMDAwMCAgICAgICAgICAgICAwMDBAgEBwMBAQEBAQEBAQUCAgICAgYGAgMDAwQIAwoDAwQEBAQEAwQDBAQDAwMDAwMCAgICAgICAgICAgICAggDCAQDBAcDAQEBAQEBAQUCAgICAgICBQIDAwMEAwMDAwMHAwQEBAMEBAQEBAMDAwMCAgICAgICAgYCAgYCAgICAwMDAwQIAwEBAwMDAwMCAgICAgICAgUCAgMDBAMIAwMHBwcDAwQDBAQEBAQDAwMDAgICAgIGAgICAgICAgICAgMDAwQEAwICAgMJAwMEBAQCAgICAgIFAgIGAgICAwMDBAMHAwMEAwQEBAQDCQQEBAICAgICAgICAgICBgICAgICAgICAgICAgIDAwMDAwMEAwMCAgICAgIGAgIGAgYGAgQDAwQEBAMIBAQDCQMJAgICAgIGAgYGAgICBgYCAgICBgIGBgIGAgICCQMDAwMDBAMDAwQDAwICAgICAgICAgYCAgIIAwQDCAMIAwYCAgICAgICAgICAgIGAgICAgICAgICAgIGBgICAgMDAwMDAwQEBAQEBAICBQUGBgIGAgICAgICBgYCAwMDAwICAgICAgICAgIGAgICAgICAgICAgICAgICAgICAgIDAwMDAwMEBAQDBAkCBQUFBQYCAgIGAgIGAgYCAgQEBAQCAgIGAgICBgICAgICAgICAgICAgICAgICAgIGAgYDAwMDAwMDAwMDAwQCAgUFAQUCAgICAgIGAgYCBgYDAwgCAgICAgYCAgICAgICBgICAgICAgICAgICAgICAgICAgMDAwMDAwMDAwMEAgIFAQEFAgICBgYGBgICAgICAwMGBgIGAgICBgICBgICBgICAgUFBQUFBQUCAgICAgICAgICCAMDAwMDAwMDBAIFBQEFBQICAgIGAgICAgICAg==",
+          "world_material_map_shape": [
+            64,
+            64
+          ]
+        },
+        "private_state": {
+          "reward_last_step": 0.0,
+          "total_reward_episode": 0.0,
+          "terminated": false,
+          "truncated": false
+        }
+      },
+      "reward": 0.0,
+      "terminated": false,
+      "observation_diff": null,
+      "metadata": {
+        "actions_executed": [
+          "move_up",
+          "do"
+        ],
+        "turn": 0
+      },
+      "event_metadata": []
+    }
+  ],
+  "created_at": "2025-07-25T10:52:24.132305"
+}

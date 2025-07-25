@@ -1,0 +1,31 @@
+# Gemini Fine-tuning Data Generation Configuration
+
+[generation]
+# Model to use for trajectory generation
+model_name = "gemini-2.5-flash"  # Options: gemini-2.5-flash, gemini-2.5-pro, gemini-2-flash, gemini-1.5-flash
+num_rollouts = 100  # Number of episodes to generate
+max_turns = 30  # Maximum steps per episode
+difficulty = "easy"  # Crafter difficulty: easy, medium, hard
+seed = 42  # Random seed for reproducibility
+
+[service]
+# Synth service configuration
+base_url = "http://localhost:8901"
+timeout = 30.0  # Request timeout in seconds
+
+[quality]
+# Quality filtering parameters
+min_score_threshold = 2.0  # Minimum trajectory score
+min_achievements = 3  # Minimum number of achievements required
+enable_thinking = true  # Enable Gemini thinking/reasoning
+thinking_budget = 15000  # Token budget for thinking
+
+[output]
+# Output directories
+traces_dir = "traces_gemini"  # Directory for raw trajectories
+ft_data_dir = "ft_data_gemini"  # Directory for processed fine-tuning data
+
+# Example usage:
+# python generate_ft_data_gemini.py --config gemini_ft_config.toml
+# python generate_ft_data_gemini.py --config gemini_ft_config.toml --num-rollouts 10 --model gemini-2.5-pro
+# python generate_ft_data_gemini.py --config gemini_ft_config.toml --filter-only --min-achievements 4
