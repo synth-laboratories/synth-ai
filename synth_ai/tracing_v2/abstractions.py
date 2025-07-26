@@ -1,8 +1,17 @@
+"""
+Serializable versions of tracing abstractions with to_dict methods.
+This is a temporary patch to make the dataclasses JSON-serializable.
+"""
+
 from typing import Any, List, Type, Optional, Dict
 from uuid import UUID
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
+import json
+from datetime import datetime
 
 from synth_ai.core.system import System
+from synth_ai.tracing_v2.utils import make_serializable
+
 
 # Agent State
 # Environment State
@@ -35,27 +44,38 @@ from synth_ai.core.system import System
 class TimeRecord:
     event_time: Optional[Any] = None
     message_time: Optional[Any] = None
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 @dataclass
 class Session:
     systems: List[System] = field(default_factory=list)
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 # Session-level Metadata
 @dataclass
 class SessionMetadum: 
-    pass
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
 class SessionRewardSignal(SessionMetadum):
-    pass
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
 class Hypothetical: # MCTS-esque stuff
     id: Any = None
     parent_id: Any = None
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 # A message is Information Entering a Markov Blanket OR Leaving It
@@ -63,13 +83,17 @@ class Hypothetical: # MCTS-esque stuff
 class SessionMessage:  # I/O
     time_record: TimeRecord = field(default_factory=TimeRecord)
     origin_system_id: Optional[UUID] = None
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 # An event is a system's state changing
 # Runtime may be stateful
 @dataclass
 class SessionEvent:
-    pass
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
@@ -78,11 +102,15 @@ class SystemEvent(SessionEvent):
     system_instance_id: Optional[Any] = None
     system_state_before: Optional[Any] = None
     system_state_after: Optional[Any] = None
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
 class EventMetadata:
-    pass
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
@@ -90,6 +118,9 @@ class CAISEvent(SystemEvent):
     llm_call_records: List[Any] = field(default_factory=list)
     metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
     event_metadata: List[EventMetadata] = field(default_factory=list)
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
@@ -98,21 +129,63 @@ class EnvironmentEvent(SystemEvent):
     terminated: Optional[bool] = None
     metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
     event_metadata: List[EventMetadata] = field(default_factory=list)
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
-class RuntimeEvent(SessionEvent):
-    system_state_before: Optional[Any] = None
-    system_state_after: Optional[Any] = None
-    actions: Optional[List[Any]] = field(default_factory=list)
-    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
+class RuntimeEvent(SystemEvent):
+    event_metadata: List[EventMetadata] = field(default_factory=list)
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
+
+
+# Message Types
+@dataclass
+class MessageInputs:
+    messages: List[Any] = field(default_factory=list)
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
+
+
+@dataclass
+class ToolCallMessage(SessionMessage):
+    pass
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
+
+
+@dataclass 
+class OutputMessage(SessionMessage):
+    pass
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
+
+
+@dataclass
+class ActionMessage(SessionMessage):
+    pass
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
+
+
+@dataclass
+class EnvironmentStateMessage(SessionMessage):
+    pass
+    
+    def to_dict(self):
+        return make_serializable(asdict(self))
 
 
 @dataclass
 class EventRewardSignal(EventMetadata):
     pass
-
-
 
 
 # A session is essentially this:
@@ -123,5 +196,3 @@ class SessionTrace:
     message_history: List[SessionMessage] = field(default_factory=list)
     event_history: List[SessionEvent] = field(default_factory=list)
     session_metadata: List[SessionMetadum] = field(default_factory=list)
-
-

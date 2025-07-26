@@ -1,0 +1,20 @@
+# Quick test configuration for trace comparison
+
+[eval]
+model_name = "gpt-3.5-turbo"  # Faster and cheaper for testing
+episodes = 1
+max_steps = 2  # Just 2 steps to verify tracing
+difficulty = "easy"
+seed = 42
+
+[service]
+base_url = "http://localhost:8901"
+timeout = 30.0
+
+[output]
+save_traces = true
+save_detailed_results = true
+
+[tracing_v2]
+enabled = true
+trace_dir = "./traces_comparison_test"

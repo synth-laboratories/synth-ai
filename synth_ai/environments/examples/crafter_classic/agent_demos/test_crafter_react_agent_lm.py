@@ -1,0 +1,828 @@
+#!/usr/bin/env python3
+"""
+Test script to run ReAct agents against Crafter environment using LM class with native v2 tracing.
+This demonstrates the clean integration of v2 tracing without modifying provider wrappers.
+"""
+
+import asyncio
+import json
+import uuid
+import math
+import argparse
+import toml
+import logging
+import time
+import functools
+from datetime import datetime
+from typing import Dict, Any, Optional, List, Set
+from pydantic import BaseModel, Field
+from httpx import AsyncClient
+import httpx
+import sys
+import os
+from pathlib import Path
+from tqdm.asyncio import tqdm_asyncio
+from tqdm import tqdm
+import random
+from collections import defaultdict
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
+
+# Disable v1 logging to see v2 tracing clearly
+os.environ["LANGFUSE_ENABLED"] = "false"
+os.environ["SYNTH_LOGGING"] = "false"
+
+import numpy as np
+
+# Import enhanced LM with v2 tracing
+from synth_ai.lm.core.main_v2 import LM
+
+# Import session tracer for v2 tracing
+from synth_ai.tracing_v2.session_tracer import (
+    SessionTracer, SessionEventMessage, TimeRecord,
+    RuntimeEvent, EnvironmentEvent, CAISEvent
+)
+from synth_ai.tracing_v2.utils import create_experiment_context
+from synth_ai.tracing_v2.duckdb.manager import DuckDBTraceManager
+from synth_ai.tracing_v2.decorators import (
+    set_active_session_tracer, set_system_id, set_turn_number
+)
+from datetime import datetime
+
+# Import Crafter hooks
+try:
+    from synth_ai.environments.examples.crafter_classic.trace_hooks import CRAFTER_HOOKS
+    print(f"✅ Loaded {len(CRAFTER_HOOKS)} Crafter achievement hooks (Easy, Medium, Hard)")
+except ImportError:
+    print("Warning: Could not import CRAFTER_HOOKS")
+    CRAFTER_HOOKS = []
+
+# Retry configuration for HTTP requests
+MAX_RETRIES = 3
+BASE_DELAY = 0.1
+MAX_DELAY = 2.0
+HTTP_TIMEOUT = 10.0
+
+
+async def retry_http_request(client: AsyncClient, method: str, url: str, **kwargs) -> Any:
+    """Retry HTTP requests with exponential backoff and jitter."""
+    last_exception = None
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            if attempt > 0:
+                delay = min(BASE_DELAY * (2 ** (attempt - 1)), MAX_DELAY)
+                jitter = random.uniform(0, 0.1 * delay)
+                total_delay = delay + jitter
+                await asyncio.sleep(total_delay)
+            
+            response = await client.request(method, url, timeout=HTTP_TIMEOUT, **kwargs)
+            
+            if response.status_code < 500:
+                return response
+            
+            last_exception = Exception(f"HTTP {response.status_code}: {response.text}")
+            
+        except httpx.ReadError as e:
+            last_exception = e
+            if attempt < MAX_RETRIES - 1:
+                read_error_delay = min(1.0 * (2 ** attempt), 5.0)
+                await asyncio.sleep(read_error_delay)
+        except Exception as e:
+            last_exception = e
+    
+    print(f"    ❌ HTTP request failed after {MAX_RETRIES} attempts: {type(last_exception).__name__}: {str(last_exception)[:200]}")
+    raise last_exception
+
+
+def create_message(content: Any, message_type: str, origin_system_id: Any, turn: int) -> SessionEventMessage:
+    """Create a message with origin system ID embedded in content."""
+    return SessionEventMessage(
+        content={
+            "origin_system_id": str(origin_system_id),
+            "payload": content
+        },
+        message_type=message_type,
+        time_record=TimeRecord(
+            event_time=datetime.now().isoformat(),
+            message_time=turn
+        )
+    )
+
+
+def compress_observation_for_trace(obs: Dict[str, Any]) -> Dict[str, Any]:
+    """Compress observation data for efficient trace storage."""
+    obs_compressed = obs.copy()
+    
+    # Convert semantic map to text
+    if "semantic_map" in obs_compressed:
+        map_view = format_semantic_map_view(obs_compressed, view_size=7)
+        obs_compressed["semantic_map_text"] = map_view
+        del obs_compressed["semantic_map"]
+    
+    # Skip heavy fields instead of base64 encoding - just store shape/hash
+    heavy_fields = ["observation_image", "world_material_map", "rgb", "image"]
+    for field in heavy_fields:
+        if field in obs_compressed and isinstance(obs_compressed[field], (list, np.ndarray)):
+            arr = np.array(obs_compressed[field], dtype=np.uint8)
+            obs_compressed[f"{field}_shape"] = arr.shape
+            obs_compressed[f"{field}_size_kb"] = arr.nbytes / 1024
+            obs_compressed[f"{field}_hash"] = hash(arr.tobytes()) % 1000000
+            del obs_compressed[field]
+    
+    return obs_compressed
+
+
+def format_semantic_map_view(obs: Dict[str, Any], view_size: int = 7) -> str:
+    """Extract a small centered view of the semantic map with legend."""
+    semantic_map = obs.get("semantic_map", None)
+    if semantic_map is None:
+        return "No semantic map available"
+    
+    player_position = obs.get("player_position", obs.get("position", [0, 0]))
+    px, py = player_position
+    
+    # Convert to numpy array if needed
+    if isinstance(semantic_map, list):
+        semantic_map = np.array(semantic_map)
+    
+    map_height, map_width = semantic_map.shape
+    
+    # Calculate bounds for the view centered on player
+    half_view = view_size // 2
+    y_start = max(0, py - half_view)
+    y_end = min(map_height, py + half_view + 1)
+    x_start = max(0, px - half_view)
+    x_end = min(map_width, px + half_view + 1)
+    
+    # Extract the view
+    view = semantic_map[y_start:y_end, x_start:x_end]
+    
+    # Mapping of IDs to symbols
+    id_to_symbol = {
+        0: " ",   # grass
+        1: "T",   # tree
+        2: "~",   # water
+        3: "▒",   # stone
+        4: "█",   # table
+        5: "♠",   # sapling
+        6: "◊",   # coal
+        7: "◊",   # iron (same symbol as coal for simplicity)
+        8: "◊",   # diamond
+        9: "F",   # furnace
+        10: "P",  # plant
+        11: "C",  # cow
+        12: "Z",  # zombie
+        13: "S",  # skeleton
+        14: "B",  # sand
+        15: "@"   # player (you)
+    }
+    
+    # Create string representation
+    lines = []
+    for y, row in enumerate(view):
+        line_chars = []
+        for x, cell_id in enumerate(row):
+            # Check if this is the player position relative to the view
+            view_py = py - y_start
+            view_px = px - x_start
+            if y == view_py and x == view_px:
+                line_chars.append("@")  # Player marker
+            else:
+                line_chars.append(id_to_symbol.get(cell_id, "?"))
+        lines.append(" ".join(line_chars))
+    
+    # Add legend
+    legend = "Legend: @ You | T Tree | ~ Water | ▒ Stone | C Cow | Z Zombie | █ Table | F Furnace | ◊ Ore"
+    
+    return "\n".join(lines) + "\n" + legend
+
+
+def get_openai_tools():
+    """Get OpenAI-compatible tool definitions."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "interact",
+                "description": "Perform 1-5 actions in sequence in the Crafter environment.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of 1-5 action names to execute in sequence (e.g., ['move_up', 'do', 'move_down'])"
+                        },
+                        "reasoning": {
+                            "type": "string",
+                            "description": "Brief explanation of why these actions were chosen"
+                        }
+                    },
+                    "required": ["actions", "reasoning"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "terminate",
+                "description": "End the episode when finished or no progress can be made.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "reason": {
+                            "type": "string",
+                            "description": "Reason for termination"
+                        }
+                    },
+                    "required": ["reason"]
+                }
+            }
+        }
+    ]
+
+
+# --- Configuration Class ---
+class CrafterConfig:
+    """Configuration for Crafter evaluation."""
+
+    def __init__(self, config_path: Optional[str] = None):
+        # Default values
+        self.model_name: Optional[str] = None
+        self.num_instances = 1
+        self.max_turns = 2
+        self.difficulty = "easy"
+        self.service_base_url = "http://localhost:8901"
+        self.service_timeout = 30.0
+        self.seed = 42
+        self.save_traces = True
+        self.save_detailed_results = True
+        self.verbose = False
+        self.analyze_traces = False
+        
+        # V2 tracing settings
+        self.enable_v2_tracing = True
+        self.v2_trace_dir = "./traces_v2_lm"
+        
+        # Load from TOML if provided
+        if config_path and os.path.exists(config_path):
+            self.load_from_toml(config_path)
+
+    def load_from_toml(self, config_path: str):
+        """Load configuration from TOML file."""
+        config = toml.load(config_path)
+
+        eval_config = config.get("eval", {})
+        self.model_name = eval_config.get("model_name", self.model_name)
+        self.num_instances = eval_config.get("episodes", self.num_instances)
+        self.max_turns = eval_config.get("max_steps", self.max_turns)
+        self.difficulty = eval_config.get("difficulty", self.difficulty)
+        self.seed = eval_config.get("seed", self.seed)
+
+        service_config = config.get("service", {})
+        self.service_base_url = service_config.get("base_url", self.service_base_url)
+        self.service_timeout = service_config.get("timeout", self.service_timeout)
+
+        output_config = config.get("output", {})
+        self.save_traces = output_config.get("save_traces", self.save_traces)
+        self.save_detailed_results = output_config.get(
+            "save_detailed_results", self.save_detailed_results
+        )
+        
+        # V2 tracing config
+        tracing_config = config.get("tracing_v2", {})
+        self.enable_v2_tracing = tracing_config.get("enabled", self.enable_v2_tracing)
+        self.v2_trace_dir = tracing_config.get("trace_dir", self.v2_trace_dir)
+
+
+# --- Base ReAct Agent using LM ---
+class BaseReActAgentWithLM:
+    """Base ReAct agent using LM class with v2 tracing."""
+
+    def __init__(self, model_name: str, max_turns: int = 20, verbose: bool = False, 
+                 tracer: Optional[SessionTracer] = None):
+        self.model_name = model_name
+        self.max_turns = max_turns
+        self.verbose = verbose
+        self.history = []
+        self.system_name = "base-react-agent-lm"
+        self.tools = get_openai_tools()
+        self.tracer = tracer
+        self.system_id = f"{self.system_name}_{uuid.uuid4()}"
+        
+        # Create LM instance with v2 tracing
+        self.lm = LM(
+            model_name=model_name,
+            formatting_model_name=model_name,
+            temperature=0.0,
+            synth_logging=False,  # Disable v1 tracing
+            session_tracer=tracer,
+            system_id=self.system_id,
+            enable_v2_tracing=True
+        )
+        
+        # Agent state tracking
+        self.agent_state = {
+            "message_history": [],
+            "steps_taken": 0,
+            "steps_remaining": max_turns,
+            "total_tokens_used": 0,
+            "tool_calls_made": 0,
+            "current_turn": 0
+        }
+
+    async def decide(self, obs: str, system_message: str, turn: int) -> Dict[str, Any]:
+        """Get agent decision based on observation using LM class."""
+        # Update agent state
+        self.agent_state["current_turn"] = turn
+        self.agent_state["steps_taken"] = turn
+        self.agent_state["steps_remaining"] = self.max_turns - turn
+        
+        # Create conversation context
+        context = f"Turn {turn + 1}/{self.max_turns}\n\n{obs}"
+        
+        # Build messages in OpenAI format for tools
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": context}
+        ]
+        
+        # Add to message history
+        self.agent_state["message_history"].extend(messages)
+        
+        # Truncate history if too long
+        max_history_length = 20
+        if len(self.agent_state["message_history"]) > max_history_length:
+            self.agent_state["message_history"] = (
+                [self.agent_state["message_history"][0]] +
+                self.agent_state["message_history"][-(max_history_length-1):]
+            )
+        
+        try:
+            # Use LM to get response with tools
+            # The @trace_ai_call decorator will handle v2 tracing automatically
+            # Convert tools to the format expected by LM
+            from synth_ai.lm.tools.base import BaseTool
+            
+            # For now, we'll use messages directly since LM tools have a different format
+            # In production, you'd create proper BaseTool instances
+            llm_start = time.time()
+            
+            # Call LM with turn number for v2 tracing
+            response = await self.lm.respond_async(
+                messages=messages,
+                turn_number=turn
+            )
+            
+            llm_end = time.time()
+            
+            # Parse the response to extract tool calls
+            # The LM class returns a BaseLMResponse with raw_response
+            raw_response = response.raw_response
+            
+            # For now, parse the raw response manually
+            # In production, you'd use proper tool parsing
+            decision = self._parse_tool_response(raw_response)
+            
+            # Update agent state
+            self.agent_state["tool_calls_made"] += 1
+            
+            # Add assistant response to history
+            assistant_message = {
+                "role": "assistant",
+                "content": raw_response
+            }
+            self.agent_state["message_history"].append(assistant_message)
+            
+            if self.verbose:
+                print(f"🤖 LM Response (turn {turn}): {raw_response[:200]}...")
+                print(f"📊 Response time: {llm_end - llm_start:.2f}s")
+
+        except Exception as e:
+            print(f"❌ Error in LM decide: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback decision
+            decision = {
+                "name": "interact",
+                "parameters": {
+                    "actions": ["do"],
+                    "reasoning": f"Error occurred: {str(e)}"
+                }
+            }
+
+        return decision
+    
+    def _parse_tool_response(self, raw_response: str) -> Dict[str, Any]:
+        """Parse raw LM response to extract tool calls."""
+        # Simple parsing - in production use proper tool parsing
+        # Look for interact or terminate patterns
+        
+        if "terminate" in raw_response.lower():
+            return {
+                "name": "terminate",
+                "parameters": {
+                    "reason": "Agent decided to terminate"
+                }
+            }
+        
+        # Try to extract actions from the response
+        # This is a simplified parser - production would be more robust
+        actions = []
+        if "move_up" in raw_response:
+            actions.append("move_up")
+        elif "move_down" in raw_response:
+            actions.append("move_down")
+        elif "move_left" in raw_response:
+            actions.append("move_left")
+        elif "move_right" in raw_response:
+            actions.append("move_right")
+        
+        if "do" in raw_response:
+            actions.append("do")
+        
+        if not actions:
+            actions = ["do"]  # Default action
+        
+        return {
+            "name": "interact",
+            "parameters": {
+                "actions": actions[:5],  # Max 5 actions
+                "reasoning": raw_response[:100]
+            }
+        }
+
+
+# --- Crafter ReAct Agent using LM ---
+class CrafterReActAgentWithLM(BaseReActAgentWithLM):
+    """ReAct agent for Crafter environment using LM class."""
+
+    def __init__(self, model_name: str, max_turns: int = 20, verbose: bool = False, 
+                 tracer: Optional[SessionTracer] = None):
+        super().__init__(model_name, max_turns, verbose, tracer)
+        self.system_name = "crafter-react-agent-lm"
+        self.system_id = f"{self.system_name}_{uuid.uuid4()}"
+        
+        # Recreate LM with updated system_id
+        self.lm = LM(
+            model_name=model_name,
+            formatting_model_name=model_name,
+            temperature=0.0,
+            synth_logging=False,
+            session_tracer=tracer,
+            system_id=self.system_id,
+            enable_v2_tracing=True
+        )
+
+    def get_system_message(self) -> str:
+        return """You are CrafterAgent playing Crafter survival environment. Your goal is to unlock as many achievements as possible while staying alive.
+
+You will see a semantic map view showing your surroundings. Use this to navigate toward resources.
+
+Key mechanics:
+• 'do' action: collect wood from trees, stone from deposits, food from cows/plants
+• 'do' does nothing on grass/water - move to find resources first
+• Craft progression: wood → table → wood_pickaxe → stone → stone_pickaxe → iron tools
+• Sleep when energy low to restore and unlock wake_up achievement
+• Use semantic map view to navigate toward resources you can see
+
+Available actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop
+
+When responding, clearly state which actions you want to take. For example:
+"I will move_right twice to reach the tree and then do to collect wood."
+"I will place_table and then make_wood_pickaxe."
+
+Be strategic and use the map view to find resources! Focus on unlocking achievements."""
+
+    def format_observation(self, obs: Dict[str, Any]) -> str:
+        """Format observation for Crafter with rich context."""
+        health = obs.get("health", 0)
+        inventory = obs.get("inventory", {})
+
+        if health == 0 and "health" in inventory:
+            health = inventory["health"]
+
+        inventory_items = []
+        for item, count in inventory.items():
+            if count > 0 and item != "health":
+                inventory_items.append(f"{item}: {count}")
+
+        inventory_str = ", ".join(inventory_items) if inventory_items else "empty"
+
+        achievements = obs.get("achievements") or obs.get("achievements_status", {})
+        unlocked_achievements = [name for name, unlocked in achievements.items() if unlocked]
+        achievements_str = ", ".join(unlocked_achievements) if unlocked_achievements else "none"
+
+        position = obs.get("position", [0, 0])
+        player_position = obs.get("player_position", position)
+
+        # Get semantic map view
+        semantic_map_view = format_semantic_map_view(obs, view_size=7)
+
+        # Format the observation
+        obs_text = f"""=== Crafter Observation ===
+Health: {health}
+Position: {player_position}
+Inventory: {inventory_str}
+Achievements: {achievements_str}
+
+Semantic Map View (7x7 centered on you):
+{semantic_map_view}
+==========================="""
+
+        return obs_text
+
+
+# --- Episode Runner ---
+async def run_episode(
+    episode_id: int, 
+    config: CrafterConfig,
+    session_tracer: SessionTracer,
+    progress_bar: Optional[tqdm] = None
+) -> Dict[str, Any]:
+    """Run a single episode of Crafter with v2 tracing."""
+    episode_start_time = time.time()
+    
+    # Create agent with tracer
+    agent = CrafterReActAgentWithLM(
+        model_name=config.model_name,
+        max_turns=config.max_turns,
+        verbose=config.verbose,
+        tracer=session_tracer
+    )
+    
+    # Initialize environment
+    async with AsyncClient(base_url=config.service_base_url) as client:
+        try:
+            # Initialize environment
+            init_response = await retry_http_request(
+                client, "POST", "/env/CrafterClassic/initialize",
+                json={
+                    "config": {"difficulty": config.difficulty, "seed": config.seed + episode_id}
+                }
+            )
+            init_data = init_response.json()
+            instance_id = init_data["env_id"]
+            obs = init_data["observation"]
+            
+            # Start initial timestep and send initial observation as message
+            if session_tracer and session_tracer.current_session:
+                session_tracer.start_timestep(0)  # Start timestep for turn 0
+                obs_msg = create_message(
+                    compress_observation_for_trace(obs),
+                    "observation",
+                    f"crafter_env_{instance_id}",
+                    0
+                )
+                session_tracer.record_message(obs_msg)
+            
+            # Run episode
+            episode_reward = 0
+            termination_reason = None
+            step_results = []
+            
+            for turn in range(config.max_turns):
+                if progress_bar:
+                    progress_bar.set_description(f"Episode {episode_id}: Step {turn+1}/{config.max_turns}")
+                
+                # Start timestep for this turn if not turn 0
+                if turn > 0 and session_tracer and session_tracer.current_session:
+                    session_tracer.start_timestep(turn)
+                
+                # Get agent decision
+                obs_formatted = agent.format_observation(obs)
+                system_msg = agent.get_system_message()
+                
+                decision = await agent.decide(obs_formatted, system_msg, turn)
+                
+                # Handle termination
+                if decision["name"] == "terminate":
+                    termination_reason = decision["parameters"]["reason"]
+                    break
+                
+                # Execute actions
+                actions = decision["parameters"]["actions"]
+                
+                # Define action mapping
+                CRAFTER_ACTION_MAP = {
+                    "noop": 0,
+                    "move_left": 1,
+                    "move_right": 2,
+                    "move_up": 3,
+                    "move_down": 4,
+                    "do": 5,
+                    "sleep": 6,
+                    "place_stone": 7,
+                    "place_table": 8,
+                    "place_furnace": 9,
+                    "place_plant": 10,
+                    "make_wood_pickaxe": 11,
+                    "make_stone_pickaxe": 12,
+                    "make_iron_pickaxe": 13,
+                    "make_wood_sword": 14,
+                    "make_stone_sword": 15,
+                    "make_iron_sword": 16,
+                }
+                
+                for action in actions:
+                    # Convert action name to integer
+                    action_int = CRAFTER_ACTION_MAP.get(action, 0)  # Default to noop
+                    
+                    # Step environment
+                    step_response = await retry_http_request(
+                        client, "POST", "/env/CrafterClassic/step",
+                        json={
+                            "env_id": instance_id,
+                            "action": {"tool_calls": [{"tool": "interact", "args": {"action": action_int}}]}
+                        }
+                    )
+                    step_data = step_response.json()
+                    
+                    if config.verbose:
+                        print(f"Step response keys: {list(step_data.keys())}")
+                        print(f"Step response: {step_data}")
+                    
+                    obs = step_data["observation"]
+                    reward = step_data.get("reward", 0)  # Default to 0 if None
+                    done = step_data["done"]
+                    info = step_data.get("info", {})
+                    
+                    if reward is not None:
+                        episode_reward += reward
+                    
+                    # Record step result
+                    step_results.append({
+                        "turn": turn,
+                        "action": action,
+                        "reward": reward,
+                        "done": done,
+                        "info": info
+                    })
+                    
+                    # Send observation as message
+                    if session_tracer and session_tracer.current_session:
+                        obs_msg = create_message(
+                            compress_observation_for_trace(obs),
+                            "observation",
+                            f"crafter_env_{instance_id}",
+                            turn + 1
+                        )
+                        session_tracer.record_message(obs_msg)
+                    
+                    if done:
+                        break
+                
+                if done:
+                    break
+                
+                if progress_bar:
+                    progress_bar.update(1)
+            
+            # Terminate instance
+            terminate_response = await retry_http_request(
+                client, "POST", f"/env/CrafterClassic/terminate",
+                json={"env_id": instance_id}
+            )
+            
+        except Exception as e:
+            print(f"❌ Episode {episode_id} failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "episode_id": episode_id,
+                "error": str(e),
+                "duration": time.time() - episode_start_time
+            }
+    
+    # Return results
+    return {
+        "episode_id": episode_id,
+        "total_reward": episode_reward,
+        "steps": len(step_results),
+        "termination_reason": termination_reason,
+        "duration": time.time() - episode_start_time,
+        "step_results": step_results
+    }
+
+
+# --- Main ---
+async def main():
+    """Main entry point with v2 tracing."""
+    parser = argparse.ArgumentParser(description="Run Crafter evaluation with LM v2 tracing")
+    parser.add_argument("--config", type=str, help="Path to TOML config file")
+    parser.add_argument("--model", type=str, help="Model name (overrides config)")
+    parser.add_argument("--episodes", type=int, help="Number of episodes (overrides config)")
+    parser.add_argument("--max-turns", type=int, help="Max turns per episode (overrides config)")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    
+    args = parser.parse_args()
+    
+    # Load config
+    config = CrafterConfig(args.config)
+    
+    # Override with CLI args
+    if args.model:
+        config.model_name = args.model
+    if args.episodes:
+        config.num_instances = args.episodes
+    if args.max_turns:
+        config.max_turns = args.max_turns
+    if args.verbose:
+        config.verbose = True
+    
+    # Ensure model is specified
+    if not config.model_name:
+        parser.error("Model name must be specified via --model or config file")
+    
+    print(f"🚀 Starting Crafter evaluation with LM v2 tracing")
+    print(f"   Model: {config.model_name}")
+    print(f"   Episodes: {config.num_instances}")
+    print(f"   Max turns: {config.max_turns}")
+    print(f"   V2 Tracing: {'Enabled' if config.enable_v2_tracing else 'Disabled'}")
+    
+    # Create trace directory
+    os.makedirs(config.v2_trace_dir, exist_ok=True)
+    
+    # Initialize v2 tracer
+    tracer = SessionTracer()
+    
+    # Run evaluation with v2 tracing
+    results = []
+    
+    # Create experiment name
+    experiment_name = f"crafter_lm_{config.model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    # Run episodes
+    for i in range(config.num_instances):
+        print(f"\n📍 Episode {i+1}/{config.num_instances}")
+        
+        # Start session for this episode
+        session_id = f"episode_{i}_{uuid.uuid4()}"
+        
+        # Start session (not async)
+        tracer.start_session(session_id)
+        
+        # Create progress bar for this episode
+        with tqdm(total=config.max_turns, desc=f"Episode {i+1}") as pbar:
+            result = await run_episode(i, config, tracer, pbar)
+            results.append(result)
+        
+        # End and save session
+        trace_path = tracer.end_session()
+        
+        # Copy to expected location
+        if config.save_traces and trace_path:
+            trace_file = Path(config.v2_trace_dir) / f"trace_episode_{i}.json"
+            import shutil
+            shutil.copy(trace_path, trace_file)
+            print(f"💾 Saved trace to {trace_file}")
+    
+    # Print summary
+    print("\n" + "=" * 80)
+    print("📊 EVALUATION SUMMARY")
+    print("=" * 80)
+    
+    successful_episodes = [r for r in results if "error" not in r]
+    failed_episodes = [r for r in results if "error" in r]
+    
+    print(f"Episodes completed: {len(successful_episodes)}/{config.num_instances}")
+    print(f"Episodes failed: {len(failed_episodes)}")
+    
+    if successful_episodes:
+        avg_reward = sum(r["total_reward"] for r in successful_episodes) / len(successful_episodes)
+        avg_steps = sum(r["steps"] for r in successful_episodes) / len(successful_episodes)
+        avg_duration = sum(r["duration"] for r in successful_episodes) / len(successful_episodes)
+        
+        print(f"Average reward: {avg_reward:.2f}")
+        print(f"Average steps: {avg_steps:.1f}")
+        print(f"Average duration: {avg_duration:.1f}s")
+    
+    print("=" * 80)
+    
+    # Save results
+    if config.save_detailed_results:
+        results_file = Path(config.v2_trace_dir) / "results.json"
+        with open(results_file, "w") as f:
+            json.dump({
+                "config": {
+                    "model": config.model_name,
+                    "episodes": config.num_instances,
+                    "max_turns": config.max_turns,
+                    "difficulty": config.difficulty
+                },
+                "results": results,
+                "summary": {
+                    "successful": len(successful_episodes),
+                    "failed": len(failed_episodes),
+                    "avg_reward": avg_reward if successful_episodes else 0,
+                    "avg_steps": avg_steps if successful_episodes else 0,
+                    "avg_duration": avg_duration if successful_episodes else 0
+                }
+            }, f, indent=2)
+        print(f"💾 Saved results to {results_file}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

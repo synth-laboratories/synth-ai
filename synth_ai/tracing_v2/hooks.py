@@ -1,3 +1,6 @@
+"""
+Hook classes for state analysis in the tracing system.
+"""
 
 from typing import Any, Optional, Dict, List
 from dataclasses import dataclass, field

@@ -74,7 +74,7 @@ from synth_ai.tracing_v2.session_tracer import (
     SessionTracer, SessionEventMessage, TimeRecord,
     RuntimeEvent, EnvironmentEvent, CAISEvent
 )
-from synth_ai.tracing_v2.experiment_utils import create_experiment_context
+from synth_ai.tracing_v2.utils import create_experiment_context
 from synth_ai.tracing_v2.duckdb.manager import DuckDBTraceManager
 from datetime import datetime
 

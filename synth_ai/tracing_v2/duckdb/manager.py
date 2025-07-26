@@ -330,7 +330,7 @@ class DuckDBTraceManager:
         
         # Type-specific fields
         if isinstance(event, CAISEvent):
-            # Extract LLM call info from records
+            # First try to extract from llm_call_records (OTel path)
             if event.llm_call_records:
                 record = event.llm_call_records[0]  # Take first record
                 if hasattr(record, 'span_id'):
@@ -346,6 +346,36 @@ class DuckDBTraceManager:
                     params['total_tokens'] = attrs.get('llm.usage.total_tokens')
                     if hasattr(record, 'duration_ms'):
                         params['latency_ms'] = record.duration_ms
+            
+            # If no llm_call_records or missing data, try system_state_before/after (v2 path)
+            if hasattr(event, 'system_state_before') and event.system_state_before:
+                state = event.system_state_before
+                if isinstance(state, dict):
+                    # Extract model info
+                    if not params.get('model_name'):
+                        params['model_name'] = state.get('gen_ai.request.model') or state.get('llm.model_name')
+                    
+                    # Detect provider if not already set
+                    if not params.get('provider') and params.get('model_name'):
+                        from ..config import detect_provider
+                        params['provider'] = detect_provider(params['model_name'])
+            
+            # Extract token usage from system_state_after (where response data is stored)
+            if hasattr(event, 'system_state_after') and event.system_state_after:
+                state_after = event.system_state_after
+                if isinstance(state_after, dict):
+                    # Extract token usage
+                    if not params.get('prompt_tokens'):
+                        params['prompt_tokens'] = state_after.get('gen_ai.response.usage.prompt_tokens') or state_after.get('gen_ai.usage.prompt_tokens')
+                    if not params.get('completion_tokens'):
+                        params['completion_tokens'] = state_after.get('gen_ai.response.usage.completion_tokens') or state_after.get('gen_ai.usage.completion_tokens')
+                    if not params.get('total_tokens'):
+                        params['total_tokens'] = state_after.get('gen_ai.response.usage.total_tokens') or state_after.get('gen_ai.usage.total_tokens') or state_after.get('llm.usage.total_tokens')
+            
+            # Extract metadata fields
+            if hasattr(event, 'metadata') and event.metadata:
+                if not params.get('latency_ms') and 'duration_ms' in event.metadata:
+                    params['latency_ms'] = event.metadata['duration_ms']
         
         elif isinstance(event, EnvironmentEvent):
             params['reward'] = event.reward

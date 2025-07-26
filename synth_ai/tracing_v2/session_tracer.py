@@ -19,7 +19,7 @@ from pathlib import Path
 from opentelemetry import trace
 from langfuse import Langfuse
 from langfuse.openai import openai, AzureOpenAI
-from synth_ai.tracing_v2.core import TraceHook, TraceStateHook
+from synth_ai.tracing_v2.hooks import TraceHook, TraceStateHook
 from synth_ai.tracing_v2.config import detect_provider
 
 # Note: Anthropic support would require langfuse.anthropic when available

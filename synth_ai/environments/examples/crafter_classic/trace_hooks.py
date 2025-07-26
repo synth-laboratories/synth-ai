@@ -4,7 +4,7 @@ Trace hooks for Crafter Classic environment.
 from typing import Any, Optional, Dict, Set
 from datetime import datetime
 
-from synth_ai.tracing_v2.core import TraceStateHook, HookResult
+from synth_ai.tracing_v2.hooks import TraceStateHook, HookResult
 try:
     from synth_ai.tracing_v2.abstractions import SessionEvent, CAISEvent, EnvironmentEvent
 except ImportError:

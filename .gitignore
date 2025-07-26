@@ -19,3 +19,45 @@ private_tests
 .ruff_cache
 .pytest_cache
 .claude
+
+# DuckDB files
+*.duckdb
+*.duckdb.wal
+*.duckdb.duckdb
+**/*.duckdb
+**/*.duckdb.wal
+
+# Trace data
+traces/
+traces_*/
+**/traces/
+**/traces_*/
+crafter_traces/
+synth_ai/environments/examples/crafter_classic/agent_demos/traces/
+synth_ai/environments/examples/crafter_custom/agent_demos/traces/
+
+# Environment states
+env_states/
+**/env_states/
+
+# Generated datasets and training data
+*.jsonl
+**/*.jsonl
+training_data*.json
+ft_data*/
+ft_dataset/
+
+# Evaluation outputs
+last_evaluation.txt
+performance_results.json
+**/last_evaluation.txt
+
+# Log files
+*.log
+**/*.log
+test_output.log
+
+# Temporary files and snapshots
+*.snapshot.gz
+**/*.snapshot.gz
+session_metadata.json

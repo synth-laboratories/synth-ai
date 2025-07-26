@@ -1,0 +1,25 @@
+# Configuration for Crafter evaluation with LM class and v2 tracing
+
+[eval]
+model_name = "gpt-4o-mini"
+episodes = 2
+max_steps = 5
+difficulty = "easy"
+seed = 42
+
+[service]
+base_url = "http://localhost:8901"
+timeout = 30.0
+
+[output]
+save_traces = true
+save_detailed_results = true
+
+[tracing_v2]
+enabled = true
+trace_dir = "./traces_v2_lm"
+
+# Optional: Custom OpenAI endpoint configuration
+# [openai]
+# base_url = "https://your-custom-endpoint.com"
+# api_key = "your-api-key"

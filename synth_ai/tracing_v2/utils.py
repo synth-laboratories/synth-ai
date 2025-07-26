@@ -6,6 +6,24 @@ import random
 import subprocess
 from datetime import datetime
 from typing import Optional, Dict, List, Any
+from uuid import UUID
+
+
+def make_serializable(obj):
+    """Convert non-serializable objects to serializable form."""
+    if isinstance(obj, UUID):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, bytes):
+        return obj.decode('utf-8', errors='ignore')
+    elif hasattr(obj, '__dict__'):
+        return {k: make_serializable(v) for k, v in obj.__dict__.items()}
+    elif isinstance(obj, dict):
+        return {k: make_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_serializable(item) for item in obj]
+    return obj
 
 
 def get_git_info() -> Dict[str, str]:

@@ -1,8 +1,200 @@
 """
-Configuration for provider model mappings.
-Maintains lists of known models for each supported provider.
+Configuration for v3 tracing system and provider model mappings.
+
+This module provides configuration options for the dual-mode tracing system
+that supports both OpenTelemetry and v2 SessionTracer patterns, as well as
+maintains lists of known models for each supported provider.
 """
+
 import os
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any
+
+
+@dataclass
+class TracingConfig:
+    """Configuration for the v3 tracing system."""
+    
+    # Tracing mode: "dual" (both OTel and v2), "otel" (OTel only), "v2" (v2 only), "disabled"
+    mode: str = field(default_factory=lambda: os.getenv("SYNTH_TRACING_MODE", "dual"))
+    
+    # Sampling configuration (now relies on OTel SDK sampler)
+    sample_rate: float = field(
+        default_factory=lambda: float(os.getenv("LANGFUSE_SAMPLE_RATE", "1.0"))
+    )
+    
+    # Payload size limits
+    max_payload_bytes: int = field(
+        default_factory=lambda: int(os.getenv("SYNTH_MAX_PAYLOAD_BYTES", "10240"))
+    )
+    truncate_enabled: bool = field(
+        default_factory=lambda: os.getenv("SYNTH_TRUNCATE_PAYLOADS", "true").lower() == "true"
+    )
+    
+    # PII masking configuration
+    mask_pii: bool = field(
+        default_factory=lambda: os.getenv("SYNTH_MASK_PII", "true").lower() == "true"
+    )
+    
+    # Flush configuration
+    flush_interval_ms: int = field(
+        default_factory=lambda: int(os.getenv("SYNTH_FLUSH_INTERVAL_MS", "5000"))
+    )
+    flush_on_exit: bool = field(
+        default_factory=lambda: os.getenv("SYNTH_FLUSH_ON_EXIT", "true").lower() == "true"
+    )
+    export_timeout_ms: int = field(
+        default_factory=lambda: int(os.getenv("SYNTH_EXPORT_TIMEOUT_MS", "30000"))
+    )
+    
+    # OpenTelemetry configuration
+    otel_endpoint: str = field(
+        default_factory=lambda: os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    )
+    otel_headers: str = field(
+        default_factory=lambda: os.getenv("OTEL_EXPORTER_OTLP_HEADERS", "")
+    )
+    otel_service_name: str = field(
+        default_factory=lambda: os.getenv("OTEL_SERVICE_NAME", "synth-ai")
+    )
+    otel_service_version: str = field(
+        default_factory=lambda: os.getenv("OTEL_SERVICE_VERSION", "1.0.0")
+    )
+    otel_deployment_env: str = field(
+        default_factory=lambda: os.getenv("DEPLOYMENT_ENV", os.getenv("OTEL_DEPLOYMENT_ENV", "development"))
+    )
+    otel_exporter: Optional[Any] = field(default=None)  # OTel SpanExporter instance
+    
+    # Langfuse configuration
+    langfuse_enabled: bool = field(
+        default_factory=lambda: os.getenv("LANGFUSE_ENABLED", "true").lower() == "true"
+    )
+    langfuse_public_key: str = field(
+        default_factory=lambda: os.getenv("LANGFUSE_PUBLIC_KEY", "")
+    )
+    langfuse_secret_key: str = field(
+        default_factory=lambda: os.getenv("LANGFUSE_SECRET_KEY", "")
+    )
+    langfuse_host: str = field(
+        default_factory=lambda: os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    )
+    
+    # Performance tuning
+    batch_size: int = field(
+        default_factory=lambda: int(os.getenv("SYNTH_TRACE_BATCH_SIZE", "100"))
+    )
+    max_queue_size: int = field(
+        default_factory=lambda: int(os.getenv("SYNTH_MAX_QUEUE_SIZE", "10000"))
+    )
+    
+    # Debug options
+    debug: bool = field(
+        default_factory=lambda: os.getenv("SYNTH_TRACE_DEBUG", "false").lower() == "true"
+    )
+    log_level: str = field(
+        default_factory=lambda: os.getenv("SYNTH_TRACE_LOG_LEVEL", "WARNING")
+    )
+    
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        # Validate mode
+        if self.mode not in ["dual", "otel", "v2", "disabled"]:
+            raise ValueError(f"Invalid tracing mode: {self.mode}. Must be 'dual', 'otel', 'v2', or 'disabled'")
+        
+        # Validate sample rate
+        if not 0.0 <= self.sample_rate <= 1.0:
+            raise ValueError(f"Sample rate must be between 0.0 and 1.0, got {self.sample_rate}")
+        
+        # Validate payload size
+        if self.max_payload_bytes < 1024:
+            raise ValueError(f"Max payload bytes must be at least 1024, got {self.max_payload_bytes}")
+    
+    def is_tracing_enabled(self) -> bool:
+        """Check if any tracing is enabled."""
+        return self.mode != "disabled"
+    
+    def is_otel_enabled(self) -> bool:
+        """Check if OpenTelemetry tracing is enabled."""
+        return self.mode in ["dual", "otel"]
+    
+    def is_v2_enabled(self) -> bool:
+        """Check if v2 SessionTracer is enabled."""
+        return self.mode in ["dual", "v2"]
+    
+    def get_otel_headers(self) -> Dict[str, str]:
+        """Parse OTEL headers into a dictionary."""
+        if not self.otel_headers:
+            return {}
+        
+        headers = {}
+        for pair in self.otel_headers.split(","):
+            if "=" in pair:
+                key, value = pair.split("=", 1)
+                headers[key.strip()] = value.strip()
+        return headers
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary."""
+        return {
+            "mode": self.mode,
+            "sample_rate": self.sample_rate,
+            "max_payload_bytes": self.max_payload_bytes,
+            "truncate_enabled": self.truncate_enabled,
+            "flush_interval_ms": self.flush_interval_ms,
+            "flush_on_exit": self.flush_on_exit,
+            "otel_enabled": self.is_otel_enabled(),
+            "v2_enabled": self.is_v2_enabled(),
+            "langfuse_enabled": self.langfuse_enabled,
+            "debug": self.debug,
+            "log_level": self.log_level,
+        }
+
+
+# Global configuration instance
+_config: Optional[TracingConfig] = None
+
+
+def get_config() -> TracingConfig:
+    """Get the global tracing configuration."""
+    global _config
+    if _config is None:
+        _config = TracingConfig()
+    return _config
+
+
+def set_config(config: TracingConfig) -> None:
+    """Set the global tracing configuration."""
+    global _config
+    _config = config
+
+
+def reset_config() -> None:
+    """Reset configuration to defaults."""
+    global _config
+    _config = None
+
+
+# Configuration shortcuts
+def is_tracing_enabled() -> bool:
+    """Check if any tracing is enabled."""
+    config = get_config()
+    return config.sample_rate > 0.0 and (config.is_otel_enabled() or config.is_v2_enabled())
+
+
+def is_debug_enabled() -> bool:
+    """Check if debug mode is enabled."""
+    return get_config().debug
+
+
+def get_sample_rate() -> float:
+    """Get the current sample rate."""
+    return get_config().sample_rate
+
+
+def get_max_payload_bytes() -> int:
+    """Get the maximum payload size in bytes."""
+    return get_config().max_payload_bytes
+
 
 # OpenAI models
 OPENAI_MODELS = {
