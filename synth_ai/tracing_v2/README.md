@@ -253,6 +253,36 @@ event.metadata = {...}             # Additional context
 - **Batching** - Efficient export with BatchSpanProcessor
 - **Resource Attributes** - Service metadata for filtering
 
+## V2 vs V1 Comparison
+
+After comprehensive testing, **V2 tracing captures everything V1 did and more**.
+
+### ✅ V2 Successfully Captures All V1 Data
+- **Session Structure**: Identical top-level keys
+- **Event Data**: System states, time records, metadata
+- **Messages**: All cross-system communication
+
+### 🚀 V2 Enhancements Over V1
+
+1. **Model Information in DuckDB**
+   - V1: Model info NOT saved to DuckDB
+   - V2: Model info properly extracted and saved
+
+2. **Direct Model Fields**
+   - V2 uses `LMCAISEvent` with direct fields
+   - Auto-detects provider from model name
+   - Tracks tokens and costs when available
+
+3. **Cleaner Architecture**
+   - V1: Required patching OpenAI client
+   - V2: Native integration in LM class
+   - Proper class hierarchy
+
+### Technical Implementation
+- **Base**: `CAISEvent` in `abstractions.py`
+- **Extended**: `LMCAISEvent` in `session_tracer.py`
+- **DuckDB**: Handles both types, extracts model info
+
 ## Cleanup History
 
 This directory was cleaned up to contain only production code:

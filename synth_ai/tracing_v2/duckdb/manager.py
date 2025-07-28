@@ -9,7 +9,8 @@ from datetime import datetime
 import duckdb
 import pandas as pd
 
-from ..session_tracer import SessionTrace, SessionTimeStep, CAISEvent, EnvironmentEvent, RuntimeEvent, SessionEventMessage
+from ..session_tracer import SessionTrace, SessionTimeStep, LMCAISEvent, EnvironmentEvent, RuntimeEvent, SessionEventMessage
+from ..abstractions import CAISEvent
 from ..abstractions import SessionMetadum
 
 
@@ -250,9 +251,12 @@ class DuckDBTraceManager:
             GROUP BY s.session_id, s.created_at, s.num_timesteps, s.num_events, s.num_messages
         """)
     
-    def insert_session_trace(self, trace: SessionTrace):
+    def insert_session_trace(self, trace):
         """Insert a complete session trace into DuckDB."""
-        session_id = trace.session_metadata[0].data.get("session_id") if trace.session_metadata else None
+        # Handle both abstractions.SessionTrace and session_tracer.SessionTrace
+        session_id = getattr(trace, 'session_id', None)
+        if not session_id and hasattr(trace, 'session_metadata'):
+            session_id = trace.session_metadata[0].data.get("session_id") if trace.session_metadata else None
         if not session_id:
             session_id = f"session_{datetime.now().isoformat()}"
         
@@ -260,16 +264,28 @@ class DuckDBTraceManager:
         timesteps = trace.session_time_steps
         
         # Insert main session record
+        created_at = getattr(trace, 'created_at', None)
+        if isinstance(created_at, str):
+            # Parse ISO format string to datetime
+            from dateutil.parser import parse
+            created_at = parse(created_at)
+        elif not created_at:
+            created_at = datetime.now()
+            
+        metadata = []
+        if hasattr(trace, 'session_metadata'):
+            metadata = [self._serialize_metadata(m) for m in trace.session_metadata]
+        
         self.conn.execute("""
             INSERT INTO session_traces (session_id, created_at, num_timesteps, num_events, num_messages, metadata)
             VALUES (?, ?, ?, ?, ?, ?)
         """, [
             session_id,
-            datetime.now(),
+            created_at,
             len(timesteps),
-            len(trace.event_history),
-            len(trace.message_history),
-            json.dumps([self._serialize_metadata(m) for m in trace.session_metadata])
+            len(getattr(trace, 'event_history', [])),
+            len(getattr(trace, 'message_history', [])),
+            json.dumps(metadata)
         ])
         
         # Insert timesteps
@@ -314,9 +330,13 @@ class DuckDBTraceManager:
         
         return result[0]
     
-    def _insert_event(self, session_id: str, event: Union[CAISEvent, EnvironmentEvent, RuntimeEvent], timestep_id_map: Dict[str, int]):
+    def _insert_event(self, session_id: str, event: Union[CAISEvent, LMCAISEvent, EnvironmentEvent, RuntimeEvent], timestep_id_map: Dict[str, int]):
         """Insert an event into the database."""
-        event_type = event.__class__.__name__.replace('Event', '').lower()
+        # Special handling for LMCAISEvent to keep event_type as 'cais'
+        if isinstance(event, LMCAISEvent):
+            event_type = 'cais'
+        else:
+            event_type = event.__class__.__name__.replace('Event', '').lower()
         
         # Common fields
         params = {
@@ -330,8 +350,31 @@ class DuckDBTraceManager:
         
         # Type-specific fields
         if isinstance(event, CAISEvent):
-            # First try to extract from llm_call_records (OTel path)
-            if event.llm_call_records:
+            # Check if it's the extended LMCAISEvent with direct fields
+            if isinstance(event, LMCAISEvent):
+                # Direct fields from LMCAISEvent
+                if event.model_name:
+                    params['model_name'] = event.model_name
+                    # Detect provider
+                    from ..config import detect_provider
+                    params['provider'] = detect_provider(event.model_name)
+                if event.span_id:
+                    params['span_id'] = event.span_id
+                if event.trace_id:
+                    params['trace_id'] = event.trace_id
+                if event.prompt_tokens is not None:
+                    params['prompt_tokens'] = event.prompt_tokens
+                if event.completion_tokens is not None:
+                    params['completion_tokens'] = event.completion_tokens
+                if event.total_tokens is not None:
+                    params['total_tokens'] = event.total_tokens
+                if event.cost is not None:
+                    params['cost'] = event.cost
+                if event.latency_ms is not None:
+                    params['latency_ms'] = event.latency_ms
+                
+            # Then try to extract from llm_call_records (OTel path)
+            if not params.get('model_name') and event.llm_call_records:
                 record = event.llm_call_records[0]  # Take first record
                 if hasattr(record, 'span_id'):
                     params['span_id'] = record.span_id
@@ -350,10 +393,19 @@ class DuckDBTraceManager:
             # If no llm_call_records or missing data, try system_state_before/after (v2 path)
             if hasattr(event, 'system_state_before') and event.system_state_before:
                 state = event.system_state_before
+                # Handle JSON string
+                if isinstance(state, str):
+                    try:
+                        state = json.loads(state)
+                    except Exception as e:
+                        print(f"Failed to parse system_state_before: {e}")
+                        state = {}
                 if isinstance(state, dict):
                     # Extract model info
                     if not params.get('model_name'):
-                        params['model_name'] = state.get('gen_ai.request.model') or state.get('llm.model_name')
+                        model = state.get('gen_ai.request.model') or state.get('llm.model_name')
+                        if model:
+                            params['model_name'] = model
                     
                     # Detect provider if not already set
                     if not params.get('provider') and params.get('model_name'):
@@ -363,6 +415,12 @@ class DuckDBTraceManager:
             # Extract token usage from system_state_after (where response data is stored)
             if hasattr(event, 'system_state_after') and event.system_state_after:
                 state_after = event.system_state_after
+                # Handle JSON string
+                if isinstance(state_after, str):
+                    try:
+                        state_after = json.loads(state_after)
+                    except:
+                        state_after = {}
                 if isinstance(state_after, dict):
                     # Extract token usage
                     if not params.get('prompt_tokens'):
@@ -382,9 +440,33 @@ class DuckDBTraceManager:
             params['terminated'] = event.terminated
         
         # Common fields for all events
-        params['system_state_before'] = json.dumps(event.system_state_before) if hasattr(event, 'system_state_before') else None
-        params['system_state_after'] = json.dumps(event.system_state_after) if hasattr(event, 'system_state_after') else None
-        params['metadata'] = json.dumps(event.metadata) if hasattr(event, 'metadata') else None
+        # Handle system states - they might already be JSON strings
+        if hasattr(event, 'system_state_before'):
+            state_before = event.system_state_before
+            if isinstance(state_before, str):
+                params['system_state_before'] = state_before  # Already JSON
+            else:
+                params['system_state_before'] = json.dumps(state_before)
+        else:
+            params['system_state_before'] = None
+            
+        if hasattr(event, 'system_state_after'):
+            state_after = event.system_state_after
+            if isinstance(state_after, str):
+                params['system_state_after'] = state_after  # Already JSON
+            else:
+                params['system_state_after'] = json.dumps(state_after)
+        else:
+            params['system_state_after'] = None
+            
+        if hasattr(event, 'metadata'):
+            metadata = event.metadata
+            if isinstance(metadata, str):
+                params['metadata'] = metadata  # Already JSON
+            else:
+                params['metadata'] = json.dumps(metadata)
+        else:
+            params['metadata'] = None
         # Handle event_metadata serialization
         if hasattr(event, 'event_metadata') and event.event_metadata:
             metadata_list = []

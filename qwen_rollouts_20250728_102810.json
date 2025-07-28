@@ -1,0 +1,53 @@
+{
+  "config": {
+    "model_name": "Qwen/Qwen2.5-7B-Instruct",
+    "temperature": 0.7,
+    "max_tokens": 512,
+    "num_episodes": 2,
+    "max_steps_per_episode": 50,
+    "difficulty": "easy",
+    "seed": null,
+    "crafter_url": "http://localhost:8901",
+    "llm_base_url": "https://synth-laboratories--unified-ft-service-fastapi-app.modal.run",
+    "llm_api_key": "sk-test-11111111111111111111111111111111",
+    "show_live_progress": true,
+    "save_results": true,
+    "output_file": null
+  },
+  "timestamp": "2025-07-28T10:28:10.313794",
+  "episodes": [
+    {
+      "episode_id": "qwen_0_d7f13370",
+      "steps": 50,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 50
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 59.072447061538696,
+      "avg_response_time": 1.1106558084487914,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_1_8774b329",
+      "steps": 38,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 37,
+        "do": 1
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 49.650896072387695,
+      "avg_response_time": 1.2342391829741628,
+      "termination_reason": "completed"
+    }
+  ]
+}

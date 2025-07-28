@@ -61,3 +61,6 @@ test_output.log
 *.snapshot.gz
 **/*.snapshot.gz
 session_metadata.json
+
+# Environments examples (kept locally but not tracked in git)
+synth_ai/environments/examples/

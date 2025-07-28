@@ -1,1 +1,0 @@
-"""Agent demonstrations for custom Crafter environments."""

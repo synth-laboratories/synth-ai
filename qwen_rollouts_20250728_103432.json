@@ -1,0 +1,351 @@
+{
+  "config": {
+    "model_name": "Qwen/Qwen2.5-7B-Instruct",
+    "temperature": 0.7,
+    "max_tokens": 512,
+    "num_episodes": 20,
+    "max_steps_per_episode": 30,
+    "difficulty": "easy",
+    "seed": null,
+    "crafter_url": "http://localhost:8901",
+    "llm_base_url": "https://synth-laboratories--unified-ft-service-fastapi-app.modal.run",
+    "llm_api_key": "sk-test-11111111111111111111111111111111",
+    "show_live_progress": true,
+    "save_results": true,
+    "output_file": null
+  },
+  "timestamp": "2025-07-28T10:34:32.254338",
+  "episodes": [
+    {
+      "episode_id": "qwen_0_e09b41d9",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 42.01938772201538,
+      "avg_response_time": 1.277112595240275,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_1_c490eb54",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 44.330971240997314,
+      "avg_response_time": 1.2763854265213013,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_2_bb4ebdae",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 43.16206693649292,
+      "avg_response_time": 1.2937270561854044,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_3_7ce39d47",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 43.498018980026245,
+      "avg_response_time": 1.3228376785914102,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_4_a4e9a2a1",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 42.341187953948975,
+      "avg_response_time": 1.2905604441960652,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_5_5c791589",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 39.87272000312805,
+      "avg_response_time": 1.2515724023183188,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_6_a44eba63",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 50.02377390861511,
+      "avg_response_time": 1.5576740105946858,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_7_d2100e0b",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 55.77159810066223,
+      "avg_response_time": 1.7397403796513875,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_8_326da7d1",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 50.26704788208008,
+      "avg_response_time": 1.563505188624064,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_9_a173d00b",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 35.063668966293335,
+      "avg_response_time": 1.0858833869298299,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_10_73af19ce",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 34.79258584976196,
+      "avg_response_time": 1.0603191216786703,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_11_b8df6746",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_right": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 36.85728693008423,
+      "avg_response_time": 1.1489986340204874,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_12_9485ea84",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 48.522380113601685,
+      "avg_response_time": 1.5426095883051554,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_13_bc4836e3",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 53.438719034194946,
+      "avg_response_time": 1.7126679182052613,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_14_aa7a3684",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 57.80769109725952,
+      "avg_response_time": 1.8551381985346476,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_15_3f0339c2",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 15,
+        "move_right": 6,
+        "move_left": 2,
+        "move_up": 1,
+        "do": 1,
+        "place_stone": 5
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 63.92885899543762,
+      "avg_response_time": 2.0469144185384116,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_16_82358019",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 17,
+        "make_wood_pickaxe": 13
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 60.17394423484802,
+      "avg_response_time": 1.925530974070231,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_17_ca8aa7cf",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 22,
+        "sleep": 2,
+        "do": 3,
+        "move_left": 1,
+        "move_right": 2
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 61.043046951293945,
+      "avg_response_time": 1.9745832045873006,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_18_02e1a1e5",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 30
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 68.42910099029541,
+      "avg_response_time": 2.200743873914083,
+      "termination_reason": null
+    },
+    {
+      "episode_id": "qwen_19_4d580afb",
+      "steps": 30,
+      "total_reward": 0.0,
+      "achievements": [],
+      "resources_collected": {},
+      "actions_taken": {
+        "move_down": 28,
+        "do": 2
+      },
+      "final_health": 0,
+      "final_hunger": 0,
+      "final_thirst": 0,
+      "duration": 71.05352401733398,
+      "avg_response_time": 2.304732386271159,
+      "termination_reason": null
+    }
+  ]
+}

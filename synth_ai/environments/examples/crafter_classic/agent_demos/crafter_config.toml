@@ -1,4 +1,0 @@
-# Crafter Classic Configuration
-model_name = "gpt-4.1-nano"
-instance_type = "easy"
-verbose_trace = true

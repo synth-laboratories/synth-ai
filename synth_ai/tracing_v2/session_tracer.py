@@ -64,15 +64,12 @@ class SessionEvent:
         return result
 
 
+from .abstractions import CAISEvent as BaseCAISEvent
+
+
 @dataclass  
-class CAISEvent(SessionEvent):
-    """CAIS system event capturing LLM interactions."""
-    system_instance_id: str = "llm_agent"
-    system_state_before: Optional[Dict[str, Any]] = None
-    system_state_after: Optional[Dict[str, Any]] = None
-    
-    # LLM call records - for storing complete LLM interaction details
-    llm_call_records: List[Any] = field(default_factory=list)
+class LMCAISEvent(BaseCAISEvent):
+    """Extended CAIS event for LM-specific interactions with additional fields."""
     
     # OTEL/Langfuse specific fields
     span_id: Optional[str] = None
@@ -83,10 +80,6 @@ class CAISEvent(SessionEvent):
     total_tokens: Optional[int] = None
     cost: Optional[float] = None
     latency_ms: Optional[float] = None
-    
-    # Additional metadata
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    event_metadata: List[Any] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         result = asdict(self)
@@ -343,7 +336,7 @@ class SessionTracer:
                                        system_state_before: Optional[Dict] = None,
                                        system_state_after: Optional[Dict] = None,
                                        messages: Optional[List] = None,
-                                       response = None) -> Optional[CAISEvent]:
+                                       response = None) -> Optional[LMCAISEvent]:
         """
         Capture LLM call from langfuse generation object.
         Records prompt message, then completion message, then CAISEvent in temporal order.
@@ -379,7 +372,7 @@ class SessionTracer:
                     endpoint = generation.metadata.get('endpoint', '')
                 provider = detect_provider(model_name, endpoint)
             
-            event = CAISEvent(
+            event = LMCAISEvent(
                 system_instance_id=system_id,
                 system_state_before=system_state_before,
                 system_state_after=system_state_after,
@@ -446,7 +439,7 @@ class SessionTracer:
     def capture_llm_call(self, 
                         system_id: str = "llm_agent",
                         system_state_before: Optional[Dict] = None,
-                        system_state_after: Optional[Dict] = None) -> Optional[CAISEvent]:
+                        system_state_after: Optional[Dict] = None) -> Optional[LMCAISEvent]:
         """
         Capture the current langfuse OTEL span and convert to CAISEvent.
         Records prompt message, then CAISEvent, then completion message in temporal order.
@@ -484,7 +477,7 @@ class SessionTracer:
             provider = guess_provider_from_attrs(attrs)
             
             # Create and record CAIS event
-            event = CAISEvent(
+            event = LMCAISEvent(
                 system_instance_id=system_id,
                 system_state_before=system_state_before,
                 system_state_after=system_state_after,
