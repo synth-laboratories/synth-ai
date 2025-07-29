@@ -198,6 +198,7 @@ class LM:
                     "mistral",
                     "openrouter",
                     "together",
+                    "synth",
                 ],
                 str,
             ]
@@ -218,7 +219,7 @@ class LM:
         )
 
         formatting_client = get_client(
-            formatting_model_name, with_formatting=True, synth_logging=synth_logging, provider=None
+            formatting_model_name, with_formatting=True, synth_logging=synth_logging, provider=effective_provider
         )
 
         max_retries_dict = {"None": 0, "Few": 2, "Many": 5}

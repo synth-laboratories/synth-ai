@@ -88,6 +88,7 @@ PROVIDER_MAP: Dict[str, Any] = {
     "mistral": MistralClient,
     "openrouter": OpenRouterClient,
     "together": TogetherClient,
+    "synth": OpenAIStructuredOutputClient,  # Synth uses OpenAI-compatible API
 }
 
 
@@ -128,8 +129,8 @@ def get_client(
 
         client_class = PROVIDER_MAP[provider]
 
-        # Special handling for OpenAI with formatting
-        if provider == "openai":
+        # Special handling for OpenAI and Synth with formatting
+        if provider in ["openai", "synth"]:
             return client_class(synth_logging=synth_logging)
         # Special handling for Anthropic with formatting
         elif provider == "anthropic" and with_formatting:
