@@ -17,6 +17,7 @@ class SimpleResponse(BaseModel):
     explanation: str
 
 
+@pytest.mark.slow
 def test_grok_api_direct():
     """Test direct GrokAPI calls."""
     try:
@@ -36,6 +37,7 @@ def test_grok_api_direct():
         raise
 
 
+@pytest.mark.slow
 def test_grok_api_no_model_error():
     """Test that GrokAPI raises error when no model is provided."""
     try:
@@ -54,6 +56,7 @@ def test_grok_api_no_model_error():
         raise
 
 
+@pytest.mark.slow
 def test_grok_api_no_key_error():
     """Test that GrokAPI raises error when no API key is provided."""
     import os
@@ -80,6 +83,7 @@ def test_grok_api_no_key_error():
         # Removed "grok-beta" as it's not currently available
     ],
 )
+@pytest.mark.slow
 def test_grok_lm_interface(model_name):
     """Test Grok through the LM interface with different models."""
     try:
@@ -104,6 +108,7 @@ def test_grok_lm_interface(model_name):
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_grok_lm_async():
     """Test Grok async functionality through the LM interface."""
     try:
@@ -127,6 +132,7 @@ async def test_grok_lm_async():
         raise
 
 
+@pytest.mark.slow
 def test_grok_structured_output():
     """Test Grok with structured output."""
     try:
@@ -159,6 +165,7 @@ def test_grok_structured_output():
         raise
 
 
+@pytest.mark.slow
 def test_grok_reasoning_question():
     """Test Grok with a reasoning question."""
     try:
@@ -188,6 +195,7 @@ def test_grok_reasoning_question():
         raise
 
 
+@pytest.mark.slow
 def test_grok_context_following():
     """Test Grok's ability to follow context and instructions."""
     try:

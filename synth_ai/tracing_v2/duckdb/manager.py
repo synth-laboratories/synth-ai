@@ -4,6 +4,7 @@ Provides efficient storage and analytics for trace data.
 """
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
@@ -70,6 +71,15 @@ def safe_json_serialize(obj: Any) -> str:
 class DuckDBTraceManager(TraceStorage):
     """Manages DuckDB storage for trace data."""
     
+    # Process-wide lock to serialize DuckDB operations (prevents segfaults)
+    _CONNECTION_LOCK = threading.RLock()
+    # Schema initialization lock and state to prevent concurrent DDL
+    _SCHEMA_LOCK = threading.RLock()
+    _SCHEMA_READY = set()  # Track which database paths have schema initialized
+    # Singleton connection per database path to prevent concurrent connection creation
+    _CONNECTIONS = {}
+    _CONNECTION_REFS = {}
+    
     def __init__(self, db_path: Optional[str] = None, config: Optional[DuckDBConfig] = None, 
                  skip_schema_init: bool = False):
         """Initialize DuckDB manager with database path or config.
@@ -91,47 +101,87 @@ class DuckDBTraceManager(TraceStorage):
         
         self.conn = None
         self._connect()
+        # ensure the expensive/locking DDL runs only once per database
         if not skip_schema_init:
-            self.init_schema()
+            with self._SCHEMA_LOCK:
+                if self.db_path not in self._SCHEMA_READY:
+                    self.init_schema()
+                    self.__class__._SCHEMA_READY.add(self.db_path)
     
     def _connect(self):
-        """Establish connection to DuckDB."""
-        try:
-            self.conn = duckdb.connect(self.db_path)
+        """Establish connection to DuckDB using singleton pattern."""
+        with self._CONNECTION_LOCK:
+            # Check if we already have a connection for this database path
+            if self.db_path in self._CONNECTIONS:
+                self.conn = self._CONNECTIONS[self.db_path]
+                self._CONNECTION_REFS[self.db_path] += 1
+                #logger.info(f"Reusing existing DuckDB connection for {self.db_path}")
+                return
             
-            # Apply performance settings if configured
-            if self.config.memory_limit:
-                self.conn.execute(f"SET memory_limit='{self.config.memory_limit}'")
-            if self.config.threads:
-                self.conn.execute(f"SET threads={self.config.threads}")
-            
-            # Additional performance optimizations for bulk operations
-            self.conn.execute("SET preserve_insertion_order=false")  # Faster inserts
-            self.conn.execute("SET checkpoint_threshold='1GB'")  # Less frequent checkpoints
-            self.conn.execute("SET wal_autocheckpoint='1GB'")  # Larger WAL before checkpoint
-            
-            #logger.info(f"Connected to DuckDB at {self.db_path}")
-        except Exception as e:
-            logger.error(f"Failed to connect to DuckDB: {e}")
-            raise DatabaseConnectionError(f"Failed to connect to DuckDB at {self.db_path}: {e}")
+            try:
+                # Create new connection
+                conn = duckdb.connect(self.db_path)
+                
+                # Apply performance settings if configured
+                if self.config.memory_limit:
+                    conn.execute(f"SET memory_limit='{self.config.memory_limit}'")
+                if self.config.threads:
+                    conn.execute(f"SET threads={self.config.threads}")
+                
+                # Additional performance optimizations for bulk operations
+                # (keep default preserve_insertion_order=true: disabling it can seg‑fault on INSERT … RETURNING)
+                conn.execute("SET checkpoint_threshold='1GB'")  # Less frequent checkpoints
+                conn.execute("SET wal_autocheckpoint='1GB'")  # Larger WAL before checkpoint
+                
+                # Store connection in singleton registry
+                self._CONNECTIONS[self.db_path] = conn
+                self._CONNECTION_REFS[self.db_path] = 1
+                self.conn = conn
+                
+                #logger.info(f"Created new DuckDB connection for {self.db_path}")
+            except Exception as e:
+                logger.error(f"Failed to connect to DuckDB: {e}")
+                raise DatabaseConnectionError(f"Failed to connect to DuckDB at {self.db_path}: {e}")
     
     def close(self):
-        """Close DuckDB connection."""
+        """Close DuckDB connection using reference counting."""
         if self.conn:
-            try:
-                self.conn.close()
-                self.conn = None
-                logger.info("DuckDB connection closed")
-            except Exception as e:
-                logger.error(f"Error closing DuckDB connection: {e}")
+            with self._CONNECTION_LOCK:
+                try:
+                    # Decrement reference count
+                    if self.db_path in self._CONNECTION_REFS:
+                        self._CONNECTION_REFS[self.db_path] -= 1
+                        
+                        # Only actually close when no more references
+                        if self._CONNECTION_REFS[self.db_path] <= 0:
+                            self.conn.close()
+                            del self._CONNECTIONS[self.db_path]
+                            del self._CONNECTION_REFS[self.db_path]
+                            #logger.info(f"Closed DuckDB connection for {self.db_path}")
+                        else:
+                            #logger.info(f"DuckDB connection for {self.db_path} still has {self._CONNECTION_REFS[self.db_path]} references")
+                            pass
+                    
+                    self.conn = None
+                except Exception as e:
+                    logger.error(f"Error closing DuckDB connection: {e}")
     
     def __enter__(self):
         """Context manager entry."""
+        # Acquire the process-wide lock to serialize DuckDB operations
+        self._CONNECTION_LOCK.acquire()
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
-        self.close()
+        try:
+            self.close()
+        finally:
+            # Always release the lock
+            try:
+                self._CONNECTION_LOCK.release()
+            except Exception:
+                pass
     
     def init_schema(self):
         """Initialize database schema."""
@@ -191,6 +241,28 @@ class DuckDBTraceManager(TraceStorage):
     
     def insert_session_trace(self, trace):
         """Insert a complete session trace into DuckDB."""
+        # Acquire lock to prevent concurrent DuckDB operations (prevents segfaults)
+        with self._CONNECTION_LOCK:
+            # Get session ID
+            session_id = getattr(trace, 'session_id', None)
+            if not session_id and hasattr(trace, 'session_metadata'):
+                session_id = trace.session_metadata[0].data.get("session_id") if trace.session_metadata else None
+            if not session_id:
+                session_id = f"session_{datetime.now().isoformat()}"
+            
+            # Check if session already exists
+            existing = self.conn.execute(
+                "SELECT session_id FROM session_traces WHERE session_id = ?", 
+                [session_id]
+            ).fetchone()
+            
+            if existing:
+                #logger.info(f"Session {session_id} already exists, skipping insertion")
+                return
+            return self._insert_session_trace_internal(trace)
+    
+    def _insert_session_trace_internal(self, trace):
+        """Internal implementation of session trace insertion."""
         try:
             # Handle both abstractions.SessionTrace and session_tracer.SessionTrace
             session_id = getattr(trace, 'session_id', None)
@@ -199,16 +271,9 @@ class DuckDBTraceManager(TraceStorage):
             if not session_id:
                 session_id = f"session_{datetime.now().isoformat()}"
             
-            # Check if session already exists
-            existing = self.conn.execute(schema.SELECT["session_exists"], [session_id]).fetchone()
-            
-            if existing:
-                logger.warning(f"Session {session_id} already exists, skipping insertion")
-                return
-            
             # Use bulk insert if available and beneficial
             if len(trace.session_time_steps) > 10 or len(getattr(trace, 'event_history', [])) > 50:
-                self._insert_session_trace_bulk(trace)
+                self._insert_session_trace_bulk_internal(trace)
                 self.conn.commit()
                 return
             
@@ -230,14 +295,18 @@ class DuckDBTraceManager(TraceStorage):
             if hasattr(trace, 'session_metadata'):
                 metadata = [self._serialize_metadata(m) for m in trace.session_metadata]
             
-            self.conn.execute(schema.INSERT["session_trace"], [
-                session_id,
-                created_at,
-                len(timesteps),
-                len(getattr(trace, 'event_history', [])),
-                len(getattr(trace, 'message_history', [])),
-                safe_json_serialize(metadata)
-            ])
+            # Insert session record (we already checked it doesn't exist)
+            cursor = self.conn.execute(
+                schema.INSERT["session_trace"],
+                [
+                    session_id,
+                    created_at,
+                    len(timesteps),
+                    len(getattr(trace, 'event_history', [])),
+                    len(getattr(trace, 'message_history', [])),
+                    safe_json_serialize(metadata)
+                ]
+            )
             
             # Insert timesteps
             timestep_id_map = {}
@@ -258,6 +327,11 @@ class DuckDBTraceManager(TraceStorage):
             #logger.info(f"Successfully inserted session {session_id}")
         except Exception as e:
             logger.error(f"Failed to insert session trace: {e}")
+            
+            # If this is a constraint violation, log it for debugging
+            if "Duplicate key" in str(e) and "session_id:" in str(e):
+                logger.warning(f"Unexpected constraint violation for session {session_id}: {e}")
+            
             try:
                 self.conn.rollback()
             except Exception as rollback_error:
@@ -585,7 +659,7 @@ class DuckDBTraceManager(TraceStorage):
             # Commit any remaining traces
             self.conn.commit()
             
-            logger.info(f"Batch upload complete: {uploaded} successful, {failed} failed out of {len(traces)} total")
+            #logger.info(f"Batch upload complete: {uploaded} successful, {failed} failed out of {len(traces)} total")
             if failed > 0:
                 raise TraceStorageError(f"Batch upload partially failed: {failed} traces could not be inserted")
         except Exception as e:
@@ -593,6 +667,11 @@ class DuckDBTraceManager(TraceStorage):
             raise
     
     def _insert_session_trace_bulk(self, trace):
+        """Insert a session trace optimized for bulk operations (with locking)."""
+        with self._CONNECTION_LOCK:
+            return self._insert_session_trace_bulk_internal(trace)
+    
+    def _insert_session_trace_bulk_internal(self, trace):
         """Insert a session trace optimized for bulk operations."""
         # Similar to insert_session_trace but without individual commits
         session_id = getattr(trace, 'session_id', None)
@@ -601,14 +680,9 @@ class DuckDBTraceManager(TraceStorage):
         if not session_id:
             session_id = f"session_{datetime.now().isoformat()}"
         
-        # Check if session already exists
-        existing = self.conn.execute(schema.SELECT["session_exists"], [session_id]).fetchone()
-        if existing:
-            logger.debug(f"Session {session_id} already exists, skipping")
-            return
-        
+        # Timesteps variable for later use
         timesteps = trace.session_time_steps
-        
+
         # Insert main session record
         created_at = getattr(trace, 'created_at', None)
         if isinstance(created_at, str):
@@ -616,19 +690,22 @@ class DuckDBTraceManager(TraceStorage):
             created_at = parse(created_at)
         elif not created_at:
             created_at = datetime.now()
-            
+
         metadata = []
         if hasattr(trace, 'session_metadata'):
             metadata = [self._serialize_metadata(m) for m in trace.session_metadata]
-        
-        self.conn.execute(schema.INSERT["session_trace"], [
-            session_id,
-            created_at,
-            len(timesteps),
-            len(getattr(trace, 'event_history', [])),
-            len(getattr(trace, 'message_history', [])),
-            safe_json_serialize(metadata)
-        ])
+
+        cursor = self.conn.execute(
+            schema.INSERT["session_trace"],
+            [
+                session_id,
+                created_at,
+                len(trace.session_time_steps),
+                len(getattr(trace, 'event_history', [])),
+                len(getattr(trace, 'message_history', [])),
+                safe_json_serialize(metadata)
+            ]
+        )
         
         # Prepare bulk data for timesteps, events, and messages
         timestep_id_map = {}
@@ -647,13 +724,14 @@ class DuckDBTraceManager(TraceStorage):
                     safe_json_serialize(timestep.step_metadata) if timestep.step_metadata else None
                 ))
             
-            # Use executemany for bulk insert - much faster!
+            # Use executemany for bulk insert
             self.conn.executemany(
                 "INSERT INTO session_timesteps (session_id, step_id, step_index, timestamp, num_events, num_messages, step_metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 timestep_data
             )
             
-            # Now get the IDs that were created - order by step_index to maintain order
+            # Now get ALL timestep IDs for this session - order by step_index to maintain order
+            # This includes both newly inserted and pre-existing timesteps
             results = self.conn.execute(
                 "SELECT id, step_id FROM session_timesteps WHERE session_id = ? ORDER BY step_index",
                 [session_id]
@@ -692,7 +770,7 @@ class DuckDBTraceManager(TraceStorage):
                     message.message_type,
                     safe_json_serialize(message.content),
                     convert_datetime_for_duckdb(datetime.now()),
-                    getattr(message.time_record, 'event_time', None) if hasattr(message, 'time_record') else None,
+                    convert_datetime_for_duckdb(getattr(message.time_record, 'event_time', None) if hasattr(message, 'time_record') else None),
                     getattr(message.time_record, 'message_time', None) if hasattr(message, 'time_record') else None,
                 ))
             
@@ -724,7 +802,7 @@ class DuckDBTraceManager(TraceStorage):
         row[1] = None  # timestep_id - TODO: map to timestep
         row[2] = event_type.value
         row[3] = getattr(event, 'system_instance_id', '')
-        row[4] = datetime.now()  # event_time
+        row[4] = convert_datetime_for_duckdb(datetime.now())  # event_time
         row[5] = getattr(event.time_record, 'message_time', None) if hasattr(event, 'time_record') else None
         
         # Type-specific fields
@@ -832,37 +910,46 @@ class DuckDBTraceManager(TraceStorage):
                 self.conn.execute(schema.INSERT["experimental_system"],
                                 [experiment.id, sv["system_id"], sv["system_version_id"]])
         
+        # Commit to make experiment visible to other connections
+        self.conn.commit()
+        
         return experiment.model_dump()
     
     def link_session_to_experiment(self, session_id: str, experiment_id: str):
         """Link a session to an experiment."""
         try:
-            # Workaround for DuckDB UPDATE bug: use DELETE + INSERT instead of UPDATE
-            # This avoids the "Duplicate key" error that occurs when updating experiment_id
-            
-            # First, get the current session data
-            session_data = self.conn.execute("""
-                SELECT session_id, created_at, num_timesteps, num_events, num_messages, metadata
-                FROM session_traces WHERE session_id = ?
-            """, [session_id]).fetchone()
-            
-            if not session_data:
+            # Check if session exists and get current experiment_id
+            existing = self.conn.execute("SELECT experiment_id FROM session_traces WHERE session_id = ?", [session_id]).fetchone()
+            if not existing:
                 raise SessionNotFoundError(session_id)
-            
-            # Delete the existing session
-            self.conn.execute(schema.DELETE["session_trace"], [session_id])
-            
-            # Insert the session with the new experiment_id
+
+            current_exp = existing[0]
+            # If already linked to this experiment, we are done
+            if current_exp == experiment_id:
+                return
+            # Prefer first-writer-wins: if someone else already linked, keep it
+            if current_exp not in (None, ""):
+                return
+
+            # Try to set experiment_id, but only if still NULL/empty (idempotent)
             self.conn.execute(
-                "INSERT INTO session_traces (session_id, created_at, num_timesteps, num_events, num_messages, metadata, experiment_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [session_id, session_data[1], session_data[2], session_data[3], session_data[4], session_data[5], experiment_id]
+                """
+                UPDATE session_traces
+                SET experiment_id = ?
+                WHERE session_id = ? AND (experiment_id IS NULL OR experiment_id = '')
+                """,
+                [experiment_id, session_id]
             )
-            
             self.conn.commit()
-            logger.info(f"Linked session {session_id} to experiment {experiment_id}")
+            #logger.info(f"Linked session {session_id} to experiment {experiment_id}")
         except Exception as e:
             logger.error(f"Failed to link session to experiment: {e}")
-            self.conn.rollback()
+            # Only rollback if we actually started a transaction
+            try:
+                self.conn.rollback()
+            except Exception:
+                # No active transaction, ignore rollback error
+                pass
             raise
     
     def get_experiment_sessions(self, experiment_id: str) -> pd.DataFrame:

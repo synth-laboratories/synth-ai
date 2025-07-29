@@ -38,12 +38,6 @@ def models():
             temperature=0.1,
             structured_output_mode="forced_json",
         ),
-        "gemini-1.5-flash": LM(
-            model_name="gemini-1.5-flash",
-            formatting_model_name="gpt-4o-mini",
-            temperature=0.1,
-            structured_output_mode="stringified_json",
-        ),
         "claude-3-haiku-20240307": LM(
             model_name="claude-3-haiku-20240307",
             formatting_model_name="gpt-4o-mini",
@@ -118,12 +112,12 @@ def current_state():
     "model_name",
     [
         "gpt-4o-mini",
-        "gemini-1.5-flash",
         "claude-3-haiku-20240307",
         "deepseek-chat",
         "llama-3.1-8b-instant",
     ],
 )
+@pytest.mark.fast
 def test_state_delta_handling(
     model_name: str, models: Dict[str, LM], system_message: str, current_state: Dict
 ):
@@ -160,12 +154,12 @@ def test_state_delta_handling(
     "model_name",
     [
         "gpt-4o-mini",
-        "gemini-1.5-flash",
         "claude-3-haiku-20240307",
         "deepseek-chat",
         "llama-3.1-8b-instant",
     ],
 )
+@pytest.mark.fast
 def test_state_delta_protected_fields(model_name: str, models: Dict[str, LM], system_message: str):
     """Test that models respect protected fields"""
 

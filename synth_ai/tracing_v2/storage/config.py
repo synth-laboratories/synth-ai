@@ -9,7 +9,7 @@ class DuckDBConfig(BaseModel):
     class Config:
         extra = 'forbid'
     
-    db_path: str = Field(default="traces.duckdb", description="Path to DuckDB database file")
+    db_path: str = Field(default="synth_ai/traces/traces.duckdb", description="Path to DuckDB database file")
     batch_size: int = Field(default=1000, description="Default batch size for bulk operations")
     enable_analytics_views: bool = Field(default=True, description="Whether to create analytics views")
     transaction_size: int = Field(default=10000, description="Number of operations per transaction")

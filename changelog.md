@@ -1,0 +1,47 @@
+# Release v[0;34m[INFO][0m Current version: 0.2.1.dev1
+[0;34m[INFO][0m Bumping version type: dev
+[0;34m[INFO][0m New version: 0.2.1.dev2
+[0;32m[SUCCESS][0m Version bumped to 0.2.1.dev2
+0.2.1.dev2 - 2025-07-29
+
+## What's New
+
+- [Add your changes here]
+
+## Breaking Changes
+
+- [List any breaking changes]
+
+## Bug Fixes
+
+- [List bug fixes]
+
+## Documentation
+
+- [List documentation updates]
+
+---
+
+# Release v[0;34m[INFO][0m Current version: 0.2.1.dev0
+[0;34m[INFO][0m Bumping version type: dev
+[0;34m[INFO][0m New version: 0.2.1.dev1
+[0;32m[SUCCESS][0m Version bumped to 0.2.1.dev1
+0.2.1.dev1 - 2025-07-29
+
+## What's New
+
+- [Add your changes here]
+
+## Breaking Changes
+
+- [List any breaking changes]
+
+## Bug Fixes
+
+- [List bug fixes]
+
+## Documentation
+
+- [List documentation updates]
+
+---

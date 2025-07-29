@@ -17,8 +17,8 @@ from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
 from synth_ai.lm.provider_support.suppress_logging import *
-from synth_ai.tracing.abstractions import MessageInputs
-from synth_ai.tracing.trackers import synth_tracker_async, synth_tracker_sync
+from synth_ai.tracing_v1.abstractions import MessageInputs
+from synth_ai.tracing_v1.trackers import synth_tracker_async, synth_tracker_sync
 
 try:
     import openai

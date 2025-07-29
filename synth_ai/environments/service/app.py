@@ -31,33 +31,12 @@ logger = logging.getLogger(__name__)
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
 # Register built-in environments at import time
-import synth_ai.environments.examples.sokoban.environment as sok
-
-register_environment("Sokoban", sok.SokobanEnvironment)
 import synth_ai.environments.examples.crafter_classic.environment as cc
 
 register_environment("CrafterClassic", cc.CrafterClassicEnvironment)
 import synth_ai.environments.examples.crafter_custom.environment as ccustom
 
 register_environment("CrafterCustom", ccustom.CrafterCustomEnvironment)
-import synth_ai.environments.examples.verilog.environment as ve
-
-register_environment("Verilog", ve.VerilogEnvironment)
-import synth_ai.environments.examples.tictactoe.environment as ttt
-
-register_environment("TicTacToe", ttt.TicTacToeEnvironment)
-# Temporarily disabled due to nle import issues
-# import synth_ai.environments.examples.nethack.environment as nh
-# register_environment("NetHack", nh.NetHackEnvironment)
-# AlgoTune excluded from package due to size/complexity
-# import synth_ai.environments.examples.algotune.environment as at
-# register_environment("AlgoTune", at.AlgoTuneEnvironment)
-import synth_ai.environments.examples.minigrid.environment as mg
-
-register_environment("MiniGrid", mg.MiniGridEnvironment)
-import synth_ai.environments.examples.enron.environment as enron
-
-register_environment("Enron", enron.EnronEnvironment)
 
 app = FastAPI(title="Environment Service")
 

@@ -27,6 +27,7 @@ weather_tool = BaseTool(
 )
 
 
+@pytest.mark.slow
 class TestToolArguments(BaseModel):
     name: str = Field(..., description="The name of the person")
     age: int = Field(..., description="The age of the person")
@@ -36,6 +37,7 @@ class TestToolArguments(BaseModel):
     )
 
 
+@pytest.mark.slow
 class TestTool(BaseTool):
     name: str = "test_tool"
     arguments: type = TestToolArguments
@@ -43,6 +45,7 @@ class TestTool(BaseTool):
 
 
 # OpenAI Tests
+@pytest.mark.slow
 def test_weather_tool_oai_direct():
     client = OpenAIStandard(
         sync_client=openai.OpenAI(),
@@ -72,6 +75,7 @@ def test_weather_tool_oai_direct():
     assert isinstance(response.tool_calls[0]["function"]["arguments"], str)
 
 
+@pytest.mark.slow
 def test_weather_tool_oai_lm():
     lm = LM(model_name="gpt-4o-mini", formatting_model_name="gpt-4o-mini", temperature=0)
 
@@ -89,6 +93,7 @@ def test_weather_tool_oai_lm():
 
 
 # Anthropic Tests
+@pytest.mark.slow
 def test_weather_tool_anthropic_direct():
     client = AnthropicAPI(
         used_for_structured_outputs=False,
@@ -123,6 +128,7 @@ def test_weather_tool_anthropic_direct():
     assert "Paris" in arguments
 
 
+@pytest.mark.slow
 def test_weather_tool_anthropic_lm():
     lm = LM(
         model_name="claude-3-haiku-20240307",
@@ -147,6 +153,7 @@ def test_weather_tool_anthropic_lm():
 
 
 # Gemini Tests
+@pytest.mark.slow
 def test_weather_tool_gemini_direct():
     client = GeminiAPI(
         used_for_structured_outputs=False,
@@ -175,6 +182,7 @@ def test_weather_tool_gemini_direct():
     assert response.tool_calls is not None
 
 
+@pytest.mark.slow
 def test_weather_tool_gemini_lm():
     lm = LM(
         model_name="gemini-2.0-flash",
@@ -195,6 +203,7 @@ def test_weather_tool_gemini_lm():
 
 # Mistral Tests
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_mistral_tool_async():
     if not os.getenv("MISTRAL_API_KEY"):
         pytest.skip("MISTRAL_API_KEY not set")
@@ -232,6 +241,7 @@ async def test_mistral_tool_async():
     assert isinstance(args["hobbies"], list), "Hobbies should be a list"
 
 
+@pytest.mark.slow
 def test_mistral_tool_sync():
     if not os.getenv("MISTRAL_API_KEY"):
         pytest.skip("MISTRAL_API_KEY not set")
@@ -269,6 +279,7 @@ def test_mistral_tool_sync():
     assert isinstance(args["hobbies"], list), "Hobbies should be a list"
 
 
+@pytest.mark.slow
 def test_mistral_tool_schema():
     tool = TestTool()
     schema = tool.to_mistral_tool()

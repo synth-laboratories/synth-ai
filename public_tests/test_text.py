@@ -1,3 +1,4 @@
+import pytest
 import openai
 
 from synth_ai.zyk import LM
@@ -9,6 +10,7 @@ from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 TEST_PROMPT = "What is 2+2? Answer with just the number."
 
 
+@pytest.mark.slow
 def test_openai_text():
     client = OpenAIStandard(
         sync_client=openai.OpenAI(),
@@ -26,6 +28,7 @@ def test_openai_text():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_openai_text_lm():
     lm = LM(
         model_name="gpt-4o-mini",
@@ -41,6 +44,7 @@ def test_openai_text_lm():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_anthropic_text():
     client = AnthropicAPI(
         used_for_structured_outputs=False,
@@ -62,6 +66,7 @@ def test_anthropic_text():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_anthropic_text_lm():
     lm = LM(
         model_name="claude-3-haiku-20240307",
@@ -77,6 +82,7 @@ def test_anthropic_text_lm():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_gemini_text():
     client = GeminiAPI(
         used_for_structured_outputs=False,
@@ -98,6 +104,7 @@ def test_gemini_text():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_gemini_text_lm():
     lm = LM(
         model_name="gemini-2.0-flash",
@@ -113,6 +120,7 @@ def test_gemini_text_lm():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_mistral_text():
     client = MistralAPI(
         used_for_structured_outputs=False,
@@ -134,6 +142,7 @@ def test_mistral_text():
     assert response.raw_response.strip() == "4"
 
 
+@pytest.mark.slow
 def test_mistral_text_lm():
     lm = LM(
         model_name="mistral-small-latest",

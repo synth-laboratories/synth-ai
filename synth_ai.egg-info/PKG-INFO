@@ -11,21 +11,18 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic>=2.0.0
-Requires-Dist: pydantic-openapi-schema>=1.5.1
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: requests>=2.32.3
 Requires-Dist: urllib3>=2.3.0
 Requires-Dist: tqdm>=4.66.4
-Requires-Dist: typing-inspect>=0.9.0
 Requires-Dist: jsonschema>=4.23.0
+Requires-Dist: backoff>=2.0.0
+Requires-Dist: typing_extensions>=4.0.0
 Requires-Dist: openai==1.63.0
 Requires-Dist: anthropic>=0.42.0
-Requires-Dist: google-generativeai>=0.8.0
 Requires-Dist: langfuse<3.0.0,>=2.53.9
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-sdk>=1.27.0
-Requires-Dist: boto3>=1.35.71
-Requires-Dist: botocore>=1.35.71
 Requires-Dist: diskcache>=5.6.3
 Requires-Dist: groq>=0.30.0
 Requires-Dist: google-genai>=1.26.0
@@ -36,21 +33,10 @@ Requires-Dist: uvicorn>=0.34.2
 Requires-Dist: numpy>=2.2.3
 Requires-Dist: networkx>=3.4.2
 Requires-Dist: redis>=6.2.0
-Requires-Dist: imageio>=2.31.0
-Requires-Dist: matplotlib>=3.10.3
-Requires-Dist: seaborn>=0.13.2
-Requires-Dist: pillow>=11.2.1
-Requires-Dist: tabulate>=0.9.0
 Requires-Dist: duckdb>=1.0.0
-Requires-Dist: pyarrow>=18.0.0
 Requires-Dist: pandas>=2.2.3
-Requires-Dist: psutil>=7.0.0
-Requires-Dist: setuptools>=80.8.0
-Requires-Dist: gymnasium>=1.1.1
 Requires-Dist: ty>=0.0.1a5
-Requires-Dist: gym>=0.23.0
 Requires-Dist: toml>=0.10.2
-Requires-Dist: nle>=0.9.1
 Provides-Extra: dev
 Requires-Dist: build>=1.2.2.post1; extra == "dev"
 Requires-Dist: twine>=4.0.0; extra == "dev"
@@ -69,10 +55,6 @@ Provides-Extra: mistral
 Requires-Dist: mistralai>=1.0.0; extra == "mistral"
 Provides-Extra: research
 Requires-Dist: crafter>=1.8.3; extra == "research"
-Requires-Dist: gym-sokoban>=0.0.6; extra == "research"
-Requires-Dist: pyboy>=2.6.0; extra == "research"
-Requires-Dist: nle>=0.9.1; extra == "research"
-Requires-Dist: minigrid>=3.0.0; extra == "research"
 Requires-Dist: datasets>=4.0.0; extra == "research"
 Provides-Extra: all
 Requires-Dist: google-api-core>=2.0.0; extra == "all"
@@ -80,10 +62,6 @@ Requires-Dist: google-generativeai>=0.8.0; extra == "all"
 Requires-Dist: google-genai>=1.0.0; extra == "all"
 Requires-Dist: mistralai>=1.0.0; extra == "all"
 Requires-Dist: crafter>=1.8.3; extra == "all"
-Requires-Dist: gym-sokoban>=0.0.6; extra == "all"
-Requires-Dist: pyboy>=2.6.0; extra == "all"
-Requires-Dist: nle>=0.9.1; extra == "all"
-Requires-Dist: minigrid>=3.0.0; extra == "all"
 Requires-Dist: datasets>=4.0.0; extra == "all"
 Dynamic: license-file
 

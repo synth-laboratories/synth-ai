@@ -398,7 +398,7 @@ LOCAL_SYNTH = True  # If True, use local DuckDB storage. If False, use Synth Clo
 # DuckDB Configuration (for LOCAL_SYNTH mode)
 DUCKDB_CONFIG = {
     "enabled": True if LOCAL_SYNTH else False,  # Auto-enable for local mode
-    "db_path": "traces.duckdb",
+    "db_path": "synth_ai/traces/traces.duckdb",
     "batch_size": 1000,  # For batch uploads
     "auto_upload": True,  # Upload on session end
     "retention_days": 30,  # Data retention policy

@@ -9,10 +9,12 @@ from synth_ai.lm.tools.base import BaseTool
 from pydantic import BaseModel
 
 
+@pytest.mark.slow
 class TestCustomEndpointIntegration:
     """Test suite for custom OpenAI-compatible endpoints."""
 
     @responses.activate
+    @pytest.mark.slow
     def test_basic_completion(self):
         """Test basic completion without tools."""
         responses.add(
@@ -44,6 +46,7 @@ class TestCustomEndpointIntegration:
         assert response.tool_calls is None
 
     @responses.activate
+    @pytest.mark.slow
     def test_tool_calling(self):
         """Test tool call extraction and validation."""
         responses.add(
@@ -83,6 +86,7 @@ class TestCustomEndpointIntegration:
         assert response.tool_calls[0]["arguments"]["direction"] == "north"
 
     @responses.activate
+    @pytest.mark.slow
     def test_generic_domain_endpoint(self):
         """Test that generic domain endpoints work."""
         responses.add(
@@ -103,6 +107,7 @@ class TestCustomEndpointIntegration:
 
         assert "Hello from custom endpoint!" in response.raw_response
 
+    @pytest.mark.slow
     def test_url_validation(self):
         """Test URL validation and security checks."""
 
@@ -125,6 +130,7 @@ class TestCustomEndpointIntegration:
             CustomEndpointAPI("a" * 300)  # Too long
 
     @responses.activate
+    @pytest.mark.slow
     def test_temperature_override(self):
         """Test environment variable temperature override."""
         # Set temperature override for test endpoint
@@ -181,6 +187,7 @@ class TestCustomEndpointIntegration:
             del os.environ["CUSTOM_ENDPOINT_TEMP_TEST_ORG__TEST_MODEL_MODAL_RUN"]
 
     @responses.activate
+    @pytest.mark.slow
     def test_auth_token(self):
         """Test authentication token handling."""
         os.environ["CUSTOM_ENDPOINT_API_TOKEN"] = "test-token-12345"
@@ -234,6 +241,7 @@ class TestCustomEndpointIntegration:
 # Integration test with real Modal endpoint (requires deployed app)
 @pytest.mark.integration
 @pytest.mark.skipif(not os.environ.get("MODAL_TEST_URL"), reason="Modal test URL not set")
+@pytest.mark.slow
 def test_modal_qwen_hello():
     """Live test with deployed Modal Qwen app."""
     url = os.environ["MODAL_TEST_URL"]  # e.g. "your-org--qwen-test.modal.run"

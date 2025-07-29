@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.1.dev0"
+version = "0.2.1.dev2"
 description = "Software for aiding the best and multiplying the will - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -9,24 +9,21 @@ requires-python = ">=3.11"
 dependencies = [
     # Core dependencies
     "pydantic>=2.0.0",
-    "pydantic-openapi-schema>=1.5.1",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "urllib3>=2.3.0",
     "tqdm>=4.66.4",
-    "typing-inspect>=0.9.0",
     "jsonschema>=4.23.0",
+    "backoff>=2.0.0",
+    "typing_extensions>=4.0.0",
     # AI/LLM providers
     "openai==1.63.0",
     "anthropic>=0.42.0",
-    "google-generativeai>=0.8.0",
     # Tracing and observability
     "langfuse>=2.53.9,<3.0.0",
     "opentelemetry-api>=1.27.0",
     "opentelemetry-sdk>=1.27.0",
-    # Cloud storage
-    "boto3>=1.35.71",
-    "botocore>=1.35.71",
+    # Storage and caching
     "diskcache>=5.6.3",
     "groq>=0.30.0",
     "google-genai>=1.26.0",
@@ -38,21 +35,10 @@ dependencies = [
     "numpy>=2.2.3",
     "networkx>=3.4.2",
     "redis>=6.2.0",
-    "imageio>=2.31.0",
-    "matplotlib>=3.10.3",
-    "seaborn>=0.13.2",
-    "pillow>=11.2.1",
-    "tabulate>=0.9.0",
     "duckdb>=1.0.0",
-    "pyarrow>=18.0.0",
     "pandas>=2.2.3",
-    "psutil>=7.0.0",
-    "setuptools>=80.8.0",
-    "gymnasium>=1.1.1",
     "ty>=0.0.1a5", # Type annotations helper
-    "gym>=0.23.0",
     "toml>=0.10.2",
-    "nle>=0.9.1",
 ]
 
 [project.optional-dependencies]
@@ -78,10 +64,6 @@ mistral = [
 research = [
     # Heavy game environment dependencies
     "crafter>=1.8.3",
-    "gym-sokoban>=0.0.6",
-    "pyboy>=2.6.0",  # Game Boy emulator
-    "nle>=0.9.1",  # NetHack Learning Environment
-    "minigrid>=3.0.0",
     "datasets>=4.0.0",  # For math environments
 ]
 all = [
@@ -91,10 +73,6 @@ all = [
     "mistralai>=1.0.0",
     # Include research dependencies in all
     "crafter>=1.8.3",
-    "gym-sokoban>=0.0.6",
-    "pyboy>=2.6.0",
-    "nle>=0.9.1",
-    "minigrid>=3.0.0",
     "datasets>=4.0.0",
 ]
 
@@ -111,16 +89,23 @@ build-backend = "setuptools.build_meta"
 include = ["synth_ai*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["public_tests", "private_tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
 asyncio_mode = "auto"
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
+    "fast: marks tests as fast (≤5 seconds) - these are the default tests to run",
+    "slow: marks tests as slow (>5 seconds) - requires more time/resources",
+    "integration: marks tests as integration tests requiring external services",
+    "unit: marks tests as isolated unit tests",
+    "public: marks tests that can run in any environment",
+    "private: marks tests that may require credentials or special setup",
 ]
+# Add timeout for long-running tests
+timeout = 300
+# Show test durations (slowest N tests)
+addopts = "--durations=10"
 
 [tool.coverage.run]
 source = ["synth_ai"]

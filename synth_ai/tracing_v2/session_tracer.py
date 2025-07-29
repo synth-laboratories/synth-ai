@@ -246,11 +246,10 @@ class SessionTracer:
             # For now, fall back to local storage
             LOCAL_SYNTH = True
         
-        # Initialize DuckDB if in local mode
-        if LOCAL_SYNTH and (duckdb_path or DUCKDB_CONFIG["enabled"]):
+        # Initialize DuckDB only if explicitly requested
+        if LOCAL_SYNTH and duckdb_path:
             from .duckdb.manager import DuckDBTraceManager
-            db_path = duckdb_path or DUCKDB_CONFIG["db_path"]
-            self.db_manager = DuckDBTraceManager(db_path)
+            self.db_manager = DuckDBTraceManager(duckdb_path)
         
     def start_session(self, session_id: Optional[str] = None) -> SessionTrace:
         """Start a new session trace."""
@@ -574,6 +573,7 @@ class SessionTracer:
         # Upload to DuckDB if enabled
         if self.db_manager and upload_to_db:
             try:
+                print(f"🔧 UPLOADING SESSION TO DB: {self.current_session.session_id}")
                 self.db_manager.insert_session_trace(self.current_session)
                 
                 # Link to experiment if specified
@@ -586,6 +586,10 @@ class SessionTracer:
                 print(f"Failed to upload trace to DuckDB: {e}")
                 import traceback
                 traceback.print_exc()
+        else:
+            print(f"🔧 NOT UPLOADING SESSION: {self.current_session.session_id}")
+            print(f"   db_manager: {self.db_manager is not None}")
+            print(f"   upload_to_db: {upload_to_db}")
         
         filepath = None
         if save:

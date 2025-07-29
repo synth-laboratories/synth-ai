@@ -1,5 +1,6 @@
 from typing import List
 
+import pytest
 import openai
 from pydantic import BaseModel
 
@@ -15,6 +16,7 @@ class Person(BaseModel):
 TEST_PROMPT = "Extract information about a person from this text: John is 30 years old and enjoys reading, hiking, and photography."
 
 
+@pytest.mark.slow
 def test_openai_structured_lm():
     lm = LM(
         model_name="gpt-4o-mini",
@@ -38,6 +40,7 @@ def test_openai_structured_lm():
     }
 
 
+@pytest.mark.slow
 def test_anthropic_structured_lm():
     lm = LM(
         model_name="claude-3-haiku-20240307",
@@ -90,6 +93,7 @@ def test_anthropic_structured_lm():
 #     }
 
 
+@pytest.mark.slow
 def test_gemini_structured_lm():
     lm = LM(
         model_name="gemini-2.0-flash",
@@ -113,6 +117,7 @@ def test_gemini_structured_lm():
     }
 
 
+@pytest.mark.slow
 def test_mistral_structured_lm():
     lm = LM(
         model_name="mistral-small-latest",
