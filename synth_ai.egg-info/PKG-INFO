@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synth-ai
-Version: 0.2.1.dev0
+Version: 0.2.1.dev2
 Summary: Software for aiding the best and multiplying the will - Core AI functionality and tracing
 Author-email: Synth AI <josh@usesynth.ai>
 License-Expression: MIT
@@ -37,6 +37,13 @@ Requires-Dist: duckdb>=1.0.0
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: ty>=0.0.1a5
 Requires-Dist: toml>=0.10.2
+Requires-Dist: sqlalchemy>=2.0.42
+Requires-Dist: aiosqlite>=0.21.0
+Requires-Dist: greenlet>=3.2.3
+Requires-Dist: libsql>=0.1.8
+Requires-Dist: google-api-core>=2.25.1
+Requires-Dist: google-generativeai>=0.8.5
+Requires-Dist: crafter>=1.8.3
 Provides-Extra: dev
 Requires-Dist: build>=1.2.2.post1; extra == "dev"
 Requires-Dist: twine>=4.0.0; extra == "dev"

@@ -39,6 +39,13 @@ dependencies = [
     "pandas>=2.2.3",
     "ty>=0.0.1a5", # Type annotations helper
     "toml>=0.10.2",
+    "sqlalchemy>=2.0.42",
+    "aiosqlite>=0.21.0",
+    "greenlet>=3.2.3",
+    "libsql>=0.1.8",
+    "google-api-core>=2.25.1",
+    "google-generativeai>=0.8.5",
+    "crafter>=1.8.3",
 ]
 
 [project.optional-dependencies]
@@ -137,4 +144,5 @@ dev-dependencies = [
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
     "pyright>=1.1.350",
+    "responses>=0.25.7",
 ]

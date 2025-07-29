@@ -7,7 +7,6 @@ from synth_ai.lm.core.all import (
     GeminiClient,
     GroqClient,
     GrokClient,
-    MistralClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
@@ -60,9 +59,6 @@ grok_naming_regexes: List[Pattern] = [
     re.compile(r"^grok-.*$"),  # Catch-all for future Grok models
 ]
 
-mistral_naming_regexes: List[Pattern] = [
-    re.compile(r"^mistral-.*$"),
-]
 
 openrouter_naming_regexes: List[Pattern] = [
     re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
@@ -85,10 +81,10 @@ PROVIDER_MAP: Dict[str, Any] = {
     "gemini": GeminiClient,
     "deepseek": DeepSeekClient,
     "grok": GrokClient,
-    "mistral": MistralClient,
     "openrouter": OpenRouterClient,
     "together": TogetherClient,
     "synth": OpenAIStructuredOutputClient,  # Synth uses OpenAI-compatible API
+    "custom_endpoint": CustomEndpointClient,
 }
 
 
@@ -168,8 +164,6 @@ def get_client(
         return GroqClient()
     elif any(regex.match(model_name) for regex in grok_naming_regexes):
         return GrokClient()
-    elif any(regex.match(model_name) for regex in mistral_naming_regexes):
-        return MistralClient()
     elif any(regex.match(model_name) for regex in openrouter_naming_regexes):
         return OpenRouterClient()
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):

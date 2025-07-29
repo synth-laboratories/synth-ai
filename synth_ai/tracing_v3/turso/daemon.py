@@ -41,12 +41,13 @@ class SqldDaemon:
         
         args = [
             self.binary_path,
-            "--db", str(db_file),
+            "--db-path", str(db_file),
             "--http-listen-addr", f"127.0.0.1:{self.http_port}",
         ]
         
+        # No replication for local-only mode
         if CONFIG.sqld_idle_shutdown > 0:
-            args.extend(["--idle-shutdown-timeout", str(CONFIG.sqld_idle_shutdown)])
+            args.extend(["--idle-shutdown-timeout-s", str(CONFIG.sqld_idle_shutdown)])
         
         self.process = subprocess.Popen(
             args, 

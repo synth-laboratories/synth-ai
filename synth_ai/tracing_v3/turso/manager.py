@@ -7,6 +7,7 @@ import pandas as pd
 from sqlalchemy import select, insert, update, delete, text, and_, or_, func
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker, selectinload, joinedload
+from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import IntegrityError
 
 from ..config import CONFIG
@@ -32,14 +33,23 @@ class AsyncSQLTraceManager:
     async def initialize(self):
         """Initialize the database connection and schema."""
         if self.engine is None:
-            connect_args = CONFIG.get_connect_args()
-            engine_kwargs = CONFIG.get_engine_kwargs()
-            
-            self.engine = create_async_engine(
-                self.db_url,
-                connect_args=connect_args,
-                **engine_kwargs
-            )
+            # For SQLite, use NullPool and set busy timeout
+            if self.db_url.startswith("sqlite"):
+                connect_args = {"timeout": 30.0}  # 30 second busy timeout
+                self.engine = create_async_engine(
+                    self.db_url,  # Use instance db_url, not CONFIG
+                    poolclass=NullPool,  # No connection pooling for SQLite
+                    connect_args=connect_args,
+                    echo=CONFIG.echo_sql
+                )
+            else:
+                connect_args = CONFIG.get_connect_args()
+                engine_kwargs = CONFIG.get_engine_kwargs()
+                self.engine = create_async_engine(
+                    self.db_url,  # Use instance db_url, not CONFIG
+                    connect_args=connect_args,
+                    **engine_kwargs
+                )
             
             self.SessionLocal = sessionmaker(
                 self.engine,
@@ -56,8 +66,13 @@ class AsyncSQLTraceManager:
                 return
                 
             async with self.engine.begin() as conn:
-                # Create tables
-                await conn.run_sync(Base.metadata.create_all)
+                # Create tables with checkfirst=True to handle concurrent creation
+                try:
+                    await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
+                except Exception as e:
+                    # If tables already exist, that's fine - another worker created them
+                    if "already exists" not in str(e):
+                        raise
                 
                 # Enable foreign keys for SQLite
                 if CONFIG.foreign_keys:
@@ -84,55 +99,56 @@ class AsyncSQLTraceManager:
     async def insert_session_trace(self, trace: SessionTrace) -> str:
         """Insert a complete session trace."""
         async with self.session() as sess:
-            # Convert to cents for cost storage
-            def to_cents(cost: Optional[float]) -> Optional[int]:
-                return int(cost * 100) if cost is not None else None
-            
-            # Insert session
-            db_session = DBSessionTrace(
+            try:
+                # Convert to cents for cost storage
+                def to_cents(cost: Optional[float]) -> Optional[int]:
+                    return int(cost * 100) if cost is not None else None
+                
+                # Insert session
+                db_session = DBSessionTrace(
                 session_id=trace.session_id,
                 created_at=trace.created_at,
                 num_timesteps=len(trace.session_time_steps),
                 num_events=len(trace.event_history),
                 num_messages=len(trace.message_history),
                 session_metadata=trace.metadata or {},
-            )
-            sess.add(db_session)
-            
-            # Track timestep IDs for foreign keys
-            step_id_map: Dict[str, int] = {}
-            
-            # Insert timesteps
-            for step in trace.session_time_steps:
-                db_step = DBSessionTimestep(
-                    session_id=trace.session_id,
-                    step_id=step.step_id,
-                    step_index=step.step_index,
-                    turn_number=step.turn_number,
-                    started_at=step.timestamp,
-                    completed_at=step.completed_at,
-                    num_events=len(step.events),
-                    num_messages=len(step.step_messages),
-                    step_metadata=step.step_metadata or {},
                 )
-                sess.add(db_step)
-                await sess.flush()  # Get the auto-generated ID
-                step_id_map[step.step_id] = db_step.id
-            
-            # Insert events
-            for event in trace.event_history:
-                event_data = {
-                    "session_id": trace.session_id,
-                    "timestep_id": step_id_map.get(event.metadata.get("step_id")),
-                    "system_instance_id": event.system_instance_id,
-                    "event_time": event.time_record.event_time,
-                    "message_time": event.time_record.message_time,
-                    "event_metadata_json": event.metadata or {},
-                    "event_extra_metadata": event.event_metadata,
-                }
+                sess.add(db_session)
                 
-                if isinstance(event, LMCAISEvent):
-                    event_data.update({
+                # Track timestep IDs for foreign keys
+                step_id_map: Dict[str, int] = {}
+                
+                # Insert timesteps
+                for step in trace.session_time_steps:
+                    db_step = DBSessionTimestep(
+                        session_id=trace.session_id,
+                        step_id=step.step_id,
+                        step_index=step.step_index,
+                        turn_number=step.turn_number,
+                        started_at=step.timestamp,
+                        completed_at=step.completed_at,
+                        num_events=len(step.events),
+                        num_messages=len(step.step_messages),
+                        step_metadata=step.step_metadata or {},
+                    )
+                    sess.add(db_step)
+                    await sess.flush()  # Get the auto-generated ID
+                    step_id_map[step.step_id] = db_step.id
+                
+                # Insert events
+                for event in trace.event_history:
+                    event_data = {
+                        "session_id": trace.session_id,
+                        "timestep_id": step_id_map.get(event.metadata.get("step_id")),
+                        "system_instance_id": event.system_instance_id,
+                        "event_time": event.time_record.event_time,
+                        "message_time": event.time_record.message_time,
+                        "event_metadata_json": event.metadata or {},
+                        "event_extra_metadata": event.event_metadata,
+                    }
+                    
+                    if isinstance(event, LMCAISEvent):
+                        event_data.update({
                         "event_type": "cais",
                         "model_name": event.model_name,
                         "provider": event.provider,
@@ -146,8 +162,8 @@ class AsyncSQLTraceManager:
                         "system_state_before": event.system_state_before,
                         "system_state_after": event.system_state_after,
                     })
-                elif isinstance(event, EnvironmentEvent):
-                    event_data.update({
+                    elif isinstance(event, EnvironmentEvent):
+                        event_data.update({
                         "event_type": "environment",
                         "reward": event.reward,
                         "terminated": event.terminated,
@@ -155,32 +171,38 @@ class AsyncSQLTraceManager:
                         "system_state_before": event.system_state_before,
                         "system_state_after": event.system_state_after,
                     })
-                elif isinstance(event, RuntimeEvent):
-                    event_data.update({
+                    elif isinstance(event, RuntimeEvent):
+                        event_data.update({
                         "event_type": "runtime",
                         "event_metadata_json": {**event.metadata, "actions": event.actions},
                     })
-                else:
-                    event_data["event_type"] = event.__class__.__name__.lower()
+                    else:
+                        event_data["event_type"] = event.__class__.__name__.lower()
+                    
+                    db_event = DBEvent(**event_data)
+                    sess.add(db_event)
                 
-                db_event = DBEvent(**event_data)
-                sess.add(db_event)
-            
-            # Insert messages
-            for msg in trace.message_history:
-                db_msg = DBMessage(
-                    session_id=trace.session_id,
-                    timestep_id=step_id_map.get(msg.metadata.get("step_id")) if hasattr(msg, 'metadata') else None,
-                    message_type=msg.message_type,
-                    content=msg.content,
-                    event_time=msg.time_record.event_time,
-                    message_time=msg.time_record.message_time,
-                    message_metadata=msg.metadata if hasattr(msg, 'metadata') else {},
-                )
-                sess.add(db_msg)
-            
-            await sess.commit()
-            return trace.session_id
+                # Insert messages
+                for msg in trace.message_history:
+                    db_msg = DBMessage(
+                        session_id=trace.session_id,
+                        timestep_id=step_id_map.get(msg.metadata.get("step_id")) if hasattr(msg, 'metadata') else None,
+                        message_type=msg.message_type,
+                        content=msg.content,
+                        event_time=msg.time_record.event_time,
+                        message_time=msg.time_record.message_time,
+                        message_metadata=msg.metadata if hasattr(msg, 'metadata') else {},
+                    )
+                    sess.add(db_msg)
+                
+                await sess.commit()
+                return trace.session_id
+            except IntegrityError as e:
+                # Handle duplicate session IDs gracefully
+                if "UNIQUE constraint failed: session_traces.session_id" in str(e):
+                    await sess.rollback()
+                    return trace.session_id  # Return existing ID
+                raise
     
     async def get_session_trace(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve a session trace by ID."""

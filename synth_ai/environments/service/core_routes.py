@@ -20,10 +20,10 @@ from synth_ai.environments.environment.tools import EnvToolCall
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Import tracing abstractions
-from synth_ai.tracing_v2.abstractions import (
+# Import tracing abstractions from v3
+from synth_ai.tracing_v3.abstractions import (
     RuntimeEvent,
-    SessionMessage,
+    SessionEventMessage,
     TimeRecord,
 )
 

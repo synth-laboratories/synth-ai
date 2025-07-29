@@ -12,6 +12,9 @@ class StateUpdate(BaseModel):
     short_term_plan: Optional[str] = None
     objective: Optional[str] = None
     final_results: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        extra = "forbid"  # This ensures additionalProperties: false
 
     def model_post_init(self, __context):
         super().model_post_init(__context)
@@ -58,12 +61,6 @@ def models():
         ),
         "llama-3.1-8b-instant": LM(
             model_name="llama-3.1-8b-instant",
-            formatting_model_name="gpt-4o-mini",
-            temperature=0.1,
-            structured_output_mode="stringified_json",
-        ),
-        "mistral-small-latest": LM(
-            model_name="mistral-small-latest",
             formatting_model_name="gpt-4o-mini",
             temperature=0.1,
             structured_output_mode="stringified_json",

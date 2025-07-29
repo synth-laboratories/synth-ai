@@ -20,6 +20,7 @@ class TestOutput(BaseModel):
 
 
 @pytest.mark.slow
+@pytest.mark.asyncio
 async def test_reasoning_effort():
     # Define a question that requires reasoning
     question = "If a train travels at 120 km/h and another train travels at 80 km/h in the opposite direction, how long will it take for them to be 500 km apart if they start 100 km apart?"

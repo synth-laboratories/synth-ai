@@ -6,9 +6,19 @@ import os
 @dataclass
 class TursoConfig:
     """Configuration for Turso/sqld connection."""
-    # Connection settings
-    db_url: str = os.getenv("TURSO_DATABASE_URL", "sqlite+libsql://http://127.0.0.1:8080")
-    auth_token: str = os.getenv("TURSO_AUTH_TOKEN", "")
+    # Default values matching serve.sh
+    DEFAULT_DB_FILE = "synth_ai.db"
+    DEFAULT_HTTP_PORT = 8080
+    
+    # Local embedded database for async SQLAlchemy
+    # Use the centralized configuration for the database URL
+    db_url: str = os.getenv("TURSO_LOCAL_DB_URL", 
+                           f"sqlite+aiosqlite:///{os.path.abspath(os.getenv('SQLD_DB_PATH', 'synth_ai.db'))}")
+    
+    # Remote database sync disabled for local-only mode
+    sync_url: str = ""  # No remote sync
+    auth_token: str = ""  # No auth needed
+    sync_interval: int = 0  # No sync interval
     
     # Connection pool settings
     pool_size: int = int(os.getenv("TURSO_POOL_SIZE", "8"))
@@ -24,9 +34,9 @@ class TursoConfig:
     echo_sql: bool = os.getenv("TURSO_ECHO_SQL", "false").lower() == "true"
     batch_size: int = int(os.getenv("TURSO_BATCH_SIZE", "1000"))
     
-    # Daemon settings (for local sqld)
+    # Daemon settings (for local sqld) - match serve.sh defaults
     sqld_binary: str = os.getenv("SQLD_BINARY", "sqld")
-    sqld_db_path: str = os.getenv("SQLD_DB_PATH", "traces.db")
+    sqld_db_path: str = os.getenv("SQLD_DB_PATH", "synth_ai.db")
     sqld_http_port: int = int(os.getenv("SQLD_HTTP_PORT", "8080"))
     sqld_idle_shutdown: int = int(os.getenv("SQLD_IDLE_SHUTDOWN", "0"))  # 0 = no idle shutdown
     

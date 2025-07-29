@@ -33,22 +33,43 @@ class TestConcurrentOperations:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Start sqld daemon for concurrent tests."""
-        # Use a temporary file for real concurrent testing
-        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
-            db_path = tmp.name
+        # Create a unique database path
+        db_path = os.path.join(tempfile.gettempdir(), f"test_sqld_{uuid.uuid4().hex}.db")
+        http_port = 9100 + int(uuid.uuid4().hex[:4], 16) % 500  # Random port 9100-9600
         
-        daemon = SqldDaemon(db_path=db_path)
+        daemon = SqldDaemon(db_path=db_path, http_port=http_port)
         daemon.start()
+        
+        # Wait for daemon to fully initialize
+        await asyncio.sleep(2)
+        
+        # Initialize schema once before tests
+        actual_db_file = os.path.join(db_path, "dbs", "default", "data")
+        db_url = f"sqlite+aiosqlite:///{actual_db_file}"
+        
+        manager = AsyncSQLTraceManager(db_url=db_url)
+        await manager.initialize()
+        await manager.close()
         
         yield daemon
         
         daemon.stop()
-        os.unlink(db_path)
+        # Wait a bit for daemon to fully stop before cleanup
+        await asyncio.sleep(0.5)
+        # Clean up the database file if it exists
+        if os.path.exists(db_path):
+            try:
+                os.unlink(db_path)
+            except PermissionError:
+                pass  # File might still be locked on some systems
     
     @pytest_asyncio.fixture
     async def db_url(self, sqld_daemon):
         """Get the database URL for the running daemon."""
-        return f"sqlite+libsql://http://127.0.0.1:{sqld_daemon.http_port}"
+        # Return the actual SQLite file path inside sqld's directory structure
+        # sqld creates: {db_path}/dbs/default/data
+        actual_db_file = os.path.join(sqld_daemon.db_path, "dbs", "default", "data")
+        return f"sqlite+aiosqlite:///{actual_db_file}"
     
     async def test_concurrent_session_insertion_no_race_condition(self, db_url):
         """
@@ -93,7 +114,8 @@ class TestConcurrentOperations:
                 return {"worker_id": worker_id, "success": True, "error": None}
                 
             except Exception as e:
-                return {"worker_id": worker_id, "success": False, "error": str(e)}
+                import traceback
+                return {"worker_id": worker_id, "success": False, "error": str(e), "traceback": traceback.format_exc()}
         
         # Run concurrent tasks
         tasks = [create_and_insert_session(i) for i in range(num_concurrent_sessions)]
@@ -103,6 +125,10 @@ class TestConcurrentOperations:
         failures = [r for r in results if not r["success"]]
         if failures:
             print("Failures:", failures)
+            # Print first traceback for debugging
+            if failures and "traceback" in failures[0]:
+                print("\nFirst failure traceback:")
+                print(failures[0]["traceback"])
         
         # All should succeed with Turso
         assert all(r["success"] for r in results), f"Some insertions failed: {failures}"

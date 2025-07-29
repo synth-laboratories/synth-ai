@@ -93,52 +93,6 @@ def test_anthropic_structured_lm():
 #     }
 
 
-@pytest.mark.slow
-def test_gemini_structured_lm():
-    lm = LM(
-        model_name="gemini-2.0-flash",
-        formatting_model_name="gemini-2.0-flash",
-        temperature=0,
-    )
-
-    response = lm.respond_sync(
-        system_message="You are a helpful assistant that extracts structured information.",
-        user_message=TEST_PROMPT,
-        response_model=Person,
-    )
-
-    assert isinstance(response.structured_output, Person)
-    assert response.structured_output.name == "John"
-    assert response.structured_output.age == 30
-    assert set(response.structured_output.hobbies) == {
-        "reading",
-        "hiking",
-        "photography",
-    }
-
-
-@pytest.mark.slow
-def test_mistral_structured_lm():
-    lm = LM(
-        model_name="mistral-small-latest",
-        formatting_model_name="mistral-small-latest",
-        temperature=0,
-    )
-
-    response = lm.respond_sync(
-        system_message="You are a helpful assistant that extracts structured information.",
-        user_message=TEST_PROMPT,
-        response_model=Person,
-    )
-
-    assert isinstance(response.structured_output, Person)
-    assert response.structured_output.name == "John"
-    assert response.structured_output.age == 30
-    assert set(response.structured_output.hobbies) == {
-        "reading",
-        "hiking",
-        "photography",
-    }
 
 
 if __name__ == "__main__":

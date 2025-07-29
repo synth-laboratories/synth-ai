@@ -1,302 +1,138 @@
 # Release Process
 
-This document describes the release process for `synth-ai` using the automated release scripts.
+This document describes the automated release process for the `synth-ai` package.
 
 ## Overview
 
-The release process is automated through several scripts:
+The release process is fully automated through the `dev/cut_release.sh` script, which:
 
-1. **`dev/cut_release.sh`** - Main release script that handles the complete workflow
-2. **`dev/build_docs.sh`** - Standalone documentation generation script
-3. **`dev/generate_api_docs.py`** - Python script that generates API documentation from source code
-4. **`dev/sync_docs.sh`** - Syncs documentation to Mintlify
-
-## Prerequisites
-
-Before running a release, ensure you have:
-
-- `git` - Version control
-- `python` - Python interpreter
-- `uv` - Python package manager
-- `twine` - PyPI upload tool
-- `gh` (optional) - GitHub CLI for automatic PR creation
-
-## Release Types
-
-The release script supports four version bump types:
-
-- **`dev`** - Development version bump (0.2.1.dev0 → 0.2.1.dev1)
-- **`patch`** - Patch release (0.2.1.dev0 → 0.2.1)
-- **`minor`** - Minor release (0.2.1.dev0 → 0.2.2)
-- **`major`** - Major release (0.2.1.dev0 → 0.3.0)
-
-## Quick Start
-
-### Development Release (Most Common)
-
-```bash
-# Bump dev version
-./dev/cut_release.sh dev
-
-# Preview what would happen
-./dev/cut_release.sh dev --dry-run
-```
-
-### Production Release
-
-```bash
-# Release patch version
-./dev/cut_release.sh patch
-
-# Release minor version
-./dev/cut_release.sh minor
-
-# Release major version
-./dev/cut_release.sh major
-```
+1. **Generates Documentation**: Runs `dev/build_docs.sh` using `pdoc` to generate API reference from docstrings
+2. **Syncs Documentation**: Copies generated docs to Mintlify directory
+3. **Version Management**: Bumps version (dev, patch, minor, or major)
+4. **Package Building**: Builds the Python package using `uv build`
+5. **PyPI Upload**: Uploads to PyPI using `twine`
+6. **Git Operations**: Creates feature branch, commits changes, and creates PR
 
 ## Release Workflow
 
-The `dev/cut_release.sh` script performs the following steps:
+### Prerequisites
 
-1. **Prerequisites Check**
-   - Verifies required tools are installed
-   - Checks git repository status
-   - Warns about uncommitted changes
+- `pdoc` installed: `pip install pdoc`
+- `uv` installed for building
+- `twine` installed for PyPI upload
+- GitHub CLI (`gh`) installed and authenticated
+- Proper PyPI credentials configured
 
-2. **Version Bumping**
-   - Updates `pyproject.toml` version
-   - Supports dev/patch/minor/major bumps
+### Steps
 
-3. **Documentation Generation**
-   - Runs `python dev/generate_api_docs.py`
-   - Generates API reference from source code
-   - Syncs docs to Mintlify (if available)
+1. **Documentation Generation**: Runs `dev/build_docs.sh` using `pdoc`
+2. **Documentation Cleaning**: Applies Mintlify compatibility fixes
+3. **Documentation Sync**: Copies cleaned docs to Mintlify directory
+4. **Version Bump**: Prompts for version type and updates `pyproject.toml`
+5. **Package Build**: Builds distribution files with `uv build`
+6. **PyPI Upload**: Uploads to PyPI with `twine upload`
+7. **Git Operations**: Creates branch, commits, and opens PR
 
-4. **Changelog Update**
-   - Creates new changelog entry
-   - Backs up existing changelog
-
-5. **PyPI Upload**
-   - Builds package with `uv build`
-   - Uploads to PyPI with `twine`
-
-6. **Git Workflow**
-   - Creates release branch
-   - Commits all changes
-   - Pushes branch
-   - Creates PR (if `gh` is available)
-
-## Script Options
-
-### `dev/cut_release.sh` Options
+## Usage
 
 ```bash
---dry-run           # Preview changes without making them
---skip-docs         # Skip documentation generation and sync
---skip-pypi         # Skip PyPI upload
---skip-git          # Skip git workflow
---help, -h          # Show help message
+# Run the full release process
+./dev/cut_release.sh
+
+# The script will prompt for:
+# - Version bump type (dev, patch, minor, major)
+# - Confirmation before PyPI upload
+# - Confirmation before Git operations
 ```
 
-### Examples
+## Documentation Scripts
 
-```bash
-# Preview a minor release
-./dev/cut_release.sh minor --dry-run
-
-# Release without documentation
-./dev/cut_release.sh patch --skip-docs
-
-# Release without PyPI upload (for testing)
-./dev/cut_release.sh dev --skip-pypi
-
-# Release without git workflow (for CI/CD)
-./dev/cut_release.sh patch --skip-git
-```
-
-## Documentation Generation
-
-### Standalone Documentation Generation
-
-The `dev/build_docs.sh` script provides a standalone way to generate documentation:
-
-```bash
-# Basic usage
-./dev/build_docs.sh
-
-# With options
-./dev/build_docs.sh --verbose --fallback
-```
-
-**Features:**
-- ✅ Prerequisites checking (Python, pyproject.toml, etc.)
-- ✅ Automatic fallback if Python script fails
-- ✅ Detailed reporting of generated files
-- ✅ Multiple output formats and options
-- ✅ Can be run independently or by cut_release.sh
-
-**Options:**
-- `--verbose, -v` - Show detailed output
-- `--fallback` - Force fallback documentation generation
-- `--check-only` - Only check prerequisites, don't generate docs
-- `--help, -h` - Show help message
-
-### Manual Documentation Generation
-
-```bash
-# Generate API docs (recommended)
-./dev/build_docs.sh
-
-# Generate with verbose output
-./dev/build_docs.sh --verbose
-
-# Force fallback documentation
-./dev/build_docs.sh --fallback
-
-# Check prerequisites only
-./dev/build_docs.sh --check-only
-
-# Sync to Mintlify
-./dev/sync_docs.sh
-
-# Preview sync
-./dev/sync_docs.sh --dry-run
-```
-
-### Documentation Scripts
-
-- **`dev/build_docs.sh`** - Standalone documentation generation script (recommended)
-- **`dev/generate_api_docs.py`** - Python script that generates API reference from source code
+- **`dev/build_docs.sh`** - Standalone documentation generation script using `pdoc` (recommended)
 - **`dev/sync_docs.sh`** - Syncs docs to Mintlify directory
 
-## Release Checklist
+### Documentation Generation
 
-Before running a release:
+The documentation is generated using `pdoc`, a modern Python documentation generator that:
 
-- [ ] All tests pass
-- [ ] Documentation is up to date
-- [ ] Changelog is prepared
-- [ ] No uncommitted changes (or commit them)
-- [ ] PyPI credentials are configured
+- Automatically extracts docstrings from Python modules
+- Generates clean Markdown output
+- Handles complex type annotations and signatures
+- Avoids Unicode escape sequence issues
+- Provides consistent, professional documentation
 
-## Post-Release Steps
+The build script focuses on core modules:
+- `synth_ai.environments.environment.core`
+- `synth_ai.environments.environment.registry`
+- `synth_ai.environments.environment.tools`
+- `synth_ai.environments.stateful.core`
 
-After a successful release:
+### Documentation Cleaning
 
-1. **Review Pull Request**
-   - Check the automated PR
-   - Review changes and documentation
+The `dev/clean_pdoc_output.py` script fixes Mintlify compatibility issues:
 
-2. **Merge to Main**
-   - Merge the release branch to main
-   - Delete the release branch
+- Removes Python REPL examples (`>>>` and `...`) that cause parsing errors
+- Converts colons in parameter descriptions to dashes
+- Escapes HTML entities and problematic characters
+- Ensures clean, parseable Markdown output
 
-3. **Tag Release**
-   ```bash
-   git tag v0.2.1
-   git push origin v0.2.1
-   ```
+## Version Management
 
-4. **Update Mintlify**
-   - Review synced documentation
-   - Update `mint.json` if needed
-   - Deploy to Mintlify
+The script supports four version bump types:
+
+- **dev**: Development version (e.g., 0.2.1.dev0 → 0.2.1.dev1)
+- **patch**: Bug fixes (e.g., 0.2.1 → 0.2.2)
+- **minor**: New features (e.g., 0.2.1 → 0.3.0)
+- **major**: Breaking changes (e.g., 0.2.1 → 1.0.0)
+
+## Git Workflow
+
+1. Creates a feature branch: `release/v{version}`
+2. Commits documentation and version changes
+3. Pushes to remote
+4. Creates a pull request to main branch
+5. Provides summary of changes
+
+## Error Handling
+
+The script includes comprehensive error handling:
+
+- Validates prerequisites before starting
+- Checks for existing Git changes
+- Validates version bump logic
+- Confirms PyPI upload before proceeding
+- Provides clear error messages and rollback instructions
+
+## Manual Steps
+
+After the script completes:
+
+1. **Review the PR**: Check the generated pull request
+2. **Test Documentation**: Verify Mintlify documentation is updated
+3. **Merge PR**: Merge the release PR to main
+4. **Tag Release**: Create a GitHub release tag (optional)
 
 ## Troubleshooting
 
 ### Common Issues
 
-**"Missing required commands"**
-- Install missing tools: `pip install twine`, `brew install gh`
+- **PyPI Upload Fails**: Check credentials and network connection
+- **Git Operations Fail**: Ensure GitHub CLI is authenticated
+- **Documentation Errors**: Check that `pdoc` is installed and modules are importable
+- **Mintlify Parsing Errors**: Run `dev/build_docs.sh` to regenerate cleaned documentation
 
-**"Not in a git repository"**
-- Run from the `synth-ai` directory
+### Rollback
 
-**"Uncommitted changes"**
-- Commit or stash changes before release
+If something goes wrong:
 
-**"PyPI upload failed"**
-- Check credentials: `twine check dist/*`
-- Verify package builds correctly
-
-**"Documentation sync failed"**
-- Check Mintlify directory exists
-- Verify docs were generated: `ls docs/api/`
-
-### Debug Mode
-
-For troubleshooting, run with verbose output:
-
-```bash
-# Test documentation generation
-python dev/generate_api_docs.py
-
-# Test sync
-./dev/sync_docs.sh --dry-run
-
-# Test release workflow
-./dev/cut_release.sh dev --dry-run --skip-pypi --skip-git
-```
+1. **PyPI**: Contact PyPI admin to remove the uploaded version
+2. **Git**: Reset the branch or delete the PR
+3. **Version**: Manually revert version in `pyproject.toml`
 
 ## Configuration
 
-### Version Management
+The script uses these configuration files:
 
-Versions are managed in `pyproject.toml`:
-
-```toml
-[project]
-version = "0.2.1.dev0"
-```
-
-### Documentation Paths
-
-- **Source**: `docs/` (generated docs)
-- **Target**: `../mintlify-docs/synth-ai/` (Mintlify docs)
-
-### PyPI Configuration
-
-Configure PyPI credentials:
-
-```bash
-# Set up credentials
-twine upload --help
-
-# Test upload
-twine check dist/*
-```
-
-## CI/CD Integration
-
-For automated releases, you can:
-
-1. **Skip Git Workflow**: Use `--skip-git` for CI environments
-2. **Dry Run**: Use `--dry-run` to preview changes
-3. **Selective Steps**: Use `--skip-*` flags to customize workflow
-
-Example CI script:
-
-```bash
-#!/bin/bash
-# CI release script
-./dev/cut_release.sh patch --skip-git --skip-docs
-```
-
-## Contributing
-
-To improve the release process:
-
-1. **Add New Scripts**: Place in `dev/` directory
-2. **Update Documentation**: Modify this README
-3. **Test Changes**: Use `--dry-run` flag
-4. **Version Bumps**: Follow semantic versioning
-
-## Support
-
-For issues with the release process:
-
-1. Check this documentation
-2. Run with `--dry-run` to debug
-3. Check prerequisites and configuration
-4. Review error messages and logs 
+- `pyproject.toml`: Package metadata and version
+- `dev/build_docs.sh`: Documentation generation settings
+- `dev/sync_docs.sh`: Mintlify sync configuration
+- `mintlify-docs/mint.json`: Mintlify site configuration 

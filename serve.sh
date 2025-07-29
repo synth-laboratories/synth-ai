@@ -15,51 +15,56 @@ SQLD_BIN="sqld"
 ########################################
 # START TURSO SQLD (background)
 ########################################
-echo "🗄️  Checking Turso sqld…"
+# Always start sqld for v3 tracing support
+echo "🗄️  Starting sqld for v3 tracing support"
 
-if ! command -v "${SQLD_BIN}" >/dev/null 2>&1; then
-  echo "❌ '${SQLD_BIN}' not found on PATH."
-
-  echo -n "💡 Do you want to install sqld now? (y/n): "
-  read -r RESP
-  if [[ "$RESP" == "y" || "$RESP" == "Y" ]]; then
-    echo "📦 Installing sqld from GitHub release (latest Linux/macOS)…"
-    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-    ARCH=$(uname -m)
-    if [[ "$ARCH" == "x86_64" ]]; then ARCH="x86_64"; fi
-    if [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]]; then ARCH="aarch64"; fi
-
-    DL_URL="https://github.com/tursodatabase/libsql/releases/latest/download/sqld-${OS}-${ARCH}"
-    INSTALL_PATH="/usr/local/bin/sqld"
-
-    echo "⬇️  Downloading from: $DL_URL"
-    curl -L "$DL_URL" -o /tmp/sqld
-    chmod +x /tmp/sqld
-
-    if [ -w "/usr/local/bin" ]; then
-      mv /tmp/sqld "$INSTALL_PATH"
-      echo "✅ Installed sqld to $INSTALL_PATH"
-    else
-      echo "🔐 sudo required to move sqld to $INSTALL_PATH"
-      sudo mv /tmp/sqld "$INSTALL_PATH"
-      echo "✅ Installed sqld to $INSTALL_PATH (via sudo)"
-    fi
-  else
-    echo "❌ Cannot proceed without 'sqld'. Exiting."
+# First, ensure sqld is properly installed
+if [ -f "./install_sqld.sh" ]; then
+  ./install_sqld.sh
+else
+  echo "⚠️  install_sqld.sh not found, checking if sqld is already installed..."
+  if ! command -v "${SQLD_BIN}" >/dev/null 2>&1; then
+    echo "❌ sqld not found and install_sqld.sh is missing."
+    echo "Please run: ./install_sqld.sh"
     exit 1
   fi
 fi
 
+# Check if sqld is already running
 if pgrep -f "${SQLD_BIN}.*--http-listen-addr.*:${SQLD_PORT}" >/dev/null; then
   echo "🗄️  sqld already running on port ${SQLD_PORT}"
 else
-  echo "🗄️  Starting sqld on port ${SQLD_PORT} (DB: ${DB_FILE})"
-  nohup "${SQLD_BIN}" \
-        --database "${DB_FILE}" \
-        --http-listen-addr "127.0.0.1:${SQLD_PORT}" \
-        --pg-listen-addr "127.0.0.1:$((${SQLD_PORT}+1))" \
-        > sqld.log 2>&1 &
+  # Check if we should use sqld for embedded replicas
+  USE_SQLD_REPLICA="${USE_SQLD_REPLICA:-false}"
+  TURSO_DATABASE_URL="${TURSO_DATABASE_URL:-}"
+  TURSO_AUTH_TOKEN="${TURSO_AUTH_TOKEN:-}"
+  
+  if [ "$USE_SQLD_REPLICA" = "true" ] && [ -n "$TURSO_DATABASE_URL" ]; then
+    echo "🗄️  Starting sqld with Turso replication on port ${SQLD_PORT}"
+    # Use sqld with replication from Turso
+    nohup "${SQLD_BIN}" \
+          --db-path "embedded.db" \
+          --http-listen-addr "127.0.0.1:${SQLD_PORT}" \
+          --replicate-from "${TURSO_DATABASE_URL}?authToken=${TURSO_AUTH_TOKEN}" \
+          > sqld.log 2>&1 &
+  else
+    echo "🗄️  Starting sqld (local only) on port ${SQLD_PORT}"
+    # Use sqld locally for v3 tracing
+    nohup "${SQLD_BIN}" \
+          --db-path "${DB_FILE}" \
+          --http-listen-addr "127.0.0.1:${SQLD_PORT}" \
+          > sqld.log 2>&1 &
+  fi
   echo "🗄️  sqld log: $(pwd)/sqld.log"
+  
+  # Wait a moment for sqld to start
+  sleep 2
+  
+  # Verify sqld started successfully
+  if ! pgrep -f "${SQLD_BIN}.*--http-listen-addr.*:${SQLD_PORT}" >/dev/null; then
+    echo "❌ Failed to start sqld. Check sqld.log for details."
+    exit 1
+  fi
 fi
 
 ########################################

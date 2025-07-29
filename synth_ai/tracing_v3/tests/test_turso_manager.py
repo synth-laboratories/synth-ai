@@ -94,18 +94,76 @@ class TestAsyncSQLTraceManager:
     
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
-        """Start sqld daemon for tests."""
-        daemon = SqldDaemon(db_path=":memory:")  # Use in-memory for tests
-        daemon.start(wait_for_ready=False)  # Don't wait since in-memory
-        yield daemon
-        daemon.stop()
+        """Use the centralized database configuration."""
+        from synth_ai.tracing_v3.db_config import get_default_db_config
+        
+        config = get_default_db_config()
+        
+        # If sqld is already running (via serve.sh), just use the existing database
+        if not config.use_sqld:
+            yield None  # No daemon to manage
+        else:
+            # Start a new daemon for isolated testing
+            daemon, _ = config.get_daemon_and_url()
+            yield daemon
+            config.stop_daemon()
     
     @pytest_asyncio.fixture
-    async def db_manager(self):
-        """Create an AsyncSQLTraceManager instance."""
-        # Use in-memory SQLite for tests
-        manager = AsyncSQLTraceManager(db_url="sqlite+aiosqlite:///:memory:")
-        await manager.initialize()
+    async def db_manager(self, sqld_daemon):
+        """Create an AsyncSQLTraceManager instance using centralized config."""
+        from synth_ai.tracing_v3.db_config import get_default_db_config
+        import subprocess
+        
+        config = get_default_db_config()
+        db_url = config.database_url
+        
+        # LOUD ASSERTIONS TO DEBUG
+        print(f"\n🔍 DEBUG: Database URL: {db_url}")
+        print(f"🔍 DEBUG: DB file: {config.db_file}")
+        print(f"🔍 DEBUG: Use sqld: {config.use_sqld}")
+        
+        # Check if sqld is running
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{config.http_port}"],
+                capture_output=True,
+                text=True
+            )
+            sqld_running = result.returncode == 0
+            sqld_pids = result.stdout.strip()
+            print(f"🔍 DEBUG: sqld running: {sqld_running}, PIDs: {sqld_pids}")
+        except Exception as e:
+            print(f"🔍 DEBUG: Error checking sqld: {e}")
+            sqld_running = False
+        
+        # Check if database file exists
+        import os
+        db_exists = os.path.exists(config.db_file)
+        abs_path = os.path.abspath(config.db_file)
+        print(f"🔍 DEBUG: DB exists: {db_exists}, absolute path: {abs_path}")
+        
+        # Check file permissions
+        if db_exists:
+            try:
+                stat_info = os.stat(abs_path)
+                print(f"🔍 DEBUG: File permissions: {oct(stat_info.st_mode)}")
+                print(f"🔍 DEBUG: File size: {stat_info.st_size} bytes")
+            except Exception as e:
+                print(f"🔍 DEBUG: Error getting file stats: {e}")
+        
+        # CRITICAL ASSERTION
+        assert sqld_running, f"❌ SQLD IS NOT RUNNING! This defeats the whole purpose. Expected sqld on port {config.http_port}"
+        assert db_exists, f"❌ DATABASE FILE DOES NOT EXIST at {abs_path}! serve.sh should have created it"
+        
+        try:
+            manager = AsyncSQLTraceManager(db_url=db_url)
+            await manager.initialize()
+            print(f"✅ DEBUG: Manager initialized successfully with URL: {db_url}")
+        except Exception as e:
+            print(f"❌ DEBUG: Failed to initialize manager: {type(e).__name__}: {e}")
+            print(f"❌ DEBUG: This is a CRITICAL ERROR - sqld should handle concurrent access!")
+            raise
+            
         yield manager
         await manager.close()
     
@@ -411,10 +469,61 @@ class TestIntegrationScenarios:
     """Test integration scenarios with real data."""
     
     @pytest_asyncio.fixture
-    async def db_manager(self):
-        """Create an AsyncSQLTraceManager instance."""
-        manager = AsyncSQLTraceManager(db_url="sqlite+aiosqlite:///:memory:")
-        await manager.initialize()
+    async def sqld_daemon(self):
+        """Use the centralized database configuration for integration tests."""
+        from synth_ai.tracing_v3.db_config import get_default_db_config
+        
+        config = get_default_db_config()
+        
+        # If sqld is already running (via serve.sh), just use the existing database
+        if not config.use_sqld:
+            yield None  # No daemon to manage
+        else:
+            # Start a new daemon for isolated testing
+            daemon, _ = config.get_daemon_and_url()
+            yield daemon
+            config.stop_daemon()
+    
+    @pytest_asyncio.fixture
+    async def db_manager(self, sqld_daemon):
+        """Create an AsyncSQLTraceManager instance using centralized config."""
+        from synth_ai.tracing_v3.db_config import get_default_db_config
+        import subprocess
+        
+        config = get_default_db_config()
+        db_url = config.database_url
+        
+        # LOUD ASSERTIONS TO DEBUG
+        print(f"\n🔍 INTEGRATION TEST DEBUG: Database URL: {db_url}")
+        print(f"🔍 INTEGRATION TEST DEBUG: DB file: {config.db_file}")
+        print(f"🔍 INTEGRATION TEST DEBUG: Use sqld: {config.use_sqld}")
+        
+        # Check if sqld is running
+        try:
+            result = subprocess.run(
+                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{config.http_port}"],
+                capture_output=True,
+                text=True
+            )
+            sqld_running = result.returncode == 0
+            sqld_pids = result.stdout.strip()
+            print(f"🔍 INTEGRATION TEST DEBUG: sqld running: {sqld_running}, PIDs: {sqld_pids}")
+        except Exception as e:
+            print(f"🔍 INTEGRATION TEST DEBUG: Error checking sqld: {e}")
+            sqld_running = False
+        
+        # CRITICAL ASSERTION
+        assert sqld_running, f"❌ INTEGRATION TEST: SQLD IS NOT RUNNING! Expected sqld on port {config.http_port}"
+        
+        try:
+            manager = AsyncSQLTraceManager(db_url=db_url)
+            await manager.initialize()
+            print(f"✅ INTEGRATION TEST DEBUG: Manager initialized successfully with URL: {db_url}")
+        except Exception as e:
+            print(f"❌ INTEGRATION TEST DEBUG: Failed to initialize manager: {type(e).__name__}: {e}")
+            print(f"❌ INTEGRATION TEST DEBUG: This is a CRITICAL ERROR - sqld should handle concurrent access!")
+            raise
+            
         yield manager
         await manager.close()
     
