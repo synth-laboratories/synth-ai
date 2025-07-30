@@ -25,7 +25,7 @@ def find_sqld_binary() -> Optional[str]:
     sqld_path = shutil.which("sqld")
     if sqld_path:
         return sqld_path
-    
+
     # Check common installation locations
     common_paths = [
         "/usr/local/bin/sqld",
@@ -35,11 +35,11 @@ def find_sqld_binary() -> Optional[str]:
         # Package-specific location
         os.path.join(os.path.dirname(__file__), "bin", "sqld"),
     ]
-    
+
     for path in common_paths:
         if os.path.exists(path) and os.access(path, os.X_OK):
             return path
-    
+
     return None
 
 
@@ -48,12 +48,12 @@ def install_sqld():
     sqld_bin = find_sqld_binary()
     if sqld_bin:
         return sqld_bin
-    
+
     click.echo("🔧 sqld not found. Installing...")
-    
+
     # Try to use the bundled install script first
     package_install_script = os.path.join(os.path.dirname(__file__), "install_sqld.sh")
-    
+
     try:
         if os.path.exists(package_install_script):
             # Use bundled script
@@ -96,24 +96,26 @@ rm -rf "$TMP_DIR"
 
 echo "✅ sqld installed to ~/.local/bin/sqld"
 """
-            
+
             # Write and execute install script
             with open("/tmp/install_sqld.sh", "w") as f:
                 f.write(install_script)
-            
+
             subprocess.run(["bash", "/tmp/install_sqld.sh"], check=True)
             os.unlink("/tmp/install_sqld.sh")
-        
+
         # Add ~/.local/bin to PATH if needed
         local_bin = os.path.expanduser("~/.local/bin")
         if local_bin not in os.environ.get("PATH", ""):
             os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
-        
+
         return os.path.expanduser("~/.local/bin/sqld")
-        
+
     except Exception as e:
         click.echo(f"❌ Failed to install sqld: {e}", err=True)
-        click.echo("Please install sqld manually from: https://github.com/tursodatabase/libsql", err=True)
+        click.echo(
+            "Please install sqld manually from: https://github.com/tursodatabase/libsql", err=True
+        )
         sys.exit(1)
 
 
@@ -121,6 +123,109 @@ echo "✅ sqld installed to ~/.local/bin/sqld"
 def cli():
     """Synth AI - Software for aiding the best and multiplying the will."""
     pass
+
+
+@cli.group("env")
+def env():
+    """Environment management commands."""
+    pass
+
+
+@env.command("register")
+@click.option("--name", required=True, help="Environment name (e.g., 'MyEnv-v1')")
+@click.option("--module", "module_path", required=True, help="Python module path (e.g., 'my_package.env')")
+@click.option("--class-name", "class_name", required=True, help="Environment class name")
+@click.option("--description", help="Optional description")
+@click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
+def register_env(name: str, module_path: str, class_name: str, description: Optional[str], service_url: str):
+    """Register a new environment with the service."""
+    import requests
+    
+    payload = {
+        "name": name,
+        "module_path": module_path,
+        "class_name": class_name,
+    }
+    if description:
+        payload["description"] = description
+    
+    try:
+        response = requests.post(f"{service_url}/registry/environments", json=payload, timeout=10)
+        response.raise_for_status()
+        
+        result = response.json()
+        click.echo(f"✅ {result['message']}")
+        
+    except requests.exceptions.ConnectionError:
+        click.echo(f"❌ Could not connect to environment service at {service_url}")
+        click.echo("💡 Make sure the service is running: synth-ai serve")
+    except requests.exceptions.HTTPError as e:
+        error_detail = e.response.json().get("detail", str(e)) if e.response else str(e)
+        click.echo(f"❌ Registration failed: {error_detail}")
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@env.command("list")
+@click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
+def list_envs(service_url: str):
+    """List all registered environments."""
+    import requests
+    
+    try:
+        response = requests.get(f"{service_url}/registry/environments", timeout=10)
+        response.raise_for_status()
+        
+        result = response.json()
+        environments = result["environments"]
+        
+        if not environments:
+            click.echo("No environments registered.")
+            return
+        
+        click.echo(f"\n📦 Registered Environments ({result['total_count']}):")
+        click.echo("=" * 60)
+        
+        for env in environments:
+            click.echo(f"🌍 {env['name']}")
+            click.echo(f"   Class: {env['class_name']}")
+            click.echo(f"   Module: {env['module']}")
+            if env['description']:
+                click.echo(f"   Description: {env['description']}")
+            click.echo()
+            
+    except requests.exceptions.ConnectionError:
+        click.echo(f"❌ Could not connect to environment service at {service_url}")
+        click.echo("💡 Make sure the service is running: synth-ai serve")
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@env.command("unregister")
+@click.option("--name", required=True, help="Environment name to unregister")
+@click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
+def unregister_env(name: str, service_url: str):
+    """Unregister an environment from the service."""
+    import requests
+    
+    try:
+        response = requests.delete(f"{service_url}/registry/environments/{name}", timeout=10)
+        response.raise_for_status()
+        
+        result = response.json()
+        click.echo(f"✅ {result['message']}")
+        
+    except requests.exceptions.ConnectionError:
+        click.echo(f"❌ Could not connect to environment service at {service_url}")
+        click.echo("💡 Make sure the service is running: synth-ai serve")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            click.echo(f"❌ Environment '{name}' not found in registry")
+        else:
+            error_detail = e.response.json().get("detail", str(e)) if e.response else str(e)
+            click.echo(f"❌ Unregistration failed: {error_detail}")
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
 
 
 @cli.command()
@@ -131,15 +236,12 @@ def cli():
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
 def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bool):
     """Start Synth AI services (sqld daemon and environment service)."""
-    
+
     # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(message)s'
-    )
-    
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
     processes = []
-    
+
     def signal_handler(sig, frame):
         """Handle shutdown gracefully."""
         click.echo("\n🛑 Shutting down services...")
@@ -151,10 +253,10 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                 except subprocess.TimeoutExpired:
                     proc.kill()
         sys.exit(0)
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     # Start sqld if requested
     if not no_sqld:
         # Check if sqld is already running
@@ -162,7 +264,7 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
             result = subprocess.run(
                 ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
                 capture_output=True,
-                text=True
+                text=True,
             )
             if result.returncode == 0:
                 click.echo(f"✅ sqld already running on port {sqld_port}")
@@ -173,28 +275,26 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                 sqld_bin = find_sqld_binary()
                 if not sqld_bin:
                     sqld_bin = install_sqld()
-                
+
                 click.echo(f"🗄️  Starting sqld (local only) on port {sqld_port}")
-                
+
                 # Start sqld
                 sqld_cmd = [
                     sqld_bin,
-                    "--db-path", db_file,
-                    "--http-listen-addr", f"127.0.0.1:{sqld_port}"
+                    "--db-path",
+                    db_file,
+                    "--http-listen-addr",
+                    f"127.0.0.1:{sqld_port}",
                 ]
-                
+
                 # Create log file
                 sqld_log = open("sqld.log", "w")
-                proc = subprocess.Popen(
-                    sqld_cmd,
-                    stdout=sqld_log,
-                    stderr=subprocess.STDOUT
-                )
+                proc = subprocess.Popen(sqld_cmd, stdout=sqld_log, stderr=subprocess.STDOUT)
                 processes.append(proc)
-                
+
                 # Wait for sqld to start
                 time.sleep(2)
-                
+
                 # Verify it started
                 if proc.poll() is not None:
                     click.echo("❌ Failed to start sqld. Check sqld.log for details.", err=True)
@@ -204,46 +304,49 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                         for line in lines[-10:]:
                             click.echo(f"  {line.rstrip()}")
                     sys.exit(1)
-                
+
                 click.echo("✅ sqld started successfully!")
                 click.echo(f"   Database: {db_file}")
                 click.echo(f"   HTTP API: http://127.0.0.1:{sqld_port}")
                 click.echo(f"   Log file: {os.path.abspath('sqld.log')}")
-        
+
         except FileNotFoundError:
             click.echo("⚠️  pgrep not found, assuming sqld is not running")
-    
+
     # Start environment service if requested
     if not no_env:
         click.echo("")
         click.echo(f"🚀 Starting Synth-AI Environment Service on port {env_port}")
         click.echo("")
-        
+
         # Check if we're in a valid project directory
-        if not os.path.exists("synth_ai") and not os.path.exists(os.path.join(os.path.dirname(__file__), "environments")):
+        if not os.path.exists("synth_ai") and not os.path.exists(
+            os.path.join(os.path.dirname(__file__), "environments")
+        ):
             click.echo("⚠️  Running from installed package, using package's environment service")
             # Use the installed module path
             env_module = "synth_ai.environments.service.app:app"
         else:
             # Running from source
             env_module = "synth_ai.environments.service.app:app"
-        
+
         # Check if port is already in use
         try:
             import socket
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                result = s.connect_ex(('127.0.0.1', env_port))
+                result = s.connect_ex(("127.0.0.1", env_port))
                 if result == 0:
                     click.echo(f"⚠️  Port {env_port} is already in use!")
                     click.echo("   Another instance of the environment service may be running.")
                     click.echo("")
         except:
             pass
-        
+
         # Set environment variables
         env = os.environ.copy()
         env["SYNTH_LOGGING"] = "true"
-        
+
         click.echo("📦 Environment:")
         click.echo(f"   Python: {sys.executable}")
         click.echo(f"   Working directory: {os.getcwd()}")
@@ -257,24 +360,29 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
         click.echo("   - Use Ctrl+C to stop all services")
         click.echo("   - Service will auto-reload on code changes")
         click.echo("")
-        
+
         # Start uvicorn
         uvicorn_cmd = [
-            sys.executable, "-m", "uvicorn",
+            sys.executable,
+            "-m",
+            "uvicorn",
             env_module,
-            "--host", "0.0.0.0",
-            "--port", str(env_port),
-            "--log-level", "info",
-            "--reload"
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(env_port),
+            "--log-level",
+            "info",
+            "--reload",
         ]
-        
+
         # If running from source, add reload directory
         if os.path.exists("synth_ai"):
             uvicorn_cmd.extend(["--reload-dir", "synth_ai"])
-        
+
         proc = subprocess.Popen(uvicorn_cmd, env=env)
         processes.append(proc)
-    
+
     # Wait for processes
     if processes:
         click.echo("\n✨ All services started! Press Ctrl+C to stop.")

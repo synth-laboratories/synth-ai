@@ -18,6 +18,7 @@ from synth_ai.tracing_v1.events.store import event_store
 
 load_dotenv()
 
+
 # Issue deprecation warning and raise not supported error for backend upload functionality
 def _raise_not_supported_error():
     """Raise an error for backend upload functionality that is no longer supported."""
@@ -25,7 +26,7 @@ def _raise_not_supported_error():
         "Backend upload functionality in synth_ai.tracing_v1 is no longer supported. "
         "Please use synth_ai.tracing_v2 for new tracing functionality.",
         DeprecationWarning,
-        stacklevel=3
+        stacklevel=3,
     )
     raise NotImplementedError(
         "Backend upload functionality is no longer supported in synth_ai.tracing_v1. "
@@ -343,7 +344,7 @@ def upload(
     List[Dict[str, Any]],
 ]:
     """Upload all system traces and dataset to the server.
-    
+
     DEPRECATED: Backend upload functionality is no longer supported in v1.
 
     Args:

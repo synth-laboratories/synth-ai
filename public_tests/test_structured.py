@@ -93,7 +93,5 @@ def test_anthropic_structured_lm():
 #     }
 
 
-
-
 if __name__ == "__main__":
     test_openai_structured_lm()

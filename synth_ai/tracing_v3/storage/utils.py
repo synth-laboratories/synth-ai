@@ -1,27 +1,29 @@
 """Utility functions for storage layer."""
+
 import asyncio
 from typing import Any, Dict, List, Optional, TypeVar, Callable
 import functools
 import time
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
     """Decorator for retrying async functions on failure.
-    
+
     Args:
         max_attempts: Maximum number of attempts
         delay: Initial delay between attempts in seconds
         backoff: Backoff multiplier for each retry
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             last_exception = None
             current_delay = delay
-            
+
             for attempt in range(max_attempts):
                 try:
                     return await func(*args, **kwargs)
@@ -32,55 +34,54 @@ def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0)
                         current_delay *= backoff
                     else:
                         raise
-                        
+
             raise last_exception
+
         return wrapper
+
     return decorator
 
 
 async def batch_process(
-    items: List[Any],
-    processor: Callable,
-    batch_size: int = 100,
-    max_concurrent: int = 5
+    items: List[Any], processor: Callable, batch_size: int = 100, max_concurrent: int = 5
 ) -> List[Any]:
     """Process items in batches with concurrency control.
-    
+
     Args:
         items: List of items to process
         processor: Async function to process a batch
         batch_size: Size of each batch
         max_concurrent: Maximum concurrent batches
-        
+
     Returns:
         List of results from all batches
     """
     semaphore = asyncio.Semaphore(max_concurrent)
     results = []
-    
+
     async def process_batch(batch):
         async with semaphore:
             return await processor(batch)
-    
+
     # Create batches
-    batches = [items[i:i + batch_size] for i in range(0, len(items), batch_size)]
-    
+    batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
+
     # Process all batches
     batch_results = await asyncio.gather(*[process_batch(batch) for batch in batches])
-    
+
     # Flatten results
     for result in batch_results:
         if isinstance(result, list):
             results.extend(result)
         else:
             results.append(result)
-            
+
     return results
 
 
 def sanitize_json(data: Any) -> Any:
     """Sanitize data for JSON storage.
-    
+
     Converts non-JSON-serializable types to strings.
     """
     if isinstance(data, dict):
@@ -95,11 +96,11 @@ def sanitize_json(data: Any) -> Any:
 
 def estimate_size(obj: Any) -> int:
     """Estimate the size of an object in bytes.
-    
+
     This is a rough estimate for storage planning.
     """
     if isinstance(obj, str):
-        return len(obj.encode('utf-8'))
+        return len(obj.encode("utf-8"))
     elif isinstance(obj, (int, float)):
         return 8
     elif isinstance(obj, bool):
@@ -112,16 +113,18 @@ def estimate_size(obj: Any) -> int:
     elif isinstance(obj, list):
         return sum(estimate_size(item) for item in obj)
     else:
-        return len(str(obj).encode('utf-8'))
+        return len(str(obj).encode("utf-8"))
 
 
 class StorageMetrics:
     """Track storage operation metrics."""
-    
+
     def __init__(self):
         self.operations: Dict[str, Dict[str, Any]] = {}
-        
-    def record_operation(self, operation: str, duration: float, success: bool, size: Optional[int] = None):
+
+    def record_operation(
+        self, operation: str, duration: float, success: bool, size: Optional[int] = None
+    ):
         """Record a storage operation."""
         if operation not in self.operations:
             self.operations[operation] = {
@@ -130,7 +133,7 @@ class StorageMetrics:
                 "total_duration": 0.0,
                 "total_size": 0,
             }
-            
+
         stats = self.operations[operation]
         stats["count"] += 1
         if success:
@@ -138,7 +141,7 @@ class StorageMetrics:
         stats["total_duration"] += duration
         if size:
             stats["total_size"] += size
-            
+
     def get_stats(self, operation: Optional[str] = None) -> Dict[str, Any]:
         """Get statistics for operations."""
         if operation:
@@ -146,8 +149,12 @@ class StorageMetrics:
             if stats:
                 return {
                     "count": stats["count"],
-                    "success_rate": stats["success_count"] / stats["count"] if stats["count"] > 0 else 0,
-                    "avg_duration": stats["total_duration"] / stats["count"] if stats["count"] > 0 else 0,
+                    "success_rate": stats["success_count"] / stats["count"]
+                    if stats["count"] > 0
+                    else 0,
+                    "avg_duration": stats["total_duration"] / stats["count"]
+                    if stats["count"] > 0
+                    else 0,
                     "total_size": stats["total_size"],
                 }
             return {}
@@ -161,6 +168,7 @@ STORAGE_METRICS = StorageMetrics()
 
 def track_metrics(operation: str):
     """Decorator to track storage operation metrics."""
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -173,7 +181,7 @@ def track_metrics(operation: str):
             finally:
                 duration = time.time() - start_time
                 STORAGE_METRICS.record_operation(operation, duration, success)
-                
+
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             start_time = time.time()
@@ -185,9 +193,10 @@ def track_metrics(operation: str):
             finally:
                 duration = time.time() - start_time
                 STORAGE_METRICS.record_operation(operation, duration, success)
-                
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:
             return sync_wrapper
+
     return decorator

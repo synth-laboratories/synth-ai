@@ -63,6 +63,7 @@ TRAIT_BOUNDS = {
 
 from typing import Optional
 
+
 @dataclass
 class CrafterTaskInstanceMetadata(TaskInstanceMetadata):
     difficulty: str
@@ -70,7 +71,7 @@ class CrafterTaskInstanceMetadata(TaskInstanceMetadata):
     num_trees_radius: int
     num_cows_radius: int
     num_hostiles_radius: int
-    world_config: Optional[str] = "normal"  # 'easy', 'normal', 'hard', 'peaceful' 
+    world_config: Optional[str] = "normal"  # 'easy', 'normal', 'hard', 'peaceful'
     world_config_path: Optional[str] = None  # Path to custom JSON config
 
 

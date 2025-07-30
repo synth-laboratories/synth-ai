@@ -114,7 +114,7 @@ def trace_event_sync(
     verbose: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator for tracing synchronous function execution.
-    
+
     DEPRECATED: This tracing system (v1) is deprecated. Please use synth_ai.tracing_v2 instead.
     Backend upload functionality is no longer supported.
 
@@ -140,7 +140,7 @@ def trace_event_sync(
         "Please use synth_ai.tracing_v2 instead. "
         "Backend upload functionality is no longer supported in v1.",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
@@ -378,7 +378,7 @@ def trace_event_async(
     verbose: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator for tracing asynchronous function execution.
-    
+
     DEPRECATED: This tracing system (v1) is deprecated. Please use synth_ai.tracing_v2 instead.
     Backend upload functionality is no longer supported.
 
@@ -404,7 +404,7 @@ def trace_event_async(
         "Please use synth_ai.tracing_v2 instead. "
         "Backend upload functionality is no longer supported in v1.",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:

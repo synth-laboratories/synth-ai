@@ -27,6 +27,9 @@ private_tests
 **/*.duckdb
 **/*.duckdb.wal
 
+# Turso database files
+synth_ai.db/
+
 # Trace data
 traces/
 traces_*/
@@ -35,6 +38,12 @@ traces_*/
 crafter_traces/
 synth_ai/environments/examples/crafter_classic/agent_demos/traces/
 synth_ai/environments/examples/crafter_custom/agent_demos/traces/
+
+# Test traces
+test_traces/
+test_traces_v2/
+**/test_traces/
+**/test_traces_v2/
 
 # Environment states
 env_states/
@@ -62,5 +71,12 @@ test_output.log
 **/*.snapshot.gz
 session_metadata.json
 
-# Environments examples (kept locally but not tracked in git)
-synth_ai/environments/examples/
+# Environments examples - specific handling
+# First, exclude all agent_demos subdirectories
+synth_ai/environments/examples/*/agent_demos/
+# Then exclude all examples except crafter ones
+synth_ai/environments/examples/*
+!synth_ai/environments/examples/crafter_classic/
+!synth_ai/environments/examples/crafter_custom/
+
+old/

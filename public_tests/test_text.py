@@ -80,8 +80,6 @@ def test_anthropic_text_lm():
     assert response.raw_response.strip() == "4"
 
 
-
-
 if __name__ == "__main__":
     test_openai_text_lm()
     test_anthropic_text_lm()

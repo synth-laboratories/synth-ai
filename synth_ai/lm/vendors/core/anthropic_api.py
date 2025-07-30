@@ -26,7 +26,7 @@ class AnthropicAPI(VendorBase):
         self,
         exceptions_to_retry: Tuple[Type[Exception], ...] = ANTHROPIC_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
-        reasoning_effort: str = "high",
+        reasoning_effort: Optional[str] = "high",
     ):
         self.sync_client = anthropic.Anthropic()
         self.async_client = anthropic.AsyncAnthropic()

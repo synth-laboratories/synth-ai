@@ -32,9 +32,7 @@ weather_tool = WeatherTool()
 class TestParams(BaseModel):
     name: str = Field(description="The person's name")
     age: int = Field(description="The person's age in years")
-    hobbies: List[str] = Field(
-        description="List of the person's hobbies", default_factory=list
-    )
+    hobbies: List[str] = Field(description="List of the person's hobbies", default_factory=list)
 
 
 class TestTool(BaseTool):

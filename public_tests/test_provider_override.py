@@ -23,8 +23,6 @@ def test_provider_override_basic():
     assert isinstance(lm.client, OpenAIStructuredOutputClient)
 
 
-
-
 @pytest.mark.slow
 def test_invalid_provider_error():
     """Test that invalid provider raises appropriate error."""

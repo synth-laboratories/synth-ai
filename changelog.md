@@ -6,7 +6,9 @@
 
 ## What's New
 
-- [Add your changes here]
+- **Environment Registration API**: Third-party packages can now register custom environments dynamically via REST API, CLI, or entry points (e.g., `curl -X POST localhost:8901/registry/environments -d '{"name":"MyEnv-v1","module_path":"my_env","class_name":"MyEnv"}'`)
+- **Turso Database Integration**: Added Turso/sqld daemon support with local-first database replication via `uvx synth-ai serve` (replicas sync every 2 seconds by default)
+- **Environment Service Daemon**: The `uvx synth-ai serve` command now starts both the Turso database daemon (port 8080) and environment service API (port 8901) for complete local development setup
 
 ## Breaking Changes
 

@@ -1,4 +1,5 @@
 """Storage abstraction layer for tracing v3."""
+
 from .base import TraceStorage
 from .factory import create_storage
 from .config import StorageConfig

@@ -1,3 +1,10 @@
+"""
+Persistent caching for LM responses.
+
+This module provides a SQLite-based cache that persists LM responses
+across application restarts, useful for long-term caching of expensive API calls.
+"""
+
 import json
 import os
 import sqlite3
@@ -11,6 +18,12 @@ from synth_ai.lm.vendors.base import BaseLMResponse
 
 @dataclass
 class PersistentCache:
+    """
+    Persistent cache implementation using SQLite.
+    
+    This cache stores LM responses in a SQLite database that persists
+    across application restarts.
+    """
     def __init__(self, db_path: str = ".cache/persistent_cache.db"):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.conn = sqlite3.connect(db_path)
@@ -22,6 +35,16 @@ class PersistentCache:
     def hit_cache(
         self, key: str, response_model: Optional[Type[BaseModel]] = None
     ) -> Optional[BaseLMResponse]:
+        """
+        Check if a response exists in cache for the given key.
+        
+        Args:
+            key: Cache key to look up
+            response_model: Optional Pydantic model class to reconstruct structured output
+            
+        Returns:
+            BaseLMResponse if found in cache, None otherwise
+        """
         self.cursor.execute("SELECT response FROM cache WHERE key = ?", (key,))
         result = self.cursor.fetchone()
         if not result:
@@ -50,6 +73,19 @@ class PersistentCache:
         )
 
     def add_to_cache(self, key: str, response: Union[BaseLMResponse, str]) -> None:
+        """
+        Add a response to the cache.
+        
+        Args:
+            key: Cache key to store under
+            response: Either a BaseLMResponse object or raw string response
+            
+        Raises:
+            ValueError: If response type is not supported
+        
+        Note:
+            Uses INSERT OR REPLACE to update existing cache entries.
+        """
         if isinstance(response, str):
             cache_data = response
         elif isinstance(response, BaseLMResponse):
@@ -74,4 +110,5 @@ class PersistentCache:
         self.conn.commit()
 
     def close(self) -> None:
+        """Close the database connection and free resources."""
         self.conn.close()

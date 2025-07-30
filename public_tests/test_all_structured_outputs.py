@@ -12,8 +12,10 @@ class StateUpdate(BaseModel):
 
     short_term_plan: Optional[str] = None
     objective: Optional[str] = None
-    final_results: Optional[dict] = None  # Use dict instead of Dict[str, Any] for better OpenAI compatibility
-    
+    final_results: Optional[dict] = (
+        None  # Use dict instead of Dict[str, Any] for better OpenAI compatibility
+    )
+
     class Config:
         extra = "forbid"  # This ensures additionalProperties: false
 
@@ -109,7 +111,9 @@ def current_state():
 @pytest.mark.parametrize(
     "model_name",
     [
-        pytest.param("gpt-4o-mini", marks=pytest.mark.xfail(reason="OpenAI schema validation issue")),
+        pytest.param(
+            "gpt-4o-mini", marks=pytest.mark.xfail(reason="OpenAI schema validation issue")
+        ),
         "claude-3-haiku-20240307",
         "deepseek-chat",
         "llama-3.1-8b-instant",
@@ -151,10 +155,25 @@ def test_state_delta_handling(
 @pytest.mark.parametrize(
     "model_name",
     [
-        pytest.param("gpt-4o-mini", marks=pytest.mark.xfail(reason="Response model schema validation - optional/object/defaulted types")),
-        pytest.param("claude-3-haiku-20240307", marks=pytest.mark.xfail(reason="Response model schema validation - optional/object/defaulted types")),
+        pytest.param(
+            "gpt-4o-mini",
+            marks=pytest.mark.xfail(
+                reason="Response model schema validation - optional/object/defaulted types"
+            ),
+        ),
+        pytest.param(
+            "claude-3-haiku-20240307",
+            marks=pytest.mark.xfail(
+                reason="Response model schema validation - optional/object/defaulted types"
+            ),
+        ),
         "deepseek-chat",
-        pytest.param("llama-3.1-8b-instant", marks=pytest.mark.xfail(reason="TypeError: argument after ** must be a mapping, not str")),
+        pytest.param(
+            "llama-3.1-8b-instant",
+            marks=pytest.mark.xfail(
+                reason="TypeError: argument after ** must be a mapping, not str"
+            ),
+        ),
     ],
 )
 @pytest.mark.fast

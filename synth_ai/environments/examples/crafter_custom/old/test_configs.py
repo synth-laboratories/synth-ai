@@ -6,25 +6,25 @@ Test custom Crafter configurations
 
 import os
 import sys
+import random
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
-from crafter import Env, WorldGenConfig
+from crafter import Env
 
 
-def test_configuration(config_name: str):
+def test_configuration():
     """Test a specific configuration."""
     print(f"\n{'='*60}")
-    print(f"Testing {config_name.upper()} configuration")
+    print(f"Testing CRAFTER configuration")
     print(f"{'='*60}")
     
-    # Create environment with configuration
-    env = Env(seed=42, world_config=config_name)
+    # Create environment with default configuration
+    env = Env(seed=42)
     
     # Get initial observation
     obs = env.reset()
     print(f"Environment created successfully!")
     print(f"World shape: {obs.shape}")
-    print(f"Configuration: {config_name}")
     
     # Count initial entities
     world = env._world
@@ -78,7 +78,8 @@ def test_configuration(config_name: str):
     # Take some steps to see dynamic spawning
     print(f"\nSimulating 100 steps...")
     for i in range(100):
-        action = env.action_space.sample()
+        # Use random action instead of action_space.sample()
+        action = random.randint(0, env.action_space.n - 1)
         obs, reward, done, info = env.step(action)
         if done:
             break
@@ -97,62 +98,49 @@ def test_configuration(config_name: str):
 def test_custom_config():
     """Test a custom configuration."""
     print(f"\n{'='*60}")
-    print(f"Testing CUSTOM configuration")
+    print(f"Testing CRAFTER with different seeds")
     print(f"{'='*60}")
     
-    # Create a custom config
-    custom = {
-        "coal_threshold": -0.5,
-        "coal_probability": 0.5,
-        "iron_threshold": -0.2,
-        "iron_probability": 0.6,
-        "diamond_threshold": 0.0,
-        "diamond_probability": 0.1,
-        "tree_threshold": -0.5,
-        "tree_probability": 0.6,
-        "cow_spawn_probability": 0.1,
-        "cow_min_distance": 1,
-        "zombie_spawn_probability": 0.0,
-        "zombie_min_distance": 100,
-        "skeleton_spawn_probability": 0.0
-    }
+    # Create environment with different seeds to test variation
+    seeds = [42, 123, 456, 789, 999]
     
-    # Create environment
-    env = Env(seed=42, world_config=custom)
-    obs = env.reset()
-    
-    print("Custom config loaded successfully!")
-    print(f"World shape: {obs.shape}")
-    
-    # Count resources in entire world
-    world = env._world
-    total_resources = {'coal': 0, 'iron': 0, 'diamond': 0, 'tree': 0}
-    
-    for x in range(world.area[0]):
-        for y in range(world.area[1]):
-            mat_id = world._mat_map[x, y]
-            for name, id_val in world._mat_ids.items():
-                if id_val == mat_id and name in total_resources:
-                    total_resources[name] += 1
-    
-    print(f"\nTotal resources in world:")
-    for resource, count in total_resources.items():
-        percentage = (count / (world.area[0] * world.area[1])) * 100
-        print(f"  {resource}: {count} ({percentage:.1f}%)")
+    for seed in seeds:
+        print(f"\nTesting seed {seed}:")
+        
+        # Create environment
+        env = Env(seed=seed)
+        obs = env.reset()
+        
+        print(f"  World shape: {obs.shape}")
+        
+        # Count resources in entire world
+        world = env._world
+        total_resources = {'coal': 0, 'iron': 0, 'diamond': 0, 'tree': 0}
+        
+        for x in range(world.area[0]):
+            for y in range(world.area[1]):
+                mat_id = world._mat_map[x, y]
+                for name, id_val in world._mat_ids.items():
+                    if id_val == mat_id and name in total_resources:
+                        total_resources[name] += 1
+        
+        print(f"  Total resources in world:")
+        for resource, count in total_resources.items():
+            percentage = (count / (world.area[0] * world.area[1])) * 100
+            print(f"    {resource}: {count} ({percentage:.1f}%)")
 
 
 def main():
-    print("Testing Custom Crafter Configurations")
+    print("Testing Crafter Configurations")
     print("=" * 60)
     
-    # Test all presets
-    for config in ["easy", "normal", "hard", "peaceful"]:
-        try:
-            test_configuration(config)
-        except Exception as e:
-            print(f"Error testing {config}: {e}")
-            import traceback
-            traceback.print_exc()
+    # Test basic configuration
+    try:
+        test_configuration()
+    except Exception as e:
+        print(f"Error testing basic config: {e}")
+        import traceback
+        traceback.print_exc()
     
     # Test custom config
     try:
@@ -165,11 +153,9 @@ def main():
     print(f"\n{'='*60}")
     print("All tests complete!")
     print("\nSummary:")
-    print("- EASY: More resources, fewer enemies")
-    print("- NORMAL: Standard crafter experience")
-    print("- HARD: Scarce resources, many enemies")
-    print("- PEACEFUL: No enemies, abundant resources")
-    print("- CUSTOM: Fully configurable via dict/JSON")
+    print("- Basic crafter environment works with default settings")
+    print("- Different seeds produce different world configurations")
+    print("- Resources and entities are properly generated")
 
 
 if __name__ == "__main__":

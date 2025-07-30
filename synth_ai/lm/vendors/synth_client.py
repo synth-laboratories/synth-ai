@@ -16,26 +16,26 @@ logger = logging.getLogger(__name__)
 
 class AsyncSynthClient:
     """Async client with OpenAI-compatible interface."""
-    
+
     def __init__(self, config: Optional[SynthConfig] = None):
         """Initialize with config from environment if not provided."""
         self.config = config or SynthConfig.from_env()
         self._client = None
-    
+
     async def __aenter__(self):
         self._client = httpx.AsyncClient(
             timeout=self.config.timeout,
             headers={
                 "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json"
-            }
+                "Content-Type": "application/json",
+            },
         )
         return self
-    
+
     async def __aexit__(self, *args):
         if self._client:
             await self._client.aclose()
-    
+
     async def _ensure_client(self):
         """Ensure client is initialized."""
         if self._client is None:
@@ -43,10 +43,10 @@ class AsyncSynthClient:
                 timeout=self.config.timeout,
                 headers={
                     "Authorization": f"Bearer {self.config.api_key}",
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             )
-    
+
     async def chat_completions_create(
         self,
         model: str,
@@ -62,11 +62,11 @@ class AsyncSynthClient:
         tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
         response_format: Optional[Dict[str, Any]] = None,
         seed: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Create chat completion with OpenAI-compatible API.
-        
+
         Args:
             model: Model identifier
             messages: List of message dicts with 'role' and 'content'
@@ -82,12 +82,12 @@ class AsyncSynthClient:
             response_format: Response format constraints
             seed: Random seed for deterministic output
             **kwargs: Additional parameters
-            
+
         Returns:
             OpenAI-compatible response dict
         """
         await self._ensure_client()
-        
+
         # Build payload
         payload = {
             "model": model,
@@ -98,7 +98,7 @@ class AsyncSynthClient:
             "presence_penalty": presence_penalty,
             "stream": stream,
         }
-        
+
         # Add optional parameters
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
@@ -111,33 +111,32 @@ class AsyncSynthClient:
             payload["response_format"] = response_format
         if seed is not None:
             payload["seed"] = seed
-            
+
         # Add any additional kwargs
         payload.update(kwargs)
-        
+
         # Retry logic
         for attempt in range(self.config.max_retries):
             try:
                 response = await self._client.post(
-                    f"{self.config.get_base_url_without_v1()}/v1/chat/completions",
-                    json=payload
+                    f"{self.config.get_base_url_without_v1()}/v1/chat/completions", json=payload
                 )
-                
+
                 if response.status_code == 200:
                     return response.json()
-                
+
                 # Handle rate limits with exponential backoff
                 if response.status_code == 429:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(f"Rate limited, waiting {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
-                
+
                 # Other errors
                 error_msg = f"API error {response.status_code}: {response.text}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
-                
+
             except httpx.TimeoutException:
                 if attempt < self.config.max_retries - 1:
                     logger.warning(f"Timeout on attempt {attempt + 1}, retrying...")
@@ -145,14 +144,14 @@ class AsyncSynthClient:
                 raise
             except Exception as e:
                 if attempt < self.config.max_retries - 1 and "rate" in str(e).lower():
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(f"Error on attempt {attempt + 1}, waiting {wait_time}s...")
                     await asyncio.sleep(wait_time)
                     continue
                 raise
-        
+
         raise Exception(f"Failed after {self.config.max_retries} attempts")
-    
+
     async def close(self):
         """Close the client."""
         if self._client:
@@ -161,26 +160,26 @@ class AsyncSynthClient:
 
 class SyncSynthClient:
     """Sync client with OpenAI-compatible interface."""
-    
+
     def __init__(self, config: Optional[SynthConfig] = None):
         """Initialize with config from environment if not provided."""
         self.config = config or SynthConfig.from_env()
         self._client = None
-    
+
     def __enter__(self):
         self._client = httpx.Client(
             timeout=self.config.timeout,
             headers={
                 "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json"
-            }
+                "Content-Type": "application/json",
+            },
         )
         return self
-    
+
     def __exit__(self, *args):
         if self._client:
             self._client.close()
-    
+
     def _ensure_client(self):
         """Ensure client is initialized."""
         if self._client is None:
@@ -188,62 +187,55 @@ class SyncSynthClient:
                 timeout=self.config.timeout,
                 headers={
                     "Authorization": f"Bearer {self.config.api_key}",
-                    "Content-Type": "application/json"
-                }
+                    "Content-Type": "application/json",
+                },
             )
-    
+
     def chat_completions_create(
-        self,
-        model: str,
-        messages: List[Dict[str, Any]],
-        **kwargs
+        self, model: str, messages: List[Dict[str, Any]], **kwargs
     ) -> Dict[str, Any]:
         """
         Create chat completion with OpenAI-compatible API (sync version).
-        
+
         See AsyncSynthClient.chat_completions_create for full parameter documentation.
         """
         self._ensure_client()
-        
+
         # Build payload (same as async version)
-        payload = {
-            "model": model,
-            "messages": messages,
-            **kwargs
-        }
-        
+        payload = {"model": model, "messages": messages, **kwargs}
+
         # Retry logic
         for attempt in range(self.config.max_retries):
             try:
                 response = self._client.post(
-                    f"{self.config.get_base_url_without_v1()}/v1/chat/completions",
-                    json=payload
+                    f"{self.config.get_base_url_without_v1()}/v1/chat/completions", json=payload
                 )
-                
+
                 if response.status_code == 200:
                     return response.json()
-                
+
                 # Handle rate limits
                 if response.status_code == 429:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(f"Rate limited, waiting {wait_time}s...")
                     import time
+
                     time.sleep(wait_time)
                     continue
-                
+
                 # Other errors
                 error_msg = f"API error {response.status_code}: {response.text}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
-                
+
             except httpx.TimeoutException:
                 if attempt < self.config.max_retries - 1:
                     logger.warning(f"Timeout on attempt {attempt + 1}, retrying...")
                     continue
                 raise
-        
+
         raise Exception(f"Failed after {self.config.max_retries} attempts")
-    
+
     def close(self):
         """Close the client."""
         if self._client:
@@ -254,10 +246,10 @@ class SyncSynthClient:
 def create_async_client(config: Optional[SynthConfig] = None) -> AsyncSynthClient:
     """
     Create async Synth client.
-    
+
     Args:
         config: Optional SynthConfig. If not provided, loads from environment.
-        
+
     Returns:
         AsyncSynthClient instance
     """
@@ -267,10 +259,10 @@ def create_async_client(config: Optional[SynthConfig] = None) -> AsyncSynthClien
 def create_sync_client(config: Optional[SynthConfig] = None) -> SyncSynthClient:
     """
     Create sync Synth client.
-    
+
     Args:
         config: Optional SynthConfig. If not provided, loads from environment.
-        
+
     Returns:
         SyncSynthClient instance
     """
@@ -279,20 +271,17 @@ def create_sync_client(config: Optional[SynthConfig] = None) -> SyncSynthClient:
 
 # Convenience functions for one-off requests
 async def create_chat_completion_async(
-    model: str,
-    messages: List[Dict[str, Any]],
-    config: Optional[SynthConfig] = None,
-    **kwargs
+    model: str, messages: List[Dict[str, Any]], config: Optional[SynthConfig] = None, **kwargs
 ) -> Dict[str, Any]:
     """
     Create a chat completion with automatic client management.
-    
+
     Args:
         model: Model identifier
         messages: List of message dicts
         config: Optional SynthConfig
         **kwargs: Additional parameters for chat completion
-        
+
     Returns:
         OpenAI-compatible response dict
     """
@@ -301,20 +290,17 @@ async def create_chat_completion_async(
 
 
 def create_chat_completion_sync(
-    model: str,
-    messages: List[Dict[str, Any]],
-    config: Optional[SynthConfig] = None,
-    **kwargs
+    model: str, messages: List[Dict[str, Any]], config: Optional[SynthConfig] = None, **kwargs
 ) -> Dict[str, Any]:
     """
     Create a chat completion with automatic client management (sync version).
-    
+
     Args:
         model: Model identifier
         messages: List of message dicts
         config: Optional SynthConfig
         **kwargs: Additional parameters for chat completion
-        
+
     Returns:
         OpenAI-compatible response dict
     """

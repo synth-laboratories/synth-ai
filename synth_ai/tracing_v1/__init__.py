@@ -6,7 +6,7 @@ warnings.warn(
     "Please use synth_ai.tracing_v2 instead. "
     "Backend upload functionality is no longer supported in v1.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 
 # Re-export the main components with deprecation warnings

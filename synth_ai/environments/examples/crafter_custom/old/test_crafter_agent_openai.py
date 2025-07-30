@@ -29,8 +29,8 @@ os.environ["LANGFUSE_SECRET_KEY"] = "dummy"
 from langfuse.openai import openai
 import numpy as np
 
-from run_dataset import CrafterDatasetRunner
-from dataset_builder import CrafterDatasetBuilder
+from synth_ai.environments.examples.crafter_custom.run_dataset import CrafterDatasetRunner
+from synth_ai.environments.examples.crafter_custom.dataset_builder import CrafterDatasetBuilder
 
 
 # --- Tool Definitions ---
@@ -264,7 +264,7 @@ async def run_single_custom_instance(
     try:
         # Create environment
         from crafter import Env
-        env = Env(seed=seed, world_config=difficulty)
+        env = Env(seed=seed)
         
         # We need to wrap this in the service API format
         # For now, we'll run it directly

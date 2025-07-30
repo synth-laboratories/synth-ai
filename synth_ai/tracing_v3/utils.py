@@ -1,4 +1,5 @@
 """Utility functions for tracing v3."""
+
 import json
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -39,10 +40,12 @@ def detect_provider(model_name: Optional[str]) -> str:
     """Detect LLM provider from model name."""
     if not model_name:
         return "unknown"
-        
+
     model_lower = model_name.lower()
-    
-    if any(x in model_lower for x in ["gpt-", "text-davinci", "text-curie", "text-babbage", "text-ada"]):
+
+    if any(
+        x in model_lower for x in ["gpt-", "text-davinci", "text-curie", "text-babbage", "text-ada"]
+    ):
         return "openai"
     elif any(x in model_lower for x in ["claude", "anthropic"]):
         return "anthropic"
@@ -67,13 +70,13 @@ def calculate_cost(model_name: str, input_tokens: int, output_tokens: int) -> Op
         "claude-3-sonnet": {"input": 0.003, "output": 0.015},
         "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
     }
-    
+
     for model_prefix, prices in pricing.items():
         if model_prefix in model_name.lower():
             input_cost = (input_tokens / 1000) * prices["input"]
             output_cost = (output_tokens / 1000) * prices["output"]
             return input_cost + output_cost
-            
+
     return None
 
 
@@ -81,14 +84,14 @@ def truncate_content(content: str, max_length: int = 10000) -> str:
     """Truncate content to maximum length."""
     if len(content) <= max_length:
         return content
-    return content[:max_length - 3] + "..."
+    return content[: max_length - 3] + "..."
 
 
 def format_duration(start: datetime, end: datetime) -> str:
     """Format duration between two timestamps."""
     delta = end - start
     total_seconds = delta.total_seconds()
-    
+
     if total_seconds < 1:
         return f"{int(total_seconds * 1000)}ms"
     elif total_seconds < 60:

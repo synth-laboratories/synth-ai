@@ -1,5 +1,3 @@
-
-
 class System:
     id: str
     name: str

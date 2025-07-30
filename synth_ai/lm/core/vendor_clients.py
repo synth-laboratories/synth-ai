@@ -1,3 +1,10 @@
+"""
+Vendor client selection and routing.
+
+This module handles the logic for selecting the appropriate vendor client
+based on model names or explicit provider specifications.
+"""
+
 import re
 from typing import Any, List, Pattern, Optional, Dict
 
@@ -14,6 +21,7 @@ from synth_ai.lm.core.all import (
     OpenRouterClient,
 )
 
+# Regular expressions to match model names to their respective providers
 openai_naming_regexes: List[Pattern] = [
     re.compile(r"^(ft:)?(o[1,3,4](-.*)?|gpt-.*)$"),
 ]

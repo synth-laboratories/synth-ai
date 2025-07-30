@@ -165,26 +165,28 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
         # Get world configuration from metadata or config
         world_config = "normal"  # default
         world_config_path = None
-        
+
         if hasattr(task_instance, "metadata") and hasattr(task_instance.metadata, "world_config"):
             world_config = task_instance.metadata.world_config
             logger.info(f"CrafterEngine: Using world_config from metadata: {world_config}")
         elif cfg.get("world_config"):
             world_config = cfg.get("world_config")
             logger.info(f"CrafterEngine: Using world_config from cfg: {world_config}")
-        
-        if hasattr(task_instance, "metadata") and hasattr(task_instance.metadata, "world_config_path"):
+
+        if hasattr(task_instance, "metadata") and hasattr(
+            task_instance.metadata, "world_config_path"
+        ):
             world_config_path = task_instance.metadata.world_config_path
         elif cfg.get("world_config_path"):
             world_config_path = cfg.get("world_config_path")
-        
+
         logger.info(f"CrafterEngine: Creating Env with world_config={world_config}, seed={seed}")
         self.env = crafter.Env(
-            area=area, 
-            length=length, 
+            area=area,
+            length=length,
             seed=seed,
             world_config=world_config,
-            world_config_path=world_config_path
+            world_config_path=world_config_path,
         )
         # store original seed for reproducibility
         self.env._seed = seed
@@ -222,9 +224,9 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
         self._total_reward = 0.0
         pub = self._build_public_state(obs_img)
         priv = self._build_private_state(reward=0.0, terminated=False, truncated=False)
-        
+
         # Player starting position tracked internally
-        
+
         return priv, pub
 
     async def _step_engine(self, action: int) -> Tuple[CrafterPrivateState, CrafterPublicState]:
@@ -240,10 +242,14 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
             if self.env._player is None:
                 # Try to find player in world objects
                 for obj in self.env._world._objects:
-                    if obj is not None and hasattr(obj, '__class__') and obj.__class__.__name__ == 'Player':
+                    if (
+                        obj is not None
+                        and hasattr(obj, "__class__")
+                        and obj.__class__.__name__ == "Player"
+                    ):
                         self.env._player = obj
                         break
-                        
+
                 if self.env._player is None:
                     raise RuntimeError("Player object not found in world")
 
@@ -321,12 +327,15 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
             self._previous_private_state_for_reward = final_priv_state
 
             total_step_time = time.time() - step_start_time
-            logger.debug(f"CrafterEngine _step_engine took {total_step_time:.3f}s (crafter.step: {crafter_step_time:.3f}s)")
+            logger.debug(
+                f"CrafterEngine _step_engine took {total_step_time:.3f}s (crafter.step: {crafter_step_time:.3f}s)"
+            )
             return final_priv_state, current_pub_state
 
         except Exception as e:
             # Create error state
             import traceback
+
             logger.error(f"Step engine error: {e}")
             logger.error(traceback.format_exc())
             error_pub_state = self._get_public_state_from_env()
@@ -395,16 +404,16 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
         engine.env.load(snapshot.env_raw_state)
         engine._total_reward = snapshot.total_reward_snapshot
         engine.env._seed = snapshot.crafter_seed
-        
+
         # Initialize engine state attributes that step() expects
         engine.obs = engine.env.render()
         engine.done = False
         engine.info = {}
         engine.last_reward = 0.0
-        
+
         # Ensure achievements tracking is initialized
         engine.achievements_unlocked = set()
-        
+
         # Re-establish previous states for reward system continuity if first step after load
         engine._previous_public_state_for_reward = engine._build_public_state(engine.env.render())
         # Safe comparisons to avoid string vs int errors

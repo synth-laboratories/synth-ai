@@ -67,16 +67,18 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
         self.custom_checkpoint_observation_callable = (
             custom_ckpt_obs or SynthCrafterObservationCallable()
         )
-        
+
         # Ensure task instance has world configuration
-        if hasattr(task_instance, 'metadata'):
-            logger.info(f"Creating CrafterCustom with world_config: {getattr(task_instance.metadata, 'world_config', 'default')}")
-        
+        if hasattr(task_instance, "metadata"):
+            logger.info(
+                f"Creating CrafterCustom with world_config: {getattr(task_instance.metadata, 'world_config', 'default')}"
+            )
+
         self.engine = CrafterEngine(task_instance)
         self.session_tracer = session_tracer  # Store tracer for runtime events
 
         self._interact_tool = CrafterInteractTool(self.engine, session_tracer=session_tracer)
-        
+
         # Register tool with a unique name for this environment
         tool_name = f"{self.name.lower()}_interact"
         if tool_name not in TOOL_REGISTRY:
@@ -110,7 +112,7 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
     ) -> EnvToolCall:
         # Store the original tool calls for tracing
         state_before = {"tool_calls": tool_calls}
-        
+
         # Normalize and validate to a single EnvToolCall
         if isinstance(tool_calls, list):
             if not tool_calls:
@@ -128,13 +130,19 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
 
         if not isinstance(agent_call, EnvToolCall):
             raise TypeError(f"Processed call is not EnvToolCall: {type(agent_call)}")
-        
+
         # Accept both "interact" and "craftercustom_interact"
         if agent_call.tool not in ["interact", f"{self.name.lower()}_interact"]:
-            raise ValueError(f"Unknown tool: {agent_call.tool}. Expected 'interact' or '{self.name.lower()}_interact'.")
-        
+            raise ValueError(
+                f"Unknown tool: {agent_call.tool}. Expected 'interact' or '{self.name.lower()}_interact'."
+            )
+
         # Record runtime event for tool call validation
-        if self.session_tracer and hasattr(self.session_tracer, 'current_session') and self.session_tracer.current_session:
+        if (
+            self.session_tracer
+            and hasattr(self.session_tracer, "current_session")
+            and self.session_tracer.current_session
+        ):
             runtime_validation_event = RuntimeEvent()
             runtime_validation_event.time_record = TimeRecord()
             runtime_validation_event.time_record.event_time = time.time()
@@ -145,7 +153,7 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
             runtime_validation_event.metadata = {"validation_step": "tool_call_validation"}
             # Add directly to event history, bypassing timestep requirement
             self.session_tracer.current_session.add_event(runtime_validation_event)
-        
+
         return agent_call
 
     async def step(
@@ -207,42 +215,44 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
         if isinstance(obs_data, dict):
             obs_data["engine_snapshot_data"] = engine_snapshot.model_dump()
         return obs_data
-    
+
     async def get_metadata(self) -> Dict[str, Any]:
         """Get metadata about the current environment configuration."""
         metadata = {
             "environment_type": "CrafterCustom",
-            "engine_seed": getattr(self.engine.env, '_seed', None),
+            "engine_seed": getattr(self.engine.env, "_seed", None),
             "world_area": self.engine.env._area,
             "max_steps": self.engine.env._length,
             "current_step": self.engine.env._step,
         }
-        
+
         # Add task instance metadata
-        if hasattr(self.task_instance, 'metadata'):
+        if hasattr(self.task_instance, "metadata"):
             task_metadata = self.task_instance.metadata
-            metadata.update({
-                "difficulty": getattr(task_metadata, 'difficulty', None),
-                "world_config": getattr(task_metadata, 'world_config', None),
-                "world_config_path": getattr(task_metadata, 'world_config_path', None),
-                "num_trees_radius": getattr(task_metadata, 'num_trees_radius', None),
-                "num_cows_radius": getattr(task_metadata, 'num_cows_radius', None),
-                "num_hostiles_radius": getattr(task_metadata, 'num_hostiles_radius', None),
-            })
-        
+            metadata.update(
+                {
+                    "difficulty": getattr(task_metadata, "difficulty", None),
+                    "world_config": getattr(task_metadata, "world_config", None),
+                    "world_config_path": getattr(task_metadata, "world_config_path", None),
+                    "num_trees_radius": getattr(task_metadata, "num_trees_radius", None),
+                    "num_cows_radius": getattr(task_metadata, "num_cows_radius", None),
+                    "num_hostiles_radius": getattr(task_metadata, "num_hostiles_radius", None),
+                }
+            )
+
         # Add current world statistics
-        if hasattr(self.engine, 'env') and hasattr(self.engine.env, '_world'):
+        if hasattr(self.engine, "env") and hasattr(self.engine.env, "_world"):
             world = self.engine.env._world
             object_counts = {}
-            
+
             for obj in world._objects:
                 if obj is None:
                     continue
                 obj_type = type(obj).__name__
                 object_counts[obj_type] = object_counts.get(obj_type, 0) + 1
-            
+
             metadata["world_object_counts"] = object_counts
-        
+
         return metadata
 
     # ────────────────────────────────────────────────────────────────────
@@ -257,18 +267,19 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
         extra_obs: Optional[Dict[str, Any]] = None,
     ) -> InternalObservation:
         # Store state before observation generation
-        state_before = {
-            "private_state": priv,
-            "public_state": pub
-        }
-        
+        state_before = {"private_state": priv, "public_state": pub}
+
         active_obs_cb = obs_cb or SynthCrafterObservationCallable()
         observation = await active_obs_cb.get_observation(pub, priv)
         if extra_obs and isinstance(observation, dict):
             observation.update(extra_obs)
-        
+
         # Record runtime event for observation generation
-        if self.session_tracer and hasattr(self.session_tracer, 'current_session') and self.session_tracer.current_session:
+        if (
+            self.session_tracer
+            and hasattr(self.session_tracer, "current_session")
+            and self.session_tracer.current_session
+        ):
             runtime_obs_event = RuntimeEvent()
             runtime_obs_event.time_record = TimeRecord()
             runtime_obs_event.time_record.event_time = time.time()
@@ -279,7 +290,7 @@ class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[Craf
             runtime_obs_event.metadata = {"observation_step": "state_to_obs_conversion"}
             # Add directly to event history, bypassing timestep requirement
             self.session_tracer.current_session.add_event(runtime_obs_event)
-        
+
         return observation
 
     # ────────────────────────────────────────────────────────────────────

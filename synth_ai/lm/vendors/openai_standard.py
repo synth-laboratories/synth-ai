@@ -25,6 +25,16 @@ DEFAULT_EXCEPTIONS_TO_RETRY = (
 
 
 def special_orion_transform(model: str, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Transform messages for O1 series models which don't support system messages.
+    
+    Args:
+        model: Model name to check
+        messages: Original messages list
+        
+    Returns:
+        Transformed messages list with system content merged into user message
+    """
     if "o1-" in model:
         messages = [
             {
@@ -41,6 +51,18 @@ def _silent_backoff_handler(_details):
 
 
 class OpenAIStandard(VendorBase):
+    """
+    Standard OpenAI-compatible vendor implementation.
+    
+    This class provides a standard implementation for OpenAI-compatible APIs,
+    including proper retry logic, caching, and support for various model features.
+    
+    Attributes:
+        used_for_structured_outputs: Whether this client supports structured outputs
+        exceptions_to_retry: List of exceptions that trigger automatic retries
+        sync_client: Synchronous API client
+        async_client: Asynchronous API client
+    """
     used_for_structured_outputs: bool = True
     exceptions_to_retry: List = DEFAULT_EXCEPTIONS_TO_RETRY
     sync_client: Any
