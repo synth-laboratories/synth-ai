@@ -98,9 +98,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["synth_ai*"]
+exclude = ["docs*", "examples*", "tests*", "scripts*", "private_tests*"]
 
 [tool.pytest.ini_options]
-testpaths = ["public_tests", "private_tests"]
+testpaths = ["tests", "private_tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"

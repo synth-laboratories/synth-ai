@@ -1,0 +1,5 @@
+# Hide generated files from GitHub UI
+.coverage linguist-generated=true
+uv.lock     linguist-generated=true
+*.egg-info/ linguist-generated=true
+coverage.xml linguist-generated=true
