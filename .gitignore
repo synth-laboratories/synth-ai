@@ -81,9 +81,7 @@ coverage.xml
 # uv.lock
 
 # Environments examples - specific handling
-# First, exclude all agent_demos subdirectories
-synth_ai/environments/examples/*/agent_demos/
-# Then exclude all examples except crafter ones
+# Exclude all examples except crafter ones
 synth_ai/environments/examples/*
 !synth_ai/environments/examples/crafter_classic/
 !synth_ai/environments/examples/crafter_custom/
