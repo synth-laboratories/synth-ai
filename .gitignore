@@ -71,6 +71,15 @@ test_output.log
 **/*.snapshot.gz
 session_metadata.json
 
+# Build artifacts and coverage
+.coverage
+coverage.xml
+*.egg-info/
+*.whl
+
+# Lock files (optional - uncomment if you want to exclude)
+# uv.lock
+
 # Environments examples - specific handling
 # First, exclude all agent_demos subdirectories
 synth_ai/environments/examples/*/agent_demos/
