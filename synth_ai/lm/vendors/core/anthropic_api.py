@@ -26,7 +26,7 @@ class AnthropicAPI(VendorBase):
         self,
         exceptions_to_retry: Tuple[Type[Exception], ...] = ANTHROPIC_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
-        reasoning_effort: str = "high",
+        reasoning_effort: Optional[str] = "high",
     ):
         self.sync_client = anthropic.Anthropic()
         self.async_client = anthropic.AsyncAnthropic()
@@ -248,6 +248,9 @@ class AnthropicAPI(VendorBase):
                     temperature=temperature,
                 )
             else:
+                # For non-reasoning models, use default max_tokens and temperature
+                max_tokens = 4096
+                temperature = vendor_params.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0))
                 response = await self.async_client.messages.create(
                     system=messages[0]["content"],
                     messages=messages[1:],
@@ -305,6 +308,9 @@ class AnthropicAPI(VendorBase):
                     thinking={"type": "enabled", "budget_tokens": budget},
                 )
             else:
+                # For non-reasoning models, use default max_tokens and temperature
+                max_tokens = 4096
+                temperature = vendor_params.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0))
                 response = self.sync_client.messages.create(
                     system=messages[0]["content"],
                     messages=messages[1:],

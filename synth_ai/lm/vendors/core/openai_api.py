@@ -1,3 +1,10 @@
+"""
+OpenAI API client implementation.
+
+This module provides the OpenAI-specific implementation of the vendor base class,
+supporting both standard and structured output modes.
+"""
+
 import json
 from typing import Any, Dict, List, Optional, Tuple, Type
 
@@ -13,6 +20,7 @@ from synth_ai.lm.vendors.base import BaseLMResponse
 from synth_ai.lm.constants import SPECIAL_BASE_TEMPS, OPENAI_REASONING_MODELS
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
+# Exceptions that should trigger retry logic for OpenAI API calls
 OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
     pydantic_core._pydantic_core.ValidationError,
     openai.OpenAIError,
@@ -26,6 +34,12 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
 
 
 class OpenAIStructuredOutputClient(OpenAIStandard):
+    """
+    OpenAI client with support for structured outputs.
+    
+    This client extends the standard OpenAI client to support structured outputs
+    using OpenAI's native structured output feature or response format parameter.
+    """
     def __init__(self, synth_logging: bool = True):
         if synth_logging:
             # print("Using synth logging - OpenAIStructuredOutputClient")

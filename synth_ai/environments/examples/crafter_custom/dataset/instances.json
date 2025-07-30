@@ -1,0 +1,212 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a peaceful world with abundant resources."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1001,
+      "num_trees_radius": 10,
+      "num_cows_radius": 5,
+      "num_hostiles_radius": 0,
+      "world_config": "peaceful"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000002",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in an easy world with more resources."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1002,
+      "num_trees_radius": 8,
+      "num_cows_radius": 3,
+      "num_hostiles_radius": 1,
+      "world_config": "easy"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000003",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a normal world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "medium",
+      "seed": 2001,
+      "num_trees_radius": 5,
+      "num_cows_radius": 2,
+      "num_hostiles_radius": 3,
+      "world_config": "normal"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000004",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a hard world with scarce resources."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "hard",
+      "seed": 3001,
+      "num_trees_radius": 2,
+      "num_cows_radius": 1,
+      "num_hostiles_radius": 5,
+      "world_config": "hard"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000005",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a custom world with abundant resources."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 4001,
+      "num_trees_radius": 12,
+      "num_cows_radius": 6,
+      "num_hostiles_radius": 0,
+      "world_config_path": "world_configs/abundant_resources.json"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000006",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a survival challenge world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "hard",
+      "seed": 5001,
+      "num_trees_radius": 1,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 8,
+      "world_config_path": "world_configs/survival_challenge.json"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000007",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a peaceful world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1003,
+      "num_trees_radius": 12,
+      "num_cows_radius": 6,
+      "num_hostiles_radius": 0,
+      "world_config": "peaceful"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000008",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a normal world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "medium",
+      "seed": 2002,
+      "num_trees_radius": 4,
+      "num_cows_radius": 2,
+      "num_hostiles_radius": 3,
+      "world_config": "normal"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000009",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a hard world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "hard",
+      "seed": 3002,
+      "num_trees_radius": 2,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 6,
+      "world_config": "hard"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000010",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in an easy world."
+    },
+    "intent": {
+      "rubric": {"goal": "Unlock as many achievements as possible."},
+      "gold_trajectories": null,
+      "gold_state_diff": {}
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1004,
+      "num_trees_radius": 9,
+      "num_cows_radius": 4,
+      "num_hostiles_radius": 1,
+      "world_config": "easy"
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  }
+]

@@ -1,0 +1,15 @@
+# Requirements for Crafter Model Comparison Cookbook
+# These are in addition to the main synth-ai requirements
+
+# For async progress bars
+tqdm>=4.66.0
+
+# For data analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# For HTTP requests with timeout support
+httpx>=0.24.0
+
+# For structured outputs
+pydantic>=2.0.0

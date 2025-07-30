@@ -8,7 +8,6 @@ from synth_ai.lm.vendors.supported.deepseek import DeepSeekAPI
 from synth_ai.lm.vendors.supported.together import TogetherAPI
 from synth_ai.lm.vendors.supported.groq import GroqAPI
 from synth_ai.lm.vendors.supported.grok import GrokAPI
-from synth_ai.lm.vendors.core.mistral_api import MistralAPI
 from synth_ai.lm.vendors.supported.custom_endpoint import CustomEndpointAPI
 from synth_ai.lm.vendors.supported.openrouter import OpenRouterAPI
 
@@ -46,11 +45,6 @@ class GroqClient(GroqAPI):
 
 
 class GrokClient(GrokAPI):
-    def __init__(self):
-        super().__init__()
-
-
-class MistralClient(MistralAPI):
     def __init__(self):
         super().__init__()
 

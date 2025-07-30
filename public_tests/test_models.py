@@ -34,18 +34,6 @@ def model_instances():
             formatting_model_name="gpt-4o-mini",
             temperature=0.7,
         ),
-        # Gemini Flash
-        "gemini-2-flash": LM(
-            model_name="gemini-2-flash",
-            formatting_model_name="gpt-4o-mini",
-            temperature=0.7,
-        ),
-        # Gemma 3
-        "gemma3-27b-it": LM(
-            model_name="gemma3-27b-it",
-            formatting_model_name="gpt-4o-mini",
-            temperature=0.7,
-        ),
         # GPT-4o mini
         "gpt-4o-mini": LM(
             model_name="gpt-4o-mini",
@@ -69,11 +57,10 @@ def model_instances():
         "o3-mini-high-reasoning",
         "claude-3-7-sonnet-latest",
         "claude-3-7-sonnet-latest-high-reasoning",
-        "gemini-2-flash",
-        "gemma3-27b-it",
         "gpt-4o-mini",
     ],
 )
+@pytest.mark.fast
 def test_model_simple_response(model_instances, model_name):
     """Test that models can generate a simple response."""
     lm = model_instances[model_name]
@@ -113,6 +100,7 @@ def test_model_simple_response(model_instances, model_name):
         # "gpt-4o-mini",
     ],
 )
+@pytest.mark.fast
 async def test_reasoning_question(model_instances, model_name):
     """Test models with a question that requires reasoning."""
     lm = model_instances[model_name]
@@ -149,6 +137,7 @@ async def test_reasoning_question(model_instances, model_name):
         # "gpt-4o-mini",
     ],
 )
+@pytest.mark.fast
 def test_model_context_and_factuality(model_instances, model_name):
     """Test models for factuality with a context-based question."""
     lm = model_instances[model_name]

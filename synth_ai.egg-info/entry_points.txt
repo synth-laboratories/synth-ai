@@ -1,0 +1,2 @@
+[console_scripts]
+synth-ai = synth_ai.cli:cli

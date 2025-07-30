@@ -1,3 +1,4 @@
+import pytest
 from pydantic import BaseModel
 
 from synth_ai.lm.core.main import LM
@@ -16,6 +17,7 @@ weather_tool = BaseTool(
 )
 
 
+@pytest.mark.fast
 def test_weather_tool_direct():
     client = DeepSeekAPI()
 
@@ -44,6 +46,7 @@ def test_weather_tool_direct():
     assert "Paris" in response.tool_calls[0]["function"]["arguments"]
 
 
+@pytest.mark.fast
 def test_weather_tool_lm():
     lm = LM(
         model_name="deepseek-chat",

@@ -10,10 +10,22 @@ import base64
 import numpy as np
 import tempfile
 from dataclasses import dataclass
+import time
+import logging
 
 from synth_ai.environments.service.registry import get_environment_cls, list_supported_env_types
 from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import EnvToolCall
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Import tracing abstractions from v3
+from synth_ai.tracing_v3.abstractions import (
+    RuntimeEvent,
+    SessionEventMessage,
+    TimeRecord,
+)
 
 # Try to import Redis for persistent storage
 try:
@@ -85,12 +97,17 @@ def create_task_instance_for_environment(
         # These environments work with SimpleNamespace
         task = SimpleNamespace(initial_engine_snapshot=initial_state or {})
 
-        # For MiniGrid, handle seed-based environment selection
-        if env_name == "MiniGrid" and config:
-            # Check if a seed is provided in config
-            if "seed" in config:
-                task.initial_engine_snapshot["seed"] = config["seed"]
+        # Handle seed for all environments that support it
+        if config and "seed" in config:
+            task.initial_engine_snapshot["seed"] = config["seed"]
 
+        # For CrafterClassic, also handle difficulty
+        if env_name == "CrafterClassic" and config:
+            if "difficulty" in config:
+                task.initial_engine_snapshot["difficulty"] = config["difficulty"]
+
+        # For MiniGrid, handle environment selection
+        if env_name == "MiniGrid" and config:
             # Check if a specific environment is requested
             if "env_name" in config:
                 task.initial_engine_snapshot["env_name"] = config["env_name"]
@@ -171,7 +188,7 @@ async def reconstruct_task_instance_from_serialized(
 
         return await SokobanTaskInstance.deserialize(serialized_data)
 
-    elif env_name in ["CrafterClassic", "TicTacToe"]:
+    elif env_name in ["CrafterClassic", "CrafterCustom", "TicTacToe"]:
         # These environments work with SimpleNamespace - convert serialized data back to SimpleNamespace
         from types import SimpleNamespace
         from uuid import UUID
@@ -582,6 +599,9 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
         file=sys.stderr,
     )
 
+    # Track timing
+    start_time = time.time()
+
     # Log call stack to see where this HTTP request comes from
     import traceback
 
@@ -648,16 +668,10 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
             file=sys.stderr,
         )
 
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: About to store environment back to storage",
-            file=sys.stderr,
-        )
+        logger.debug(f"🌐 [{request_id}] Storing updated environment state...")
         # Store the updated environment state
         await storage.store(request.env_id, env)
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Environment stored successfully",
-            file=sys.stderr,
-        )
+        logger.debug(f"🌐 [{request_id}] Environment stored successfully")
 
         # Format response
         # FIX: StatefulEnvironment.step() returns observation dict directly,
@@ -675,15 +689,16 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
         # Convert numpy types to Python types for JSON serialization
         response_serializable = convert_numpy_types(response)
 
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Returning response with keys: {list(response_serializable.keys())}",
-            file=sys.stderr,
+        elapsed_time = time.time() - start_time
+        logger.info(
+            f"🌐 [{request_id}] STEP COMPLETE - env: {env_name}, time: {elapsed_time:.3f}s, done: {response.get('done', False)}"
         )
+        logger.debug(f"🌐 [{request_id}] Response keys: {list(response_serializable.keys())}")
         return response_serializable
     except Exception as e:
-        print(
-            f"🌐 ENVIRONMENTS SERVICE {request_id}: Exception during step: {type(e).__name__} - {e}",
-            file=sys.stderr,
+        elapsed_time = time.time() - start_time
+        logger.error(
+            f"🌐 [{request_id}] STEP FAILED - env: {env_name}, time: {elapsed_time:.3f}s, error: {type(e).__name__} - {e}"
         )
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -691,8 +706,10 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
 @api_router.post("/env/{env_name}/terminate")
 async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) -> Dict[str, Any]:
     """Terminate an environment instance."""
+    logger.info(f"🚪 Terminating environment: {env_name}, env_id: {request.env_id}")
     env = await storage.remove(request.env_id)
     if not env:
+        logger.error(f"❌ Environment instance {request.env_id} not found for termination")
         raise HTTPException(
             status_code=404, detail=f"Environment instance {request.env_id} not found"
         )
@@ -708,6 +725,51 @@ async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) ->
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/env/{env_name}/metadata")
+async def get_env_metadata(env_name: str, env_id: str) -> Dict[str, Any]:
+    """Get metadata about an environment instance."""
+    env = await storage.get(env_id)
+    if not env:
+        raise HTTPException(status_code=404, detail=f"Environment instance {env_id} not found")
+
+    try:
+        # Check if environment has get_metadata method
+        if hasattr(env, "get_metadata"):
+            metadata = await env.get_metadata()
+        else:
+            # Fallback to basic metadata
+            metadata = {
+                "env_name": env_name,
+                "env_id": env_id,
+                "env_class": env.__class__.__name__,
+            }
+
+            # Try to get some common attributes
+            if hasattr(env, "task_instance"):
+                metadata["has_task_instance"] = True
+                if hasattr(env.task_instance, "metadata"):
+                    metadata["task_metadata"] = {
+                        k: v
+                        for k, v in vars(env.task_instance.metadata).items()
+                        if not k.startswith("_")
+                    }
+
+            if hasattr(env, "engine"):
+                metadata["has_engine"] = True
+                if hasattr(env.engine, "env"):
+                    metadata["engine_info"] = {
+                        "seed": getattr(env.engine.env, "_seed", None),
+                        "area": getattr(env.engine.env, "_area", None),
+                        "length": getattr(env.engine.env, "_length", None),
+                        "step": getattr(env.engine.env, "_step", None),
+                    }
+
+        return metadata
+    except Exception as e:
+        logger.error(f"Error getting metadata for environment {env_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Keep backward compatibility endpoints but mark as deprecated
@@ -773,3 +835,154 @@ async def checkpoint_env(env_type: str, instance_id: str) -> Dict[str, Any]:
     snapshot = await env.checkpoint()
     snapshot_serializable = convert_numpy_types(snapshot)
     return {"snapshot": snapshot_serializable}
+
+
+# ===== Dynamic Environment Registration API =====
+
+class RegisterEnvironmentRequest(BaseModel):
+    name: str
+    module_path: str
+    class_name: str
+    description: Optional[str] = None
+
+
+class UnregisterEnvironmentRequest(BaseModel):
+    name: str
+
+
+@api_router.post("/registry/environments")
+async def register_environment_api(request: RegisterEnvironmentRequest) -> Dict[str, Any]:
+    """
+    Dynamically register a new environment at runtime.
+    
+    This endpoint allows third-party packages to register environments without
+    restarting the service. The environment class will be imported and validated.
+    
+    Example:
+        POST /registry/environments
+        {
+            "name": "MyCustomEnv-v1",
+            "module_path": "my_package.environments.custom_env",
+            "class_name": "MyCustomEnvironment",
+            "description": "A custom environment for testing"
+        }
+    """
+    try:
+        # Import the module
+        import importlib
+        module = importlib.import_module(request.module_path)
+        
+        # Get the class from the module
+        if not hasattr(module, request.class_name):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Class '{request.class_name}' not found in module '{request.module_path}'"
+            )
+        
+        env_cls = getattr(module, request.class_name)
+        
+        # Validate that it's a StatefulEnvironment subclass
+        from synth_ai.environments.stateful.core import StatefulEnvironment
+        if not issubclass(env_cls, StatefulEnvironment):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Class '{request.class_name}' is not a subclass of StatefulEnvironment"
+            )
+        
+        # Register the environment
+        from synth_ai.environments.environment.registry import register_environment
+        register_environment(request.name, env_cls)
+        
+        logger.info(f"Dynamically registered environment: {request.name}")
+        
+        return {
+            "success": True,
+            "message": f"Environment '{request.name}' registered successfully",
+            "name": request.name,
+            "module_path": request.module_path,
+            "class_name": request.class_name,
+            "description": request.description
+        }
+        
+    except ImportError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to import module '{request.module_path}': {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to register environment {request.name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to register environment: {str(e)}"
+        )
+
+
+@api_router.delete("/registry/environments/{env_name}")
+async def unregister_environment_api(env_name: str) -> Dict[str, Any]:
+    """
+    Unregister an environment from the registry.
+    
+    This removes the environment from the in-memory registry, making it
+    unavailable for new instances. Existing instances are not affected.
+    """
+    try:
+        from synth_ai.environments.environment.registry import ENV_REGISTRY
+        
+        if env_name not in ENV_REGISTRY:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Environment '{env_name}' not found in registry"
+            )
+        
+        # Remove from registry
+        removed_cls = ENV_REGISTRY.pop(env_name)
+        
+        logger.info(f"Unregistered environment: {env_name}")
+        
+        return {
+            "success": True,
+            "message": f"Environment '{env_name}' unregistered successfully",
+            "name": env_name,
+            "class_name": removed_cls.__name__
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to unregister environment {env_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to unregister environment: {str(e)}"
+        )
+
+
+@api_router.get("/registry/environments")
+async def list_registered_environments() -> Dict[str, Any]:
+    """
+    List all registered environments with their details.
+    
+    Returns information about all available environments in the registry,
+    including both built-in and dynamically registered environments.
+    """
+    try:
+        from synth_ai.environments.environment.registry import ENV_REGISTRY
+        
+        environments = []
+        for name, env_cls in ENV_REGISTRY.items():
+            env_info = {
+                "name": name,
+                "class_name": env_cls.__name__,
+                "module": env_cls.__module__,
+                "description": getattr(env_cls, "__doc__", "").split("\n")[0] if env_cls.__doc__ else None
+            }
+            environments.append(env_info)
+        
+        return {
+            "environments": sorted(environments, key=lambda x: x["name"]),
+            "total_count": len(environments)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to list environments: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list environments: {str(e)}"
+        )

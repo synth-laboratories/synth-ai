@@ -1,3 +1,10 @@
+"""
+Handler for structured outputs from language models.
+
+This module provides handlers that ensure language models return responses
+in the requested structured format (Pydantic models).
+"""
+
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -21,6 +28,18 @@ logger = logging.getLogger(__name__)
 
 
 class StructuredHandlerBase(ABC):
+    """
+    Abstract base class for structured output handlers.
+    
+    Handles the logic for ensuring language models return properly formatted
+    structured outputs, with retry logic and error handling.
+    
+    Attributes:
+        core_client: Primary vendor client for API calls
+        retry_client: Client used for retry attempts (may use different model)
+        handler_params: Configuration parameters including retry count
+        structured_output_mode: Either "stringified_json" or "forced_json"
+    """
     core_client: VendorBase
     retry_client: VendorBase
     handler_params: Dict[str, Any]

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 import os
 
 from pydantic import BaseModel, Field
@@ -18,9 +18,26 @@ from synth_ai.lm.config import reasoning_models
 def build_messages(
     sys_msg: str,
     user_msg: str,
-    images_bytes: List = [],
+    images_bytes: List[bytes] = [],
     model_name: Optional[str] = None,
 ) -> List[Dict]:
+    """
+    Build a messages list for API calls, handling image formatting based on the model provider.
+    
+    Args:
+        sys_msg: System message content
+        user_msg: User message content
+        images_bytes: List of base64-encoded image bytes
+        model_name: Model name to determine proper image format (OpenAI vs Anthropic)
+        
+    Returns:
+        List[Dict]: Formatted messages list ready for API calls
+        
+    Note:
+        Different providers require different image formats:
+        - OpenAI: Uses "image_url" with data URL format
+        - Anthropic: Uses "image" with source object containing base64 data
+    """
     if len(images_bytes) > 0 and any(regex.match(model_name) for regex in openai_naming_regexes):
         return [
             {"role": "system", "content": sys_msg},
@@ -152,8 +169,8 @@ class LM:
         system_message: Optional[str] = None,
         user_message: Optional[str] = None,
         messages: Optional[List[Dict]] = None,
-        images_as_bytes: List[Any] = [],
-        response_model: Optional[Type[BaseModel]] = None,
+        images_as_bytes: List[bytes] = [],
+        response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
         reasoning_effort: str = "low",
@@ -213,8 +230,8 @@ class LM:
         system_message: Optional[str] = None,
         user_message: Optional[str] = None,
         messages: Optional[List[Dict]] = None,
-        images_as_bytes: List[Any] = [],
-        response_model: Optional[Type[BaseModel]] = None,
+        images_as_bytes: List[bytes] = [],
+        response_model: Optional[BaseModel] = None,
         use_ephemeral_cache_only: bool = False,
         tools: Optional[List[BaseTool]] = None,
         reasoning_effort: str = "low",

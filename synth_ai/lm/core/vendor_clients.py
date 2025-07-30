@@ -1,3 +1,10 @@
+"""
+Vendor client selection and routing.
+
+This module handles the logic for selecting the appropriate vendor client
+based on model names or explicit provider specifications.
+"""
+
 import re
 from typing import Any, List, Pattern, Optional, Dict
 
@@ -7,7 +14,6 @@ from synth_ai.lm.core.all import (
     GeminiClient,
     GroqClient,
     GrokClient,
-    MistralClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
     TogetherClient,
@@ -15,6 +21,7 @@ from synth_ai.lm.core.all import (
     OpenRouterClient,
 )
 
+# Regular expressions to match model names to their respective providers
 openai_naming_regexes: List[Pattern] = [
     re.compile(r"^(ft:)?(o[1,3,4](-.*)?|gpt-.*)$"),
 ]
@@ -60,8 +67,9 @@ grok_naming_regexes: List[Pattern] = [
     re.compile(r"^grok-.*$"),  # Catch-all for future Grok models
 ]
 
-mistral_naming_regexes: List[Pattern] = [
-    re.compile(r"^mistral-.*$"),
+
+openrouter_naming_regexes: List[Pattern] = [
+    re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
 ]
 
 openrouter_naming_regexes: List[Pattern] = [
@@ -85,9 +93,10 @@ PROVIDER_MAP: Dict[str, Any] = {
     "gemini": GeminiClient,
     "deepseek": DeepSeekClient,
     "grok": GrokClient,
-    "mistral": MistralClient,
     "openrouter": OpenRouterClient,
     "together": TogetherClient,
+    "synth": OpenAIStructuredOutputClient,  # Synth uses OpenAI-compatible API
+    "custom_endpoint": CustomEndpointClient,
 }
 
 
@@ -123,13 +132,10 @@ def get_client(
             )
 
         # Log the provider override
-        if synth_logging:
-            print(f"Provider override: using '{provider}' for model '{model_name}'")
-
         client_class = PROVIDER_MAP[provider]
 
-        # Special handling for OpenAI with formatting
-        if provider == "openai":
+        # Special handling for OpenAI and Synth with formatting
+        if provider in ["openai", "synth"]:
             return client_class(synth_logging=synth_logging)
         # Special handling for Anthropic with formatting
         elif provider == "anthropic" and with_formatting:
@@ -167,8 +173,6 @@ def get_client(
         return GroqClient()
     elif any(regex.match(model_name) for regex in grok_naming_regexes):
         return GrokClient()
-    elif any(regex.match(model_name) for regex in mistral_naming_regexes):
-        return MistralClient()
     elif any(regex.match(model_name) for regex in openrouter_naming_regexes):
         return OpenRouterClient()
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):

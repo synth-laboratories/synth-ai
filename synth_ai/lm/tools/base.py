@@ -1,15 +1,41 @@
-from typing import Type
+"""
+Base class for LM tools.
+
+This module provides the base class for defining tools that can be used with language models.
+"""
+
+from typing import Type, Dict, Any
 
 from pydantic import BaseModel
 
 
 class BaseTool(BaseModel):
+    """
+    Base class for defining tools that can be used with language models.
+    
+    Attributes:
+        name: The name of the tool
+        arguments: Pydantic model defining the tool's arguments
+        description: Human-readable description of what the tool does
+        strict: Whether to enforce strict schema validation (default True)
+    """
     name: str
     arguments: Type[BaseModel]
     description: str = ""
     strict: bool = True
 
-    def to_openai_tool(self):
+    def to_openai_tool(self) -> Dict[str, Any]:
+        """
+        Convert the tool to OpenAI's tool format.
+        
+        Returns:
+            dict: Tool definition in OpenAI's expected format
+            
+        Note:
+            - Ensures additionalProperties is False for strict validation
+            - Fixes array items that lack explicit types
+            - Handles nested schemas in anyOf constructs
+        """
         schema = self.arguments.model_json_schema()
         schema["additionalProperties"] = False
 
@@ -37,7 +63,16 @@ class BaseTool(BaseModel):
             },
         }
 
-    def to_anthropic_tool(self):
+    def to_anthropic_tool(self) -> Dict[str, Any]:
+        """
+        Convert the tool to Anthropic's tool format.
+        
+        Returns:
+            dict: Tool definition in Anthropic's expected format
+            
+        Note:
+            Anthropic uses a different format with input_schema instead of parameters.
+        """
         schema = self.arguments.model_json_schema()
         schema["additionalProperties"] = False
 
@@ -51,7 +86,16 @@ class BaseTool(BaseModel):
             },
         }
 
-    def to_mistral_tool(self):
+    def to_mistral_tool(self) -> Dict[str, Any]:
+        """
+        Convert the tool to Mistral's tool format.
+        
+        Returns:
+            dict: Tool definition in Mistral's expected format
+            
+        Note:
+            Mistral requires explicit handling of array types and enum values.
+        """
         schema = self.arguments.model_json_schema()
         properties = {}
         for prop_name, prop in schema.get("properties", {}).items():
@@ -86,7 +130,16 @@ class BaseTool(BaseModel):
             },
         }
 
-    def to_gemini_tool(self):
+    def to_gemini_tool(self) -> Dict[str, Any]:
+        """
+        Convert the tool to Gemini's tool format.
+        
+        Returns:
+            dict: Tool definition in Gemini's expected format
+            
+        Note:
+            Gemini uses a simpler format without the nested "function" key.
+        """
         schema = self.arguments.model_json_schema()
         # Convert Pydantic schema types to Gemini schema types
         properties = {}

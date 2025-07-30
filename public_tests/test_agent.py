@@ -1,3 +1,4 @@
+import pytest
 import unittest
 from typing import List, Union
 
@@ -82,6 +83,7 @@ class BCBUnitTest(BaseModel):
 2. Unit tests will be compiled from the BCBUnitTest class as follows:
     A. For AssertTrue type tests, the test will be compiled as follows:
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
 
@@ -92,6 +94,7 @@ class BCBUnitTest(BaseModel):
     B. For AssertRaises type tests, the test will be compiled as follows:
 
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
         {{defs}}
@@ -227,6 +230,7 @@ class BCBUnitTest(BaseModel):
 2. Unit tests will be compiled from the BCBUnitTest class as follows:
     A. For AssertTrue type tests, the test will be compiled as follows:
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
 
@@ -237,6 +241,7 @@ class BCBUnitTest(BaseModel):
     B. For AssertRaises type tests, the test will be compiled as follows:
 
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
         {{defs}}
@@ -367,6 +372,7 @@ class BCBUnitTest(BaseModel):
 2. Unit tests will be compiled from the BCBUnitTest class as follows:
     A. For AssertTrue type tests, the test will be compiled as follows:
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
 
@@ -377,6 +383,7 @@ class BCBUnitTest(BaseModel):
     B. For AssertRaises type tests, the test will be compiled as follows:
 
     ```python
+    @pytest.mark.slow
     def test_case(self):
         # {{self.test_description}}
         {{defs}}
@@ -454,6 +461,7 @@ Your next actions / thought:
 """
 
 
+@pytest.mark.slow
 class TestLMStructuredOutputs(unittest.TestCase):
     # ... existing code ...
 
@@ -475,6 +483,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
             structured_output_mode="stringified_json",
         )
 
+    @pytest.mark.slow
     def test_sync_react_response_content(self):
         system_message = system
 
@@ -496,6 +505,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
                     self.assertIsInstance(arg.key, str)
                     # self.assertIsInstance(arg.value, str)
 
+    @pytest.mark.slow
     def test_sync_react_response_hard_content(self):
         system_message = hard_system
 

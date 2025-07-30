@@ -5,9 +5,17 @@ from __future__ import annotations
 from typing import List, Optional, Any, Dict, Union
 import dataclasses
 import logging
+import time
 
 # Import logging configuration to suppress JAX debug messages
 from .config_logging import safe_compare
+
+# Import tracing abstractions
+from synth_ai.tracing_v3.abstractions import (
+    RuntimeEvent,
+    SessionEventMessage,
+    TimeRecord,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +53,44 @@ class CrafterInteractTool(AbstractTool):
     call_schema = CrafterActionInput
     result_schema = ToolResult
 
-    def __init__(self, engine: CrafterEngine):
+    def __init__(self, engine: CrafterEngine, session_tracer: Optional[Any] = None):
         self.engine = engine
+        self.session_tracer = session_tracer
 
     async def __call__(self, call: EnvToolCall) -> ToolResult:
         try:
+            # Store state before execution
+            state_before = {"action_args": call.args}
+
             validated_args = self.call_schema(**call.args)
             action_to_pass = self.engine._validate_action_engine(validated_args.action)
+
+            # Execute the engine step
             priv_state, pub_state = await self.engine._step_engine(action_to_pass)
+
+            # Store state after execution
+            state_after = {
+                "engine_result": {"private_state": priv_state, "public_state": pub_state}
+            }
+
+            # Record runtime event for tool execution
+            if (
+                self.session_tracer
+                and hasattr(self.session_tracer, "current_session")
+                and self.session_tracer.current_session
+            ):
+                runtime_execution_event = RuntimeEvent()
+                runtime_execution_event.time_record = TimeRecord()
+                runtime_execution_event.time_record.event_time = time.time()
+                runtime_execution_event.time_record.message_time = None
+                runtime_execution_event.system_instance_id = "crafter_interact_tool"
+                runtime_execution_event.system_state_before = state_before
+                runtime_execution_event.system_state_after = state_after
+                runtime_execution_event.actions = [action_to_pass]
+                runtime_execution_event.metadata = {"execution_step": "engine_action"}
+                # Add directly to event history, bypassing timestep requirement
+                self.session_tracer.current_session.add_event(runtime_execution_event)
+
             return ToolResult(
                 ok=True,
                 payload={
@@ -103,6 +141,7 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
         task_instance: "CrafterTaskInstance",
         custom_step_obs: Optional[GetObservationCallable] = None,
         custom_ckpt_obs: Optional[GetObservationCallable] = None,
+        session_tracer: Optional[Any] = None,  # SessionTracer from higher level
     ) -> None:
         self.name = "CrafterClassic"
         self.task_instance = task_instance
@@ -111,8 +150,9 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             custom_ckpt_obs or SynthCrafterObservationCallable()
         )
         self.engine = CrafterEngine(task_instance)
+        self.session_tracer = session_tracer  # Store tracer for runtime events
 
-        self._interact_tool = CrafterInteractTool(self.engine)
+        self._interact_tool = CrafterInteractTool(self.engine, session_tracer=session_tracer)
         if self._interact_tool.name not in TOOL_REGISTRY:
             register_tool(self._interact_tool)
 
@@ -120,8 +160,25 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
     # Lifecycle helpers
     # ────────────────────────────────────────────────────────────────────
 
-    async def initialize(self) -> InternalObservation:  # type: ignore[override]
-        priv, pub = await self.engine._reset_engine()
+    async def initialize(self, seed: Optional[int] = None) -> InternalObservation:  # type: ignore[override]
+        # Check if seed was provided in task instance metadata
+        if (
+            seed is None
+            and hasattr(self.task_instance, "metadata")
+            and hasattr(self.task_instance.metadata, "seed")
+        ):
+            seed = self.task_instance.metadata.seed
+        # Check if seed was provided in initial_engine_snapshot
+        elif (
+            seed is None
+            and hasattr(self.task_instance, "initial_engine_snapshot")
+            and isinstance(self.task_instance.initial_engine_snapshot, dict)
+        ):
+            seed = self.task_instance.initial_engine_snapshot.get("seed")
+
+        # Initialize with seed from various sources
+
+        priv, pub = await self.engine._reset_engine(seed=seed)
         return await self._to_observation(priv, pub, self.custom_step_observation_callable)
 
     async def terminate(self) -> InternalObservation:  # type: ignore[override]
@@ -140,6 +197,9 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
     def validate_tool_calls(
         self, tool_calls: Union[EnvToolCall, List[EnvToolCall], List[List[EnvToolCall]]]
     ) -> EnvToolCall:
+        # Store the original tool calls for tracing
+        state_before = {"tool_calls": tool_calls}
+
         # Normalize and validate to a single EnvToolCall (same as Sokoban)
         if isinstance(tool_calls, list):
             if not tool_calls:
@@ -159,13 +219,34 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             raise TypeError(f"Processed call is not EnvToolCall: {type(agent_call)}")
         if agent_call.tool != "interact":
             raise ValueError(f"Unknown tool: {agent_call.tool}. Expected 'interact'.")
+
+        # Record runtime event for tool call validation
+        if (
+            self.session_tracer
+            and hasattr(self.session_tracer, "current_session")
+            and self.session_tracer.current_session
+        ):
+            runtime_validation_event = RuntimeEvent()
+            runtime_validation_event.time_record = TimeRecord()
+            runtime_validation_event.time_record.event_time = time.time()
+            runtime_validation_event.time_record.message_time = None
+            runtime_validation_event.system_instance_id = "crafter_environment"
+            runtime_validation_event.system_state_before = state_before
+            runtime_validation_event.system_state_after = {"validated_call": agent_call}
+            runtime_validation_event.metadata = {"validation_step": "tool_call_validation"}
+            # Add directly to event history, bypassing timestep requirement
+            self.session_tracer.current_session.add_event(runtime_validation_event)
+
         return agent_call
 
     async def step(
         self, tool_calls: Union[EnvToolCall, List[EnvToolCall], List[List[EnvToolCall]]]
     ) -> InternalObservation:  # type: ignore[override]
+        step_start_time = time.time()
         agent_call = self.validate_tool_calls(tool_calls)
+        interact_start = time.time()
         tool_result: ToolResult = await self._interact_tool(agent_call)
+        interact_time = time.time() - interact_start
 
         payload_dict = tool_result.payload
         pub_state: CrafterPublicState
@@ -206,9 +287,14 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             if tool_result.error:
                 pub_state.error_info = tool_result.error
 
-        return await self._to_observation(
+        obs = await self._to_observation(
             priv_state, pub_state, self.custom_step_observation_callable
         )
+        total_step_time = time.time() - step_start_time
+        logger.info(
+            f"CrafterClassic step completed in {total_step_time:.3f}s (interact: {interact_time:.3f}s)"
+        )
+        return obs
 
     async def checkpoint(self) -> InternalObservation:  # type: ignore[override]
         engine_snapshot: CrafterEngineSnapshot = await self.engine._serialize_engine()
@@ -232,10 +318,31 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
         obs_cb: Optional[GetObservationCallable],
         extra_obs: Optional[Dict[str, Any]] = None,
     ) -> InternalObservation:
+        # Store state before observation generation
+        state_before = {"private_state": priv, "public_state": pub}
+
         active_obs_cb = obs_cb or SynthCrafterObservationCallable()
         observation = await active_obs_cb.get_observation(pub, priv)
         if extra_obs and isinstance(observation, dict):
             observation.update(extra_obs)
+
+        # Record runtime event for observation generation
+        if (
+            self.session_tracer
+            and hasattr(self.session_tracer, "current_session")
+            and self.session_tracer.current_session
+        ):
+            runtime_obs_event = RuntimeEvent()
+            runtime_obs_event.time_record = TimeRecord()
+            runtime_obs_event.time_record.event_time = time.time()
+            runtime_obs_event.time_record.message_time = None
+            runtime_obs_event.system_instance_id = "observation_generator"
+            runtime_obs_event.system_state_before = state_before
+            runtime_obs_event.system_state_after = {"observation": observation}
+            runtime_obs_event.metadata = {"observation_step": "state_to_obs_conversion"}
+            # Add directly to event history, bypassing timestep requirement
+            self.session_tracer.current_session.add_event(runtime_obs_event)
+
         return observation
 
     # ────────────────────────────────────────────────────────────────────
@@ -252,4 +359,6 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
         eng = await CrafterEngine._deserialize_engine(snapshot, task_instance)
         env = cls(task_instance)
         env.engine = eng
+        # CRITICAL: Update the interact tool to use the new engine!
+        env._interact_tool.engine = eng
         return env
