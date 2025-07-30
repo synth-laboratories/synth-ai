@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include synth_ai/install_sqld.sh
+recursive-include synth_ai *.py
+recursive-include synth_ai *.json
+recursive-include synth_ai *.toml
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store

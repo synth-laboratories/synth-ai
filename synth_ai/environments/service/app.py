@@ -19,41 +19,33 @@ from synth_ai.environments.service.external_registry import (
     load_external_environments,
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with more detail
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
-# Register built-in environments at import time
-import synth_ai.environments.examples.sokoban.environment as sok
+# Also configure uvicorn access logs
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
-register_environment("Sokoban", sok.SokobanEnvironment)
+# Register built-in environments at import time
 import synth_ai.environments.examples.crafter_classic.environment as cc
 
 register_environment("CrafterClassic", cc.CrafterClassicEnvironment)
-import synth_ai.environments.examples.verilog.environment as ve
+import synth_ai.environments.examples.crafter_custom.environment as ccustom
 
-register_environment("Verilog", ve.VerilogEnvironment)
-import synth_ai.environments.examples.tictactoe.environment as ttt
-
-register_environment("TicTacToe", ttt.TicTacToeEnvironment)
-import synth_ai.environments.examples.nethack.environment as nh
-
-register_environment("NetHack", nh.NetHackEnvironment)
-# AlgoTune excluded from package due to size/complexity
-# import synth_ai.environments.examples.algotune.environment as at
-# register_environment("AlgoTune", at.AlgoTuneEnvironment)
-import synth_ai.environments.examples.minigrid.environment as mg
-
-register_environment("MiniGrid", mg.MiniGridEnvironment)
-import synth_ai.environments.examples.enron.environment as enron
-
-register_environment("Enron", enron.EnronEnvironment)
+register_environment("CrafterCustom", ccustom.CrafterCustomEnvironment)
 
 app = FastAPI(title="Environment Service")
 
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("=" * 60)
+    logger.info("Starting Environment Service")
+    logger.info("=" * 60)
     """Load external environments on startup."""
     # Support configuration-based loading for external environments
     # You can set EXTERNAL_ENVIRONMENTS env var with JSON config
@@ -71,7 +63,11 @@ async def startup_event():
             logger.error(f"Failed to load external environment config: {e}")
 
     # Log all registered environments
-    logger.info(f"Registered environments: {list_supported_env_types()}")
+    env_types = list_supported_env_types()
+    logger.info(f"Registered environments: {env_types}")
+    logger.info(f"Total environments available: {len(env_types)}")
+    logger.info("Environment Service startup complete")
+    logger.info("=" * 60)
 
 
 # Mount the main API router

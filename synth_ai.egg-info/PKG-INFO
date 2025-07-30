@@ -1,0 +1,107 @@
+Metadata-Version: 2.4
+Name: synth-ai
+Version: 0.2.1.dev2
+Summary: Software for aiding the best and multiplying the will - Core AI functionality and tracing
+Author-email: Synth AI <josh@usesynth.ai>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/synth-laboratories/synth-ai
+Project-URL: Repository, https://github.com/synth-laboratories/synth-ai
+Project-URL: Issues, https://github.com/synth-laboratories/synth-ai/issues
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: requests>=2.32.3
+Requires-Dist: urllib3>=2.3.0
+Requires-Dist: tqdm>=4.66.4
+Requires-Dist: jsonschema>=4.23.0
+Requires-Dist: backoff>=2.0.0
+Requires-Dist: typing_extensions>=4.0.0
+Requires-Dist: openai==1.63.0
+Requires-Dist: anthropic>=0.42.0
+Requires-Dist: langfuse<3.0.0,>=2.53.9
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: opentelemetry-sdk>=1.27.0
+Requires-Dist: diskcache>=5.6.3
+Requires-Dist: groq>=0.30.0
+Requires-Dist: google-genai>=1.26.0
+Requires-Dist: together>=1.5.21
+Requires-Dist: mistralai>=1.9.2
+Requires-Dist: fastapi>=0.115.12
+Requires-Dist: uvicorn>=0.34.2
+Requires-Dist: numpy>=2.2.3
+Requires-Dist: networkx>=3.4.2
+Requires-Dist: redis>=6.2.0
+Requires-Dist: duckdb>=1.0.0
+Requires-Dist: pandas>=2.2.3
+Requires-Dist: ty>=0.0.1a5
+Requires-Dist: toml>=0.10.2
+Requires-Dist: sqlalchemy>=2.0.42
+Requires-Dist: aiosqlite>=0.21.0
+Requires-Dist: greenlet>=3.2.3
+Requires-Dist: libsql>=0.1.8
+Requires-Dist: google-api-core>=2.25.1
+Requires-Dist: google-generativeai>=0.8.5
+Requires-Dist: crafter>=1.8.3
+Requires-Dist: click>=8.1.0
+Provides-Extra: dev
+Requires-Dist: build>=1.2.2.post1; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Requires-Dist: keyring>=24.0.0; extra == "dev"
+Requires-Dist: pytest>=8.3.3; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pyright>=1.1.350; extra == "dev"
+Requires-Dist: coverage[toml]>=7.3.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Provides-Extra: google
+Requires-Dist: google-api-core>=2.0.0; extra == "google"
+Requires-Dist: google-generativeai>=0.8.0; extra == "google"
+Requires-Dist: google-genai>=1.0.0; extra == "google"
+Provides-Extra: mistral
+Requires-Dist: mistralai>=1.0.0; extra == "mistral"
+Provides-Extra: research
+Requires-Dist: crafter>=1.8.3; extra == "research"
+Requires-Dist: datasets>=4.0.0; extra == "research"
+Provides-Extra: all
+Requires-Dist: google-api-core>=2.0.0; extra == "all"
+Requires-Dist: google-generativeai>=0.8.0; extra == "all"
+Requires-Dist: google-genai>=1.0.0; extra == "all"
+Requires-Dist: mistralai>=1.0.0; extra == "all"
+Requires-Dist: crafter>=1.8.3; extra == "all"
+Requires-Dist: datasets>=4.0.0; extra == "all"
+Dynamic: license-file
+
+# Synth AI
+
+Modern Compound AI System Development
+
+**Comprehensive AI Framework for Language Models, Environments, and Observability**
+
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![PyPI](https://img.shields.io/badge/PyPI-0.2.1.dev0-orange)](https://pypi.org/project/synth-ai/)
+![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
+![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen)
+
+A unified framework combining language model capabilities, synthetic environments, and comprehensive tracing for building and evaluating AI agents.
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Basic installation
+pip install synth-ai
+
+# With research environments (includes game environments)
+pip install synth-ai[research]
+
+# Full installation with all providers
+pip install synth-ai[all]
+```
+
+### Spinning Up
+uv run python -m uvicorn synth_ai.environments.service.app:app --host 0.0.0.0 --port 8901
+uvpm synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash

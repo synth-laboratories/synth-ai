@@ -17,8 +17,8 @@ from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
 
 from synth_ai.lm.provider_support.suppress_logging import *
-from synth_ai.tracing.abstractions import MessageInputs
-from synth_ai.tracing.trackers import synth_tracker_async, synth_tracker_sync
+from synth_ai.tracing_v1.abstractions import MessageInputs
+from synth_ai.tracing_v1.trackers import synth_tracker_async, synth_tracker_sync
 
 try:
     import openai
@@ -178,35 +178,25 @@ def _extract_chat_prompt(kwargs: dict):
     """
     Extracts the user input from prompts. Returns an array of messages or a dict with messages and functions.
     """
-    logger.debug("Entering _extract_chat_prompt with kwargs keys: %s", list(kwargs.keys()))
-
     prompt = {}
 
     if kwargs.get("functions") is not None:
         prompt.update({"functions": kwargs["functions"]})
-        logger.debug("Found 'functions': %s", kwargs["functions"])
 
     if kwargs.get("function_call") is not None:
         prompt.update({"function_call": kwargs["function_call"]})
-        logger.debug("Found 'function_call': %s", kwargs["function_call"])
 
     if kwargs.get("tools") is not None:
         prompt.update({"tools": kwargs["tools"]})
-        logger.debug("Found 'tools': %s", kwargs["tools"])
 
     # existing logic to handle the case when prompt is not empty
     if prompt:
         messages = _filter_image_data(kwargs.get("messages", []))
         prompt.update({"messages": messages})
-        logger.debug(
-            "Detected advanced usage (functions/tools). Prompt now has messages: %s",
-            messages,
-        )
         return prompt
     else:
         # fallback: just return filtered messages
         messages = _filter_image_data(kwargs.get("messages", []))
-        logger.debug("Returning vanilla messages: %s", messages)
         return messages
 
 
@@ -214,21 +204,17 @@ def _extract_chat_response(kwargs: dict):
     """
     Extracts the LLM output from the response.
     """
-    logger.debug("Entering _extract_chat_response with keys: %s", list(kwargs.keys()))
     response = {
         "role": kwargs.get("role", None),
     }
 
     if kwargs.get("function_call") is not None:
         response.update({"function_call": kwargs["function_call"]})
-        logger.debug("Found 'function_call': %s", kwargs["function_call"])
 
     if kwargs.get("tool_calls") is not None:
         response.update({"tool_calls": kwargs["tool_calls"]})
-        logger.debug("Found 'tool_calls': %s", kwargs["tool_calls"])
 
     response["content"] = kwargs.get("content", None)
-    logger.debug("Final extracted chat response: %s", response)
     return response
 
 

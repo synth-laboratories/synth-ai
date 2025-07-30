@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import unittest
 from typing import List
@@ -70,6 +71,7 @@ class NestedCompanyResponse(BaseModel):
     main_products: List[str]
 
 
+@pytest.mark.fast
 class TestLMStructuredOutputs(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -82,6 +84,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
             structured_output_mode="forced_json",
         )
 
+    @pytest.mark.fast
     def test_sync_simple_response(self):
         result = self.lm.respond_sync(
             system_message="You are a helpful assistant.",
@@ -94,6 +97,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
         self.assertGreaterEqual(result.structured_output.confidence, 0)
         self.assertLessEqual(result.structured_output.confidence, 1)
 
+    @pytest.mark.fast
     def test_sync_complex_response(self):
         result = self.lm.respond_sync(
             system_message="You are a content creator.",
@@ -116,10 +120,12 @@ class TestLMStructuredOutputs(unittest.TestCase):
         self.assertIsInstance(result.structured_output.subcategories, list)
         self.assertIsInstance(result.structured_output.details, SimpleResponse)
 
+    @pytest.mark.fast
     def test_async_nested_response(self):
         asyncio.run(self.async_nested_response())
 
 
+@pytest.mark.fast
 class TestLMNestedStructuredOutputs(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -132,6 +138,7 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
             structured_output_mode="forced_json",
         )
 
+    @pytest.mark.fast
     def test_sync_nested_person_response(self):
         result = self.lm.respond_sync(
             system_message="You are an HR assistant.",
@@ -144,6 +151,7 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
         self.assertIsInstance(result.structured_output.work, WorkInfo)
         self.assertIsInstance(result.structured_output.skills, list)
 
+    @pytest.mark.fast
     def test_sync_nested_portfolio_response(self):
         result = self.lm.respond_sync(
             system_message="You are a portfolio manager.",
@@ -172,6 +180,7 @@ class TestLMNestedStructuredOutputs(unittest.TestCase):
             self.assertIsInstance(employee.address, Address)
         self.assertIsInstance(result.structured_output.main_products, list)
 
+    @pytest.mark.fast
     def test_async_nested_company_response(self):
         asyncio.run(self.async_nested_company_response())
 

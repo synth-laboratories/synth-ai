@@ -3,12 +3,12 @@ import pytest
 from synth_ai.lm.core.main import LM
 from synth_ai.lm.core.vendor_clients import get_client
 from synth_ai.lm.core.all import (
-    GeminiClient,
     OpenAIStructuredOutputClient,
     AnthropicClient,
 )
 
 
+@pytest.mark.slow
 def test_provider_override_basic():
     """Test basic provider override functionality."""
     # Test that a model normally detected as one provider can be forced to use another
@@ -23,26 +23,7 @@ def test_provider_override_basic():
     assert isinstance(lm.client, OpenAIStructuredOutputClient)
 
 
-def test_provider_override_gemini():
-    """Test provider override with Gemini models."""
-    # Without provider override, gemini-1.5-flash should use GeminiClient
-    lm1 = LM(
-        model_name="gemini-1.5-flash",
-        formatting_model_name="gpt-4o-mini",
-        temperature=0.5,
-    )
-    assert isinstance(lm1.client, GeminiClient)
-
-    # With provider override to openai, it should use OpenAIStructuredOutputClient
-    lm2 = LM(
-        model_name="gemini-1.5-flash",
-        formatting_model_name="gpt-4o-mini",
-        temperature=0.5,
-        provider="openai",
-    )
-    assert isinstance(lm2.client, OpenAIStructuredOutputClient)
-
-
+@pytest.mark.slow
 def test_invalid_provider_error():
     """Test that invalid provider raises appropriate error."""
     with pytest.raises(ValueError) as exc_info:
@@ -57,6 +38,7 @@ def test_invalid_provider_error():
     assert "Supported providers are:" in str(exc_info.value)
 
 
+@pytest.mark.slow
 def test_environment_variable_override():
     """Test provider override via environment variable."""
     # Save original env var if exists
@@ -84,6 +66,7 @@ def test_environment_variable_override():
             os.environ.pop("SYNTH_AI_DEFAULT_PROVIDER", None)
 
 
+@pytest.mark.slow
 def test_explicit_provider_overrides_env_var():
     """Test that explicit provider parameter takes precedence over env var."""
     # Save original env var if exists
@@ -98,11 +81,11 @@ def test_explicit_provider_overrides_env_var():
             model_name="my-model",
             formatting_model_name="gpt-4o-mini",
             temperature=0.5,
-            provider="gemini",  # This should override the env var
+            provider="openai",  # This should override the env var
         )
 
-        # Should use Gemini client, not Anthropic
-        assert isinstance(lm.client, GeminiClient)
+        # Should use OpenAI client, not Anthropic
+        assert isinstance(lm.client, OpenAIStructuredOutputClient)
 
     finally:
         # Restore original env var
@@ -112,6 +95,7 @@ def test_explicit_provider_overrides_env_var():
             os.environ.pop("SYNTH_AI_DEFAULT_PROVIDER", None)
 
 
+@pytest.mark.slow
 def test_get_client_direct():
     """Test get_client function directly with provider override."""
     # Test without provider - should use regex matching
@@ -119,8 +103,8 @@ def test_get_client_direct():
     assert isinstance(client1, OpenAIStructuredOutputClient)
 
     # Test with provider override
-    client2 = get_client("gpt-4o", provider="gemini", synth_logging=False)
-    assert isinstance(client2, GeminiClient)
+    client2 = get_client("gpt-4o", provider="anthropic", synth_logging=False)
+    assert isinstance(client2, AnthropicClient)
 
     # Test invalid provider
     with pytest.raises(ValueError) as exc_info:

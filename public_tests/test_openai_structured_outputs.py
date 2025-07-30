@@ -1,3 +1,4 @@
+import pytest
 import asyncio
 import unittest
 from typing import List
@@ -25,6 +26,7 @@ class NestedResponse(BaseModel):
     details: SimpleResponse
 
 
+@pytest.mark.fast
 class TestLMStructuredOutputs(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -44,6 +46,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
             structured_output_mode="stringified_json",
         )
 
+    @pytest.mark.fast
     def test_sync_simple_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
             with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
@@ -58,6 +61,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
                 self.assertGreaterEqual(result.structured_output.confidence_between_zero_one, 0)
                 self.assertLessEqual(result.structured_output.confidence_between_zero_one, 1)
 
+    @pytest.mark.fast
     def test_sync_complex_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:
             with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):
@@ -82,6 +86,7 @@ class TestLMStructuredOutputs(unittest.TestCase):
         self.assertIsInstance(result.structured_output.subcategories, list)
         self.assertIsInstance(result.structured_output.details, SimpleResponse)
 
+    @pytest.mark.fast
     def test_async_nested_response(self):
         for lm in [self.lm_forced_json, self.lm_stringified_json]:  #
             with self.subTest(mode=lm.structured_output_handler.handler.structured_output_mode):

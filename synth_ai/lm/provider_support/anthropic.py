@@ -29,7 +29,7 @@ from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from wrapt import wrap_function_wrapper
 
 from synth_ai.lm.provider_support.suppress_logging import *
-from synth_ai.tracing.trackers import (
+from synth_ai.tracing_v1.trackers import (
     synth_tracker_async,
     synth_tracker_sync,
 )
