@@ -28,5 +28,22 @@ pip install synth-ai[all]
 ```
 
 ### Spinning Up
-uv run python -m uvicorn synth_ai.environments.service.app:app --host 0.0.0.0 --port 8901
-uvpm synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash
+
+Start the Synth AI service daemon (includes Turso database + environment service):
+
+```bash
+# Start both database daemon (port 8080) and environment service (port 8901)
+uvx synth-ai serve
+```
+
+In another terminal, run your first example:
+
+```bash
+# Run a Crafter agent demo with Gemini
+uv run python -m synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash
+```
+
+This will:
+- Start the Turso database daemon with 2-second sync intervals
+- Launch the environment service API on port 8901
+- Run a reactive agent in the Crafter environment using Gemini 1.5 Flash
