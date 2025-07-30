@@ -40,7 +40,7 @@ In another terminal, run your first example:
 
 ```bash
 # Run a Crafter agent demo with Gemini
-uv run python -m synth_ai.environments.examples.crafter_classic.agent_demos.test_crafter_react_agent --model gemini-1.5-flash
+./examples/run_crafter_demo.sh
 ```
 
 This will:
