@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSessio
 from sqlalchemy.orm import sessionmaker, selectinload, joinedload
 from sqlalchemy.pool import NullPool
 from sqlalchemy.exc import IntegrityError
+import logging
 
 from ..config import CONFIG
 from ..abstractions import SessionTrace, SessionTimeStep, BaseEvent, LMCAISEvent, EnvironmentEvent, RuntimeEvent
@@ -18,6 +19,8 @@ from .models import (
     Event as DBEvent, Message as DBMessage, Experiment as DBExperiment,
     System as DBSystem, SystemVersion as DBSystemVersion, analytics_views
 )
+
+logger = logging.getLogger(__name__)
 
 
 class AsyncSQLTraceManager:
@@ -33,8 +36,21 @@ class AsyncSQLTraceManager:
     async def initialize(self):
         """Initialize the database connection and schema."""
         if self.engine is None:
+            logger.info(f"🔗 Initializing database connection to: {self.db_url}")
+            
             # For SQLite, use NullPool and set busy timeout
             if self.db_url.startswith("sqlite"):
+                # Extract the file path from the URL
+                db_path = self.db_url.replace("sqlite+aiosqlite:///", "")
+                import os
+                
+                # Check if database file exists
+                if not os.path.exists(db_path):
+                    logger.warning(f"⚠️  Database file not found: {db_path}")
+                    logger.warning("🔧 Make sure './serve.sh' is running to start the turso/sqld service")
+                else:
+                    logger.info(f"✅ Found database file: {db_path}")
+                
                 connect_args = {"timeout": 30.0}  # 30 second busy timeout
                 self.engine = create_async_engine(
                     self.db_url,  # Use instance db_url, not CONFIG
@@ -65,14 +81,20 @@ class AsyncSQLTraceManager:
             if self._schema_ready:
                 return
                 
+            logger.info("📊 Initializing database schema...")
+            
             async with self.engine.begin() as conn:
                 # Create tables with checkfirst=True to handle concurrent creation
                 try:
                     await conn.run_sync(lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True))
+                    logger.info("✅ Database schema created/verified successfully")
                 except Exception as e:
                     # If tables already exist, that's fine - another worker created them
                     if "already exists" not in str(e):
+                        logger.error(f"❌ Failed to create database schema: {e}")
                         raise
+                    else:
+                        logger.info("✅ Database schema already exists")
                 
                 # Enable foreign keys for SQLite
                 if CONFIG.foreign_keys:
@@ -84,9 +106,15 @@ class AsyncSQLTraceManager:
                 
                 # Create analytics views
                 for view_name, view_sql in analytics_views.items():
-                    await conn.execute(text(view_sql))
+                    try:
+                        await conn.execute(text(view_sql))
+                    except Exception as e:
+                        # Views might already exist
+                        if "already exists" not in str(e):
+                            logger.warning(f"Could not create view {view_name}: {e}")
                     
             self._schema_ready = True
+            logger.info("🎯 Database ready for use!")
     
     @asynccontextmanager
     async def session(self):

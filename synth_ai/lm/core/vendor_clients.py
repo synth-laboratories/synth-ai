@@ -120,9 +120,6 @@ def get_client(
             )
 
         # Log the provider override
-        if synth_logging:
-            print(f"Provider override: using '{provider}' for model '{model_name}'")
-
         client_class = PROVIDER_MAP[provider]
 
         # Special handling for OpenAI and Synth with formatting

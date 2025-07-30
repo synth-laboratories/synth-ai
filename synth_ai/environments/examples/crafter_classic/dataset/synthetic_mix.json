@@ -1,0 +1,107 @@
+[
+  {
+    "id": "a6809eaf-2ec6-42ba-83fb-4d0dd289a835",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a easy environment."
+    },
+    "intent": {
+      "rubric": {},
+      "gold_trajectories": null,
+      "gold_state_diff": {},
+      "deterministic_eval_functions": []
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1000,
+      "num_trees_radius": 0,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 0
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "c453ab5f-2363-4ce8-bfab-fc21c19d9267",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a easy environment."
+    },
+    "intent": {
+      "rubric": {},
+      "gold_trajectories": null,
+      "gold_state_diff": {},
+      "deterministic_eval_functions": []
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1001,
+      "num_trees_radius": 0,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 0
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "19c8a5e0-125a-4b43-9aea-6147b384ff77",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a easy environment."
+    },
+    "intent": {
+      "rubric": {},
+      "gold_trajectories": null,
+      "gold_state_diff": {},
+      "deterministic_eval_functions": []
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1002,
+      "num_trees_radius": 0,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 0
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "d9b13b23-5380-45a6-9a44-501279079678",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a easy environment."
+    },
+    "intent": {
+      "rubric": {},
+      "gold_trajectories": null,
+      "gold_state_diff": {},
+      "deterministic_eval_functions": []
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1003,
+      "num_trees_radius": 0,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 0
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  },
+  {
+    "id": "42159b2b-3193-40d9-b4ae-8ba5ce35ce4c",
+    "impetus": {
+      "instructions": "Survive and unlock achievements in a easy environment."
+    },
+    "intent": {
+      "rubric": {},
+      "gold_trajectories": null,
+      "gold_state_diff": {},
+      "deterministic_eval_functions": []
+    },
+    "metadata": {
+      "difficulty": "easy",
+      "seed": 1004,
+      "num_trees_radius": 0,
+      "num_cows_radius": 0,
+      "num_hostiles_radius": 0
+    },
+    "is_reproducible": true,
+    "initial_engine_snapshot": null
+  }
+]

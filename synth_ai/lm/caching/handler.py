@@ -43,7 +43,7 @@ def map_params_to_key(
             tool_schema = {
                 "name": tool.name,
                 "description": tool.description,
-                "arguments": tool.arguments.schema(),
+                "arguments": tool.arguments.model_json_schema(),
             }
             tool_schemas.append(str(tool_schema))
         # logger.error(f"Tool schemas: {tool_schemas}")

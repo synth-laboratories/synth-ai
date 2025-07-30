@@ -46,7 +46,11 @@ dependencies = [
     "google-api-core>=2.25.1",
     "google-generativeai>=0.8.5",
     "crafter>=1.8.3",
+    "click>=8.1.0",  # For CLI
 ]
+
+[project.scripts]
+synth-ai = "synth_ai.cli:cli"
 
 [project.optional-dependencies]
 dev = [

@@ -6,9 +6,12 @@ import os
 import tempfile
 from pathlib import Path
 from typing import Optional, Tuple, TYPE_CHECKING
+import logging
 
 if TYPE_CHECKING:
     from .turso.daemon import SqldDaemon
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfig:
@@ -58,9 +61,15 @@ class DatabaseConfig:
         
         if os.path.exists(sqld_data_path):
             # sqld is managing the database
+            logger.info(f"✅ Using sqld-managed database at: {sqld_data_path}")
             actual_db_path = sqld_data_path
         else:
             # Direct SQLite file
+            if not os.path.exists(abs_path):
+                logger.warning(f"⚠️  Database file not found at: {abs_path}")
+                logger.warning("🔧 Make sure to run './serve.sh' to start the turso/sqld service")
+            else:
+                logger.info(f"📁 Using direct SQLite file at: {abs_path}")
             actual_db_path = abs_path
         
         # SQLite URLs need 3 slashes for absolute paths
@@ -130,6 +139,7 @@ def get_default_db_config() -> DatabaseConfig:
         # Check if sqld is already running (started by serve.sh)
         import subprocess
         sqld_port = int(os.getenv("SQLD_HTTP_PORT", DatabaseConfig.DEFAULT_HTTP_PORT))
+        sqld_running = False
         try:
             result = subprocess.run(
                 ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
@@ -138,9 +148,20 @@ def get_default_db_config() -> DatabaseConfig:
             )
             if result.returncode == 0:
                 # sqld is already running, don't start a new one
+                sqld_running = True
                 use_sqld = False
-        except Exception:
-            pass
+                logger.info(f"✅ Detected sqld already running on port {sqld_port}")
+        except Exception as e:
+            logger.debug(f"Could not check for sqld process: {e}")
+        
+        if not sqld_running and use_sqld:
+            logger.warning("⚠️  sqld service not detected!")
+            logger.warning("🔧 Please start the turso/sqld service by running:")
+            logger.warning("   ./serve.sh")
+            logger.warning("")
+            logger.warning("This will start:")
+            logger.warning("  - sqld daemon (SQLite server) on port 8080")
+            logger.warning("  - Environment service on port 8901")
         
         _default_config = DatabaseConfig(
             db_path=db_path,

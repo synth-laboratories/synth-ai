@@ -97,12 +97,17 @@ def create_task_instance_for_environment(
         # These environments work with SimpleNamespace
         task = SimpleNamespace(initial_engine_snapshot=initial_state or {})
 
-        # For MiniGrid, handle seed-based environment selection
-        if env_name == "MiniGrid" and config:
-            # Check if a seed is provided in config
-            if "seed" in config:
-                task.initial_engine_snapshot["seed"] = config["seed"]
+        # Handle seed for all environments that support it
+        if config and "seed" in config:
+            task.initial_engine_snapshot["seed"] = config["seed"]
+            
+        # For CrafterClassic, also handle difficulty
+        if env_name == "CrafterClassic" and config:
+            if "difficulty" in config:
+                task.initial_engine_snapshot["difficulty"] = config["difficulty"]
 
+        # For MiniGrid, handle environment selection
+        if env_name == "MiniGrid" and config:
             # Check if a specific environment is requested
             if "env_name" in config:
                 task.initial_engine_snapshot["env_name"] = config["env_name"]
