@@ -2,7 +2,7 @@
 [0;34m[INFO][0m Bumping version type: dev
 [0;34m[INFO][0m New version: 0.2.1.dev2
 [0;32m[SUCCESS][0m Version bumped to 0.2.1.dev2
-0.2.1.dev2 - 2025-07-29
+0.2.2.dev0 - 2025-07-30
 
 ## What's New
 
