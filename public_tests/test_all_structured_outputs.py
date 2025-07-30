@@ -7,6 +7,7 @@ from synth_ai import LM
 from synth_ai.lm.vendors.base import BaseLMResponse
 
 
+
 class StateUpdate(BaseModel):
     """Response model for state updates from LLM"""
 

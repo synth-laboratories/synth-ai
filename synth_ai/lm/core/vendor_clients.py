@@ -72,6 +72,10 @@ openrouter_naming_regexes: List[Pattern] = [
     re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
 ]
 
+openrouter_naming_regexes: List[Pattern] = [
+    re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
+]
+
 # Custom endpoint patterns - check these before generic patterns
 custom_endpoint_naming_regexes: List[Pattern] = [
     # Modal endpoints: org--app.modal.run
