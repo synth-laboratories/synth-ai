@@ -1,0 +1,57 @@
+{
+  "config": {
+    "num_episodes": 1,
+    "max_turns": 10,
+    "difficulty": "easy",
+    "models": [
+      "gpt-4o-mini"
+    ]
+  },
+  "results": {
+    "gpt-4o-mini": [
+      {
+        "model": "gpt-4o-mini",
+        "episode": 0,
+        "total_achievements": 0,
+        "achievements": {
+          "collect_coal": false,
+          "collect_diamond": false,
+          "collect_drink": false,
+          "collect_iron": false,
+          "collect_sapling": false,
+          "collect_stone": false,
+          "collect_wood": false,
+          "defeat_skeleton": false,
+          "defeat_zombie": false,
+          "eat_cow": false,
+          "eat_plant": false,
+          "make_iron_pickaxe": false,
+          "make_iron_sword": false,
+          "make_stone_pickaxe": false,
+          "make_stone_sword": false,
+          "make_wood_pickaxe": false,
+          "make_wood_sword": false,
+          "place_furnace": false,
+          "place_plant": false,
+          "place_stone": false,
+          "place_table": false,
+          "wake_up": false
+        },
+        "invalid_action_rate": 1.0,
+        "total_actions": 1,
+        "invalid_actions": 1,
+        "session_id": "session_17627c8c3510"
+      }
+    ]
+  },
+  "statistics": {
+    "gpt-4o-mini": {
+      "avg_achievements": 0.0,
+      "std_achievements": 0.0,
+      "max_achievements": 0,
+      "avg_invalid_rate": 1.0,
+      "success_rate": 1.0
+    }
+  },
+  "timestamp": "20250729_161120"
+}

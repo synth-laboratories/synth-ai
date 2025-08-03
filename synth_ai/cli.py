@@ -229,6 +229,21 @@ def unregister_env(name: str, service_url: str):
 
 
 @cli.command()
+@click.option("--url", default="sqlite+aiosqlite:///./synth_ai.db/dbs/default/data", help="Database URL")
+def view(url: str):
+    """Launch the interactive TUI dashboard."""
+    try:
+        from .tui.dashboard import SynthDashboard
+        app = SynthDashboard(db_url=url)
+        app.run()
+    except ImportError:
+        click.echo("❌ Textual not installed. Install with: pip install textual", err=True)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        click.echo("\n👋 Dashboard closed", err=True)
+
+
+@cli.command()
 @click.option("--db-file", default="synth_ai.db", help="Database file path")
 @click.option("--sqld-port", default=8080, type=int, help="Port for sqld HTTP interface")
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")

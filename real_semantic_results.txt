@@ -1,0 +1,49 @@
+🔍 Simple Semantic Word Analysis
+========================================
+Analyzed: synth_ai/environments/examples/crafter_custom/agent_demos/traces/session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+Analyzed: synth_ai/environments/examples/crafter_custom/agent_demos/traces/session_crafter_episode_1_00000000-0000-0000-0000-000000000004_20250724_184101.json
+Analyzed: synth_ai/environments/examples/crafter_custom/agent_demos/traces/session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182153.json
+Error reading old/traces/session_episode_9_gpt-4o-mini_f9192fc0-3695-48b5-b73f-fe9469e22d20_20250729_094903.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_4_gpt-4o-mini_a4d3cea6-80aa-4bb9-a793-aca8e22c7bd4_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_0_gpt-4o-mini_85a51a1d-fb03-48f8-95d1-b0bcfc42acc1_20250729_094903.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_6_gpt-4o-mini_d90f7458-1045-44c0-b7a6-e49b78b261a8_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_5_gpt-4o-mini_3040e4e7-7d98-4264-9dfd-5081306feddc_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_8_gpt-4o-mini_b2d8abd8-9a28-46c5-ba00-db835c669ec5_20250729_094903.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_1_gpt-4o-mini_e1d02e3b-2bff-4aec-97ec-b21260dc925d_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_3_gpt-4o-mini_1c3be44c-b232-4634-8313-35e004ab871f_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_2_a88c8cf6-d636-42e0-8ae4-8ae2a3f83a5c_20250725_205028.json: Expecting ',' delimiter: line 3680711 column 20 (char 85730030)
+Error reading old/traces/session_episode_2_gpt-4o-mini_2aff2649-84f6-4992-b23d-f7fd1a0a2d52_20250729_093930.json: Expecting value: line 14 column 29 (char 710)
+Error reading old/traces/session_episode_7_gpt-4o-mini_62dcfaac-baba-4eab-b440-e2f60e32c3eb_20250729_094903.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_4_gpt-4o-mini_ffa3b85f-422e-4333-8d5e-1a1bb9c235e6_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_8_gpt-4o-mini_cd957f61-6c37-455a-80ea-b8ece901a014_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_1_gpt-4o-mini_fce33f48-cf6c-483e-86c6-3bcc85d8b8db_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_6_gpt-4o-mini_a5a087e8-89e4-4317-ae83-f9b920601efc_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_7_gpt-4o-mini_b3a6075a-3af0-4a23-a981-0d1bf3102304_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_9_gpt-4o-mini_ce2ded1f-5f74-473d-ba4a-6bc7c6463951_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_5_gpt-4o-mini_91f2f1cb-7963-4954-b2e4-8718231c3a48_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_2_gpt-4o-mini_4f6c4bbb-a3b6-45e1-ac4d-f841b1cfae0e_20250729_094904.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_3_gpt-4o-mini_8eb9b295-b3af-467a-8c36-93e9e1afd1ec_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Error reading old/traces/session_episode_0_gpt-4o-mini_389afe23-e323-48b1-b2c4-4dff2f55e37d_20250729_093930.json: Expecting value: line 14 column 29 (char 709)
+Analyzed 873 total trace files
+Total word occurrences: 627026
+Unique words found: 17
+
+Word Distribution:
+--------------------
+"stone": 107418/627026 (17.1%)
+"wood": 101053/627026 (16.1%)
+"grass": 92733/627026 (14.8%)
+"iron": 90752/627026 (14.5%)
+"coal": 86122/627026 (13.7%)
+"diamond": 85488/627026 (13.6%)
+"water": 15558/627026 (2.5%)
+"path": 12664/627026 (2.0%)
+"tree": 11090/627026 (1.8%)
+"table": 6692/627026 (1.1%)
+"sand": 6374/627026 (1.0%)
+"cow": 3873/627026 (0.6%)
+"pickaxe": 3448/627026 (0.5%)
+"zombie": 1512/627026 (0.2%)
+"furnace": 1350/627026 (0.2%)
+"skeleton": 514/627026 (0.1%)
+"lava": 385/627026 (0.1%)

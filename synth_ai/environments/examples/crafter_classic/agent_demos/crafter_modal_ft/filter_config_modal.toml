@@ -1,0 +1,32 @@
+# Modal/Synth Fine-Tuning Filter Configuration
+
+# Filtering mode: "trajectory" or "window"
+mode = "trajectory"
+
+[filters]
+# Minimum total reward for a trajectory
+min_total_reward = 5.0
+
+# Minimum number of achievements unlocked
+min_achievements = 2
+
+# Maximum cost (in dollars) for the trajectory
+max_cost = 1.0
+
+# Maximum tokens used in the trajectory
+max_tokens = 50000
+
+# Filter by specific models (empty list means all models)
+# Uncomment to filter only Qwen model traces
+# models = ["Qwen/Qwen2.5-7B-Instruct", "Qwen/Qwen2.5-32B-Instruct"]
+
+[window]
+# Window-based filtering parameters (if mode = "window")
+window_size = 10
+stride = 5
+min_window_reward = 2.0
+
+[output]
+# Output format settings
+include_metadata = true
+max_context_length = 4096

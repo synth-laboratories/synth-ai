@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import groq
 import openai
+import os
 import pydantic_core
 from pydantic import BaseModel
 
@@ -131,7 +132,26 @@ class OpenAIStandard(VendorBase):
             print("Reasoning effort:", reasoning_effort)
             api_params["reasoning_effort"] = reasoning_effort
 
-        output = await self.async_client.chat.completions.create(**api_params)
+        # Call API with better auth error reporting
+        try:
+            output = await self.async_client.chat.completions.create(**api_params)
+        except Exception as e:
+            try:
+                from openai import AuthenticationError as _OpenAIAuthErr  # type: ignore
+            except ModuleNotFoundError:
+                _OpenAIAuthErr = type(e)
+            if isinstance(e, _OpenAIAuthErr):
+                key_preview = (os.getenv("OPENAI_API_KEY") or "")[:8]
+                # Create a more informative error message but preserve the original exception
+                enhanced_msg = f"Invalid API key format. Expected prefix 'sk-' or 'sk_live_'. Provided key begins with '{key_preview}'. Original error: {str(e)}"
+                # Re-raise the original exception with enhanced message if possible
+                if hasattr(e, 'response') and hasattr(e, 'body'):
+                    raise _OpenAIAuthErr(enhanced_msg, response=e.response, body=e.body) from None
+                else:
+                    # Fallback: just re-raise the original with a print for debugging
+                    print(f"🔑 API Key Debug: {enhanced_msg}")
+                    raise e from None
+            raise
         message = output.choices[0].message
 
         # Convert tool calls to dict format
