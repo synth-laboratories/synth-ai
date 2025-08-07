@@ -18,10 +18,16 @@ class BaseLMResponse(BaseModel):
         raw_response: The raw text response from the model
         structured_output: Optional parsed Pydantic model if structured output was requested
         tool_calls: Optional list of tool calls if tools were provided
+        response_id: Optional response ID for thread management (Responses API)
+        reasoning: Optional reasoning trace from the model (o1 models)
+        api_type: Optional API type used ("chat", "responses", or "harmony")
     """
     raw_response: str
     structured_output: Optional[BaseModel] = None
     tool_calls: Optional[List[Dict]] = None
+    response_id: Optional[str] = None
+    reasoning: Optional[str] = None
+    api_type: Optional[str] = None
 
 
 class VendorBase(ABC):

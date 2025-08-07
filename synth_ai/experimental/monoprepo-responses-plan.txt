@@ -1,0 +1,845 @@
+# Synth Backend – Responses API Endpoint Plan (for services/learning_v2)
+
+This document lists the **REST endpoints** that must be exposed by the Synth backend so that the client-side LM wrapper can use the new OpenAI *Responses* workflow without code changes.
+
+Public base prefix:  /api/v1   (follows existing learning-v2 routes)
+Internal proxy target:  LEARNING_V2_MODAL_URL  →  https://…/openai/v1/…
+
+--------------------------------------------------------------------
+1. Create / Stream a Response
+--------------------------------------------------------------------
+POST  /api/v1/responses
+    • Required body          : { model, input|prompt, … }
+    • Optional fields        : previous_response_id, tools[ ], instructions, temperature, …
+    • Query-param “stream”   : ?stream=true – proxy as Server-Sent Events / chunked JSON.
+    • Behaviour              : forwards body *as-is* to  POST /v1/responses  on the Modal LLM service;  passthrough streaming.
+
+--------------------------------------------------------------------
+2. Retrieve an Existing Response
+--------------------------------------------------------------------
+GET  /api/v1/responses/{response_id}
+    • Behaviour : HTTP GET passthrough to  /v1/responses/{response_id}  on Modal.
+
+--------------------------------------------------------------------
+3. Delete a Response (early redaction)
+--------------------------------------------------------------------
+DELETE  /api/v1/responses/{response_id}
+    • Behaviour : HTTP DELETE passthrough.
+
+--------------------------------------------------------------------
+4. List Input Items (conversation history helper)
+--------------------------------------------------------------------
+GET  /api/v1/responses/{response_id}/input_items
+    • Maps to  GET /v1/responses/{response_id}/input_items   on the upstream service.
+    • Used by client to inspect previous turns when not storing locally.
+
+--------------------------------------------------------------------
+5. Models listing (restricted)
+--------------------------------------------------------------------
+GET  /api/v1/models
+    • Only two models are supported by the Responses proxy: `gpt-oss-20b` and `gpt-oss-120b`.
+    • The router should filter or hard-code the response to exactly those `id`s regardless of what the upstream Modal service returns.
+
+--------------------------------------------------------------------
+Notes / Implementation
+--------------------------------------------------------------------
+• No dedicated “submit_tool_outputs” route is required – tool outputs are sent via a subsequent POST /responses with the same previous_response_id.
+• No /parse endpoint is needed; `client.responses.parse()` is an SDK convenience that calls POST /responses under the hood and expects `response_format`.
+• Streaming: reuse the existing `proxy_streaming_request()` helper from chat-completions route.
+• Auth: continue to require Bearer API key (ValidatedAPIKey dependency) and forward header unchanged.
+• Rate-limit & billing hooks identical to chat-completions path.
+
+--------------------------------------------------------------------
+Migrations
+--------------------------------------------------------------------
+1. Add **backend_routes_responses.py** in  app/services/learning_v2/  (mirrors existing chat route proxy pattern).
+2. Register router in  app/services/main.py  under prefix "/api".
+3. Update OpenAPI tags → ["learning-v2", "responses"].
+4. Unit tests: replicate `test_chat_completions_proxy.py` with fixture hitting `/api/v1/responses`.
+
+
+
+=------------
+**Yes —you’ll want an explicit hook so callers can pass‐through the thread/response ID when they need fine-grained control.**
+Below is a minimal, backward-compatible pattern that keeps the “auto-store” convenience but allows full manual management.
+
+---
+
+### 1 . Surface the ID both **out** and **in**
+
+| Flow         | Change                                                                                       | Code sketch                                                                                                 |                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Return value | Add a `response_id` field to the object you already return (`ActivityResponse` or whatever). | `python\nresult.response_id = resp[\"id\"]  # for Responses path only\n`                                    |                                                                                                   |
+| Request args | Add an optional kw-arg \`previous\_response\_id: str                                         | None = None`to`async\_respond(...)`(defaults to`None\`). Forward it only when the Responses path is active. | `python\nif previous_response_id:\n    params[\"previous_response_id\"] = previous_response_id\n` |
+
+Nothing else changes for Chat Completions callers.
+
+---
+
+### 2 . Toggle: **auto** vs **manual**
+
+```python
+class LM(OpenAIProvider):
+    def __init__(..., auto_store: bool = True):
+        self.auto_store = auto_store
+        self._last_response_id = None         # kept only if auto_store
+
+async def async_respond(self, prompt, *, previous_response_id=None, **kw):
+    use_responses = self._should_use_responses()
+    if use_responses:
+        params = {...}
+        # ❶ decide what ID to send
+        if previous_response_id:                       # manual
+            params["previous_response_id"] = previous_response_id
+        elif self.auto_store and self._last_response_id:  # auto
+            params["previous_response_id"] = self._last_response_id
+
+        resp = await openai.Response.acreate(**params)
+
+        # ❷ expose the new ID
+        new_id = resp["id"]
+        if self.auto_store:
+            self._last_response_id = new_id
+
+        return ActivityResponse(
+            text=resp["output_text"],
+            response_id=new_id,        # caller gets it either way
+            usage=resp["usage"],
+        )
+    ...
+```
+
+*Default UX*: nothing to do—`LM` silently chains turns for you.
+*Power-user path*: pass `previous_response_id="resp_abc123"` and manage state externally; also read `result.response_id` after each call.
+
+---
+
+### 3 . Call-site example
+
+```python
+# manual thread management
+r1 = await lm.async_respond("Hello", auto_store=False)
+r2 = await lm.async_respond("Continue", previous_response_id=r1.response_id)
+
+# mixed: rely on auto until you need to fork
+r3 = await lm.async_respond("Branch A")          # uses auto_store ID internally
+fork_id = r3.response_id
+r4 = await lm.async_respond("Different path",
+                            previous_response_id=fork_id)  # manual fork
+```
+
+This single extra kw-arg plus one return field gives users **full control** without breaking existing code, while keeping the zero-config convenience of automatic state chaining.
+
+
+**Yes —you’ll want an explicit hook so callers can pass‐through the thread/response ID when they need fine-grained control.**
+Below is a minimal, backward-compatible pattern that keeps the “auto-store” convenience but allows full manual management.
+
+---
+
+### 1 . Surface the ID both **out** and **in**
+
+| Flow         | Change                                                                                       | Code sketch                                                                                                 |                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Return value | Add a `response_id` field to the object you already return (`ActivityResponse` or whatever). | `python\nresult.response_id = resp[\"id\"]  # for Responses path only\n`                                    |                                                                                                   |
+| Request args | Add an optional kw-arg \`previous\_response\_id: str                                         | None = None`to`async\_respond(...)`(defaults to`None\`). Forward it only when the Responses path is active. | `python\nif previous_response_id:\n    params[\"previous_response_id\"] = previous_response_id\n` |
+
+Nothing else changes for Chat Completions callers.
+
+---
+
+### 2 . Toggle: **auto** vs **manual**
+
+```python
+class LM(OpenAIProvider):
+    def __init__(..., auto_store: bool = True):
+        self.auto_store = auto_store
+        self._last_response_id = None         # kept only if auto_store
+
+async def async_respond(self, prompt, *, previous_response_id=None, **kw):
+    use_responses = self._should_use_responses()
+    if use_responses:
+        params = {...}
+        # ❶ decide what ID to send
+        if previous_response_id:                       # manual
+            params["previous_response_id"] = previous_response_id
+        elif self.auto_store and self._last_response_id:  # auto
+            params["previous_response_id"] = self._last_response_id
+
+        resp = await openai.Response.acreate(**params)
+
+        # ❷ expose the new ID
+        new_id = resp["id"]
+        if self.auto_store:
+            self._last_response_id = new_id
+
+        return ActivityResponse(
+            text=resp["output_text"],
+            response_id=new_id,        # caller gets it either way
+            usage=resp["usage"],
+        )
+    ...
+```
+
+*Default UX*: nothing to do—`LM` silently chains turns for you.
+*Power-user path*: pass `previous_response_id="resp_abc123"` and manage state externally; also read `result.response_id` after each call.
+
+---
+
+### 3 . Call-site example
+
+```python
+# manual thread management
+r1 = await lm.async_respond("Hello", auto_store=False)
+r2 = await lm.async_respond("Continue", previous_response_id=r1.response_id)
+
+# mixed: rely on auto until you need to fork
+r3 = await lm.async_respond("Branch A")          # uses auto_store ID internally
+fork_id = r3.response_id
+r4 = await lm.async_respond("Different path",
+                            previous_response_id=fork_id)  # manual fork
+```
+
+This single extra kw-arg plus one return field gives users **full control** without breaking existing code, while keeping the zero-config convenience of automatic state chaining.
+
+### Incremental patch: bring **openai-harmony** support into the plan
+
+1. **Add the dependency**
+
+```bash
+pip install openai-harmony   # tiny rust+py wheel, <3 MB
+```
+
+Release 0.0.1 landed today on PyPI. ([PyPI][1])
+
+---
+
+2. **Detect when Harmony is needed**
+
+```python
+HARMONY_MODELS = {"gpt-oss-120b", "gpt-oss-20b"}
+use_harmony = self.model_name in HARMONY_MODELS
+```
+
+*Keep the previous `use_responses` branch; now you have three mutually-exclusive modes: chat ↔ responses ↔ harmony.*
+
+---
+
+3. **Encode messages for GPT-OSS**
+
+```python
+from openai_harmony import (
+    load_harmony_encoding, HarmonyEncodingName,
+    Message, Role, Conversation,
+)
+
+enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+conv = Conversation.from_messages([
+    Message.from_role_and_content(Role.SYSTEM, sys_prompt),
+    *[Message.from_role_and_content(Role.USER, m) for m in user_msgs],
+])
+tokens = enc.render_conversation_for_completion(conv, Role.ASSISTANT)
+```
+
+This renderer emits exactly the token sequence GPT-OSS was trained on; the format mirrors the Responses API channels (reasoning, tool calls, output\_text). ([GitHub][2], [GitHub][2])
+
+---
+
+4. **Send the tokens**
+
+* **Local/LoRA path**: pipe `tokens` into your Hugging Face `model.generate()` or Ollama endpoint.
+* **Remote gateway**: if you expose GPT-OSS behind an HTTP façade, post `tokens` as plain text.
+
+No change to the rest of `async_respond`’s concurrency or retry logic.
+
+---
+
+5. **Parse the model output**
+
+```python
+parsed = enc.parse_messages_from_completion_tokens(tok_stream, Role.ASSISTANT)
+assistant_msg = parsed[-1].content_text()   # equivalent to output_text
+```
+
+The parsed structure is isomorphic to the Responses API’s `output` list, so you can funnel it through the same `result_builder()` used in the Responses branch. ([GitHub][2])
+
+---
+
+6. **Expose structured fields**
+
+Return object gains:
+
+| field         | chat         | responses         | harmony            |
+| ------------- | ------------ | ----------------- | ------------------ |
+| `text`        | ✅            | ✅ (`output_text`) | ✅ (`content_text`) |
+| `response_id` | —            | ✅ (from OpenAI)   | ✅ (your own UUID)  |
+| `tool_calls`  | manual parse | auto (Responses)  | `parsed.tools`     |
+
+*(Nothing else in the public API changes.)*
+
+---
+
+7. **Streaming (optional)**
+   Buffer tokens until you hit `enc.BOUNDARY_TOKEN`, then run an incremental parse to emit partial text. MVP: stick to non-streaming for harmony until needed.
+
+---
+
+8. **Docs snippet**
+
+Add three lines to your README:
+
+> `synth_ai` now supports open-weight **GPT-OSS** models via the \[openai-harmony] encoder. Set `model="gpt-oss-120b"` and the library handles Harmony formatting automatically. ([GitHub][2])
+
+---
+
+**Result:** one extra branch (\~40 LOC) and a lightweight dependency gets you GPT-OSS + Harmony with zero impact on existing Chat / Responses users.
+
+[1]: https://pypi.org/project/openai-harmony/ "openai-harmony · PyPI"
+[2]: https://github.com/openai/harmony "GitHub - openai/harmony: Renderer for the harmony response format to be used with gpt-oss"
+
+
+I'll analyze the current LM module structure and create a comprehensive plan for adding OpenAI Responses API support for both closed models and OSS-GPT via Synth GPU.
+Ran tool
+Read file: synth_ai/synth_ai/lm/unified_interface.py
+Read file: synth_ai/synth_ai/lm/__init__.py
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/unified_interface.py
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/__init__.py
+Ran tool
+Ran tool
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/vendors/base.py
+Ran tool
+Ran tool
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/core/main_v3.py
+Ran tool
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/vendors/openai_standard.py
+Read file: /Users/joshuapurtell/Documents/GitHub/synth-ai/synth_ai/lm/core/vendor_clients.py
+Now I have enough context to create a comprehensive plan. Let me create a structured plan for adding OpenAI Responses API support.
+
+## Plan: OpenAI Responses API Support for Synth AI LM Module
+
+Based on my analysis of the current architecture and the requirements in the `responses_api.txt`, here's a comprehensive plan to add OpenAI Responses API support to both closed models (via OpenAI API) and OSS-GPT (via Synth GPU).
+
+### 1. Architecture Overview
+
+The current LM module has:
+- **Core LM class** (`main_v3.py`) with `respond_async`/`respond_sync` methods
+- **Vendor system** with `VendorBase` abstract class and implementations (`openai_standard.py`, `synth_client.py`)
+- **Unified interface** for provider abstraction
+- **Response model** (`BaseLMResponse`) with `raw_response`, `structured_output`, `tool_calls`
+
+### 2. Key Changes Required
+
+#### 2.1 Enhanced Response Model
+**File:** `synth_ai/lm/vendors/base.py`
+
+```python
+class BaseLMResponse(BaseModel):
+    raw_response: str
+    structured_output: Optional[BaseModel] = None
+    tool_calls: Optional[List[Dict]] = None
+    # NEW: Responses API fields
+    response_id: Optional[str] = None  # For thread management
+    reasoning: Optional[str] = None    # OpenAI reasoning trace
+    api_type: Optional[str] = None     # "chat", "responses", "harmony"
+```
+
+#### 2.2 Core LM Class Updates
+**File:** `synth_ai/lm/core/main_v3.py`
+
+Add new initialization parameters:
+```python
+class LM:
+    def __init__(self, 
+                 # ... existing params ...
+                 auto_store_responses: bool = True,
+                 use_responses_api: Optional[bool] = None):
+        # ... existing init ...
+        self.auto_store_responses = auto_store_responses
+        self.use_responses_api = use_responses_api
+        self._last_response_id: Optional[str] = None
+```
+
+Update `respond_async` signature:
+```python
+async def respond_async(self,
+                       # ... existing params ...
+                       previous_response_id: Optional[str] = None,
+                       **kwargs) -> BaseLMResponse:
+```
+
+#### 2.3 Vendor Detection Logic
+**File:** `synth_ai/lm/core/main_v3.py`
+
+```python
+def _should_use_responses_api(self) -> bool:
+    """Determine if Responses API should be used."""
+    if self.use_responses_api is not None:
+        return self.use_responses_api
+    
+    # Auto-detect based on model
+    RESPONSES_MODELS = {
+        "o1-mini", "o1-preview", "gpt-4o-mini", "gpt-4o",
+        "gpt-oss-120b", "gpt-oss-20b"  # OSS models
+    }
+    return self.model in RESPONSES_MODELS
+
+def _should_use_harmony(self) -> bool:
+    """Determine if Harmony encoding should be used."""
+    HARMONY_MODELS = {"gpt-oss-120b", "gpt-oss-20b"}
+    return self.model in HARMONY_MODELS
+```
+
+#### 2.4 Enhanced OpenAI Vendor
+**File:** `synth_ai/lm/vendors/openai_standard.py`
+
+Add Responses API support:
+```python
+class OpenAIStandardClient(VendorBase):
+    def __init__(self):
+        # ... existing init ...
+        # Import openai-harmony if available
+        try:
+            from openai_harmony import load_harmony_encoding, HarmonyEncodingName
+            self.harmony_available = True
+            self.harmony_enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+        except ImportError:
+            self.harmony_available = False
+
+    async def _hit_api_async_responses(self,
+                                     messages: List[Dict[str, Any]],
+                                     model: str,
+                                     previous_response_id: Optional[str] = None,
+                                     **kwargs) -> BaseLMResponse:
+        """Use OpenAI Responses API."""
+        params = {
+            "model": model,
+            "messages": messages,
+            **kwargs
+        }
+        
+        if previous_response_id:
+            params["previous_response_id"] = previous_response_id
+            
+        response = await self.client.responses.create(**params)
+        
+        return BaseLMResponse(
+            raw_response=response.output_text,
+            response_id=response.id,
+            reasoning=getattr(response, 'reasoning', None),
+            api_type="responses"
+        )
+
+    async def _hit_api_async_harmony(self,
+                                   messages: List[Dict[str, Any]],
+                                   model: str,
+                                   previous_response_id: Optional[str] = None,
+                                   **kwargs) -> BaseLMResponse:
+        """Use Harmony encoding for OSS-GPT models."""
+        if not self.harmony_available:
+            raise ImportError("openai-harmony package required for OSS-GPT models")
+            
+        from openai_harmony import Message, Role, Conversation
+        import uuid
+        
+        # Convert messages to Harmony format
+        conv = Conversation.from_messages([
+            Message.from_role_and_content(
+                Role.SYSTEM if msg["role"] == "system" else Role.USER,
+                msg["content"]
+            ) for msg in messages
+        ])
+        
+        tokens = self.harmony_enc.render_conversation_for_completion(conv, Role.ASSISTANT)
+        
+        # Send to Synth GPU endpoint (assuming we have harmony endpoint)
+        response_text = await self._call_synth_harmony_endpoint(tokens, model, **kwargs)
+        
+        # Parse response
+        parsed = self.harmony_enc.parse_messages_from_completion_tokens(response_text, Role.ASSISTANT)
+        assistant_msg = parsed[-1].content_text()
+        
+        return BaseLMResponse(
+            raw_response=assistant_msg,
+            response_id=previous_response_id or str(uuid.uuid4()),
+            api_type="harmony"
+        )
+```
+
+#### 2.5 Enhanced Synth Client
+**File:** `synth_ai/lm/vendors/synth_client.py`
+
+Add Responses API support for Synth-hosted models:
+```python
+class AsyncSynthClient(VendorBase):
+    async def responses_create(self,
+                             messages: List[Dict[str, Any]],
+                             model: str,
+                             previous_response_id: Optional[str] = None,
+                             **kwargs) -> BaseLMResponse:
+        """Create response using Synth Responses API."""
+        params = {
+            "model": model,
+            "messages": messages,
+            **kwargs
+        }
+        
+        if previous_response_id:
+            params["previous_response_id"] = previous_response_id
+            
+        response = await self._make_request("/v1/responses", params)
+        
+        return BaseLMResponse(
+            raw_response=response["output_text"],
+            response_id=response["id"],
+            reasoning=response.get("reasoning"),
+            api_type="responses"
+        )
+```
+
+#### 2.6 Updated Main LM Logic
+**File:** `synth_ai/lm/core/main_v3.py`
+
+```python
+async def respond_async(self, 
+                       previous_response_id: Optional[str] = None,
+                       **kwargs) -> BaseLMResponse:
+    # ... existing setup code ...
+    
+    vendor_wrapper = self.get_vendor_wrapper()
+    
+    # Determine API type to use
+    use_responses = self._should_use_responses_api()
+    use_harmony = self._should_use_harmony()
+    
+    # Decide response ID to use
+    response_id_to_use = None
+    if previous_response_id:
+        response_id_to_use = previous_response_id  # Manual override
+    elif self.auto_store_responses and self._last_response_id:
+        response_id_to_use = self._last_response_id  # Auto-chain
+    
+    # Route to appropriate API
+    if use_harmony:
+        result = await vendor_wrapper._hit_api_async_harmony(
+            messages=messages_to_use,
+            model=self.model,
+            previous_response_id=response_id_to_use,
+            **params
+        )
+    elif use_responses:
+        if hasattr(vendor_wrapper, '_hit_api_async_responses'):
+            result = await vendor_wrapper._hit_api_async_responses(
+                messages=messages_to_use,
+                model=self.model,
+                previous_response_id=response_id_to_use,
+                **params
+            )
+        else:
+            # Fallback to regular chat completions
+            result = await vendor_wrapper._hit_api_async(messages_to_use, **params)
+            result.api_type = "chat"
+    else:
+        # Standard chat completions
+        result = await vendor_wrapper._hit_api_async(messages_to_use, **params)
+        result.api_type = "chat"
+    
+    # Update stored response ID if auto-storing
+    if self.auto_store_responses and result.response_id:
+        self._last_response_id = result.response_id
+    
+    return result
+```
+
+### 3. Configuration Updates
+
+#### 3.1 Environment Variables
+Add new config options:
+- `SYNTH_AI_AUTO_STORE_RESPONSES=true`
+- `SYNTH_AI_USE_RESPONSES_API=auto|true|false`
+- `SYNTH_GPU_HARMONY_ENDPOINT=https://...`
+
+#### 3.2 Dependencies
+**File:** `pyproject.toml`
+```toml
+[dependencies]
+# ... existing deps ...
+openai-harmony = {version = ">=0.0.1", optional = true}
+
+[extras]
+harmony = ["openai-harmony"]
+```
+
+### 4. Implementation Phases
+
+#### Phase 1: Core Infrastructure (1-2 days)
+1. Update `BaseLMResponse` with new fields
+2. Add detection logic for Responses API models
+3. Update `respond_async` signature with `previous_response_id`
+4. Add auto-store logic and `_last_response_id` state
+
+#### Phase 2: OpenAI Responses API (1-2 days)
+1. Implement `_hit_api_async_responses` in `OpenAIStandardClient`
+2. Add proper error handling and retries
+3. Test with o1-mini and gpt-4o-mini models
+
+#### Phase 3: Harmony Support (2-3 days)
+1. Add openai-harmony dependency handling
+2. Implement `_hit_api_async_harmony` method
+3. Add Synth GPU endpoint integration
+4. Test with gpt-oss models
+
+#### Phase 4: Synth Native Support (1-2 days)
+1. Add Responses API support to `AsyncSynthClient`
+2. Update Synth backend to support Responses format
+3. Test integration
+
+#### Phase 5: Documentation & Testing (1 day)
+1. Update documentation with examples
+2. Add comprehensive tests
+3. Update README with new capabilities
+
+### 5. Usage Examples
+
+```python
+# Auto-chaining (default behavior)
+lm = LM("o1-mini")
+r1 = await lm.respond_async("Hello", "Hi there")
+r2 = await lm.respond_async("Continue", "What's next?")  # Auto-uses r1.response_id
+
+# Manual thread management
+lm = LM("gpt-oss-120b", auto_store_responses=False)
+r1 = await lm.respond_async("Hello", "Hi there")
+r2 = await lm.respond_async("Continue", "Branch A", previous_response_id=r1.response_id)
+r3 = await lm.respond_async("Different", "Branch B", previous_response_id=r1.response_id)
+
+# Access reasoning trace (o1 models)
+if r1.reasoning:
+    print("Model reasoning:", r1.reasoning)
+```
+
+### 6. Backward Compatibility
+
+All changes are designed to be backward compatible:
+- Existing `respond_async`/`respond_sync` calls work unchanged
+- New fields in `BaseLMResponse` are optional
+- Auto-detection means no config changes needed for basic usage
+- Manual control available via new parameters
+
+This plan provides a comprehensive, phased approach to adding Responses API support while maintaining the existing architecture and ensuring smooth migration.
+
+How to run gpt-oss with vLLM
+
+
+Dominik KundelVerified
+Dominik Kundel(OpenAI)
+Open in Github
+vLLM is an open-source, high-throughput inference engine designed to efficiently serve large language models (LLMs) by optimizing memory usage and processing speed. This guide will walk you through how to use vLLM to set up gpt-oss-20b or gpt-oss-120b on a server to serve gpt-oss as an API for your applications, and even connect it to the Agents SDK.
+
+Note that this guide is meant for server applications with dedicated GPUs like NVIDIA’s H100s. For local inference on consumer GPUs, check out our Ollama guide.
+
+Pick your model
+
+vLLM supports both model sizes of gpt-oss:
+
+openai/gpt-oss-20b
+The smaller model
+Only requires about 16GB of VRAM
+openai/gpt-oss-120b
+Our larger full-sized model
+Best with ≥60GB VRAM
+Can fit on a single H100 or multi-GPU setups
+Both models are MXFP4 quantized out of the box.
+
+Quick Setup
+
+Install vLLM
+vLLM recommends using uv to manage your Python environment. This will help with picking the right implementation based on your environment. Learn more in their quickstart. To create a new virtual environment and install vLLM run:
+uv venv --python 3.12 --seed
+source .venv/bin/activate
+uv pip install vllm --torch-backend=auto
+
+Start up a server and download the model
+vLLM provides a serve command that will automatically download the model from HuggingFace and spin up an OpenAI-compatible server on localhost:8000. Run the following command depending on your desired model size in a terminal session on your server.
+# For 20B
+vllm serve openai/gpt-oss-20b
+ 
+# For 120B
+vllm serve openai/gpt-oss-120b
+
+Use the API
+
+vLLM exposes a Chat Completions-compatible API and a Responses-compatible API so you can use the OpenAI SDK without changing much. Here’s a Python example:
+
+from openai import OpenAI
+ 
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="EMPTY"
+)
+ 
+result = client.chat.completions.create(
+    model="openai/gpt-oss-20b",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain what MXFP4 quantization is."}
+    ]
+)
+ 
+print(result.choices[0].message.content)
+ 
+response = client.responses.create(
+    model="openai/gpt-oss-120b",
+    instructions="You are a helfpul assistant.",
+    input="Explain what MXFP4 quantization is."
+)
+ 
+print(response.output_text)
+
+If you’ve used the OpenAI SDK before, this will feel instantly familiar and your existing code should work by changing the base URL.
+
+Using tools (function calling)
+
+vLLM supports function calling and giving the model browsing capabilities.
+
+Function calling works through both the Responses and Chat Completions APIs.
+
+Example of invoking a function via Chat Completions:
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather in a given city",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"]
+            },
+        },
+    }
+]
+ 
+response = client.chat.completions.create(
+    model="openai/gpt-oss-120b",
+    messages=[{"role": "user", "content": "What's the weather in Berlin right now?"}],
+    tools=tools
+)
+ 
+print(response.choices[0].message)
+
+Since the models can perform tool calling as part of the chain-of-thought (CoT) it’s important for you to return the reasoning returned by the API back into a subsequent call to a tool call where you provide the answer until the model reaches a final answer.
+
+Agents SDK Integration
+
+Want to use gpt-oss with OpenAI’s Agents SDK?
+
+Both Agents SDK enable you to override the OpenAI base client to point to vLLM for your self-hosted models. Alternatively, for the Python SDK you can also use the LiteLLM integration to proxy to vLLM.
+
+Here’s a Python Agents SDK example:
+
+uv pip install openai-agents
+
+import asyncio
+from openai import AsyncOpenAI
+from agents import Agent, Runner, function_tool, OpenAIResponsesModel, set_tracing_disabled
+ 
+set_tracing_disabled(True)
+ 
+@function_tool
+def get_weather(city: str):
+    print(f"[debug] getting weather for {city}")
+    return f"The weather in {city} is sunny."
+ 
+ 
+async def main(model: str, api_key: str):
+    agent = Agent(
+        name="Assistant",
+        instructions="You only respond in haikus.",
+        model=OpenAIResponsesModel(
+            model="openai/gpt-oss-120b",
+            openai_client=AsyncOpenAI(
+                base_url="http://localhost:8000/v1",
+                api_key="EMPTY",
+            ),
+        )
+        tools=[get_weather],
+    )
+ 
+    result = await Runner.run(agent, "What's the weather in Tokyo?")
+    print(result.final_output)
+ 
+if __name__ == "__main__":
+    asyncio.run(main())
+
+Using vLLM for direct sampling
+
+Aside from running vLLM using vllm serve as an API server, you can use the vLLM Python library to control inference directly.
+
+If you are using vLLM for sampling directly it’s important to ensure that your input prompts follow the harmony response format as the model will not function correctly otherwise. You can use the openai-harmony SDK for this.
+
+uv pip install openai-harmony
+
+Afterwards you can use harmony to encode and parse the tokens generated by vLLM’s generate function.
+
+import json
+from openai_harmony import (
+    HarmonyEncodingName,
+    load_harmony_encoding,
+    Conversation,
+    Message,
+    Role,
+    SystemContent,
+    DeveloperContent,
+)
+ 
+from vllm import LLM, SamplingParams
+ 
+# --- 1) Render the prefill with Harmony ---
+encoding = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+ 
+convo = Conversation.from_messages(
+    [
+        Message.from_role_and_content(Role.SYSTEM, SystemContent.new()),
+        Message.from_role_and_content(
+            Role.DEVELOPER,
+            DeveloperContent.new().with_instructions("Always respond in riddles"),
+        ),
+        Message.from_role_and_content(Role.USER, "What is the weather like in SF?"),
+    ]
+)
+ 
+prefill_ids = encoding.render_conversation_for_completion(convo, Role.ASSISTANT)
+ 
+# Harmony stop tokens (pass to sampler so they won't be included in output)
+stop_token_ids = encoding.stop_tokens_for_assistant_action()
+ 
+# --- 2) Run vLLM with prefill ---
+llm = LLM(
+    model="openai/gpt-oss-120b",
+    trust_remote_code=True,
+)
+ 
+sampling = SamplingParams(
+    max_tokens=128,
+    temperature=1,
+    stop_token_ids=stop_token_ids,
+)
+ 
+outputs = llm.generate(
+    prompt_token_ids=[prefill_ids],   # batch of size 1
+    sampling_params=sampling,
+)
+ 
+# vLLM gives you both text and token IDs
+gen = outputs[0].outputs[0]
+text = gen.text
+output_tokens = gen.token_ids  # <-- these are the completion token IDs (no prefill)
+ 
+# --- 3) Parse the completion token IDs back into structured Harmony messages ---
+entries = encoding.parse_messages_from_completion_tokens(output_tokens, Role.ASSISTANT)
+ 
+# 'entries' is a sequence of structured conversation entries (assistant messages, tool calls, etc.).
+for message in entries:
+    print(f"{json.dumps(message.to_dict())}")
+    ----------------------
+    

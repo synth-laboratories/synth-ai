@@ -1,0 +1,222 @@
+Monorepo (learning_v2) changes required for Synth-AI integration
+===============================================================
+Goal: allow clients to (a) request a GPU type per call, (b) warm-up a model on
+that GPU, and (c) keep 100 % backward-compatibility.
+
+────────────────────────────────────────────────────────────────────────
+1. Inference – /chat/completions
+────────────────────────────────────────────────────────────────────────
+• Accept optional GPU *spec* via
+    • HTTP header:  X-GPU-Preference: <spec>
+    • **AND/OR** JSON body field:  "gpu_preference" (optional).
+
+Where `<spec>` is any key from `gpu_config.ALLOWED_GPUS`, e.g.
+    A10G   | L40S   | A100 | H100  (single-GPU)
+    L40S:2 | A100:2 | H100:4 | H100:8  (multi-GPU).
+• In `api_openai_complete.py`:
+    – Extract header/body value (``gpu_pref``).
+    – Pass it to `inference_router.route_completion` &
+      `route_streaming_completion`.
+• `InferenceRouter`
+    – Update method signatures to receive `gpu_preference: Optional[str]`.
+    – In `_select_gpu_for_model`, if `gpu_preference` is in
+      `model_cfg.inference_gpus` **return it**, else fallback.
+    – Raise HTTP 400 if caller requests an unsupported GPU.
+• Response hygiene: include chosen GPU in
+      ```json
+      { ... , "system_fingerprint": {"selected_gpu": "L40S"}}
+      ```
+
+────────────────────────────────────────────────────────────────────────
+2. Warm-up – /warmup/{model_id}
+────────────────────────────────────────────────────────────────────────
+• Endpoint lives in `unified_ft_service/api.py`.
+• Add optional header & query param `gpu` (alias of header).
+• Pass value to existing helper `choose_gpu(model_id, req_gpu)`.
+• Update warm-up JSON response: `{ "status": "warming|warmed", "gpu": "L40S"}`.
+• Status endpoint (`/warmup/status/...`) should echo the GPU as well.
+• Ensure `backend/app/services/learning_v2/backend_routes.py` proxy forwards
+  the header for Render deployments.
+
+────────────────────────────────────────────────────────────────────────
+3. Validation helpers
+────────────────────────────────────────────────────────────────────────
+• `choose_gpu()` already validates – no change.
+• Extend `ValidationRequest` (capabilities API) with `gpu` to let callers
+  pre-flight a configuration.
+
+────────────────────────────────────────────────────────────────────────
+4. Documentation / specs
+────────────────────────────────────────────────────────────────────────
+• Update `learning_v2_api_structure.txt` – document header + JSON field.
+• README / reference docs: describe GPU override & warm-up usage.
+
+────────────────────────────────────────────────────────────────────────
+5. Tests
+────────────────────────────────────────────────────────────────────────
+A. Inference GPU override
+~~~~~~~~~~~~~~~~~~~~~~~~~
+File: `tests/dev/learning_v2/test_gpu_override_v2.py`
+```python
+import pytest, asyncio, httpx, os
+API_URL = os.getenv("LEARNING_V2_BASE_URL", "http://localhost:8000")
+
+@pytest.mark.parametrize("gpu_spec", ["L40S", "A100", "H100:2"])
+async def test_gpu_override(monkeypatch, gpu_spec):
+    # Monkey-patch get_gpu_function to record which GPU is chosen
+    chosen = {}
+    from app.services.learning_v2.modal_service import api_openai_complete as api
+    def fake_get_gpu_function(gpu, task):
+        chosen["gpu"] = gpu
+        async def _dummy(model_id, req):
+            return {"content": "ok"}
+        return _dummy
+    monkeypatch.setattr(api.InferenceRouter, "get_gpu_function", fake_get_gpu_function)
+
+    headers = {"X-GPU-Preference": gpu_spec}
+    payload = {"model": "Qwen/Qwen3-0.6B", "messages": [{"role": "user", "content": "hi"}]}
+    async with httpx.AsyncClient(timeout=30) as c:
+        r = await c.post(f"{API_URL}/chat/completions", json=payload, headers=headers)
+    assert r.status_code == 200
+    assert chosen["gpu"] == gpu_spec  # router honoured the preference
+```
+
+B. Warm-up with GPU spec
+~~~~~~~~~~~~~~~~~~~~~~~~
+File: `tests/dev/learning_v2/test_warmup_gpu.py`
+```python
+import pytest, asyncio, httpx, os, time
+API_URL = os.getenv("LEARNING_V2_BASE_URL", "http://localhost:8000")
+
+async def wait_ready(model_id, headers, timeout=120):
+    async with httpx.AsyncClient() as c:
+        t0 = time.time()
+        while time.time() - t0 < timeout:
+            r = await c.get(f"{API_URL}/warmup/status/{model_id}", headers=headers)
+            if r.status_code == 200 and r.json().get("status") == "warmed":
+                return True
+            await asyncio.sleep(2)
+    return False
+
+@pytest.mark.asyncio
+async def test_warmup_specific_gpu():
+    model = "Qwen/Qwen3-0.6B"
+    gpu_spec = "L40S"
+    headers = {"X-GPU-Preference": gpu_spec}
+    async with httpx.AsyncClient(timeout=10) as c:
+        r = await c.post(f"{API_URL}/warmup/{model}", headers=headers)
+        assert r.status_code == 200
+        assert r.json()["status"] in {"warming", "warmed"}
+    assert await wait_ready(model, headers)
+```
+
+C. Validation endpoint
+~~~~~~~~~~~~~~~~~~~~~~
+File: `tests/dev/learning_v2/test_validate_gpu.py`
+```python
+import httpx, os
+API_URL = os.getenv("LEARNING_V2_BASE_URL", "http://localhost:8000")
+
+def test_validate():
+    payload = {"model": "Qwen/Qwen3-0.6B", "gpu": "A10G", "task_type": "inference"}
+    r = httpx.post(f"{API_URL}/v1/capabilities/validate", json=payload)
+    assert r.status_code == 200
+    assert r.json()["valid"] is True
+```
+
+────────────────────────────────────────────────────────────────────────
+6. CORS / security
+────────────────────────────────────────────────────────────────────────
+• Ensure FastAPI CORSMiddleware exposes custom header.
+    ```python
+    allow_headers=["*", "X-GPU-Preference"]
+    ```
+• No auth changes: header is allowed only after API-key auth.
+
+────────────────────────────────────────────────────────────────────────
+7. Backwards compatibility
+────────────────────────────────────────────────────────────────────────
+• Calls without header / body field follow current behaviour.
+• Warm-up without header uses model default GPU.
+• No breaking schema changes.
+
+────────────────────────────────────────────────────────────────────────
+Implementation notes
+────────────────────────────────────────────────────────────────────────
+• `GPU.from_string()` helper exists – reuse for validation.
+• Keep error messages aligned with existing validation style.
+• When adding body field, remember to bump `ChatCompletionRequest` version.
+
+
+
+
+
+MONOREPO APIS added
+
+⏺ GPU Configuration Endpoints Summary
+
+  1. Chat Completions with GPU Preference
+
+  Endpoints:
+  - POST /api/chat/completions
+  - POST /api/v1/chat/completions
+
+  Parameters:
+  - Header: X-GPU-Preference: <gpu_spec> (optional)
+  - Body field: gpu_preference: <gpu_spec> (optional, takes precedence)
+  - GPU specs: A10G, L40S, A100, H100, L40S:2, A100:2, H100:4, H100:8
+
+  Response: Returns selected GPU in system_fingerprint field
+
+  ---
+  2. Warmup Model on Specific GPU
+
+  Endpoint: POST /api/warmup/{model_id}
+
+  Parameters:
+  - Path: model_id (required)
+  - Query param: ?gpu=<gpu_spec> (optional)
+  - Header: X-GPU-Preference: <gpu_spec> (optional)
+
+  Response:
+  {
+    "status": "warmed",
+    "model": "Qwen/Qwen3-0.6B",
+    "gpu": "L40S",
+    "timestamp": 1234567890
+  }
+
+  ---
+  3. Check Warmup Status
+
+  Endpoint: GET /api/warmup/status/{model_id}
+
+  Parameters:
+  - Path: model_id (required)
+  - Header: X-GPU-Preference: <gpu_spec> (optional)
+
+  Response: Status of model warmup on specified GPU
+
+  ---
+  4. Validate GPU-Model Configuration
+
+  Endpoint: POST /api/v1/capabilities/validate
+
+  Body:
+  {
+    "model": "Qwen/Qwen3-0.6B",
+    "gpu": "A100",
+    "task_type": "inference"  // or "training"
+  }
+
+  Response:
+  {
+    "valid": true,
+    "errors": [],
+    "suggestions": [],
+    "gpu": "A100",
+    "model": "Qwen/Qwen3-0.6B"
+  }
+
+  All endpoints maintain backward compatibility - GPU parameters are optional and the system uses automatic selection when not
+  specified.

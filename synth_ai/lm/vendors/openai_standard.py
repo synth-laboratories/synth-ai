@@ -13,6 +13,7 @@ from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 from synth_ai.lm.vendors.retries import MAX_BACKOFF
+from synth_ai.lm.vendors.openai_standard_responses import OpenAIResponsesAPIMixin
 import backoff
 
 DEFAULT_EXCEPTIONS_TO_RETRY = (
@@ -51,7 +52,7 @@ def _silent_backoff_handler(_details):
     pass
 
 
-class OpenAIStandard(VendorBase):
+class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     """
     Standard OpenAI-compatible vendor implementation.
     
@@ -80,6 +81,16 @@ class OpenAIStandard(VendorBase):
         self.async_client = async_client
         self.used_for_structured_outputs = used_for_structured_outputs
         self.exceptions_to_retry = exceptions_to_retry
+        
+        # Initialize Harmony support for OSS models
+        self.harmony_available = False
+        self.harmony_enc = None
+        try:
+            from openai_harmony import load_harmony_encoding, HarmonyEncodingName
+            self.harmony_available = True
+            self.harmony_enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+        except ImportError:
+            pass
 
     @backoff.on_exception(
         backoff.expo,
@@ -100,6 +111,13 @@ class OpenAIStandard(VendorBase):
         assert lm_config.get("response_model", None) is None, (
             "response_model is not supported for standard calls"
         )
+        
+        print(f"🔍 OPENAI DEBUG: _hit_api_async called with:")
+        print(f"   Model: {model}")
+        print(f"   Messages: {len(messages)} messages") 
+        print(f"   Tools: {len(tools) if tools else 0} tools")
+        print(f"   LM config: {lm_config}")
+        
         messages = special_orion_transform(model, messages)
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
         lm_config["reasoning_effort"] = reasoning_effort
@@ -107,7 +125,12 @@ class OpenAIStandard(VendorBase):
             model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result:
-            return cache_result
+            print(f"🔍 OPENAI DEBUG: Cache hit! Returning cached result")
+            print(f"   Cache result type: {type(cache_result)}")
+            print(f"🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
+            # return cache_result  # Commented out to force API call
+        
+        print(f"🔍 OPENAI DEBUG: Cache miss, making actual API call")
 
         # Common API call params
         api_params = {
@@ -133,25 +156,56 @@ class OpenAIStandard(VendorBase):
             api_params["reasoning_effort"] = reasoning_effort
 
         # Call API with better auth error reporting
-        try:
-            output = await self.async_client.chat.completions.create(**api_params)
-        except Exception as e:
-            try:
-                from openai import AuthenticationError as _OpenAIAuthErr  # type: ignore
-            except ModuleNotFoundError:
-                _OpenAIAuthErr = type(e)
-            if isinstance(e, _OpenAIAuthErr):
-                key_preview = (os.getenv("OPENAI_API_KEY") or "")[:8]
-                # Create a more informative error message but preserve the original exception
-                enhanced_msg = f"Invalid API key format. Expected prefix 'sk-' or 'sk_live_'. Provided key begins with '{key_preview}'. Original error: {str(e)}"
-                # Re-raise the original exception with enhanced message if possible
-                if hasattr(e, 'response') and hasattr(e, 'body'):
-                    raise _OpenAIAuthErr(enhanced_msg, response=e.response, body=e.body) from None
-                else:
-                    # Fallback: just re-raise the original with a print for debugging
-                    print(f"🔑 API Key Debug: {enhanced_msg}")
-                    raise e from None
-            raise
+        #try:
+        print(f"🔍 OPENAI DEBUG: Making request with params:")
+        print(f"   Model: {api_params.get('model')}")
+        print(f"   Messages: {len(api_params.get('messages', []))} messages")
+        print(f"   Tools: {len(api_params.get('tools', []))} tools")
+        print(f"   Max tokens: {api_params.get('max_tokens', 'NOT SET')}")
+        print(f"   Temperature: {api_params.get('temperature', 'NOT SET')}")
+        if 'tools' in api_params:
+            print(f"   First tool: {api_params['tools'][0]}")
+        print(f"   FULL API PARAMS: {api_params}")
+        
+        output = await self.async_client.chat.completions.create(**api_params)
+        
+        print(f"🔍 OPENAI DEBUG: Response received:")
+        print(f"   Type: {type(output)}")
+        print(f"   Choices: {len(output.choices) if hasattr(output, 'choices') else 'N/A'}")
+        if hasattr(output, 'choices') and output.choices:
+            choice = output.choices[0]
+            print(f"   Choice type: {type(choice)}")
+            if hasattr(choice, 'message'):
+                message = choice.message
+                print(f"   Message type: {type(message)}")
+                print(f"   Has tool_calls: {hasattr(message, 'tool_calls')}")
+                if hasattr(message, 'tool_calls'):
+                    print(f"   Tool calls: {message.tool_calls}")
+                print(f"   Content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}...")
+                
+                # Print FULL response for debugging
+                print(f"🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
+                if hasattr(message, 'content') and message.content:
+                    print(f"   FULL CONTENT:\n{message.content}")
+                print(f"   Raw choice: {choice}")
+                print(f"   Raw message: {message}")
+        # except Exception as e:
+        #     try:
+        #         from openai import AuthenticationError as _OpenAIAuthErr  # type: ignore
+        #     except ModuleNotFoundError:
+        #         _OpenAIAuthErr = type(e)
+        #     if isinstance(e, _OpenAIAuthErr):
+        #         key_preview = (os.getenv("OPENAI_API_KEY") or "")[:8]
+        #         # Create a more informative error message but preserve the original exception
+        #         enhanced_msg = f"Invalid API key format. Expected prefix 'sk-' or 'sk_live_'. Provided key begins with '{key_preview}'. Original error: {str(e)}"
+        #         # Re-raise the original exception with enhanced message if possible
+        #         if hasattr(e, 'response') and hasattr(e, 'body'):
+        #             raise _OpenAIAuthErr(enhanced_msg, response=e.response, body=e.body) from None
+        #         else:
+        #             # Fallback: just re-raise the original with a print for debugging
+        #             print(f"🔑 API Key Debug: {enhanced_msg}")
+        #             raise e from None
+        #     raise
         message = output.choices[0].message
 
         # Convert tool calls to dict format

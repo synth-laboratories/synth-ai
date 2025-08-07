@@ -102,6 +102,9 @@ class LM:
         system_id: Optional[str] = None,
         enable_v3_tracing: bool = True,
         enable_v2_tracing: Optional[bool] = None,  # v2 compatibility
+        # Responses API parameters
+        auto_store_responses: bool = True,
+        use_responses_api: Optional[bool] = None,
         **additional_params,
     ):
         # Handle v2 compatibility parameters
@@ -160,6 +163,11 @@ class LM:
         self.system_id = system_id or f"lm_{self.vendor or 'unknown'}_{self.model or 'unknown'}"
         self.enable_v3_tracing = enable_v3_tracing
         self.additional_params = additional_params
+        
+        # Responses API thread management
+        self.auto_store_responses = auto_store_responses
+        self.use_responses_api = use_responses_api
+        self._last_response_id: Optional[str] = None
 
         # Set structured output handler if needed
         if self.response_format:
@@ -180,6 +188,25 @@ class LM:
             self._vendor_wrapper = get_client(self.model, provider=self.vendor)
         return self._vendor_wrapper
 
+    def _should_use_responses_api(self) -> bool:
+        """Determine if Responses API should be used."""
+        if self.use_responses_api is not None:
+            return self.use_responses_api
+        
+        # Auto-detect based on model
+        RESPONSES_MODELS = {
+            "o4-mini", "o3", "o3-mini",  # Supported Synth-hosted models
+            "gpt-oss-120b", "gpt-oss-20b"  # OSS models via Synth
+        }
+        return self.model in RESPONSES_MODELS or (self.model and self.model in reasoning_models)
+
+    def _should_use_harmony(self) -> bool:
+        """Determine if Harmony encoding should be used for OSS models."""
+        # Only use Harmony for OSS models when NOT using OpenAI vendor
+        # OpenAI hosts these models directly via Responses API
+        HARMONY_MODELS = {"gpt-oss-120b", "gpt-oss-20b"}
+        return self.model in HARMONY_MODELS and self.vendor != "openai"
+
     async def respond_async(
         self,
         system_message: Optional[str] = None,
@@ -190,6 +217,7 @@ class LM:
         response_model: Optional[BaseModel] = None,  # v2 compatibility
         tools: Optional[List[BaseTool]] = None,
         turn_number: Optional[int] = None,
+        previous_response_id: Optional[str] = None,  # Responses API thread management
         **kwargs,
     ) -> BaseLMResponse:
         """Async method to get LM response with v3 tracing."""
@@ -229,6 +257,17 @@ class LM:
 
         # Get vendor wrapper
         vendor_wrapper = self.get_vendor_wrapper()
+        
+        # Determine API type to use
+        use_responses = self._should_use_responses_api()
+        use_harmony = self._should_use_harmony()
+        
+        # Decide response ID to use for thread management
+        response_id_to_use = None
+        if previous_response_id:
+            response_id_to_use = previous_response_id  # Manual override
+        elif self.auto_store_responses and self._last_response_id:
+            response_id_to_use = self._last_response_id  # Auto-chain
 
         # Prepare parameters based on vendor type
         if hasattr(vendor_wrapper, "_hit_api_async"):
@@ -256,21 +295,36 @@ class LM:
             if self.json_mode:
                 params["response_format"] = {"type": "json_object"}
 
-        # Call vendor
+        # Call vendor with appropriate API type
         try:
-            # Try the standard method names
-            if hasattr(vendor_wrapper, "_hit_api_async"):
-                response = await vendor_wrapper._hit_api_async(**params)
-            elif hasattr(vendor_wrapper, "respond_async"):
-                response = await vendor_wrapper.respond_async(**params)
-            elif hasattr(vendor_wrapper, "respond"):
-                # Fallback to sync in executor
-                loop = asyncio.get_event_loop()
-                response = await loop.run_in_executor(None, vendor_wrapper.respond, params)
+            # Route to appropriate API
+            if use_harmony and hasattr(vendor_wrapper, "_hit_api_async_harmony"):
+                params["previous_response_id"] = response_id_to_use
+                response = await vendor_wrapper._hit_api_async_harmony(**params)
+            elif use_responses and hasattr(vendor_wrapper, "_hit_api_async_responses"):
+                params["previous_response_id"] = response_id_to_use
+                response = await vendor_wrapper._hit_api_async_responses(**params)
             else:
-                raise AttributeError(
-                    f"Vendor wrapper {type(vendor_wrapper).__name__} has no suitable response method"
-                )
+                # Standard chat completions API
+                if hasattr(vendor_wrapper, "_hit_api_async"):
+                    response = await vendor_wrapper._hit_api_async(**params)
+                elif hasattr(vendor_wrapper, "respond_async"):
+                    response = await vendor_wrapper.respond_async(**params)
+                elif hasattr(vendor_wrapper, "respond"):
+                    # Fallback to sync in executor
+                    loop = asyncio.get_event_loop()
+                    response = await loop.run_in_executor(None, vendor_wrapper.respond, params)
+                else:
+                    raise AttributeError(
+                        f"Vendor wrapper {type(vendor_wrapper).__name__} has no suitable response method"
+                    )
+                if not hasattr(response, 'api_type'):
+                    response.api_type = "chat"
+                    
+            # Update stored response ID if auto-storing
+            if self.auto_store_responses and hasattr(response, 'response_id') and response.response_id:
+                self._last_response_id = response.response_id
+                
         except Exception as e:
             print(f"Error calling vendor: {e}")
             raise
@@ -370,6 +424,7 @@ class LM:
         images_as_bytes: Optional[List[bytes]] = None,  # v2 compatibility
         response_model: Optional[BaseModel] = None,  # v2 compatibility
         tools: Optional[List[BaseTool]] = None,
+        previous_response_id: Optional[str] = None,  # Responses API thread management
         turn_number: Optional[int] = None,
         **kwargs,
     ) -> BaseLMResponse:

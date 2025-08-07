@@ -1568,7 +1568,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.63.0"
+version = "1.99.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1580,9 +1580,67 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/32/2049e973a646801df425aecdf88c6504ca878bdb3951fe12076fc30f2977/openai-1.63.0.tar.gz", hash = "sha256:597d7a1b35b113e5a09fcb953bdb1eef44f404a39985f3d7573b3ab09221fd66", size = 356710, upload-time = "2025-02-13T20:04:27.344Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/30/f0fb7907a77e733bb801c7bdcde903500b31215141cdb261f04421e6fbec/openai-1.99.1.tar.gz", hash = "sha256:2c9d8e498c298f51bb94bcac724257a3a6cac6139ccdfc1186c6708f7a93120f", size = 497075, upload-time = "2025-08-05T19:42:36.131Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/a0/e1fe4e87218639fc0a0927da5266c2978eaa0e2eb5437479ee64a11535bb/openai-1.63.0-py3-none-any.whl", hash = "sha256:a664dfc78f0a05ca46c3e21f344f840cf6bf7174f13cfa9de214ed28bfca1dda", size = 472282, upload-time = "2025-02-13T20:04:25.401Z" },
+    { url = "https://files.pythonhosted.org/packages/54/15/9c85154ffd283abfc43309ff3aaa63c3fd02f7767ee684e73670f6c5ade2/openai-1.99.1-py3-none-any.whl", hash = "sha256:8eeccc69e0ece1357b51ca0d9fb21324afee09b20c3e5b547d02445ca18a4e03", size = 767827, upload-time = "2025-08-05T19:42:34.192Z" },
+]
+
+[[package]]
+name = "openai-harmony"
+version = "0.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5d/4f/774c417ffe674b44b9ef9a8d2f48b9b0c5013dafbd7ea427a93b566ab454/openai_harmony-0.0.1.tar.gz", hash = "sha256:5f7e12f5eccc56164c51559ea3bf70a6e334e3d9f456f4131f5502e52301f12e", size = 276910, upload-time = "2025-08-05T15:55:59.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/04/cfd459c2803d54923aeb6ef2767b2402d937a174ee6c82c23168544f92df/openai_harmony-0.0.1-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:9219516ebafd265272b114ff2f7b0aff959e034f9537950ce0aeba5804e1be60", size = 2769520, upload-time = "2025-08-05T15:55:10.762Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/da/df138522e87dcc60c0454f743a3b1e64cf5f91bc1d6e1ce2719ffb901240/openai_harmony-0.0.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:8f2c7d6b8744876ca074477cb4697870fc5379e93af35e16237a51a92e312edc", size = 2633124, upload-time = "2025-08-05T15:55:06.879Z" },
+    { url = "https://files.pythonhosted.org/packages/98/b0/35c7d2c90a65bcf53b081d28f890dae05f1b3e064a77cfa9286e23238c10/openai_harmony-0.0.1-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d08b2d0015644e059e73678b26d55c0438445c5e32eb1eacfa5f8383ca1af06e", size = 14505, upload-time = "2025-08-05T15:54:43.649Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/fe/19d5371c7911f06811b16b2e3825393c0ac2b2cef37ebba8b282a0a8e60e/openai_harmony-0.0.1-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a6a526484399d46694f0b5a3326d25d0e38c2f27cb0d9fce63cf5a01c27a8b57", size = 13751, upload-time = "2025-08-05T15:54:52.486Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/0a/09c5626f4f0407bfdb630cebea279e8e797267c073bce347467a139f000b/openai_harmony-0.0.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:5c4dc9f0d35f7820f4436c477aac62d289e91726786604af3a39c6883c76d424", size = 13721, upload-time = "2025-08-05T15:55:00.271Z" },
+    { url = "https://files.pythonhosted.org/packages/63/dd/72b950a9f53556061645d4f54b83473f73d0de1613c93dfe5de807478e6b/openai_harmony-0.0.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:bcb88ef81e43bd0b4c47083f4904b146c48d3a637485fa241c580cec0c3f8832", size = 195792, upload-time = "2025-08-05T15:55:16.183Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/8a/ac9913d0b993e20b35016d4164c8db62fa52123ffb04a4a54c95b69f35d5/openai_harmony-0.0.1-cp311-cp311-musllinux_1_2_armv7l.whl", hash = "sha256:c11084c9c852377841d2c9f4961c232838d99661a16a3906e42d60851c6778df", size = 278237, upload-time = "2025-08-05T15:55:27.55Z" },
+    { url = "https://files.pythonhosted.org/packages/55/95/3d6c9cad778cb06083c10545f409705aaa50bcd476f4e282ccdddfecc716/openai_harmony-0.0.1-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:faccdf0d43d5b7df8c7e2d1e1b41992288983e2435a68c1c8f90eee18d87c4a0", size = 199837, upload-time = "2025-08-05T15:55:38.327Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/bc/10fd52fb7c9d7f4d916ceda4e611a2b83fa42ec0731f97c8d766b048996c/openai_harmony-0.0.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:8898d7500e29b39942920c11ab9f6f11fecc682d55ab9b60547b50325df8ffd5", size = 185753, upload-time = "2025-08-05T15:55:49.138Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/dd/158208376c2d77dd5914649e86fb3e11a4527e9c8bd53e26e982334909d6/openai_harmony-0.0.1-cp311-cp311-win32.whl", hash = "sha256:3cf7e19589b154543b17bf4b5d37abca1c76b9845ae5f3e9c1e894d0fa05166e", size = 2076453, upload-time = "2025-08-05T15:56:08.915Z" },
+    { url = "https://files.pythonhosted.org/packages/68/9c/10c8b28ebe91335ab0d4a4928e1fdc69e24ce60b8786d20c639379285c4f/openai_harmony-0.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bcd80358b74c4c802be11b22821d3724e8d8e0ed87cea04a0a794e35733356fa", size = 2443555, upload-time = "2025-08-05T15:56:01.762Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/ad/6ea0dc092029a285e0cf2891bca448304e67f33bda3b949ffdee31bf9816/openai_harmony-0.0.1-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:da505b8a418c3502dd53a2e46662fa67d62d29f39f5aabb2d74b920a82494098", size = 2765437, upload-time = "2025-08-05T15:55:12.049Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/ea/a546680382d2221f1c8f6e5a2c4127dbbe90849e3a66562fa52a3e48d3a3/openai_harmony-0.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:b60e020fd43f22b54caaa486d33c168b883831929f54155c2603f5837dc608e0", size = 2628992, upload-time = "2025-08-05T15:55:08.168Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/e8/d154e6caa83cd0228ecca00f7e7adb73b4e84868b56203ba9653dfa9ae02/openai_harmony-0.0.1-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:ac7161424ddd0f2baff99ecb55ea84da33354c8db38dacd410bb906d3a2aaa91", size = 14504, upload-time = "2025-08-05T15:54:44.504Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/fe/a71a5bc6554d3c9989983c835c928e766a50fc54896b434bc2fe34bcdc93/openai_harmony-0.0.1-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:bb1fafe0e914e1ed0f6c7729afe7f5a7403177e6fb8ccc900d23722a793b416c", size = 13753, upload-time = "2025-08-05T15:54:53.418Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/46/506c9a15f8c72726f19349bf877abef2b6ce72f6c238d9ca785cf734ac54/openai_harmony-0.0.1-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:056ef67977aa26d0e120cb6a5c7d0ddf0aa4fd499b38f68fb408f3316b1755d5", size = 13720, upload-time = "2025-08-05T15:55:01.014Z" },
+    { url = "https://files.pythonhosted.org/packages/01/1e/5903aa19a7589139ef6418b7230e1ca202a85785be0b13050dc051fce037/openai_harmony-0.0.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:9adf3c3857874a99fdb2af6a8b0a49c1cd6c049b050600f9250603adda7faba5", size = 195791, upload-time = "2025-08-05T15:55:17.167Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/bb/ef98796cf64bfde83b94a88f4d790ecf5323da37294cad67736c6c484d58/openai_harmony-0.0.1-cp312-cp312-musllinux_1_2_armv7l.whl", hash = "sha256:a74dd2ff4009b923e5dec026bab845ae05d9f99ac732cec74f8a3162e407c94d", size = 278239, upload-time = "2025-08-05T15:55:28.624Z" },
+    { url = "https://files.pythonhosted.org/packages/91/6f/00d61d9e2581baecc22967997bb369422918588c900acddb3b8a79abf955/openai_harmony-0.0.1-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:657b64b0a5b64380a47a7b6f59d4188b26e5016c94cdca2c6b8d876eea23bfb0", size = 199837, upload-time = "2025-08-05T15:55:39.368Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/1e/53788906ff0b949cd414fa7b20f307c2d2222e39f8bce8e6ed6709b0bdbf/openai_harmony-0.0.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7a840ea0f740e3fa83c06bb3f7179fe1b41d994e78924d576591853916cf4c71", size = 185752, upload-time = "2025-08-05T15:55:50.219Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/b1/924304ad12c0d53966f4ed4fe5f98466d18838f73ccad3789423246be737/openai_harmony-0.0.1-cp312-cp312-win32.whl", hash = "sha256:5767a3be87be8e87cb29d743fd5d90ca19c63be81eb78539a3715f33252d6bde", size = 2076626, upload-time = "2025-08-05T15:56:10.201Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/e1/108ff6ce7fc763bc12e620ac797cd5d8e840975227eeeb7b6ed8a99897fb/openai_harmony-0.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:22a273abaf09b686522657b6c12a172f4a049b5042a9e1d7201516f37db02083", size = 2444346, upload-time = "2025-08-05T15:56:03.018Z" },
+    { url = "https://files.pythonhosted.org/packages/26/63/5b93a5be4719d6fbbc6602e3c37e812daa6bf3ac5648cb5cacb32d0b3c87/openai_harmony-0.0.1-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:ac65b28e29517e18ad7a762735584cab4a99400ae715a5aa633e9e84b3ff8606", size = 2764898, upload-time = "2025-08-05T15:55:13.612Z" },
+    { url = "https://files.pythonhosted.org/packages/11/38/4ccbde925be631601d628e55541228dbcca28de453a96c37416f5f14b922/openai_harmony-0.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:00fa7cf45f04153791eafa9ca7d13ec09cca24d717794dc52a3bb33fb42ddb57", size = 2628169, upload-time = "2025-08-05T15:55:09.546Z" },
+    { url = "https://files.pythonhosted.org/packages/51/15/5eb4a958a470cc029fe06ece87ee9c649a871beff251b5c97fceca6800cf/openai_harmony-0.0.1-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:db194c9007c0004bf6531c166ef145e8e3e437acb5ba0857cf5714ff3dc5cb12", size = 14505, upload-time = "2025-08-05T15:54:45.507Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/4c/3115b422984ccd3a6e7d63d066e6486e6b6a113002dc790e458041160847/openai_harmony-0.0.1-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:7348c4292263a8eb5227533e74fa38b3a3cac3c4627b8159a3075145b30ee24e", size = 13752, upload-time = "2025-08-05T15:54:54.103Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/e9/fc35fa693af2609e0c6389d2b9f73d76792eee53f1b988d13966096bb315/openai_harmony-0.0.1-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:714ad7448bd67ce174f4bd63922bcac3aee88b2417ca930703a901ec46da7815", size = 13719, upload-time = "2025-08-05T15:55:01.741Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/0b/e0b7f1c155521ad8a26e70b8de049025750f9b08b447af93e44fbb763eaa/openai_harmony-0.0.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:e9959a08757f6484b34fb177e0ab3946312407fe6eaca4f05e762b012f97a5fb", size = 195790, upload-time = "2025-08-05T15:55:18.301Z" },
+    { url = "https://files.pythonhosted.org/packages/43/a8/a2f6c69a9e7b3ab0cbb10bb83bc2d63e7db6fb24eb3ad1535f97aefdd01d/openai_harmony-0.0.1-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:1a8dfe298f8ade49c83fd8efadb1b60860370db4c2a9ea512cac9734c1e51c62", size = 278237, upload-time = "2025-08-05T15:55:29.719Z" },
+    { url = "https://files.pythonhosted.org/packages/00/f2/841eac6ea66ed176970bdb8204922a17444ff71ecb83af1a9f46ce1ee4e2/openai_harmony-0.0.1-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:6611c94ede0d8fb240d92f0c91d5e38beb911f96cf666ed3d1e61929a7491340", size = 199838, upload-time = "2025-08-05T15:55:40.803Z" },
+    { url = "https://files.pythonhosted.org/packages/91/9b/a757ebc58a868879b11b114ba931cfe9f445a3af1ae265fb391d5a858fc4/openai_harmony-0.0.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:b8f768daee914924420e4ac316c5301ca6a47c21276ee6d10901d309af1107ca", size = 185754, upload-time = "2025-08-05T15:55:51.383Z" },
+    { url = "https://files.pythonhosted.org/packages/15/a7/d4b470e62facca411915de0037934d5ebee5a479215dd3b629f6f8417daa/openai_harmony-0.0.1-cp313-cp313-win32.whl", hash = "sha256:592f731d87bbff5357efaa42657cc6d4348001a89cd6cc52b0749f47e943fa0e", size = 2076306, upload-time = "2025-08-05T15:56:11.599Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/92/4c3fe470373c6cae79316709cb4357e7dd570f81181203da97de16dcd545/openai_harmony-0.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:a17e3c44fd292632e6a72ba2bac7417adcc5f0028f382a90829b9e737d2c58ec", size = 2443748, upload-time = "2025-08-05T15:56:04.5Z" },
+    { url = "https://files.pythonhosted.org/packages/82/ee/33245b948e62a663c0aee8af227aa2919bba2009a58a1ee98aaf8ebe1355/openai_harmony-0.0.1-cp313-cp313t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:2f2e3f46f0e634f46c439c6850a255a3ab730449e41a29e8aecdfe4b4d995a6a", size = 14509, upload-time = "2025-08-05T15:54:46.441Z" },
+    { url = "https://files.pythonhosted.org/packages/21/c9/c335c1689e2a68fe43ec2b8caaed6e8285a263408dd2c35d66605770758c/openai_harmony-0.0.1-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:6f55847068beb8f48475f5d2132c1e0c3bcfa2f994bdc0efb7f4befc669ef9db", size = 195795, upload-time = "2025-08-05T15:55:19.609Z" },
+    { url = "https://files.pythonhosted.org/packages/01/d1/2f75da2d08b0c60a07373517849e2f48f1bcc975957e765e4116e34557ed/openai_harmony-0.0.1-cp313-cp313t-musllinux_1_2_armv7l.whl", hash = "sha256:0830d208a32d469730d6f7a30695043c5f1f84e32c736f12b2f6cb78f5022514", size = 278242, upload-time = "2025-08-05T15:55:30.897Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/f7/5343cd69bdf172364b4e24d448ec41775a4f380867313fbc324d3e45248a/openai_harmony-0.0.1-cp313-cp313t-musllinux_1_2_i686.whl", hash = "sha256:5c7a3c4e2a7ecfa0aacf7be30408c05a65022c35094b7fb9a7be6dbc9b31794f", size = 199843, upload-time = "2025-08-05T15:55:41.694Z" },
+    { url = "https://files.pythonhosted.org/packages/58/1c/c7a47ecc41f11613871b9b21f2733892295b8d1fb6aae5a5a255978eefa0/openai_harmony-0.0.1-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:e998587c4b5bbb43292ee266958b8f3a657444d272ab1ef573b344fdf2c4ed60", size = 185758, upload-time = "2025-08-05T15:55:52.759Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/1c/36b5e61f77973b549e787098454f15222dca7f71f2dbe425aa53808c49fa/openai_harmony-0.0.1-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a73400fdb618230a7806407e98506d2fa7fc908d3131c48b86f60ba3e99669e9", size = 13752, upload-time = "2025-08-05T15:54:54.891Z" },
+    { url = "https://files.pythonhosted.org/packages/62/39/3d0ff592a24fdd79efc296afee338101e4fc36d5f33a97fe471f8059a33b/openai_harmony-0.0.1-cp314-cp314-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:f5531a570f190a35a20a43df786c311c2e6466825c89edfc97f4cbea89c6755e", size = 13720, upload-time = "2025-08-05T15:55:02.518Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/17/7d0712f3fe9778b662719e4480c98f0ff1df3da39b74b2c427eb079ecca4/openai_harmony-0.0.1-pp311-pypy311_pp73-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:945f3eed36170c8b92d9411c059364bf50f1470d6223d1b6100cd2bca68a0079", size = 14496, upload-time = "2025-08-05T15:54:49.824Z" },
+    { url = "https://files.pythonhosted.org/packages/81/ff/555f8ccae5246e9b50c9df99ccbd29ea2ab5f1077d8c2a23f8604293f062/openai_harmony-0.0.1-pp311-pypy311_pp73-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:25f18a7560e7fc4b614328a16d212c49728f9baafa8991936287c0f7b2f2e6a5", size = 13757, upload-time = "2025-08-05T15:54:58.639Z" },
+    { url = "https://files.pythonhosted.org/packages/58/80/9db820997c9f97cc2a405a852611b2b0bbc5267cc95949281aed9e38005d/openai_harmony-0.0.1-pp311-pypy311_pp73-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:f7a782113f73ecff26a3cc1abfeed3dda2ee1b7c41e2bb4e6b04c885af3beee4", size = 13729, upload-time = "2025-08-05T15:55:06.034Z" },
+    { url = "https://files.pythonhosted.org/packages/06/90/886c4e0af2d4d0451ac91d8cba68467e7b51da82cfba230f93ce2d0cddcf/openai_harmony-0.0.1-pp311-pypy311_pp73-musllinux_1_2_aarch64.whl", hash = "sha256:a6ed39fc3fa3d85e64c2e9bc5bd8c60566ca8531cb8fc65e321d77784d29e666", size = 195796, upload-time = "2025-08-05T15:55:24.534Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/16/e6c35d20ef8c48667bf7a07094905dad05833c30ad412a2af6f2a7534ecb/openai_harmony-0.0.1-pp311-pypy311_pp73-musllinux_1_2_armv7l.whl", hash = "sha256:24f7f4efe5ccd9d70d45ad5963591de6a123bd5ed5d0e05aad96ca2bc4df77b4", size = 278225, upload-time = "2025-08-05T15:55:35.113Z" },
+    { url = "https://files.pythonhosted.org/packages/24/c2/00021ab177aabdc017289c9ee2efc8fbd2102f23ee16aa4c6c9b7dd8eded/openai_harmony-0.0.1-pp311-pypy311_pp73-musllinux_1_2_i686.whl", hash = "sha256:2acdc26c51a83ef06a856d1f32a6a079a2af43e83b398758e882c41426855dbf", size = 199842, upload-time = "2025-08-05T15:55:45.812Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/74/bafdb037ce055e576f9f88458a415e99db5753175bcff2a3c4381ba62c72/openai_harmony-0.0.1-pp311-pypy311_pp73-musllinux_1_2_x86_64.whl", hash = "sha256:5a903b070ea22a0a7140e65e6c8f6e04e92e108e752f41195e0a5da34fce3096", size = 185759, upload-time = "2025-08-05T15:55:56.787Z" },
 ]
 
 [[package]]
@@ -2573,6 +2631,7 @@ name = "synth-ai"
 version = "0.2.2.dev0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "anthropic" },
     { name = "asyncpg" },
@@ -2594,6 +2653,7 @@ dependencies = [
     { name = "networkx" },
     { name = "numpy" },
     { name = "openai" },
+    { name = "openai-harmony" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
     { name = "pandas" },
@@ -2657,6 +2717,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.8.0" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "anthropic", specifier = ">=0.42.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
@@ -2692,7 +2753,8 @@ requires-dist = [
     { name = "mistralai", marker = "extra == 'mistral'", specifier = ">=1.0.0" },
     { name = "networkx", specifier = ">=3.4.2" },
     { name = "numpy", specifier = ">=2.2.3" },
-    { name = "openai", specifier = "==1.63.0" },
+    { name = "openai", specifier = ">=1.99.0" },
+    { name = "openai-harmony", specifier = ">=0.0.1" },
     { name = "opentelemetry-api", specifier = ">=1.27.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.27.0" },
     { name = "pandas", specifier = ">=2.2.3" },
