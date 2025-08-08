@@ -18,8 +18,11 @@ import asyncio
 import os
 import sys
 
-from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft import (
-    test_crafter_react_agent_lm_synth as runner,
+# from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft import (
+#     test_crafter_react_agent_lm_synth as runner,
+# )
+from examples.finetuning.synth_qwen import (
+    react_agent_lm as runner,
 )
 from synth_ai.config.base_url import get_learning_v2_base_url
 
@@ -53,14 +56,16 @@ async def main() -> None:
     os.environ["SYNTH_OPENAI_DEBUG"] = "0"
     os.environ["CRAFTER_MAX_TOKENS"] = os.environ.get("CRAFTER_MAX_TOKENS", "2048")
     os.environ["CRAFTER_TOOL_CHOICE"] = os.environ.get("CRAFTER_TOOL_CHOICE", "required")
-    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get("CRAFTER_TEMPERATURE", "0.1")
+    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get("CRAFTER_TEMPERATURE", "0.4")
     os.environ["CRAFTER_SYSTEM_PROMPT"] = (
         "You are CrafterAgent playing the Crafter survival environment. Your goal is to stay alive and unlock as many achievements as possible. "
-        "Keep your reasoning brief and focus on the tool call. "
+        "Keep your reasoning very brief and focus on the tool call. Use the tool available to you to play Crafter"
         "ALWAYS provide 2-5 actions. Available actions: move_left, move_right, move_up, move_down, do, sleep, place_stone, place_table, place_furnace, place_plant, "
         "make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword, noop."
     )
     os.environ["CRAFTER_SUPPRESS_OBS_REMINDER"] = "1"
+    # Ensure we log full LM inputs and tools
+    os.environ["CRAFTER_LOG_FULL_INPUTS"] = os.environ.get("CRAFTER_LOG_FULL_INPUTS", "1")
 
     sys.argv = [
         "crafter_runner",
