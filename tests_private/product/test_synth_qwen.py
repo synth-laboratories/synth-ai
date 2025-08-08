@@ -350,10 +350,10 @@ class SynthQwenTester:
                 "beta": 0.1,
                 "n_epochs": 1,
                 "batch_size": 2,
-                "learning_rate": 1e-5
+                "learning_rate": 1e-5,
+                "training_type": "dpo"
             },
-            "gpu_preference": "L40S",
-            "training_type": "dpo"
+            "gpu_preference": "L40S"
         }
         
         async with httpx.AsyncClient(timeout=60) as client:
@@ -442,6 +442,8 @@ class SynthQwenTester:
         print("TEST 5: Inference with Fine-tuned Models")
         print("="*60)
         
+        # Allow Modal volume replication time after training
+        await asyncio.sleep(10)
         models_to_test = []
         if self.finetuned_model_id:
             models_to_test.append(("Fine-tuned", self.finetuned_model_id))
@@ -459,9 +461,8 @@ class SynthQwenTester:
         for model_type, model_id in models_to_test:
             print(f"\nTesting {model_type} model: {model_id[:40]}...")
             
-            # Warm up the model first
-            print(f"  Warming up model...")
-            await self._warmup_model(model_id, "L40S")
+            # Skipping explicit warm-up; inference will lazy-load the model
+            # (warm-up removed to avoid volume replication race conditions)
             
             # Run inference
             payload = {
@@ -476,35 +477,44 @@ class SynthQwenTester:
             
             async with httpx.AsyncClient(timeout=60) as client:
                 try:
-                    start_time = time.time()
-                    response = await client.post(
-                        f"{SYNTH_API_URL}/api/v1/chat/completions",
-                        json=payload,
-                        headers=self.headers
-                    )
-                    elapsed = time.time() - start_time
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        content = data["choices"][0]["message"]["content"]
-                        
-                        print(f"  ✓ Inference successful")
-                        print(f"    Response: {content[:100]}...")
-                        print(f"    Time: {elapsed:.2f}s")
-                        
-                        inference_results.append({
-                            "model_type": model_type,
-                            "success": True,
-                            "time": elapsed,
-                            "response_length": len(content)
-                        })
-                    else:
-                        print(f"  ✗ Inference failed: {response.status_code}")
-                        inference_results.append({
-                            "model_type": model_type,
-                            "success": False,
-                            "error": f"Status {response.status_code}"
-                        })
+                    retries = 0
+                    max_retries = 5
+                    while retries < max_retries:
+                        start_time = time.time()
+                        response = await client.post(
+                            f"{SYNTH_API_URL}/api/v1/chat/completions",
+                            json=payload,
+                            headers=self.headers
+                        )
+                        elapsed = time.time() - start_time
+                        if response.status_code == 200:
+                            data = response.json()
+                            content = data["choices"][0]["message"]["content"]
+                            print(f"  ✓ Inference successful (try {retries+1})")
+                            print(f"    Response: {content[:100]}...")
+                            print(f"    Time: {elapsed:.2f}s")
+                            inference_results.append({
+                                "model_type": model_type,
+                                "success": True,
+                                "time": elapsed,
+                                "response_length": len(content)
+                            })
+                            break
+                        else:
+                            # If adapter not yet replicated, wait then retry
+                            if response.status_code == 500 and ("adapter_config.json" in response.text or "Fine-tuned model adapter not found" in response.text):
+                                wait_sec = 5 * (retries + 1)
+                                print(f"  🕒 Adapter not ready, waiting {wait_sec}s then retrying...")
+                                await asyncio.sleep(wait_sec)
+                                retries += 1
+                                continue
+                            print(f"  ✗ Inference failed: {response.status_code}")
+                            inference_results.append({
+                                "model_type": model_type,
+                                "success": False,
+                                "error": f"Status {response.status_code}"
+                            })
+                            break
                         
                 except Exception as e:
                     print(f"  ✗ Error: {e}")
@@ -521,7 +531,7 @@ class SynthQwenTester:
     
     # Helper methods
     
-    async def _wait_for_warmup(self, model_id: str, gpu: str, timeout: int = 120) -> bool:
+    async def _wait_for_warmup(self, model_id: str, gpu: str, timeout: int = 180) -> bool:
         """Wait for model warmup completion."""
         start_time = time.time()
         headers = self.headers.copy()
@@ -549,24 +559,35 @@ class SynthQwenTester:
         
         return False
     
-    async def _warmup_model(self, model_id: str, gpu: str) -> bool:
+    async def _warmup_model(self, model_id: str, gpu: str, timeout: int = 180) -> bool:
         """Warm up a specific model."""
         headers = self.headers.copy()
         headers["X-GPU-Preference"] = gpu
         
         async with httpx.AsyncClient(timeout=30) as client:
-            try:
-                response = await client.post(
-                    f"{SYNTH_API_URL}/api/warmup/{model_id}",
-                    headers=headers
-                )
-                
-                if response.status_code == 200:
-                    return await self._wait_for_warmup(model_id, gpu, timeout=60)
+            start = time.time()
+            while time.time() - start < timeout:
+                try:
+                    response = await client.post(
+                        f"{SYNTH_API_URL}/api/warmup/{model_id}",
+                        headers=headers
+                    )
                     
-            except Exception:
-                pass
-        
+                    if response.status_code == 200:
+                        return await self._wait_for_warmup(model_id, gpu, timeout=timeout)
+                    elif response.status_code == 404:
+                        # Model not yet visible – adapter directory likely not replicated
+                        print(f"    🕒 Warm-up 404 – retrying in 4s...")
+                        await asyncio.sleep(4)
+                        continue
+                    else:
+                        print(f"    Warm-up error: {response.status_code} – {response.text[:200]}")
+                        return False
+                        
+                except Exception as e:
+                    print(f"    Warm-up request error: {e} – retrying in 4s")
+                    await asyncio.sleep(4)
+            
         return False
     
     async def _upload_training_file(self, data: List[Dict]) -> Optional[str]:

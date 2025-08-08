@@ -28,6 +28,7 @@ class BaseLMResponse(BaseModel):
     response_id: Optional[str] = None
     reasoning: Optional[str] = None
     api_type: Optional[str] = None
+    usage: Optional[Dict[str, Any]] = None
 
 
 class VendorBase(ABC):

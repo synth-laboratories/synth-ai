@@ -112,11 +112,13 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "response_model is not supported for standard calls"
         )
         
-        print(f"🔍 OPENAI DEBUG: _hit_api_async called with:")
-        print(f"   Model: {model}")
-        print(f"   Messages: {len(messages)} messages") 
-        print(f"   Tools: {len(tools) if tools else 0} tools")
-        print(f"   LM config: {lm_config}")
+        DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
+        if DEBUG:
+            print(f"🔍 OPENAI DEBUG: _hit_api_async called with:")
+            print(f"   Model: {model}")
+            print(f"   Messages: {len(messages)} messages") 
+            print(f"   Tools: {len(tools) if tools else 0} tools")
+            print(f"   LM config: {lm_config}")
         
         messages = special_orion_transform(model, messages)
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
@@ -125,12 +127,14 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result:
-            print(f"🔍 OPENAI DEBUG: Cache hit! Returning cached result")
-            print(f"   Cache result type: {type(cache_result)}")
-            print(f"🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
+            if DEBUG:
+                print(f"🔍 OPENAI DEBUG: Cache hit! Returning cached result")
+                print(f"   Cache result type: {type(cache_result)}")
+                print(f"🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
             # return cache_result  # Commented out to force API call
         
-        print(f"🔍 OPENAI DEBUG: Cache miss, making actual API call")
+        if DEBUG:
+            print(f"🔍 OPENAI DEBUG: Cache miss, making actual API call")
 
         # Common API call params
         api_params = {
@@ -150,45 +154,126 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
             )
 
+        # Forward additional sampling / control params if provided
+        if lm_config.get("max_tokens") is not None:
+            api_params["max_tokens"] = lm_config["max_tokens"]
+        if lm_config.get("top_p") is not None:
+            api_params["top_p"] = lm_config["top_p"]
+        if lm_config.get("frequency_penalty") is not None:
+            api_params["frequency_penalty"] = lm_config["frequency_penalty"]
+        if lm_config.get("presence_penalty") is not None:
+            api_params["presence_penalty"] = lm_config["presence_penalty"]
+        if lm_config.get("stop") is not None:
+            api_params["stop"] = lm_config["stop"]
+        if lm_config.get("tool_choice") is not None:
+            api_params["tool_choice"] = lm_config["tool_choice"]
+        # Forward GPU preference to backend (body + header)
+        if lm_config.get("gpu_preference") is not None:
+            api_params["gpu_preference"] = lm_config["gpu_preference"]
+            # Also set header so proxies that read headers can honor it
+            hdrs = api_params.get("extra_headers", {})
+            hdrs["X-GPU-Preference"] = lm_config["gpu_preference"]
+            api_params["extra_headers"] = hdrs
+        # Also mirror stop_after_tool_calls into a header for robustness
+        try:
+            satc_val = None
+            if isinstance(lm_config.get("extra_body"), dict):
+                satc_val = lm_config["extra_body"].get("stop_after_tool_calls")
+            if satc_val is not None:
+                hdrs = api_params.get("extra_headers", {})
+                hdrs["X-Stop-After-Tool-Calls"] = str(satc_val)
+                api_params["extra_headers"] = hdrs
+        except Exception:
+            pass
+        # Forward Qwen3 chat template kwargs via extra_body when requested
+        if lm_config.get("enable_thinking") is not None:
+            api_params["extra_body"] = api_params.get("extra_body", {})
+            ctk = api_params["extra_body"].get("chat_template_kwargs", {})
+            ctk["enable_thinking"] = lm_config["enable_thinking"]
+            api_params["extra_body"]["chat_template_kwargs"] = ctk
+        # Forward arbitrary extra_body from lm_config if provided (merge)
+        if lm_config.get("extra_body") is not None:
+            # Shallow-merge top-level keys; nested keys (like chat_template_kwargs) should be provided whole
+            api_params["extra_body"] = {**api_params.get("extra_body", {}), **(lm_config.get("extra_body") or {})}
+        # Forward Qwen3 chat template kwargs via extra_body when requested
+        if lm_config.get("enable_thinking") is not None:
+            api_params["extra_body"] = api_params.get("extra_body", {})
+            ctk = api_params["extra_body"].get("chat_template_kwargs", {})
+            ctk["enable_thinking"] = lm_config["enable_thinking"]
+            api_params["extra_body"]["chat_template_kwargs"] = ctk
+
         # Add reasoning_effort only for o3-mini
         if model in ["o3-mini"]:
             print("Reasoning effort:", reasoning_effort)
             api_params["reasoning_effort"] = reasoning_effort
 
+        # Filter Synth-only params when calling external OpenAI-compatible providers
+        # External providers (e.g., OpenAI, Groq) reject unknown fields like
+        # extra_body.chat_template_kwargs or stop_after_tool_calls.
+        try:
+            base_url_obj = getattr(self.async_client, "base_url", None)
+            base_url_str = str(base_url_obj) if base_url_obj is not None else ""
+        except Exception:
+            base_url_str = ""
+
+        is_external_provider = (
+            "openai.com" in base_url_str or "api.groq.com" in base_url_str
+        )
+
+        if is_external_provider:
+            # Remove extra_body entirely; this is Synth-specific plumbing
+            if "extra_body" in api_params:
+                api_params.pop("extra_body", None)
+
+            # Also ensure we don't pass stray vendor-specific fields if present
+            # (defensive in case upstream added them at top-level later)
+            for k in ["chat_template_kwargs", "stop_after_tool_calls"]:
+                api_params.pop(k, None)
+
         # Call API with better auth error reporting
         #try:
-        print(f"🔍 OPENAI DEBUG: Making request with params:")
-        print(f"   Model: {api_params.get('model')}")
-        print(f"   Messages: {len(api_params.get('messages', []))} messages")
-        print(f"   Tools: {len(api_params.get('tools', []))} tools")
-        print(f"   Max tokens: {api_params.get('max_tokens', 'NOT SET')}")
-        print(f"   Temperature: {api_params.get('temperature', 'NOT SET')}")
-        if 'tools' in api_params:
-            print(f"   First tool: {api_params['tools'][0]}")
-        print(f"   FULL API PARAMS: {api_params}")
+        if DEBUG:
+            print(f"🔍 OPENAI DEBUG: Making request with params:")
+            print(f"   Model: {api_params.get('model')}")
+            print(f"   Messages: {len(api_params.get('messages', []))} messages")
+            print(f"   Tools: {len(api_params.get('tools', []))} tools")
+            print(f"   Max tokens: {api_params.get('max_tokens', 'NOT SET')}")
+            print(f"   Temperature: {api_params.get('temperature', 'NOT SET')}")
+            if 'tools' in api_params:
+                print(f"   First tool: {api_params['tools'][0]}")
+            print(f"   FULL API PARAMS: {api_params}")
         
         output = await self.async_client.chat.completions.create(**api_params)
         
-        print(f"🔍 OPENAI DEBUG: Response received:")
-        print(f"   Type: {type(output)}")
-        print(f"   Choices: {len(output.choices) if hasattr(output, 'choices') else 'N/A'}")
-        if hasattr(output, 'choices') and output.choices:
-            choice = output.choices[0]
-            print(f"   Choice type: {type(choice)}")
-            if hasattr(choice, 'message'):
-                message = choice.message
-                print(f"   Message type: {type(message)}")
-                print(f"   Has tool_calls: {hasattr(message, 'tool_calls')}")
-                if hasattr(message, 'tool_calls'):
-                    print(f"   Tool calls: {message.tool_calls}")
-                print(f"   Content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}...")
-                
-                # Print FULL response for debugging
-                print(f"🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
-                if hasattr(message, 'content') and message.content:
-                    print(f"   FULL CONTENT:\n{message.content}")
-                print(f"   Raw choice: {choice}")
-                print(f"   Raw message: {message}")
+        if DEBUG:
+            print(f"🔍 OPENAI DEBUG: Response received:")
+            print(f"   Type: {type(output)}")
+            print(f"   Choices: {len(output.choices) if hasattr(output, 'choices') else 'N/A'}")
+            if hasattr(output, 'choices') and output.choices:
+                choice = output.choices[0]
+                print(f"   Choice type: {type(choice)}")
+                if hasattr(choice, 'message'):
+                    message = choice.message
+                    print(f"   Message type: {type(message)}")
+                    print(f"   Has tool_calls: {hasattr(message, 'tool_calls')}")
+                    if hasattr(message, 'tool_calls'):
+                        print(f"   Tool calls: {message.tool_calls}")
+                    print(f"   Content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}...")
+                # Show finish_reason and usage if available
+                try:
+                    print(f"   finish_reason: {getattr(choice, 'finish_reason', None)}")
+                    usage = getattr(output, 'usage', None)
+                    if usage:
+                        print(f"   usage: prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}")
+                except Exception:
+                    pass
+        
+        if DEBUG:
+            print(f"🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
+            if hasattr(output.choices[0].message, 'content') and output.choices[0].message.content:
+                print(f"   FULL CONTENT:\n{output.choices[0].message.content}")
+            print(f"   Raw choice: {choice}")
+            print(f"   Raw message: {message}")
         # except Exception as e:
         #     try:
         #         from openai import AuthenticationError as _OpenAIAuthErr  # type: ignore
@@ -223,10 +308,24 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 for tc in message.tool_calls
             ]
 
+        # Attach basic usage if available
+        usage_dict = None
+        try:
+            usage_obj = getattr(output, 'usage', None)
+            if usage_obj is not None:
+                usage_dict = {
+                    "prompt_tokens": getattr(usage_obj, 'prompt_tokens', None),
+                    "completion_tokens": getattr(usage_obj, 'completion_tokens', None),
+                    "total_tokens": getattr(usage_obj, 'total_tokens', None),
+                }
+        except Exception:
+            usage_dict = None
+
         lm_response = BaseLMResponse(
             raw_response=message.content or "",  # Use empty string if no content
             structured_output=None,
             tool_calls=tool_calls,
+            usage=usage_dict,
         )
         lm_config["reasoning_effort"] = reasoning_effort
         used_cache_handler.add_to_managed_cache(
@@ -280,12 +379,35 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
             )
 
+        # Forward additional sampling / control params if provided
+        if lm_config.get("max_tokens") is not None:
+            api_params["max_tokens"] = lm_config["max_tokens"]
+        if lm_config.get("top_p") is not None:
+            api_params["top_p"] = lm_config["top_p"]
+        if lm_config.get("frequency_penalty") is not None:
+            api_params["frequency_penalty"] = lm_config["frequency_penalty"]
+        if lm_config.get("presence_penalty") is not None:
+            api_params["presence_penalty"] = lm_config["presence_penalty"]
+        if lm_config.get("stop") is not None:
+            api_params["stop"] = lm_config["stop"]
+        if lm_config.get("tool_choice") is not None:
+            api_params["tool_choice"] = lm_config["tool_choice"]
+
         # Add reasoning_effort only for o3-mini
         if model in ["o3-mini"]:
             api_params["reasoning_effort"] = reasoning_effort
 
         output = self.sync_client.chat.completions.create(**api_params)
         message = output.choices[0].message
+        DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
+        if DEBUG:
+            try:
+                print(f"🔍 OPENAI DEBUG (sync): finish_reason={getattr(output.choices[0], 'finish_reason', None)}")
+                usage = getattr(output, 'usage', None)
+                if usage:
+                    print(f"🔍 OPENAI DEBUG (sync): usage prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}")
+            except Exception:
+                pass
 
         # Convert tool calls to dict format
         tool_calls = None
@@ -302,10 +424,24 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 for tc in message.tool_calls
             ]
 
+        # Attach basic usage if available
+        usage_dict = None
+        try:
+            usage_obj = getattr(output, 'usage', None)
+            if usage_obj is not None:
+                usage_dict = {
+                    "prompt_tokens": getattr(usage_obj, 'prompt_tokens', None),
+                    "completion_tokens": getattr(usage_obj, 'completion_tokens', None),
+                    "total_tokens": getattr(usage_obj, 'total_tokens', None),
+                }
+        except Exception:
+            usage_dict = None
+
         lm_response = BaseLMResponse(
             raw_response=message.content or "",  # Use empty string if no content
             structured_output=None,
             tool_calls=tool_calls,
+            usage=usage_dict,
         )
         lm_config["reasoning_effort"] = reasoning_effort
         used_cache_handler.add_to_managed_cache(

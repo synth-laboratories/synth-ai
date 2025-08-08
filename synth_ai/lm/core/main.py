@@ -129,6 +129,7 @@ class LM:
                 str,
             ]
         ] = None,
+        enable_thinking: Optional[bool] = None,
     ):
         # print("Structured output mode", structured_output_mode)
         # Check for environment variable if provider is not specified
@@ -162,6 +163,9 @@ class LM:
         # Override temperature to 1 for reasoning models
         effective_temperature = 1.0 if model_name in reasoning_models else temperature
         self.lm_config = {"temperature": effective_temperature}
+        if enable_thinking is not None:
+            # For providers that support it (e.g., Synth + Qwen3), this will be forwarded
+            self.lm_config["enable_thinking"] = enable_thinking
         self.model_name = model_name
 
     def respond_sync(
