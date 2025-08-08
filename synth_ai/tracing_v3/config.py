@@ -9,14 +9,14 @@ class TursoConfig:
     """Configuration for Turso/sqld connection."""
 
     # Default values matching serve.sh
-    DEFAULT_DB_FILE = "synth_ai.db"
+    DEFAULT_DB_FILE = "traces/v3/synth_ai.db"
     DEFAULT_HTTP_PORT = 8080
 
     # Local embedded database for async SQLAlchemy
     # Use the centralized configuration for the database URL
     db_url: str = os.getenv(
         "TURSO_LOCAL_DB_URL",
-        f"sqlite+aiosqlite:///{os.path.abspath(os.getenv('SQLD_DB_PATH', 'synth_ai.db'))}",
+        f"sqlite+aiosqlite:///{os.path.abspath(os.getenv('SQLD_DB_PATH', 'traces/v3/synth_ai.db'))}",
     )
 
     # Remote database sync configuration
@@ -40,7 +40,7 @@ class TursoConfig:
 
     # Daemon settings (for local sqld) - match serve.sh defaults
     sqld_binary: str = os.getenv("SQLD_BINARY", "sqld")
-    sqld_db_path: str = os.getenv("SQLD_DB_PATH", "synth_ai.db")
+    sqld_db_path: str = os.getenv("SQLD_DB_PATH", "traces/v3/synth_ai.db")
     sqld_http_port: int = int(os.getenv("SQLD_HTTP_PORT", "8080"))
     sqld_idle_shutdown: int = int(os.getenv("SQLD_IDLE_SHUTDOWN", "0"))  # 0 = no idle shutdown
 

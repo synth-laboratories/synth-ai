@@ -113,7 +113,7 @@ class ExperimentConfig:
         self.verbose = True
         self.quiet = False  # Default to verbose mode
         self.enable_v3_tracing = True
-        self.v3_trace_dir = "./traces"
+        self.v3_trace_dir = "./traces/v3/crafter_comparison"
         self.crafter_service_url = CRAFTER_SERVICE_URL
         self.database_url = DATABASE_URL
         self.base_seed = 1000  # Base seed for episode generation

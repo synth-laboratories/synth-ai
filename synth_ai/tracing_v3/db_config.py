@@ -18,7 +18,7 @@ class DatabaseConfig:
     """Centralized database configuration management."""
 
     # Default values from serve.sh
-    DEFAULT_DB_FILE = "synth_ai.db"
+    DEFAULT_DB_FILE = "traces/v3/synth_ai.db"
     DEFAULT_HTTP_PORT = 8080
 
     def __init__(
