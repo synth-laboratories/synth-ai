@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """Run Crafter evaluation via LM against multiple providers/models (configurable).
 
-Runs up to three variants sequentially:
-- OpenAI: gpt-4.1-mini
-- Groq:   qwen/qwen3-32b (override via GROQ_QWEN3_32B_MODEL)
-- Groq:   openai/gpt-oss-20b (override via GROQ_GPT_OSS_20B_MODEL)
+Runs up to five variants sequentially (controlled by VARIANTS dict):
+- openai-gpt-5-nano   (default model: gpt-5-nano)
+- openai-gpt-5-mini   (default model: gpt-5-mini)
+- openai-gpt-4.1-mini (default model: gpt-4.1-mini)
+- groq-qwen           (default model: Qwen/Qwen3-4B-Instruct-2507)
+- groq-gptoss         (default model: openai/gpt-oss-120b)
 
-Control which to run with CRAFTER_MULTI_RUNS env (all|openai|groq-qwen|groq-gptoss, comma-separated allowed).
+Control which to run with CRAFTER_MULTI_RUNS env ("all" or comma-separated keys from VARIANTS).
 
 Environment variables expected:
-- OPENAI_API_KEY
-- GROQ_API_KEY
-- Optional overrides: GROQ_BASE_URL (default https://api.groq.com/openai/v1)
+- OPENAI_API_KEY (for openai-* variants)
+- GROQ_API_KEY   (for groq-* variants)
+- Optional base URLs: OPENAI_BASE_URL (default https://api.openai.com/v1), GROQ_BASE_URL (default https://api.groq.com/openai/v1)
 - Common Crafter vars: CRAFTER_EPISODES, CRAFTER_MAX_STEPS, CRAFTER_DIFFICULTY, CRAFTER_THINK
 """
 
 import asyncio
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -36,7 +39,6 @@ RUNNER_PATH = (
 if not RUNNER_PATH.exists():
     raise FileNotFoundError(f"Crafter runner not found at {RUNNER_PATH}")
 
-import importlib.util
 spec = importlib.util.spec_from_file_location("crafter_runner", RUNNER_PATH)
 runner = importlib.util.module_from_spec(spec)  # type: ignore[var-annotated]
 spec.loader.exec_module(runner)  # type: ignore[union-attr]
@@ -77,7 +79,7 @@ async def run_variant(display: str, base_url: str, api_key_env: str, model_id: s
     sys.argv = [
         "crafter_runner",
         "--model", model_id,
-        "--max-tokens", "2048",
+        "--max-tokens", "4096",
         "--tool-choice", "required",
         "--temperature", "0.1",
         "--episodes", episodes,
@@ -98,50 +100,67 @@ async def main() -> None:
     difficulty = os.getenv("CRAFTER_DIFFICULTY", "easy")
     think = _bool_env("CRAFTER_THINK", False)
 
-    # Selection of which variants to run
-    selection = os.getenv("CRAFTER_MULTI_RUNS", "all").lower()
-    selected = set(x.strip() for x in selection.split(","))
-    if "all" in selected:
-        selected = {"groq-qwen"}  # "openai", "groq-qwen",
-
-    # Provider endpoints and models
+    # Centralized variant configurations
     openai_base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     groq_base = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 
-    qwen3_model = os.getenv("GROQ_QWEN3_32B_MODEL", "Qwen/Qwen3-32B")
-    gptoss_model = os.getenv("GROQ_GPT_OSS_20B_MODEL", "openai/gpt-oss-120b")
+    variants = {
+        # OpenAI
+        "openai-gpt-5-nano": {
+            "display": "OpenAI gpt-5-nano",
+            "base_url": openai_base,
+            "api_key_env": "OPENAI_API_KEY",
+            "model_env": "OPENAI_GPT_5_NANO_MODEL",
+            "default_model": "gpt-5-nano",
+        },
+        "openai-gpt-5-mini": {
+            "display": "OpenAI gpt-5-mini",
+            "base_url": openai_base,
+            "api_key_env": "OPENAI_API_KEY",
+            "model_env": "OPENAI_GPT_5_MINI_MODEL",
+            "default_model": "gpt-5-mini",
+        },
+        "openai-gpt-4.1-mini": {
+            "display": "OpenAI gpt-4.1-mini",
+            "base_url": openai_base,
+            "api_key_env": "OPENAI_API_KEY",
+            "model_env": "OPENAI_GPT_4_1_MINI_MODEL",
+            "default_model": "gpt-4.1-mini",
+        },
+        # Groq
+        "groq-qwen": {
+            "display": "Groq Qwen/Qwen3-32B",
+            "base_url": groq_base,
+            "api_key_env": "GROQ_API_KEY",
+            "model_env": "GROQ_QWEN3_MODEL",
+            "default_model": os.getenv("GROQ_QWEN3_MODEL", "Qwen/Qwen3-32B"),
+        },
+        "groq-gptoss": {
+            "display": "Groq openai/gpt-oss-120b",
+            "base_url": groq_base,
+            "api_key_env": "GROQ_API_KEY",
+            "model_env": "GROQ_GPT_OSS_MODEL",
+            "default_model": os.getenv("GROQ_GPT_OSS_MODEL", "openai/gpt-oss-120b"),
+        },
+    }
+
+    # Selection of which variants to run
+    selection = os.getenv("CRAFTER_MULTI_RUNS", "all").lower()
+    selected = {x.strip() for x in selection.split(",")}
+    if "all" in selected or selection == "all":
+        selected = set(variants)
 
     # Execute selected runs sequentially
-    if "openai" in selected:
+    for key in variants:
+        if key not in selected:
+            continue
+        conf = variants[key]
+        model_id = os.getenv(conf["model_env"], conf["default_model"])  # single source for model override
         await run_variant(
-            display="OpenAI gpt-4.1-mini",
-            base_url=openai_base,
-            api_key_env="OPENAI_API_KEY",
-            model_id="gpt-4.1-mini",
-            episodes=episodes,
-            max_steps=max_steps,
-            difficulty=difficulty,
-            think=think,
-        )
-
-    if "groq-qwen" in selected:
-        await run_variant(
-            display="Groq Qwen/Qwen3-32B",
-            base_url=groq_base,
-            api_key_env="GROQ_API_KEY",
-            model_id=qwen3_model,
-            episodes=episodes,
-            max_steps=max_steps,
-            difficulty=difficulty,
-            think=think,
-        )
-
-    if "groq-gptoss" in selected:
-        await run_variant(
-            display="Groq openai/gpt-oss-120b",
-            base_url=groq_base,
-            api_key_env="GROQ_API_KEY",
-            model_id=gptoss_model,
+            display=conf["display"],
+            base_url=conf["base_url"],
+            api_key_env=conf["api_key_env"],
+            model_id=model_id,
             episodes=episodes,
             max_steps=max_steps,
             difficulty=difficulty,

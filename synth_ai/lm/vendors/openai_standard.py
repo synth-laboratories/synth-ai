@@ -1,4 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
+import asyncio
+import time
 
 import groq
 import openai
@@ -230,6 +232,15 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             for k in ["chat_template_kwargs", "stop_after_tool_calls"]:
                 api_params.pop(k, None)
 
+            # GPT-5 models: parameter normalization
+            if model.startswith("gpt-5"):
+                # Require max_completion_tokens instead of max_tokens
+                if "max_tokens" in api_params:
+                    api_params["max_completion_tokens"] = api_params.pop("max_tokens")
+                # Only default temperature=1 supported; omit custom temperature
+                if "temperature" in api_params:
+                    api_params.pop("temperature", None)
+
         # Call API with better auth error reporting
         #try:
         if DEBUG:
@@ -243,7 +254,60 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 print(f"   First tool: {api_params['tools'][0]}")
             print(f"   FULL API PARAMS: {api_params}")
         
-        output = await self.async_client.chat.completions.create(**api_params)
+        # Quiet targeted retry for OpenAI 400 tool_use_failed during tool-calling
+        try:
+            max_attempts_for_tool_use = int(os.getenv("SYNTH_TOOL_USE_RETRIES", "5"))
+        except Exception:
+            max_attempts_for_tool_use = 5
+        try:
+            backoff_seconds = float(os.getenv("SYNTH_TOOL_USE_BACKOFF_INITIAL", "0.5"))
+        except Exception:
+            backoff_seconds = 0.5
+
+        attempt_index = 0
+        while True:
+            try:
+                output = await self.async_client.chat.completions.create(**api_params)
+                break
+            except openai.BadRequestError as err:
+                # Detect tool-use failure from various SDK surfaces
+                should_retry = False
+                # 1) Body dict
+                body = getattr(err, "body", None)
+                if isinstance(body, dict):
+                    try:
+                        err_obj = body.get("error") if isinstance(body.get("error"), dict) else {}
+                        code_val = err_obj.get("code")
+                        msg_val = err_obj.get("message")
+                        if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                            should_retry = True
+                    except Exception:
+                        pass
+                # 2) Response JSON
+                if not should_retry:
+                    try:
+                        resp = getattr(err, "response", None)
+                        if resp is not None:
+                            j = resp.json()
+                            if isinstance(j, dict):
+                                err_obj = j.get("error") if isinstance(j.get("error"), dict) else {}
+                                code_val = err_obj.get("code")
+                                msg_val = err_obj.get("message")
+                                if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                                    should_retry = True
+                    except Exception:
+                        pass
+                # 3) Fallback to string match
+                if not should_retry:
+                    err_text = str(err)
+                    if "tool_use_failed" in err_text or "Failed to call a function" in err_text:
+                        should_retry = True
+                if should_retry and attempt_index + 1 < max_attempts_for_tool_use:
+                    await asyncio.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2.0, 2.0)
+                    attempt_index += 1
+                    continue
+                raise
         
         if DEBUG:
             print(f"🔍 OPENAI DEBUG: Response received:")
@@ -397,7 +461,56 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         if model in ["o3-mini"]:
             api_params["reasoning_effort"] = reasoning_effort
 
-        output = self.sync_client.chat.completions.create(**api_params)
+        # Sync path: apply the same targeted retry
+        try:
+            max_attempts_for_tool_use = int(os.getenv("SYNTH_TOOL_USE_RETRIES", "5"))
+        except Exception:
+            max_attempts_for_tool_use = 5
+        try:
+            backoff_seconds = float(os.getenv("SYNTH_TOOL_USE_BACKOFF_INITIAL", "0.5"))
+        except Exception:
+            backoff_seconds = 0.5
+
+        attempt_index = 0
+        while True:
+            try:
+                output = self.sync_client.chat.completions.create(**api_params)
+                break
+            except openai.BadRequestError as err:
+                should_retry = False
+                body = getattr(err, "body", None)
+                if isinstance(body, dict):
+                    try:
+                        err_obj = body.get("error") if isinstance(body.get("error"), dict) else {}
+                        code_val = err_obj.get("code")
+                        msg_val = err_obj.get("message")
+                        if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                            should_retry = True
+                    except Exception:
+                        pass
+                if not should_retry:
+                    try:
+                        resp = getattr(err, "response", None)
+                        if resp is not None:
+                            j = resp.json()
+                            if isinstance(j, dict):
+                                err_obj = j.get("error") if isinstance(j.get("error"), dict) else {}
+                                code_val = err_obj.get("code")
+                                msg_val = err_obj.get("message")
+                                if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                                    should_retry = True
+                    except Exception:
+                        pass
+                if not should_retry:
+                    err_text = str(err)
+                    if "tool_use_failed" in err_text or "Failed to call a function" in err_text:
+                        should_retry = True
+                if should_retry and attempt_index + 1 < max_attempts_for_tool_use:
+                    time.sleep(backoff_seconds)
+                    backoff_seconds = min(backoff_seconds * 2.0, 2.0)
+                    attempt_index += 1
+                    continue
+                raise
         message = output.choices[0].message
         DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
         if DEBUG:
@@ -551,6 +664,18 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         # Add reasoning_effort only for o3-mini
         if model in ["o3-mini"]:
             api_params["reasoning_effort"] = reasoning_effort
+
+        # Normalize for external OpenAI as well in sync path
+        try:
+            base_url_obj = getattr(self.sync_client, "base_url", None)
+            base_url_str_sync = str(base_url_obj) if base_url_obj is not None else ""
+        except Exception:
+            base_url_str_sync = ""
+        if ("openai.com" in base_url_str_sync or "api.groq.com" in base_url_str_sync) and model.startswith("gpt-5"):
+            if "max_tokens" in api_params:
+                api_params["max_completion_tokens"] = api_params.pop("max_tokens")
+            if "temperature" in api_params:
+                api_params.pop("temperature", None)
 
         output = self.sync_client.chat.completions.create(**api_params)
 

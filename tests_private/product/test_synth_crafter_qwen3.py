@@ -24,7 +24,7 @@ print(f"🔧 Using Synth base URL = {os.environ.get('SYNTH_BASE_URL')}")
 # Configuration (override with env vars if desired)
 # ---------------------------------------------------------------------------
 
-MODEL_ID = os.getenv("CRAFTER_MODEL", "Qwen/Qwen3-14B")
+MODEL_ID = os.getenv("CRAFTER_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
 EPISODES = os.getenv("CRAFTER_EPISODES", "1")  # default 1 trajectory per run
 MAX_STEPS = os.getenv("CRAFTER_MAX_STEPS", "30")
 DIFFICULTY = os.getenv("CRAFTER_DIFFICULTY", "easy")  # easy|normal|hard
