@@ -74,6 +74,7 @@ session_metadata.json
 # Build artifacts and coverage
 .coverage
 coverage.xml
+htmlcov/
 *.egg-info/
 *.whl
 
@@ -89,3 +90,10 @@ synth_ai/environments/examples/*
 !synth_ai/environments/examples/crafter_custom/
 
 old/
+
+# SQLite databases and locks
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
