@@ -91,7 +91,7 @@ class AsyncSQLTraceManager:
         concurrent scenarios.
         """
         if self.engine is None:
-            logger.info(f"🔗 Initializing database connection to: {self.db_url}")
+            logger.debug(f"🔗 Initializing database connection to: {self.db_url}")
 
             # For SQLite, use NullPool to avoid connection pool issues
             # SQLite doesn't handle concurrent connections well, so we create
@@ -103,12 +103,12 @@ class AsyncSQLTraceManager:
 
                 # Check if database file exists
                 if not os.path.exists(db_path):
-                    logger.warning(f"⚠️  Database file not found: {db_path}")
-                    logger.warning(
+                    logger.debug(f"⚠️  Database file not found: {db_path}")
+                    logger.debug(
                         "🔧 Make sure './serve.sh' is running to start the turso/sqld service"
                     )
                 else:
-                    logger.info(f"✅ Found database file: {db_path}")
+                    logger.debug(f"✅ Found database file: {db_path}")
 
                 # Set a high busy timeout to handle concurrent access
                 # This allows SQLite to wait instead of immediately failing
@@ -145,7 +145,7 @@ class AsyncSQLTraceManager:
             if self._schema_ready:
                 return
 
-            logger.info("📊 Initializing database schema...")
+            logger.debug("📊 Initializing database schema...")
 
             async with self.engine.begin() as conn:
                 # Use a transaction to ensure atomic schema creation
@@ -154,14 +154,14 @@ class AsyncSQLTraceManager:
                     await conn.run_sync(
                         lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True)
                     )
-                    logger.info("✅ Database schema created/verified successfully")
+                    #logger.info("✅ Database schema created/verified successfully")
                 except Exception as e:
                     # If tables already exist, that's fine - another worker created them
                     if "already exists" not in str(e):
                         logger.error(f"❌ Failed to create database schema: {e}")
                         raise
                     else:
-                        logger.info("✅ Database schema already exists")
+                        logger.debug("✅ Database schema already exists")
 
                 # Enable foreign keys for SQLite - critical for data integrity
                 # This must be done for each connection in SQLite
@@ -183,7 +183,7 @@ class AsyncSQLTraceManager:
                             logger.warning(f"Could not create view {view_name}: {e}")
 
             self._schema_ready = True
-            logger.info("🎯 Database ready for use!")
+            #logger.debug("🎯 Database ready for use!")
 
     @asynccontextmanager
     async def session(self):

@@ -1,6 +1,9 @@
 from typing import List
 
 import pytest
+
+# Structured outputs against OpenAI; treat as integration by default
+pytestmark = pytest.mark.integration
 import openai
 from pydantic import BaseModel
 

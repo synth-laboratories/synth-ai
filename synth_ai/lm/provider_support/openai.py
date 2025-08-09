@@ -103,7 +103,7 @@ OPENAI_METHODS_V1 = [
         sync=False,
     ),
     OpenAiDefinition(
-        module="openai.resources.beta.chat.completions",
+        module="openai.resources.chat.completions",
         object="Completions",
         method="parse",
         type="chat",
@@ -111,7 +111,7 @@ OPENAI_METHODS_V1 = [
         min_version="1.50.0",
     ),
     OpenAiDefinition(
-        module="openai.resources.beta.chat.completions",
+        module="openai.resources.chat.completions",
         object="AsyncCompletions",
         method="parse",
         type="chat",
@@ -775,6 +775,15 @@ class OpenAILangfuse:
                 resource.min_version
             ):
                 continue
+
+            # Check if the method actually exists before trying to wrap it
+            try:
+                module = __import__(resource.module, fromlist=[resource.object])
+                obj = getattr(module, resource.object, None)
+                if obj and not hasattr(obj, resource.method):
+                    continue  # Skip if method doesn't exist
+            except (ImportError, AttributeError):
+                continue  # Skip if module or object doesn't exist
 
             wrap_function_wrapper(
                 resource.module,

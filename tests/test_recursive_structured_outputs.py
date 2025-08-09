@@ -1,4 +1,7 @@
 import pytest
+
+# Validates internal structured output handling
+pytestmark = pytest.mark.unit
 import asyncio
 import unittest
 from typing import List

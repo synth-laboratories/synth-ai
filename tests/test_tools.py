@@ -4,6 +4,9 @@ from typing import List
 
 import openai
 import pytest
+
+# Uses OpenAI clients; treat as integration when selected
+pytestmark = pytest.mark.integration
 from pydantic import BaseModel, Field
 
 from synth_ai.zyk import LM
