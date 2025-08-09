@@ -81,10 +81,7 @@ htmlcov/
 # Lock files (optional - uncomment if you want to exclude)
 # uv.lock
 
-# Environments examples - agent demos and examples
-# Ignore all agent_demos across all environment examples
 **/environments/examples/**/agent_demos/
-# Optionally ignore all examples except specific whitelists (currently none whitelisted)
 synth_ai/environments/examples/*
 
 old/
