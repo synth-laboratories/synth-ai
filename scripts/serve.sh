@@ -7,7 +7,7 @@ set -e
 ########################################
 # CONFIG
 ########################################
-DB_FILE="synth_ai.db"
+DB_FILE="traces/v3/synth_ai.db"
 SQLD_PORT="8080"
 ENV_PORT="8901"
 SQLD_BIN="sqld"
@@ -29,6 +29,9 @@ else
     exit 1
   fi
 fi
+
+# Ensure DB directory exists
+mkdir -p "$(dirname \"${DB_FILE}\")"
 
 # Check if sqld is already running
 if pgrep -f "${SQLD_BIN}.*--http-listen-addr.*:${SQLD_PORT}" >/dev/null; then
@@ -121,7 +124,15 @@ echo ""
 echo "💡 Tips:"
 echo "   - Check sqld.log if database issues occur"
 echo "   - Use Ctrl+C to stop all services"
-echo "   - Reloading is enabled for development"
+
+# Allow disabling reload for stable in-memory environments
+if [ "${SYNTH_RELOAD:-1}" = "1" ]; then
+  echo "   - Reloading is enabled for development"
+  RELOAD_ARGS=(--reload --reload-dir synth_ai)
+else
+  echo "   - Reloading is DISABLED (SYNTH_RELOAD=0)"
+  RELOAD_ARGS=()
+fi
 echo ""
 
 uv run python -m uvicorn \
@@ -129,5 +140,4 @@ uv run python -m uvicorn \
   --host 0.0.0.0 \
   --port "${ENV_PORT}" \
   --log-level info \
-  --reload \
-  --reload-dir synth_ai
+  "${RELOAD_ARGS[@]}"

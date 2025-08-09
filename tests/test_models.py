@@ -2,6 +2,9 @@ import time
 
 import pytest
 
+# Pure unit tests for internal model helper logic
+pytestmark = pytest.mark.unit
+
 from synth_ai.zyk import LM
 
 

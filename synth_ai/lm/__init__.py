@@ -21,6 +21,7 @@ from .vendors.synth_client import (
     create_chat_completion_async,
     create_chat_completion_sync,
 )
+from .core.main_v3 import LM
 
 __all__ = [
     # Configuration
@@ -42,6 +43,8 @@ __all__ = [
     "create_sync_client",
     "create_chat_completion_async",
     "create_chat_completion_sync",
+    # Core LM class
+    "LM",
 ]
 
 # Version info

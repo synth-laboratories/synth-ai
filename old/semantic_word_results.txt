@@ -1,0 +1,33 @@
+🔍 Simple Semantic Word Analysis
+========================================
+No trace files found, using demo observations...
+Total word occurrences: 27
+Unique words found: 25
+
+Word Distribution:
+--------------------
+"tree": 2/27 (7.4%)
+"stone": 2/27 (7.4%)
+"grass": 1/27 (3.7%)
+"water": 1/27 (3.7%)
+"wood": 1/27 (3.7%)
+"cow": 1/27 (3.7%)
+"river": 1/27 (3.7%)
+"mountain": 1/27 (3.7%)
+"axe": 1/27 (3.7%)
+"furnace": 1/27 (3.7%)
+"house": 1/27 (3.7%)
+"coal": 1/27 (3.7%)
+"diamond": 1/27 (3.7%)
+"cave": 1/27 (3.7%)
+"zombie": 1/27 (3.7%)
+"skeleton": 1/27 (3.7%)
+"sword": 1/27 (3.7%)
+"table": 1/27 (3.7%)
+"bread": 1/27 (3.7%)
+"pig": 1/27 (3.7%)
+"forest": 1/27 (3.7%)
+"door": 1/27 (3.7%)
+"chest": 1/27 (3.7%)
+"iron": 1/27 (3.7%)
+"fence": 1/27 (3.7%)

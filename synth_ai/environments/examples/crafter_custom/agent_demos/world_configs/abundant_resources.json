@@ -1,0 +1,18 @@
+{
+    "name": "Abundant Resources",
+    "description": "World with abundant resources for testing",
+    "spawn_multipliers": {
+        "tree": 3.0,
+        "coal": 3.0,
+        "iron": 3.0,
+        "diamond": 10.0,
+        "cow": 5.0,
+        "zombie": 0.1,
+        "skeleton": 0.1
+    },
+    "spawn_distances": {
+        "zombie": 20,
+        "skeleton": 20,
+        "cow": 1
+    }
+}

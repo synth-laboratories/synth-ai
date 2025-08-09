@@ -1,0 +1,96 @@
+🔍 Debugging Semantic Word Mappings
+==================================================
+🔍 Checking Crafter's internal semantic mappings...
+
+Material IDs:
+  11: table
+  12: furnace
+
+Object IDs:
+
+All Material Mappings (first 20):
+  0: None
+  1: water
+  2: grass
+  3: stone
+  4: path
+  5: sand
+  6: tree
+  7: lava
+  8: coal
+  9: iron
+  10: diamond
+  11: table
+  12: furnace
+
+All Object Mappings (first 20):
+  13: <class 'crafter.objects.Player'>
+  14: <class 'crafter.objects.Cow'>
+  15: <class 'crafter.objects.Zombie'>
+  16: <class 'crafter.objects.Skeleton'>
+  17: <class 'crafter.objects.Arrow'>
+  18: <class 'crafter.objects.Plant'>
+❌ Error inspecting Crafter: 'Env' object has no attribute 'close'
+
+🔎 Finding contexts for 'pickaxe':
+------------------------------
+1. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...'defeat_skeleton': false, 'defeat_zombie': false, 'eat_cow': false, 'eat_plant': false, 'make_iron_pickaxe': false, 'make_iron_sword': false, 'make_st...
+
+2. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...od_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': fal...
+
+3. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...nk': 9, 'energy': 9, 'sapling': 0, 'wood': 0, 'stone': 0, 'coal': 0, 'iron': 0, 'diamond': 0, 'wood_pickaxe': 0, 'stone_pickaxe': 0, 'iron_pickaxe': 0...
+
+4. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...'defeat_skeleton': false, 'defeat_zombie': false, 'eat_cow': false, 'eat_plant': false, 'make_iron_pickaxe': false, 'make_iron_sword': false, 'make_st...
+
+5. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...od_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': fal...
+
+
+🔎 Finding contexts for 'furnace':
+------------------------------
+1. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...xe': false, 'make_stone_sword': false, 'make_wood_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_ston...
+
+2. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...xe': false, 'make_stone_sword': false, 'make_wood_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_ston...
+
+3. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...xe': false, 'make_stone_sword': false, 'make_wood_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_ston...
+
+4. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...xe': false, 'make_stone_sword': false, 'make_wood_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_ston...
+
+5. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...xe': false, 'make_stone_sword': false, 'make_wood_pickaxe': false, 'make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_ston...
+
+
+🔎 Finding contexts for 'table':
+------------------------------
+1. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': false, 'place_table': false, 'wake_up': false}, 'rollout_length'...
+
+2. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': false, 'place_table': false, 'wake_up': false}, 'player_position...
+
+3. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': false, 'place_table': false, 'wake_up': false}, 'player_position...
+
+4. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': false, 'place_table': false, 'wake_up': false}, 'player_position...
+
+5. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...make_wood_sword': false, 'place_furnace': false, 'place_plant': false, 'place_stone': false, 'place_table': false, 'wake_up': false}, 'player_position...
+
+
+🔎 Finding contexts for 'stone' (for comparison):
+------------------------------
+1. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ..._diamond': false, 'collect_drink': false, 'collect_iron': false, 'collect_sapling': false, 'collect_stone': false, 'collect_wood': false, 'defeat_skel...
+
+2. File: session_crafter_episode_1_00000000-0000-0000-0000-000000000001_20250724_182523.json
+   Context: ...'eat_plant': false, 'make_iron_pickaxe': false, 'make_iron_sword': false, 'make_stone_pickaxe': false, 'make_stone_sword': false, 'make_wood_pickaxe':...
+

@@ -1,0 +1,56 @@
+# Crafter Synth Agent Configuration
+
+[eval]
+# Model name (required) - Synth/Modal models
+# model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+# model_name = "Qwen/Qwen2.5-7B-Instruct"
+model_name = "Qwen/Qwen2.5-14B-Instruct"
+
+# Number of episodes to run
+episodes = 5
+
+# Maximum steps per episode
+max_steps = 50
+
+# Difficulty: easy, normal, hard
+difficulty = "easy"
+
+# Random seed for reproducibility
+seed = 42
+
+[service]
+# Crafter service URL
+base_url = "http://localhost:8901"
+
+# Request timeout in seconds
+timeout = 30.0
+
+[output]
+# Save trace files
+save_traces = true
+
+# Save detailed JSON results
+save_detailed_results = true
+
+[tracing_v2]
+# Enable v2 tracing
+enabled = true
+
+# Directory for trace files (will be created automatically)
+trace_dir = "./traces_v2_synth"
+
+# Store traces in DuckDB only (no individual JSON files)
+duckdb_only = true
+
+# Clean up old files automatically
+auto_cleanup = true
+
+[synth]
+# Warm up model before starting
+warmup_model = true
+
+# Max attempts for warmup
+warmup_max_attempts = 30
+
+# Warmup timeout for large models (32B, 72B)
+warmup_timeout = 3600  # 60 minutes for 32B model

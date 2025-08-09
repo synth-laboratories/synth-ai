@@ -4,6 +4,9 @@ Grok integration tests for synth-ai.
 """
 
 import pytest
+
+# Mark this module as integration: requires external Grok/XAI API
+pytestmark = pytest.mark.integration
 from pydantic import BaseModel
 
 from synth_ai.zyk import LM

@@ -1,4 +1,7 @@
 import pytest
+
+# Reasoning models generally call external APIs
+pytestmark = pytest.mark.integration
 import asyncio
 import os
 import time

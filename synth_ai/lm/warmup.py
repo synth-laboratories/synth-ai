@@ -6,6 +6,8 @@ Handles model preloading and warmup polling.
 import httpx
 import asyncio
 import logging
+import sys
+import time
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 from .config import SynthConfig
@@ -46,9 +48,10 @@ _warmup_status = WarmupStatus()
 async def warmup_synth_model(
     model_name: str,
     config: Optional[SynthConfig] = None,
-    max_attempts: int = 30,
+    max_attempts: Optional[int] = None,
     force: bool = False,
     verbose: bool = True,
+    gpu_preference: Optional[str] = None,
 ) -> bool:
     """
     Warm up a model on the Synth backend using fire-and-forget approach.
@@ -73,6 +76,8 @@ async def warmup_synth_model(
 
     async with httpx.AsyncClient() as client:
         headers = {"Authorization": f"Bearer {config.api_key}"}
+        if gpu_preference:
+            headers["X-GPU-Preference"] = gpu_preference
 
         # Step 1: Start warmup (fire and forget)
         try:
@@ -84,8 +89,11 @@ async def warmup_synth_model(
 
             if response.status_code == 200:
                 response_data = response.json()
-                if response_data.get("status") in ["warming", "already_warming", "already_warmed"]:
+                if response_data.get("status") in ["warming", "already_warming"]:
                     pass
+                elif response_data.get("status") == "already_warmed":
+                    _warmup_status.mark_warm(model_name)
+                    return True
                 else:
                     logger.warning(f"Unexpected warmup response: {response_data}")
             else:
@@ -98,8 +106,13 @@ async def warmup_synth_model(
             logger.warning(f"Warmup start failed: {e}")
             return False
 
-        # Step 2: Poll status until ready
-        for attempt in range(max_attempts):
+        # Step 2: Poll status until ready (indefinite by default)
+        spinner = "|/-\\"
+        spin_idx = 0
+        start_time = time.time()
+        attempt = 0
+        while True:
+            attempt += 1
             try:
                 response = await client.get(
                     f"{config.get_base_url_without_v1()}/warmup/status/{model_name}",
@@ -113,34 +126,58 @@ async def warmup_synth_model(
 
                     if status == "warmed":
                         _warmup_status.mark_warm(model_name)
+                        # Final spinner line as success
+                        elapsed = int(time.time() - start_time)
+                        sys.stdout.write(f"\r✅ Warmed {model_name} in {elapsed}s        \n")
+                        sys.stdout.flush()
                         return True
                     elif status == "failed":
                         error = status_data.get("error", "Unknown error")
                         logger.error(f"❌ Warmup failed for {model_name}: {error}")
+                        sys.stdout.write(f"\r❌ Warmup failed: {error}            \n")
+                        sys.stdout.flush()
                         return False
-                    elif status == "warming":
-                        # Still warming up, continue polling
-                        pass
-                    elif status == "not_started":
-                        # Warmup hasn't started yet, continue polling
-                        pass
                     else:
-                        logger.warning(f"Unknown warmup status: {status}")
+                        # Treat unknown statuses (e.g., "cold") as still warming
+                        elapsed = int(time.time() - start_time)
+                        wheel = spinner[spin_idx % len(spinner)]
+                        spin_idx += 1
+                        label = status or "pending"
+                        sys.stdout.write(
+                            f"\r⏳ Warming {model_name} [{wheel}] status={label} elapsed={elapsed}s"
+                        )
+                        sys.stdout.flush()
 
                 # Short sleep between status checks
                 await asyncio.sleep(2.0)
 
             except httpx.TimeoutException:
-                if verbose:
-                    logger.warning(f"Status check {attempt + 1} timed out")
+                # Continue polling; update spinner line
+                elapsed = int(time.time() - start_time)
+                wheel = spinner[spin_idx % len(spinner)]
+                spin_idx += 1
+                sys.stdout.write(
+                    f"\r⏳ Warming {model_name} [{wheel}] status=timeout elapsed={elapsed}s"
+                )
+                sys.stdout.flush()
                 await asyncio.sleep(1.0)
             except Exception as e:
-                if verbose:
-                    logger.warning(f"Status check {attempt + 1} failed: {e}")
+                # Continue polling; update spinner line with error label
+                elapsed = int(time.time() - start_time)
+                wheel = spinner[spin_idx % len(spinner)]
+                spin_idx += 1
+                sys.stdout.write(
+                    f"\r⏳ Warming {model_name} [{wheel}] status=error elapsed={elapsed}s"
+                )
+                sys.stdout.flush()
                 await asyncio.sleep(1.0)
 
-        logger.error(f"Failed to warm up {model_name} after {max_attempts} status checks")
-        return False
+            # Optional max_attempts for callers who want a cap
+            if max_attempts is not None and attempt >= max_attempts:
+                logger.error(f"Failed to warm up {model_name} after {max_attempts} status checks")
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                return False
 
 
 def get_warmup_status() -> WarmupStatus:
