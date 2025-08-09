@@ -79,7 +79,7 @@ def cli():
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
 @click.option("--reload/--no-reload", default=False, help="Enable auto-reload (default: off). Or set SYNTH_RELOAD=1")
-@click.option("--force", is_flag=True, help="Kill any process already bound to --env-port without prompting")
+@click.option("--force/--no-force", default=True, help="Kill any process already bound to --env-port without prompting")
 def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bool, reload: bool, force: bool):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     processes = []

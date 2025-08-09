@@ -82,8 +82,8 @@ _SESSIONS: dict[str, tuple[str, object]] = {}  # session_id -> (experiment_id, t
 
 # Configuration
 MODELS_TO_TEST = [
-    "gpt-4o-mini",
-    "gpt-4.1-mini",
+    "gpt-5-nano",
+    "gpt-4.1-nano",
 ]
 
 # Service URLs (modify these based on your setup)
@@ -119,6 +119,7 @@ class ExperimentConfig:
         self.base_seed = 1000  # Base seed for episode generation
         self.turn_timeout = 30.0  # Timeout per turn in seconds
         self.episode_timeout = 300.0  # Total timeout per episode in seconds
+        self.concurrency = 5  # Max concurrent episodes per model
 
 
 async def retry_http_request(client: httpx.AsyncClient, method: str, url: str, **kwargs) -> Any:
@@ -214,7 +215,7 @@ def create_message(
 
 
 async def run_episode(
-    config: ExperimentConfig, model_name: str, episode_num: int, experiment_id: str
+    config: ExperimentConfig, model_name: str, episode_num: int, experiment_id: str, pbar: tqdm | None = None
 ) -> dict[str, Any]:
     """Run a single episode with a specific model using v3 tracing."""
     # Create a new session tracer for this episode
@@ -296,16 +297,7 @@ async def run_episode(
                     done = True
                     break
 
-                # Update progress bar
-                if hasattr(config, "_pbar"):
-                    current_achievements = sum(
-                        1 for v in obs.get("achievements_status", {}).values() if v
-                    )
-                    config._pbar.set_postfix(
-                        {
-                            f"ep{episode_num}": f"step {turn + 1}/{config.max_turns}, ach: {current_achievements}"
-                        }
-                    )
+                # Progress bar will be updated at end of turn
 
                 set_turn_number(turn)
 
@@ -576,9 +568,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                     if done:
                                         break
 
-                                # Update progress bar after each action
-                                if hasattr(config, "_pbar"):
-                                    config._pbar.update(1)
+                                # Per-episode progress updated once per turn (not per action)
                     else:
                         # No tool calls provided, use noop
                         action_id = 0
@@ -625,15 +615,19 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
 
                     # End timestep
                     await session_tracer.end_timestep(f"turn_{turn}")
+                    # Update per-episode progress bar once per turn
+                    if pbar is not None:
+                        current_achievements = sum(
+                            1 for v in obs.get("achievements_status", {}).values() if v
+                        )
+                        pbar.set_postfix({"ach": current_achievements})
+                        pbar.update(1)
 
                 except Exception as e:
                     print(f"    ❌ Environment step error: {e}")
                     done = True
 
-            # Update progress bar for remaining steps if episode ended early
-            if hasattr(config, "_pbar") and turn < config.max_turns - 1:
-                remaining_steps = config.max_turns - turn - 1
-                config._pbar.update(remaining_steps)
+            # Progress bar updated per turn above
 
             # Calculate invalid action rate
             invalid_rate = invalid_actions / total_actions if total_actions > 0 else 0
@@ -694,46 +688,51 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
 
 
 async def run_model_experiment(
-    config: ExperimentConfig, model_name: str, experiment_id: str
+    config: ExperimentConfig, model_name: str, experiment_id: str, position_base: int = 0
 ) -> list[dict[str, Any]]:
-    """Run multiple episodes for a single model in parallel."""
-    print(f"\n🚀 Running {config.num_episodes} episodes for {model_name} in parallel...\n")
+    """Run multiple episodes for a single model in parallel with per-episode stacked progress bars."""
+    #print(f"\nRunning {config.num_episodes} episodes for {model_name} in parallel...\n")
 
-    # Create a progress bar for all steps across all episodes
-    total_steps = config.num_episodes * config.max_turns
-    pbar = atqdm(total=total_steps, desc=f"{model_name}", unit="steps", leave=True)
-    config._pbar = pbar  # Store in config so episodes can update it
+    # One progress bar per episode, stacked
+    episode_bars = [
+        tqdm(total=config.max_turns, desc=f"{model_name} | ep{i+1}", unit="turn", leave=True, position=position_base + i)
+        for i in range(config.num_episodes)
+    ]
 
     try:
-        # Create tasks for all episodes (each will create its own tracer)
-        tasks = []
-        for i in range(config.num_episodes):
-            task = run_episode(config, model_name, i, experiment_id)
-            tasks.append(task)
+        # Create tasks for all episodes (each will create its own tracer) with concurrency limit
+        sem = asyncio.Semaphore(max(1, int(config.concurrency)))
+
+        async def _limited_run(ep_idx: int):
+            async with sem:
+                pbar = episode_bars[ep_idx]
+                try:
+                    return await run_episode(config, model_name, ep_idx, experiment_id, pbar)
+                finally:
+                    pbar.close()
+
+        tasks = [_limited_run(i) for i in range(config.num_episodes)]
 
         # Run all episodes in parallel
         results = await asyncio.gather(*tasks)
 
-        # Calculate summary stats
+        # Optional summary on the last bar
         successful_results = [r for r in results if "error" not in r]
-        if successful_results:
-            avg_achievements = sum(r["total_achievements"] for r in successful_results) / len(
-                successful_results
-            )
-            avg_invalid_rate = sum(r["invalid_action_rate"] for r in successful_results) / len(
-                successful_results
-            )
-            pbar.set_postfix(
-                {
-                    "avg_achievements": f"{avg_achievements:.1f}",
-                    "avg_invalid_rate": f"{avg_invalid_rate:.1%}",
-                    "success_rate": f"{len(successful_results)}/{len(results)}",
-                }
-            )
-    finally:
-        pbar.close()
+        if successful_results and episode_bars:
+            avg_ach = sum(r["total_achievements"] for r in successful_results) / len(successful_results)
+            avg_inv = sum(r["invalid_action_rate"] for r in successful_results) / len(successful_results)
+            try:
+                episode_bars[-1].set_postfix({"avg_ach": f"{avg_ach:.1f}", "inv_rate": f"{avg_inv:.1%}"})
+            except Exception:
+                pass
 
-    return results
+        return results
+    finally:
+        for b in episode_bars:
+            try:
+                b.close()
+            except Exception:
+                pass
 
 
 async def analyze_results(config: ExperimentConfig, all_results: dict[str, list[dict[str, Any]]]):
@@ -838,11 +837,16 @@ async def analyze_results(config: ExperimentConfig, all_results: dict[str, list[
                             f"{'N/A':<18} ${row['total_cost_usd']:<11.4f}"
                         )
 
-        # Export detailed results
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        results_file = f"crafter_experiment_results_{timestamp}.json"
+        # Export detailed results under a temp/ directory (git-ignored)
+        from pathlib import Path
+        import os
 
-        with open(results_file, "w") as f:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = Path(os.getenv("SYNTH_OUTPUT_DIR", "temp")).resolve()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        results_path = out_dir / f"crafter_experiment_results_{timestamp}.json"
+
+        with open(results_path, "w") as f:
             json.dump(
                 {
                     "config": {
@@ -859,7 +863,7 @@ async def analyze_results(config: ExperimentConfig, all_results: dict[str, list[
                 indent=2,
             )
 
-        print(f"\n💾 Detailed results saved to: {results_file}")
+        print(f"\n💾 Detailed results saved to: {results_path}")
 
     finally:
         await db_manager.close()
@@ -877,6 +881,9 @@ async def main():
     parser.add_argument("--no-save", action="store_true", help="Don't save traces to database")
     parser.add_argument("--quiet", action="store_true", help="Reduce output verbosity")
     parser.add_argument("--db-url", default=DATABASE_URL, help="Database URL for tracing")
+    parser.add_argument(
+        "--concurrency", type=int, default=5, help="Max concurrent rollouts per model"
+    )
     parser.add_argument(
         "--base-seed",
         type=int,
@@ -904,6 +911,7 @@ async def main():
     config.base_seed = args.base_seed
     config.turn_timeout = args.turn_timeout
     config.episode_timeout = args.episode_timeout
+    config.concurrency = max(1, int(args.concurrency))
 
     # Generate experiment ID
     experiment_id = f"crafter_multi_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -936,11 +944,14 @@ async def main():
 
     print("✅ Crafter service is running")
 
-    # Run experiments for each model
+    # Run experiments for each model in parallel with stacked per-episode progress bars
     all_results = {}
-
-    for model in args.models:
-        results = await run_model_experiment(config, model, experiment_id)
+    model_tasks = []
+    for idx, model in enumerate(args.models):
+        base = idx * (config.num_episodes + 1)
+        model_tasks.append(run_model_experiment(config, model, experiment_id, position_base=base))
+    results_list = await asyncio.gather(*model_tasks)
+    for model, results in zip(args.models, results_list):
         all_results[model] = results
 
     # Analyze and compare results

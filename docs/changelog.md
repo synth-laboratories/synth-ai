@@ -2,29 +2,29 @@
 [0;34m[INFO][0m Bumping version type: dev
 [0;34m[INFO][0m New version: 0.2.1.dev2
 [0;32m[SUCCESS][0m Version bumped to 0.2.1.dev2
-0.2.2.dev0 - 2025-07-30
+0.2.2.dev2 - 2025-08-08
 
-## What's New
+## Highlights
 
-- **Environment Registration API**: Third-party packages can now register custom environments dynamically via REST API, CLI, or entry points (e.g., `curl -X POST localhost:8901/registry/environments -d '{"name":"MyEnv-v1","module_path":"my_env","class_name":"MyEnv"}'`)
-- **Turso Database Integration**: Added Turso/sqld daemon support with local-first database replication via `uvx synth-ai serve` (replicas sync every 2 seconds by default)
-- **Environment Service Daemon**: The `uvx synth-ai serve` command now starts both the Turso database daemon (port 8080) and environment service API (port 8901) for complete local development setup
+- Fine-tuning (SFT) endpoints are now available and documented end-to-end (files → jobs → status)
+- Added interactive demo launcher (`uvx synth-ai demo`) with finetuning flow for Qwen 4B (Crafter)
+- Demo script streams live polling output during training (status updates visible while running)
 
-## Breaking Changes
+## CLI & Demos
 
-- [List any breaking changes]
-
-## Bug Fixes
-
-- [List bug fixes]
+- `uvx synth-ai demo` — lists available demos and lets you run them interactively:
+  - `examples/finetuning/synth_qwen/run_demo.sh` — rollouts → v3 trace filtering → SFT kickoff, with live polling
+  - `examples/evals/run_demo.sh` — quick eval rollouts and trace filtering for dataset prep
+- Improved demo UX: training status lines (e.g., `⏳ poll N/20 – status = running`) now stream live in the terminal
 
 ## Documentation
 
-- [List documentation updates]
+- Examples → Walkthrough — synth_qwen (Crafter) with: generate → filter → finetune → run
+- CLI Reference section for `uvx synth-ai serve`, `uvx synth-ai traces`, and demo launcher
+- Turso v3 tracing guide and filtering guide for SFT JSONL generation
 
 ---
-
-# 0.2.2.dev1 - 2025-08-07
+0.2.2.dev1 - 2025-08-07
 
 ## Highlights
 
@@ -32,14 +32,6 @@
 - New CLI utilities and manual: compact, one-off commands with `uvx synth-ai <cmd>` and `man`
 - Traces inventory view showing per-DB and per-system counts, plus on-disk size (GB)
 - Inference and SFT API routes consolidated and documented for local and Modal deployments
-
-## Backend (FastAPI)
-
-- Added `GET /api/v1/balance/current` to return current org balance (cents and USD) with proper Decimal handling
-- Added `GET /api/v1/balance/usage/windows?hours=24,168` to summarize token/GPU spend over the past N hours
-- Improved error logging (`logger.exception`) for balance routes so stack traces appear in logs
-- Normalized `DATABASE_URL` for asyncpg pool creation (strip `+psycopg`/`+asyncpg`) to prevent connection errors
-- Confirmed Inference + SFT endpoints are available via learning services (v1 and v2) for chat/completions, files, fine-tuning jobs, warmup, and job status
 
 ## CLI
 
@@ -66,6 +58,28 @@
 ## Notes
 
 - Publish a new package release to enable `uvx synth-ai man` and other commands without `.` prefix.
+
+---
+
+0.2.2.dev0 - 2025-07-30
+
+## What's New
+
+- **Environment Registration API**: Third-party packages can now register custom environments dynamically via REST API, CLI, or entry points (e.g., `curl -X POST localhost:8901/registry/environments -d '{"name":"MyEnv-v1","module_path":"my_env","class_name":"MyEnv"}'`)
+- **Turso Database Integration**: Added Turso/sqld daemon support with local-first database replication via `uvx synth-ai serve` (replicas sync every 2 seconds by default)
+- **Environment Service Daemon**: The `uvx synth-ai serve` command now starts both the Turso database daemon (port 8080) and environment service API (port 8901) for complete local development setup
+
+## Breaking Changes
+
+- [List any breaking changes]
+
+## Bug Fixes
+
+- [List bug fixes]
+
+## Documentation
+
+- [List documentation updates]
 
 ---
 

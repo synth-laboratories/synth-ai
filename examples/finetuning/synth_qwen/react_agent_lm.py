@@ -573,6 +573,7 @@ class BaseReActAgentWithLMSynth:
             "tool_calls_made": 0,
             "current_turn": 0,
             "last_failure": None,  # Track last failure for prompting
+            "recent_tool_calls": [],
         }
 
     async def decide(self, obs: str, system_message: str, turn: int) -> Dict[str, Any]:
@@ -582,8 +583,26 @@ class BaseReActAgentWithLMSynth:
         self.agent_state["steps_taken"] = turn
         self.agent_state["steps_remaining"] = self.max_turns - turn
 
+        # Include last 3 tool calls (reasoning and actions) to provide short action history
+        recent_calls = self.agent_state.get("recent_tool_calls", [])
+        recent_tail = recent_calls[-3:] if isinstance(recent_calls, list) else []
+        if recent_tail:
+            lines = ["\nRecent tool calls (last 3):"]
+            for entry in recent_tail:
+                tnum = entry.get("turn")
+                name = entry.get("name")
+                reasoning = entry.get("reasoning")
+                actions = entry.get("actions")
+                actions_str = ", ".join(actions) if isinstance(actions, list) else ""
+                lines.append(
+                    f"- Turn {tnum}: {name} — reasoning: {reasoning}; actions: {actions_str}"
+                )
+            obs_with_history = f"{obs}\n" + "\n".join(lines)
+        else:
+            obs_with_history = obs
+
         # Create conversation context with unique episode ID to prevent caching
-        context = f"Episode {self.episode_id} - Turn {turn + 1}/{self.max_turns}\n\n{obs}"
+        context = f"Episode {self.episode_id} - Turn {turn + 1}/{self.max_turns}\n\n{obs_with_history}"
 
         # Build messages in OpenAI format for tools
         # Augment the system message if the previous turn failed to produce a tool call
@@ -647,32 +666,32 @@ class BaseReActAgentWithLMSynth:
                 "yes",
                 "on",
             )
-            if _log_full_inputs:
-                print("\n" + "=" * 80)
-                print(f"FULL LM INPUT (turn {turn})")
-                print("-" * 80)
-                print("System message:\n" + local_system_message)
-                print("\nUser message:\n" + context)
-                print("\nMessages JSON:")
-                print(json.dumps(messages, indent=2))
-                print("\nTools definition:")
-                print(json.dumps(self.tools, indent=2))
-                print("\nSampling/tool params:")
-                print(
-                    json.dumps(
-                        {
-                            "tool_choice": self.model_params.get("tool_choice"),
-                            "extra_body": self.model_params.get("extra_body"),
-                            "temperature": self.model_params.get("temperature"),
-                            "max_tokens": self.model_params.get("max_tokens"),
-                            "top_p": self.model_params.get("top_p"),
-                            "frequency_penalty": self.model_params.get("frequency_penalty"),
-                            "presence_penalty": self.model_params.get("presence_penalty"),
-                        },
-                        indent=2,
-                    )
-                )
-                print("=" * 80)
+            # if _log_full_inputs:
+            #     print("\n" + "=" * 80)
+            #     print(f"FULL LM INPUT (turn {turn})")
+            #     print("-" * 80)
+            #     print("System message:\n" + local_system_message)
+            #     print("\nUser message:\n" + context)
+            #     print("\nMessages JSON:")
+            #     print(json.dumps(messages, indent=2))
+            #     print("\nTools definition:")
+            #     print(json.dumps(self.tools, indent=2))
+            #     print("\nSampling/tool params:")
+            #     print(
+            #         json.dumps(
+            #             {
+            #                 "tool_choice": self.model_params.get("tool_choice"),
+            #                 "extra_body": self.model_params.get("extra_body"),
+            #                 "temperature": self.model_params.get("temperature"),
+            #                 "max_tokens": self.model_params.get("max_tokens"),
+            #                 "top_p": self.model_params.get("top_p"),
+            #                 "frequency_penalty": self.model_params.get("frequency_penalty"),
+            #                 "presence_penalty": self.model_params.get("presence_penalty"),
+            #             },
+            #             indent=2,
+            #         )
+            #     )
+            #     print("=" * 80)
 
             response = await self.lm.respond_async(
                 messages=messages,
@@ -731,6 +750,22 @@ class BaseReActAgentWithLMSynth:
                         }
                 if parsed_decision:
                     decision = parsed_decision
+                    try:
+                        pname = decision.get("name")
+                        pparams = decision.get("parameters", {}) if isinstance(decision, dict) else {}
+                        preason = pparams.get("reasoning") if isinstance(pparams, dict) else None
+                        pacts = pparams.get("actions") if isinstance(pparams, dict) else None
+                        entry = {
+                            "turn": turn,
+                            "name": pname,
+                            "reasoning": preason,
+                            "actions": pacts if isinstance(pacts, list) else [],
+                        }
+                        self.agent_state["recent_tool_calls"].append(entry)
+                        if len(self.agent_state["recent_tool_calls"]) > 10:
+                            self.agent_state["recent_tool_calls"] = self.agent_state["recent_tool_calls"][-10:]
+                    except Exception:
+                        pass
                     # Clear failure flag on success
                     if self.agent_state.get("last_failure"):
                         self.agent_state["last_failure"] = None
@@ -1767,9 +1802,12 @@ async def main():
         print(f"   Experiment ID: {experiment_ctx['experiment_id']}")
         print(f"   Use the filter_traces_sft_turso.py script to extract fine-tuning data")
     elif config.save_detailed_results:
-        # Fallback to JSON if no tracing
-        results_file = f"crafter_lm_synth_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(results_file, "w") as f:
+        # Fallback to JSON if no tracing - write under temp/ (git-ignored)
+        from pathlib import Path
+        out_dir = Path(os.getenv("SYNTH_OUTPUT_DIR", "temp")).resolve()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        results_path = out_dir / f"crafter_lm_synth_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        with open(results_path, "w") as f:
             json.dump(
                 {
                     "config": {
@@ -1794,7 +1832,7 @@ async def main():
                 f,
                 indent=2,
             )
-        print(f"\n💾 Detailed results saved to: {results_file}")
+        print(f"\n💾 Detailed results saved to: {results_path}")
 
     # Print a markdown row compatible with Environments/crafter.md tables
     if successful_episodes:

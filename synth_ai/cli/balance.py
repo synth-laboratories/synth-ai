@@ -16,14 +16,16 @@ from rich.table import Table
 from rich import box
 
 
+PROD_BACKEND_BASE = "https://agent-learning.onrender.com/api/v1"
+
+
 def _get_default_base_url() -> str:
-    # Prefer explicit backend variables over generic SYNTH_BASE_URL (often points to Modal)
-    return (
-        os.getenv("SYNTH_BACKEND_BASE_URL")
-        or os.getenv("BACKEND_BASE_URL")
-        or os.getenv("LOCAL_BACKEND_URL")
-        or os.getenv("SYNTH_BASE_URL", "http://localhost:8000/api/v1")
-    )
+    # Prefer explicit backend variables that are NOT modal; else default to prod backend
+    for var in ("SYNTH_BACKEND_BASE_URL", "BACKEND_BASE_URL", "SYNTH_BASE_URL"):
+        val = os.getenv(var)
+        if val and ("modal" not in val.lower() and "modal.run" not in val.lower()):
+            return val
+    return PROD_BACKEND_BASE
 
 
 def _ensure_api_v1_prefix(base_url: str) -> str:
@@ -95,13 +97,8 @@ def register(cli):
         except Exception:
             host = ""
         if "modal" in host or "modal.run" in base.lower():
-            # Override to localhost backend and inform the user
-            fallback = _ensure_api_v1_prefix(
-                os.getenv("SYNTH_BACKEND_BASE_URL")
-                or os.getenv("BACKEND_BASE_URL")
-                or os.getenv("LOCAL_BACKEND_URL")
-                or "http://localhost:8000"
-            )
+            # Override to prod backend unconditionally
+            fallback = PROD_BACKEND_BASE
             console.print(
                 f"[yellow]Detected remote Modal URL ({base}). Using backend instead:[/yellow] {fallback}"
             )

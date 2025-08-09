@@ -81,15 +81,16 @@ htmlcov/
 # Lock files (optional - uncomment if you want to exclude)
 # uv.lock
 
-# Environments examples - specific handling
-# First, exclude all agent_demos subdirectories
-synth_ai/environments/examples/*/agent_demos/
-# Then exclude all examples except crafter ones
+# Environments examples - agent demos and examples
+# Ignore all agent_demos across all environment examples
+**/environments/examples/**/agent_demos/
+# Optionally ignore all examples except specific whitelists (currently none whitelisted)
 synth_ai/environments/examples/*
-!synth_ai/environments/examples/crafter_classic/
-!synth_ai/environments/examples/crafter_custom/
 
 old/
+
+# Temporary output directory for experiment artifacts
+temp/
 
 # SQLite databases and locks
 *.db
@@ -97,3 +98,7 @@ old/
 *.db-wal
 *.sqlite
 *.sqlite3
+
+
+.github
+.env.bak

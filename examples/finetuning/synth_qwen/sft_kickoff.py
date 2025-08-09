@@ -14,15 +14,24 @@ Environment:
 import asyncio
 import os
 import time
-from typing import Dict
+from typing import Dict, Any
+import tomllib
 
 import aiohttp
 from synth_ai.config.base_url import get_learning_v2_base_url
 
 API_URL = get_learning_v2_base_url()
 API_KEY = os.getenv("SYNTH_API_KEY")
-MODEL = os.getenv("QWEN_BASE_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
-TRAINING_PATH = os.getenv("QWEN_TRAINING_JSONL", "ft_data/qwen4b_crafter_sft.jsonl")
+
+_cfg_path = os.getenv("CRAFTER_CONFIG", "examples/finetuning/synth_qwen/config.toml")
+_cfg: Dict[str, Any] = {}
+if os.path.exists(_cfg_path):
+    with open(_cfg_path, "rb") as _f:
+        _cfg = tomllib.load(_f)
+scfg = _cfg.get("sft", {})
+
+MODEL = os.getenv("QWEN_BASE_MODEL", scfg.get("base_model", "Qwen/Qwen3-4B-Instruct-2507"))
+TRAINING_PATH = os.getenv("QWEN_TRAINING_JSONL", scfg.get("training_jsonl", "ft_data/qwen4b_crafter_sft.jsonl"))
 
 
 async def upload_file() -> str:
@@ -46,8 +55,12 @@ async def create_job(file_id: str) -> str:
     body = {
         "training_file": file_id,
         "model": MODEL,
-        "hyperparameters": {"training_type": "sft", "n_epochs": 1, "batch_size": 4},
-        "upload_to_wasabi": True,
+        "hyperparameters": {
+            "training_type": "sft",
+            "n_epochs": int(scfg.get("n_epochs", 1)),
+            "batch_size": int(scfg.get("batch_size", 4)),
+        },
+        "upload_to_wasabi": bool(scfg.get("upload_to_wasabi", True)),
     }
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
@@ -89,16 +102,9 @@ async def main() -> None:
 
     ft_model = job["fine_tuned_model"]
     tokens = job.get("trained_tokens")
-    output_dir = job.get("output_dir")
-    wasabi_path = job.get("wasabi_path")
 
     print("🟢 Qwen4B SFT fine-tune succeeded →", ft_model)
     print(f"⏱️ wall-clock: {wall:.1f}s | trained_tokens: {tokens}")
-    print("🔍 job keys:", list(job.keys()))
-    if output_dir:
-        print("📂 adapter saved at:", output_dir)
-    assert wasabi_path, "Wasabi path not present in job record – upload failed"
-    print("🪣 adapter uploaded to:", wasabi_path)
 
 
 if __name__ == "__main__":

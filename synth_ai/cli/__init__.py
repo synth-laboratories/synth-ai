@@ -59,3 +59,8 @@ try:
     _status.register(cli)
 except Exception:
     pass
+try:
+    from . import demo as _demo
+    _demo.register(cli)
+except Exception:
+    pass

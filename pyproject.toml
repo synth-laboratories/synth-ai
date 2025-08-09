@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.2.dev0"
+version = "0.3.0"
 description = "Software for aiding the best and multiplying the will - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"

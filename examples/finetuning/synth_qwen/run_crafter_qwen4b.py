@@ -15,6 +15,7 @@ Environment variables:
 It also sets a few runner-specific env flags to enforce short outputs and a single tool call.
 """
 import asyncio
+import tomllib
 import os
 import sys
 
@@ -24,26 +25,39 @@ import sys
 from examples.finetuning.synth_qwen import (
     react_agent_lm as runner,
 )
-from synth_ai.config.base_url import get_learning_v2_base_url
+from synth_ai.config.base_url import (
+    get_learning_v2_base_url,
+    PROD_BASE_URL_DEFAULT,
+)
 
-# Ensure SYNTH_BASE_URL is set for the runner
-if "SYNTH_BASE_URL" not in os.environ:
-    # Bridge older env var name to new one first
-    if "SYNTH_API_URL" in os.environ:
-        _base = os.environ["SYNTH_API_URL"].rstrip("/")
-        if not _base.endswith("/api"):
-            _base = f"{_base}/api"
-        os.environ["SYNTH_BASE_URL"] = _base
-    else:
-        # Fall back to standardized resolver (defaults to prod, honors .env overrides)
-        os.environ["SYNTH_BASE_URL"] = get_learning_v2_base_url()
+# Force prod by default for this runner unless explicitly overridden
+_force_prod = os.getenv("CRAFTER_FORCE_PROD", "1").lower() in ("1", "true", "yes", "on")
+if _force_prod:
+    # Sanitize implicit local/dev overrides
+    os.environ.pop("SYNTH_LOCAL_BASE_URL", None)
+    os.environ.pop("SYNTH_DEV_BASE_URL", None)
+    # If caller hasn't explicitly set LEARNING_V2_BASE_URL, lock to prod default
+    if "LEARNING_V2_BASE_URL" not in os.environ:
+        os.environ["LEARNING_V2_BASE_URL"] = PROD_BASE_URL_DEFAULT
+
+# Resolve base URL from shared config (honors LEARNING_V2_BASE_URL and sanitized overrides)
+os.environ["SYNTH_BASE_URL"] = get_learning_v2_base_url()
 
 print(f"🔧 Using Synth base URL = {os.environ.get('SYNTH_BASE_URL')}")
 
-MODEL_ID = os.getenv("CRAFTER_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
-EPISODES = os.getenv("CRAFTER_EPISODES", "10")
-MAX_STEPS = os.getenv("CRAFTER_MAX_STEPS", "30")
-DIFFICULTY = os.getenv("CRAFTER_DIFFICULTY", "easy")
+cfg_path = os.getenv("CRAFTER_CONFIG", "examples/finetuning/synth_qwen/config.toml")
+cfg = {}
+if os.path.exists(cfg_path):
+    with open(cfg_path, "rb") as f:
+        cfg = tomllib.load(f)
+else:
+    cfg = {"rollouts": {}}
+rcfg = cfg.get("rollouts", {})
+
+MODEL_ID = os.getenv("CRAFTER_MODEL", rcfg.get("model", "Qwen/Qwen3-4B-Instruct-2507"))
+EPISODES = os.getenv("CRAFTER_EPISODES", str(rcfg.get("episodes", 10)))
+MAX_STEPS = os.getenv("CRAFTER_MAX_STEPS", str(rcfg.get("max_steps", 30)))
+DIFFICULTY = os.getenv("CRAFTER_DIFFICULTY", rcfg.get("difficulty", "easy"))
 
 
 async def main() -> None:
@@ -54,9 +68,14 @@ async def main() -> None:
     # Tighten prompts and enforce tool calling like the tests do
     os.environ["CRAFTER_STOP_AFTER_TOOL_CALLS"] = "1"
     os.environ["SYNTH_OPENAI_DEBUG"] = "0"
-    os.environ["CRAFTER_MAX_TOKENS"] = os.environ.get("CRAFTER_MAX_TOKENS", "2048")
-    os.environ["CRAFTER_TOOL_CHOICE"] = os.environ.get("CRAFTER_TOOL_CHOICE", "required")
-    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get("CRAFTER_TEMPERATURE", "0.4")
+    os.environ["CRAFTER_MAX_TOKENS"] = os.environ.get("CRAFTER_MAX_TOKENS", str(rcfg.get("max_tokens", 2048)))
+    os.environ["CRAFTER_TOOL_CHOICE"] = os.environ.get("CRAFTER_TOOL_CHOICE", rcfg.get("tool_choice", "required"))
+    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get("CRAFTER_TEMPERATURE", str(rcfg.get("temperature", 0.4)))
+
+    # Default v3 traces path from config if not already set
+    tcfg = cfg.get("traces", {})
+    if "SQLD_DB_PATH" not in os.environ and tcfg.get("sqld_db_path"):
+        os.environ["SQLD_DB_PATH"] = tcfg["sqld_db_path"]
     os.environ["CRAFTER_SYSTEM_PROMPT"] = (
         "You are CrafterAgent playing the Crafter survival environment. Your goal is to stay alive and unlock as many achievements as possible. "
         "Keep your reasoning very brief and focus on the tool call. Use the tool available to you to play Crafter"

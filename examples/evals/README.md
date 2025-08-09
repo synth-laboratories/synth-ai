@@ -4,7 +4,7 @@ This cookbook demonstrates how to run parallel experiments comparing different l
 
 ## Overview
 
-This cookbook runs episodes of the Crafter game environment with different language models (gpt-4o-mini and gpt-4.1-mini) in parallel, collecting performance metrics and analyzing the results.
+This cookbook runs episodes of the Crafter game environment with different language models (e.g., gpt-5-nano and Qwen/Qwen3-32B-Instruct) in parallel, collecting performance metrics and analyzing the results.
 
 ## Features
 
@@ -25,16 +25,17 @@ This cookbook runs episodes of the Crafter game environment with different langu
    bash serve.sh
    ```
 
-2. Set up your OpenAI API key:
+2. Set up your API keys (Synth/OpenAI or provider as needed):
    ```bash
    export OPENAI_API_KEY="your-api-key"
    ```
 
 ## Usage
 
-Run the comparison script:
+Run the comparison script (gpt-5-nano vs Qwen/Qwen3-32B-Instruct):
 ```bash
-./run_comparison.sh
+uvpm examples.evals.compare_models --episodes 5 --max-turns 100 --difficulty easy \
+  --models "gpt-5-nano" "Qwen/Qwen3-32B-Instruct"
 ```
 
 Or with custom parameters:
@@ -43,7 +44,7 @@ python compare_models.py \
     --episodes 10 \
     --max-turns 100 \
     --difficulty easy \
-    --models gpt-4o-mini gpt-4.1-mini \
+    --models "gpt-5-nano" "Qwen/Qwen3-32B-Instruct" \
     --base-seed 1000 \
     --turn-timeout 30.0 \
     --episode-timeout 300.0
@@ -68,7 +69,7 @@ The script produces:
 4. Model usage statistics (filtered to current experiment only)
 5. JSON file with detailed results
 
-## Example Output
+## Example Output (abridged)
 
 ```
 📊 Analysis Results:
@@ -77,11 +78,11 @@ The script produces:
 📈 Model Performance Summary:
 Model                Avg Achievements   Max Achievements   Invalid Rate    Success Rate   
 --------------------------------------------------------------------------------------
-gpt-4o-mini            1.80 ± 1.33                    4            0.00%          100.00%
-gpt-4.1-mini           1.80 ± 1.17                    3            0.00%          100.00%
+gpt-5-nano             1.60 ± 1.10                    4            1.20%          100.00%
+Qwen/Qwen3-32B-Inst    1.40 ± 1.05                    3            1.80%          100.00%
 
 🏆 Achievement Frequencies:
-Achievement                 gpt-4.1-   gpt-4o-m
+Achievement                 gpt-5-na   qwen3-32
 -----------------------------------------------
 collect_drink               1/5   ( 20%)   3/5   ( 60%)
 collect_sapling             2/5   ( 40%)   2/5   ( 40%)
