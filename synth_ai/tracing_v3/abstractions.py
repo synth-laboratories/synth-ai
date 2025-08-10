@@ -18,13 +18,27 @@ Session Structure:
 - SessionTrace: Top-level container for a complete session
   - SessionTimeStep: Logical steps within a session (e.g., conversation turns)
     - Events: Individual events that occurred during the timestep
-    - Messages: User/assistant messages exchanged
+    - Messages: Information passed between subsystems (user, agent, runtime, environments)
+
+Concepts:
+---------
+- Events capture something that happened inside a subsystem. They may or may not be externally
+  visible. Examples include an LLM API call (LMCAISEvent), a tool selection (RuntimeEvent), or
+  a tool execution outcome (EnvironmentEvent).
+
+- Messages represent information transmitted between subsystems within the session.
+  Messages are used to record communications like: a user sending input to the agent,
+  the agent/runtime sending a tool invocation to an environment, the environment sending a
+  tool result back, and the agent sending a reply to the user. Do not confuse these with
+  provider-specific LLM API "messages" (prompt formatting) — those belong inside an LMCAISEvent
+  as part of its input/output content, not as SessionEventMessages.
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from .lm_call_record_abstractions import LLMCallRecord
 
 
 @dataclass
@@ -49,15 +63,26 @@ class TimeRecord:
 class SessionEventMessage:
     """Message exchanged during a session.
     
-    Represents any message passed between participants in a session, including
-    user inputs, assistant responses, and system messages.
+    Represents inter-system communication within the session: user inputs to the agent,
+    agent/runtime tool invocations to an environment, environment responses back to the
+    agent/runtime, agent responses to the user, and other system-to-system signals.
+    
+    This is distinct from provider LLM API prompt/completion formatting. Provider "messages"
+    should be captured within LMCAISEvent data. SessionEventMessage is for cross-system
+    communications that form the transcript of the session.
     
     Attributes:
         content: The actual message content (text, JSON, etc.)
-        message_type: Type identifier (e.g., 'user', 'assistant', 'system', 'tool')
+        message_type: Semantic type (e.g., 'user', 'assistant', 'tool', 'tool_result', 'system')
         time_record: Timing information for the message
-        metadata: Additional message metadata (e.g., model used, tokens consumed,
-                 tool calls, attachments, etc.)
+        metadata: Additional message metadata. Recommended keys:
+                  - 'step_id': Timestep identifier
+                  - 'system_role': Human-readable actor label (e.g., 'human', 'codex-rs',
+                                   'runtime', 'bash-environment')
+                  - 'from_system_instance_id' / 'to_system_instance_id': UUIDs of sender/receiver
+                  - 'from_system_role' / 'to_system_role': Human-readable roles of sender/receiver
+                  - 'call_id': Correlate tool messages and results
+                  - Attachments or auxiliary fields relevant to the transmission
     """
 
     content: str
@@ -70,8 +95,9 @@ class SessionEventMessage:
 class BaseEvent:
     """Base class for all event types.
     
-    This is the foundation for all events in the tracing system. Every event
-    must have a system identifier and timing information.
+    This is the foundation for all events in the tracing system. Every event must
+    have a system identifier and timing information. Events are intra-system facts
+    (they occur within a subsystem) and are not necessarily direct communications.
     
     Attributes:
         system_instance_id: Identifier for the system/component that generated
@@ -95,8 +121,10 @@ class BaseEvent:
 class RuntimeEvent(BaseEvent):
     """Event from runtime system.
     
-    Captures events from the AI system's runtime, typically representing
-    decisions or actions taken by the system.
+    Captures events from the AI system's runtime, typically representing decisions
+    or actions taken by the system (e.g., selecting a tool with arguments).
+    Use paired SessionEventMessages to record the communication of this choice to
+    the environment.
     
     Attributes:
         actions: List of action identifiers or indices. The interpretation
@@ -111,7 +139,9 @@ class RuntimeEvent(BaseEvent):
 class EnvironmentEvent(BaseEvent):
     """Event from environment.
     
-    Captures feedback from the environment in response to system actions.
+    Captures feedback from the environment in response to system actions (e.g.,
+    command output, exit codes, observations). Use a paired SessionEventMessage
+    to record the environment-to-agent communication of the result.
     Follows the Gymnasium/OpenAI Gym convention for compatibility.
     
     Attributes:
@@ -135,6 +165,8 @@ class LMCAISEvent(BaseEvent):
     
     CAIS (Claude AI System) events capture detailed information about LLM calls,
     including performance metrics, cost tracking, and distributed tracing support.
+    Treat provider-specific prompt/completion structures as part of this event's
+    data. Do not emit them as SessionEventMessages.
     
     Attributes:
         model_name: The specific model used (e.g., 'gpt-4', 'claude-3-opus')
@@ -148,6 +180,8 @@ class LMCAISEvent(BaseEvent):
         trace_id: OpenTelemetry compatible trace identifier
         system_state_before: State snapshot before the LLM call
         system_state_after: State snapshot after the LLM call
+        call_records: List of normalized LLM call records capturing request/response
+                      details (messages, tool calls/results, usage, params, etc.).
     """
 
     model_name: str = ""
@@ -161,6 +195,7 @@ class LMCAISEvent(BaseEvent):
     trace_id: Optional[str] = None
     system_state_before: Optional[Dict[str, Any]] = None
     system_state_after: Optional[Dict[str, Any]] = None
+    call_records: List[LLMCallRecord] = field(default_factory=list)
 
 
 @dataclass

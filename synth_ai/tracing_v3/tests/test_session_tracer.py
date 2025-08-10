@@ -12,6 +12,7 @@ import time
 
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import RuntimeEvent, EnvironmentEvent, LMCAISEvent, TimeRecord
+from synth_ai.tracing_v3.lm_call_record_abstractions import LLMCallRecord, LLMUsage, LLMMessage, LLMContentPart
 from synth_ai.tracing_v3.hooks import HookManager
 from synth_ai.tracing_v3.decorators import get_session_id, SessionContext
 
@@ -296,16 +297,45 @@ class TestSessionTracer:
         )
         await tracer.record_event(env_event)
 
-        # LM CAIS event
+        # LM CAIS event with call_records (new pattern)
+        import uuid
+        call_record = LLMCallRecord(
+            call_id=str(uuid.uuid4()),
+            api_type="chat_completions",
+            provider="openai",
+            model_name="gpt-4",
+            usage=LLMUsage(
+                input_tokens=100,
+                output_tokens=50,
+                total_tokens=150,
+                cost_usd=0.003
+            ),
+            input_messages=[
+                LLMMessage(
+                    role="user",
+                    parts=[LLMContentPart(type="text", text="Test prompt")]
+                )
+            ],
+            output_messages=[
+                LLMMessage(
+                    role="assistant",
+                    parts=[LLMContentPart(type="text", text="Test response")]
+                )
+            ],
+            latency_ms=500
+        )
+        
         lm_event = LMCAISEvent(
             system_instance_id="llm",
             time_record=TimeRecord(event_time=time.time()),
-            model_name="gpt-4",
+            # Aggregates at event level
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
             cost_usd=0.003,
             latency_ms=500,
+            # Store the call record
+            call_records=[call_record]
         )
         await tracer.record_event(lm_event)
 
@@ -320,7 +350,11 @@ class TestSessionTracer:
         # Verify metadata
         assert trace.event_history[0].metadata["type"] == "runtime"
         assert trace.event_history[1].reward == 0.5
-        assert trace.event_history[2].model_name == "gpt-4"
+        # Verify new call_records structure
+        lm_event_from_trace = trace.event_history[2]
+        assert len(lm_event_from_trace.call_records) == 1
+        assert lm_event_from_trace.call_records[0].model_name == "gpt-4"
+        assert lm_event_from_trace.call_records[0].usage.total_tokens == 150
 
     async def test_concurrent_timesteps_same_session(self):
         """Test that timesteps within a session are sequential, not concurrent."""
