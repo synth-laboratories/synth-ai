@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - 2025-08-10
+## 0.2.3.dev1 - 2025-08-10
 
 ### First-Class LLM API Events with LLMCallRecord
 
