@@ -40,7 +40,7 @@ from synth_ai.lm.core.main_v2 import LM
 
 # Import session tracer for v2 tracing
 from synth_ai.tracing_v2.session_tracer import (
-    SessionTracer, SessionEventMessage, TimeRecord,
+    SessionTracer, SessionEventMarkovBlanketMessage, TimeRecord,
     RuntimeEvent, EnvironmentEvent, LMCAISEvent
 )
 from synth_ai.tracing_v2.utils import create_experiment_context
@@ -97,9 +97,9 @@ async def retry_http_request(client: AsyncClient, method: str, url: str, **kwarg
     raise last_exception
 
 
-def create_message(content: Any, message_type: str, origin_system_id: Any, turn: int) -> SessionEventMessage:
+def create_message(content: Any, message_type: str, origin_system_id: Any, turn: int) -> SessionEventMarkovBlanketMessage:
     """Create a message with origin system ID embedded in content."""
-    return SessionEventMessage(
+    return SessionEventMarkovBlanketMessage(
         content={
             "origin_system_id": str(origin_system_id),
             "payload": content

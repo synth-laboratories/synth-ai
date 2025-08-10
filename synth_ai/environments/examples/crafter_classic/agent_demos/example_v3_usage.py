@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent)
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
     RuntimeEvent, EnvironmentEvent, LMCAISEvent,
-    TimeRecord, SessionEventMessage
+    TimeRecord, SessionEventMarkovBlanketMessage
 )
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 from synth_ai.tracing_v3.decorators import set_session_id, set_turn_number
