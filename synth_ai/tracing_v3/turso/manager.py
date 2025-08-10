@@ -266,34 +266,29 @@ class AsyncSQLTraceManager:
                     }
 
                     if isinstance(event, LMCAISEvent):
-                        cais_data = {
-                            "event_type": "cais",
-                            "model_name": event.model_name,
-                            "provider": event.provider,
-                            "input_tokens": event.input_tokens,
-                            "output_tokens": event.output_tokens,
-                            "total_tokens": event.total_tokens,
-                            "cost_usd": to_cents(event.cost_usd),
-                            "latency_ms": event.latency_ms,
-                            "span_id": event.span_id,
-                            "trace_id": event.trace_id,
-                            "system_state_before": event.system_state_before,
-                            "system_state_after": event.system_state_after,
-                        }
-                        
-                        # Only add call_records if we have them AND the column exists
-                        # This provides backward compatibility with existing databases
+                        # Serialize call_records if present
+                        call_records_data = None
                         if event.call_records:
                             from dataclasses import asdict
                             call_records_data = [asdict(record) for record in event.call_records]
-                            # Store in metadata for now to avoid schema migration issues
-                            # The call_records will be stored in the event_metadata_json field
-                            event_data["event_metadata_json"] = {
-                                **event.metadata,
-                                "call_records": call_records_data
-                            }
                         
-                        event_data.update(cais_data)
+                        event_data.update(
+                            {
+                                "event_type": "cais",
+                                "model_name": event.model_name,
+                                "provider": event.provider,
+                                "input_tokens": event.input_tokens,
+                                "output_tokens": event.output_tokens,
+                                "total_tokens": event.total_tokens,
+                                "cost_usd": to_cents(event.cost_usd),
+                                "latency_ms": event.latency_ms,
+                                "span_id": event.span_id,
+                                "trace_id": event.trace_id,
+                                "system_state_before": event.system_state_before,
+                                "system_state_after": event.system_state_after,
+                                "call_records": call_records_data,  # Store in the proper column
+                            }
+                        )
                     elif isinstance(event, EnvironmentEvent):
                         event_data.update(
                             {
