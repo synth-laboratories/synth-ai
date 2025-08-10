@@ -13,7 +13,7 @@ from synth_ai.environments.examples.crafter_classic.config_logging import safe_c
 # Import tracing abstractions
 from synth_ai.tracing_v3.abstractions import (
     RuntimeEvent,
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
 )
 

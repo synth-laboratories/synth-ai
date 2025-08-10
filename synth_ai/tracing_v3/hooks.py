@@ -37,7 +37,7 @@ from dataclasses import dataclass
 import asyncio
 import inspect
 
-from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMessage
+from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMarkovBlanketMessage
 
 
 @dataclass

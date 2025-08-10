@@ -18,7 +18,7 @@ import pandas as pd
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
     RuntimeEvent,
     EnvironmentEvent,

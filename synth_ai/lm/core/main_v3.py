@@ -28,6 +28,10 @@ from synth_ai.lm.config import reasoning_models
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.decorators import set_session_id, set_turn_number, set_session_tracer
 from synth_ai.tracing_v3.abstractions import LMCAISEvent, TimeRecord
+from synth_ai.tracing_v3.llm_call_record_helpers import (
+    create_llm_call_record_from_response,
+    compute_aggregates_from_call_records,
+)
 
 
 def build_messages(
@@ -340,36 +344,40 @@ class LM:
             and hasattr(self.session_tracer, "current_session")
         ):
             latency_ms = int((time.time() - start_time) * 1000)
+            
+            # Create LLMCallRecord from the response
+            from datetime import datetime
+            started_at = datetime.utcnow()
+            completed_at = datetime.utcnow()
+            
+            call_record = create_llm_call_record_from_response(
+                response=response,
+                model_name=self.model or self.vendor,
+                provider=self.vendor,
+                messages=messages_to_use,
+                temperature=self.temperature,
+                request_params={**self.additional_params, **kwargs},
+                tools=tools,
+                started_at=started_at,
+                completed_at=completed_at,
+                latency_ms=latency_ms,
+            )
+            
+            # Compute aggregates from the call record
+            aggregates = compute_aggregates_from_call_records([call_record])
 
-            # Extract usage info if available
-            usage_info = {}
-            if hasattr(response, "usage") and response.usage:
-                usage_info = {
-                    "input_tokens": response.usage.get("input_tokens", 0),
-                    "output_tokens": response.usage.get("output_tokens", 0),
-                    "total_tokens": response.usage.get("total_tokens", 0),
-                    "cost_usd": response.usage.get("cost_usd", 0.0),
-                }
-            else:
-                # Default values when usage is not available
-                usage_info = {
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                    "total_tokens": 0,
-                    "cost_usd": 0.0,
-                }
-
-            # Create LM event
+            # Create LM event with call_records
             lm_event = LMCAISEvent(
                 system_instance_id=self.system_id,
                 time_record=TimeRecord(event_time=time.time(), message_time=turn_number),
-                model_name=self.model or self.vendor,
-                provider=self.vendor,
-                input_tokens=usage_info["input_tokens"],
-                output_tokens=usage_info["output_tokens"],
-                total_tokens=usage_info["total_tokens"],
-                cost_usd=usage_info["cost_usd"],
-                latency_ms=latency_ms,
+                # Aggregates at event level
+                input_tokens=aggregates["input_tokens"],
+                output_tokens=aggregates["output_tokens"],
+                total_tokens=aggregates["total_tokens"],
+                cost_usd=aggregates["cost_usd"],
+                latency_ms=aggregates["latency_ms"],
+                # Store the call record
+                call_records=[call_record],
                 metadata={
                     "temperature": self.temperature,
                     "json_mode": self.json_mode,

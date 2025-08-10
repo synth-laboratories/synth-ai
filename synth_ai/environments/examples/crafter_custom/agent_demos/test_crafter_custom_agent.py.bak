@@ -56,7 +56,7 @@ import numpy as np
 
 # Import session tracer for CAIS event capture
 from synth_ai.tracing_v2.session_tracer import (
-    SessionTracer, SessionEventMessage, TimeRecord,
+    SessionTracer, SessionEventMarkovBlanketMessage, TimeRecord,
     RuntimeEvent, EnvironmentEvent, CAISEvent
 )
 from datetime import datetime
@@ -71,9 +71,9 @@ except ImportError:
 
 
 # Create a proper message structure with origin_system_id
-def create_message(content: Any, message_type: str, origin_system_id: Any, turn: int) -> SessionEventMessage:
+def create_message(content: Any, message_type: str, origin_system_id: Any, turn: int) -> SessionEventMarkovBlanketMessage:
     """Create a message with origin system ID embedded in content."""
-    return SessionEventMessage(
+    return SessionEventMarkovBlanketMessage(
         content={
             "origin_system_id": str(origin_system_id),
             "payload": content

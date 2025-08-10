@@ -13,7 +13,7 @@ from .config_logging import safe_compare
 # Import tracing abstractions
 from synth_ai.tracing_v3.abstractions import (
     RuntimeEvent,
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
 )
 

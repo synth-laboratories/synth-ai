@@ -223,7 +223,7 @@ class AsyncSQLTraceManager:
                     created_at=trace.created_at,
                     num_timesteps=len(trace.session_time_steps),
                     num_events=len(trace.event_history),
-                    num_messages=len(trace.message_history),
+                    num_messages=len(trace.markov_blanket_message_history),
                     session_metadata=trace.metadata or {},
                 )
                 sess.add(db_session)
@@ -242,7 +242,7 @@ class AsyncSQLTraceManager:
                         started_at=step.timestamp,
                         completed_at=step.completed_at,
                         num_events=len(step.events),
-                        num_messages=len(step.step_messages),
+                        num_messages=len(step.markov_blanket_messages),
                         step_metadata=step.step_metadata or {},
                     )
                     sess.add(db_step)
@@ -266,6 +266,12 @@ class AsyncSQLTraceManager:
                     }
 
                     if isinstance(event, LMCAISEvent):
+                        # Serialize call_records if present
+                        call_records_data = None
+                        if event.call_records:
+                            from dataclasses import asdict
+                            call_records_data = [asdict(record) for record in event.call_records]
+                        
                         event_data.update(
                             {
                                 "event_type": "cais",
@@ -280,6 +286,7 @@ class AsyncSQLTraceManager:
                                 "trace_id": event.trace_id,
                                 "system_state_before": event.system_state_before,
                                 "system_state_after": event.system_state_after,
+                                "call_records": call_records_data,  # Store in the proper column
                             }
                         )
                     elif isinstance(event, EnvironmentEvent):
@@ -307,7 +314,7 @@ class AsyncSQLTraceManager:
                     sess.add(db_event)
 
                 # Insert messages
-                for msg in trace.message_history:
+                for msg in trace.markov_blanket_message_history:
                     db_msg = DBMessage(
                         session_id=trace.session_id,
                         timestep_id=step_id_map.get(msg.metadata.get("step_id"))
