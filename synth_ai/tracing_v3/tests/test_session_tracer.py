@@ -50,8 +50,8 @@ class TestSessionTracer:
 
         # Record message
         await tracer.record_message(content="Test message", message_type="user")
-        assert len(tracer.current_session.message_history) == 1
-        assert len(tracer.current_step.step_messages) == 1
+        assert len(tracer.current_session.markov_blanket_message_history) == 1
+        assert len(tracer.current_step.markov_blanket_messages) == 1
 
         # End timestep
         await tracer.end_timestep()
@@ -124,7 +124,7 @@ class TestSessionTracer:
 
         assert len(trace.session_time_steps) == 3
         assert len(trace.event_history) == 3
-        assert len(trace.message_history) == 3
+        assert len(trace.markov_blanket_message_history) == 3
 
         # Verify step indices
         for i, step in enumerate(trace.session_time_steps):
@@ -226,8 +226,8 @@ class TestSessionTracer:
         await tracer1.record_message("Tracer 1 message", "user")
 
         # Verify isolation
-        assert len(tracer1.current_session.message_history) == 1
-        assert len(tracer2.current_session.message_history) == 0
+        assert len(tracer1.current_session.markov_blanket_message_history) == 1
+        assert len(tracer2.current_session.markov_blanket_message_history) == 0
 
         await tracer1.end_session(save=False)
         await tracer2.end_session(save=False)
@@ -243,7 +243,7 @@ class TestSessionTracer:
 
         # Should complete without errors
         assert trace is not None
-        assert len(trace.message_history) == 1
+        assert len(trace.markov_blanket_message_history) == 1
 
     async def test_session_context_variables(self):
         """Test session context variables."""

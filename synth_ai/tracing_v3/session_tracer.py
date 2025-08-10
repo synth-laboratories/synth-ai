@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from contextlib import asynccontextmanager
 
-from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMessage, TimeRecord
+from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMarkovBlanketMessage, TimeRecord
 from .decorators import set_session_id, set_turn_number, set_session_tracer, SessionContext
 from .turso.manager import AsyncSQLTraceManager
 from .config import CONFIG
@@ -93,7 +93,7 @@ class SessionTracer:
                 created_at=datetime.utcnow(),
                 session_time_steps=[],
                 event_history=[],
-                message_history=[],
+                markov_blanket_message_history=[],
                 metadata=metadata or {},
             )
 
@@ -215,7 +215,7 @@ class SessionTracer:
         if self._current_trace is None:
             raise RuntimeError("No active session")
 
-        msg = SessionEventMessage(
+        msg = SessionEventMarkovBlanketMessage(
             content=content,
             message_type=message_type,
             time_record=TimeRecord(
@@ -232,9 +232,9 @@ class SessionTracer:
         await self.hooks.trigger("message_recorded", message=msg)
 
         # Add to histories
-        self._current_trace.message_history.append(msg)
+        self._current_trace.markov_blanket_message_history.append(msg)
         if self._current_step:
-            self._current_step.step_messages.append(msg)
+            self._current_step.markov_blanket_messages.append(msg)
 
     async def end_session(self, save: bool = None) -> SessionTrace:
         """End the current session.

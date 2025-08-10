@@ -60,29 +60,39 @@ class TimeRecord:
 
 
 @dataclass
-class SessionEventMessage:
-    """Message exchanged during a session.
+class SessionEventMarkovBlanketMessage:
+    """Message crossing Markov blanket boundaries between systems in a session.
     
-    Represents inter-system communication within the session: user inputs to the agent,
-    agent/runtime tool invocations to an environment, environment responses back to the
-    agent/runtime, agent responses to the user, and other system-to-system signals.
+    IMPORTANT: This represents information transfer BETWEEN distinct systems/subsystems,
+    where each system is conceptualized as having a Markov blanket that separates its
+    internal states from the external environment. These messages cross those boundaries.
     
-    This is distinct from provider LLM API prompt/completion formatting. Provider "messages"
-    should be captured within LMCAISEvent data. SessionEventMessage is for cross-system
-    communications that form the transcript of the session.
+    This is NOT for chat messages within an LLM conversation (those belong in LLMCallRecord).
+    Instead, this captures inter-system communication such as:
+    - Human -> Agent system (user providing instructions)
+    - Agent -> Runtime (agent deciding on an action)
+    - Runtime -> Environment (executing a tool/action)
+    - Environment -> Runtime (returning results)
+    - Runtime -> Agent (passing back results)
+    - Agent -> Human (final response)
+    
+    Each system maintains its own internal state and processing, but can only influence
+    other systems through these explicit boundary-crossing messages. This follows the
+    Free Energy Principle where systems minimize surprise by maintaining boundaries.
     
     Attributes:
-        content: The actual message content (text, JSON, etc.)
-        message_type: Semantic type (e.g., 'user', 'assistant', 'tool', 'tool_result', 'system')
-        time_record: Timing information for the message
-        metadata: Additional message metadata. Recommended keys:
+        content: The actual message content crossing the boundary (text, JSON, etc.)
+        message_type: Type of boundary crossing (e.g., 'observation', 'action', 'result')
+        time_record: Timing information for the boundary crossing
+        metadata: Boundary crossing metadata. Recommended keys:
                   - 'step_id': Timestep identifier
-                  - 'system_role': Human-readable actor label (e.g., 'human', 'codex-rs',
-                                   'runtime', 'bash-environment')
-                  - 'from_system_instance_id' / 'to_system_instance_id': UUIDs of sender/receiver
-                  - 'from_system_role' / 'to_system_role': Human-readable roles of sender/receiver
-                  - 'call_id': Correlate tool messages and results
-                  - Attachments or auxiliary fields relevant to the transmission
+                  - 'from_system_instance_id': UUID of the sending system
+                  - 'to_system_instance_id': UUID of the receiving system
+                  - 'from_system_role': Role of sender (e.g., 'human', 'agent', 'runtime', 'environment')
+                  - 'to_system_role': Role of receiver
+                  - 'boundary_type': Type of Markov blanket boundary being crossed
+                  - 'call_id': Correlate request/response pairs across boundaries
+                  - 'causal_influence': Direction of causal flow
     """
 
     content: str
@@ -223,7 +233,7 @@ class SessionTimeStep:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     turn_number: Optional[int] = None
     events: List[BaseEvent] = field(default_factory=list)
-    step_messages: List[SessionEventMessage] = field(default_factory=list)
+    markov_blanket_messages: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
     step_metadata: Dict[str, Any] = field(default_factory=dict)
     completed_at: Optional[datetime] = None
 
@@ -257,7 +267,7 @@ class SessionTrace:
     created_at: datetime = field(default_factory=datetime.utcnow)
     session_time_steps: List[SessionTimeStep] = field(default_factory=list)
     event_history: List[BaseEvent] = field(default_factory=list)
-    message_history: List[SessionEventMessage] = field(default_factory=list)
+    markov_blanket_message_history: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     session_metadata: Optional[List[Dict[str, Any]]] = None
 
