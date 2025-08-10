@@ -53,7 +53,7 @@ from synth_ai.lm.core.main_v3 import LM
 # Import session tracer for v3 tracing
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
     RuntimeEvent,
     EnvironmentEvent,
@@ -204,9 +204,9 @@ def compress_observation_for_trace(obs: dict[str, Any]) -> str:
 
 def create_message(
     content: str, message_type: str, system_id: str, turn: int
-) -> SessionEventMessage:
-    """Create a SessionEventMessage with metadata."""
-    return SessionEventMessage(
+) -> SessionEventMarkovBlanketMessage:
+    """Create a SessionEventMarkovBlanketMessage representing cross-boundary communication."""
+    return SessionEventMarkovBlanketMessage(
         content=content,
         message_type=message_type,
         metadata={"system_id": system_id, "turn": turn},

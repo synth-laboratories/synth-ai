@@ -73,7 +73,7 @@ from synth_ai.lm.config import SynthConfig
 # Import session tracer for v3 tracing
 from synth_ai.tracing_v3 import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
     RuntimeEvent,
     EnvironmentEvent,
@@ -271,7 +271,7 @@ async def retry_http_request(client: AsyncClient, method: str, url: str, **kwarg
 
 def create_message(
     content: Any, message_type: str, origin_system_id: Any, turn: int
-) -> SessionEventMessage:
+) -> SessionEventMarkovBlanketMessage:
     """Create a message with origin system ID embedded in content."""
     # Map custom message types to valid v3 message types
     type_mapping = {
@@ -283,7 +283,7 @@ def create_message(
         "tool_result": "tool_result",
     }
 
-    return SessionEventMessage(
+    return SessionEventMarkovBlanketMessage(
         content=json.dumps({"origin_system_id": str(origin_system_id), "payload": content}),
         message_type=type_mapping.get(message_type, "system"),  # Default to system
         time_record=TimeRecord(event_time=time.time(), message_time=turn),

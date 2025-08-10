@@ -18,13 +18,27 @@ Session Structure:
 - SessionTrace: Top-level container for a complete session
   - SessionTimeStep: Logical steps within a session (e.g., conversation turns)
     - Events: Individual events that occurred during the timestep
-    - Messages: User/assistant messages exchanged
+    - Messages: Information passed between subsystems (user, agent, runtime, environments)
+
+Concepts:
+---------
+- Events capture something that happened inside a subsystem. They may or may not be externally
+  visible. Examples include an LLM API call (LMCAISEvent), a tool selection (RuntimeEvent), or
+  a tool execution outcome (EnvironmentEvent).
+
+- Messages represent information transmitted between subsystems within the session.
+  Messages are used to record communications like: a user sending input to the agent,
+  the agent/runtime sending a tool invocation to an environment, the environment sending a
+  tool result back, and the agent sending a reply to the user. Do not confuse these with
+  provider-specific LLM API "messages" (prompt formatting) — those belong inside an LMCAISEvent
+  as part of its input/output content, not as SessionEventMessages.
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from .lm_call_record_abstractions import LLMCallRecord
 
 
 @dataclass
@@ -46,18 +60,39 @@ class TimeRecord:
 
 
 @dataclass
-class SessionEventMessage:
-    """Message exchanged during a session.
+class SessionEventMarkovBlanketMessage:
+    """Message crossing Markov blanket boundaries between systems in a session.
     
-    Represents any message passed between participants in a session, including
-    user inputs, assistant responses, and system messages.
+    IMPORTANT: This represents information transfer BETWEEN distinct systems/subsystems,
+    where each system is conceptualized as having a Markov blanket that separates its
+    internal states from the external environment. These messages cross those boundaries.
+    
+    This is NOT for chat messages within an LLM conversation (those belong in LLMCallRecord).
+    Instead, this captures inter-system communication such as:
+    - Human -> Agent system (user providing instructions)
+    - Agent -> Runtime (agent deciding on an action)
+    - Runtime -> Environment (executing a tool/action)
+    - Environment -> Runtime (returning results)
+    - Runtime -> Agent (passing back results)
+    - Agent -> Human (final response)
+    
+    Each system maintains its own internal state and processing, but can only influence
+    other systems through these explicit boundary-crossing messages. This follows the
+    Free Energy Principle where systems minimize surprise by maintaining boundaries.
     
     Attributes:
-        content: The actual message content (text, JSON, etc.)
-        message_type: Type identifier (e.g., 'user', 'assistant', 'system', 'tool')
-        time_record: Timing information for the message
-        metadata: Additional message metadata (e.g., model used, tokens consumed,
-                 tool calls, attachments, etc.)
+        content: The actual message content crossing the boundary (text, JSON, etc.)
+        message_type: Type of boundary crossing (e.g., 'observation', 'action', 'result')
+        time_record: Timing information for the boundary crossing
+        metadata: Boundary crossing metadata. Recommended keys:
+                  - 'step_id': Timestep identifier
+                  - 'from_system_instance_id': UUID of the sending system
+                  - 'to_system_instance_id': UUID of the receiving system
+                  - 'from_system_role': Role of sender (e.g., 'human', 'agent', 'runtime', 'environment')
+                  - 'to_system_role': Role of receiver
+                  - 'boundary_type': Type of Markov blanket boundary being crossed
+                  - 'call_id': Correlate request/response pairs across boundaries
+                  - 'causal_influence': Direction of causal flow
     """
 
     content: str
@@ -70,8 +105,9 @@ class SessionEventMessage:
 class BaseEvent:
     """Base class for all event types.
     
-    This is the foundation for all events in the tracing system. Every event
-    must have a system identifier and timing information.
+    This is the foundation for all events in the tracing system. Every event must
+    have a system identifier and timing information. Events are intra-system facts
+    (they occur within a subsystem) and are not necessarily direct communications.
     
     Attributes:
         system_instance_id: Identifier for the system/component that generated
@@ -95,8 +131,10 @@ class BaseEvent:
 class RuntimeEvent(BaseEvent):
     """Event from runtime system.
     
-    Captures events from the AI system's runtime, typically representing
-    decisions or actions taken by the system.
+    Captures events from the AI system's runtime, typically representing decisions
+    or actions taken by the system (e.g., selecting a tool with arguments).
+    Use paired SessionEventMessages to record the communication of this choice to
+    the environment.
     
     Attributes:
         actions: List of action identifiers or indices. The interpretation
@@ -111,7 +149,9 @@ class RuntimeEvent(BaseEvent):
 class EnvironmentEvent(BaseEvent):
     """Event from environment.
     
-    Captures feedback from the environment in response to system actions.
+    Captures feedback from the environment in response to system actions (e.g.,
+    command output, exit codes, observations). Use a paired SessionEventMessage
+    to record the environment-to-agent communication of the result.
     Follows the Gymnasium/OpenAI Gym convention for compatibility.
     
     Attributes:
@@ -135,6 +175,8 @@ class LMCAISEvent(BaseEvent):
     
     CAIS (Claude AI System) events capture detailed information about LLM calls,
     including performance metrics, cost tracking, and distributed tracing support.
+    Treat provider-specific prompt/completion structures as part of this event's
+    data. Do not emit them as SessionEventMessages.
     
     Attributes:
         model_name: The specific model used (e.g., 'gpt-4', 'claude-3-opus')
@@ -148,6 +190,8 @@ class LMCAISEvent(BaseEvent):
         trace_id: OpenTelemetry compatible trace identifier
         system_state_before: State snapshot before the LLM call
         system_state_after: State snapshot after the LLM call
+        call_records: List of normalized LLM call records capturing request/response
+                      details (messages, tool calls/results, usage, params, etc.).
     """
 
     model_name: str = ""
@@ -161,6 +205,7 @@ class LMCAISEvent(BaseEvent):
     trace_id: Optional[str] = None
     system_state_before: Optional[Dict[str, Any]] = None
     system_state_after: Optional[Dict[str, Any]] = None
+    call_records: List[LLMCallRecord] = field(default_factory=list)
 
 
 @dataclass
@@ -188,7 +233,7 @@ class SessionTimeStep:
     timestamp: datetime = field(default_factory=datetime.utcnow)
     turn_number: Optional[int] = None
     events: List[BaseEvent] = field(default_factory=list)
-    step_messages: List[SessionEventMessage] = field(default_factory=list)
+    markov_blanket_messages: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
     step_metadata: Dict[str, Any] = field(default_factory=dict)
     completed_at: Optional[datetime] = None
 
@@ -222,7 +267,7 @@ class SessionTrace:
     created_at: datetime = field(default_factory=datetime.utcnow)
     session_time_steps: List[SessionTimeStep] = field(default_factory=list)
     event_history: List[BaseEvent] = field(default_factory=list)
-    message_history: List[SessionEventMessage] = field(default_factory=list)
+    markov_blanket_message_history: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     session_metadata: Optional[List[Dict[str, Any]]] = None
 

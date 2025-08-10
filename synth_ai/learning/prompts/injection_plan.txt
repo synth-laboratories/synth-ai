@@ -1,0 +1,354 @@
+Prompt injection plan (pre-send text replacement)
+
+What we have today
+- Tracing decorators (v3): `synth_ai/tracing_v3/decorators.py`
+  - `with_session(require=True|False)`: enforces active session via ContextVars.
+  - `trace_llm_call(...)`: async-only; records LM metrics based on returned dict (`usage`, `model`), writes `LMCAISEvent` via a `SessionTracer` in context.
+  - `trace_method(...)`: generic method tracing; records `RuntimeEvent`.
+  - Context is carried with `ContextVar`s: session id, turn number, tracer.
+
+Where prompts are built/sent
+- Entry point: `synth_ai/lm/core/main_v3.py`, class `LM`.
+  - `respond_async(...)` builds or accepts `messages_to_use`, then selects a vendor wrapper and calls vendor `_hit_api_async`/`_hit_api_async_responses`/`_hit_api_async_harmony`.
+  - Tracing is handled after the vendor returns: creates `LMCAISEvent` and records user/assistant messages via `SessionTracer`.
+- OpenAI-compatible vendor: `synth_ai/lm/vendors/openai_standard.py`.
+  - `_hit_api_async(...)` and `_hit_api_sync(...)` do:
+    - `messages = special_orion_transform(model, messages)` (merges system→user for `o1-*`).
+    - Build `api_params = {"model": model, "messages": messages, ...}` and call `client.chat.completions.create(**api_params)`.
+  - Structured paths exist as well (`*_structured_output`).
+
+Goal
+- Before the LM call, replace text A with text B in the outgoing prompt (`messages`). Ideally configurable per-session or per-LM instance; applies to string content and text parts in multimodal content.
+
+Injection hook options (ranked)
+1) Vendor-level injection right before `api_params` are finalized (after `special_orion_transform`).
+   - Pros: guaranteed to run for all paths through this vendor (async/sync/structured), after any vendor-specific transforms.
+   - Cons: each vendor needs a small injection call.
+2) Core `LM.respond_async` injection immediately after `messages_to_use` is computed.
+   - Pros: single central place.
+   - Cons: runs before vendor transforms; `o1-*` merge may change the text after injection.
+3) Decorator-based: extend `@trace_llm_call` to also mutate inputs.
+   - Cons: current decorator expects the wrapped function to return OpenAI-like dicts; our main path is class-based vendors, so this is less direct.
+
+Recommendation
+- Implement a minimal, vendor-agnostic injection utility and call it at the vendor layer right after `special_orion_transform(...)` and before cache/API params, mirrored in sync and structured methods.
+  - Keep the utility in `synth_ai/lm/injection.py` to avoid coupling to tracing.
+  - Optionally bridge from `LM` by letting instances set rules in a ContextVar-scoped manager.
+
+Configuration design
+- Rules: ordered list of replacements.
+  - Shape: `{find: str, replace: str, roles: Optional[List[str]]}`
+  - Exact substring replacement (no regex) in v1; sequential, non-recursive.
+  - Applies to: message["content"] if `str`; or for list content, only parts where `type == "text"`.
+- Scoping: ContextVar-based manager so rules can be set per-session or per-LM call.
+  - New module `synth_ai/lm/injection.py`:
+    - `set_injection_rules(rules: List[Dict[str, Any]]) -> Token`
+    - `get_injection_rules() -> List[Dict[str, Any]]`
+    - `clear_injection_rules(token: Optional[Token]) -> None`
+    - `apply_injection(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]` (pure, returns a new list or mutated copy; decide to mutate in place for perf and simplicity).
+  - No defaults; if no rules set, do nothing. Import at top-level; fail fast on invalid shapes.
+- Optional convenience: `LM(..., injection_rules=[...])` sets rules for the scope of `respond_async` call via a small context helper.
+- Optional env: `SYNTH_LM_INJECTIONS` as JSON list for global default (only if explicitly present).
+
+Tracing/observability
+- Minimal v1: do not alter existing trace structure.
+- Optional: attach `{"injection": {"applied": true, "replacements": N}}` to `LMCAISEvent.metadata` from `LM.respond_async` when rules exist.
+- Optional: record an extra runtime event at injection time with before/after diffs (truncated) for debuggability.
+
+Algorithm (apply_injection)
+- For each message `m` in `messages`:
+  - If `roles` is provided on a rule and `m["role"]` not in it, skip.
+  - If `m["content"]` is `str`: for each rule in order, do `content = content.replace(rule.find, rule.replace)`.
+  - If `m["content"]` is `list`: for each part where `part["type"] == "text"`, run the same replacement on `part["text"]`.
+  - Leave non-text parts untouched.
+
+Concrete hook points to edit
+- `synth_ai/lm/vendors/openai_standard.py`
+  - In `_hit_api_async(...)`, immediately after `messages = special_orion_transform(model, messages)`, call `messages = apply_injection(messages)`.
+  - Mirror in `_hit_api_sync(...)`.
+  - Mirror in `_hit_api_async_structured_output(...)` and `_hit_api_sync_structured_output(...)`.
+- (Optional) `synth_ai/lm/core/main_v3.py` in `LM.respond_async(...)`:
+  - If `self.injection_rules` exists: set ContextVar for the duration of the call, e.g.,
+    - token = set_injection_rules(self.injection_rules)
+    - try: call vendor; finally: clear_injection_rules(token)
+  - If `SessionTracer` exposes session-level rules, `LM` could set them similarly before the call.
+
+API sketch (utility)
+```python
+# synth_ai/lm/injection.py
+from typing import Any, Dict, List, Optional
+import contextvars
+
+_rules_ctx: contextvars.ContextVar[Optional[List[Dict[str, Any]]]] = contextvars.ContextVar("injection_rules", default=None)
+
+def set_injection_rules(rules: List[Dict[str, Any]]):
+    if not isinstance(rules, list) or not all(isinstance(r, dict) and "find" in r and "replace" in r for r in rules):
+        raise ValueError("Injection rules must be a list of dicts with 'find' and 'replace'")
+    return _rules_ctx.set(rules)
+
+def get_injection_rules() -> Optional[List[Dict[str, Any]]]:
+    return _rules_ctx.get()
+
+def clear_injection_rules(token) -> None:
+    _rules_ctx.reset(token)
+
+def apply_injection(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    rules = get_injection_rules()
+    if not rules:
+        return messages
+    for m in messages:
+        role = m["role"]
+        content = m["content"]
+        if isinstance(content, str):
+            for r in rules:
+                rr = r.get("roles")
+                if rr is not None and role not in rr:
+                    continue
+                content = content.replace(r["find"], r["replace"])
+            m["content"] = content
+        elif isinstance(content, list):
+            for part in content:
+                if part.get("type") == "text":
+                    text = part["text"]
+                    for r in rules:
+                        rr = r.get("roles")
+                        if rr is not None and role not in rr:
+                            continue
+                        text = text.replace(r["find"], r["replace"])
+                    part["text"] = text
+    return messages
+```
+
+Usage examples
+- Per-call injection via `LM`:
+  - `LM(model=..., injection_rules=[{"find": "A", "replace": "B"}]).respond_async(...)`
+- Ad-hoc scope:
+  - `token = set_injection_rules([...]); await lm.respond_async(...); clear_injection_rules(token)`
+
+Notes
+- No try/except around imports; imports at module top.
+- No default `.get` values except where keys may legitimately be absent in user-provided dicts.
+- Fail fast on invalid rule shape.
+
+
+Non-LM usage and synth-wrapped clients
+
+Use case A: You are not using `LM`, only tracing decorators
+- The decorators (`@with_session`, `@trace_method`) do not build or send prompts; they just record events. Injection should occur where you assemble `messages` and before you call any SDK/client.
+- Recommended: explicitly call `apply_injection(messages)` just before sending to the provider.
+  - This keeps behavior explicit and fail-fast.
+  - Example sketch:
+    ```python
+    from synth_ai.lm.injection import set_injection_rules, clear_injection_rules, apply_injection
+
+    token = set_injection_rules([{"find": "A", "replace": "B"}])
+    try:
+        messages = build_messages(...)
+        messages = apply_injection(messages)
+        result = openai_client.chat.completions.create(model=model, messages=messages)
+    finally:
+        clear_injection_rules(token)
+    ```
+- Optional ergonomic decorator (for functions that accept a `messages` kwarg):
+  - `inject_messages(arg_name: str = "messages")` which replaces the kwarg in place by calling `apply_injection` before invoking the function.
+  - Keep it minimal and async-aware; do not introduce default values or defensive guards. Fail if kwarg is absent.
+
+Use case B: Using Synth-wrapped OpenAI/Anthropic clients
+- File: `synth_ai/lm/vendors/synth_client.py`
+  - Async path `AsyncSynthClient.chat_completions_create(...)` and `responses_create(...)`:
+    - Before building or posting the payload, run `messages = apply_injection(messages)`.
+    - Then embed `messages` into `payload` and proceed.
+  - Sync path `SyncSynthClient.chat_completions_create(...)` and `responses_create(...)`:
+    - Same: apply `apply_injection(messages)` before constructing `payload`.
+- If there are other vendor-specific wrappers (e.g., dedicated Anthropic wrapper), mirror the same call right before payload creation.
+
+Observability for non-LM paths
+- If a `SessionTracer` is active, optionally record a lightweight `RuntimeEvent` via `trace_method` at the injection point with metadata `{ "injection": { "applied": true, "replacements": N } }`.
+- Keep message diffs out of the trace or truncate aggressively to avoid leaking secrets into logs.
+
+
+Context-driven overrides (messages, params, tools)
+
+Goal
+- Provide a single context that, when active, modifies all LM calls across the code paths (LM, vendor clients, and synth-wrapped native SDKs) without changing call sites:
+  ```python
+  from synth_ai.lm.overrides import LMOverridesContext
+
+  with LMOverridesContext(
+      injection_rules=[{"find": "A", "replace": "B"}],
+      param_overrides={"temperature": 0.1, "max_tokens": 4000},
+      tool_overrides={"tool_choice": "required", "remove_tools_by_name": ["web_search"]},
+  ):
+      run_agent()
+  ```
+
+Design
+- New module `synth_ai/lm/overrides.py` exposing ContextVar-backed overrides and a context manager.
+- Three override categories:
+  - `injection_rules`: as defined earlier (ordered substring replacements, optional role scoping).
+  - `param_overrides`: explicit key→value overrides for LM parameters.
+    - Supported keys (initial v1): `temperature`, `max_tokens`, `top_p`, `presence_penalty`, `frequency_penalty`, `stop`, `response_format`, `json_mode`, `reasoning_effort`, `enable_thinking`, `gpu_preference`, `extra_body` (dict merge), `tool_choice`.
+    - Set-only semantics: if a key is present in overrides, set/overwrite the outgoing param; otherwise leave untouched.
+    - Optional deltas (v2): `temperature_delta` adds to temperature; do not implement in v1 unless needed.
+  - `tool_overrides`: declarative tool mutation:
+    - `set_tools`: replace tools wholesale.
+    - `add_tools`: append tools.
+    - `remove_tools_by_name`: remove by function name.
+    - `tool_choice`: set selection policy.
+
+Public API sketch
+```python
+# synth_ai/lm/overrides.py
+import contextvars
+from typing import Any, Dict, List, Optional
+
+_inj_rules_ctx = contextvars.ContextVar("inj_rules", default=None)
+_param_overrides_ctx = contextvars.ContextVar("param_overrides", default=None)
+_tool_overrides_ctx = contextvars.ContextVar("tool_overrides", default=None)
+
+def get_injection_rules():
+    return _inj_rules_ctx.get()
+
+def get_param_overrides():
+    return _param_overrides_ctx.get()
+
+def get_tool_overrides():
+    return _tool_overrides_ctx.get()
+
+class LMOverridesContext:
+    def __init__(self, injection_rules=None, param_overrides=None, tool_overrides=None):
+        # Validate shapes; fail fast on bad keys/types
+        self._toks = None
+        self._inj_tok = self._param_tok = self._tool_tok = None
+        self._inj = injection_rules
+        self._p = param_overrides
+        self._t = tool_overrides
+
+    def __enter__(self):
+        if self._inj is not None:
+            self._inj_tok = _inj_rules_ctx.set(self._inj)
+        if self._p is not None:
+            self._param_tok = _param_overrides_ctx.set(self._p)
+        if self._t is not None:
+            self._tool_tok = _tool_overrides_ctx.set(self._t)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if self._inj_tok is not None:
+            _inj_rules_ctx.reset(self._inj_tok)
+        if self._param_tok is not None:
+            _param_overrides_ctx.reset(self._param_tok)
+        if self._tool_tok is not None:
+            _tool_overrides_ctx.reset(self._tool_tok)
+
+def apply_injection(messages):
+    # Reuse or delegate to injection.apply_injection(); placed here for one-stop import.
+    from synth_ai.lm.injection import apply_injection as _apply
+    return _apply(messages)
+
+def apply_param_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
+    ov = get_param_overrides()
+    if not ov:
+        return api_params
+    for k, v in ov.items():
+        # Only set known keys; fail on unknown keys to avoid silent drift
+        api_params[k] = v
+    return api_params
+
+def apply_tool_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
+    ov = get_tool_overrides()
+    if not ov:
+        return api_params
+    tools = api_params.get("tools")
+    if "set_tools" in ov:
+        tools = ov["set_tools"]
+    if "add_tools" in ov:
+        tools = (tools or []) + ov["add_tools"]
+    if "remove_tools_by_name" in ov and tools:
+        to_remove = set(ov["remove_tools_by_name"])  # function names
+        tools = [t for t in tools if getattr(t, "function_name", None) not in to_remove and (isinstance(t, dict) and t.get("function", {}).get("name") not in to_remove)]
+    if tools is not None:
+        api_params["tools"] = tools
+    if "tool_choice" in ov:
+        api_params["tool_choice"] = ov["tool_choice"]
+    return api_params
+```
+
+Hook integration (all vendors and wrappers)
+- OpenAI standard (`synth_ai/lm/vendors/openai_standard.py`):
+  - After `messages = special_orion_transform(...)`: `messages = apply_injection(messages)`.
+  - After building `api_params`: call `apply_tool_overrides(api_params)` then `apply_param_overrides(api_params)`.
+  - Apply the same in sync and structured variants.
+- Anthropic (`synth_ai/lm/vendors/core/anthropic_api.py`):
+  - Before constructing `api_params`, run `messages = apply_injection(messages)`.
+  - Build `api_params` (`system`, `messages[1:]`, etc.), then run `apply_tool_overrides` and `apply_param_overrides`.
+- Synth backend clients (`synth_ai/lm/vendors/synth_client.py`):
+  - Before building payloads in `responses_create` and `chat_completions_create`: `messages = apply_injection(messages)`.
+  - After payload is built, run `apply_tool_overrides(payload)` then `apply_param_overrides(payload)`.
+- Provider-support wrappers (native SDK patchers):
+  - OpenAI (`synth_ai/lm/provider_support/openai.py`): in `_wrap`/`_wrap_async`, right before calling `wrapped(...)`, modify `kwargs`: if `messages` present, `kwargs["messages"] = apply_injection(kwargs["messages"])`; then run `kwargs = apply_tool_overrides(kwargs)` and `kwargs = apply_param_overrides(kwargs)`.
+  - Anthropic (`synth_ai/lm/provider_support/anthropic.py`): same pattern for `messages.create(...)` and `completions.create(...)` paths.
+
+LM convenience
+- In `LM.respond_async(...)`, add an optional `overrides` kwarg or `self.overrides` attr:
+  - If provided, wrap the vendor call within `LMOverridesContext(...)` so a single call site enables all downstream hooks.
+  - This also enables nested scopes within agents if needed.
+
+Precedence + order
+- For OpenAI-compatible paths:
+  1) Vendor transforms (e.g., `special_orion_transform`) → 2) `apply_injection(messages)` → 3) build `api_params` → 4) `apply_tool_overrides(api_params)` → 5) `apply_param_overrides(api_params)` → 6) external-provider normalization (e.g., drop `extra_body` for OpenAI/Groq).
+- For Anthropic paths: 1) `apply_injection(messages)` first (since `system/messages` split happens next), then param/tool overrides on the finalized `api_params`.
+
+Validation and failure mode
+- Validate override shapes on context entry; raise immediately on unknown keys or wrong types.
+- Do not add defaults; only keys provided are applied.
+
+Tracing metadata (optional)
+- When overrides are present, include a small metadata tag in the LM event or a runtime event: `{ "overrides": { "params": list(keys), "tools": true/false, "injection": N } }`.
+
+
+Override “anything” — model, prompts, tools, headers
+
+Scope
+- Support overriding essentially all outbound knobs through the single context:
+  - **Model**: `param_overrides["model"]` replaces the target model id.
+  - **Prompts/messages**: via `injection_rules` and `message_ops` (below).
+  - **Tools**: via `tool_overrides` (set/add/remove, `tool_choice`).
+  - **Sampling/controls**: `temperature`, `max_tokens`, `top_p`, `presence_penalty`, `frequency_penalty`, `stop`, `json_mode`, `response_format`, `reasoning_effort`, `enable_thinking`.
+  - **Request body/extensions**: `extra_body` (merged), `extra_headers` (merged), `gpu_preference`.
+  - Optional: `metadata` flags that vendors pass-through (only for Synth endpoints); otherwise they’ll be ignored by external SDKs.
+
+Model override details
+- Allow `param_overrides["model"]` everywhere. Order-of-operations:
+  - In `LM.respond_async(...)` compute `effective_model = param_overrides.get("model", self.model)` before vendor selection and API-type routing. Use `effective_model` for:
+    - Vendor detection (`get_client(effective_model, ...)`), responses/harmony routing, and event `model_name`.
+    - Pass `effective_model` down to vendors and wrappers.
+  - In vendor clients and wrappers, after building `api_params`, run `apply_param_overrides(api_params)` so any remaining `model` override is honored even outside `LM` usage.
+
+Message operations (beyond substring injection)
+- Add optional `message_ops` in the context to declaratively transform the `messages` array:
+  - `set_system: Optional[str]` — replace the system message content if present; if absent, insert at index 0.
+  - `set_user: Optional[str]` — replace the last user message content; fail if none exists.
+  - `prepend_messages: Optional[List[Dict]]` — add messages to the front (after system if present).
+  - `append_messages: Optional[List[Dict]]` — add messages to the end.
+  - `remove_by_role: Optional[List[str]]` — drop messages whose `role` is in the list (e.g., remove prior `assistant`).
+- Apply order for messages: `set_system`/`set_user` → `remove_by_role` → `prepend` → `append` → `injection_rules`.
+- Implement as `apply_message_ops(messages)` in `overrides.py` and call it just before `apply_injection(messages)` in each hook.
+
+Headers and transport
+- Allow `param_overrides["extra_headers"]: Dict[str, str]` to merge into headers:
+  - OpenAIStandard: merge into `api_params["extra_headers"]` before normalization.
+  - Synth clients: merge into request headers if accessible; otherwise place under payload for backend to surface.
+- For safety, we do not override base URLs/endpoints in v1. If needed, add `endpoint_url` override in Synth clients only.
+
+Wrappers coverage for native SDK usage
+- OpenAI wrapper (`provider_support/openai.py`): in `_wrap`/`_wrap_async`, before calling `wrapped(...)`:
+  - If `messages` in kwargs: `kwargs["messages"] = apply_message_ops(kwargs["messages"])`; then `kwargs["messages"] = apply_injection(kwargs["messages"])`.
+  - Apply tools and params: `kwargs = apply_tool_overrides(kwargs)` then `kwargs = apply_param_overrides(kwargs)` (includes `model`).
+- Anthropic wrapper (`provider_support/anthropic.py`): same pattern for `messages.create(...)` and `completions.create(...)` (use `prompt` vs `messages` appropriately; for `prompt`, only `injection_rules` apply).
+
+LM ergonomics
+- `LM.respond_async(..., overrides: Optional[Dict] = None)`:
+  - If provided, wrap the vendor call in `LMOverridesContext(**overrides)` so the same context mechanism reaches vendor and wrapper layers.
+  - Compute `effective_model` at method start and use it throughout.
+

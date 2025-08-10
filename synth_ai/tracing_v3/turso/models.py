@@ -171,6 +171,7 @@ class Event(Base):
     latency_ms = Column(Integer)
     span_id = Column(String)
     trace_id = Column(String)
+    call_records = Column(JSONText)  # Store serialized LLMCallRecord list
 
     # Environment event fields
     reward = Column(Float)

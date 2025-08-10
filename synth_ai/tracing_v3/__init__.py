@@ -77,7 +77,7 @@ from .abstractions import (
     BaseEvent,
     RuntimeEvent,
     EnvironmentEvent,
-    SessionEventMessage,
+    SessionEventMarkovBlanketMessage,
     TimeRecord,
 )
 from .config import TursoConfig
@@ -89,7 +89,7 @@ __all__ = [
     "BaseEvent",
     "RuntimeEvent",
     "EnvironmentEvent",
-    "SessionEventMessage",
+    "SessionEventMarkovBlanketMessage",
     "TimeRecord",
     "TursoConfig",
 ]
