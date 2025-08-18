@@ -167,6 +167,23 @@ reportMissingTypeStubs = false
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+src = ["synth_ai", "examples"]
+extend-exclude = [
+    ".venv",
+    "dev",
+    "docs",
+    "scripts",
+    "tests",
+    "private_tests",
+    "old",
+    "tauri",
+    "temp",
+    "traces",
+    "traces_*",
+    "synth_ai.db",
+    "synth_ai/v0",
+    "synth_ai/tracing_v3/tests",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "YTT", "B", "C4", "T10", "SIM"]

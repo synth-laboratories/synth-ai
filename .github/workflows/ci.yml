@@ -17,7 +17,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: ruff check
-        run: uvx --from ruff ruff check .
+        run: uvx --from ruff ruff check synth_ai examples
 
   type-check:
     name: Type Check (ty)
