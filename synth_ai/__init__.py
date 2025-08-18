@@ -4,6 +4,7 @@ Synth AI - Software for aiding the best and multiplying the will.
 
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
+import synth_ai.environments as environments  # expose module name for __all__
 from synth_ai.lm.core.main import LM  # Moved from zyk to lm for better organization
 from synth_ai.lm.provider_support.anthropic import Anthropic, AsyncAnthropic
 
@@ -12,6 +13,7 @@ from synth_ai.lm.provider_support.openai import AsyncOpenAI, OpenAI
 
 # Tracing exports - moved from synth-sdk (deprecated v1)
 from synth_ai.tracing_v1 import *  # noqa
+import synth_ai.tracing_v1 as tracing  # expose module name for __all__
 from synth_ai.tracing_v1.abstractions import (
     EventPartitionElement,
     RewardSignal,

@@ -164,7 +164,7 @@ def list_supported_env_types() -> list[str]:
         This function returns a copy of the environment names, so modifying
         the returned list will not affect the registry.
     """
-    return sorted(list(ENV_REGISTRY.keys()))
+    return sorted(ENV_REGISTRY.keys())
 
 
 def discover_entry_point_environments() -> None:

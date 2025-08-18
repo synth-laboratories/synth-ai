@@ -29,7 +29,7 @@ def list_evaluations(evals_dir: Path = Path("src/evals/crafter")):
         if run_dir.is_dir():
             summary_file = run_dir / "evaluation_summary.json"
             if summary_file.exists():
-                with open(summary_file, "r") as f:
+                with open(summary_file) as f:
                     summary = json.load(f)
 
                 eval_info = {
@@ -103,7 +103,7 @@ async def main():
             try:
                 ts = datetime.fromisoformat(eval_info["timestamp"])
                 ts_str = ts.strftime("%Y-%m-%d %H:%M:%S")
-            except:
+            except Exception:
                 ts_str = eval_info["timestamp"]
 
             table_data.append(
