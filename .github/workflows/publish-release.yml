@@ -1,0 +1,50 @@
+name: Publish release to PyPI
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+\.[0-9]+'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-and-publish-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Extract version from tag
+        id: v
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Guard against dev tag
+        run: |
+          case "${{ steps.v.outputs.version }}" in *dev*) echo "Refusing to publish a dev tag to PyPI"; exit 1;; esac
+
+      - name: Build distributions
+        run: |
+          uvx --from build pyproject-build
+
+      - name: Twine check
+        run: |
+          uvx --from twine twine check dist/*
+
+      - name: Publish to PyPI (trusted)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: synth-ai ${{ steps.v.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+

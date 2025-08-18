@@ -1,0 +1,39 @@
+name-template: 'synth-ai $RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: 'Features'
+    labels: ['feature', 'enhancement', 'feat']
+  - title: 'Fixes'
+    labels: ['fix', 'bug', 'bugfix', 'hotfix']
+  - title: 'Documentation'
+    labels: ['docs']
+  - title: 'Performance'
+    labels: ['perf']
+  - title: 'Refactoring'
+    labels: ['refactor']
+  - title: 'Tests'
+    labels: ['test', 'tests']
+  - title: 'CI/CD'
+    labels: ['ci', 'build']
+  - title: 'Chores'
+    labels: ['chore', 'maintenance']
+
+exclude-labels:
+  - 'skip-changelog'
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+change-title-escapes: '\<>*_'  # Prevent markdown injection
+
+version-resolver:
+  major:
+    labels: ['semver:major']
+  minor:
+    labels: ['semver:minor', 'feature', 'enhancement', 'feat']
+  patch:
+    labels: ['semver:patch', 'fix', 'bug', 'bugfix', 'hotfix', 'docs', 'perf', 'refactor', 'tests', 'ci', 'chore', 'maintenance']
+  default: patch
+
+template: |
+  ## Changes
+  $CHANGES
+

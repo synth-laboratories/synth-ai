@@ -103,6 +103,9 @@ temp/
 
 
 .github
+# Allow GitHub configuration to be tracked
+!.github/
+!.github/**
 .env.bak
 
 # Generated learning prompt JSONs
