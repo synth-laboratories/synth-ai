@@ -122,8 +122,8 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "response_model is not supported for standard calls"
         )
 
-        DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
-        if DEBUG:
+        debug = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
+        if debug:
             print("🔍 OPENAI DEBUG: _hit_api_async called with:")
             print(f"   Model: {model}")
             print(f"   Messages: {len(messages)} messages")
@@ -139,14 +139,13 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         cache_result = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
-        if cache_result:
-            if DEBUG:
-                print("🔍 OPENAI DEBUG: Cache hit! Returning cached result")
-                print(f"   Cache result type: {type(cache_result)}")
-                print("🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
-            # return cache_result  # Commented out to force API call
+        if cache_result and debug:
+            print("🔍 OPENAI DEBUG: Cache hit! Returning cached result")
+            print(f"   Cache result type: {type(cache_result)}")
+            print("🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
+            # return cache_result  # Commented out intentionally when debug is on
 
-        if DEBUG:
+        if debug:
             print("🔍 OPENAI DEBUG: Cache miss, making actual API call")
 
         # Common API call params
@@ -265,7 +264,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
 
         # Call API with better auth error reporting
         # try:
-        if DEBUG:
+        if debug:
             print("🔍 OPENAI DEBUG: Making request with params:")
             print(f"   Model: {api_params.get('model')}")
             print(f"   Messages: {len(api_params.get('messages', []))} messages")
@@ -336,7 +335,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                     continue
                 raise
 
-        if DEBUG:
+        if debug:
             print("🔍 OPENAI DEBUG: Response received:")
             print(f"   Type: {type(output)}")
             print(f"   Choices: {len(output.choices) if hasattr(output, 'choices') else 'N/A'}")
@@ -363,7 +362,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 except Exception:
                     pass
 
-        if DEBUG:
+        if debug:
             print("🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
             if hasattr(output.choices[0].message, "content") and output.choices[0].message.content:
                 print(f"   FULL CONTENT:\n{output.choices[0].message.content}")
@@ -457,8 +456,8 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             model, messages, lm_config=lm_config, tools=tools
         )
         # During pytest runs, bypass returning cache to allow tests to inspect outgoing params
-        IN_PYTEST = os.getenv("PYTEST_CURRENT_TEST") is not None
-        if cache_result and not IN_PYTEST:
+        in_pytest = os.getenv("PYTEST_CURRENT_TEST") is not None
+        if cache_result and not in_pytest:
             return cache_result
 
         # Common API call params
@@ -563,8 +562,8 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                     continue
                 raise
         message = output.choices[0].message
-        DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
-        if DEBUG:
+        debug_sync = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
+        if debug_sync:
             try:
                 print(
                     f"🔍 OPENAI DEBUG (sync): finish_reason={getattr(output.choices[0], 'finish_reason', None)}"

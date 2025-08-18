@@ -223,8 +223,7 @@ class OpenAIResponsesAPIMixin:
         if not synth_gpu_endpoint:
             raise ValueError("SYNTH_GPU_HARMONY_ENDPOINT environment variable not set")
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        async with aiohttp.ClientSession() as session, session.post(
                 f"{synth_gpu_endpoint}/v1/completions",
                 json={
                     "model": model,

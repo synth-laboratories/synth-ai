@@ -88,7 +88,7 @@ def sanitize_json(data: Any) -> Any:
         return {k: sanitize_json(v) for k, v in data.items()}
     elif isinstance(data, list):
         return [sanitize_json(item) for item in data]
-    elif isinstance(data, (str, int, float, bool, type(None))):
+    elif isinstance(data, str | int | float | bool | type(None)):
         return data
     else:
         return str(data)
@@ -101,7 +101,7 @@ def estimate_size(obj: Any) -> int:
     """
     if isinstance(obj, str):
         return len(obj.encode("utf-8"))
-    elif isinstance(obj, (int, float)):
+    elif isinstance(obj, int | float):
         return 8
     elif isinstance(obj, bool):
         return 1
