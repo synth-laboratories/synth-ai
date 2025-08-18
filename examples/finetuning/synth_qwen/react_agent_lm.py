@@ -5,13 +5,13 @@ This demonstrates using the LM class with Synth models through native integratio
 
 This version uses the new tracing_v3 system with async Turso/SQLite backend.
 """
-import logging
 import argparse
 import asyncio
+import contextlib
 import glob
 import itertools
-import contextlib
 import json
+import logging
 import os
 import random
 import sys

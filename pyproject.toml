@@ -69,24 +69,12 @@ dev = [
     "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
 ]
-google = [
-    "google-api-core>=2.0.0",
-    "google-generativeai>=0.8.0",
-    "google-genai>=1.0.0",
-]
-mistral = [
-    "mistralai>=1.0.0",
-]
 research = [
     # Heavy game environment dependencies
     "crafter>=1.8.3",
     "datasets>=4.0.0",  # For math environments
 ]
 all = [
-    "google-api-core>=2.0.0",
-    "google-generativeai>=0.8.0",
-    "google-genai>=1.0.0",
-    "mistralai>=1.0.0",
     # Include research dependencies in all
     "crafter>=1.8.3",
     "datasets>=4.0.0",

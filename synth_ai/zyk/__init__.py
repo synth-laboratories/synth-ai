@@ -12,6 +12,7 @@ or
 NEW: from synth_ai import LM  # (recommended)
 """
 
+# ruff: noqa: E402
 import warnings
 
 # Issue deprecation warning
