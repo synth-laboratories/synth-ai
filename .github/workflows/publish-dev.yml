@@ -1,0 +1,60 @@
+name: Publish dev to TestPyPI
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-and-publish-dev:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Get version (must be .dev)
+        id: v
+        run: |
+          python - <<'PY'
+          import tomllib, pathlib, os
+          data = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          v = data['project']['version']
+          print(f"version={v}")
+          if '.dev' not in v:
+              raise SystemExit('Not a dev version; skipping dev publish.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"version={v}\n")
+          PY
+
+      - name: Build distributions
+        run: |
+          uvx --from build pyproject-build
+
+      - name: Twine check
+        run: |
+          uvx --from twine twine check dist/*
+
+      - name: Publish to TestPyPI (trusted)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Create/Update GitHub prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.v.outputs.version }}
+          name: synth-ai ${{ steps.v.outputs.version }}
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+
