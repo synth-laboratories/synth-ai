@@ -12,6 +12,7 @@ private_tests/
 dev/
 build/
 dist/
+tauri/
 
 __pycache__
 
@@ -83,6 +84,10 @@ htmlcov/
 
 **/environments/examples/**/agent_demos/
 synth_ai/environments/examples/*
+
+# --- Force-include Wordle fixed instances file regardless of ignore rules ---
+!synth_ai/environments/examples/wordle/
+!synth_ai/environments/examples/wordle/instances.json
 
 old/
 
