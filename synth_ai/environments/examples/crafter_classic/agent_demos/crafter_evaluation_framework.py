@@ -4,13 +4,12 @@ Provides detailed metrics, trajectory analysis, and achievement statistics.
 """
 
 import asyncio
-import json
 import math
 import time
 import uuid
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 
 import pandas as pd
 from synth_ai.lm.core.main import LM

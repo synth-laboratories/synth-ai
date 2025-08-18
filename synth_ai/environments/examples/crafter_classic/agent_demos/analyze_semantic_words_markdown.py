@@ -27,7 +27,7 @@ sys.path.append(str(Path(__file__).parent))
 from test_crafter_react_agent import run_crafter_episodes
 
 
-def extract_words_from_semantic_map(observation: str) -> Set[str]:
+def extract_words_from_semantic_map(observation: str) -> set[str]:
     """Extract meaningful words from a semantic map observation string."""
     if not observation or "semantic_map" not in observation.lower():
         return set()
@@ -60,15 +60,11 @@ def extract_words_from_semantic_map(observation: str) -> Set[str]:
     # Filter to keep only meaningful Crafter-related words
     found_words = set()
     for word in words:
-        if word in crafter_words:
+        if word in crafter_words or any(cw in word for cw in crafter_words):
             found_words.add(word)
-        # Also check for partial matches for compound words
-        elif any(cw in word for cw in crafter_words):
-            found_words.add(word)
-    
     return found_words
 
-def analyze_episode_traces(traces_data: List[Dict]) -> Dict[str, int]:
+def analyze_episode_traces(traces_data: list[dict]) -> dict[str, int]:
     """Analyze traces to extract semantic map words."""
     word_counter = Counter()
     
@@ -86,7 +82,7 @@ def analyze_episode_traces(traces_data: List[Dict]) -> Dict[str, int]:
     
     return dict(word_counter)
 
-def generate_markdown_report(word_counts: Dict[str, int], model: str, episodes: int) -> str:
+def generate_markdown_report(word_counts: dict[str, int], model: str, episodes: int) -> str:
     """Generate a markdown report of the semantic map analysis."""
     if not word_counts:
         return "# Semantic Map Analysis\n\n**No words found in semantic maps!**\n"
@@ -172,7 +168,7 @@ async def main():
     args = parser.parse_args()
     
     print(f"🚀 Running {args.episodes} episodes with {args.model}")
-    print(f"📊 Will analyze semantic map words and generate markdown report")
+    print("📊 Will analyze semantic map words and generate markdown report")
     
     # Create output directory
     output_dir = Path(args.output_dir)
@@ -237,7 +233,7 @@ async def main():
             
             # Top 10 most common words
             sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
-            print(f"\nTop 10 most frequent words:")
+            print("\nTop 10 most frequent words:")
             for i, (word, count) in enumerate(sorted_words[:10], 1):
                 print(f"{i:2d}. {word:<12} ({count} times)")
         else:

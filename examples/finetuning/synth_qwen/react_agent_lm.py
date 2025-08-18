@@ -843,7 +843,7 @@ class BaseReActAgentWithLMSynth:
                         "name": data["function"].get("name", "interact"),
                         "parameters": data["function"].get("arguments", {}),
                     }
-        except:
+        except Exception:
             pass
 
         # Fallback to text parsing

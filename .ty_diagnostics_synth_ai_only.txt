@@ -1,14 +1,645 @@
 WARN ty is pre-release software and not ready for production use. Expect to encounter bugs, missing features, and fatal errors.
-ty failed
-  Cause: /Users/joshuapurtell/Documents/GitHub/synth-ai/ty.toml is not a valid `ty.toml`: TOML parse error at line 1, column 2
-  |
-1 | [tool.ty]
-  |  ^^^^
-unknown field `tool`, expected one of `environment`, `src`, `rules`, `terminal`, `overrides`
+examples/evals/compare_models.py:50:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+examples/evals/compare_models.py:51:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+examples/evals/compare_models.py:57:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.db_config`
+examples/evals/compare_models.py:58:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.decorators`
+examples/evals/compare_models.py:59:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+examples/evals/compare_models.py:60:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+examples/evals/compare_models.py:68:10: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.trace_hooks_v3`
+examples/evals/compare_models.py:73:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.hooks`
+examples/evals/compare_models.py:153:11: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+examples/evals/compare_models.py:404:26: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+examples/evals/compare_models.py:804:16: error[invalid-return-type] Return type does not match returned value: expected `list[dict[str, Any]]`, found `tuple[Unknown]`
+examples/evals/trace_analysis.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso`
+examples/finetuning/synth_qwen/filter_traces.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso`
+examples/finetuning/synth_qwen/filter_traces_achievements.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso`
+examples/finetuning/synth_qwen/purge_v3_traces.py:35:33: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+examples/finetuning/synth_qwen/react_agent_lm.py:65:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.config`
+examples/finetuning/synth_qwen/react_agent_lm.py:68:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.warmup`
+examples/finetuning/synth_qwen/react_agent_lm.py:71:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3`
+examples/finetuning/synth_qwen/react_agent_lm.py:72:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+examples/finetuning/synth_qwen/react_agent_lm.py:80:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.hooks`
+examples/finetuning/synth_qwen/react_agent_lm.py:81:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.daemon`
+examples/finetuning/synth_qwen/react_agent_lm.py:84:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+examples/finetuning/synth_qwen/react_agent_lm.py:91:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+examples/finetuning/synth_qwen/react_agent_lm.py:93:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v2`
+examples/finetuning/synth_qwen/react_agent_lm.py:224:5: error[invalid-assignment] Method `__setitem__` of type `bound method _Environ[str].__setitem__(key: str, value: str) -> None` cannot be called with a key of type `Literal["OPENAI_API_KEY"]` and a value of type `str | None` on object of type `_Environ[str]`
+examples/finetuning/synth_qwen/react_agent_lm.py:259:11: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+examples/finetuning/synth_qwen/react_agent_lm.py:1084:9: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `str`, found `str | None`
+examples/finetuning/synth_qwen/react_agent_lm.py:1147:26: error[unresolved-attribute] Type `<module 'asyncio'>` has no attribute `nullcontext`
+examples/finetuning/synth_qwen/react_agent_lm.py:1800:36: error[non-subscriptable] Cannot subscript object of type `None` with no `__getitem__` method
+examples/finetuning/synth_qwen/react_agent_lm.py:1841:23: warning[possibly-unbound-attribute] Attribute `replace` on type `str | None | (Any & ~AlwaysFalsy)` is possibly unbound
+examples/finetuning/synth_qwen/run_crafter_qwen4b.py:26:6: error[unresolved-import] Cannot resolve imported module `examples.finetuning.synth_qwen`
+examples/finetuning/synth_qwen/run_crafter_qwen4b.py:29:6: error[unresolved-import] Cannot resolve imported module `synth_ai.config.base_url`
+examples/finetuning/synth_qwen/sft_kickoff.py:22:6: error[unresolved-import] Cannot resolve imported module `synth_ai.config.base_url`
+synth_ai/__init__.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments`
+synth_ai/__init__.py:7:8: error[unresolved-import] Cannot resolve imported module `synth_ai.environments`
+synth_ai/__init__.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+synth_ai/__init__.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.anthropic`
+synth_ai/__init__.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.openai`
+synth_ai/__init__.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1`
+synth_ai/__init__.py:16:8: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1`
+synth_ai/__init__.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.abstractions`
+synth_ai/__init__.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.decorators`
+synth_ai/__init__.py:24:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.upload`
+synth_ai/__main__.py:6:7: error[unresolved-import] Cannot resolve imported module `.cli`
+synth_ai/cli/calc.py:33:30: warning[deprecated] The class `Num` is deprecated: Replaced by ast.Constant; removed in Python 3.14
+synth_ai/cli/legacy_root_backup.py:160:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:163:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:198:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:219:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:222:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:239:15: error[unresolved-import] Cannot resolve imported module `.tui.dashboard`
+synth_ai/cli/recent.py:37:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/status.py:17:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/traces.py:29:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/traces.py:76:45: warning[possibly-unbound-attribute] Attribute `iterrows` on type `(Unknown & ~AlwaysFalsy) | list[Unknown]` is possibly unbound
+synth_ai/cli/watch.py:51:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/watch.py:117:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/watch.py:256:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/watch.py:399:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/watch.py:421:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/cli/watch.py:456:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/environments/__init__.py:31:1: error[unresolved-attribute] Unresolved attribute `synth_env` on type `ModuleType`.
+synth_ai/environments/environment/artifacts/base.py:17:24: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/environment/artifacts/base.py:31:14: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/environment/artifacts/base.py:33:24: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/environment/core.py:1:6: error[unresolved-import] Cannot resolve imported module `synth_ai.core.system`
+synth_ai/environments/environment/registry.py:33:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.core`
+synth_ai/environments/examples/wordle/engine.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.rewards.core`
+synth_ai/environments/examples/wordle/engine.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.shared_engine`
+synth_ai/environments/examples/wordle/engine.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.reproducibility.core`
+synth_ai/environments/examples/wordle/engine.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.engine`
+synth_ai/environments/examples/wordle/engine.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/environments/examples/wordle/environment.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.shared_engine`
+synth_ai/environments/examples/wordle/environment.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+synth_ai/environments/examples/wordle/environment.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.reproducibility.core`
+synth_ai/environments/examples/wordle/environment.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.core`
+synth_ai/environments/examples/wordle/environment.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/environments/examples/wordle/helpers/generate_instances_wordfreq.py:20:6: error[unresolved-import] Cannot resolve imported module `wordfreq`
+synth_ai/environments/examples/wordle/taskset.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/environments/examples/wordle/taskset.py:166:17: error[unknown-argument] Argument `id` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:167:17: error[unknown-argument] Argument `impetus` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:168:17: error[unknown-argument] Argument `intent` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:169:17: error[unknown-argument] Argument `metadata` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:170:17: error[unknown-argument] Argument `is_reproducible` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:171:17: error[unknown-argument] Argument `initial_engine_snapshot` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:203:17: error[unknown-argument] Argument `id` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:204:17: error[unknown-argument] Argument `impetus` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:205:17: error[unknown-argument] Argument `intent` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:206:17: error[unknown-argument] Argument `metadata` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:207:17: error[unknown-argument] Argument `is_reproducible` does not match any known parameter
+synth_ai/environments/examples/wordle/taskset.py:208:17: error[unknown-argument] Argument `initial_engine_snapshot` does not match any known parameter
+synth_ai/environments/service/app.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.core_routes`
+synth_ai/environments/service/app.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.external_registry`
+synth_ai/environments/service/app.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.registry`
+synth_ai/environments/service/app.py:34:8: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.environment`
+synth_ai/environments/service/app.py:37:8: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_custom.environment`
+synth_ai/environments/service/app.py:43:12: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.wordle.environment`
+synth_ai/environments/service/app.py:53:6: warning[deprecated] The function `on_event` is deprecated: 
+        on_event is deprecated, use lifespan event handlers instead.
 
-  Cause: TOML parse error at line 1, column 2
-  |
-1 | [tool.ty]
-  |  ^^^^
-unknown field `tool`, expected one of `environment`, `src`, `rules`, `terminal`, `overrides`
-
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+synth_ai/environments/service/core_routes.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+synth_ai/environments/service/core_routes.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.registry`
+synth_ai/environments/service/core_routes.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.core`
+synth_ai/environments/service/core_routes.py:67:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[Unknown, Unknown]`
+synth_ai/environments/service/core_routes.py:68:5: error[invalid-assignment] Object of type `None` is not assignable to `list[Unknown]`
+synth_ai/environments/service/core_routes.py:126:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.nethack.taskset`
+synth_ai/environments/service/core_routes.py:176:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.minigrid.taskset`
+synth_ai/environments/service/core_routes.py:182:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.taskset`
+synth_ai/environments/service/core_routes.py:249:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.nethack.taskset`
+synth_ai/environments/service/core_routes.py:924:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.core`
+synth_ai/environments/service/core_routes.py:933:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.registry`
+synth_ai/environments/service/core_routes.py:966:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.registry`
+synth_ai/environments/service/core_routes.py:999:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.registry`
+synth_ai/environments/service/external_registry.py:16:24: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[dict[str, str]]`
+synth_ai/environments/service/registry.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.registry`
+synth_ai/environments/stateful/core.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.shared_engine`
+synth_ai/environments/stateful/core.py:4:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+synth_ai/environments/stateful/engine.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.shared_engine`
+synth_ai/environments/stateful/state.py:1:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.v0_observability.log`
+synth_ai/environments/tasks/api.py:1:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/environments/tasks/core.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.v0_observability.history`
+synth_ai/environments/tasks/core.py:46:40: error[unresolved-reference] Name `StatefulEngineSnapshot` used when not defined
+synth_ai/environments/tasks/filters.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/environments/tasks/utils.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+synth_ai/evals/base.py:5:65: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[str]`
+synth_ai/evals/base.py:14:31: error[invalid-type-form] Variable of type `def any(iterable: Iterable[object], /) -> bool` is not allowed in a type expression
+synth_ai/evals/base.py:14:39: error[invalid-return-type] Function always implicitly returns `None`, which is not assignable to return type `list[Judgement]`
+synth_ai/learning/prompts/banking77_injection_eval.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+synth_ai/learning/prompts/banking77_injection_eval.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/learning/prompts/banking77_injection_eval.py:91:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:91:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:34:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:37:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:38:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:39:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:83:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:83:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:161:16: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.openai`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:189:16: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.anthropic`
+synth_ai/learning/prompts/random_search.py:235:13: error[invalid-assignment] Object of type `list[Unknown]` is not assignable to attribute `candidate_programs` on type `(Any & <Protocol with members 'candidate_programs'>) | (_ProgramLike & <Protocol with members 'candidate_programs'>)`
+synth_ai/learning/prompts/random_search.py:239:29: error[call-non-callable] Object of type `_ProgramLike` is not callable
+synth_ai/learning/prompts/run_mipro_banking77.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.learning.prompts.mipro`
+synth_ai/learning/prompts/run_mipro_banking77.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+synth_ai/learning/prompts/run_mipro_banking77.py:69:24: error[unresolved-reference] Name `state_ref` used when not defined
+synth_ai/learning/prompts/run_mipro_banking77.py:72:68: error[unresolved-reference] Name `state_ref` used when not defined
+synth_ai/learning/prompts/run_mipro_banking77.py:113:12: warning[unresolved-global] Invalid global declaration of `state_ref`: `state_ref` has no declarations or bindings in the global scope
+synth_ai/learning/prompts/run_random_search_banking77.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.learning.prompts.random_search`
+synth_ai/learning/prompts/run_random_search_banking77.py:28:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+synth_ai/learning/prompts/run_random_search_banking77.py:125:25: error[unresolved-reference] Name `Optional` used when not defined
+synth_ai/lm/caching/ephemeral.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.constants`
+synth_ai/lm/caching/ephemeral.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/caching/handler.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.ephemeral`
+synth_ai/lm/caching/handler.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.persistent`
+synth_ai/lm/caching/handler.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/caching/handler.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/caching/initialize.py:1:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.handler`
+synth_ai/lm/caching/persistent.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/core/all.py:1:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.anthropic_api`
+synth_ai/lm/core/all.py:2:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.gemini_api`
+synth_ai/lm/core/all.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.openai_api`
+synth_ai/lm/core/all.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.custom_endpoint`
+synth_ai/lm/core/all.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.deepseek`
+synth_ai/lm/core/all.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.grok`
+synth_ai/lm/core/all.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.groq`
+synth_ai/lm/core/all.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.openrouter`
+synth_ai/lm/core/all.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.together`
+synth_ai/lm/core/main.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.config`
+synth_ai/lm/core/main.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.exceptions`
+synth_ai/lm/core/main.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.vendor_clients`
+synth_ai/lm/core/main.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.structured_outputs.handler`
+synth_ai/lm/core/main.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/core/main.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/core/main.py:176:17: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:176:33: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:239:17: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:239:33: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:315:17: error[invalid-argument-type] Argument to bound method `respond_async` is incorrect: Expected `BaseModel | None`, found `<class 'TestModel'>`
+synth_ai/lm/core/main_v3.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.config`
+synth_ai/lm/core/main_v3.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.vendor_clients`
+synth_ai/lm/core/main_v3.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.structured_outputs.handler`
+synth_ai/lm/core/main_v3.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/core/main_v3.py:22:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/core/main_v3.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/lm/core/main_v3.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.decorators`
+synth_ai/lm/core/main_v3.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.llm_call_record_helpers`
+synth_ai/lm/core/main_v3.py:31:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+synth_ai/lm/core/main_v3.py:123:18: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.vendor_clients`
+synth_ai/lm/core/main_v3.py:413:35: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/lm/core/main_v3.py:414:37: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/lm/core/vendor_clients.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.all`
+synth_ai/lm/injection.py:9:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[list[dict[str, Any]] | None]`
+synth_ai/lm/overrides.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.injection`
+synth_ai/lm/overrides.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.injection`
+synth_ai/lm/overrides.py:23:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[list[dict[str, Any]] | None]`
+synth_ai/lm/overrides.py:28:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[dict[str, Any] | None]`
+synth_ai/lm/overrides.py:31:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[dict[str, Any] | None]`
+synth_ai/lm/overrides.py:34:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str | None]`
+synth_ai/lm/provider_support/anthropic.py:30:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/provider_support/anthropic.py:33:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/provider_support/anthropic.py:38:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.suppress_logging`
+synth_ai/lm/provider_support/anthropic.py:39:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.trackers`
+synth_ai/lm/provider_support/anthropic.py:886:9: error[invalid-assignment] Object of type `def new_client_init(instance, *args, **kwargs) -> Unknown` is not assignable to attribute `__init__` on type `Unknown | <class 'Anthropic'>`
+synth_ai/lm/provider_support/anthropic.py:947:9: error[invalid-assignment] Object of type `def new_async_init(instance, *args, **kwargs) -> Unknown` is not assignable to attribute `__init__` on type `Unknown | <class 'AsyncAnthropic'>`
+synth_ai/lm/provider_support/anthropic.py:949:9: error[unresolved-attribute] Unresolved attribute `langfuse_public_key` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:950:9: error[unresolved-attribute] Unresolved attribute `langfuse_secret_key` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:951:9: error[unresolved-attribute] Unresolved attribute `langfuse_host` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:952:9: error[unresolved-attribute] Unresolved attribute `langfuse_debug` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:953:9: error[unresolved-attribute] Unresolved attribute `langfuse_enabled` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:954:9: error[unresolved-attribute] Unresolved attribute `langfuse_sample_rate` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:955:9: error[unresolved-attribute] Unresolved attribute `langfuse_auth_check` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:956:9: error[unresolved-attribute] Unresolved attribute `flush_langfuse` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:967:12: warning[possibly-unbound-attribute] Attribute `auth_check` on type `Unknown | Langfuse | None` is possibly unbound
+synth_ai/lm/provider_support/openai.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/provider_support/openai.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/provider_support/openai.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.suppress_logging`
+synth_ai/lm/provider_support/openai.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.abstractions`
+synth_ai/lm/provider_support/openai.py:28:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.trackers`
+synth_ai/lm/provider_support/openai.py:44:5: error[invalid-assignment] Implicit shadowing of class `AsyncAzureOpenAI`
+synth_ai/lm/provider_support/openai.py:45:5: error[invalid-assignment] Implicit shadowing of class `AsyncOpenAI`
+synth_ai/lm/provider_support/openai.py:46:5: error[invalid-assignment] Implicit shadowing of class `AzureOpenAI`
+synth_ai/lm/provider_support/openai.py:47:5: error[invalid-assignment] Implicit shadowing of class `OpenAI`
+synth_ai/lm/provider_support/openai.py:771:24: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_public_key`
+synth_ai/lm/provider_support/openai.py:772:24: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_secret_key`
+synth_ai/lm/provider_support/openai.py:773:18: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_host`
+synth_ai/lm/provider_support/openai.py:774:19: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_debug`
+synth_ai/lm/provider_support/openai.py:775:21: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_enabled`
+synth_ai/lm/provider_support/openai.py:777:25: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_sample_rate`
+synth_ai/lm/provider_support/openai.py:825:9: error[unresolved-attribute] Unresolved attribute `langfuse_public_key` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:826:9: error[unresolved-attribute] Unresolved attribute `langfuse_secret_key` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:827:9: error[unresolved-attribute] Unresolved attribute `langfuse_host` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:828:9: error[unresolved-attribute] Unresolved attribute `langfuse_debug` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:829:9: error[unresolved-attribute] Unresolved attribute `langfuse_enabled` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:830:9: error[unresolved-attribute] Unresolved attribute `langfuse_sample_rate` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:831:9: error[unresolved-attribute] Unresolved attribute `langfuse_mask` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:832:9: error[unresolved-attribute] Unresolved attribute `langfuse_auth_check` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:833:9: error[unresolved-attribute] Unresolved attribute `flush_langfuse` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:845:12: warning[possibly-unbound-attribute] Attribute `auth_check` on type `Unknown | Langfuse | None` is possibly unbound
+synth_ai/lm/structured_outputs/handler.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/structured_outputs/handler.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.exceptions`
+synth_ai/lm/structured_outputs/handler.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.structured_outputs.inject`
+synth_ai/lm/structured_outputs/handler.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.structured_outputs.rehabilitate`
+synth_ai/lm/structured_outputs/handler.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/structured_outputs/rehabilitate.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.openai_api`
+synth_ai/lm/vendors/core/anthropic_api.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/core/anthropic_api.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/vendors/core/anthropic_api.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/vendors/core/anthropic_api.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/vendors/core/anthropic_api.py:19:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/core/anthropic_api.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/core/anthropic_api.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.openai_api`
+synth_ai/lm/vendors/core/anthropic_api.py:84:18: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/vendors/core/anthropic_api.py:186:18: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/vendors/core/anthropic_api.py:260:13: error[invalid-assignment] Object of type `dict[str, Any] | str` is not assignable to `str`
+synth_ai/lm/vendors/core/anthropic_api.py:291:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/anthropic_api.py:319:13: error[invalid-assignment] Object of type `dict[str, Any] | str` is not assignable to `str`
+synth_ai/lm/vendors/core/anthropic_api.py:352:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/anthropic_api.py:377:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/lm/vendors/core/gemini_api.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/core/gemini_api.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/vendors/core/gemini_api.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/core/gemini_api.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/core/gemini_api.py:19:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.retries`
+synth_ai/lm/vendors/core/mistral_api.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/core/mistral_api.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/vendors/core/mistral_api.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/core/mistral_api.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/core/mistral_api.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.openai_api`
+synth_ai/lm/vendors/core/mistral_api.py:241:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/mistral_api.py:280:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/mistral_api.py:305:59: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `tuple[type[Exception], ...]`, found `list[Unknown]`
+synth_ai/lm/vendors/core/mistral_api.py:314:13: error[invalid-argument-type] Argument to bound method `_hit_api_async_structured_output` is incorrect: Expected `BaseModel`, found `<class 'TestModel'>`
+synth_ai/lm/vendors/core/openai_api.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/core/openai_api.py:18:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/vendors/core/openai_api.py:19:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/core/openai_api.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/core/openai_api.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/core/openai_api.py:24:1: error[invalid-assignment] Object of type `tuple[Unknown, <class 'OpenAIError'>, <class 'APIConnectionError'>, <class 'RateLimitError'>, <class 'APIError'>, <class 'Timeout'>, <class 'InternalServerError'>, <class 'APIConnectionError'>]` is not assignable to `tuple[type[Exception], ...]`
+synth_ai/lm/vendors/core/openai_api.py:25:5: error[unresolved-attribute] Type `<module 'pydantic_core'>` has no attribute `_pydantic_core`
+synth_ai/lm/vendors/core/openai_api.py:47:18: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.openai`
+synth_ai/lm/vendors/core/openai_api.py:101:22: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/openai_api.py:149:22: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/openai_api.py:166:18: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.openai`
+synth_ai/lm/vendors/core/openai_api.py:177:9: error[unknown-argument] Argument `sync_client` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:178:9: error[unknown-argument] Argument `async_client` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:179:9: error[unknown-argument] Argument `used_for_structured_outputs` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:180:9: error[unknown-argument] Argument `exceptions_to_retry` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:189:9: error[invalid-argument-type] Argument to bound method `_hit_api_sync_structured_output` is incorrect: Expected `BaseModel`, found `<class 'TestModel'>`
+synth_ai/lm/vendors/openai_standard.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/openai_standard.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.constants`
+synth_ai/lm/vendors/openai_standard.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.injection`
+synth_ai/lm/vendors/openai_standard.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+synth_ai/lm/vendors/openai_standard.py:22:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/openai_standard.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/openai_standard.py:24:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard_responses`
+synth_ai/lm/vendors/openai_standard.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.retries`
+synth_ai/lm/vendors/openai_standard.py:28:5: error[unresolved-attribute] Type `<module 'pydantic_core'>` has no attribute `_pydantic_core`
+synth_ai/lm/vendors/openai_standard.py:78:5: error[invalid-assignment] Object of type `tuple[Unknown, <class 'APIConnectionError'>, <class 'APITimeoutError'>, <class 'InternalServerError'>, <class 'APITimeoutError'>, <class 'APIConnectionError'>]` is not assignable to `list[Unknown]`
+synth_ai/lm/vendors/openai_standard.py:86:9: error[invalid-parameter-default] Default value of type `tuple[Unknown, <class 'APIConnectionError'>, <class 'APITimeoutError'>, <class 'InternalServerError'>, <class 'APITimeoutError'>, <class 'APIConnectionError'>]` is not assignable to annotated parameter type `list[Exception]`
+synth_ai/lm/vendors/openai_standard.py:665:40: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/openai_standard.py:738:40: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/openai_standard_responses.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/openai_standard_responses.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/supported/custom_endpoint.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.caching.initialize`
+synth_ai/lm/vendors/supported/custom_endpoint.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/supported/custom_endpoint.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/supported/custom_endpoint.py:240:23: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/lm/vendors/supported/deepseek.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/supported/deepseek.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/supported/grok.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/supported/grok.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/supported/groq.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/supported/ollama.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/supported/openrouter.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+synth_ai/lm/vendors/supported/openrouter.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/lm/vendors/supported/openrouter.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/lm/vendors/supported/together.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+synth_ai/tracing_v3/abstractions.py:235:58: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/abstractions.py:269:59: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/decorators.py:38:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str | None]`
+synth_ai/tracing_v3/decorators.py:41:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[int | None]`
+synth_ai/tracing_v3/decorators.py:121:65: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:131:65: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:140:5: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/decorators.py:217:41: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:236:45: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:251:47: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/decorators.py:290:35: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/examples/basic_usage.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3`
+synth_ai/tracing_v3/examples/basic_usage.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/tracing_v3/examples/basic_usage.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.daemon`
+synth_ai/tracing_v3/hooks.py:90:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/hooks.py:92:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[str]`
+synth_ai/tracing_v3/hooks.py:116:26: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/tracing_v3/llm_call_record_helpers.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+synth_ai/tracing_v3/llm_call_record_helpers.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.lm_call_record_abstractions`
+synth_ai/tracing_v3/llm_call_record_helpers.py:164:43: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:165:47: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:325:43: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:326:47: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/replica_sync.py:70:21: error[unresolved-attribute] Type `<module 'libsql'>` has no attribute `Connection`
+synth_ai/tracing_v3/replica_sync.py:90:26: error[unresolved-attribute] Type `<module 'libsql'>` has no attribute `connect`
+synth_ai/tracing_v3/session_tracer.py:99:37: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:139:32: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:173:42: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:228:51: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:245:33: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `bool`
+synth_ai/tracing_v3/session_tracer.py:261:50: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:292:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `bool`
+synth_ai/tracing_v3/storage/base.py:45:46: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/tracing_v3/storage/base.py:59:15: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `datetime`
+synth_ai/tracing_v3/storage/base.py:59:44: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `datetime`
+synth_ai/tracing_v3/storage/base.py:59:71: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/storage/base.py:95:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/storage/base.py:96:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/tracing_v3/storage/base.py:106:35: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/storage/factory.py:28:16: error[invalid-return-type] Return type does not match returned value: expected `TraceStorage`, found `AsyncSQLTraceManager`
+synth_ai/tracing_v3/storage/factory.py:32:16: error[invalid-return-type] Return type does not match returned value: expected `TraceStorage`, found `AsyncSQLTraceManager`
+synth_ai/tracing_v3/storage/utils.py:38:19: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+synth_ai/tracing_v3/tests/test_concurrent_operations.py:19:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/tracing_v3/tests/test_concurrent_operations.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+synth_ai/tracing_v3/tests/test_concurrent_operations.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.daemon`
+synth_ai/tracing_v3/tests/test_concurrent_operations.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.lm_call_record_abstractions`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:37:31: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:64:31: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:65:33: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:237:82: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:339:14: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.lm_call_record_abstractions`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:344:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:351:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:358:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:365:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:372:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_replica_sync.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.config`
+synth_ai/tracing_v3/tests/test_replica_sync.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.replica_sync`
+synth_ai/tracing_v3/tests/test_session_tracer.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/tracing_v3/tests/test_session_tracer.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.decorators`
+synth_ai/tracing_v3/tests/test_session_tracer.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.hooks`
+synth_ai/tracing_v3/tests/test_session_tracer.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.lm_call_record_abstractions`
+synth_ai/tracing_v3/tests/test_session_tracer.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+synth_ai/tracing_v3/tests/test_turso_manager.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+synth_ai/tracing_v3/tests/test_turso_manager.py:19:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+synth_ai/tracing_v3/tests/test_turso_manager.py:22:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/tracing_v3/tests/test_turso_manager.py:23:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.utils`
+synth_ai/tracing_v3/tests/test_turso_manager.py:96:14: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.db_config`
+synth_ai/tracing_v3/tests/test_turso_manager.py:113:14: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.db_config`
+synth_ai/tracing_v3/tests/test_turso_manager.py:407:14: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.db_config`
+synth_ai/tracing_v3/tests/test_turso_manager.py:424:14: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.db_config`
+synth_ai/tracing_v3/turso/daemon.py:16:24: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:16:45: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/turso/daemon.py:16:68: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:77:20: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/tracing_v3/turso/daemon.py:123:16: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:123:37: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/utils.py:12:21: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tui/cli/query_experiments.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/tui/cli/query_experiments_v3.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.turso.manager`
+synth_ai/tui/dashboard.py:25:8: error[unresolved-import] Cannot resolve imported module `..tracing_v3.turso.manager`
+synth_ai/v0/tracing/abstractions.py:106:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing/abstractions.py:153:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing/context.py:94:51: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:95:47: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:96:65: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:100:77: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[str, Any] | dict[Unknown, Unknown]`
+synth_ai/v0/tracing/context.py:104:37: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[Unknown, Unknown]`
+synth_ai/v0/tracing/decorators.py:136:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:136:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:157:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:158:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:159:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:177:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/decorators.py:306:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:307:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:314:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:315:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:322:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing/decorators.py:324:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing/decorators.py:353:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing/decorators.py:390:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:390:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:411:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:412:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:413:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:431:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/decorators.py:552:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:553:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:560:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:561:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:568:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing/decorators.py:570:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing/decorators.py:607:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing/decorators.py:637:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing/decorators.py:638:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing/decorators.py:639:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing/decorators.py:640:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing/decorators.py:649:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing/decorators.py:650:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing/decorators.py:651:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing/decorators.py:652:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing/events/manage.py:20:49: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `Literal["sync", "async"]`
+synth_ai/v0/tracing/events/scope.py:50:9: error[invalid-argument-type] Argument is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/events/scope.py:55:9: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/events/scope.py:86:35: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/events/scope.py:86:48: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/immediate_client.py:43:17: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing/immediate_client.py:137:25: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing/local.py:12:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/local.py:13:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/local.py:14:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/log_client_base.py:22:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing/log_client_base.py:57:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing/retry_queue.py:141:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.immediate_client`
+synth_ai/v0/tracing/trackers.py:133:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:134:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:148:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:183:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:193:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:213:16: error[invalid-return-type] Return type does not match returned value: expected `tuple[list[dict[str, Any]], list[dict[str, Any]]]`, found `tuple[Unknown | None, Unknown | None]`
+synth_ai/v0/tracing/trackers.py:218:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:219:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:234:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/upload.py:74:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:105:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:124:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:159:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:359:6: error[invalid-return-type] Function always implicitly returns `None`, which is not assignable to return type `tuple[ProcessUploadResponse, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]`
+synth_ai/v0/tracing_v1/abstractions.py:106:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing_v1/abstractions.py:153:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing_v1/context.py:94:51: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:95:47: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:96:65: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:100:77: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[str, Any] | dict[Unknown, Unknown]`
+synth_ai/v0/tracing_v1/context.py:104:37: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[Unknown, Unknown]`
+synth_ai/v0/tracing_v1/decorators.py:147:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:147:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:168:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:169:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:170:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:188:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/decorators.py:317:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:318:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:325:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:326:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:333:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing_v1/decorators.py:335:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing_v1/decorators.py:364:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing_v1/decorators.py:411:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:411:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:432:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:433:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:434:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:452:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/decorators.py:573:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:574:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:581:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:582:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:589:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing_v1/decorators.py:591:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing_v1/decorators.py:628:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing_v1/decorators.py:658:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing_v1/decorators.py:659:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:660:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing_v1/decorators.py:661:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:670:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing_v1/decorators.py:671:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:672:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing_v1/decorators.py:673:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing_v1/events/manage.py:20:49: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `Literal["sync", "async"]`
+synth_ai/v0/tracing_v1/events/scope.py:50:9: error[invalid-argument-type] Argument is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/events/scope.py:55:9: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/events/scope.py:86:35: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/events/scope.py:86:48: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/immediate_client.py:43:17: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing_v1/immediate_client.py:137:25: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing_v1/local.py:12:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/local.py:13:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/local.py:14:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/log_client_base.py:22:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing_v1/log_client_base.py:57:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing_v1/retry_queue.py:141:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.immediate_client`
+synth_ai/v0/tracing_v1/trackers.py:133:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:134:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:148:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:183:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:193:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:213:16: error[invalid-return-type] Return type does not match returned value: expected `tuple[list[dict[str, Any]], list[dict[str, Any]]]`, found `tuple[Unknown | None, Unknown | None]`
+synth_ai/v0/tracing_v1/trackers.py:218:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:219:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:234:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/upload.py:89:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:120:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:139:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:174:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:517:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/zyk/__init__.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+synth_ai/zyk/__init__.py:28:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+tests/api/conftest.py:14:12: error[invalid-return-type] Return type does not match returned value: expected `str`, found `str | None`
+tests/disabled_modal_qwen_hello.py:10:10: error[unresolved-import] Cannot resolve imported module `synth_ai`
+tests/environments/conftest.py:22:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.core_routes`
+tests/environments/import_error.py:10:12: error[unresolved-import] Cannot resolve imported module `synth_ai.environments`
+tests/environments/integration/test_service_api.py:37:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.units.astar_common`
+tests/environments/integration/test_service_api.py:38:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.app`
+tests/environments/integration/test_service_api.py:39:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.core_routes`
+tests/environments/integration/test_service_api.py:343:18: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.external_registry`
+tests/environments/integration/test_sokoban_service.py:8:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/integration/test_sokoban_service.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.units.astar_common`
+tests/environments/integration/test_sokoban_service.py:133:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.core_routes`
+tests/environments/integration/test_sokoban_service.py:174:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.core_routes`
+tests/environments/unit/test_all_environments_api.py:24:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/unit/test_all_environments_api.py:320:47: error[not-iterable] Object of type `BaseException & ~Exception` is not iterable
+tests/environments/unit/test_crafter_api_bug.py:16:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/unit/test_crafter_api_bug.py:176:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+tests/environments/unit/test_crafter_api_bug.py:190:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+tests/environments/unit/test_crafter_api_bug.py:218:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+tests/environments/unit/test_crafter_api_bug.py:219:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.environment`
+tests/environments/unit/test_crafter_api_bug.py:222:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.crafter_classic.taskset`
+tests/environments/unit/test_crafter_api_bug.py:226:14: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+tests/environments/unit/test_external_registry.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.service.external_registry`
+tests/environments/unit/test_minigrid_service_integration.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+tests/environments/unit/test_minigrid_service_integration.py:16:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.minigrid.environment`
+tests/environments/unit/test_minigrid_service_integration.py:17:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.minigrid.taskset`
+tests/environments/unit/test_registry.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.registry`
+tests/environments/unit/test_registry.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.tictactoe.environment`
+tests/environments/unit/test_registry.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.stateful.core`
+tests/environments/unit/test_sokoban_failure.py:1:8: error[unresolved-import] Cannot resolve imported module `gym_sokoban.envs.room_utils`
+tests/environments/unit/test_sokoban_failure.py:3:6: error[unresolved-import] Cannot resolve imported module `gym_sokoban.envs.room_utils`
+tests/environments/unit/test_sokoban_qstar.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.environment.tools`
+tests/environments/unit/test_sokoban_qstar.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.engine`
+tests/environments/unit/test_sokoban_qstar.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.environment`
+tests/environments/unit/test_sokoban_qstar.py:14:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.taskset`
+tests/environments/unit/test_sokoban_qstar.py:20:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.sokoban.units.astar_common`
+tests/environments/unit/test_sokoban_qstar.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+tests/environments/unit/test_wordle.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.wordle`
+tests/environments/unit/test_wordle.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.tasks.core`
+tests/environments/unit/test_wordle_integrity.py:3:6: error[unresolved-import] Cannot resolve imported module `synth_ai.environments.examples.wordle`
+tests/evals/banking77_injection_eval.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+tests/evals/banking77_injection_eval.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+tests/evals/banking77_injection_eval.py:72:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+tests/evals/banking77_injection_eval.py:72:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+tests/evals/banking77_injection_eval.py:74:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+tests/evals/banking77_injection_eval.py:74:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+tests/evals/banking77_injection_eval.py:74:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+tests/evals/banking77_injection_eval.py:74:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+tests/integration/test_injection_overrides.py:12:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+tests/integration/test_injection_overrides.py:13:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+tests/integration/test_injection_overrides.py:14:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.abstractions`
+tests/integration/test_injection_overrides.py:15:10: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v3.session_tracer`
+tests/integration/test_injection_overrides.py:68:12: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.openai`
+tests/integration/test_injection_overrides.py:69:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+tests/integration/test_injection_overrides.py:107:12: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.provider_support.anthropic`
+tests/integration/test_injection_overrides.py:108:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+tests/modal_test_qwen_app.py:25:10: error[unresolved-import] Cannot resolve imported module `transformers`
+tests/test_agent.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+tests/test_all_structured_outputs.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai`
+tests/test_all_structured_outputs.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+tests/test_basic_functionality.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_basic_functionality.py:15:10: error[unresolved-import] Cannot resolve imported module `synth_ai`
+tests/test_basic_functionality.py:16:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.config`
+tests/test_basic_functionality.py:26:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.config`
+tests/test_custom_endpoint_integration.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai`
+tests/test_custom_endpoint_integration.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+tests/test_custom_endpoint_integration.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.custom_endpoint`
+tests/test_deepseek_tools.py:4:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+tests/test_deepseek_tools.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+tests/test_deepseek_tools.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.deepseek`
+tests/test_grok_integration.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.supported.grok`
+tests/test_grok_integration.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_models.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_openai_structured_outputs.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+tests/test_provider_override.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.all`
+tests/test_provider_override.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+tests/test_provider_override.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.vendor_clients`
+tests/test_reasoning_models.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_recursive_structured_outputs.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main`
+tests/test_structured.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_text.py:4:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.anthropic_api`
+tests/test_text.py:5:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+tests/test_text.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/test_tools.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.tools.base`
+tests/test_tools.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.core.anthropic_api`
+tests/test_tools.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+tests/test_tools.py:13:6: error[unresolved-import] Cannot resolve imported module `synth_ai.zyk`
+tests/tracing/test_abstractions.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.abstractions`
+tests/tracing/test_decorators.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.decorators`
+tests/tracing/test_decorators.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.events.store`
+tests/tracing/test_upload.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.abstractions`
+tests/tracing/test_upload.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.events.store`
+tests/tracing/test_upload.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.upload`
+tests/unit/test_main_v3_structured.py:9:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+tests/unit/test_main_v3_structured.py:10:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.base`
+tests/unit/test_main_v3_structured.py:33:20: error[call-non-callable] Object of type `BaseModel` is not callable
+tests/unit/test_main_v3_structured.py:60:12: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v3`
+tests/unit/test_overrides_unit.py:6:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.overrides`
+tests/unit/test_overrides_unit.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.vendors.openai_standard`
+ty.toml:3:8: warning[deprecated-setting] The `src.root` setting is deprecated. Use `environment.root` instead.
+Found 638 diagnostics
