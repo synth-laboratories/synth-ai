@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, Union
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from synth_ai.environments.stateful.core import StatefulEnvironment
-from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
@@ -14,15 +13,17 @@ from synth_ai.environments.environment.tools import (
     EnvToolCall,
     ToolResult,
 )
+from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
+from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.tasks.core import TaskInstance
 
 from .engine import (
-    WordleEngine,
-    WordlePublicState,
-    WordlePrivateState,
-    WordleEngineSnapshot,
-    SynthWordleObservationCallable,
     SynthWordleCheckpointObservationCallable,
+    SynthWordleObservationCallable,
+    WordleEngine,
+    WordleEngineSnapshot,
+    WordlePrivateState,
+    WordlePublicState,
 )
 
 
@@ -47,15 +48,17 @@ class WordleInteractTool(AbstractTool):
         except Exception as e:
             # Return current state with error message
             priv, pub = self.engine.get_current_states_for_observation()
-            return ToolResult(ok=False, error=str(e), payload={"public_state": pub, "private_state": priv})
+            return ToolResult(
+                ok=False, error=str(e), payload={"public_state": pub, "private_state": priv}
+            )
 
 
 class WordleEnvironment(StatefulEnvironment, ReproducibleEnvironment[WordleEngine]):
     def __init__(
         self,
         task_instance: TaskInstance,
-        custom_step_obs: Optional[GetObservationCallable] = None,
-        custom_ckpt_obs: Optional[GetObservationCallable] = None,
+        custom_step_obs: GetObservationCallable | None = None,
+        custom_ckpt_obs: GetObservationCallable | None = None,
     ) -> None:
         self.name = "Wordle"
         self.task_instance = task_instance
@@ -101,10 +104,13 @@ class WordleEnvironment(StatefulEnvironment, ReproducibleEnvironment[WordleEngin
             if "tool" in tool_calls:
                 validated = EnvToolCall(tool=tool_calls["tool"], args=tool_calls.get("args", {}))
             elif "name" in tool_calls:
-                validated = EnvToolCall(tool=tool_calls["name"], args=tool_calls.get("parameters", {}))
+                validated = EnvToolCall(
+                    tool=tool_calls["name"], args=tool_calls.get("parameters", {})
+                )
             elif "function" in tool_calls:
                 validated = EnvToolCall(
-                    tool=tool_calls["function"]["name"], args=tool_calls["function"].get("arguments", {})
+                    tool=tool_calls["function"]["name"],
+                    args=tool_calls["function"].get("arguments", {}),
                 )
             else:
                 # Treat remaining keys as args; default tool name
@@ -129,8 +135,8 @@ class WordleEnvironment(StatefulEnvironment, ReproducibleEnvironment[WordleEngin
         self,
         priv: WordlePrivateState,
         pub: WordlePublicState,
-        obs_cb: Optional[GetObservationCallable],
-        extra_obs: Optional[Dict[str, Any]] = None,
+        obs_cb: GetObservationCallable | None,
+        extra_obs: dict[str, Any] | None = None,
     ) -> InternalObservation:
         if obs_cb:
             obs = await obs_cb.get_observation(pub, priv)
@@ -146,9 +152,8 @@ class WordleEnvironment(StatefulEnvironment, ReproducibleEnvironment[WordleEngin
     @classmethod
     async def _deserialize_engine(
         cls, snapshot: WordleEngineSnapshot, task_instance: TaskInstance
-    ) -> "WordleEnvironment":
+    ) -> WordleEnvironment:
         env = cls(task_instance)
         env.engine = await WordleEngine._deserialize_engine(snapshot)
         env._interact_tool = WordleInteractTool(env.engine)
         return env
-

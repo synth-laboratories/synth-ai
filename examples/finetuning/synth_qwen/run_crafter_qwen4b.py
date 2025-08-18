@@ -14,10 +14,11 @@ Environment variables:
 
 It also sets a few runner-specific env flags to enforce short outputs and a single tool call.
 """
+
 import asyncio
-import tomllib
 import os
 import sys
+import tomllib
 
 # from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft import (
 #     test_crafter_react_agent_lm_synth as runner,
@@ -26,8 +27,8 @@ from examples.finetuning.synth_qwen import (
     react_agent_lm as runner,
 )
 from synth_ai.config.base_url import (
-    get_learning_v2_base_url,
     PROD_BASE_URL_DEFAULT,
+    get_learning_v2_base_url,
 )
 
 # Force prod by default for this runner unless explicitly overridden
@@ -68,9 +69,15 @@ async def main() -> None:
     # Tighten prompts and enforce tool calling like the tests do
     os.environ["CRAFTER_STOP_AFTER_TOOL_CALLS"] = "1"
     os.environ["SYNTH_OPENAI_DEBUG"] = "0"
-    os.environ["CRAFTER_MAX_TOKENS"] = os.environ.get("CRAFTER_MAX_TOKENS", str(rcfg.get("max_tokens", 2048)))
-    os.environ["CRAFTER_TOOL_CHOICE"] = os.environ.get("CRAFTER_TOOL_CHOICE", rcfg.get("tool_choice", "required"))
-    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get("CRAFTER_TEMPERATURE", str(rcfg.get("temperature", 0.4)))
+    os.environ["CRAFTER_MAX_TOKENS"] = os.environ.get(
+        "CRAFTER_MAX_TOKENS", str(rcfg.get("max_tokens", 2048))
+    )
+    os.environ["CRAFTER_TOOL_CHOICE"] = os.environ.get(
+        "CRAFTER_TOOL_CHOICE", rcfg.get("tool_choice", "required")
+    )
+    os.environ["CRAFTER_TEMPERATURE"] = os.environ.get(
+        "CRAFTER_TEMPERATURE", str(rcfg.get("temperature", 0.4))
+    )
 
     # Default v3 traces path from config if not already set
     tcfg = cfg.get("traces", {})

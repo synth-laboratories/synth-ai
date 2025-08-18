@@ -4,17 +4,20 @@ Tests for SessionTracer in tracing v3.
 Tests async functionality, hooks, and isolation.
 """
 
-import pytest
-import pytest_asyncio
-import asyncio
-from datetime import datetime
 import time
 
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.abstractions import RuntimeEvent, EnvironmentEvent, LMCAISEvent, TimeRecord
-from synth_ai.tracing_v3.lm_call_record_abstractions import LLMCallRecord, LLMUsage, LLMMessage, LLMContentPart
+import pytest
+
+from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
+from synth_ai.tracing_v3.decorators import SessionContext, get_session_id
 from synth_ai.tracing_v3.hooks import HookManager
-from synth_ai.tracing_v3.decorators import get_session_id, SessionContext
+from synth_ai.tracing_v3.lm_call_record_abstractions import (
+    LLMCallRecord,
+    LLMContentPart,
+    LLMMessage,
+    LLMUsage,
+)
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 
 @pytest.mark.asyncio
@@ -299,32 +302,24 @@ class TestSessionTracer:
 
         # LM CAIS event with call_records (new pattern)
         import uuid
+
         call_record = LLMCallRecord(
             call_id=str(uuid.uuid4()),
             api_type="chat_completions",
             provider="openai",
             model_name="gpt-4",
-            usage=LLMUsage(
-                input_tokens=100,
-                output_tokens=50,
-                total_tokens=150,
-                cost_usd=0.003
-            ),
+            usage=LLMUsage(input_tokens=100, output_tokens=50, total_tokens=150, cost_usd=0.003),
             input_messages=[
-                LLMMessage(
-                    role="user",
-                    parts=[LLMContentPart(type="text", text="Test prompt")]
-                )
+                LLMMessage(role="user", parts=[LLMContentPart(type="text", text="Test prompt")])
             ],
             output_messages=[
                 LLMMessage(
-                    role="assistant",
-                    parts=[LLMContentPart(type="text", text="Test response")]
+                    role="assistant", parts=[LLMContentPart(type="text", text="Test response")]
                 )
             ],
-            latency_ms=500
+            latency_ms=500,
         )
-        
+
         lm_event = LMCAISEvent(
             system_instance_id="llm",
             time_record=TimeRecord(event_time=time.time()),
@@ -335,7 +330,7 @@ class TestSessionTracer:
             cost_usd=0.003,
             latency_ms=500,
             # Store the call record
-            call_records=[call_record]
+            call_records=[call_record],
         )
         await tracer.record_event(lm_event)
 

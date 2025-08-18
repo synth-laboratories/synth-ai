@@ -3,16 +3,14 @@
 import time
 import uuid
 from datetime import datetime
-from unittest.mock import MagicMock
 
-import pytest
 from synth_ai.tracing.abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
     ArbitraryOutputs,
-    Event,
     Dataset,
     EnvironmentComputeStep,
+    Event,
     EventPartitionElement,
     MessageInputs,
     MessageOutputs,

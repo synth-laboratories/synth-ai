@@ -1,5 +1,5 @@
-import pytest
 import gym_sokoban.envs.room_utils as ru
+import pytest
 from gym_sokoban.envs.room_utils import generate_room
 
 

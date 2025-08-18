@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import json
-import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
-from uuid import uuid4, UUID
+from uuid import UUID
 
 from synth_ai.environments.tasks.core import (
-    TaskInstance,
-    TaskInstanceMetadata,
-    TaskInstanceSet,
     Impetus,
     Intent,
     SplitInfo,
+    TaskInstance,
+    TaskInstanceMetadata,
+    TaskInstanceSet,
 )
 
 from .engine import DEFAULT_SOLUTIONS
@@ -53,7 +51,7 @@ class WordleTaskInstance(TaskInstance):
         }
 
     @classmethod
-    async def deserialize(cls, data: dict) -> "WordleTaskInstance":
+    async def deserialize(cls, data: dict) -> WordleTaskInstance:
         from uuid import UUID
 
         metadata = WordleTaskInstanceMetadata(
@@ -81,16 +79,18 @@ class WordleTaskInstance(TaskInstance):
 
 def _stable_uuid_for_instance(idx: int, target: str) -> UUID:
     import uuid
+
     return uuid.uuid5(uuid.NAMESPACE_URL, f"wordle-fixed-v1:{idx}:{target}")
 
 
-def _load_fixed_instances_json() -> tuple[List[dict], dict]:
+def _load_fixed_instances_json() -> tuple[list[dict], dict]:
     """Load fixed instances definition from instances.json (if present).
 
     Returns a tuple (instances, defaults) where instances is a list of dicts with at least
     target_word fields, and defaults contains default params.
     """
     import os
+
     # Allow override via env var
     override = os.getenv("WORDLE_INSTANCES_JSON")
     p = Path(override) if override else Path(__file__).with_name("instances.json")
@@ -126,11 +126,17 @@ async def create_wordle_taskset(
 
     json_insts, json_defaults = _load_fixed_instances_json()
 
-    instances: List[WordleTaskInstance] = []
+    instances: list[WordleTaskInstance] = []
     # Assemble fixed targets from JSON only (no runtime generation)
-    fixed_targets: List[str] = []
+    fixed_targets: list[str] = []
     if json_insts:
-        fixed_targets.extend([str(r.get("target_word", "")).strip().lower() for r in json_insts if r.get("target_word")])
+        fixed_targets.extend(
+            [
+                str(r.get("target_word", "")).strip().lower()
+                for r in json_insts
+                if r.get("target_word")
+            ]
+        )
 
     if fixed_targets:
         # Use fixed_targets, honoring defaults and slicing by sample_size
@@ -167,7 +173,9 @@ async def create_wordle_taskset(
             instances.append(inst)
     else:
         # Procedural fallback: stable ordering from DEFAULT_SOLUTIONS
-        pool = [w for w in DEFAULT_SOLUTIONS if len(w) == word_length] or [w for w in DEFAULT_SOLUTIONS if len(w) == 5]
+        pool = [w for w in DEFAULT_SOLUTIONS if len(w) == word_length] or [
+            w for w in DEFAULT_SOLUTIONS if len(w) == 5
+        ]
         sample = pool[:sample_size]
         for i, target in enumerate(sample):
             seed = i

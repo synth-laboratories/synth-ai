@@ -3,11 +3,7 @@
 __version__ = "0.1.5"
 
 # Import key modules for easier access
-from . import environment
-from . import service
-from . import stateful
-from . import tasks
-from . import examples
+from . import environment, examples, service, stateful, tasks
 
 __all__ = [
     "environment",
@@ -32,4 +28,4 @@ if "src" not in sys.modules:
 
 # Expose this package as src.synth_env
 sys.modules["src.synth_env"] = sys.modules[__name__]
-setattr(sys.modules["src"], "synth_env", sys.modules[__name__])
+sys.modules["src"].synth_env = sys.modules[__name__]

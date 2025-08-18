@@ -1,28 +1,25 @@
 """SQLAlchemy declarative models for tracing v3."""
 
-from datetime import datetime
-from typing import Optional
+import json
+
 from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
     Column,
-    Integer,
-    String,
     DateTime,
-    JSON,
+    Float,
     ForeignKey,
     Index,
+    Integer,
+    String,
     Text,
-    Float,
-    Boolean,
-    UniqueConstraint,
-    CheckConstraint,
     TypeDecorator,
+    UniqueConstraint,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.types import UserDefinedType
-import json
-
 
 Base = declarative_base()
 
@@ -81,10 +78,11 @@ class JSONText(TypeDecorator):
 
 class SessionTrace(Base):
     """Database model for session traces.
-    
+
     Stores high-level information about tracing sessions including
     metadata, statistics, and relationships to timesteps and events.
     """
+
     __tablename__ = "session_traces"
 
     session_id = Column(String, primary_key=True)
@@ -114,10 +112,11 @@ class SessionTrace(Base):
 
 class SessionTimestep(Base):
     """Database model for session timesteps.
-    
+
     Represents individual steps within a tracing session, with timing
     information and relationships to events and messages.
     """
+
     __tablename__ = "session_timesteps"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -145,11 +144,12 @@ class SessionTimestep(Base):
 
 class Event(Base):
     """Database model for events.
-    
+
     Stores all types of events (LM CAIS, environment, runtime) with
     type-specific fields and common metadata. Supports vector embeddings
     for similarity search.
     """
+
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -209,10 +209,11 @@ class Event(Base):
 
 class Message(Base):
     """Database model for messages.
-    
+
     Stores conversational messages between users, assistants, and systems
     with support for embeddings and rich metadata.
     """
+
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -247,10 +248,11 @@ class Message(Base):
 
 class Experiment(Base):
     """Database model for experiments.
-    
+
     Groups related sessions and systems for experimental evaluation
     and comparison. Supports rich configuration and metadata.
     """
+
     __tablename__ = "experiments"
 
     experiment_id = Column(String, primary_key=True)
@@ -277,10 +279,11 @@ class Experiment(Base):
 
 class System(Base):
     """Database model for systems.
-    
+
     Represents agents, environments, or runtime systems that participate
     in tracing sessions. Supports versioning and type classification.
     """
+
     __tablename__ = "systems"
 
     system_id = Column(String, primary_key=True)
@@ -302,10 +305,11 @@ class System(Base):
 
 class SystemVersion(Base):
     """Database model for system versions.
-    
+
     Tracks different versions of systems with commit hashes,
     configuration changes, and relationships to experiments.
     """
+
     __tablename__ = "system_versions"
 
     version_id = Column(String, primary_key=True)
@@ -329,10 +333,11 @@ class SystemVersion(Base):
 
 class ExperimentalSystem(Base):
     """Database model for experiment-system relationships.
-    
+
     Junction table linking experiments with specific system versions,
     allowing tracking of which systems participated in which experiments.
     """
+
     __tablename__ = "experimental_systems"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -1,6 +1,8 @@
-from typing import Any, Collection, Optional
+from collections.abc import Collection
 from dataclasses import dataclass
-from synth_ai.environments.tasks.core import TaskInstanceMetadataFilter, TaskInstance
+from typing import Any
+
+from synth_ai.environments.tasks.core import TaskInstance, TaskInstanceMetadataFilter
 
 
 @dataclass
@@ -18,8 +20,8 @@ class ValueFilter(TaskInstanceMetadataFilter):
 @dataclass
 class RangeFilter(TaskInstanceMetadataFilter):
     key: str
-    min_val: Optional[float] = None
-    max_val: Optional[float] = None
+    min_val: float | None = None
+    max_val: float | None = None
 
     def __call__(self, instance: TaskInstance) -> bool:
         instance_value = getattr(instance.metadata, self.key, None)

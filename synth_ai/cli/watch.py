@@ -7,26 +7,24 @@ Placed beside scope.txt for discoverability.
 
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import click
-from rich.console import Console, Group
-from rich.table import Table
-from rich.panel import Panel
-from rich.align import Align
-from rich.live import Live
 from rich import box
-import sys
+from rich.align import Align
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.table import Table
 
 
 class _State:
     def __init__(self):
         self.view: str = "experiments"  # experiments | experiment | usage | traces | recent
-        self.view_arg: Optional[str] = None
+        self.view_arg: str | None = None
         self.limit: int = 20
         self.hours: float = 24.0
         self.last_msg: str = "Type 'help' for commands. 'q' to quit."
-        self.error: Optional[str] = None
+        self.error: str | None = None
         # UI state for a visible, blinking cursor in the input field
         self.cursor_on: bool = True
 
@@ -80,7 +78,7 @@ async def _fetch_experiments(db_url: str):
         await db.close()
 
 
-def _experiments_table(df, limit: Optional[int] = None) -> Table:
+def _experiments_table(df, limit: int | None = None) -> Table:
     table = Table(
         title="Synth AI Experiments",
         title_style="bold cyan",
@@ -90,7 +88,9 @@ def _experiments_table(df, limit: Optional[int] = None) -> Table:
         pad_edge=False,
     )
     for col in ["ID", "Name", "Sessions", "Events", "Msgs", "Cost", "Tokens", "Created"]:
-        table.add_column(col, justify="right" if col in {"Sessions","Events","Msgs","Tokens"} else "left")
+        table.add_column(
+            col, justify="right" if col in {"Sessions", "Events", "Msgs", "Tokens"} else "left"
+        )
 
     if df is not None and not df.empty:
         rows = df.itertuples(index=False)
@@ -115,7 +115,7 @@ def _experiments_table(df, limit: Optional[int] = None) -> Table:
     return table
 
 
-async def _experiment_detail(db_url: str, experiment_id: str) -> Dict[str, Any]:
+async def _experiment_detail(db_url: str, experiment_id: str) -> dict[str, Any]:
     from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 
     db = AsyncSQLTraceManager(db_url)
@@ -158,22 +158,24 @@ async def _experiment_detail(db_url: str, experiment_id: str) -> Dict[str, Any]:
         await db.close()
 
 
-def _render_experiment_panel(detail: Dict[str, Any]) -> Panel:
+def _render_experiment_panel(detail: dict[str, Any]) -> Panel:
     if detail.get("not_found"):
         return Panel("No experiment found for given ID", title="Experiment", border_style="red")
 
     exp = detail["experiment"]
     stats = detail.get("stats")
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"[bold]🧪 {exp['name']}[/bold]  ([dim]{exp['experiment_id']}[/dim])")
     if exp.get("description"):
-        lines.append(exp["description"]) 
+        lines.append(exp["description"])
     lines.append("")
     if stats is not None:
-        lines.append(f"[bold]Stats[/bold]  Events: {_format_int(stats['total_events'])}  "
-                     f"Messages: {_format_int(stats['total_messages'])}  "
-                     f"Cost: {_format_currency(float(stats['total_cost'] or 0.0))}  "
-                     f"Tokens: {_format_int(stats['total_tokens'])}")
+        lines.append(
+            f"[bold]Stats[/bold]  Events: {_format_int(stats['total_events'])}  "
+            f"Messages: {_format_int(stats['total_messages'])}  "
+            f"Cost: {_format_currency(float(stats['total_cost'] or 0.0))}  "
+            f"Tokens: {_format_int(stats['total_tokens'])}"
+        )
     lines.append(f"Created: {exp['created_at']}")
     lines.append("")
     sessions = detail.get("sessions", [])
@@ -215,7 +217,8 @@ def register(cli):
             console.print(table)
             console.print(
                 "\n[dim]Tip:[/dim] use [cyan]synth-ai experiment <id>[/cyan] for details, "
-                "[cyan]synth-ai usage[/cyan] for model usage.", sep="",
+                "[cyan]synth-ai usage[/cyan] for model usage.",
+                sep="",
             )
 
         asyncio.run(_run())
@@ -247,12 +250,13 @@ def register(cli):
         help="Database URL",
     )
     @click.option("--model", "model_name", default=None, help="Filter by model name")
-    def usage(db_url: str, model_name: Optional[str]):
+    def usage(db_url: str, model_name: str | None):
         """Show model usage statistics (tokens, cost)."""
         console = Console()
 
         async def _run():
             from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+
             db = AsyncSQLTraceManager(db_url)
             await db.initialize()
             try:
@@ -379,7 +383,7 @@ async def _handle_command(cmd: str, state: _State):
     state.last_msg = f"Unknown command: {cmd}"
 
 
-def _parse_hours(args: List[str]) -> Optional[float]:
+def _parse_hours(args: list[str]) -> float | None:
     if not args:
         return None
     # Accept formats: "6", "--6", "-6", "6h"
@@ -393,8 +397,9 @@ def _parse_hours(args: List[str]) -> Optional[float]:
         return None
 
 
-async def _usage_table(db_url: str, model_name: Optional[str]):
+async def _usage_table(db_url: str, model_name: str | None):
     from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+
     db = AsyncSQLTraceManager(db_url)
     await db.initialize()
     try:
@@ -416,6 +421,7 @@ async def _usage_table(db_url: str, model_name: Optional[str]):
 
 async def _traces_table(db_url: str, limit: int):
     from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+
     db = AsyncSQLTraceManager(db_url)
     await db.initialize()
     try:
@@ -425,7 +431,7 @@ async def _traces_table(db_url: str, limit: int):
 
     table = Table(title="Recent Sessions", box=box.SIMPLE, header_style="bold")
     for col in ["Session", "Experiment", "Events", "Msgs", "Timesteps", "Cost", "Created"]:
-        table.add_column(col, justify="right" if col in {"Events","Msgs","Timesteps"} else "left")
+        table.add_column(col, justify="right" if col in {"Events", "Msgs", "Timesteps"} else "left")
 
     if df is None or df.empty:
         table.add_row("-", "No sessions found", "-", "-", "-", "-", "-")
@@ -450,6 +456,7 @@ async def _traces_table(db_url: str, limit: int):
 async def _recent_table(db_url: str, hours: float, limit: int):
     # Inline the recent query to avoid cross-module coupling
     from datetime import timedelta
+
     from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 
     start_time = datetime.now() - timedelta(hours=hours)
@@ -483,7 +490,9 @@ async def _recent_table(db_url: str, hours: float, limit: int):
 
     table = Table(title=f"Experiments in last {hours:g}h", header_style="bold", box=box.SIMPLE)
     for col in ["Experiment", "Runs", "First", "Last", "Events", "Msgs", "Cost", "Tokens"]:
-        table.add_column(col, justify="right" if col in {"Runs","Events","Msgs","Tokens"} else "left")
+        table.add_column(
+            col, justify="right" if col in {"Runs", "Events", "Msgs", "Tokens"} else "left"
+        )
 
     if df is None or df.empty:
         table.add_row("-", "0", "-", "-", "-", "-", "-", "-")
@@ -494,7 +503,7 @@ async def _recent_table(db_url: str, hours: float, limit: int):
                 break
             count += 1
             name = r.get("name") or "Unnamed"
-            exp_disp = f"{name[:28]} [dim]({(str(r.get('experiment_id',''))[:8])})[/dim]"
+            exp_disp = f"{name[:28]} [dim]({(str(r.get('experiment_id', ''))[:8])})[/dim]"
             table.add_row(
                 exp_disp,
                 f"{int(r.get('runs', 0)):,}",

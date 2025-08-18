@@ -3,13 +3,11 @@ Integration tests specifically for Sokoban through the service API.
 Tests various Sokoban scenarios and edge cases.
 """
 
-import pytest
 import httpx
+import pytest
 from public_tests.environments.utils import check_service_running
 
-from synth_ai.environments.service.app import app
 from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR
-
 
 # Various test puzzles
 PUZZLES = {

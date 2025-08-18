@@ -18,11 +18,11 @@ image = modal.Image.debian_slim().pip_install(
 @app.function(image=image, gpu="a10g", min_containers=1, max_containers=2)
 @modal.asgi_app()
 def fastapi_app():
+
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
     from fastapi import FastAPI
     from pydantic import BaseModel
-    from typing import List
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
     # Load model on startup
     print("Loading model...")
@@ -43,7 +43,7 @@ def fastapi_app():
 
     class ChatRequest(BaseModel):
         model: str = ""
-        messages: List[ChatMessage]
+        messages: list[ChatMessage]
         temperature: float = 0.7
 
     def messages_to_prompt(messages):
@@ -103,7 +103,10 @@ def fastapi_app():
 # Convenience local entrypoint for quick manual tests
 @app.local_entrypoint()
 def main():
-    import json, requests, os
+    import json
+    import os
+
+    import requests
 
     url = os.environ.get("MODAL_TEST_URL")
     if not url:

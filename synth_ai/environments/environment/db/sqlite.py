@@ -1,6 +1,6 @@
+import contextlib
 import sqlite3
 import threading
-import contextlib
 from pathlib import Path
 
 

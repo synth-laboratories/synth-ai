@@ -6,15 +6,14 @@ CLI: check remaining credit balance from Synth backend.
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
+
 import click
 import requests
 from requests import Response
-from urllib.parse import urlparse
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
 from rich import box
-
+from rich.console import Console
+from rich.table import Table
 
 PROD_BACKEND_BASE = "https://agent-learning.onrender.com/api/v1"
 
@@ -83,9 +82,7 @@ def register(cli):
 
         key_val, key_src = _resolve_api_key(api_key)
         if not key_val:
-            console.print(
-                "[red]Missing API key.[/red] Set via --api-key or SYNTH_API_KEY env var."
-            )
+            console.print("[red]Missing API key.[/red] Set via --api-key or SYNTH_API_KEY env var.")
             return
 
         base = _ensure_api_v1_prefix(base_url)
@@ -127,19 +124,27 @@ def register(cli):
                 if u.ok:
                     uj = u.json()
                     rows = uj.get("windows", [])
-                    windows = {int(r.get("window_hours")): r for r in rows if isinstance(r.get("window_hours"), int)}
+                    windows = {
+                        int(r.get("window_hours")): r
+                        for r in rows
+                        if isinstance(r.get("window_hours"), int)
+                    }
+
                     def _usd(c):
                         try:
-                            return f"${(int(c)/100):,.2f}"
+                            return f"${(int(c) / 100):,.2f}"
                         except Exception:
                             return "$0.00"
+
                     if 24 in windows or 168 in windows:
-                        t = Table(title="Spend (Tokens vs GPU)", box=box.SIMPLE, header_style="bold")
+                        t = Table(
+                            title="Spend (Tokens vs GPU)", box=box.SIMPLE, header_style="bold"
+                        )
                         t.add_column("Window")
                         t.add_column("Tokens", justify="right")
                         t.add_column("GPU", justify="right")
                         t.add_column("Total", justify="right")
-                        for h,label in ((24,"24h"),(168,"7d")):
+                        for h, label in ((24, "24h"), (168, "7d")):
                             if h in windows:
                                 w = windows[h]
                                 t.add_row(
@@ -167,15 +172,15 @@ def register(cli):
                         t.add_column("Total", justify="right")
                         t.add_row(
                             "Current Month",
-                            f"${(cm.get('token_spend_cents',0)/100):,.2f}",
-                            f"${(cm.get('gpu_spend_cents',0)/100):,.2f}",
-                            f"${(cm.get('total_spend_cents',0)/100):,.2f}",
+                            f"${(cm.get('token_spend_cents', 0) / 100):,.2f}",
+                            f"${(cm.get('gpu_spend_cents', 0) / 100):,.2f}",
+                            f"${(cm.get('total_spend_cents', 0) / 100):,.2f}",
                         )
                         t.add_row(
                             "Last 30 days",
-                            f"${(l30.get('token_spend_cents',0)/100):,.2f}",
-                            f"${(l30.get('gpu_spend_cents',0)/100):,.2f}",
-                            f"${(l30.get('total_spend_cents',0)/100):,.2f}",
+                            f"${(l30.get('token_spend_cents', 0) / 100):,.2f}",
+                            f"${(l30.get('gpu_spend_cents', 0) / 100):,.2f}",
+                            f"${(l30.get('total_spend_cents', 0) / 100):,.2f}",
                         )
                         console.print(t)
             except Exception:

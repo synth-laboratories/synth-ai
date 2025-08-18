@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from threading import RLock  # Change this import
-from typing import Any, Dict, List
+from typing import Any
 
 from ..abstractions import Event, EventPartitionElement, SystemTrace
 from ..local import (  # Import context variables
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class EventStore:
     def __init__(self) -> None:
-        self._traces: Dict[str, SystemTrace] = {}
+        self._traces: dict[str, SystemTrace] = {}
         self._lock = RLock()  # Use RLock instead of Lock
         self.logger = logging.getLogger(__name__)
 
@@ -136,7 +136,7 @@ class EventStore:
         #     self.logger.error(f"Error in add_event: {str(e)}", exc_info=True)
         #     raise
 
-    def get_system_traces(self) -> List[SystemTrace]:
+    def get_system_traces(self) -> list[SystemTrace]:
         """Get all system traces."""
         with self._lock:
             self.end_all_active_events()
@@ -196,7 +196,7 @@ class EventStore:
                 default=str,
             )
 
-    def _event_to_dict(self, event: Event) -> Dict[str, Any]:
+    def _event_to_dict(self, event: Event) -> dict[str, Any]:
         """Convert an Event object to a dictionary."""
         return {
             "event_type": event.event_type,

@@ -3,21 +3,21 @@
 Tests for Turso embedded replica synchronization.
 """
 
+import asyncio
+import os
+import tempfile
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 import pytest_asyncio
-import asyncio
-import tempfile
-import os
-from unittest.mock import Mock, patch, AsyncMock
-import libsql
 
+from synth_ai.tracing_v3.config import CONFIG
 from synth_ai.tracing_v3.replica_sync import (
     ReplicaSync,
+    get_replica_sync,
     start_replica_sync,
     stop_replica_sync,
-    get_replica_sync,
 )
-from synth_ai.tracing_v3.config import CONFIG
 
 
 @pytest.mark.asyncio

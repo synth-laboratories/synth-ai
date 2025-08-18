@@ -2,8 +2,10 @@
 Basic functionality tests for Synth AI - mix of fast and slow tests
 """
 
-import pytest
 import time
+
+import pytest
+
 from synth_ai.zyk import LM
 
 

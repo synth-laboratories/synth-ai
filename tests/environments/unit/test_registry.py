@@ -3,14 +3,15 @@ Unit tests for the environment registry functionality.
 """
 
 import pytest
+
 from synth_ai.environments.environment.registry import (
-    register_environment,
+    ENV_REGISTRY,
     get_environment_cls,
     list_supported_env_types,
-    ENV_REGISTRY,
+    register_environment,
 )
-from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.examples.tictactoe.environment import TicTacToeEnvironment
+from synth_ai.environments.stateful.core import StatefulEnvironment
 
 
 class MockEnvironment(StatefulEnvironment):

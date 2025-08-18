@@ -1,30 +1,30 @@
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 import pydantic
 from mistralai import Mistral  # use Mistral as both sync and async client
 from pydantic import BaseModel
 
 from synth_ai.lm.caching.initialize import get_cache_handler
+from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 from synth_ai.lm.vendors.core.openai_api import OpenAIStructuredOutputClient
 
 # Since the mistralai package doesn't expose an exceptions module,
 # we fallback to catching all Exceptions for retry.
-MISTRAL_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (Exception,)
+MISTRAL_EXCEPTIONS_TO_RETRY: tuple[type[Exception], ...] = (Exception,)
 
 
 class MistralAPI(VendorBase):
     used_for_structured_outputs: bool = True
-    exceptions_to_retry: Tuple = MISTRAL_EXCEPTIONS_TO_RETRY
+    exceptions_to_retry: tuple = MISTRAL_EXCEPTIONS_TO_RETRY
     _openai_fallback: Any
 
     def __init__(
         self,
-        exceptions_to_retry: Tuple[Type[Exception], ...] = MISTRAL_EXCEPTIONS_TO_RETRY,
+        exceptions_to_retry: tuple[type[Exception], ...] = MISTRAL_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
     ):
         self.used_for_structured_outputs = used_for_structured_outputs
@@ -40,14 +40,14 @@ class MistralAPI(VendorBase):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
-        response_model: Optional[BaseModel] = None,
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
+        response_model: BaseModel | None = None,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         assert not (response_model and tools), "Cannot provide both response_model and tools"
@@ -130,14 +130,14 @@ class MistralAPI(VendorBase):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
-        response_model: Optional[BaseModel] = None,
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
+        response_model: BaseModel | None = None,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         assert not (response_model and tools), "Cannot provide both response_model and tools"
@@ -217,7 +217,7 @@ class MistralAPI(VendorBase):
     async def _hit_api_async_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
@@ -256,7 +256,7 @@ class MistralAPI(VendorBase):
     def _hit_api_sync_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,

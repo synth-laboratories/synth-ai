@@ -13,9 +13,7 @@ def test_chat_completion_minimal(base_url: str, auth_headers: dict, model: str):
     url = f"{base_url}/chat/completions"
     payload = {
         "model": model,
-        "messages": [
-            {"role": "user", "content": "Say hi in one word."}
-        ],
+        "messages": [{"role": "user", "content": "Say hi in one word."}],
         "max_tokens": 5,
         "temperature": 0.2,
         "stream": False,
@@ -26,5 +24,3 @@ def test_chat_completion_minimal(base_url: str, auth_headers: dict, model: str):
         data = r.json()
         assert data.get("object") in ("chat.completion", "chat.completion.chunk")
         assert "choices" in data and isinstance(data["choices"], list)
-
-

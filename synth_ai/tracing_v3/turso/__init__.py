@@ -3,11 +3,11 @@
 from .manager import AsyncSQLTraceManager
 from .models import (
     Base,
-    SessionTrace,
-    SessionTimestep,
     Event,
-    Message,
     Experiment,
+    Message,
+    SessionTimestep,
+    SessionTrace,
     System,
     SystemVersion,
 )

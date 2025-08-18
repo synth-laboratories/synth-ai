@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from openai import AsyncOpenAI, OpenAI
 
@@ -19,18 +19,18 @@ class DeepSeekAPI(OpenAIStandard):
             base_url="https://api.deepseek.com",
         )
 
-    def _convert_tools_to_openai_format(self, tools: List[BaseTool]) -> List[Dict]:
+    def _convert_tools_to_openai_format(self, tools: list[BaseTool]) -> list[dict]:
         return [tool.to_openai_tool() for tool in tools]
 
     async def _private_request_async(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         temperature: float = 0,
         model_name: str = "deepseek-chat",
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        lm_config: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, Optional[List[Dict]]]:
+        tools: list[BaseTool] | None = None,
+        lm_config: dict[str, Any] | None = None,
+    ) -> tuple[str, list[dict] | None]:
         request_params = {
             "model": model_name,
             "messages": messages,
@@ -47,13 +47,13 @@ class DeepSeekAPI(OpenAIStandard):
 
     def _private_request_sync(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         temperature: float = 0,
         model_name: str = "deepseek-chat",
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        lm_config: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, Optional[List[Dict]]]:
+        tools: list[BaseTool] | None = None,
+        lm_config: dict[str, Any] | None = None,
+    ) -> tuple[str, list[dict] | None]:
         request_params = {
             "model": model_name,
             "messages": messages,

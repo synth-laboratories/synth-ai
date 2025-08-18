@@ -1,10 +1,10 @@
 """Utility functions for storage layer."""
 
 import asyncio
-from typing import Any, Dict, List, Optional, TypeVar, Callable
 import functools
 import time
-
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -43,8 +43,8 @@ def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0)
 
 
 async def batch_process(
-    items: List[Any], processor: Callable, batch_size: int = 100, max_concurrent: int = 5
-) -> List[Any]:
+    items: list[Any], processor: Callable, batch_size: int = 100, max_concurrent: int = 5
+) -> list[Any]:
     """Process items in batches with concurrency control.
 
     Args:
@@ -120,10 +120,10 @@ class StorageMetrics:
     """Track storage operation metrics."""
 
     def __init__(self):
-        self.operations: Dict[str, Dict[str, Any]] = {}
+        self.operations: dict[str, dict[str, Any]] = {}
 
     def record_operation(
-        self, operation: str, duration: float, success: bool, size: Optional[int] = None
+        self, operation: str, duration: float, success: bool, size: int | None = None
     ):
         """Record a storage operation."""
         if operation not in self.operations:
@@ -142,7 +142,7 @@ class StorageMetrics:
         if size:
             stats["total_size"] += size
 
-    def get_stats(self, operation: Optional[str] = None) -> Dict[str, Any]:
+    def get_stats(self, operation: str | None = None) -> dict[str, Any]:
         """Get statistics for operations."""
         if operation:
             stats = self.operations.get(operation, {})

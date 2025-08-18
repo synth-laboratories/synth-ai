@@ -3,14 +3,13 @@
 CLI: basic info about traces (runs).
 """
 
-import os
 import asyncio
-from typing import Optional, Dict, Tuple, List
+import os
 
 import click
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 
 def register(cli):
@@ -35,7 +34,7 @@ def register(cli):
                 console.print(f"[red]No DB root found:[/red] {root}")
                 return
 
-            entries: List[Tuple[str, str]] = []
+            entries: list[tuple[str, str]] = []
             for name in sorted(os.listdir(root)):
                 path = os.path.join(root, name)
                 data_path = os.path.join(path, "data")
@@ -57,32 +56,48 @@ def register(cli):
                             pass
                 return total
 
-            async def db_counts(db_dir: str) -> Tuple[int, Dict[str, int], int, Optional[str], int]:
+            async def db_counts(db_dir: str) -> tuple[int, dict[str, int], int, str | None, int]:
                 data_file = os.path.join(db_dir, "data")
                 mgr = AsyncSQLTraceManager(f"sqlite+aiosqlite:///{data_file}")
                 await mgr.initialize()
                 try:
                     traces_df = await mgr.query_traces("SELECT COUNT(*) AS c FROM session_traces")
-                    traces_count = int(traces_df.iloc[0]["c"]) if traces_df is not None and not traces_df.empty else 0
+                    traces_count = (
+                        int(traces_df.iloc[0]["c"])
+                        if traces_df is not None and not traces_df.empty
+                        else 0
+                    )
                     try:
                         systems_df = await mgr.query_traces(
                             "SELECT system_type, COUNT(*) AS c FROM systems GROUP BY system_type"
                         )
-                        system_counts = {
-                            str(r["system_type"] or "-"): int(r["c"] or 0)
-                            for _, r in (systems_df or []).iterrows()
-                        } if systems_df is not None and not systems_df.empty else {}
+                        system_counts = (
+                            {
+                                str(r["system_type"] or "-"): int(r["c"] or 0)
+                                for _, r in (systems_df or []).iterrows()
+                            }
+                            if systems_df is not None and not systems_df.empty
+                            else {}
+                        )
                     except Exception:
                         system_counts = {}
                     try:
                         exps_df = await mgr.query_traces("SELECT COUNT(*) AS c FROM experiments")
-                        exps_count = int(exps_df.iloc[0]["c"]) if exps_df is not None and not exps_df.empty else 0
+                        exps_count = (
+                            int(exps_df.iloc[0]["c"])
+                            if exps_df is not None and not exps_df.empty
+                            else 0
+                        )
                     except Exception:
                         exps_count = 0
                     try:
-                        last_df = await mgr.query_traces("SELECT MAX(created_at) AS last_created_at FROM session_traces")
+                        last_df = await mgr.query_traces(
+                            "SELECT MAX(created_at) AS last_created_at FROM session_traces"
+                        )
                         last_created = (
-                            str(last_df.iloc[0]["last_created_at"]) if last_df is not None and not last_df.empty else None
+                            str(last_df.iloc[0]["last_created_at"])
+                            if last_df is not None and not last_df.empty
+                            else None
                         )
                     except Exception:
                         last_created = None
@@ -102,13 +117,21 @@ def register(cli):
             # DB summary table
             summary = Table(title="Trace Databases", box=box.SIMPLE, header_style="bold")
             for col in ["DB", "Traces", "Experiments", "Last Activity", "Size (GB)"]:
-                summary.add_column(col, justify="right" if col in {"Traces", "Experiments"} else "left")
+                summary.add_column(
+                    col, justify="right" if col in {"Traces", "Experiments"} else "left"
+                )
 
-            aggregate_systems: Dict[str, int] = {}
+            aggregate_systems: dict[str, int] = {}
             total_bytes = 0
-            for name, (traces_count, system_counts, experiments_count, last_created_at, size_bytes) in results:
+            for name, (
+                traces_count,
+                system_counts,
+                experiments_count,
+                last_created_at,
+                size_bytes,
+            ) in results:
                 total_bytes += int(size_bytes or 0)
-                gb = (int(size_bytes or 0) / (1024**3))
+                gb = int(size_bytes or 0) / (1024**3)
                 summary.add_row(
                     name,
                     f"{traces_count:,}",
@@ -129,7 +152,9 @@ def register(cli):
                 st = Table(title="Per-System (all DBs)", box=box.SIMPLE, header_style="bold")
                 st.add_column("System")
                 st.add_column("Count", justify="right")
-                for sys_name, count in sorted(aggregate_systems.items(), key=lambda x: (-x[1], x[0])):
+                for sys_name, count in sorted(
+                    aggregate_systems.items(), key=lambda x: (-x[1], x[0])
+                ):
                     st.add_row(sys_name or "-", f"{int(count):,}")
                 console.print(st)
 

@@ -1,6 +1,6 @@
-from synth_ai.environments.environment.shared_engine import Engine
 from typing import TypeVar
 
+from synth_ai.environments.environment.shared_engine import Engine
 
 SnapshotType = TypeVar("SnapshotType", bound="StatefulEngineSnapshot")
 

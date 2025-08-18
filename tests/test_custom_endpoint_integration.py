@@ -1,12 +1,12 @@
 import os
+
 import pytest
-import json
-from unittest.mock import patch, MagicMock
 import responses
-from synth_ai import LM
-from synth_ai.lm.vendors.supported.custom_endpoint import CustomEndpointAPI
-from synth_ai.lm.tools.base import BaseTool
 from pydantic import BaseModel
+
+from synth_ai import LM
+from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.supported.custom_endpoint import CustomEndpointAPI
 
 
 @pytest.mark.slow

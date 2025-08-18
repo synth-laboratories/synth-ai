@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 import anthropic
 import pydantic
@@ -8,27 +8,32 @@ from pydantic import BaseModel
 from synth_ai.lm.caching.initialize import (
     get_cache_handler,
 )
+from synth_ai.lm.constants import CLAUDE_REASONING_MODELS, SONNET_37_BUDGETS, SPECIAL_BASE_TEMPS
+from synth_ai.lm.overrides import (
+    apply_injection as apply_injection_overrides,
+)
+from synth_ai.lm.overrides import (
+    apply_param_overrides,
+    use_overrides_for_messages,
+)
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.lm.constants import SPECIAL_BASE_TEMPS, CLAUDE_REASONING_MODELS, SONNET_37_BUDGETS
 from synth_ai.lm.vendors.core.openai_api import OpenAIStructuredOutputClient
-from synth_ai.lm.overrides import use_overrides_for_messages, apply_injection as apply_injection_overrides, apply_param_overrides
-from synth_ai.lm.injection import apply_injection
 
-ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
+ANTHROPIC_EXCEPTIONS_TO_RETRY: tuple[type[Exception], ...] = (anthropic.APIError,)
 
 
 class AnthropicAPI(VendorBase):
     used_for_structured_outputs: bool = True
-    exceptions_to_retry: Tuple = ANTHROPIC_EXCEPTIONS_TO_RETRY
+    exceptions_to_retry: tuple = ANTHROPIC_EXCEPTIONS_TO_RETRY
     sync_client: Any
     async_client: Any
 
     def __init__(
         self,
-        exceptions_to_retry: Tuple[Type[Exception], ...] = ANTHROPIC_EXCEPTIONS_TO_RETRY,
+        exceptions_to_retry: tuple[type[Exception], ...] = ANTHROPIC_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
-        reasoning_effort: Optional[str] = "high",
+        reasoning_effort: str | None = "high",
     ):
         self.sync_client = anthropic.Anthropic()
         self.async_client = anthropic.AsyncAnthropic()
@@ -46,14 +51,14 @@ class AnthropicAPI(VendorBase):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        **vendor_params: Dict[str, Any],
+        tools: list[BaseTool] | None = None,
+        **vendor_params: dict[str, Any],
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
@@ -77,6 +82,7 @@ class AnthropicAPI(VendorBase):
         }
         with use_overrides_for_messages(messages):
             from synth_ai.lm.overrides import apply_tool_overrides
+
             api_params = apply_tool_overrides(api_params)
             api_params = apply_param_overrides(api_params)
 
@@ -144,14 +150,14 @@ class AnthropicAPI(VendorBase):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
-        **vendor_params: Dict[str, Any],
+        tools: list[BaseTool] | None = None,
+        **vendor_params: dict[str, Any],
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only=use_ephemeral_cache_only)
@@ -175,6 +181,7 @@ class AnthropicAPI(VendorBase):
         }
         with use_overrides_for_messages(messages):
             from synth_ai.lm.overrides import apply_tool_overrides
+
             api_params = apply_tool_overrides(api_params)
             api_params = apply_param_overrides(api_params)
 
@@ -238,12 +245,12 @@ class AnthropicAPI(VendorBase):
     async def _hit_api_async_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        **vendor_params: Dict[str, Any],
+        **vendor_params: dict[str, Any],
     ) -> BaseLMResponse:
         try:
             # First try with Anthropic
@@ -297,17 +304,16 @@ class AnthropicAPI(VendorBase):
     def _hit_api_sync_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        **vendor_params: Dict[str, Any],
+        **vendor_params: dict[str, Any],
     ) -> BaseLMResponse:
         try:
             # First try with Anthropic
             reasoning_effort = vendor_params.get("reasoning_effort", reasoning_effort)
-            import time
 
             if model in CLAUDE_REASONING_MODELS:
                 if reasoning_effort in ["high", "medium"]:
@@ -359,13 +365,13 @@ class AnthropicAPI(VendorBase):
 
     async def _process_call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         api_call_method,
         temperature: float = 0.0,
         use_ephemeral_cache_only: bool = False,
-        vendor_params: Dict[str, Any] = None,
+        vendor_params: dict[str, Any] = None,
     ) -> BaseModel:
         vendor_params = vendor_params or {}
         # Each vendor can filter parameters they support

@@ -1,7 +1,6 @@
-import pytest
 import unittest
-from typing import List, Union
 
+import pytest
 from pydantic import BaseModel
 
 from synth_ai.lm.core.main import LM
@@ -9,22 +8,22 @@ from synth_ai.lm.core.main import LM
 
 class UnitTestDict(BaseModel):
     test_description: str
-    input_names: List[str]
-    input_types: List[str]
-    stringified_input_values: List[str]
+    input_names: list[str]
+    input_types: list[str]
+    stringified_input_values: list[str]
     assertion_condition: str
     assertion_type: str  # Consider using Literal for specific assertion types
 
 
 class ActionArgument(BaseModel):
     key: str
-    value: Union[str, int, float, bool, UnitTestDict]
+    value: str | int | float | bool | UnitTestDict
 
 
 class ReAct(BaseModel):
     reasoning: str
     action_name: str
-    action_args: List[ActionArgument]  # Dict#[str, Dict]
+    action_args: list[ActionArgument]  # Dict#[str, Dict]
 
 
 system = """

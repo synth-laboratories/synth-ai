@@ -9,9 +9,9 @@ metric, and this module will explore baselines and bootstrapped few-shot variant
 from __future__ import annotations
 
 import random
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
-
+from typing import Any
 
 # ---------------------------
 # Protocol-like expectations (duck-typed)
@@ -25,7 +25,7 @@ class _ProgramLike:
     def deepcopy(self):  # deep copy
         return self
 
-    def with_demos(self, demos: List[Tuple[Any, Any]]):
+    def with_demos(self, demos: list[tuple[Any, Any]]):
         return self
 
     def run(self, x: Any) -> Any:
@@ -40,10 +40,12 @@ class _ProgramLike:
 @dataclass
 class EvalResult:
     score: float
-    subscores: List[float]
+    subscores: list[float]
 
 
-def evaluate(program: _ProgramLike, dataset: Sequence[Tuple[Any, Any]], metric: Callable[[Any, Any], float]) -> EvalResult:
+def evaluate(
+    program: _ProgramLike, dataset: Sequence[tuple[Any, Any]], metric: Callable[[Any, Any], float]
+) -> EvalResult:
     subs = []
     for x, y in dataset:
         subs.append(metric(program.run(x), y))
@@ -54,7 +56,9 @@ class LabeledFewShot:
     def __init__(self, k: int):
         self.k = k
 
-    def compile(self, student: _ProgramLike, trainset: Sequence[Tuple[Any, Any]], sample: bool = True) -> _ProgramLike:
+    def compile(
+        self, student: _ProgramLike, trainset: Sequence[tuple[Any, Any]], sample: bool = True
+    ) -> _ProgramLike:
         p = getattr(student, "deepcopy", student.reset_copy)()
         demos = list(trainset)
         if sample:
@@ -68,10 +72,10 @@ class BootstrapFewShot:
         self,
         *,
         metric: Callable[[Any, Any], float],
-        metric_threshold: Optional[float] = None,
+        metric_threshold: float | None = None,
         max_bootstrapped_demos: int = 8,
         max_labeled_demos: int = 0,
-        teacher_settings: Optional[Dict[str, Any]] = None,
+        teacher_settings: dict[str, Any] | None = None,
         max_rounds: int = 1,
     ):
         self.metric = metric
@@ -84,18 +88,18 @@ class BootstrapFewShot:
     def compile(
         self,
         student: _ProgramLike,
-        teacher: Optional[_ProgramLike],
-        trainset: Sequence[Tuple[Any, Any]],
+        teacher: _ProgramLike | None,
+        trainset: Sequence[tuple[Any, Any]],
     ) -> _ProgramLike:
         p = getattr(student, "deepcopy", student.reset_copy)()
         rng = random.Random()
         # If bootstrapped demos disabled, return labeled-only few-shot quickly
         if self.max_bootstrapped_demos <= 0:
-            demos: List[Tuple[Any, Any]] = []
+            demos: list[tuple[Any, Any]] = []
             if self.max_labeled_demos > 0:
                 demos += rng.sample(list(trainset), k=min(self.max_labeled_demos, len(trainset)))
             return p.with_demos(demos)
-        boot: List[Tuple[Any, Any]] = []
+        boot: list[tuple[Any, Any]] = []
         # Bootstrap demos by self consistency
         for _ in range(self.max_rounds):
             rng.shuffle(trainset := list(trainset))
@@ -127,33 +131,29 @@ class BootstrapFewShot:
 @dataclass
 class Candidate:
     score: float
-    subscores: List[float]
+    subscores: list[float]
     seed: int
     program: _ProgramLike
 
 
 def random_search_compile(
     student: _ProgramLike,
-    trainset: Sequence[Tuple[Any, Any]],
-    valset: Sequence[Tuple[Any, Any]],
+    trainset: Sequence[tuple[Any, Any]],
+    valset: Sequence[tuple[Any, Any]],
     metric: Callable[[Any, Any], float],
     *,
     max_bootstrapped_demos: int = 8,
     max_labeled_demos: int = 4,
     max_rounds: int = 2,
     num_candidate_programs: int = 16,
-    stop_at_score: Optional[float] = None,
-    evaluate_fn: Optional[Callable[[
-        _ProgramLike,
-        Sequence[Tuple[Any, Any]],
-        Callable[[Any, Any], float]
-    ], EvalResult]] = None,
-    on_candidate_evaluated: Optional[Callable[[int, float, EvalResult, Dict[str, Any]], None]] = None,
-) -> Tuple[_ProgramLike, List[Dict[str, Any]]]:
-    best_program: Optional[_ProgramLike] = None
+    stop_at_score: float | None = None,
+    evaluate_fn: Callable[[_ProgramLike, Sequence[tuple[Any, Any]], Callable[[Any, Any], float]], EvalResult] | None = None,
+    on_candidate_evaluated: Callable[[int, float, EvalResult, dict[str, Any]], None] | None = None,
+) -> tuple[_ProgramLike, list[dict[str, Any]]]:
+    best_program: _ProgramLike | None = None
     best_score = float("-inf")
-    candidates: List[Candidate] = []
-    records: List[Dict[str, Any]] = []
+    candidates: list[Candidate] = []
+    records: list[dict[str, Any]] = []
 
     seeds = list(range(num_candidate_programs))
     seeds = [-3, -2, -1] + seeds  # zero-shot, labeled few-shot, bootstrapped few-shot
@@ -174,7 +174,9 @@ def random_search_compile(
             if max_bootstrapped_demos <= 0:
                 size = 0
             else:
-                size = max_bootstrapped_demos if seed == -1 else rng.randint(1, max_bootstrapped_demos)
+                size = (
+                    max_bootstrapped_demos if seed == -1 else rng.randint(1, max_bootstrapped_demos)
+                )
             program = BootstrapFewShot(
                 metric=metric,
                 metric_threshold=None,
@@ -184,14 +186,18 @@ def random_search_compile(
                 max_rounds=max_rounds,
             ).compile(student, teacher=None, trainset=train_copy)
 
-        res = (evaluate_fn(program, valset, metric) if evaluate_fn else evaluate(program, valset, metric))
+        res = (
+            evaluate_fn(program, valset, metric)
+            if evaluate_fn
+            else evaluate(program, valset, metric)
+        )
         cand = Candidate(score=res.score, subscores=res.subscores, seed=seed, program=program)
         candidates.append(cand)
         # Record an intervention summary for reproducibility
-        intervention: Dict[str, Any] = {"seed": seed}
+        intervention: dict[str, Any] = {"seed": seed}
         if hasattr(program, "demos"):
             try:
-                intervention["demos"] = getattr(program, "demos")  # type: ignore
+                intervention["demos"] = program.demos  # type: ignore
             except Exception:
                 intervention["demos"] = None
         # Type of candidate
@@ -233,7 +239,9 @@ def random_search_compile(
     if hasattr(best_program, "candidate_programs"):
         # If user object supports attribute assignment
         try:
-            best_program.candidate_programs = sorted(candidates, key=lambda c: c.score, reverse=True)  # type: ignore[attr-defined]
+            best_program.candidate_programs = sorted(
+                candidates, key=lambda c: c.score, reverse=True
+            )  # type: ignore[attr-defined]
         except Exception:
             pass
 

@@ -53,7 +53,9 @@ def build_messages(
                 ],
             },
         ]
-    elif len(images_bytes) > 0 and any(regex.match(model_name) for regex in anthropic_naming_regexes):
+    elif len(images_bytes) > 0 and any(
+        regex.match(model_name) for regex in anthropic_naming_regexes
+    ):
         return [
             {"role": "system", "content": sys_msg},
             {
@@ -163,7 +165,7 @@ class LM:
         self.system_id = system_id or f"lm_{self.vendor or 'unknown'}_{self.model or 'unknown'}"
         self.enable_v3_tracing = enable_v3_tracing
         self.additional_params = additional_params
-        
+
         # Initialize vendor wrapper early, before any potential usage
         # (e.g., within StructuredOutputHandler initialization below)
         self._vendor_wrapper = None
@@ -221,11 +223,14 @@ class LM:
         """Determine if Responses API should be used."""
         if self.use_responses_api is not None:
             return self.use_responses_api
-        
+
         # Auto-detect based on model
         responses_models = {
-            "o4-mini", "o3", "o3-mini",  # Supported Synth-hosted models
-            "gpt-oss-120b", "gpt-oss-20b"  # OSS models via Synth
+            "o4-mini",
+            "o3",
+            "o3-mini",  # Supported Synth-hosted models
+            "gpt-oss-120b",
+            "gpt-oss-20b",  # OSS models via Synth
         }
         return self.model in responses_models or (self.model and self.model in reasoning_models)
 
@@ -377,11 +382,15 @@ class LM:
                         raise AttributeError(
                             f"Vendor wrapper {type(vendor_wrapper).__name__} has no suitable response method"
                         )
-                    if not hasattr(response, 'api_type'):
+                    if not hasattr(response, "api_type"):
                         response.api_type = "chat"
 
                 # Update stored response ID if auto-storing
-                if self.auto_store_responses and hasattr(response, 'response_id') and response.response_id:
+                if (
+                    self.auto_store_responses
+                    and hasattr(response, "response_id")
+                    and response.response_id
+                ):
                     self._last_response_id = response.response_id
 
             except Exception as e:
@@ -397,12 +406,13 @@ class LM:
             and hasattr(self.session_tracer, "current_session")
         ):
             latency_ms = int((time.time() - start_time) * 1000)
-            
+
             # Create LLMCallRecord from the response
             from datetime import datetime
+
             started_at = datetime.utcnow()
             completed_at = datetime.utcnow()
-            
+
             call_record = create_llm_call_record_from_response(
                 response=response,
                 model_name=self.model or self.vendor,
@@ -415,7 +425,7 @@ class LM:
                 completed_at=completed_at,
                 latency_ms=latency_ms,
             )
-            
+
             # Compute aggregates from the call record
             aggregates = compute_aggregates_from_call_records([call_record])
 

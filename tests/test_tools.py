@@ -1,6 +1,4 @@
 import json
-import os
-from typing import List
 
 import openai
 import pytest
@@ -9,10 +7,10 @@ import pytest
 pytestmark = pytest.mark.integration
 from pydantic import BaseModel, Field
 
-from synth_ai.zyk import LM
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
+from synth_ai.zyk import LM
 
 
 class WeatherParams(BaseModel):
@@ -35,7 +33,7 @@ weather_tool = WeatherTool()
 class TestParams(BaseModel):
     name: str = Field(description="The person's name")
     age: int = Field(description="The person's age in years")
-    hobbies: List[str] = Field(description="List of the person's hobbies", default_factory=list)
+    hobbies: list[str] = Field(description="List of the person's hobbies", default_factory=list)
 
 
 class TestTool(BaseTool):
@@ -43,7 +41,7 @@ class TestTool(BaseTool):
     description: str = "Store information about a person including their name, age, and hobbies. Always include hobbies as a list, even if empty."
     arguments: type[BaseModel] = TestParams
 
-    def run(self, name: str, age: int, hobbies: List[str]) -> str:
+    def run(self, name: str, age: int, hobbies: list[str]) -> str:
         return f"Stored information for {name}, age {age}, with hobbies: {', '.join(hobbies) if hobbies else 'none'}"
 
 

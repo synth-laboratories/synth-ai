@@ -20,9 +20,9 @@ Notes
 from __future__ import annotations
 
 import random
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Sequence, Tuple
-
+from typing import Any, Protocol
 
 # ---------------------------
 # Program adapter and protocols
@@ -36,16 +36,16 @@ class PredictProgram(Protocol):
     by wrapping it with `ProgramAdapter` below.
     """
 
-    def deepcopy(self) -> "PredictProgram": ...
+    def deepcopy(self) -> PredictProgram: ...
 
-    def run(self, x: Any, *, model: Optional[Any] = None) -> Any: ...
+    def run(self, x: Any, *, model: Any | None = None) -> Any: ...
 
-    def with_instructions(self, instructions: Dict[str, str]) -> "PredictProgram": ...
+    def with_instructions(self, instructions: dict[str, str]) -> PredictProgram: ...
 
-    def with_demos(self, demos: List[Tuple[Any, Any]]) -> "PredictProgram": ...
+    def with_demos(self, demos: list[tuple[Any, Any]]) -> PredictProgram: ...
 
     @property
-    def predictors(self) -> List[str]: ...
+    def predictors(self) -> list[str]: ...
 
 
 @dataclass
@@ -59,28 +59,28 @@ class ProgramAdapter:
     - set_demos: Callable to update demos (global or per predictor)
     """
 
-    run_fn: Callable[[Any, Optional[Any]], Any]
-    state: Dict[str, Any]
-    _predictors: List[str]
-    set_instructions: Callable[[Dict[str, str], Dict[str, Any]], Dict[str, Any]]
-    set_demos: Callable[[List[Tuple[Any, Any]], Dict[str, Any]], Dict[str, Any]]
+    run_fn: Callable[[Any, Any | None], Any]
+    state: dict[str, Any]
+    _predictors: list[str]
+    set_instructions: Callable[[dict[str, str], dict[str, Any]], dict[str, Any]]
+    set_demos: Callable[[list[tuple[Any, Any]], dict[str, Any]], dict[str, Any]]
 
-    def deepcopy(self) -> "ProgramAdapter":
+    def deepcopy(self) -> ProgramAdapter:
         return replace(self, state={**self.state})
 
-    def run(self, x: Any, *, model: Optional[Any] = None) -> Any:
+    def run(self, x: Any, *, model: Any | None = None) -> Any:
         return self.run_fn(x, model)
 
-    def with_instructions(self, instructions: Dict[str, str]) -> "ProgramAdapter":
+    def with_instructions(self, instructions: dict[str, str]) -> ProgramAdapter:
         new_state = self.set_instructions(instructions, {**self.state})
         return replace(self, state=new_state)
 
-    def with_demos(self, demos: List[Tuple[Any, Any]]) -> "ProgramAdapter":
+    def with_demos(self, demos: list[tuple[Any, Any]]) -> ProgramAdapter:
         new_state = self.set_demos(demos, {**self.state})
         return replace(self, state=new_state)
 
     @property
-    def predictors(self) -> List[str]:
+    def predictors(self) -> list[str]:
         return list(self._predictors)
 
 
@@ -89,9 +89,11 @@ class ProgramAdapter:
 # ---------------------------
 
 
-def summarize_dataset(trainset: Sequence[Tuple[Any, Any]], max_items: int = 50) -> str:
+def summarize_dataset(trainset: Sequence[tuple[Any, Any]], max_items: int = 50) -> str:
     n = len(trainset)
-    ex = ", ".join(repr(trainset[i][0])[:40] for i in range(0, min(max_items, n), max(1, n // max_items or 1)))
+    ex = ", ".join(
+        repr(trainset[i][0])[:40] for i in range(0, min(max_items, n), max(1, n // max_items or 1))
+    )
     return f"Dataset size: {n}. Example inputs: {ex}"
 
 
@@ -109,7 +111,7 @@ def random_tip(rng: random.Random) -> str:
     return rng.choice(tips)
 
 
-def choose(items: Sequence[Any], rng: Optional[random.Random] = None) -> Any:
+def choose(items: Sequence[Any], rng: random.Random | None = None) -> Any:
     r = rng or random
     return r.choice(items)
 
@@ -122,10 +124,12 @@ def choose(items: Sequence[Any], rng: Optional[random.Random] = None) -> Any:
 @dataclass
 class EvalResult:
     score: float
-    subscores: List[float]
+    subscores: list[float]
 
 
-def evaluate_program(program: PredictProgram, dataset: Sequence[Tuple[Any, Any]], metric: Callable[[Any, Any], float]) -> EvalResult:
+def evaluate_program(
+    program: PredictProgram, dataset: Sequence[tuple[Any, Any]], metric: Callable[[Any, Any], float]
+) -> EvalResult:
     subs = []
     for x, y in dataset:
         yhat = program.run(x)
@@ -140,8 +144,8 @@ def evaluate_program(program: PredictProgram, dataset: Sequence[Tuple[Any, Any]]
 
 def mipro_v2_compile(
     student: PredictProgram,
-    trainset: Sequence[Tuple[Any, Any]],
-    valset: Sequence[Tuple[Any, Any]],
+    trainset: Sequence[tuple[Any, Any]],
+    valset: Sequence[tuple[Any, Any]],
     metric: Callable[[Any, Any], float],
     *,
     prompt_model: Any,
@@ -159,7 +163,7 @@ def mipro_v2_compile(
     data_aware: bool = True,
     tip_aware: bool = True,
     fewshot_aware: bool = True,
-) -> Tuple[PredictProgram, List[Dict[str, Any]]]:
+) -> tuple[PredictProgram, list[dict[str, Any]]]:
     """MIPROv2-style optimizer.
 
     Arguments mirror the DSPy pseudocode but remain provider-agnostic. The
@@ -171,9 +175,9 @@ def mipro_v2_compile(
     program = student.deepcopy()
 
     # Step 1: bootstrap few-shot example candidates
-    demo_candidates: List[Dict[str, Any]] = []
+    demo_candidates: list[dict[str, Any]] = []
     for _ in range(num_candidates):
-        boot: List[Tuple[Any, Any]] = []
+        boot: list[tuple[Any, Any]] = []
         # collect bootstrapped, self-consistent demos
         while len(boot) < max_bootstrapped_demos:
             x, y = rng.choice(trainset)
@@ -184,9 +188,9 @@ def mipro_v2_compile(
         demo_candidates.append({"boot": boot, "labeled": labeled})
 
     # Step 2: propose instruction candidates per predictor
-    instr_candidates: Dict[str, List[str]] = {}
-    for pred in (program.predictors or ["predictor"]):
-        ctx: Dict[str, Any] = {}
+    instr_candidates: dict[str, list[str]] = {}
+    for pred in program.predictors or ["predictor"]:
+        ctx: dict[str, Any] = {}
         if data_aware:
             ctx["dataset_summary"] = summarize_dataset(trainset)
         if program_aware:
@@ -199,12 +203,12 @@ def mipro_v2_compile(
         instr_candidates[pred] = list(cand)
 
     # Step 3: Bayesian-optimization-like search (random proposer placeholder)
-    history: List[Tuple[Dict[str, Any], float]] = []
-    records: List[Dict[str, Any]] = []
+    history: list[tuple[dict[str, Any], float]] = []
+    records: list[dict[str, Any]] = []
     best_score = -1.0
-    best_cfg: Optional[Dict[str, Any]] = None
+    best_cfg: dict[str, Any] | None = None
 
-    def propose(history_: List[Tuple[Dict[str, Any], float]]) -> Dict[str, Any]:
+    def propose(history_: list[tuple[dict[str, Any], float]]) -> dict[str, Any]:
         # Placeholder: randomly sample from the cartesian product
         instructions = {pred: choose(instr_candidates[pred], rng) for pred in instr_candidates}
         demos = choose(demo_candidates, rng) if demo_candidates else None
@@ -227,15 +231,17 @@ def mipro_v2_compile(
         batch_res = evaluate_program(program_t, batch, metric)
         s_t = batch_res.score
         history.append((theta, s_t))
-        records.append({
-            "trial": t,
-            "evaluation": "batch" if minibatch else "full",
-            "score": s_t,
-            "intervention": {
-                "instructions": theta.get("instructions"),
-                "demo_set": theta.get("demo_set"),
-            },
-        })
+        records.append(
+            {
+                "trial": t,
+                "evaluation": "batch" if minibatch else "full",
+                "score": s_t,
+                "intervention": {
+                    "instructions": theta.get("instructions"),
+                    "demo_set": theta.get("demo_set"),
+                },
+            }
+        )
 
         if (not minibatch) or (t % max(1, minibatch_full_eval_steps) == 0):
             full_res = evaluate_program(program_t, valset, metric)
@@ -243,15 +249,17 @@ def mipro_v2_compile(
             if s_full > best_score:
                 best_score = s_full
                 best_cfg = theta
-            records.append({
-                "trial": t,
-                "evaluation": "full",
-                "score": s_full,
-                "intervention": {
-                    "instructions": theta.get("instructions"),
-                    "demo_set": theta.get("demo_set"),
-                },
-            })
+            records.append(
+                {
+                    "trial": t,
+                    "evaluation": "full",
+                    "score": s_full,
+                    "intervention": {
+                        "instructions": theta.get("instructions"),
+                        "demo_set": theta.get("demo_set"),
+                    },
+                }
+            )
 
     if best_cfg is None:
         return program, records
@@ -274,6 +282,7 @@ __all__ = [
 
 class ExampleTwoStepDag:
     pass
+
 
 """
 A -> B

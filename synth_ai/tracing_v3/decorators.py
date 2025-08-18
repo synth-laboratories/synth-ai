@@ -22,58 +22,57 @@ The decorators support both sync and async functions where appropriate,
 though async is preferred for consistency with the rest of the system.
 """
 
+import asyncio
 import contextvars
 import functools
 import time
-from typing import Callable, Any, Optional, TypeVar, Union
-import asyncio
-import inspect
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .abstractions import LMCAISEvent, TimeRecord
-from .utils import detect_provider, calculate_cost
-
+from .utils import calculate_cost, detect_provider
 
 # Context variables for session and turn tracking
 # These variables automatically propagate across async call boundaries,
 # allowing deeply nested code to access tracing context without explicit passing
-_session_id_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "session_id", default=None
 )
-_turn_number_ctx: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar(
+_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
     "turn_number", default=None
 )
-_session_tracer_ctx: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+_session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
     "session_tracer", default=None
 )
 
 
-def set_session_id(session_id: Optional[str]) -> None:
+def set_session_id(session_id: str | None) -> None:
     """Set the current session ID in context.
-    
+
     This ID will be available to all async tasks spawned from the current context.
     Setting to None clears the session context.
-    
+
     Args:
         session_id: The session ID to set, or None to clear
     """
     _session_id_ctx.set(session_id)
 
 
-def get_session_id() -> Optional[str]:
+def get_session_id() -> str | None:
     """Get the current session ID from context.
-    
+
     Returns:
         The current session ID if one is set, None otherwise
     """
     return _session_id_ctx.get()
 
 
-def set_turn_number(turn: Optional[int]) -> None:
+def set_turn_number(turn: int | None) -> None:
     """Set the current turn number in context."""
     _turn_number_ctx.set(turn)
 
 
-def get_turn_number() -> Optional[int]:
+def get_turn_number() -> int | None:
     """Get the current turn number from context."""
     return _turn_number_ctx.get()
 
@@ -93,15 +92,15 @@ T = TypeVar("T")
 
 def with_session(require: bool = True):
     """Decorator that ensures a session is active.
-    
+
     This decorator checks if a session is active before allowing the decorated
     function to execute. It supports both sync and async functions.
-    
+
     Args:
         require: If True, raises RuntimeError when no session is active.
                 If False, allows execution without a session (useful for
                 optional tracing).
-    
+
     Example:
         ```python
         @with_session()
@@ -144,21 +143,21 @@ def trace_llm_call(
     extract_cost: bool = True,
 ):
     """Decorator to trace LLM API calls.
-    
+
     Automatically records LLM API calls as LMCAISEvent instances. Extracts token
     counts, calculates costs, and measures latency. Only works with async functions.
-    
+
     Args:
         model_name: Model name to record (can be overridden by actual response)
         system_id: System identifier for the event (default: "llm")
         extract_tokens: Whether to extract token counts from response
         extract_cost: Whether to calculate USD cost from token counts
-    
+
     Expected Response Format:
         The decorated function should return a dict with:
         - 'usage': dict with 'prompt_tokens', 'completion_tokens', 'total_tokens'
         - 'model': actual model name (optional, falls back to model_name param)
-    
+
     Example:
         ```python
         @trace_llm_call(model_name="gpt-4")
@@ -251,14 +250,14 @@ def trace_llm_call(
 
 def trace_method(event_type: str = "runtime", system_id: str = None):
     """Generic method tracing decorator.
-    
+
     Traces any method call by recording it as a RuntimeEvent. Supports both
     sync and async methods, though async is preferred.
-    
+
     Args:
         event_type: Type of event to create (default: "runtime")
         system_id: System identifier (defaults to class name)
-    
+
     Example:
         ```python
         class Agent:
@@ -278,7 +277,7 @@ def trace_method(event_type: str = "runtime", system_id: str = None):
                 if not tracer:
                     return await fn(self, *args, **kwargs)
 
-                from .abstractions import BaseEvent, RuntimeEvent
+                from .abstractions import RuntimeEvent
 
                 # Use class name as system_id if not provided
                 actual_system_id = system_id or self.__class__.__name__
@@ -314,20 +313,20 @@ def trace_method(event_type: str = "runtime", system_id: str = None):
 
 class SessionContext:
     """Context manager for session tracking.
-    
+
     Provides a way to temporarily set session context, useful for testing
     or when you need to manually manage context outside of SessionTracer.
-    
+
     This context manager properly handles both sync and async contexts,
     and ensures the previous context is restored on exit.
-    
+
     Example:
         ```python
         # Sync usage
         with SessionContext("test_session_123", tracer):
             # Code here sees the test session
             process_data()
-        
+
         # Async usage
         async with SessionContext("test_session_123", tracer):
             # Async code here sees the test session

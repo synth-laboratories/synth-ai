@@ -59,7 +59,10 @@ def _weather_tools() -> list[dict[str, Any]]:
 
 def _weather_messages() -> list[dict[str, str]]:
     return [
-        {"role": "system", "content": "Use tools when helpful; return function calls via OpenAI tool-calling."},
+        {
+            "role": "system",
+            "content": "Use tools when helpful; return function calls via OpenAI tool-calling.",
+        },
         {"role": "user", "content": "What's the weather in Berlin in Celsius?"},
     ]
 
@@ -107,12 +110,11 @@ async def main() -> None:
     usage = getattr(resp, "usage", None)
     if usage:
         print(
-            f"usage: prompt_tokens={getattr(usage,'prompt_tokens',None)}, "
-            f"completion_tokens={getattr(usage,'completion_tokens',None)}, "
-            f"total_tokens={getattr(usage,'total_tokens',None)}"
+            f"usage: prompt_tokens={getattr(usage, 'prompt_tokens', None)}, "
+            f"completion_tokens={getattr(usage, 'completion_tokens', None)}, "
+            f"total_tokens={getattr(usage, 'total_tokens', None)}"
         )
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

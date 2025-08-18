@@ -1,8 +1,10 @@
 from __future__ import annotations
+
+import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
+
 from pydantic import BaseModel
-import shutil
 
 
 class Artifact(BaseModel, ABC):

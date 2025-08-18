@@ -14,7 +14,6 @@ Normalization: ensure the returned URL ends with "/api".
 import os
 from typing import Literal
 
-
 PROD_BASE_URL_DEFAULT = "https://agent-learning.onrender.com"
 
 
@@ -28,7 +27,7 @@ def _normalize_base(url: str) -> str:
     return url
 
 
-def get_learning_v2_base_url(mode: Literal["dev","prod"] = "prod") -> str:
+def get_learning_v2_base_url(mode: Literal["dev", "prod"] = "prod") -> str:
     if mode == "prod":
         prod = os.getenv("SYNTH_PROD_BASE_URL") or PROD_BASE_URL_DEFAULT
         return _normalize_base(prod)
@@ -50,4 +49,3 @@ def get_learning_v2_base_url(mode: Literal["dev","prod"] = "prod") -> str:
         return _normalize_base(dev)
 
     raise Exception()
-

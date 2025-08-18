@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from typing import List
 
 from synth_ai.environments.environment.shared_engine import Engine, InternalObservation
 from synth_ai.environments.environment.tools import EnvToolCall
@@ -108,7 +107,7 @@ class StatefulEnvironment(Engine):
         pass
 
     @abstractmethod
-    async def step(self, tool_calls: List[EnvToolCall]) -> InternalObservation:
+    async def step(self, tool_calls: list[EnvToolCall]) -> InternalObservation:
         """
         Execute tool calls and return the resulting observation.
 

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import contextvars
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-Rule = Dict[str, Any]
+Rule = dict[str, Any]
 
-_rules_ctx: contextvars.ContextVar[Optional[List[Rule]]] = contextvars.ContextVar(
+_rules_ctx: contextvars.ContextVar[list[Rule] | None] = contextvars.ContextVar(
     "injection_rules", default=None
 )
 
 
-def set_injection_rules(rules: List[Rule]):
+def set_injection_rules(rules: list[Rule]):
     """Set prompt-injection rules for the current context and return a reset token.
 
     Each rule must be a dict with at least keys: "find" and "replace" (strings).
@@ -24,7 +24,7 @@ def set_injection_rules(rules: List[Rule]):
     return _rules_ctx.set(rules)
 
 
-def get_injection_rules() -> Optional[List[Rule]]:
+def get_injection_rules() -> list[Rule] | None:
     """Get the current context's injection rules, if any."""
     return _rules_ctx.get()
 
@@ -34,7 +34,7 @@ def clear_injection_rules(token) -> None:
     _rules_ctx.reset(token)
 
 
-def apply_injection(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def apply_injection(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Apply ordered substring replacements to text parts of messages in place.
 
     - Only modifies `str` content or list parts where `part["type"] == "text"`.
@@ -71,11 +71,10 @@ def apply_injection(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 @contextmanager
-def injection_rules_ctx(rules: List[Rule]):
+def injection_rules_ctx(rules: list[Rule]):
     """Context manager to temporarily apply injection rules within the block."""
     tok = set_injection_rules(rules)
     try:
         yield
     finally:
         clear_injection_rules(tok)
-

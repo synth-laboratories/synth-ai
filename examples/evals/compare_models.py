@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Comprehensive script to run Crafter rollouts for multiple models and compare their performance.
 Updated to use tracing_v3 with async architecture.
@@ -18,28 +19,11 @@ Analyzes and compares:
 - Performance metrics
 - Cost analysis
 """
-
-import asyncio
-import json
-import argparse
-import logging
-import time
-from datetime import datetime
-from typing import Any
 from pathlib import Path
-import sys
 import os
-from collections import defaultdict
-from uuid import uuid4
-import numpy as np
-import pandas as pd
-from tqdm.asyncio import tqdm_asyncio as atqdm
-from tqdm import tqdm
+import sys
 
-# Disable httpx logging for cleaner output
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
-# Add synth-ai root to path for imports
+# Ensure repository root is on sys.path before importing synth_ai
 synth_ai_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(synth_ai_root))
 
@@ -47,21 +31,37 @@ sys.path.insert(0, str(synth_ai_root))
 os.environ["LANGFUSE_ENABLED"] = "false"
 os.environ["SYNTH_LOGGING"] = "false"
 
+import argparse
+import asyncio
+import contextlib
+import json
+import logging
+import random
+import time
+from collections import defaultdict
+from datetime import datetime
+from typing import Any
+
+import httpx
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+
 # Import enhanced LM with v3 tracing
 from synth_ai.lm.core.main_v3 import LM
-
-# Import session tracer for v3 tracing
-from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
+    EnvironmentEvent,
+    RuntimeEvent,
     SessionEventMarkovBlanketMessage,
     TimeRecord,
-    RuntimeEvent,
-    EnvironmentEvent,
 )
-
-# from synth_ai.tracing_v3.utils import create_experiment_context  # Not needed
-from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 from synth_ai.tracing_v3.decorators import set_turn_number
+from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+from synth_ai.tracing_v3.db_config import get_default_db_config
+
+# Disable httpx logging for cleaner output
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Import Crafter hooks
 try:
@@ -73,9 +73,6 @@ except ImportError:
     from synth_ai.tracing_v3.hooks import HookManager
 
     CRAFTER_HOOKS = HookManager()
-
-import httpx
-import random
 
 # Global buckets for sessions
 _SESSIONS: dict[str, tuple[str, object]] = {}  # session_id -> (experiment_id, trace)
@@ -90,8 +87,6 @@ MODELS_TO_TEST = [
 CRAFTER_SERVICE_URL = "http://localhost:8901"
 
 # Database configuration - uses the centralized config which matches serve.sh
-from synth_ai.tracing_v3.db_config import get_default_db_config
-
 db_config = get_default_db_config()
 DATABASE_URL = db_config.database_url
 
@@ -215,7 +210,11 @@ def create_message(
 
 
 async def run_episode(
-    config: ExperimentConfig, model_name: str, episode_num: int, experiment_id: str, pbar: tqdm | None = None
+    config: ExperimentConfig,
+    model_name: str,
+    episode_num: int,
+    experiment_id: str,
+    pbar: tqdm | None = None,
 ) -> dict[str, Any]:
     """Run a single episode with a specific model using v3 tracing."""
     # Create a new session tracer for this episode
@@ -399,11 +398,11 @@ What actions do you want to take?"""
                 )
 
                 # Get action from LM with tools (with timeout)
-                turn_start_time = time.time()
                 try:
                     # Define the interact tool for Crafter
-                    from synth_ai.lm.tools.base import BaseTool
                     from pydantic import BaseModel, Field
+
+                    from synth_ai.lm.tools.base import BaseTool
 
                     class InteractArgs(BaseModel):
                         actions: list[int] = Field(..., description="List of action IDs to execute")
@@ -445,7 +444,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                             ),
                             timeout=config.turn_timeout,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         print(
                             f"    ⏰ Turn {turn} timed out for episode {episode_num} after {config.turn_timeout}s"
                         )
@@ -518,7 +517,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                             ),
                                             timeout=5.0,  # 5 second timeout for individual action
                                         )
-                                    except asyncio.TimeoutError:
+                                    except TimeoutError:
                                         print(
                                             f"    ⏰ Action execution timed out in episode {episode_num}"
                                         )
@@ -575,6 +574,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                         if frame_before_b64:
                                             import base64
                                             from pathlib import Path
+
                                             assets_dir = Path("traces/v3/assets") / session_id
                                             assets_dir.mkdir(parents=True, exist_ok=True)
                                             before_path = assets_dir / f"{turn}_{i}_before.png"
@@ -584,6 +584,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                         if frame_after_b64:
                                             import base64
                                             from pathlib import Path
+
                                             assets_dir = Path("traces/v3/assets") / session_id
                                             assets_dir.mkdir(parents=True, exist_ok=True)
                                             after_path = assets_dir / f"{turn}_{i}_after.png"
@@ -604,7 +605,11 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                         terminated=done,
                                         system_state_before={
                                             "observation": prev_obs,
-                                            **({"visuals": {"frame_uri": before_uri}} if before_uri else {}),
+                                            **(
+                                                {"visuals": {"frame_uri": before_uri}}
+                                                if before_uri
+                                                else {}
+                                            ),
                                         },
                                         system_state_after={
                                             "observation": new_obs,
@@ -613,7 +618,11 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                                     "achievements_status", {}
                                                 )
                                             },
-                                            **({"visuals": {"frame_uri": after_uri}} if after_uri else {}),
+                                            **(
+                                                {"visuals": {"frame_uri": after_uri}}
+                                                if after_uri
+                                                else {}
+                                            ),
                                         },
                                     )
                                     await session_tracer.record_event(env_event)
@@ -650,7 +659,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                 ),
                                 timeout=5.0,  # 5 second timeout
                             )
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             print(f"    ⏰ Noop action timed out in episode {episode_num}")
                             done = True
                             break
@@ -748,11 +757,17 @@ async def run_model_experiment(
     config: ExperimentConfig, model_name: str, experiment_id: str, position_base: int = 0
 ) -> list[dict[str, Any]]:
     """Run multiple episodes for a single model in parallel with per-episode stacked progress bars."""
-    #print(f"\nRunning {config.num_episodes} episodes for {model_name} in parallel...\n")
+    # print(f"\nRunning {config.num_episodes} episodes for {model_name} in parallel...\n")
 
     # One progress bar per episode, stacked
     episode_bars = [
-        tqdm(total=config.max_turns, desc=f"{model_name} | ep{i+1}", unit="turn", leave=True, position=position_base + i)
+        tqdm(
+            total=config.max_turns,
+            desc=f"{model_name} | ep{i + 1}",
+            unit="turn",
+            leave=True,
+            position=position_base + i,
+        )
         for i in range(config.num_episodes)
     ]
 
@@ -776,20 +791,22 @@ async def run_model_experiment(
         # Optional summary on the last bar
         successful_results = [r for r in results if "error" not in r]
         if successful_results and episode_bars:
-            avg_ach = sum(r["total_achievements"] for r in successful_results) / len(successful_results)
-            avg_inv = sum(r["invalid_action_rate"] for r in successful_results) / len(successful_results)
-            try:
-                episode_bars[-1].set_postfix({"avg_ach": f"{avg_ach:.1f}", "inv_rate": f"{avg_inv:.1%}"})
-            except Exception:
-                pass
+            avg_ach = sum(r["total_achievements"] for r in successful_results) / len(
+                successful_results
+            )
+            avg_inv = sum(r["invalid_action_rate"] for r in successful_results) / len(
+                successful_results
+            )
+            with contextlib.suppress(Exception):
+                episode_bars[-1].set_postfix(
+                    {"avg_ach": f"{avg_ach:.1f}", "inv_rate": f"{avg_inv:.1%}"}
+                )
 
         return results
     finally:
         for b in episode_bars:
-            try:
+            with contextlib.suppress(Exception):
                 b.close()
-            except Exception:
-                pass
 
 
 async def analyze_results(config: ExperimentConfig, all_results: dict[str, list[dict[str, Any]]]):
@@ -895,8 +912,8 @@ async def analyze_results(config: ExperimentConfig, all_results: dict[str, list[
                         )
 
         # Export detailed results under a temp/ directory (git-ignored)
-        from pathlib import Path
         import os
+        from pathlib import Path
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         out_dir = Path(os.getenv("SYNTH_OUTPUT_DIR", "temp")).resolve()
@@ -1008,7 +1025,7 @@ async def main():
         base = idx * (config.num_episodes + 1)
         model_tasks.append(run_model_experiment(config, model, experiment_id, position_base=base))
     results_list = await asyncio.gather(*model_tasks)
-    for model, results in zip(args.models, results_list):
+    for model, results in zip(args.models, results_list, strict=False):
         all_results[model] = results
 
     # Analyze and compare results

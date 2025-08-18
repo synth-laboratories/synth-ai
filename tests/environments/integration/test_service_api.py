@@ -3,14 +3,15 @@ Integration tests for the Environment Service API.
 Tests the new aligned API endpoints with various environments.
 """
 
-import pytest
 import json
-from uuid import uuid4
-from typing import Dict, Any
+from typing import Any
 from unittest.mock import patch
+from uuid import uuid4
 
-from fastapi.testclient import TestClient
 import httpx
+import pytest
+from fastapi.testclient import TestClient
+
 # Prefer the project's test utility; fallback to a local implementation if unavailable
 try:
     from tests.environments.utils import check_service_running  # type: ignore
@@ -32,13 +33,13 @@ except Exception:
                 f"You should see: INFO:     Uvicorn running on http://0.0.0.0:{port} (Press CTRL+C to quit)\n"
             )
 
+
+from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR
 from synth_ai.environments.service.app import app
 from synth_ai.environments.service.core_routes import instances
-from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR
-
 
 # Test fixtures
-SIMPLE_SOKOBAN: Dict[str, Any] = {
+SIMPLE_SOKOBAN: dict[str, Any] = {
     "dim_room": [4, 4],
     "room_fixed": [[0, 0, 0, 0], [0, 2, 1, 0], [0, 1, 0, 0], [0, 0, 0, 0]],
     "room_state": [[0, 0, 0, 0], [0, 1, 4, 0], [0, 5, 0, 0], [0, 0, 0, 0]],

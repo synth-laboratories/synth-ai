@@ -1,14 +1,12 @@
-import asyncio
 import pytest
 
 from synth_ai.environments.examples.wordle import (
-    create_wordle_taskset,
     WordleEnvironment,
     WordleTaskInstance,
     WordleTaskInstanceMetadata,
+    create_wordle_taskset,
 )
 from synth_ai.environments.tasks.core import Impetus, Intent
-
 
 pytestmark = pytest.mark.asyncio
 

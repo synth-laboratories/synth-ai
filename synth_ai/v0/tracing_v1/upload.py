@@ -5,7 +5,7 @@ import os
 import ssl
 import time
 import warnings
-from typing import Any, Dict, List, Tuple, TypedDict
+from typing import Any, TypedDict
 
 import requests
 from dotenv import load_dotenv
@@ -35,7 +35,7 @@ def _raise_not_supported_error():
 
 
 # NOTE: This may cause memory issues in the future
-def validate_json(data: Dict[str, Any]) -> None:
+def validate_json(data: dict[str, Any]) -> None:
     """Validate that a dictionary contains only JSON-serializable values.
 
     Args:
@@ -51,7 +51,7 @@ def validate_json(data: Dict[str, Any]) -> None:
         raise ValueError(f"Contains non-JSON-serializable values: {e}. {data}")
 
 
-def createPayload(dataset: Dataset, traces: List[SystemTrace]) -> Dict[str, Any]:
+def createPayload(dataset: Dataset, traces: list[SystemTrace]) -> dict[str, Any]:
     payload = {
         "traces": [trace.to_dict() for trace in traces],  # Convert SystemTrace objects to dicts
         "dataset": dataset.to_dict(),
@@ -73,7 +73,7 @@ class TLSAdapter(HTTPAdapter):
         )
 
 
-def load_signed_url(signed_url: str, dataset: Dataset, traces: List[SystemTrace]) -> None:
+def load_signed_url(signed_url: str, dataset: Dataset, traces: list[SystemTrace]) -> None:
     payload = createPayload(dataset, traces)
     validate_json(payload)
 
@@ -102,7 +102,7 @@ def load_signed_url(signed_url: str, dataset: Dataset, traces: List[SystemTrace]
 
 def send_system_traces_s3(
     dataset: Dataset,
-    traces: List[SystemTrace],
+    traces: list[SystemTrace],
     base_url: str,
     api_key: str,
     system_id: str,
@@ -146,7 +146,7 @@ def send_system_traces_s3(
 
 def get_upload_id(
     base_url: str, api_key: str, system_id: str, system_name: str, verbose: bool = False
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """
     Modified client-side function to send both system_id and system_name.
     """
@@ -188,12 +188,12 @@ class UploadValidator(BaseModel):
         extra="forbid",  # Prevent additional fields
     )
 
-    traces: List[Dict[str, Any]]
-    dataset: Dict[str, Any]
+    traces: list[dict[str, Any]]
+    dataset: dict[str, Any]
 
     @field_validator("traces")
     @classmethod
-    def validate_traces(cls, traces: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def validate_traces(cls, traces: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not traces:
             raise ValueError("Traces list cannot be empty")
 
@@ -240,7 +240,7 @@ class UploadValidator(BaseModel):
 
     @field_validator("dataset")
     @classmethod
-    def validate_dataset(cls, dataset: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_dataset(cls, dataset: dict[str, Any]) -> dict[str, Any]:
         required_fields = ["questions", "reward_signals"]
         missing_fields = [f for f in required_fields if f not in dataset]
         if missing_fields:
@@ -263,7 +263,7 @@ class UploadValidator(BaseModel):
         return dataset
 
 
-def validate_upload(traces: List[Dict[str, Any]], dataset: Dict[str, Any]):
+def validate_upload(traces: list[dict[str, Any]], dataset: dict[str, Any]):
     # Validate the upload format before sending to server.
     # Raises ValueError if validation fails.
     try:
@@ -283,8 +283,8 @@ def is_event_loop_running():
 
 
 def format_upload_output(
-    dataset: Dataset, traces: List[SystemTrace]
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    dataset: Dataset, traces: list[SystemTrace]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     # Format questions array
     questions_data = [
         {"intent": q.intent, "criteria": q.criteria, "id": q.id} for q in dataset.questions
@@ -334,14 +334,14 @@ class ProcessUploadResponse(TypedDict):
 
 def upload(
     dataset: Dataset,
-    traces: List[SystemTrace] = [],
+    traces: list[SystemTrace] = [],
     verbose: bool = False,
     show_payload: bool = False,
-) -> Tuple[
+) -> tuple[
     ProcessUploadResponse,
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     """Upload all system traces and dataset to the server.
 
@@ -371,14 +371,14 @@ def upload(
 
 def upload_helper(
     dataset: Dataset,
-    traces: List[SystemTrace] = [],
+    traces: list[SystemTrace] = [],
     verbose: bool = False,
     show_payload: bool = False,
-) -> Tuple[
+) -> tuple[
     ProcessUploadResponse,
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
-    List[Dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
 ]:
     """Helper function to handle the upload process.
 
@@ -391,7 +391,7 @@ def upload_helper(
     base_url = os.getenv("SYNTH_ENDPOINT_OVERRIDE", "https://agent-learning.onrender.com")
 
     from .decorators import _local, active_events_var
-    from .trackers import synth_tracker_async, synth_tracker_sync
+    from .trackers import synth_tracker_async
 
     # First close any tracker events
     if hasattr(synth_tracker_async, "active_events"):

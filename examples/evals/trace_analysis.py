@@ -16,10 +16,9 @@ Usage examples:
 import argparse
 import asyncio
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Set
-import math
 import json as pyjson
+import math
+from pathlib import Path
 
 from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso import (
     FinetuningDataExtractorV3,
@@ -36,7 +35,7 @@ async def cmd_list(db_path: str) -> None:
     db_url = build_db_url(db_path)
     async with FinetuningDataExtractorV3(db_url) as ex:
         sessions = await ex.get_all_sessions()
-        achievement_counts: Dict[str, int] = {}
+        achievement_counts: dict[str, int] = {}
         for _, row in sessions.iterrows():
             ach_list = await ex.get_session_achievements(row["session_id"]) or []
             for name in ach_list:
@@ -47,12 +46,14 @@ async def cmd_list(db_path: str) -> None:
             print(f"  - {name}: {achievement_counts[name]}")
 
 
-async def cmd_filter(db_path: str, achievements: List[str], output: str, models: List[str] | None = None) -> None:
+async def cmd_filter(
+    db_path: str, achievements: list[str], output: str, models: list[str] | None = None
+) -> None:
     db_url = build_db_url(db_path)
-    required: Set[str] = set(achievements)
+    required: set[str] = set(achievements)
     async with FinetuningDataExtractorV3(db_url) as ex:
         sessions = await ex.get_all_sessions()
-        kept: List[str] = []
+        kept: list[str] = []
         for _, row in sessions.iterrows():
             if models:
                 # Restrict to sessions containing any of the requested models
@@ -66,7 +67,11 @@ async def cmd_filter(db_path: str, achievements: List[str], output: str, models:
                     """,
                     {"session_id": row["session_id"]},
                 )
-                session_models = model_df["model_name"].tolist() if model_df is not None and not model_df.empty else []
+                session_models = (
+                    model_df["model_name"].tolist()
+                    if model_df is not None and not model_df.empty
+                    else []
+                )
                 if not any(m in session_models for m in models):
                     continue
             ach_list = await ex.get_session_achievements(row["session_id"]) or []
@@ -81,20 +86,20 @@ async def cmd_filter(db_path: str, achievements: List[str], output: str, models:
         print(f"✅ Wrote {len(data)} examples from {len(kept)} sessions → {output}")
 
 
-async def _first_achievement_step(ex: FinetuningDataExtractorV3, session_id: str, required: Set[str]) -> int | None:
-    q = (
-        """
+async def _first_achievement_step(
+    ex: FinetuningDataExtractorV3, session_id: str, required: set[str]
+) -> int | None:
+    q = """
         SELECT message_time, system_state_after
         FROM events
         WHERE session_id = :session_id
           AND event_type = 'environment'
         ORDER BY message_time ASC
         """
-    )
     df = await ex.db_manager.query_traces(q, {"session_id": session_id})
     if df is None or df.empty:
         return None
-    seen: Set[str] = set()
+    seen: set[str] = set()
     for _, row in df.iterrows():
         st = row.get("system_state_after")
         if isinstance(st, str):
@@ -113,11 +118,11 @@ async def _first_achievement_step(ex: FinetuningDataExtractorV3, session_id: str
     return None
 
 
-def _mean(values: List[float]) -> float:
+def _mean(values: list[float]) -> float:
     return (sum(values) / len(values)) if values else 0.0
 
 
-def _stddev(values: List[float]) -> float:
+def _stddev(values: list[float]) -> float:
     if not values:
         return 0.0
     m = _mean(values)
@@ -125,18 +130,18 @@ def _stddev(values: List[float]) -> float:
     return math.sqrt(var)
 
 
-async def cmd_stats(db_path: str, achievements: List[str], models: List[str] | None = None) -> None:
+async def cmd_stats(db_path: str, achievements: list[str], models: list[str] | None = None) -> None:
     db_url = build_db_url(db_path)
-    required: Set[str] = set(achievements)
+    required: set[str] = set(achievements)
     async with FinetuningDataExtractorV3(db_url) as ex:
         sessions = await ex.get_all_sessions()
-        matched_rewards: List[float] = []
-        other_rewards: List[float] = []
-        first_steps: List[int] = []
+        matched_rewards: list[float] = []
+        other_rewards: list[float] = []
+        first_steps: list[int] = []
         matched_count: int = 0
         other_count: int = 0
-        matched_ach_counts: Dict[str, int] = {}
-        other_ach_counts: Dict[str, int] = {}
+        matched_ach_counts: dict[str, int] = {}
+        other_ach_counts: dict[str, int] = {}
 
         for _, row in sessions.iterrows():
             sid = row["session_id"]
@@ -151,7 +156,11 @@ async def cmd_stats(db_path: str, achievements: List[str], models: List[str] | N
                     """,
                     {"session_id": sid},
                 )
-                session_models = model_df["model_name"].tolist() if model_df is not None and not model_df.empty else []
+                session_models = (
+                    model_df["model_name"].tolist()
+                    if model_df is not None and not model_df.empty
+                    else []
+                )
                 if not any(m in session_models for m in models):
                     continue
 
@@ -174,21 +183,27 @@ async def cmd_stats(db_path: str, achievements: List[str], models: List[str] | N
                     other_ach_counts[name] = other_ach_counts.get(name, 0) + 1
 
         print("Matched sessions (any of:", ", ".join(sorted(required)), ")")
-        print(f"  n={len(matched_rewards)}  avg_reward={_mean(matched_rewards):.2f}  stddev={_stddev(matched_rewards):.2f}")
+        print(
+            f"  n={len(matched_rewards)}  avg_reward={_mean(matched_rewards):.2f}  stddev={_stddev(matched_rewards):.2f}"
+        )
         if first_steps:
-            print(f"  avg_first_unlock_step={_mean([float(s) for s in first_steps]):.1f}  stddev={_stddev([float(s) for s in first_steps]):.1f}")
+            print(
+                f"  avg_first_unlock_step={_mean([float(s) for s in first_steps]):.1f}  stddev={_stddev([float(s) for s in first_steps]):.1f}"
+            )
         else:
             print("  avg_first_unlock_step=n/a (no unlocks recorded)")
         print("Others")
-        print(f"  n={len(other_rewards)}  avg_reward={_mean(other_rewards):.2f}  stddev={_stddev(other_rewards):.2f}")
+        print(
+            f"  n={len(other_rewards)}  avg_reward={_mean(other_rewards):.2f}  stddev={_stddev(other_rewards):.2f}"
+        )
 
         # Achievement frequency comparison (by session presence), excluding required achievements
-        all_achievements: Set[str] = set(matched_ach_counts.keys()) | set(other_ach_counts.keys())
+        all_achievements: set[str] = set(matched_ach_counts.keys()) | set(other_ach_counts.keys())
         compare_achievements = [a for a in sorted(all_achievements) if a not in required]
         if compare_achievements and (matched_count > 0 or other_count > 0):
             print("\nAchievement frequency by session (matched vs others):")
             # Build rows with absolute percentage difference for sorting
-            rows: List[tuple[float, str, int, float, int, float]] = []
+            rows: list[tuple[float, str, int, float, int, float]] = []
             for name in compare_achievements:
                 m_n = matched_ach_counts.get(name, 0)
                 o_n = other_ach_counts.get(name, 0)
@@ -202,7 +217,9 @@ async def cmd_stats(db_path: str, achievements: List[str], models: List[str] | N
             limit = min(10, len(rows))
             for i in range(limit):
                 _, name, m_n, m_pct, o_n, o_pct = rows[i]
-                print(f"  - {name}: matched {m_n}/{matched_count} ({m_pct:.1f}%), others {o_n}/{other_count} ({o_pct:.1f}%)")
+                print(
+                    f"  - {name}: matched {m_n}/{matched_count} ({m_pct:.1f}%), others {o_n}/{other_count} ({o_pct:.1f}%)"
+                )
 
 
 def main() -> None:
@@ -210,17 +227,30 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_list = sub.add_parser("list", help="List achievements present in DB")
-    p_list.add_argument("--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL")
+    p_list.add_argument(
+        "--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL"
+    )
 
     p_filter = sub.add_parser("filter", help="Filter sessions by achievements and export JSONL")
-    p_filter.add_argument("--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL")
-    p_filter.add_argument("--achievements", nargs="+", required=True, help="Required achievements (any match keeps session)")
+    p_filter.add_argument(
+        "--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL"
+    )
+    p_filter.add_argument(
+        "--achievements",
+        nargs="+",
+        required=True,
+        help="Required achievements (any match keeps session)",
+    )
     p_filter.add_argument("--output", required=True, help="Output JSONL path")
     p_filter.add_argument("--models", nargs="*", help="Optional model names to include (any match)")
 
     p_stats = sub.add_parser("stats", help="Show summary stats for filtered vs others")
-    p_stats.add_argument("--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL")
-    p_stats.add_argument("--achievements", nargs="+", required=True, help="Achievements to match (any match)")
+    p_stats.add_argument(
+        "--db", required=True, help="Path to sqld internal data file or full sqlite+aiosqlite URL"
+    )
+    p_stats.add_argument(
+        "--achievements", nargs="+", required=True, help="Achievements to match (any match)"
+    )
     p_stats.add_argument("--models", nargs="*", help="Optional model names to include (any match)")
 
     args = parser.parse_args()
@@ -238,5 +268,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

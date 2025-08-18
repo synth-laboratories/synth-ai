@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
-from collections import Counter
 import random
 import string
+from collections import Counter
+from dataclasses import dataclass
+from typing import Any
 
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
 from synth_ai.environments.tasks.core import TaskInstance
-
 
 DEFAULT_SOLUTIONS = [
     "cigar",
@@ -98,10 +97,10 @@ class WordlePublicState:
     word_length: int
     remaining_guesses: int
     max_guesses: int
-    guesses: List[str]
-    feedback: List[str]  # Parallel to guesses; strings of 'G/Y/B'
-    last_feedback: Optional[str]
-    last_guess: Optional[str]
+    guesses: list[str]
+    feedback: list[str]  # Parallel to guesses; strings of 'G/Y/B'
+    last_feedback: str | None
+    last_guess: str | None
     terminated: bool
     status: str  # "in_progress" | "won" | "lost"
 
@@ -110,7 +109,7 @@ class WordlePublicState:
         if not self.guesses:
             return "(no guesses yet)"
         lines = []
-        for g, fb in zip(self.guesses, self.feedback):
+        for g, fb in zip(self.guesses, self.feedback, strict=False):
             spaced = " ".join(list(fb))
             lines.append(f"{g.upper()} | {spaced}")
         return "\n".join(lines)
@@ -126,8 +125,8 @@ class WordlePrivateState:
 
 @dataclass
 class WordleEngineSnapshot(StatefulEngineSnapshot):
-    task_instance_dict: Dict
-    engine_snapshot: Dict
+    task_instance_dict: dict
+    engine_snapshot: dict
 
 
 class WordleWinComponent(RewardComponent):
@@ -156,20 +155,26 @@ class WordleEngine(StatefulEngine, IReproducibleEngine):
         self.max_guesses: int = getattr(md, "max_guesses", 6) if md else 6
         self.enforce_wordlist: bool = getattr(md, "enforce_wordlist", False) if md else False
         # Toggle: whether invalid actions consume a turn (default True)
-        self.consume_invalid_attempts: bool = getattr(md, "consume_invalid_attempts", True) if md else True
+        self.consume_invalid_attempts: bool = (
+            getattr(md, "consume_invalid_attempts", True) if md else True
+        )
 
-        self.base_word_list: List[str] = [
+        self.base_word_list: list[str] = [
             w for w in DEFAULT_SOLUTIONS if len(w) == self.word_length
         ] or [w for w in DEFAULT_SOLUTIONS if len(w) == 5]
 
         # Target selection: prefer explicit target_word in metadata; else pick deterministically by seed
-        self.fixed_target: Optional[str] = _sanitize(getattr(md, "target_word", "")) if md and getattr(md, "target_word", None) else None
-        self.seed: Optional[int] = getattr(md, "seed", None) if md else None
+        self.fixed_target: str | None = (
+            _sanitize(getattr(md, "target_word", ""))
+            if md and getattr(md, "target_word", None)
+            else None
+        )
+        self.seed: int | None = getattr(md, "seed", None) if md else None
 
         # Runtime state
-        self.target: Optional[str] = None
-        self.guesses: List[str] = []
-        self.feedback: List[str] = []
+        self.target: str | None = None
+        self.guesses: list[str] = []
+        self.feedback: list[str] = []
         self.remaining_guesses: int = self.max_guesses
         self.status: str = "in_progress"
         self.terminated: bool = False
@@ -179,7 +184,9 @@ class WordleEngine(StatefulEngine, IReproducibleEngine):
         self.invalid_component = WordleInvalidGuessComponent()
         self.reward_stack = RewardStack([WordleWinComponent(), self.invalid_component])
 
-    async def _reset_engine(self, *, seed: int | None = None) -> Tuple[WordlePrivateState, WordlePublicState]:
+    async def _reset_engine(
+        self, *, seed: int | None = None
+    ) -> tuple[WordlePrivateState, WordlePublicState]:
         if seed is None:
             seed = self.seed
         if seed is not None and self.fixed_target is None:
@@ -211,7 +218,7 @@ class WordleEngine(StatefulEngine, IReproducibleEngine):
         )
         return priv, pub
 
-    async def _step_engine(self, action: str) -> Tuple[WordlePrivateState, WordlePublicState]:
+    async def _step_engine(self, action: str) -> tuple[WordlePrivateState, WordlePublicState]:
         assert self.target is not None
         guess = _sanitize(action)
 
@@ -307,7 +314,7 @@ class WordleEngine(StatefulEngine, IReproducibleEngine):
         )
 
     @classmethod
-    async def _deserialize_engine(cls, snapshot: WordleEngineSnapshot) -> "WordleEngine":
+    async def _deserialize_engine(cls, snapshot: WordleEngineSnapshot) -> WordleEngine:
         task_instance = await TaskInstance.deserialize(snapshot.task_instance_dict)
         engine = cls(task_instance)
         s = snapshot.engine_snapshot
@@ -327,7 +334,7 @@ class WordleEngine(StatefulEngine, IReproducibleEngine):
         engine.total_reward = s.get("total_reward", 0.0)
         return engine
 
-    def get_current_states_for_observation(self) -> Tuple[WordlePrivateState, WordlePublicState]:
+    def get_current_states_for_observation(self) -> tuple[WordlePrivateState, WordlePublicState]:
         pub = WordlePublicState(
             word_length=self.word_length,
             remaining_guesses=self.remaining_guesses,

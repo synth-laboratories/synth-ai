@@ -1,11 +1,13 @@
 import os
+
 import pytest
+
+from synth_ai.lm.core.all import (
+    AnthropicClient,
+    OpenAIStructuredOutputClient,
+)
 from synth_ai.lm.core.main import LM
 from synth_ai.lm.core.vendor_clients import get_client
-from synth_ai.lm.core.all import (
-    OpenAIStructuredOutputClient,
-    AnthropicClient,
-)
 
 
 @pytest.mark.slow

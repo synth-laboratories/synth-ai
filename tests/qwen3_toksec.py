@@ -31,7 +31,9 @@ def _resolve_base_url() -> str:
     return base
 
 
-async def run_once(client: AsyncOpenAI, model: str, prompt: str, max_tokens: int = 512, gpu_pref: str = "h100") -> float | None:
+async def run_once(
+    client: AsyncOpenAI, model: str, prompt: str, max_tokens: int = 512, gpu_pref: str = "h100"
+) -> float | None:
     start = time.time()
     resp = await client.chat.completions.create(
         model=model,
@@ -49,7 +51,9 @@ async def run_once(client: AsyncOpenAI, model: str, prompt: str, max_tokens: int
     if comp is None:
         return None
     tps = float(comp) / elapsed
-    print(f"model={model} tokens={comp} input={getattr(usage, 'prompt_tokens', None)} tps={tps:.2f}")
+    print(
+        f"model={model} tokens={comp} input={getattr(usage, 'prompt_tokens', None)} tps={tps:.2f}"
+    )
     return tps
 
 
@@ -58,7 +62,9 @@ async def main() -> None:
     if not api_key:
         raise RuntimeError("SYNTH_API_KEY must be set")
     base_url = _resolve_base_url()
-    client = AsyncOpenAI(api_key=api_key, base_url=base_url, default_headers={"X-GPU-Preference": "h100"})
+    client = AsyncOpenAI(
+        api_key=api_key, base_url=base_url, default_headers={"X-GPU-Preference": "h100"}
+    )
 
     models = [
         os.getenv("QWEN3_0.6B_MODEL", "Qwen/Qwen3-0.6B"),
@@ -102,7 +108,9 @@ async def main() -> None:
         if per_model_tps:
             per_model_tps.sort()
             avg = mean(per_model_tps)
-            p90 = per_model_tps[max(0, min(len(per_model_tps) - 1, int(0.9 * len(per_model_tps)) - 1))]
+            p90 = per_model_tps[
+                max(0, min(len(per_model_tps) - 1, int(0.9 * len(per_model_tps)) - 1))
+            ]
             print(
                 f"summary model={model} count={len(per_model_tps)} avg={avg:.2f} "
                 f"p90={p90:.2f} min={per_model_tps[0]:.2f} max={per_model_tps[-1]:.2f}"
@@ -113,4 +121,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

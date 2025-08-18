@@ -3,7 +3,6 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 from .abstractions import Event
 from .config import TracingConfig
@@ -16,7 +15,7 @@ class QueuedEvent:
     """Represents an event that failed to upload and needs to be retried."""
 
     event: Event
-    system_info: Dict[str, str]
+    system_info: dict[str, str]
     attempt_count: int = 0
     last_attempt: float = 0
 
@@ -31,7 +30,7 @@ class RetryQueue:
         self._is_processing = False
         self._batch_size = config.batch_size
 
-    def add_failed_event(self, event: Event, system_info: Dict[str, str]) -> None:
+    def add_failed_event(self, event: Event, system_info: dict[str, str]) -> None:
         """Add a failed event to the retry queue."""
         with self._lock:
             # Check if event is already in queue to avoid duplicates
@@ -53,7 +52,7 @@ class RetryQueue:
             )
             logger.debug(f"Added event to retry queue. Queue size: {len(self.queue)}")
 
-    def get_retryable_events(self, max_events: Optional[int] = None) -> List[QueuedEvent]:
+    def get_retryable_events(self, max_events: int | None = None) -> list[QueuedEvent]:
         """Get events that are ready to be retried."""
         now = time.time()
         retryable = []
@@ -74,7 +73,7 @@ class RetryQueue:
 
         return retryable
 
-    def process_sync(self) -> Tuple[int, int]:
+    def process_sync(self) -> tuple[int, int]:
         """Process the retry queue synchronously.
 
         Returns:
@@ -125,7 +124,7 @@ class RetryQueue:
 
         return success_count, failure_count
 
-    async def process_async(self) -> Tuple[int, int]:
+    async def process_async(self) -> tuple[int, int]:
         """Process the retry queue asynchronously.
 
         Returns:

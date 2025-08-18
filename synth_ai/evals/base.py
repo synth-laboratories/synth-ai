@@ -1,9 +1,8 @@
-from typing import List
 
 
 class Judgement:
     def __init__(
-        self, criteria: str, score: float, reasoning: str = "", evidence: List[str] = None
+        self, criteria: str, score: float, reasoning: str = "", evidence: list[str] = None
     ):
         self.criteria = criteria
         self.score = score
@@ -12,5 +11,5 @@ class Judgement:
 
 
 class BaseEval:
-    async def run(self, data: any) -> List[Judgement]:
+    async def run(self, data: any) -> list[Judgement]:
         pass

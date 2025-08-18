@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from contextlib import contextmanager
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from .local import (
     _local,
@@ -24,7 +24,7 @@ class ContextState(Generic[T]):
         self.thread_local_attr = thread_local_attr
         self.context_var = context_var
 
-    def get(self) -> Optional[T]:
+    def get(self) -> T | None:
         """Get value from appropriate context."""
         try:
             asyncio.get_running_loop()
@@ -32,7 +32,7 @@ class ContextState(Generic[T]):
         except RuntimeError:
             return getattr(_local, self.thread_local_attr, None)
 
-    def set(self, value: T) -> Optional[T]:
+    def set(self, value: T) -> T | None:
         """Set value in appropriate context."""
         try:
             asyncio.get_running_loop()
@@ -41,7 +41,7 @@ class ContextState(Generic[T]):
             setattr(_local, self.thread_local_attr, value)
             return None
 
-    def reset(self, token: Optional[T] = None) -> None:
+    def reset(self, token: T | None = None) -> None:
         """Reset/clear value from appropriate context."""
         try:
             asyncio.get_running_loop()
@@ -69,7 +69,7 @@ def trace_context(
     system_name: str,
     system_id: str,
     system_instance_id: str,
-    system_instance_metadata: Optional[Dict[str, Any]] = None,
+    system_instance_metadata: dict[str, Any] | None = None,
 ):
     """Context manager for setting up tracing context.
 
@@ -132,7 +132,7 @@ def trace_context(
             active_events_state.reset()
 
 
-def get_current_context() -> Dict[str, Any]:
+def get_current_context() -> dict[str, Any]:
     """Get the current tracing context.
 
     Returns:

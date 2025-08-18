@@ -18,16 +18,16 @@ from __future__ import annotations
 import asyncio
 import os
 import random
-from typing import List, Dict, Any, Tuple
+from typing import Any
 
-from dotenv import load_dotenv
 from datasets import load_dataset
+from dotenv import load_dotenv
 
 from synth_ai.lm.core.main_v3 import LM, build_messages
 from synth_ai.lm.overrides import LMOverridesContext
 
 
-async def classify_one(lm: LM, text: str, label_names: List[str]) -> str:
+async def classify_one(lm: LM, text: str, label_names: list[str]) -> str:
     labels_joined = ", ".join(label_names)
     system_message = (
         "You are an intent classifier for the Banking77 dataset. "
@@ -41,7 +41,7 @@ async def classify_one(lm: LM, text: str, label_names: List[str]) -> str:
     return (resp.raw_response or "").strip()
 
 
-def choose_label(pred: str, label_names: List[str]) -> str:
+def choose_label(pred: str, label_names: list[str]) -> str:
     norm_pred = pred.strip().lower()
     label_lookup = {ln.lower(): ln for ln in label_names}
     mapped = label_lookup.get(norm_pred)
@@ -56,12 +56,18 @@ def choose_label(pred: str, label_names: List[str]) -> str:
     return max(label_names, key=score)
 
 
-async def eval_context(lm: LM, items: List[Tuple[str, str]], label_names: List[str], ctx_name: str, specs: List[Dict[str, Any]]) -> Tuple[str, int, int]:
+async def eval_context(
+    lm: LM,
+    items: list[tuple[str, str]],
+    label_names: list[str],
+    ctx_name: str,
+    specs: list[dict[str, Any]],
+) -> tuple[str, int, int]:
     correct = 0
     with LMOverridesContext(specs):
         tasks = [classify_one(lm, text, label_names) for text, _ in items]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-    for (text, gold), pred in zip(items, results):
+    for (text, gold), pred in zip(items, results, strict=False):
         if isinstance(pred, Exception):
             # Treat exceptions as incorrect
             continue
@@ -81,7 +87,7 @@ async def main() -> None:
 
     print("Loading Banking77 dataset (split='test')...")
     ds = load_dataset("banking77", split="test")
-    label_names: List[str] = ds.features["label"].names  # type: ignore
+    label_names: list[str] = ds.features["label"].names  # type: ignore
 
     idxs = random.sample(range(len(ds)), k=min(n, len(ds)))
     items = [
@@ -90,7 +96,7 @@ async def main() -> None:
     ]
 
     # Define a few override contexts to compare
-    contexts: List[Dict[str, Any]] = [
+    contexts: list[dict[str, Any]] = [
         {
             "name": "baseline (no overrides)",
             "overrides": [],
@@ -145,7 +151,7 @@ async def main() -> None:
     print(f"\nEvaluating {len(contexts)} contexts on {len(items)} Banking77 samples (async)...")
 
     # Evaluate each context sequentially but batched (each context classifies in parallel)
-    results: List[Tuple[str, int, int]] = []
+    results: list[tuple[str, int, int]] = []
     for ctx in contexts:
         name = ctx["name"]
         specs = ctx["overrides"]

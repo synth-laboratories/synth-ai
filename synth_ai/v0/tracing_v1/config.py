@@ -1,6 +1,7 @@
 import json
+from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Dict, List, Sequence, TypedDict, Union
+from typing import Any, NotRequired, TypedDict
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -10,12 +11,11 @@ from opentelemetry.sdk.trace.export import (
     SpanExportResult,
 )
 from pydantic import BaseModel, ConfigDict, Field
-from typing_extensions import NotRequired
 
 
 class InMemoryExporter(SpanExporter):
     def __init__(self):
-        self.spans: List[Dict[str, Any]] = []
+        self.spans: list[dict[str, Any]] = []
 
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         for span in spans:
@@ -45,7 +45,7 @@ class InMemoryExporter(SpanExporter):
     def shutdown(self):
         pass
 
-    def get_spans(self) -> List[Dict[str, Any]]:
+    def get_spans(self) -> list[dict[str, Any]]:
         return self.spans
 
     def clear(self):
@@ -125,7 +125,7 @@ class Message(TypedDict):
     role: str
     content: str
     name: NotRequired[str]
-    function_call: NotRequired[Dict[str, str]]
+    function_call: NotRequired[dict[str, str]]
 
 
 class ModelParams(TypedDict, total=False):
@@ -136,5 +136,5 @@ class ModelParams(TypedDict, total=False):
     top_p: float
     frequency_penalty: float
     presence_penalty: float
-    stop: Union[str, List[str]]
-    functions: List[Dict[str, Any]]
+    stop: str | list[str]
+    functions: list[dict[str, Any]]

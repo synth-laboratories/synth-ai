@@ -35,19 +35,21 @@ Concepts:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from .lm_call_record_abstractions import LLMCallRecord
 
 
 @dataclass
 class TimeRecord:
     """Time information for events and messages.
-    
+
     This class captures timing information with microsecond precision for event
     correlation and performance analysis.
-    
+
     Attributes:
         event_time: Unix timestamp (float) when the event occurred. This is the
                    primary timestamp used for ordering and correlation.
@@ -56,17 +58,17 @@ class TimeRecord:
     """
 
     event_time: float
-    message_time: Optional[int] = None
+    message_time: int | None = None
 
 
 @dataclass
 class SessionEventMarkovBlanketMessage:
     """Message crossing Markov blanket boundaries between systems in a session.
-    
+
     IMPORTANT: This represents information transfer BETWEEN distinct systems/subsystems,
     where each system is conceptualized as having a Markov blanket that separates its
     internal states from the external environment. These messages cross those boundaries.
-    
+
     This is NOT for chat messages within an LLM conversation (those belong in LLMCallRecord).
     Instead, this captures inter-system communication such as:
     - Human -> Agent system (user providing instructions)
@@ -75,11 +77,11 @@ class SessionEventMarkovBlanketMessage:
     - Environment -> Runtime (returning results)
     - Runtime -> Agent (passing back results)
     - Agent -> Human (final response)
-    
+
     Each system maintains its own internal state and processing, but can only influence
     other systems through these explicit boundary-crossing messages. This follows the
     Free Energy Principle where systems minimize surprise by maintaining boundaries.
-    
+
     Attributes:
         content: The actual message content crossing the boundary (text, JSON, etc.)
         message_type: Type of boundary crossing (e.g., 'observation', 'action', 'result')
@@ -98,17 +100,17 @@ class SessionEventMarkovBlanketMessage:
     content: str
     message_type: str
     time_record: TimeRecord
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class BaseEvent:
     """Base class for all event types.
-    
+
     This is the foundation for all events in the tracing system. Every event must
     have a system identifier and timing information. Events are intra-system facts
     (they occur within a subsystem) and are not necessarily direct communications.
-    
+
     Attributes:
         system_instance_id: Identifier for the system/component that generated
                            this event (e.g., 'llm', 'environment', 'tool_executor')
@@ -123,37 +125,37 @@ class BaseEvent:
 
     system_instance_id: str
     time_record: TimeRecord
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    event_metadata: Optional[List[Any]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    event_metadata: list[Any] | None = None
 
 
 @dataclass
 class RuntimeEvent(BaseEvent):
     """Event from runtime system.
-    
+
     Captures events from the AI system's runtime, typically representing decisions
     or actions taken by the system (e.g., selecting a tool with arguments).
     Use paired SessionEventMessages to record the communication of this choice to
     the environment.
-    
+
     Attributes:
         actions: List of action identifiers or indices. The interpretation
                 depends on the system (e.g., discrete action indices for RL,
                 tool selection IDs for agents, etc.)
     """
 
-    actions: List[int] = field(default_factory=list)
+    actions: list[int] = field(default_factory=list)
 
 
 @dataclass
 class EnvironmentEvent(BaseEvent):
     """Event from environment.
-    
+
     Captures feedback from the environment in response to system actions (e.g.,
     command output, exit codes, observations). Use a paired SessionEventMessage
     to record the environment-to-agent communication of the result.
     Follows the Gymnasium/OpenAI Gym convention for compatibility.
-    
+
     Attributes:
         reward: Scalar reward signal from the environment
         terminated: Whether the episode ended due to reaching a terminal state
@@ -165,19 +167,19 @@ class EnvironmentEvent(BaseEvent):
     reward: float = 0.0
     terminated: bool = False
     truncated: bool = False
-    system_state_before: Optional[Dict[str, Any]] = None
-    system_state_after: Optional[Dict[str, Any]] = None
+    system_state_before: dict[str, Any] | None = None
+    system_state_after: dict[str, Any] | None = None
 
 
 @dataclass
 class LMCAISEvent(BaseEvent):
     """Extended CAIS event for language model interactions.
-    
+
     CAIS (Claude AI System) events capture detailed information about LLM calls,
     including performance metrics, cost tracking, and distributed tracing support.
     Treat provider-specific prompt/completion structures as part of this event's
     data. Do not emit them as SessionEventMessages.
-    
+
     Attributes:
         model_name: The specific model used (e.g., 'gpt-4', 'claude-3-opus')
         provider: LLM provider (e.g., 'openai', 'anthropic', 'local')
@@ -195,27 +197,27 @@ class LMCAISEvent(BaseEvent):
     """
 
     model_name: str = ""
-    provider: Optional[str] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    total_tokens: Optional[int] = None
-    cost_usd: Optional[float] = None
-    latency_ms: Optional[int] = None
-    span_id: Optional[str] = None
-    trace_id: Optional[str] = None
-    system_state_before: Optional[Dict[str, Any]] = None
-    system_state_after: Optional[Dict[str, Any]] = None
-    call_records: List[LLMCallRecord] = field(default_factory=list)
+    provider: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    cost_usd: float | None = None
+    latency_ms: int | None = None
+    span_id: str | None = None
+    trace_id: str | None = None
+    system_state_before: dict[str, Any] | None = None
+    system_state_after: dict[str, Any] | None = None
+    call_records: list[LLMCallRecord] = field(default_factory=list)
 
 
 @dataclass
 class SessionTimeStep:
     """A logical timestep within a session.
-    
+
     Represents a discrete step in the session timeline. In conversational AI,
     this often corresponds to a single turn of dialogue. In RL systems, it
     might represent a single environment step.
-    
+
     Attributes:
         step_id: Unique identifier for this step (e.g., 'turn_1', 'step_42')
         step_index: Sequential index of this step within the session
@@ -231,21 +233,21 @@ class SessionTimeStep:
     step_id: str = ""
     step_index: int = 0
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    turn_number: Optional[int] = None
-    events: List[BaseEvent] = field(default_factory=list)
-    markov_blanket_messages: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
-    step_metadata: Dict[str, Any] = field(default_factory=dict)
-    completed_at: Optional[datetime] = None
+    turn_number: int | None = None
+    events: list[BaseEvent] = field(default_factory=list)
+    markov_blanket_messages: list[SessionEventMarkovBlanketMessage] = field(default_factory=list)
+    step_metadata: dict[str, Any] = field(default_factory=dict)
+    completed_at: datetime | None = None
 
 
 @dataclass
 class SessionTrace:
     """Complete trace of a session.
-    
+
     The top-level container that holds all data for a single execution session.
     This could represent a complete conversation, an RL episode, or any other
     bounded interaction sequence.
-    
+
     Attributes:
         session_id: Unique identifier for this session
         created_at: When the session started (UTC)
@@ -256,7 +258,7 @@ class SessionTrace:
                  'model_config', 'environment_name')
         session_metadata: Optional list of structured metadata entries that
                          don't fit the dictionary format
-    
+
     Note:
         Both event_history and message_history contain the complete record,
         while individual timesteps also reference their specific events/messages.
@@ -265,15 +267,17 @@ class SessionTrace:
 
     session_id: str = ""
     created_at: datetime = field(default_factory=datetime.utcnow)
-    session_time_steps: List[SessionTimeStep] = field(default_factory=list)
-    event_history: List[BaseEvent] = field(default_factory=list)
-    markov_blanket_message_history: List[SessionEventMarkovBlanketMessage] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    session_metadata: Optional[List[Dict[str, Any]]] = None
+    session_time_steps: list[SessionTimeStep] = field(default_factory=list)
+    event_history: list[BaseEvent] = field(default_factory=list)
+    markov_blanket_message_history: list[SessionEventMarkovBlanketMessage] = field(
+        default_factory=list
+    )
+    metadata: dict[str, Any] = field(default_factory=dict)
+    session_metadata: list[dict[str, Any]] | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
-        
+
         Returns:
             A dictionary containing all session data, suitable for
             JSON serialization or database storage.

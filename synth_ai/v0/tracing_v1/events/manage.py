@@ -130,7 +130,7 @@ def clear_current_event(event_type: str):
         logger.debug(f"Cleared current event of type {event_type}")
 
 
-def end_event(event_type: str) -> Optional[Event]:
+def end_event(event_type: str) -> Event | None:
     """End the current event and store it."""
     current_event = get_current_event(event_type)
     if current_event:

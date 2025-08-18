@@ -6,43 +6,44 @@ based on model names or explicit provider specifications.
 """
 
 import re
-from typing import Any, List, Pattern, Optional, Dict
+from re import Pattern
+from typing import Any
 
 from synth_ai.lm.core.all import (
     AnthropicClient,
+    CustomEndpointClient,
     DeepSeekClient,
     GeminiClient,
-    GroqClient,
     GrokClient,
+    GroqClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
-    TogetherClient,
-    CustomEndpointClient,
     OpenRouterClient,
+    TogetherClient,
 )
 
 # Regular expressions to match model names to their respective providers
-openai_naming_regexes: List[Pattern] = [
+openai_naming_regexes: list[Pattern] = [
     re.compile(r"^(ft:)?(o[1,3,4](-.*)?|gpt-.*)$"),
 ]
-openai_formatting_model_regexes: List[Pattern] = [
+openai_formatting_model_regexes: list[Pattern] = [
     re.compile(r"^(ft:)?gpt-4o(-.*)?$"),
 ]
-anthropic_naming_regexes: List[Pattern] = [
+anthropic_naming_regexes: list[Pattern] = [
     re.compile(r"^claude-.*$"),
 ]
-gemini_naming_regexes: List[Pattern] = [
+gemini_naming_regexes: list[Pattern] = [
     re.compile(r"^gemini-.*$"),
     re.compile(r"^gemma[2-9].*$"),
 ]
-deepseek_naming_regexes: List[Pattern] = [
+deepseek_naming_regexes: list[Pattern] = [
     re.compile(r"^deepseek-.*$"),
 ]
-together_naming_regexes: List[Pattern] = [
+together_naming_regexes: list[Pattern] = [
     re.compile(r"^.*\/.*$"),
 ]
 
-groq_naming_regexes: List[Pattern] = [
+groq_naming_regexes: list[Pattern] = [
     re.compile(r"^llama-3.3-70b-versatile$"),
     re.compile(r"^llama-3.1-8b-instant$"),
     re.compile(r"^qwen-2.5-32b$"),
@@ -60,7 +61,7 @@ groq_naming_regexes: List[Pattern] = [
     re.compile(r"^moonshotai/kimi-k2-instruct$"),
 ]
 
-grok_naming_regexes: List[Pattern] = [
+grok_naming_regexes: list[Pattern] = [
     re.compile(r"^grok-3-beta$"),
     re.compile(r"^grok-3-mini-beta$"),
     re.compile(r"^grok-beta$"),
@@ -68,16 +69,16 @@ grok_naming_regexes: List[Pattern] = [
 ]
 
 
-openrouter_naming_regexes: List[Pattern] = [
+openrouter_naming_regexes: list[Pattern] = [
     re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
 ]
 
-openrouter_naming_regexes: List[Pattern] = [
+openrouter_naming_regexes: list[Pattern] = [
     re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
 ]
 
 # Custom endpoint patterns - check these before generic patterns
-custom_endpoint_naming_regexes: List[Pattern] = [
+custom_endpoint_naming_regexes: list[Pattern] = [
     # Modal endpoints: org--app.modal.run
     re.compile(r"^[a-zA-Z0-9\-]+--[a-zA-Z0-9\-]+\.modal\.run$"),
     # Generic domain patterns for custom endpoints
@@ -86,7 +87,7 @@ custom_endpoint_naming_regexes: List[Pattern] = [
 ]
 
 # Provider mapping for explicit provider overrides
-PROVIDER_MAP: Dict[str, Any] = {
+PROVIDER_MAP: dict[str, Any] = {
     "openai": OpenAIStructuredOutputClient,
     "anthropic": AnthropicClient,
     "groq": GroqClient,
@@ -104,7 +105,7 @@ def get_client(
     model_name: str,
     with_formatting: bool = False,
     synth_logging: bool = True,
-    provider: Optional[str] = None,
+    provider: str | None = None,
 ) -> Any:
     """
     Get a vendor client for the specified model.

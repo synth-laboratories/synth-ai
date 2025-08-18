@@ -1,12 +1,12 @@
 """Factory for creating storage instances."""
 
-from typing import Optional
-from .base import TraceStorage
-from .config import StorageConfig, StorageBackend
+
 from ..turso.manager import AsyncSQLTraceManager
+from .base import TraceStorage
+from .config import StorageBackend, StorageConfig
 
 
-def create_storage(config: Optional[StorageConfig] = None) -> TraceStorage:
+def create_storage(config: StorageConfig | None = None) -> TraceStorage:
     """Create a storage instance based on configuration.
 
     Args:

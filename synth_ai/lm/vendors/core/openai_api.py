@@ -6,7 +6,7 @@ supporting both standard and structured output modes.
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 import openai
 import pydantic_core
@@ -15,13 +15,13 @@ import pydantic_core
 from pydantic import BaseModel
 
 from synth_ai.lm.caching.initialize import get_cache_handler
+from synth_ai.lm.constants import OPENAI_REASONING_MODELS, SPECIAL_BASE_TEMPS
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse
-from synth_ai.lm.constants import SPECIAL_BASE_TEMPS, OPENAI_REASONING_MODELS
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 # Exceptions that should trigger retry logic for OpenAI API calls
-OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
+OPENAI_EXCEPTIONS_TO_RETRY: tuple[type[Exception], ...] = (
     pydantic_core._pydantic_core.ValidationError,
     openai.OpenAIError,
     openai.APIConnectionError,
@@ -36,10 +36,11 @@ OPENAI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
 class OpenAIStructuredOutputClient(OpenAIStandard):
     """
     OpenAI client with support for structured outputs.
-    
+
     This client extends the standard OpenAI client to support structured outputs
     using OpenAI's native structured output feature or response format parameter.
     """
+
     def __init__(self, synth_logging: bool = True):
         if synth_logging:
             # print("Using synth logging - OpenAIStructuredOutputClient")
@@ -58,11 +59,11 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
     async def _hit_api_async_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
         reasoning_effort: str = "high",
     ) -> str:
         if tools:
@@ -109,11 +110,11 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
     def _hit_api_sync_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
         reasoning_effort: str = "high",
     ) -> str:
         if tools:

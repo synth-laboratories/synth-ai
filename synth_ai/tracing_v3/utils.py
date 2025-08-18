@@ -1,10 +1,10 @@
 """Utility functions for tracing v3."""
 
-import json
-from datetime import datetime
-from typing import Any, Dict, Optional
 import hashlib
+import json
 import uuid
+from datetime import datetime
+from typing import Any
 
 
 def iso_now() -> str:
@@ -36,7 +36,7 @@ def generate_experiment_id(name: str) -> str:
     return f"exp_{hash_obj.hexdigest()[:12]}"
 
 
-def detect_provider(model_name: Optional[str]) -> str:
+def detect_provider(model_name: str | None) -> str:
     """Detect LLM provider from model name."""
     if not model_name:
         return "unknown"
@@ -59,7 +59,7 @@ def detect_provider(model_name: Optional[str]) -> str:
         return "unknown"
 
 
-def calculate_cost(model_name: str, input_tokens: int, output_tokens: int) -> Optional[float]:
+def calculate_cost(model_name: str, input_tokens: int, output_tokens: int) -> float | None:
     """Calculate cost in USD based on model and token counts."""
     # This is a simplified version - in production you'd want a proper pricing table
     pricing = {

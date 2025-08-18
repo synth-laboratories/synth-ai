@@ -8,10 +8,12 @@ in the requested structured format (Pydantic models).
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from collections.abc import Callable
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 from synth_ai.lm.core.exceptions import StructuredOutputCoercionFailureException
 from synth_ai.lm.structured_outputs.inject import (
     inject_structured_output_instructions,
@@ -22,7 +24,6 @@ from synth_ai.lm.structured_outputs.rehabilitate import (
     pull_out_structured_output,
 )
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 
 logger = logging.getLogger(__name__)
 
@@ -30,26 +31,27 @@ logger = logging.getLogger(__name__)
 class StructuredHandlerBase(ABC):
     """
     Abstract base class for structured output handlers.
-    
+
     Handles the logic for ensuring language models return properly formatted
     structured outputs, with retry logic and error handling.
-    
+
     Attributes:
         core_client: Primary vendor client for API calls
         retry_client: Client used for retry attempts (may use different model)
         handler_params: Configuration parameters including retry count
         structured_output_mode: Either "stringified_json" or "forced_json"
     """
+
     core_client: VendorBase
     retry_client: VendorBase
-    handler_params: Dict[str, Any]
+    handler_params: dict[str, Any]
     structured_output_mode: Literal["stringified_json", "forced_json"]
 
     def __init__(
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
-        handler_params: Optional[Dict[str, Any]] = None,
+        handler_params: dict[str, Any] | None = None,
         structured_output_mode: Literal["stringified_json", "forced_json"] = "stringified_json",
     ):
         self.core_client = core_client
@@ -59,7 +61,7 @@ class StructuredHandlerBase(ABC):
 
     async def call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         temperature: float = 0.0,
@@ -74,7 +76,7 @@ class StructuredHandlerBase(ABC):
             model=model,
             response_model=response_model,
             api_call_method=self.core_client._hit_api_async_structured_output
-            if (not not response_model and self.structured_output_mode == "forced_json")
+            if (response_model and self.structured_output_mode == "forced_json")
             else self.core_client._hit_api_async,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
@@ -83,7 +85,7 @@ class StructuredHandlerBase(ABC):
 
     def call_sync(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         model: str,
         temperature: float = 0.0,
@@ -97,7 +99,7 @@ class StructuredHandlerBase(ABC):
             model=model,
             response_model=response_model,
             api_call_method=self.core_client._hit_api_sync_structured_output
-            if (not not response_model and self.structured_output_mode == "forced_json")
+            if (response_model and self.structured_output_mode == "forced_json")
             else self.core_client._hit_api_sync,
             temperature=temperature,
             use_ephemeral_cache_only=use_ephemeral_cache_only,
@@ -107,7 +109,7 @@ class StructuredHandlerBase(ABC):
     @abstractmethod
     async def _process_call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         api_call_method,
@@ -119,7 +121,7 @@ class StructuredHandlerBase(ABC):
     @abstractmethod
     def _process_call_sync(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         api_call_method,
@@ -132,13 +134,13 @@ class StructuredHandlerBase(ABC):
 class StringifiedJSONHandler(StructuredHandlerBase):
     core_client: VendorBase
     retry_client: VendorBase
-    handler_params: Dict[str, Any]
+    handler_params: dict[str, Any]
 
     def __init__(
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
-        handler_params: Dict[str, Any] = {"retries": 3},
+        handler_params: dict[str, Any] = {"retries": 3},
     ):
         super().__init__(
             core_client,
@@ -149,7 +151,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
 
     async def _process_call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         temperature: float,
@@ -242,7 +244,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
 
     def _process_call_sync(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         temperature: float,
@@ -320,13 +322,13 @@ class StringifiedJSONHandler(StructuredHandlerBase):
 class ForcedJSONHandler(StructuredHandlerBase):
     core_client: VendorBase
     retry_client: VendorBase
-    handler_params: Dict[str, Any]
+    handler_params: dict[str, Any]
 
     def __init__(
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
-        handler_params: Dict[str, Any] = {},
+        handler_params: dict[str, Any] = {},
         reasoning_effort: str = "high",
     ):
         super().__init__(
@@ -339,7 +341,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
 
     async def _process_call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         api_call_method: Callable,
@@ -360,7 +362,7 @@ class ForcedJSONHandler(StructuredHandlerBase):
 
     def _process_call_sync(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         api_call_method: Callable,
@@ -380,16 +382,16 @@ class ForcedJSONHandler(StructuredHandlerBase):
 
 
 class StructuredOutputHandler:
-    handler: Union[StringifiedJSONHandler, ForcedJSONHandler]
+    handler: StringifiedJSONHandler | ForcedJSONHandler
     mode: Literal["stringified_json", "forced_json"]
-    handler_params: Dict[str, Any]
+    handler_params: dict[str, Any]
 
     def __init__(
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
         mode: Literal["stringified_json", "forced_json"],
-        handler_params: Dict[str, Any] = {},
+        handler_params: dict[str, Any] = {},
     ):
         self.mode = mode
         if self.mode == "stringified_json":
@@ -402,11 +404,11 @@ class StructuredOutputHandler:
 
     async def call_async(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         use_ephemeral_cache_only: bool = False,
-        lm_config: Dict[str, Any] = {},
+        lm_config: dict[str, Any] = {},
         reasoning_effort: str = "high",
     ) -> BaseLMResponse:
         # print("Output handler call async")
@@ -421,11 +423,11 @@ class StructuredOutputHandler:
 
     def call_sync(
         self,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         model: str,
         response_model: BaseModel,
         use_ephemeral_cache_only: bool = False,
-        lm_config: Dict[str, Any] = {},
+        lm_config: dict[str, Any] = {},
         reasoning_effort: str = "high",
     ) -> BaseLMResponse:
         return self.handler.call_sync(

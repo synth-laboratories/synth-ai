@@ -10,7 +10,7 @@ warnings.warn(
 )
 
 # Re-export the main components with deprecation warnings
+from .abstractions import *
 from .config import *
 from .decorators import *
 from .trackers import *
-from .abstractions import *

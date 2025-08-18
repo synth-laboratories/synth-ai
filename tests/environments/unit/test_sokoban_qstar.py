@@ -3,31 +3,32 @@ Unit tests for Sokoban environment with Q* (A*) solver.
 Tests the core Sokoban functionality without agent demos.
 """
 
-import pytest
+from typing import Any
 from uuid import uuid4
-from typing import Dict, Any
 
-from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
+import pytest
+
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.sokoban.engine import SokobanEngine
+from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
     SokobanTaskInstanceMetadata,
 )
-from synth_ai.environments.tasks.core import Impetus, Intent
-from synth_ai.environments.environment.tools import EnvToolCall
 
 # Import the A* solver utilities
 from synth_ai.environments.examples.sokoban.units.astar_common import (
-    astar,
-    solved,
-    heuristic,
     ENGINE_ASTAR,
+    astar,
+    heuristic,
+    solved,
 )
+from synth_ai.environments.tasks.core import Impetus, Intent
 
 
 # Helper function to create task instance
 def create_task_instance(
-    puzzle_snapshot: Dict[str, Any], difficulty: str = "test"
+    puzzle_snapshot: dict[str, Any], difficulty: str = "test"
 ) -> SokobanTaskInstance:
     """Create a SokobanTaskInstance with the given puzzle snapshot."""
     dim_room = puzzle_snapshot.get("dim_room", [5, 5])
@@ -58,7 +59,7 @@ def create_task_instance(
 
 
 # Test fixtures for various Sokoban puzzles
-TRIVIAL_PUZZLE: Dict[str, Any] = {
+TRIVIAL_PUZZLE: dict[str, Any] = {
     "dim_room": [3, 3],
     "room_fixed": [[0, 0, 0], [0, 2, 0], [0, 0, 0]],  # One target at center
     "room_state": [[5, 0, 0], [0, 3, 0], [0, 0, 0]],  # Box on target (3), player at top-left
@@ -71,7 +72,7 @@ TRIVIAL_PUZZLE: Dict[str, Any] = {
     "reward_last": 0,
 }
 
-SIMPLE_PUZZLE: Dict[str, Any] = {
+SIMPLE_PUZZLE: dict[str, Any] = {
     "dim_room": [4, 3],
     "room_fixed": [
         [0, 0, 0],
@@ -89,7 +90,7 @@ SIMPLE_PUZZLE: Dict[str, Any] = {
     "reward_last": 0,
 }
 
-MEDIUM_PUZZLE: Dict[str, Any] = {
+MEDIUM_PUZZLE: dict[str, Any] = {
     "dim_room": [5, 5],
     "room_fixed": [
         [0, 0, 0, 0, 0],

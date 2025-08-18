@@ -6,7 +6,6 @@ This module provides functionality to register environments from external packag
 
 import importlib
 import logging
-from typing import List, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ExternalRegistryConfig:
     """Configuration for external environment registries."""
 
-    def __init__(self, external_environments: List[Dict[str, str]] = None):
+    def __init__(self, external_environments: list[dict[str, str]] = None):
         self.external_environments = external_environments or []
 
 

@@ -2,9 +2,10 @@
 Pytest configuration for Environments tests.
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add src directory to Python path for imports
 src_path = Path(__file__).parent.parent / "src"

@@ -3,12 +3,11 @@ Unified interface for LM providers.
 Provides a consistent API for OpenAI and Synth backends.
 """
 
-import os
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Union
+from typing import Any
 
-from .config import SynthConfig, OpenAIConfig
+from .config import OpenAIConfig, SynthConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ class UnifiedLMProvider(ABC):
 
     @abstractmethod
     async def create_chat_completion(
-        self, model: str, messages: List[Dict[str, Any]], **kwargs
-    ) -> Dict[str, Any]:
+        self, model: str, messages: list[dict[str, Any]], **kwargs
+    ) -> dict[str, Any]:
         """Create a chat completion."""
         pass
 
@@ -37,7 +36,7 @@ class UnifiedLMProvider(ABC):
 class OpenAIProvider(UnifiedLMProvider):
     """OpenAI provider implementation."""
 
-    def __init__(self, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, api_key: str | None = None, **kwargs):
         """
         Initialize OpenAI provider.
 
@@ -59,8 +58,8 @@ class OpenAIProvider(UnifiedLMProvider):
         logger.info("Initialized OpenAI provider")
 
     async def create_chat_completion(
-        self, model: str, messages: List[Dict[str, Any]], **kwargs
-    ) -> Dict[str, Any]:
+        self, model: str, messages: list[dict[str, Any]], **kwargs
+    ) -> dict[str, Any]:
         """Create a chat completion using OpenAI."""
         response = await self.client.chat.completions.create(
             model=model, messages=messages, **kwargs
@@ -82,7 +81,7 @@ class OpenAIProvider(UnifiedLMProvider):
 class SynthProvider(UnifiedLMProvider):
     """Synth provider implementation."""
 
-    def __init__(self, config: Optional[SynthConfig] = None, **kwargs):
+    def __init__(self, config: SynthConfig | None = None, **kwargs):
         """
         Initialize Synth provider.
 
@@ -96,8 +95,8 @@ class SynthProvider(UnifiedLMProvider):
         self.client = AsyncSynthClient(self.config)
 
     async def create_chat_completion(
-        self, model: str, messages: List[Dict[str, Any]], **kwargs
-    ) -> Dict[str, Any]:
+        self, model: str, messages: list[dict[str, Any]], **kwargs
+    ) -> dict[str, Any]:
         """Create a chat completion using Synth."""
         return await self.client.chat_completions_create(model=model, messages=messages, **kwargs)
 
@@ -156,9 +155,9 @@ class UnifiedLMClient:
             default_provider: Default provider to use ("openai" or "synth")
         """
         self.default_provider = default_provider
-        self._providers: Dict[str, UnifiedLMProvider] = {}
+        self._providers: dict[str, UnifiedLMProvider] = {}
 
-    async def _get_provider(self, provider: Optional[str] = None) -> UnifiedLMProvider:
+    async def _get_provider(self, provider: str | None = None) -> UnifiedLMProvider:
         """Get or create a provider instance."""
         provider_name = provider or self.default_provider
 
@@ -168,8 +167,8 @@ class UnifiedLMClient:
         return self._providers[provider_name]
 
     async def create_chat_completion(
-        self, model: str, messages: List[Dict[str, Any]], provider: Optional[str] = None, **kwargs
-    ) -> Dict[str, Any]:
+        self, model: str, messages: list[dict[str, Any]], provider: str | None = None, **kwargs
+    ) -> dict[str, Any]:
         """
         Create a chat completion using specified or default provider.
 
@@ -185,7 +184,7 @@ class UnifiedLMClient:
         provider_instance = await self._get_provider(provider)
         return await provider_instance.create_chat_completion(model, messages, **kwargs)
 
-    async def warmup(self, model: str, provider: Optional[str] = None, **kwargs) -> bool:
+    async def warmup(self, model: str, provider: str | None = None, **kwargs) -> bool:
         """Warm up a model on specified provider."""
         provider_instance = await self._get_provider(provider)
         return await provider_instance.warmup(model, **kwargs)

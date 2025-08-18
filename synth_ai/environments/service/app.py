@@ -1,5 +1,5 @@
-import sys
 import os  # Added to ensure os is available before use
+import sys
 
 # Ensure local 'src' directory is on PYTHONPATH for dev installs
 # Current file: <repo>/src/synth_env/service/app.py
@@ -12,12 +12,13 @@ print(f"SYS.PATH IN APP.PY: {sys.path}")
 import logging
 
 from fastapi import FastAPI
-from synth_ai.environments.service.registry import list_supported_env_types, register_environment
+
 from synth_ai.environments.service.core_routes import api_router
 from synth_ai.environments.service.external_registry import (
     ExternalRegistryConfig,
     load_external_environments,
 )
+from synth_ai.environments.service.registry import list_supported_env_types, register_environment
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -41,6 +42,7 @@ register_environment("CrafterCustom", ccustom.CrafterCustomEnvironment)
 # Register Wordle example environment
 try:
     import synth_ai.environments.examples.wordle.environment as wordle_mod
+
     register_environment("Wordle", wordle_mod.WordleEnvironment)
 except Exception as _e:
     # Keep service robust even if example env import fails

@@ -1,15 +1,21 @@
 """Main SessionTracer class for tracing v3."""
 
 import asyncio
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
 from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any
 
-from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMarkovBlanketMessage, TimeRecord
-from .decorators import set_session_id, set_turn_number, set_session_tracer, SessionContext
-from .turso.manager import AsyncSQLTraceManager
+from .abstractions import (
+    BaseEvent,
+    SessionEventMarkovBlanketMessage,
+    SessionTimeStep,
+    SessionTrace,
+    TimeRecord,
+)
 from .config import CONFIG
-from .hooks import HookManager, GLOBAL_HOOKS
+from .decorators import set_session_id, set_session_tracer, set_turn_number
+from .hooks import GLOBAL_HOOKS, HookManager
+from .turso.manager import AsyncSQLTraceManager
 from .utils import generate_session_id
 
 
@@ -18,8 +24,8 @@ class SessionTracer:
 
     def __init__(
         self,
-        hooks: Optional[HookManager] = None,
-        db_url: Optional[str] = None,
+        hooks: HookManager | None = None,
+        db_url: str | None = None,
         auto_save: bool = True,
     ):
         """Initialize session tracer.
@@ -30,20 +36,20 @@ class SessionTracer:
             auto_save: Whether to automatically save sessions on end
         """
         self.hooks = hooks or GLOBAL_HOOKS
-        self._current_trace: Optional[SessionTrace] = None
+        self._current_trace: SessionTrace | None = None
         self._lock = asyncio.Lock()
         self.db_url = db_url or CONFIG.db_url
-        self.db: Optional[AsyncSQLTraceManager] = None
+        self.db: AsyncSQLTraceManager | None = None
         self.auto_save = auto_save
-        self._current_step: Optional[SessionTimeStep] = None
+        self._current_step: SessionTimeStep | None = None
 
     @property
-    def current_session(self) -> Optional[SessionTrace]:
+    def current_session(self) -> SessionTrace | None:
         """Get the current session trace."""
         return self._current_trace
 
     @property
-    def current_step(self) -> Optional[SessionTimeStep]:
+    def current_step(self) -> SessionTimeStep | None:
         """Get the current timestep."""
         return self._current_step
 
@@ -54,14 +60,14 @@ class SessionTracer:
             await self.db.initialize()
 
     async def start_session(
-        self, session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+        self, session_id: str | None = None, metadata: dict[str, Any] | None = None
     ) -> str:
         """Start a new session.
-        
+
         Creates a new tracing session and sets up the necessary context variables.
         This method is thread-safe and will raise an error if a session is already
         active to prevent accidental session mixing.
-        
+
         The session ID is propagated through asyncio context variables, allowing
         nested async functions to access the tracer without explicit passing.
 
@@ -76,7 +82,7 @@ class SessionTracer:
 
         Returns:
             The session ID (either provided or generated)
-            
+
         Raises:
             RuntimeError: If a session is already active
         """
@@ -111,8 +117,8 @@ class SessionTracer:
     async def start_timestep(
         self,
         step_id: str,
-        turn_number: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        turn_number: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SessionTimeStep:
         """Start a new timestep.
 
@@ -148,7 +154,7 @@ class SessionTracer:
 
         return step
 
-    async def end_timestep(self, step_id: Optional[str] = None):
+    async def end_timestep(self, step_id: str | None = None):
         """End the current or specified timestep."""
         if self._current_trace is None:
             raise RuntimeError("No active session")
@@ -199,9 +205,9 @@ class SessionTracer:
         self,
         content: str,
         message_type: str,
-        event_time: Optional[float] = None,
-        message_time: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        event_time: float | None = None,
+        message_time: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """Record a message.
 
@@ -281,8 +287,8 @@ class SessionTracer:
     @asynccontextmanager
     async def session(
         self,
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
         save: bool = None,
     ):
         """Context manager for a session.
@@ -302,8 +308,8 @@ class SessionTracer:
     async def timestep(
         self,
         step_id: str,
-        turn_number: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        turn_number: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """Context manager for a timestep.
 
@@ -318,7 +324,7 @@ class SessionTracer:
         finally:
             await self.end_timestep(step_id)
 
-    async def get_session_history(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
+    async def get_session_history(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Get recent session history from database."""
         if self.db is None:
             await self.initialize()

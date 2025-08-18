@@ -9,11 +9,10 @@ Original bug: "Processed call is not EnvToolCall: <class 'dict'>"
 Fix: Convert dict tool_calls to EnvToolCall objects in core_routes.py
 """
 
-import pytest
-import asyncio
+from collections.abc import AsyncGenerator
+
 import httpx
-import json
-from typing import Dict, Any, AsyncGenerator
+import pytest
 from public_tests.environments.utils import check_service_running
 
 
@@ -215,6 +214,8 @@ class TestCrafterApiBugFix:
         This test confirms Crafter is fully functional after investigation.
         """
         import uuid
+
+        from synth_ai.environments.environment.tools import EnvToolCall
         from synth_ai.environments.examples.crafter_classic.environment import (
             CrafterClassicEnvironment,
         )
@@ -223,7 +224,6 @@ class TestCrafterApiBugFix:
             CrafterTaskInstanceMetadata,
         )
         from synth_ai.environments.tasks.core import Impetus, Intent
-        from synth_ai.environments.environment.tools import EnvToolCall
 
         # Create a test task instance
         task_metadata = CrafterTaskInstanceMetadata(

@@ -4,10 +4,11 @@ Provides async and sync interfaces matching OpenAI's API.
 """
 
 import asyncio
-import httpx
 import json
 import logging
-from typing import List, Dict, Any, Optional, Union
+from typing import Any
+
+import httpx
 
 from ..config import SynthConfig
 
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class AsyncSynthClient:
     """Async client with OpenAI-compatible interface."""
 
-    def __init__(self, config: Optional[SynthConfig] = None):
+    def __init__(self, config: SynthConfig | None = None):
         """Initialize with config from environment if not provided."""
         self.config = config or SynthConfig.from_env()
         self._client = None
@@ -50,15 +51,15 @@ class AsyncSynthClient:
     async def responses_create(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        previous_response_id: Optional[str] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
+        messages: list[dict[str, Any]],
+        previous_response_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = "auto",
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create response using Synth Responses API.
-        
+
         Args:
             model: Model identifier
             messages: List of message dicts with 'role' and 'content'
@@ -66,71 +67,71 @@ class AsyncSynthClient:
             tools: List of available tools
             tool_choice: How to choose tools
             **kwargs: Additional parameters
-            
+
         Returns:
             Responses API-compatible response dict
         """
         await self._ensure_client()
-        
+
         # Build payload for Responses API
         payload = {
             "model": model,
             "messages": messages,
         }
-        
+
         # Add optional parameters
         if previous_response_id is not None:
             payload["previous_response_id"] = previous_response_id
         if tools is not None:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice
-            
+
         # Add any additional kwargs
         payload.update(kwargs)
-        
+
         # Retry logic
         for attempt in range(self.config.max_retries):
             try:
                 url = f"{self.config.get_base_url_without_v1()}/v1/responses"
                 response = await self._client.post(url, json=payload)
-                
+
                 if response.status_code == 200:
                     return response.json()
-                    
+
                 # Handle rate limits with exponential backoff
                 if response.status_code == 429:
                     wait_time = 2**attempt
                     await asyncio.sleep(wait_time)
                     continue
-                    
+
                 # Other errors
                 response.raise_for_status()
-                
+
             except Exception as e:
                 if attempt == self.config.max_retries - 1:
                     logger.error(f"Failed after {self.config.max_retries} attempts: {e}")
                     raise
                 await asyncio.sleep(2**attempt)
-                
+
         raise Exception(f"Failed to create response after {self.config.max_retries} attempts")
 
     async def chat_completions_create(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         top_p: float = 1.0,
         frequency_penalty: float = 0.0,
         presence_penalty: float = 0.0,
-        stop: Optional[Union[str, List[str]]] = None,
+        stop: str | list[str] | None = None,
         stream: bool = False,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
-        response_format: Optional[Dict[str, Any]] = None,
-        seed: Optional[int] = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = "auto",
+        response_format: dict[str, Any] | None = None,
+        seed: int | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create chat completion with OpenAI-compatible API.
 
@@ -188,28 +189,32 @@ class AsyncSynthClient:
                 url = f"{self.config.get_base_url_without_v1()}/v1/chat/completions"
                 print(f"🔍 SYNTH DEBUG: Making request to URL: {url}")
                 print(f"🔍 SYNTH DEBUG: Payload keys: {list(payload.keys())}")
-                if 'tools' in payload:
+                if "tools" in payload:
                     print(f"🔍 SYNTH DEBUG: Tools in payload: {len(payload['tools'])} tools")
-                    print(f"🔍 SYNTH DEBUG: First tool: {json.dumps(payload['tools'][0], indent=2)}")
-                
+                    print(
+                        f"🔍 SYNTH DEBUG: First tool: {json.dumps(payload['tools'][0], indent=2)}"
+                    )
+
                 response = await self._client.post(url, json=payload)
-                
+
                 print(f"🔍 SYNTH DEBUG: Response status: {response.status_code}")
-                
+
                 if response.status_code == 200:
                     result = response.json()
                     print(f"🔍 SYNTH DEBUG: Response keys: {list(result.keys())}")
-                    if 'choices' in result and result['choices']:
-                        choice = result['choices'][0]
+                    if "choices" in result and result["choices"]:
+                        choice = result["choices"][0]
                         print(f"🔍 SYNTH DEBUG: Choice keys: {list(choice.keys())}")
-                        if 'message' in choice:
-                            message = choice['message']
+                        if "message" in choice:
+                            message = choice["message"]
                             print(f"🔍 SYNTH DEBUG: Message keys: {list(message.keys())}")
-                            if 'tool_calls' in message:
+                            if "tool_calls" in message:
                                 print(f"🔍 SYNTH DEBUG: Tool calls: {message['tool_calls']}")
                             else:
-                                print(f"🔍 SYNTH DEBUG: No tool_calls in message")
-                                print(f"🔍 SYNTH DEBUG: Message content: {message.get('content', 'N/A')[:200]}...")
+                                print("🔍 SYNTH DEBUG: No tool_calls in message")
+                                print(
+                                    f"🔍 SYNTH DEBUG: Message content: {message.get('content', 'N/A')[:200]}..."
+                                )
                     return result
 
                 # Handle rate limits with exponential backoff
@@ -248,7 +253,7 @@ class AsyncSynthClient:
 class SyncSynthClient:
     """Sync client with OpenAI-compatible interface."""
 
-    def __init__(self, config: Optional[SynthConfig] = None):
+    def __init__(self, config: SynthConfig | None = None):
         """Initialize with config from environment if not provided."""
         self.config = config or SynthConfig.from_env()
         self._client = None
@@ -281,69 +286,70 @@ class SyncSynthClient:
     def responses_create(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        previous_response_id: Optional[str] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Union[str, Dict[str, Any]]] = "auto",
+        messages: list[dict[str, Any]],
+        previous_response_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, Any] | None = "auto",
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create response using Synth Responses API (sync version).
-        
+
         See AsyncSynthClient.responses_create for full parameter documentation.
         """
         self._ensure_client()
-        
+
         # Build payload for Responses API
         payload = {
             "model": model,
             "messages": messages,
         }
-        
+
         # Add optional parameters
         if previous_response_id is not None:
             payload["previous_response_id"] = previous_response_id
         if tools is not None:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice
-            
+
         # Add any additional kwargs
         payload.update(kwargs)
-        
+
         # Retry logic
         for attempt in range(self.config.max_retries):
             try:
                 response = self._client.post(
                     f"{self.config.get_base_url_without_v1()}/v1/responses", json=payload
                 )
-                
+
                 if response.status_code == 200:
                     return response.json()
-                    
+
                 # Handle rate limits
                 if response.status_code == 429:
                     wait_time = 2**attempt
                     logger.warning(f"Rate limited, waiting {wait_time}s...")
                     import time
+
                     time.sleep(wait_time)
                     continue
-                    
+
                 # Other errors
                 error_msg = f"API error {response.status_code}: {response.text}"
                 logger.error(error_msg)
                 raise Exception(error_msg)
-                
+
             except httpx.TimeoutException:
                 if attempt < self.config.max_retries - 1:
                     logger.warning(f"Timeout on attempt {attempt + 1}, retrying...")
                     continue
                 raise
-                
+
         raise Exception(f"Failed after {self.config.max_retries} attempts")
 
     def chat_completions_create(
-        self, model: str, messages: List[Dict[str, Any]], **kwargs
-    ) -> Dict[str, Any]:
+        self, model: str, messages: list[dict[str, Any]], **kwargs
+    ) -> dict[str, Any]:
         """
         Create chat completion with OpenAI-compatible API (sync version).
 
@@ -393,7 +399,7 @@ class SyncSynthClient:
 
 
 # Factory functions for easy instantiation
-def create_async_client(config: Optional[SynthConfig] = None) -> AsyncSynthClient:
+def create_async_client(config: SynthConfig | None = None) -> AsyncSynthClient:
     """
     Create async Synth client.
 
@@ -406,7 +412,7 @@ def create_async_client(config: Optional[SynthConfig] = None) -> AsyncSynthClien
     return AsyncSynthClient(config)
 
 
-def create_sync_client(config: Optional[SynthConfig] = None) -> SyncSynthClient:
+def create_sync_client(config: SynthConfig | None = None) -> SyncSynthClient:
     """
     Create sync Synth client.
 
@@ -421,8 +427,8 @@ def create_sync_client(config: Optional[SynthConfig] = None) -> SyncSynthClient:
 
 # Convenience functions for one-off requests
 async def create_chat_completion_async(
-    model: str, messages: List[Dict[str, Any]], config: Optional[SynthConfig] = None, **kwargs
-) -> Dict[str, Any]:
+    model: str, messages: list[dict[str, Any]], config: SynthConfig | None = None, **kwargs
+) -> dict[str, Any]:
     """
     Create a chat completion with automatic client management.
 
@@ -440,8 +446,8 @@ async def create_chat_completion_async(
 
 
 def create_chat_completion_sync(
-    model: str, messages: List[Dict[str, Any]], config: Optional[SynthConfig] = None, **kwargs
-) -> Dict[str, Any]:
+    model: str, messages: list[dict[str, Any]], config: SynthConfig | None = None, **kwargs
+) -> dict[str, Any]:
     """
     Create a chat completion with automatic client management (sync version).
 

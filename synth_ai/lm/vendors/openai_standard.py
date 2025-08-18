@@ -1,24 +1,28 @@
-from typing import Any, Dict, List, Optional, Union
 import asyncio
+import os
 import time
+from typing import Any
 
+import backoff
 import groq
 import openai
-import os
 import pydantic_core
 from pydantic import BaseModel
 
 from synth_ai.lm.caching.initialize import (
     get_cache_handler,
 )
+from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
+from synth_ai.lm.injection import apply_injection
+from synth_ai.lm.overrides import (
+    apply_param_overrides,
+    apply_tool_overrides,
+    use_overrides_for_messages,
+)
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.lm.injection import apply_injection
-from synth_ai.lm.overrides import use_overrides_for_messages, apply_param_overrides, apply_tool_overrides
-from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
-from synth_ai.lm.vendors.retries import MAX_BACKOFF
 from synth_ai.lm.vendors.openai_standard_responses import OpenAIResponsesAPIMixin
-import backoff
+from synth_ai.lm.vendors.retries import MAX_BACKOFF
 
 DEFAULT_EXCEPTIONS_TO_RETRY = (
     pydantic_core._pydantic_core.ValidationError,
@@ -30,14 +34,14 @@ DEFAULT_EXCEPTIONS_TO_RETRY = (
 )
 
 
-def special_orion_transform(model: str, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def special_orion_transform(model: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Transform messages for O1 series models which don't support system messages.
-    
+
     Args:
         model: Model name to check
         messages: Original messages list
-        
+
     Returns:
         Transformed messages list with system content merged into user message
     """
@@ -59,18 +63,19 @@ def _silent_backoff_handler(_details):
 class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     """
     Standard OpenAI-compatible vendor implementation.
-    
+
     This class provides a standard implementation for OpenAI-compatible APIs,
     including proper retry logic, caching, and support for various model features.
-    
+
     Attributes:
         used_for_structured_outputs: Whether this client supports structured outputs
         exceptions_to_retry: List of exceptions that trigger automatic retries
         sync_client: Synchronous API client
         async_client: Asynchronous API client
     """
+
     used_for_structured_outputs: bool = True
-    exceptions_to_retry: List = DEFAULT_EXCEPTIONS_TO_RETRY
+    exceptions_to_retry: list = DEFAULT_EXCEPTIONS_TO_RETRY
     sync_client: Any
     async_client: Any
 
@@ -78,19 +83,20 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         self,
         sync_client: Any,
         async_client: Any,
-        exceptions_to_retry: List[Exception] = DEFAULT_EXCEPTIONS_TO_RETRY,
+        exceptions_to_retry: list[Exception] = DEFAULT_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
     ):
         self.sync_client = sync_client
         self.async_client = async_client
         self.used_for_structured_outputs = used_for_structured_outputs
         self.exceptions_to_retry = exceptions_to_retry
-        
+
         # Initialize Harmony support for OSS models
         self.harmony_available = False
         self.harmony_enc = None
         try:
-            from openai_harmony import load_harmony_encoding, HarmonyEncodingName
+            from openai_harmony import HarmonyEncodingName, load_harmony_encoding
+
             self.harmony_available = True
             self.harmony_enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
         except ImportError:
@@ -106,24 +112,24 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
-        
+
         DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
         if DEBUG:
-            print(f"🔍 OPENAI DEBUG: _hit_api_async called with:")
+            print("🔍 OPENAI DEBUG: _hit_api_async called with:")
             print(f"   Model: {model}")
-            print(f"   Messages: {len(messages)} messages") 
+            print(f"   Messages: {len(messages)} messages")
             print(f"   Tools: {len(tools) if tools else 0} tools")
             print(f"   LM config: {lm_config}")
-        
+
         messages = special_orion_transform(model, messages)
         # Apply context-scoped overrides and prompt injection just before building API params
         with use_overrides_for_messages(messages):
@@ -135,13 +141,13 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         )
         if cache_result:
             if DEBUG:
-                print(f"🔍 OPENAI DEBUG: Cache hit! Returning cached result")
+                print("🔍 OPENAI DEBUG: Cache hit! Returning cached result")
                 print(f"   Cache result type: {type(cache_result)}")
-                print(f"🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
+                print("🔍 OPENAI DEBUG: DISABLING CACHE FOR DEBUGGING - forcing API call")
             # return cache_result  # Commented out to force API call
-        
+
         if DEBUG:
-            print(f"🔍 OPENAI DEBUG: Cache miss, making actual API call")
+            print("🔍 OPENAI DEBUG: Cache miss, making actual API call")
 
         # Common API call params
         api_params = {
@@ -211,7 +217,10 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         # Forward arbitrary extra_body from lm_config if provided (merge)
         if lm_config.get("extra_body") is not None:
             # Shallow-merge top-level keys; nested keys (like chat_template_kwargs) should be provided whole
-            api_params["extra_body"] = {**api_params.get("extra_body", {}), **(lm_config.get("extra_body") or {})}
+            api_params["extra_body"] = {
+                **api_params.get("extra_body", {}),
+                **(lm_config.get("extra_body") or {}),
+            }
         # Forward Qwen3 chat template kwargs via extra_body when requested
         if lm_config.get("enable_thinking") is not None:
             api_params["extra_body"] = api_params.get("extra_body", {})
@@ -233,9 +242,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         except Exception:
             base_url_str = ""
 
-        is_external_provider = (
-            "openai.com" in base_url_str or "api.groq.com" in base_url_str
-        )
+        is_external_provider = "openai.com" in base_url_str or "api.groq.com" in base_url_str
 
         if is_external_provider:
             # Remove extra_body entirely; this is Synth-specific plumbing
@@ -257,18 +264,18 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                     api_params.pop("temperature", None)
 
         # Call API with better auth error reporting
-        #try:
+        # try:
         if DEBUG:
-            print(f"🔍 OPENAI DEBUG: Making request with params:")
+            print("🔍 OPENAI DEBUG: Making request with params:")
             print(f"   Model: {api_params.get('model')}")
             print(f"   Messages: {len(api_params.get('messages', []))} messages")
             print(f"   Tools: {len(api_params.get('tools', []))} tools")
             print(f"   Max tokens: {api_params.get('max_tokens', 'NOT SET')}")
             print(f"   Temperature: {api_params.get('temperature', 'NOT SET')}")
-            if 'tools' in api_params:
+            if "tools" in api_params:
                 print(f"   First tool: {api_params['tools'][0]}")
             print(f"   FULL API PARAMS: {api_params}")
-        
+
         # Quiet targeted retry for OpenAI 400 tool_use_failed during tool-calling
         try:
             max_attempts_for_tool_use = int(os.getenv("SYNTH_TOOL_USE_RETRIES", "5"))
@@ -294,7 +301,9 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                         err_obj = body.get("error") if isinstance(body.get("error"), dict) else {}
                         code_val = err_obj.get("code")
                         msg_val = err_obj.get("message")
-                        if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                        if code_val == "tool_use_failed" or (
+                            isinstance(msg_val, str) and "Failed to call a function" in msg_val
+                        ):
                             should_retry = True
                     except Exception:
                         pass
@@ -308,7 +317,10 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                                 err_obj = j.get("error") if isinstance(j.get("error"), dict) else {}
                                 code_val = err_obj.get("code")
                                 msg_val = err_obj.get("message")
-                                if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                                if code_val == "tool_use_failed" or (
+                                    isinstance(msg_val, str)
+                                    and "Failed to call a function" in msg_val
+                                ):
                                     should_retry = True
                     except Exception:
                         pass
@@ -323,33 +335,37 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                     attempt_index += 1
                     continue
                 raise
-        
+
         if DEBUG:
-            print(f"🔍 OPENAI DEBUG: Response received:")
+            print("🔍 OPENAI DEBUG: Response received:")
             print(f"   Type: {type(output)}")
             print(f"   Choices: {len(output.choices) if hasattr(output, 'choices') else 'N/A'}")
-            if hasattr(output, 'choices') and output.choices:
+            if hasattr(output, "choices") and output.choices:
                 choice = output.choices[0]
                 print(f"   Choice type: {type(choice)}")
-                if hasattr(choice, 'message'):
+                if hasattr(choice, "message"):
                     message = choice.message
                     print(f"   Message type: {type(message)}")
                     print(f"   Has tool_calls: {hasattr(message, 'tool_calls')}")
-                    if hasattr(message, 'tool_calls'):
+                    if hasattr(message, "tool_calls"):
                         print(f"   Tool calls: {message.tool_calls}")
-                    print(f"   Content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}...")
+                    print(
+                        f"   Content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}..."
+                    )
                 # Show finish_reason and usage if available
                 try:
                     print(f"   finish_reason: {getattr(choice, 'finish_reason', None)}")
-                    usage = getattr(output, 'usage', None)
+                    usage = getattr(output, "usage", None)
                     if usage:
-                        print(f"   usage: prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}")
+                        print(
+                            f"   usage: prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}"
+                        )
                 except Exception:
                     pass
-        
+
         if DEBUG:
-            print(f"🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
-            if hasattr(output.choices[0].message, 'content') and output.choices[0].message.content:
+            print("🔍 OPENAI DEBUG: FULL RAW RESPONSE:")
+            if hasattr(output.choices[0].message, "content") and output.choices[0].message.content:
                 print(f"   FULL CONTENT:\n{output.choices[0].message.content}")
             print(f"   Raw choice: {choice}")
             print(f"   Raw message: {message}")
@@ -390,12 +406,12 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         # Attach basic usage if available
         usage_dict = None
         try:
-            usage_obj = getattr(output, 'usage', None)
+            usage_obj = getattr(output, "usage", None)
             if usage_obj is not None:
                 usage_dict = {
-                    "prompt_tokens": getattr(usage_obj, 'prompt_tokens', None),
-                    "completion_tokens": getattr(usage_obj, 'completion_tokens', None),
-                    "total_tokens": getattr(usage_obj, 'total_tokens', None),
+                    "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+                    "total_tokens": getattr(usage_obj, "total_tokens", None),
                 }
         except Exception:
             usage_dict = None
@@ -422,13 +438,13 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         messages = special_orion_transform(model, messages)
@@ -514,7 +530,9 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                         err_obj = body.get("error") if isinstance(body.get("error"), dict) else {}
                         code_val = err_obj.get("code")
                         msg_val = err_obj.get("message")
-                        if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                        if code_val == "tool_use_failed" or (
+                            isinstance(msg_val, str) and "Failed to call a function" in msg_val
+                        ):
                             should_retry = True
                     except Exception:
                         pass
@@ -527,7 +545,10 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                                 err_obj = j.get("error") if isinstance(j.get("error"), dict) else {}
                                 code_val = err_obj.get("code")
                                 msg_val = err_obj.get("message")
-                                if code_val == "tool_use_failed" or (isinstance(msg_val, str) and "Failed to call a function" in msg_val):
+                                if code_val == "tool_use_failed" or (
+                                    isinstance(msg_val, str)
+                                    and "Failed to call a function" in msg_val
+                                ):
                                     should_retry = True
                     except Exception:
                         pass
@@ -545,10 +566,14 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         DEBUG = os.getenv("SYNTH_OPENAI_DEBUG") == "1"
         if DEBUG:
             try:
-                print(f"🔍 OPENAI DEBUG (sync): finish_reason={getattr(output.choices[0], 'finish_reason', None)}")
-                usage = getattr(output, 'usage', None)
+                print(
+                    f"🔍 OPENAI DEBUG (sync): finish_reason={getattr(output.choices[0], 'finish_reason', None)}"
+                )
+                usage = getattr(output, "usage", None)
                 if usage:
-                    print(f"🔍 OPENAI DEBUG (sync): usage prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}")
+                    print(
+                        f"🔍 OPENAI DEBUG (sync): usage prompt_tokens={getattr(usage, 'prompt_tokens', None)}, completion_tokens={getattr(usage, 'completion_tokens', None)}, total_tokens={getattr(usage, 'total_tokens', None)}"
+                    )
             except Exception:
                 pass
 
@@ -570,12 +595,12 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         # Attach basic usage if available
         usage_dict = None
         try:
-            usage_obj = getattr(output, 'usage', None)
+            usage_obj = getattr(output, "usage", None)
             if usage_obj is not None:
                 usage_dict = {
-                    "prompt_tokens": getattr(usage_obj, 'prompt_tokens', None),
-                    "completion_tokens": getattr(usage_obj, 'completion_tokens', None),
-                    "total_tokens": getattr(usage_obj, 'total_tokens', None),
+                    "prompt_tokens": getattr(usage_obj, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage_obj, "completion_tokens", None),
+                    "total_tokens": getattr(usage_obj, "total_tokens", None),
                 }
         except Exception:
             usage_dict = None
@@ -595,12 +620,12 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     async def _hit_api_async_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         lm_config = {
             "temperature": temperature,
@@ -608,7 +633,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "reasoning_effort": reasoning_effort,
         }
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
-        cache_result: Union[BaseLMResponse, None] = used_cache_handler.hit_managed_cache(
+        cache_result: BaseLMResponse | None = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result is not None:
@@ -654,12 +679,12 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
     def _hit_api_sync_structured_output(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         response_model: BaseModel,
         temperature: float,
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         lm_config = {
             "temperature": temperature,
@@ -667,7 +692,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "reasoning_effort": reasoning_effort,
         }
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
-        cache_result: Union[BaseLMResponse, None] = used_cache_handler.hit_managed_cache(
+        cache_result: BaseLMResponse | None = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
         if cache_result is not None:
@@ -701,7 +726,9 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             base_url_str_sync = str(base_url_obj) if base_url_obj is not None else ""
         except Exception:
             base_url_str_sync = ""
-        if ("openai.com" in base_url_str_sync or "api.groq.com" in base_url_str_sync) and model.startswith("gpt-5"):
+        if (
+            "openai.com" in base_url_str_sync or "api.groq.com" in base_url_str_sync
+        ) and model.startswith("gpt-5"):
             if "max_tokens" in api_params:
                 api_params["max_completion_tokens"] = api_params.pop("max_tokens")
             if "temperature" in api_params:

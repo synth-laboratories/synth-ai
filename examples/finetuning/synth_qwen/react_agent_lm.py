@@ -5,34 +5,33 @@ This demonstrates using the LM class with Synth models through native integratio
 
 This version uses the new tracing_v3 system with async Turso/SQLite backend.
 """
-
 import logging
+import argparse
+import asyncio
+import glob
+import itertools
+import contextlib
+import json
+import os
+import random
+import sys
+import time
+import uuid
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import httpx
+import numpy as np
+import toml
+import yaml
+from httpx import AsyncClient
+from tqdm import tqdm
 
 # Disable httpx logging immediately
 logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("httpcore").setLevel(logging.ERROR)
-
-import asyncio
-import json
-import uuid
-import math
-import argparse
-import toml
-import yaml
-import time
-import functools
-from datetime import datetime
-from typing import Dict, Any, Optional, List, Set, Literal
-from pydantic import BaseModel, Field
-from httpx import AsyncClient
-import httpx
-import sys
-import os
-from pathlib import Path
-from tqdm import tqdm
-import random
-import glob
-from collections import defaultdict
 
 
 # Configure logging to suppress noisy third-party logs when in quiet mode
@@ -63,44 +62,35 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent)
 os.environ["LANGFUSE_ENABLED"] = "false"
 os.environ["SYNTH_LOGGING"] = "false"
 
-import numpy as np
-import itertools
+from synth_ai.lm.config import SynthConfig  # noqa: E402
 
 # Import Synth warmup utilities
-from synth_ai.lm.warmup import warmup_synth_model
-from synth_ai.lm.config import SynthConfig
+from synth_ai.lm.warmup import warmup_synth_model  # noqa: E402
 
 # Import session tracer for v3 tracing
-from synth_ai.tracing_v3 import SessionTracer
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.tracing_v3 import SessionTracer  # noqa: E402
+from synth_ai.tracing_v3.abstractions import (  # noqa: E402
+    EnvironmentEvent,
+    RuntimeEvent,
     SessionEventMarkovBlanketMessage,
     TimeRecord,
-    RuntimeEvent,
-    EnvironmentEvent,
-    LMCAISEvent,
 )
 
-# create_experiment_context will be defined as a helper function below
-from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-
 # Import Crafter hooks for v3
-from synth_ai.tracing_v3.hooks import HookManager
+from synth_ai.tracing_v3.hooks import HookManager  # noqa: E402
+from synth_ai.tracing_v3.turso.daemon import SqldDaemon  # noqa: E402
 
-try:
-    from synth_ai.environments.examples.crafter_classic.trace_hooks_v3 import CRAFTER_HOOKS_V3
+# create_experiment_context will be defined as a helper function below
+from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager  # noqa: E402
 
-    # Create a custom hook manager without default print statements
-    QUIET_HOOKS = HookManager()
-    # Don't add any hooks for now to keep output clean
-except ImportError:
-    QUIET_HOOKS = HookManager()
+# Create a custom hook manager without default print statements
+QUIET_HOOKS = HookManager()
 
 # Import LM components (v3 version if available)
 try:
-    from synth_ai.lm.core.main_v3 import LM
+    from synth_ai.lm.core.main_v3 import LM  # noqa: E402
 except ImportError:
-    from synth_ai.lm.core.main_v2 import LM
+    from synth_ai.lm.core.main_v2 import LM  # noqa: E402
 
 # Configuration constants
 HTTP_TIMEOUT = (
@@ -114,7 +104,7 @@ RETRY_DELAY = 1.0
 
 async def create_experiment_context(
     db_manager: AsyncSQLTraceManager, experiment_name: str, description: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create an experiment context for v3 tracing."""
     experiment_id = f"exp_{uuid.uuid4().hex[:12]}"
     await db_manager.create_experiment(
@@ -150,7 +140,7 @@ def _load_env_from_monorepo() -> dict:
     env_vars = {}
 
     if env_file.exists():
-        with open(env_file, "r") as f:
+        with open(env_file) as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
@@ -162,7 +152,7 @@ def _load_env_from_monorepo() -> dict:
     return env_vars
 
 
-def _load_testing_yaml_api_key() -> Optional[str]:
+def _load_testing_yaml_api_key() -> str | None:
     """Load SYNTH_API_KEY from monorepo/tests/prod/testing_info.yaml if present."""
     # First try the new env vars from monorepo/.env.local
     env_vars = _load_env_from_monorepo()
@@ -179,7 +169,7 @@ def _load_testing_yaml_api_key() -> Optional[str]:
         / "monorepo/tests/prod/testing_info.yaml"
     )
     if yaml_path.exists():
-        with open(yaml_path, "r") as f:
+        with open(yaml_path) as f:
             data = yaml.safe_load(f)
             return data.get("SYNTH_API_KEY")
     return None
@@ -290,7 +280,7 @@ def create_message(
     )
 
 
-def compress_observation_for_trace(obs: Dict[str, Any]) -> Dict[str, Any]:
+def compress_observation_for_trace(obs: dict[str, Any]) -> dict[str, Any]:
     """Compress observation for trace storage to avoid huge trace files."""
     compressed = obs.copy()
 
@@ -305,7 +295,7 @@ def compress_observation_for_trace(obs: Dict[str, Any]) -> Dict[str, Any]:
     return compressed
 
 
-def format_semantic_map_view_v2(obs: Dict[str, Any], view_size: int = 7) -> str:
+def format_semantic_map_view_v2(obs: dict[str, Any], view_size: int = 7) -> str:
     """Format a semantic map view around the player with normal names using real Crafter mapping."""
     # Get semantic map
     semantic_map = obs.get("semantic_map")
@@ -343,10 +333,8 @@ def format_semantic_map_view_v2(obs: Dict[str, Any], view_size: int = 7) -> str:
             )
             id_to_item[ind] = clean.lower()
     finally:
-        try:
+        with contextlib.suppress(AttributeError, Exception):
             dummyenv.close()
-        except (AttributeError, Exception):
-            pass
 
     # Create view
     half = view_size // 2
@@ -428,9 +416,9 @@ def get_openai_tools():
 class CrafterConfig:
     """Configuration for Crafter evaluation with Synth backend."""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         # Default values
-        self.model_name: Optional[str] = None
+        self.model_name: str | None = None
         self.num_instances = 1
         self.max_turns = 2
         self.difficulty = "easy"
@@ -510,10 +498,10 @@ class BaseReActAgentWithLMSynth:
         model_name: str,
         max_turns: int = 20,
         verbose: bool = False,
-        tracer: Optional[SessionTracer] = None,
+        tracer: SessionTracer | None = None,
         episode_id: int = 0,
         quiet: bool = False,
-        model_params: Optional[Dict[str, Any]] = None,
+        model_params: dict[str, Any] | None = None,
     ):
         self.model_name = model_name
         self.max_turns = max_turns
@@ -576,7 +564,7 @@ class BaseReActAgentWithLMSynth:
             "recent_tool_calls": [],
         }
 
-    async def decide(self, obs: str, system_message: str, turn: int) -> Dict[str, Any]:
+    async def decide(self, obs: str, system_message: str, turn: int) -> dict[str, Any]:
         """Get agent decision based on observation using LM class with Synth backend."""
         # Update agent state
         self.agent_state["current_turn"] = turn
@@ -602,7 +590,9 @@ class BaseReActAgentWithLMSynth:
             obs_with_history = obs
 
         # Create conversation context with unique episode ID to prevent caching
-        context = f"Episode {self.episode_id} - Turn {turn + 1}/{self.max_turns}\n\n{obs_with_history}"
+        context = (
+            f"Episode {self.episode_id} - Turn {turn + 1}/{self.max_turns}\n\n{obs_with_history}"
+        )
 
         # Build messages in OpenAI format for tools
         # Augment the system message if the previous turn failed to produce a tool call
@@ -643,7 +633,7 @@ class BaseReActAgentWithLMSynth:
             if self.verbose:
                 print(f"\n🔍 DEBUG: LM call details (turn {turn})")
                 print(f"   Model: {self.model_name}")
-                print(f"   Provider: synth")
+                print("   Provider: synth")
                 print(f"   Messages: {len(messages)} messages")
                 print(f"   Tools: {len(self.tools) if self.tools else 0} tools")
                 if self.tools:
@@ -710,7 +700,7 @@ class BaseReActAgentWithLMSynth:
             completion_tokens = None
             prompt_tokens = None
             toks_per_sec = None
-            if hasattr(response, "usage") and isinstance(getattr(response, "usage"), dict):
+            if hasattr(response, "usage") and isinstance(response.usage, dict):
                 completion_tokens = response.usage.get("completion_tokens")
                 prompt_tokens = response.usage.get("prompt_tokens")
             # Compute tokens/sec if we have duration and completion tokens
@@ -723,7 +713,7 @@ class BaseReActAgentWithLMSynth:
 
             # Parse the response to extract tool calls
             raw_response = response.raw_response
-            decision: Dict[str, Any]
+            decision: dict[str, Any]
 
             if hasattr(response, "tool_calls") and response.tool_calls:
                 tool_call = response.tool_calls[0]
@@ -752,7 +742,9 @@ class BaseReActAgentWithLMSynth:
                     decision = parsed_decision
                     try:
                         pname = decision.get("name")
-                        pparams = decision.get("parameters", {}) if isinstance(decision, dict) else {}
+                        pparams = (
+                            decision.get("parameters", {}) if isinstance(decision, dict) else {}
+                        )
                         preason = pparams.get("reasoning") if isinstance(pparams, dict) else None
                         pacts = pparams.get("actions") if isinstance(pparams, dict) else None
                         entry = {
@@ -763,7 +755,9 @@ class BaseReActAgentWithLMSynth:
                         }
                         self.agent_state["recent_tool_calls"].append(entry)
                         if len(self.agent_state["recent_tool_calls"]) > 10:
-                            self.agent_state["recent_tool_calls"] = self.agent_state["recent_tool_calls"][-10:]
+                            self.agent_state["recent_tool_calls"] = self.agent_state[
+                                "recent_tool_calls"
+                            ][-10:]
                     except Exception:
                         pass
                     # Clear failure flag on success
@@ -829,7 +823,7 @@ class BaseReActAgentWithLMSynth:
 
         return decision
 
-    def _parse_tool_response(self, raw_response: str) -> Dict[str, Any]:
+    def _parse_tool_response(self, raw_response: str) -> dict[str, Any]:
         """Parse raw LM response to extract tool calls."""
         # Try to parse JSON if present
         try:
@@ -908,7 +902,7 @@ BAD Examples (what you should AVOID):
 
 REMEMBER: Single actions waste time. Always plan 2-5 actions ahead and execute them together!"""
 
-    def format_observation(self, obs: Dict[str, Any]) -> str:
+    def format_observation(self, obs: dict[str, Any]) -> str:
         """Format observation for agent. Override in subclasses."""
         return str(obs)
 
@@ -1018,7 +1012,7 @@ Remember:
 - Be efficient - use multiple actions per tool call!
 - Focus on unlocking achievements by collecting resources and crafting items."""
 
-    def format_observation(self, obs: Dict[str, Any]) -> str:
+    def format_observation(self, obs: dict[str, Any]) -> str:
         """Format Crafter observation with semantic map view."""
         # Get semantic map view
         semantic_view = format_semantic_map_view_v2(obs, view_size=7)
@@ -1060,24 +1054,24 @@ Remember:
             f"Achievements: {achieved}/{total_achievements} unlocked\n"
             f"Unlocked: {unlocked_str}\n"
             f"{recent_str}\n\n"
-            #f"What do you see in the map? What actions should you take? "
+            # f"What do you see in the map? What actions should you take? "
         )
         if suppress_reminder:
             return base
         return (
             base
-            #+ "\n\nREMINDER: You MUST provide 2-5 actions in your interact() tool call. Plan multiple steps ahead!\n"
-            #+ 'Example: interact(actions=["move_right", "move_right", "do"], reasoning="Move to tree and collect wood")'
+            # + "\n\nREMINDER: You MUST provide 2-5 actions in your interact() tool call. Plan multiple steps ahead!\n"
+            # + 'Example: interact(actions=["move_right", "move_right", "do"], reasoning="Move to tree and collect wood")'
         )
 
 
 async def run_episode(
     episode_id: int,
     config: CrafterConfig,
-    session_tracer: Optional[SessionTracer] = None,
-    progress_bar: Optional[tqdm] = None,
+    session_tracer: SessionTracer | None = None,
+    progress_bar: tqdm | None = None,
     quiet: bool = False,
-    model_params: Optional[Dict[str, Any]] = None,
+    model_params: dict[str, Any] | None = None,
 ):
     """Run a single episode."""
     episode_start_time = time.time()
@@ -1343,7 +1337,7 @@ async def run_episode(
 
             # Terminate instance
             terminate_response = await retry_http_request(
-                client, "POST", f"/env/CrafterClassic/terminate", json={"env_id": instance_id}
+                client, "POST", "/env/CrafterClassic/terminate", json={"env_id": instance_id}
             )
 
         except Exception as e:
@@ -1523,9 +1517,9 @@ async def main():
 
     # Display configuration (only if not in quiet mode)
     if not config.quiet:
-        print(f"🎮 Crafter ReAct Agent Evaluation (LM with Synth Backend - v3)")
+        print("🎮 Crafter ReAct Agent Evaluation (LM with Synth Backend - v3)")
         print(f"Model: {config.model_name}")
-        print(f"Model Parameters:")
+        print("Model Parameters:")
         print(f"  Temperature: {model_params['temperature']}")
         print(f"  Max Tokens: {model_params['max_tokens']}")
         print(f"  Top-p: {model_params['top_p']}")
@@ -1594,7 +1588,7 @@ async def main():
 
         # Start sqld daemon if requested
         if config.start_sqld_daemon:
-            print(f"\n🚀 Starting sqld daemon for v3 tracing...")
+            print("\n🚀 Starting sqld daemon for v3 tracing...")
             sqld_daemon = SqldDaemon(db_path=config.turso_db_path)
             sqld_daemon.__enter__()  # Start the daemon
             await asyncio.sleep(2)  # Give it time to start
@@ -1683,7 +1677,7 @@ async def main():
         episode_task = _limited_episode()
         episode_tasks.append(episode_task)
 
-    print(f"\n📤 Starting episodes...")
+    print("\n📤 Starting episodes...")
     start_time = time.time()
 
     # Run all episodes in parallel and fail fast on first error
@@ -1752,7 +1746,7 @@ async def main():
 
         # Show seeds used
         if episode_seeds:
-            print(f"\nSeeds used:")
+            print("\nSeeds used:")
             for i, seed in enumerate(episode_seeds[: len(successful_episodes)]):
                 print(f"  Episode {i}: seed {seed}")
 
@@ -1800,13 +1794,16 @@ async def main():
         # For v3, results are automatically saved in the database
         print(f"\n💾 Results available in Turso database: {config.turso_db_path}")
         print(f"   Experiment ID: {experiment_ctx['experiment_id']}")
-        print(f"   Use the filter_traces_sft_turso.py script to extract fine-tuning data")
+        print("   Use the filter_traces_sft_turso.py script to extract fine-tuning data")
     elif config.save_detailed_results:
         # Fallback to JSON if no tracing - write under temp/ (git-ignored)
         from pathlib import Path
+
         out_dir = Path(os.getenv("SYNTH_OUTPUT_DIR", "temp")).resolve()
         out_dir.mkdir(parents=True, exist_ok=True)
-        results_path = out_dir / f"crafter_lm_synth_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        results_path = (
+            out_dir / f"crafter_lm_synth_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
         with open(results_path, "w") as f:
             json.dump(
                 {
@@ -1880,7 +1877,7 @@ async def main():
         shaped_reward_avg = shaped_total / trajectories if trajectories > 0 else 0.0
         k_score_avg = shaped_reward_avg / 20.0  # normalize roughly to match table scale
 
-        unique = len(all_achievements)
+        # unique = len(all_achievements)  # unused
         steps_sum = total_steps
         avg_steps_md = avg_steps
         print("\nMarkdown row:")
