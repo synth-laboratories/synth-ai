@@ -141,7 +141,12 @@ fi
 kill_port "${ENV_PORT}"
 kill_pattern "uvicorn .*synth_ai\.environments\.service\.app:app"
 
-export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+# Add project root to PYTHONPATH idempotently and without leading ':'
+if [ -z "${PYTHONPATH}" ]; then
+  export PYTHONPATH="$(pwd)"
+elif ! printf %s "$PYTHONPATH" | tr ':' '\n' | grep -Fxq "$(pwd)"; then
+  export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+fi
 export SYNTH_LOGGING="true"
 
 echo "📦 Environment:"
