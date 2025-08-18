@@ -7,10 +7,10 @@ sys.path.append("/Users/joshuapurtell/Documents/GitHub/Environments/src")
 
 import asyncio
 
-from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
-from synth_ai.environments.examples.red.engine import PokemonRedEngine
-from synth_ai.environments.examples.red.taskset import INSTANCE
 from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.red.engine import PokemonRedEngine
+from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
+from synth_ai.environments.examples.red.taskset import INSTANCE
 
 
 async def test_rom_loading_and_execution():

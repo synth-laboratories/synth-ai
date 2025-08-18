@@ -4,8 +4,9 @@ Social & NPC Interaction Reward Components
 Rewards for dialogue, information gathering, and NPC interactions.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class NewNPCConversationReward(RewardComponent):

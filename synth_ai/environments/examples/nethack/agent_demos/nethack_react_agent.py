@@ -1,24 +1,23 @@
 """ReAct agent demo for NetHack environment."""
 
+import argparse
 import asyncio
 import json
 import logging
-import argparse
-from typing import Dict, Any, List, Optional, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+
 from pydantic import BaseModel, Field
-
-from synth_ai.zyk import LM
-
 from synth_ai.environments.examples.nethack.environment import NetHackEnvironment
-from synth_ai.environments.examples.nethack.taskset import (
-    create_nethack_taskset,
-    NetHackTaskInstanceMetadata,
-)
 from synth_ai.environments.examples.nethack.helpers import (
-    format_observation_for_llm,
     extract_game_context,
+    format_observation_for_llm,
     get_actions_for_context,
 )
+from synth_ai.environments.examples.nethack.taskset import (
+    NetHackTaskInstanceMetadata,
+    create_nethack_taskset,
+)
+from synth_ai.zyk import LM
 from synth_ai.zyk.lms.tools.base import BaseTool
 
 logging.basicConfig(level=logging.INFO)

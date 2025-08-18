@@ -1,21 +1,21 @@
 import asyncio
-
 import uuid
-import pytest
 import warnings
-from typing import Dict, Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
+
+import pytest
 from pydantic import BaseModel, Field
 
 # Suppress multiprocessing resource tracker warnings
 warnings.filterwarnings("ignore", message=".*leaked semaphore.*", category=UserWarning)
 
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.verilog.environment import VerilogEnvironment
 from synth_ai.environments.examples.verilog.taskset import (
     VerilogTaskInstance,
     VerilogTaskInstanceMetadata,
     create_verilog_taskset,
 )
-from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.zyk import LM
 
 
@@ -461,7 +461,9 @@ async def test_verilog_react_agent():
 #         print(f"  Successes: {task_result['success_count']}/{task_result['total_instances']}")
 
 
-async def run_parallel_evaluation(models_to_test=["gpt-4.1-nano", "gpt-4.1-mini"], n_instances=3):
+async def run_parallel_evaluation(models_to_test=None, n_instances=3):
+    if models_to_test is None:
+        models_to_test = ["gpt-4.1-nano", "gpt-4.1-mini"]
     """Run evaluation for all three models in parallel."""
     from tabulate import tabulate
 

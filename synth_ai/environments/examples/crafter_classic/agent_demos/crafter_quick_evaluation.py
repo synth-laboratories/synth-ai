@@ -4,8 +4,9 @@ Script to run Crafter evaluation using the standardized eval framework
 """
 
 import asyncio
-import toml
 from pathlib import Path
+
+import toml
 from src.synth_env.examples.crafter_classic.agent_demos.eval_framework import (
     CrafterEvalFramework,
     run_crafter_eval,

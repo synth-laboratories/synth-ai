@@ -1,22 +1,23 @@
-import pytest
 import asyncio
 import uuid
 from pathlib import Path
+
 import numpy as np
+import pytest
 from PIL import Image
 
-from synth_ai.environments.examples.red.environment import (
-    PokemonRedEnvironment,
-    PokemonRedPublicState,
-    PokemonRedPrivateState,
-)
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.red.environment import (
+    PokemonRedEnvironment,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+)
 from synth_ai.environments.examples.red.taskset import PokemonRedTaskInstance
 from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstanceMetadata
-from synth_ai.environments.environment.tools import EnvToolCall
 
 
 class PressButtonCall(EnvToolCall):

@@ -4,27 +4,28 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, Tuple, List, TYPE_CHECKING, cast
-import numpy as np
 import logging
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent
+import numpy as np
+
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
 from synth_ai.environments.tasks.core import TaskInstance
 
 logger = logging.getLogger(__name__)
 
 # NLE imports are required
 try:
-    from .helpers.nle_wrapper import NLEWrapper
-    from .helpers.action_mapping import convert_action_to_nle
     from .achievements import NetHackAchievements, calculate_balrog_reward
+    from .helpers.action_mapping import convert_action_to_nle
+    from .helpers.nle_wrapper import NLEWrapper
 except ImportError as e:
     raise ImportError(
         "NLE (NetHack Learning Environment) is required but not installed. "

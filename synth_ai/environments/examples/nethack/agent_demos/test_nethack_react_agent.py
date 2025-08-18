@@ -6,13 +6,14 @@ Tests on multiple easy NetHack instances with enhanced debugging
 
 import asyncio
 import json
+import os
+import sys
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
 from httpx import AsyncClient
-import sys
-import os
+from pydantic import BaseModel, Field
 from tqdm import tqdm
 
 # Add the src directory to the path

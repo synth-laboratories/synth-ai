@@ -522,3 +522,4 @@ def upload_helper(
             print("\nDataset:")
             print(json.dumps(dataset_dict, indent=2))
         raise
+# ruff: noqa

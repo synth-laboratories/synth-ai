@@ -8,25 +8,25 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple, Union, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
-from minigrid.core.constants import OBJECT_TO_IDX, COLOR_TO_IDX, STATE_TO_IDX
+from minigrid.core.constants import COLOR_TO_IDX, OBJECT_TO_IDX, STATE_TO_IDX
 
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
 from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.tasks.core import TaskInstance
 from synth_ai.environments.examples.minigrid.environment_mapping import (
-    get_environment_from_seed,
     get_difficulty_from_seed,
+    get_environment_from_seed,
     validate_environment_name,
 )
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
+from synth_ai.environments.tasks.core import TaskInstance
 
 
 @dataclass

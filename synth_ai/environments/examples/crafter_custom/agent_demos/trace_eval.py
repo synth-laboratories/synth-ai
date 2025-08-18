@@ -4,10 +4,10 @@ Trace evaluation functions for Crafter episodes.
 Scores traces based on achievements and invalid actions.
 """
 
-from typing import Dict, List, Any, Tuple
-from pathlib import Path
 import json
 from collections import defaultdict
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
 # Scoring weights
 WEIGHTS = {

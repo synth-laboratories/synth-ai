@@ -85,7 +85,7 @@ def fix_errant_stringified_json_sync(
                 return pull_out_structured_output(fixed_response, response_model)
             except Exception as e:
                 pass
-        raise ValueError("Failed to fix response using any model")
+        raise ValueError("Failed to fix response using any model") from None
 
 
 async def fix_errant_stringified_json_async(
@@ -119,7 +119,7 @@ async def fix_errant_stringified_json_async(
                 return pull_out_structured_output(fixed_response, response_model)
             except Exception as e:
                 pass
-        raise ValueError("Failed to fix response using any model")
+        raise ValueError("Failed to fix response using any model") from None
 
 
 async def fix_errant_forced_async(

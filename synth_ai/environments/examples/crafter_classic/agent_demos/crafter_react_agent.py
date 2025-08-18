@@ -1,46 +1,47 @@
 import asyncio
-import uuid
-import pytest
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Deque, Set, Union
-from pydantic import BaseModel, Field
+import uuid
 from collections import deque
+from pathlib import Path
+from typing import Any, Deque, Dict, List, Optional, Set, Union
+
+import pytest
 import toml
-from synth_ai.lm.core.main import LM
-from synth_ai.lm.tools.base import BaseTool
-from synth_sdk.tracing.decorators import trace_event_async
-from synth_sdk.tracing.trackers import SynthTracker
-from synth_sdk.tracing.abstractions import RewardSignal, Dataset, TrainingQuestion
-from synth_sdk.tracing.utils import get_system_id
+from pydantic import BaseModel, Field
+from synth_ai.environments.examples.crafter_classic.engine import (
+    CRAFTER_ACTION_MAP,  # map of action name to int
+)
 
 # Crafter specific imports
 from synth_ai.environments.examples.crafter_classic.environment import (
     CrafterClassicEnvironment,
-    CrafterPublicState,
     CrafterPrivateState,
+    CrafterPublicState,
 )
-from synth_ai.environments.examples.crafter_classic.engine import (
-    CRAFTER_ACTION_MAP,  # map of action name to int
-)
+from synth_ai.lm.core.main import LM
+from synth_ai.lm.tools.base import BaseTool
+from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
+from synth_sdk.tracing.decorators import trace_event_async
+from synth_sdk.tracing.trackers import SynthTracker
+from synth_sdk.tracing.utils import get_system_id
 
 # Convert CRAFTER_ACTION_MAP to ACTION_STRING_TO_INT and INT_TO_ACTION_STRING
 ACTION_STRING_TO_INT: Dict[str, int] = CRAFTER_ACTION_MAP
 INT_TO_ACTION_STRING: Dict[int, str] = {v: k for k, v in CRAFTER_ACTION_MAP.items()}
 
 
+import logging
+
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.crafter_classic.taskset import (
     CrafterTaskInstance,
     CrafterTaskInstanceMetadata,
 )
 from synth_ai.environments.tasks.core import Impetus, Intent
-from synth_ai.environments.environment.tools import EnvToolCall
-
-import logging
 
 logging.disable(logging.CRITICAL)
 
@@ -48,8 +49,9 @@ logging.disable(logging.CRITICAL)
 # --- Helper to build crafter semantic mapping ---
 def get_crafter_semantic_mapping():
     """Build the crafter semantic ID to item name mapping."""
-    import crafter
     import itertools
+
+    import crafter
 
     # Create a dummy env to get ID mappings (same as environment.py)
     dummyenv = None

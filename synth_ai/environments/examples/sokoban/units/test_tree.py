@@ -13,26 +13,25 @@ Run with pytest: pytest Environments/examples/sokoban/units/test_tree.py
 
 import asyncio
 import gzip
+import logging
 import pickle
 import time
-import logging
 import uuid
 from pathlib import Path
 
 import numpy as np
 import pytest
-
-from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
+from gym_sokoban.envs.sokoban_env import ACTION_LOOKUP  # Added for full action set
+from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
     SokobanTaskInstanceMetadata,
 )
+from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR  # A* helper
+from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
 
 # from examples.sokoban.engine import SokobanEngineSnapshot  # only a type
 from synth_ai.environments.tasks.core import Impetus, Intent
-from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
-from synth_ai.environments.examples.sokoban.units.astar_common import ENGINE_ASTAR  # A* helper
-from gym_sokoban.envs.sokoban_env import ACTION_LOOKUP  # Added for full action set
 
 logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 LOG = logging.getLogger("mcts-debug")

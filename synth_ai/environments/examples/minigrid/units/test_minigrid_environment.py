@@ -1,15 +1,15 @@
 """Unit tests for MiniGrid environment."""
 
 import asyncio
-import pytest
 import json
 
+import pytest
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.minigrid.environment import (
     MiniGridEnvironment,
     MiniGridInteractTool,
 )
 from synth_ai.environments.examples.minigrid.taskset import DEFAULT_MINIGRID_TASK
-from synth_ai.environments.environment.tools import EnvToolCall
 
 
 @pytest.mark.asyncio
@@ -166,8 +166,8 @@ async def test_interact_tool():
 async def test_observation_callables():
     """Test observation callable functionality."""
     from synth_ai.environments.examples.minigrid.engine import (
-        MiniGridObservationCallable,
         MiniGridCheckpointObservationCallable,
+        MiniGridObservationCallable,
     )
 
     env = MiniGridEnvironment(DEFAULT_MINIGRID_TASK)

@@ -19,9 +19,9 @@ Analyzes and compares:
 - Performance metrics
 - Cost analysis
 """
-from pathlib import Path
 import os
 import sys
+from pathlib import Path
 
 # Ensure repository root is on sys.path before importing synth_ai
 synth_ai_root = Path(__file__).parent.parent.parent
@@ -45,7 +45,6 @@ from typing import Any
 import httpx
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 # Import enhanced LM with v3 tracing
 from synth_ai.lm.core.main_v3 import LM
@@ -55,10 +54,11 @@ from synth_ai.tracing_v3.abstractions import (
     SessionEventMarkovBlanketMessage,
     TimeRecord,
 )
+from synth_ai.tracing_v3.db_config import get_default_db_config
 from synth_ai.tracing_v3.decorators import set_turn_number
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.db_config import get_default_db_config
+from tqdm import tqdm
 
 # Disable httpx logging for cleaner output
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -401,7 +401,6 @@ What actions do you want to take?"""
                 try:
                     # Define the interact tool for Crafter
                     from pydantic import BaseModel, Field
-
                     from synth_ai.lm.tools.base import BaseTool
 
                     class InteractArgs(BaseModel):

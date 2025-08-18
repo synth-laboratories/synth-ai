@@ -1,14 +1,15 @@
 """Trajectory recording and replay functionality for NetHack."""
 
+import base64
+import gzip
 import json
 import pickle
-import gzip
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from dataclasses import dataclass, asdict
-import base64
 
 
 @dataclass

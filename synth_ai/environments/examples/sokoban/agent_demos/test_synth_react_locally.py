@@ -1,39 +1,39 @@
 #!/usr/bin/env python3
 
 import asyncio
-import uuid
-import pytest
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Deque
-from pydantic import BaseModel, Field
+import logging
+import uuid
 from collections import deque
-from synth_ai.zyk import LM
-from synth_sdk.tracing.decorators import trace_event_async
-from synth_sdk.tracing.abstractions import RewardSignal, Dataset, TrainingQuestion
-from synth_sdk.tracing.utils import get_system_id
-from synth_ai.environments.examples.sokoban.environment import (
-    SokobanEnvironment,
-    SokobanPublicState,
-    SokobanPrivateState,
-)
-from synth_ai.environments.examples.sokoban.engine import (
-    _grid_to_text,
-    ACTION_STRING_TO_INT,
-)
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Deque, Dict, List, Optional
+
+import pytest
+from pydantic import BaseModel, Field
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
+)
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.engine import (
+    ACTION_STRING_TO_INT,
+    _grid_to_text,
+)
+from synth_ai.environments.examples.sokoban.environment import (
+    SokobanEnvironment,
+    SokobanPrivateState,
+    SokobanPublicState,
 )
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
     SokobanTaskInstanceMetadata,
 )
 from synth_ai.environments.tasks.core import Impetus, Intent
-from synth_ai.environments.environment.tools import EnvToolCall
-from dataclasses import dataclass
-
-import logging
+from synth_ai.zyk import LM
+from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
+from synth_sdk.tracing.decorators import trace_event_async
+from synth_sdk.tracing.utils import get_system_id
 
 logging.disable(logging.CRITICAL)
 
@@ -555,12 +555,13 @@ async def eval_react_sokoban(
     Run ReAct agents on Sokoban instances of different difficulties for a given model,
     and returns a list of dictionaries containing aggregated results for each mode.
     """
+    import asyncio
+    import uuid
+
     from synth_ai.environments.examples.sokoban.engine_helpers.room_utils import (
         generate_room,
         get_shortest_action_path,
     )
-    import asyncio
-    import uuid
 
     current_model_name_for_eval = model_name  # Use passed-in model name
 

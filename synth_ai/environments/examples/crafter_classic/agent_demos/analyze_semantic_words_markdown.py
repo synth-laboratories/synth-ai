@@ -11,19 +11,21 @@ Usage:
     python analyze_semantic_words_markdown.py --model gemini-1.5-flash --episodes 3
 """
 
-import asyncio
 import argparse
+import asyncio
 import json
 import re
-from collections import Counter
-from pathlib import Path
-from typing import Dict, List, Set
-from datetime import datetime
 
 # Import the Crafter agent
 import sys
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Set
+
 sys.path.append(str(Path(__file__).parent))
 from test_crafter_react_agent import run_crafter_episodes
+
 
 def extract_words_from_semantic_map(observation: str) -> Set[str]:
     """Extract meaningful words from a semantic map observation string."""

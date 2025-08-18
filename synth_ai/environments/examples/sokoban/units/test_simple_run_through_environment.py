@@ -5,30 +5,28 @@ SokobanEngine directly.
 """
 
 import asyncio
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import uuid4
 
 import pytest
-
-# ––––– app imports ––––– #
-from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment  # <- your wrapper
+from synth_ai.environments.environment.tools import EnvToolCall  # call interface
 from synth_ai.environments.examples.sokoban.engine import (
     SokobanEngineSnapshot,
 )  # same snapshot type
-from synth_ai.environments.environment.tools import EnvToolCall  # call interface
 
+# ––––– app imports ––––– #
+from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment  # <- your wrapper
 from synth_ai.environments.examples.sokoban.taskset import (
-    SokobanTaskInstanceMetadata,
     SokobanTaskInstance,
+    SokobanTaskInstanceMetadata,
 )
-from synth_ai.environments.tasks.core import Impetus, Intent
 
 # shared A* / heuristic utilities
 from synth_ai.environments.examples.sokoban.units.astar_common import (
     ENGINE_ASTAR,
     solved,
 )  # Use ENGINE_ASTAR
-
+from synth_ai.environments.tasks.core import Impetus, Intent
 
 # ---------------- test fixture snapshot ---------------------------------- #
 # solvable in exactly two actions: push-right, push-up

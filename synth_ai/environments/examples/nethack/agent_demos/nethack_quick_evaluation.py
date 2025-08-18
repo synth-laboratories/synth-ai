@@ -3,10 +3,10 @@
 Runner script for NetHack evaluation framework.
 """
 
-import asyncio
 import argparse
-import time
+import asyncio
 import os
+import time
 
 from eval_framework import run_nethack_eval
 

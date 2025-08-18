@@ -6,28 +6,30 @@ This shows the basic pattern for converting v2 code to v3.
 
 import asyncio
 import json
+import sys
 import time
 from datetime import datetime
-import sys
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
 # Import v3 tracing components
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.abstractions import (
-    RuntimeEvent, EnvironmentEvent, LMCAISEvent,
-    TimeRecord, SessionEventMarkovBlanketMessage
-)
-from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.decorators import set_session_id, set_turn_number
-
 # Import Crafter hooks for v3
 from synth_ai.environments.examples.crafter_classic.trace_hooks_v3 import CRAFTER_HOOKS
 
 # Import LM 
 from synth_ai.lm.core.main_v2 import LM
+from synth_ai.tracing_v3.abstractions import (
+    EnvironmentEvent,
+    LMCAISEvent,
+    RuntimeEvent,
+    SessionEventMarkovBlanketMessage,
+    TimeRecord,
+)
+from synth_ai.tracing_v3.decorators import set_session_id, set_turn_number
+from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 
 
 async def simple_crafter_session():

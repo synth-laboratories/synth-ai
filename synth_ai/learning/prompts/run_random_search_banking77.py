@@ -24,10 +24,9 @@ from typing import Any
 
 from datasets import load_dataset
 from dotenv import load_dotenv
-from tqdm import tqdm
-
 from synth_ai.learning.prompts.random_search import random_search_compile
 from synth_ai.lm.core.main_v3 import LM, build_messages
+from tqdm import tqdm
 
 
 def choose_label(pred: str, label_names: list[str]) -> str:

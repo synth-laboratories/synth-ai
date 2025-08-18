@@ -3,14 +3,14 @@
 Dataset builder for Crafter Custom Environments
 """
 
-import json
-import uuid
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Any, Dict, Optional, List, Set
-import random
 import gzip
+import json
 import pickle
+import random
+import uuid
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
 
 @dataclass

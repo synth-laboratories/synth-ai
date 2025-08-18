@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-import numpy as np
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent
+import numpy as np
+
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
 from synth_ai.environments.tasks.core import TaskInstance
-
 
 # Action mapping: coordinate strings to board indices
 COORD_TO_IDX = {

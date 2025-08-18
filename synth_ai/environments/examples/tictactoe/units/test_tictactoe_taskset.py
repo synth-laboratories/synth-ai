@@ -1,15 +1,15 @@
-import pytest
-import numpy as np
 from uuid import UUID
 
+import numpy as np
+import pytest
 from synth_ai.environments.examples.tictactoe.taskset import (
-    create_tictactoe_taskset,
-    TicTacToeTaskInstance,
-    TicTacToeTaskInstanceMetadata,
-    _evaluate_position,
-    _count_shortest_win,
     COORD_TO_IDX,
     PLAYER_MARKS,
+    TicTacToeTaskInstance,
+    TicTacToeTaskInstanceMetadata,
+    _count_shortest_win,
+    _evaluate_position,
+    create_tictactoe_taskset,
 )
 
 

@@ -4,8 +4,9 @@ Efficiency & Optimization Reward Components
 Rewards for optimal play, routing, and game knowledge.
 """
 
+from typing import Any, Dict
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any
 
 
 class FastTravelUsageReward(RewardComponent):

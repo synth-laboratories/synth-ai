@@ -6,17 +6,18 @@ Uploads a JSONL file to Modal, kicks off a fine-tuning job, and polls until comp
 Updated for OpenAI v1 compatible unified fine-tuning service.
 """
 
+import argparse
+import asyncio
+import json
 import os
+import random
 import sys
 import time
-import argparse
-import json
-import random
-import asyncio
-from pathlib import Path
-from typing import Optional, Dict, Any
-import httpx
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import httpx
 
 # Add synth_ai to path (optional - only if needed)
 # sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent.parent))
@@ -35,7 +36,7 @@ def analyze_jsonl_tokens(file_path: Path, model: str) -> tuple[int, int, float]:
     
     # For Modal/Synth, we'll do a rough estimate based on character count
     # Approximate: 1 token ≈ 4 characters (rough estimate)
-    CHARS_PER_TOKEN = 4
+    CHARS_PER_TOKEN = 4  # noqa: N806
     
     total_input_tokens = 0
     total_output_tokens = 0

@@ -5,8 +5,9 @@ Rewards specifically designed for the first 50 steps of Pokemon Red,
 focusing on house exploration, town discovery, and story triggers.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class LeaveStartingRoomReward(RewardComponent):

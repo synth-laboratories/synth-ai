@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Any, Dict, Union
 import dataclasses
 import logging
 import time
-
-# Import logging configuration to suppress JAX debug messages
-from .config_logging import safe_compare
+from typing import Any, Dict, List, Optional, Union
 
 # Import tracing abstractions
 from synth_ai.tracing_v3.abstractions import (
@@ -17,29 +14,33 @@ from synth_ai.tracing_v3.abstractions import (
     TimeRecord,
 )
 
+# Import logging configuration to suppress JAX debug messages
+from .config_logging import safe_compare
+
 logger = logging.getLogger(__name__)
 
-from synth_ai.environments.examples.crafter_classic.engine import (
-    CrafterEngine,
-    CrafterPrivateState,
-    CrafterPublicState,
-    CrafterEngineSnapshot,
-)
-from synth_ai.environments.examples.crafter_classic.taskset import CrafterTaskInstance
+from pydantic import BaseModel, Field
+
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
-from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import (
+    TOOL_REGISTRY,
     AbstractTool,
     EnvToolCall,
     ToolResult,
-    TOOL_REGISTRY,
     register_tool,
 )
-from pydantic import BaseModel, Field
+from synth_ai.environments.examples.crafter_classic.engine import (
+    CrafterEngine,
+    CrafterEngineSnapshot,
+    CrafterPrivateState,
+    CrafterPublicState,
+)
+from synth_ai.environments.examples.crafter_classic.taskset import CrafterTaskInstance
+from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
+from synth_ai.environments.stateful.core import StatefulEnvironment
 
 
 # --- Tool Definition ---

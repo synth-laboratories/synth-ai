@@ -4,10 +4,11 @@ Compare experiments between gpt-4.1-nano and gpt-4.1-mini.
 Analyzes performance differences, achievement patterns, and instance difficulty.
 """
 
+import json
+from typing import Any, Dict, List
+
 import duckdb
 import pandas as pd
-from typing import Dict, List, Any
-import json
 
 # Experiment IDs from the runs
 EXPERIMENTS = {

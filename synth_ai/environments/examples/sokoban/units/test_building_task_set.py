@@ -8,10 +8,9 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-
 from synth_ai.environments.examples.sokoban.taskset import (
-    create_sokoban_taskset,
     SokobanTaskInstance,
+    create_sokoban_taskset,
 )
 
 

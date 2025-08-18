@@ -2,16 +2,16 @@
 
 import pytest
 from synth_ai.environments.examples.minigrid.environment_mapping import (
-    get_environment_from_seed,
-    get_difficulty_from_seed,
-    get_minigrid_environment,
-    get_environment_by_difficulty,
-    get_curriculum_environment,
-    validate_environment_name,
-    get_all_environments,
-    get_environments_by_difficulty,
-    ENVIRONMENT_MAPPING,
     DIFFICULTY_MAPPING,
+    ENVIRONMENT_MAPPING,
+    get_all_environments,
+    get_curriculum_environment,
+    get_difficulty_from_seed,
+    get_environment_by_difficulty,
+    get_environment_from_seed,
+    get_environments_by_difficulty,
+    get_minigrid_environment,
+    validate_environment_name,
 )
 
 

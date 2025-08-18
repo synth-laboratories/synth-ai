@@ -4,8 +4,9 @@ Economy & Resource Management Reward Components
 Rewards for money management and inventory optimization.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class FirstEarningsReward(RewardComponent):

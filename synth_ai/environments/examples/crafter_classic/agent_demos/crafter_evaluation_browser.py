@@ -4,18 +4,18 @@ Browse existing Crafter evaluations and launch viewer for a selected run.
 """
 
 import argparse
-import json
-from pathlib import Path
-from datetime import datetime
 import asyncio
-from tabulate import tabulate
+import json
+from datetime import datetime
+from pathlib import Path
 
-from src.synth_env.examples.crafter_classic.agent_demos.full_enchilada import (
-    set_current_eval_dir,
-    app,
-)
-from fastapi.staticfiles import StaticFiles
 import uvicorn
+from fastapi.staticfiles import StaticFiles
+from src.synth_env.examples.crafter_classic.agent_demos.full_enchilada import (
+    app,
+    set_current_eval_dir,
+)
+from tabulate import tabulate
 
 
 def list_evaluations(evals_dir: Path = Path("src/evals/crafter")):

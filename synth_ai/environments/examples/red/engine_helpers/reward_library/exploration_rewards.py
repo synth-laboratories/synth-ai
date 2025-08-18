@@ -4,8 +4,9 @@ Exploration & Discovery Reward Components
 Rewards for map exploration, item discovery, and world interaction.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class NewAreaDiscoveryReward(RewardComponent):

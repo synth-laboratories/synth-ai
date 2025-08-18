@@ -7,16 +7,20 @@ Mirrors the Crafter evaluation structure but adapted for NetHack specifics.
 
 import asyncio
 import json
-import time
 import math
-import uuid
 import os
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Set, Tuple, Any
+import time
+import uuid
 from collections import defaultdict
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
-from tqdm import tqdm
+from src.synth_env.examples.nethack.achievements import NetHackAchievements
+from src.synth_env.examples.nethack.agent_demos.test_synth_react import (
+    NetHackReActAgent,
+)
+from src.synth_env.examples.nethack.engine import NetHackObservationCallable
 
 # NetHack specific imports
 from src.synth_env.examples.nethack.environment import NetHackEnvironment
@@ -24,13 +28,9 @@ from src.synth_env.examples.nethack.taskset import (
     NetHackTaskInstance,
     NetHackTaskInstanceMetadata,
 )
-from src.synth_env.examples.nethack.agent_demos.test_synth_react import (
-    NetHackReActAgent,
-)
-from src.synth_env.examples.nethack.achievements import NetHackAchievements
-from src.synth_env.examples.nethack.engine import NetHackObservationCallable
 from src.synth_env.tasks.core import Impetus, Intent
 from synth_ai.zyk import LM
+from tqdm import tqdm
 
 # Load achievements mapping for BALROG scoring
 _achievements_path = os.path.join(os.path.dirname(__file__), "..", "helpers", "achievements.json")

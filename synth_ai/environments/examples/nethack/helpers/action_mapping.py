@@ -1,7 +1,7 @@
 """Action mapping and validation for NetHack."""
 
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass

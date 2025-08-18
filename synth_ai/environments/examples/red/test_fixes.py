@@ -8,9 +8,9 @@ import asyncio
 import logging
 import sys
 
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
 from synth_ai.environments.examples.red.taskset import INSTANCE as POKEMON_TASK
-from synth_ai.environments.environment.tools import EnvToolCall
 
 
 class PressButtonCall(EnvToolCall):

@@ -1,7 +1,8 @@
 import pytest
+
 from synth_ai.environments.examples.red.engine import (
-    PokemonRedEngine,
     BUTTON_MAP,
+    PokemonRedEngine,
     PokemonRedEngineSnapshot,
 )
 from synth_ai.environments.examples.red.taskset import (

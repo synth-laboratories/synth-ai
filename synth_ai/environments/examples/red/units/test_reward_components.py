@@ -1,12 +1,13 @@
 import pytest
+
 from synth_ai.environments.examples.red.engine_helpers.reward_components import (
     BadgeRewardComponent,
-    MapTransitionComponent,
     BattleVictoryComponent,
     LevelUpComponent,
-    XPGainComponent,
-    StepPenaltyComponent,
+    MapTransitionComponent,
     MenuPenaltyComponent,
+    StepPenaltyComponent,
+    XPGainComponent,
 )
 
 

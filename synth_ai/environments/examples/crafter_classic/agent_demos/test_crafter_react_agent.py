@@ -4,28 +4,29 @@ Test script to run ReAct agents against Crafter environment on synth service (po
 Tests on multiple easy Crafter instances with enhanced debugging
 """
 
+import argparse
 import asyncio
 import json
-import uuid
-import math
-import argparse
-import toml
 import logging
-from datetime import datetime
-from typing import Dict, Any, Optional, List, Set
-from pydantic import BaseModel, Field
-from httpx import AsyncClient
-import sys
+import math
 import os
+import sys
+import uuid
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
+import toml
+from httpx import AsyncClient
+from pydantic import BaseModel, Field
 from tqdm.asyncio import tqdm_asyncio
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "src"))
 
+import numpy as np
 from synth_ai.lm.core.main import LM
 from synth_ai.lm.tools.base import BaseTool
-import numpy as np
 
 
 # --- Configuration Class ---
@@ -111,6 +112,7 @@ class CrafterConfig:
         """Add ft: regex pattern to OpenAI naming regexes if not already present."""
         try:
             import re
+
             from synth_ai.lm.core import vendor_clients
 
             # Check if ft: pattern already exists
@@ -140,8 +142,9 @@ config = CrafterConfig()
 def get_crafter_semantic_mapping():
     """Build the crafter semantic ID to item name mapping."""
     try:
-        import crafter
         import itertools
+
+        import crafter
 
         # Create a dummy env to get ID mappings
         dummyenv = None

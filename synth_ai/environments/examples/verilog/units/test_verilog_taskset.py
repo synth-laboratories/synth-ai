@@ -1,22 +1,24 @@
-import pytest
 import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 # Add timeout to all async tests
 pytestmark = pytest.mark.timeout(15)
 
+from typing import cast
+from uuid import uuid4
+
 from synth_ai.environments.examples.verilog.taskset import (
-    create_verilog_taskset,
-    _create_hf_task_instance,
     VerilogTaskInstance,
     VerilogTaskInstanceMetadata,
     _cleanup_temp_dirs,
+    _create_hf_task_instance,
     _temp_dirs,
+    create_verilog_taskset,
 )
-from synth_ai.environments.tasks.core import TaskInstanceSet, SplitInfo, Impetus, Intent
-from uuid import uuid4
-from typing import cast
+from synth_ai.environments.tasks.core import Impetus, Intent, SplitInfo, TaskInstanceSet
 
 
 class TestVerilogTaskset:

@@ -12,7 +12,6 @@ print(f"SYS.PATH IN APP.PY: {sys.path}")
 import logging
 
 from fastapi import FastAPI
-
 from synth_ai.environments.service.core_routes import api_router
 from synth_ai.environments.service.external_registry import (
     ExternalRegistryConfig,

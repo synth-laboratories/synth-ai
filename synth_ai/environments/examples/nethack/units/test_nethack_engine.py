@@ -1,23 +1,22 @@
 """Unit tests for NetHack engine."""
 
-import pytest
 import asyncio
 from uuid import uuid4
 
-from synth_ai.environments.tasks.core import TaskInstance, Impetus, Intent, TaskInstanceMetadata
-
+import pytest
 from synth_ai.environments.examples.nethack.engine import (
     NetHackEngine,
-    NetHackPublicState,
-    NetHackPrivateState,
     NetHackEngineSnapshot,
-    NetHackSurvivalComponent,
+    NetHackPrivateState,
     NetHackProgressComponent,
+    NetHackPublicState,
+    NetHackSurvivalComponent,
 )
 from synth_ai.environments.examples.nethack.taskset import (
-    NetHackTaskInstanceMetadata,
     NetHackTaskInstance,
+    NetHackTaskInstanceMetadata,
 )
+from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstance, TaskInstanceMetadata
 
 # Since engine requires NLE, all tests require it
 pytest.importorskip("nle", reason="NLE is required for NetHack engine")

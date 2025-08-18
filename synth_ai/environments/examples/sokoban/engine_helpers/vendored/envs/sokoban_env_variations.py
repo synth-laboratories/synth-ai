@@ -1,8 +1,8 @@
+from .boxoban_env import BoxobanEnv
 from .sokoban_env import SokobanEnv
 from .sokoban_env_fixed_targets import FixedTargetsSokobanEnv
 from .sokoban_env_pull import PushAndPullSokobanEnv
 from .sokoban_env_two_player import TwoPlayerSokobanEnv
-from .boxoban_env import BoxobanEnv
 
 
 class SokobanEnv1(SokobanEnv):

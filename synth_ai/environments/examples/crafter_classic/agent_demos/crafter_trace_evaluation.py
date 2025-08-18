@@ -4,53 +4,53 @@ Extends eval_framework.py with SystemTrace capture, viewer, and comprehensive lo
 """
 
 import asyncio
-import json
 import base64
 import io
+import json
 import os
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Optional, Set, Tuple, Any, Union
-from dataclasses import dataclass, asdict
+import time
 import uuid
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
-from PIL import Image
 import pandas as pd
-from tqdm import tqdm
-import time
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
 import uvicorn
-
-# Import synth-sdk trace structures
-from synth_sdk.tracing.abstractions import (
-    SystemTrace,
-    EventPartitionElement,
-    Event,
-    AgentComputeStep,
-    EnvironmentComputeStep,
-    MessageInputs,
-    MessageOutputs,
-    ArbitraryInputs,
-    ArbitraryOutputs,
-    TrainingQuestion,
-    RewardSignal,
-    Dataset,
-)
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from PIL import Image
 
 # Import base evaluation framework
 from src.synth_env.examples.crafter_classic.agent_demos.crafter_evaluation_framework import (
-    CrafterEvalFramework,
-    TrajectoryResult,
-    AggregateResults,
     ACHIEVEMENT_CATEGORIES,
     ALL_ACHIEVEMENTS,
     TERMINATION_REASONS,
-    crafter_score,
+    AggregateResults,
+    CrafterEvalFramework,
+    TrajectoryResult,
     balrog_score,
+    crafter_score,
 )
+
+# Import synth-sdk trace structures
+from synth_sdk.tracing.abstractions import (
+    AgentComputeStep,
+    ArbitraryInputs,
+    ArbitraryOutputs,
+    Dataset,
+    EnvironmentComputeStep,
+    Event,
+    EventPartitionElement,
+    MessageInputs,
+    MessageOutputs,
+    RewardSignal,
+    SystemTrace,
+    TrainingQuestion,
+)
+from tqdm import tqdm
 
 # Action names mapping for Crafter
 ACTION_NAMES = {
@@ -119,9 +119,9 @@ class FullCrafterEvalFramework(CrafterEvalFramework):
     ) -> TrajectoryResult:
         """Run a single trajectory with comprehensive trace capture."""
         from src.synth_env.examples.crafter_classic.agent_demos.crafter_react_agent import (
-            ReActAgent,
             CrafterHistoryObservationCallable,
             CrafterMove,
+            ReActAgent,
         )
         from src.synth_env.examples.crafter_classic.environment import (
             CrafterClassicEnvironment,

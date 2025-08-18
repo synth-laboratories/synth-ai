@@ -3,8 +3,9 @@
 Run script for Full Enchilada Crafter Evaluation
 """
 
-import asyncio
 import argparse
+import asyncio
+
 from src.synth_env.examples.crafter_classic.agent_demos.full_enchilada import (
     run_full_enchilada_eval,
 )

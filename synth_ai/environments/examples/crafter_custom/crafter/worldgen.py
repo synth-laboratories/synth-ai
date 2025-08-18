@@ -3,8 +3,7 @@ import functools
 import numpy as np
 import opensimplex
 
-from . import constants
-from . import objects
+from . import constants, objects
 from .config import WorldGenConfig
 
 

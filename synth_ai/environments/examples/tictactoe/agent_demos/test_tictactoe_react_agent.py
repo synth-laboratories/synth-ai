@@ -6,20 +6,20 @@ Tests on multiple TicTacToe instances with random opponent moves
 
 import asyncio
 import json
+import os
+import sys
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
 from httpx import AsyncClient
-import sys
-import os
+from pydantic import BaseModel, Field
 
 # Add the src directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "src"))
 
 from synth_ai.zyk import LM
 from synth_ai.zyk.lms.tools.base import BaseTool
-
 
 # --- Service Configuration ---
 SERVICE_BASE_URL = "http://localhost:8901"

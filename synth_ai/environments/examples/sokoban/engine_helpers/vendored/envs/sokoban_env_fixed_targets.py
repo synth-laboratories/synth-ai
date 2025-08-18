@@ -1,6 +1,7 @@
-from .sokoban_env import SokobanEnv
-from .render_utils import room_to_rgb_FT, room_to_tiny_world_rgb_FT
 from gym.spaces import Box
+
+from .render_utils import room_to_rgb_FT, room_to_tiny_world_rgb_FT
+from .sokoban_env import SokobanEnv
 
 
 class FixedTargetsSokobanEnv(SokobanEnv):

@@ -1,21 +1,23 @@
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+
+from synth_ai.environments.environment.tools import EnvToolCall, ToolResult
 
 # Add imports for the new dataclasses
 from synth_ai.environments.examples.red.engine import (
+    GameSystemState,
     GameWorldState,
     PlayerProgressState,
-    GameSystemState,
     PokemonData,
 )
 from synth_ai.environments.examples.red.environment import (
     PokemonRedEnvironment,
-    PokemonRedPublicState,
-    PokemonRedPrivateState,
-    PressButtonTool,
     PokemonRedObservationCallable,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+    PressButtonTool,
 )
-from synth_ai.environments.environment.tools import EnvToolCall, ToolResult
 from synth_ai.environments.examples.red.taskset import INSTANCE as DEFAULT_TASK
 
 

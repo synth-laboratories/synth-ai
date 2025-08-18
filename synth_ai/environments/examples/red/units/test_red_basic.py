@@ -9,9 +9,9 @@ import asyncio
 
 # Test memory extraction functions
 from synth_ai.environments.examples.red.engine_helpers.state_extraction import (
-    get_badge_count,
-    format_position,
     format_hp_status,
+    format_position,
+    get_badge_count,
 )
 
 
@@ -82,8 +82,8 @@ async def test_environment():
     print("\nTesting full environment...")
 
     try:
-        from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
         from synth_ai.environments.environment.tools import EnvToolCall
+        from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
 
         env = PokemonRedEnvironment()
         print("✓ Environment created")

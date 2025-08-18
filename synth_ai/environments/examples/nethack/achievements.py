@@ -2,8 +2,8 @@
 
 import json
 import os
-from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
 
 
 # Exact copy of Balrog's Progress class

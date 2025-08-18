@@ -1,6 +1,7 @@
 import importlib
-import numpy as np
 from typing import Any, Dict
+
+import numpy as np
 
 # Minimal attributes to serialize per object type
 BASIC_ATTRS: Dict[str, list] = {

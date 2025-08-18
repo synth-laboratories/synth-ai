@@ -6,12 +6,12 @@ from __future__ import annotations
 
 import asyncio
 import random
-from dataclasses import dataclass, asdict, fields
+from dataclasses import asdict, dataclass, fields
 from typing import Dict, List
 from uuid import UUID, uuid4
 
-import numpy as np
 import crafter
+import numpy as np
 from crafter import objects
 
 from synth_ai.environments.tasks.core import (

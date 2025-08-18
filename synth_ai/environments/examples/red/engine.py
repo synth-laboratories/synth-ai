@@ -1,25 +1,26 @@
 from __future__ import annotations
+
 import logging
-from pathlib import Path
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from synth_ai.environments.environment.rewards.core import RewardStack
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
 
 # Import logging configuration first to suppress JAX debug messages
-
 from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
-from synth_ai.environments.environment.rewards.core import RewardStack
 from synth_ai.environments.tasks.core import TaskInstance
 
-from .engine_helpers.state_extraction import extract_game_state
 from .engine_helpers.reward_components import (
     BadgeRewardComponent,
-    MapTransitionComponent,
     BattleVictoryComponent,
     LevelUpComponent,
-    XPGainComponent,
+    MapTransitionComponent,
     StepPenaltyComponent,
+    XPGainComponent,
 )
+from .engine_helpers.state_extraction import extract_game_state
 
 try:
     from pyboy import PyBoy

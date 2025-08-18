@@ -4,7 +4,8 @@ Run Gemini 1.5 Flash evaluation on MiniGrid tasks.
 """
 
 import asyncio
-from eval_framework import run_minigrid_eval, get_success_rate
+
+from eval_framework import get_success_rate, run_minigrid_eval
 
 
 async def run_gemini_evaluation():

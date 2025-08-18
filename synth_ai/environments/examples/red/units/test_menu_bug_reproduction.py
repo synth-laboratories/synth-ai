@@ -1,21 +1,22 @@
-import pytest
 import asyncio
-import uuid
 import hashlib
 import logging
+import uuid
 
-from synth_ai.environments.examples.red.environment import (
-    PokemonRedEnvironment,
-    PokemonRedPublicState,
-    PokemonRedPrivateState,
-)
+import pytest
+
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.red.environment import (
+    PokemonRedEnvironment,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+)
 from synth_ai.environments.examples.red.taskset import PokemonRedTaskInstance
 from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstanceMetadata
-from synth_ai.environments.environment.tools import EnvToolCall
 
 # Set up logging to see debug messages
 logging.basicConfig(level=logging.DEBUG)
@@ -670,8 +671,8 @@ async def test_menu_state_investigation():
 
     try:
         from synth_ai.environments.examples.red.engine_helpers.memory_map import (
-            MENU_STATE,
             MAP_ID,
+            MENU_STATE,
             PLAYER_X,
             PLAYER_Y,
             TEXT_BOX_ACTIVE,
@@ -820,8 +821,8 @@ async def test_comprehensive_menu_interaction():
 
     try:
         from synth_ai.environments.examples.red.engine_helpers.memory_map import (
-            MENU_STATE,
             MAP_ID,
+            MENU_STATE,
             PLAYER_X,
             PLAYER_Y,
         )
@@ -993,8 +994,8 @@ async def test_movement_away_from_interface():
 
     try:
         from synth_ai.environments.examples.red.engine_helpers.memory_map import (
-            MENU_STATE,
             MAP_ID,
+            MENU_STATE,
             PLAYER_X,
             PLAYER_Y,
             TEXT_BOX_ACTIVE,

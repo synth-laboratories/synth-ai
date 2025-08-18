@@ -1,13 +1,13 @@
+from synth_ai.environments.examples.red.engine_helpers.memory_map import *
 from synth_ai.environments.examples.red.engine_helpers.state_extraction import (
     extract_game_state,
-    get_badge_count,
-    format_position,
     format_hp_status,
+    format_position,
+    get_3byte_int,
+    get_badge_count,
     get_byte,
     get_word,
-    get_3byte_int,
 )
-from synth_ai.environments.examples.red.engine_helpers.memory_map import *
 
 
 class TestMemoryExtraction:

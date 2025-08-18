@@ -5,21 +5,21 @@ Provides detailed metrics, trajectory analysis, and achievement statistics for M
 
 import asyncio
 import json
-import time
 import math
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Set, Tuple, Any
-from collections import defaultdict
-import uuid
 import os
+import time
+import uuid
+from collections import defaultdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
-from tqdm import tqdm
 
 # Synth-SDK tracing imports
 from synth_sdk.tracing.context import trace_context
 from synth_sdk.tracing.events.store import event_store
+from tqdm import tqdm
 
 # MiniGrid-specific achievements based on task complexity
 MINIGRID_ACHIEVEMENTS = {
@@ -291,8 +291,8 @@ class MiniGridEvalFramework:
         collect_detailed_data: bool = True,
     ) -> MiniGridTrajectoryResult:
         """Run a single trajectory and collect detailed metrics."""
-        import sys
         import os
+        import sys
 
         # Add the agent_demos directory to path
         agent_demos_dir = os.path.dirname(os.path.abspath(__file__))
@@ -301,11 +301,11 @@ class MiniGridEvalFramework:
         minigrid_dir = os.path.dirname(agent_demos_dir)
         sys.path.insert(0, minigrid_dir)
 
-        from test_synth_react import MiniGridReActAgent
         from environment import MiniGridEnvironment
-        from taskset import MiniGridTaskInstance, MiniGridTaskInstanceMetadata
         from synth_ai.environments.tasks.core import Impetus, Intent
         from synth_ai.zyk import LM
+        from taskset import MiniGridTaskInstance, MiniGridTaskInstanceMetadata
+        from test_synth_react import MiniGridReActAgent
 
         # Create task instance based on task type
         # Extract grid size from task name

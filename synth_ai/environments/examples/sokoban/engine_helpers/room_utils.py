@@ -1,8 +1,9 @@
-import numpy as np
-import marshal
 import copy
+import marshal
 from collections import deque
 from typing import Tuple
+
+import numpy as np
 
 # --- ADDED CONSTANT ---
 MAX_GENERATION_RETRIES = 100

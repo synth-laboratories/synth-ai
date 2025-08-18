@@ -12,24 +12,24 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import uuid4
 
+from synth_ai.environments.examples.minigrid.environment_mapping import (
+    get_all_environments,
+    get_difficulty_from_seed,
+    get_environment_from_seed,
+)
+from synth_ai.environments.examples.minigrid.puzzle_loader import (
+    MiniGridPuzzle,
+    get_puzzle_by_seed,
+    get_puzzle_loader,
+)
 from synth_ai.environments.tasks.api import (
+    Impetus,
+    Intent,
+    SplitInfo,
     Task,
     TaskInstance,
     TaskInstanceMetadata,
     TaskInstanceSet,
-    SplitInfo,
-    Impetus,
-    Intent,
-)
-from synth_ai.environments.examples.minigrid.environment_mapping import (
-    get_environment_from_seed,
-    get_difficulty_from_seed,
-    get_all_environments,
-)
-from synth_ai.environments.examples.minigrid.puzzle_loader import (
-    get_puzzle_loader,
-    get_puzzle_by_seed,
-    MiniGridPuzzle,
 )
 
 

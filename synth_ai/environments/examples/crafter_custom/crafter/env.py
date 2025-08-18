@@ -2,12 +2,8 @@ import collections
 
 import numpy as np
 
-from . import constants
-from . import engine
-from . import objects
-from . import worldgen
+from . import constants, engine, objects, worldgen
 from .config import WorldGenConfig
-
 
 # Gym is an optional dependency.
 try:

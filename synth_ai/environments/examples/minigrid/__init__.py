@@ -5,23 +5,23 @@ with full state management, tool-based interaction, and task generation.
 """
 
 from synth_ai.environments.examples.minigrid.engine import (
-    MiniGridEngine,
-    MiniGridPublicState,
-    MiniGridPrivateState,
-    MiniGridGoalReachedComponent,
-    MiniGridStepPenaltyComponent,
-    MiniGridObservationCallable,
     MiniGridCheckpointObservationCallable,
+    MiniGridEngine,
+    MiniGridGoalReachedComponent,
+    MiniGridObservationCallable,
+    MiniGridPrivateState,
+    MiniGridPublicState,
+    MiniGridStepPenaltyComponent,
 )
 from synth_ai.environments.examples.minigrid.environment import (
+    MiniGridActionInput,
     MiniGridEnvironment,
     MiniGridInteractTool,
-    MiniGridActionInput,
 )
 from synth_ai.environments.examples.minigrid.taskset import (
+    DEFAULT_MINIGRID_TASK,
     MiniGridTaskInstance,
     MiniGridTaskInstanceMetadata,
-    DEFAULT_MINIGRID_TASK,
     create_minigrid_taskset,
     taskset,
 )

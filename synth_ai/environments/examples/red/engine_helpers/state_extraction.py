@@ -1,5 +1,6 @@
+from typing import Any, Dict, List
+
 from .memory_map import *
-from typing import Dict, Any, List
 
 
 def get_byte(memory, addr: int) -> int:

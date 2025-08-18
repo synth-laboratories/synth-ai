@@ -1,6 +1,7 @@
-import logging
-import pkg_resources
 import json
+import logging
+
+import pkg_resources
 from gym.envs.registration import register
 
 logger = logging.getLogger(__name__)

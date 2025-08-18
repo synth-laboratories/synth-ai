@@ -3,9 +3,10 @@ Screen analysis functions for Pokemon Red to provide rich textual descriptions
 of what's actually visible on the game screen.
 """
 
-import numpy as np
-from typing import Dict, Any, List, Tuple
 import hashlib
+from typing import Any, Dict, List, Tuple
+
+import numpy as np
 
 # Define some common Pokemon Red screen colors (RGB values)
 POKEMON_RED_COLORS = {

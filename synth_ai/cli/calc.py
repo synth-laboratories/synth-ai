@@ -33,7 +33,7 @@ def _safe_eval(expr: str) -> float:
         if isinstance(n, ast.Num):  # 3.8 and earlier
             return n.n
         if isinstance(n, ast.Constant):  # 3.8+
-            if isinstance(n.value, (int, float)):
+            if isinstance(n.value, int | float):
                 return n.value
             raise ValueError("Only numeric constants are allowed")
         if isinstance(n, ast.BinOp) and type(n.op) in _OPS:

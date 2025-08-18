@@ -5,25 +5,23 @@ SokobanEngine directly.
 """
 
 import asyncio
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 from uuid import uuid4
 
 import pytest
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.engine import SokobanEngineSnapshot
 
 # ––––– app imports ––––– #
 from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
-from synth_ai.environments.examples.sokoban.engine import SokobanEngineSnapshot
-from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.taskset import (
+    SokobanTaskInstance,
+    SokobanTaskInstanceMetadata,
+)
 
 # shared A* / heuristic utilities
 from synth_ai.environments.examples.sokoban.units.astar_common import astar, solved
-
-from synth_ai.environments.examples.sokoban.taskset import (
-    SokobanTaskInstanceMetadata,
-    SokobanTaskInstance,
-)
 from synth_ai.environments.tasks.core import Impetus, Intent
-
 
 # ---------------- test fixture snapshot ---------------------------------- #
 SIMPLE_SNAPSHOT: Dict[str, Any] = {

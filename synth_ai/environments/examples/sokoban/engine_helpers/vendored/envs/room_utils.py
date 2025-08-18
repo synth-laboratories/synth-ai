@@ -1,6 +1,7 @@
-import random
-import numpy as np
 import marshal
+import random
+
+import numpy as np
 
 
 def generate_room(

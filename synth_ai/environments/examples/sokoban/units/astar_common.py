@@ -6,8 +6,9 @@ environment-level unit tests.
 import heapq
 import itertools
 import json
+from typing import Any, Awaitable, Callable, List, Tuple
+
 import numpy as np
-from typing import List, Tuple, Callable, Awaitable, Any
 
 
 # ---------- generic utilities ------------------------------------ #

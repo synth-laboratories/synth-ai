@@ -1,14 +1,14 @@
 """Unit tests for NetHack taskset."""
 
-import pytest
 import asyncio
 
+import pytest
 from synth_ai.environments.examples.nethack.taskset import (
-    create_nethack_taskset,
-    NetHackTaskInstance,
-    NetHackTaskInstanceMetadata,
     CHARACTER_ROLES,
     SPECIAL_OBJECTIVES,
+    NetHackTaskInstance,
+    NetHackTaskInstanceMetadata,
+    create_nethack_taskset,
 )
 
 
