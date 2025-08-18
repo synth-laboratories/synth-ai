@@ -475,7 +475,20 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                     actions = [0]
 
                                 # Execute each action separately
-                                for action_id in actions:
+                                for i, action_id in enumerate(actions):
+                                    # Capture BEFORE frame
+                                    frame_before_b64 = None
+                                    try:
+                                        fr = await retry_http_request(
+                                            client,
+                                            "GET",
+                                            f"{config.crafter_service_url}/env/CrafterClassic/frame",
+                                            params={"env_id": instance_id},
+                                        )
+                                        if fr.status_code == 200:
+                                            frame_before_b64 = fr.json().get("image_base64")
+                                    except Exception:
+                                        frame_before_b64 = None
                                     total_actions += 1
 
                                     # Validate action ID
@@ -541,7 +554,47 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                     )
                                     await session_tracer.record_event(runtime_event)
 
-                                    # Record environment event
+                                    # Capture AFTER frame
+                                    frame_after_b64 = None
+                                    try:
+                                        fr = await retry_http_request(
+                                            client,
+                                            "GET",
+                                            f"{config.crafter_service_url}/env/CrafterClassic/frame",
+                                            params={"env_id": instance_id},
+                                        )
+                                        if fr.status_code == 200:
+                                            frame_after_b64 = fr.json().get("image_base64")
+                                    except Exception:
+                                        frame_after_b64 = None
+
+                                    # Save frames to assets and compute URIs
+                                    before_uri = None
+                                    after_uri = None
+                                    try:
+                                        if frame_before_b64:
+                                            import base64
+                                            from pathlib import Path
+                                            assets_dir = Path("traces/v3/assets") / session_id
+                                            assets_dir.mkdir(parents=True, exist_ok=True)
+                                            before_path = assets_dir / f"{turn}_{i}_before.png"
+                                            with open(before_path, "wb") as f:
+                                                f.write(base64.b64decode(frame_before_b64))
+                                            before_uri = str(before_path)
+                                        if frame_after_b64:
+                                            import base64
+                                            from pathlib import Path
+                                            assets_dir = Path("traces/v3/assets") / session_id
+                                            assets_dir.mkdir(parents=True, exist_ok=True)
+                                            after_path = assets_dir / f"{turn}_{i}_after.png"
+                                            with open(after_path, "wb") as f:
+                                                f.write(base64.b64decode(frame_after_b64))
+                                            after_uri = str(after_path)
+                                    except Exception:
+                                        before_uri = None
+                                        after_uri = None
+
+                                    # Record environment event with visuals
                                     env_event = EnvironmentEvent(
                                         system_instance_id=f"crafter_env_{instance_id}",
                                         time_record=TimeRecord(
@@ -549,7 +602,10 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                         ),
                                         reward=reward,
                                         terminated=done,
-                                        system_state_before={"observation": prev_obs},
+                                        system_state_before={
+                                            "observation": prev_obs,
+                                            **({"visuals": {"frame_uri": before_uri}} if before_uri else {}),
+                                        },
                                         system_state_after={
                                             "observation": new_obs,
                                             "public_state": {
@@ -557,6 +613,7 @@ IMPORTANT: Always use the 'interact' tool with a list of action IDs. For example
                                                     "achievements_status", {}
                                                 )
                                             },
+                                            **({"visuals": {"frame_uri": after_uri}} if after_uri else {}),
                                         },
                                     )
                                     await session_tracer.record_event(env_event)

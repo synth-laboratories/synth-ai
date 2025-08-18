@@ -253,8 +253,8 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
                 if self.env._player is None:
                     raise RuntimeError("Player object not found in world")
 
-            # Build current public state for reward calculation
-            current_pub_state = self._build_public_state(self.env.render())
+            # Build public state BEFORE step (baseline if needed)
+            pub_state_before = self._build_public_state(self.env.render())
 
             # Step the environment
             crafter_step_start = time.time()
@@ -323,14 +323,18 @@ class CrafterEngine(StatefulEngine, IReproducibleEngine):
 
             final_priv_state = self._build_private_state(final_reward, terminated, truncated)
 
-            self._previous_public_state_for_reward = current_pub_state
+            # Build public state AFTER step to reflect latest world and achievements
+            pub_state_after = self._build_public_state(obs, info)
+
+            # Store post-step state as baseline for next step
+            self._previous_public_state_for_reward = pub_state_after
             self._previous_private_state_for_reward = final_priv_state
 
             total_step_time = time.time() - step_start_time
             logger.debug(
                 f"CrafterEngine _step_engine took {total_step_time:.3f}s (crafter.step: {crafter_step_time:.3f}s)"
             )
-            return final_priv_state, current_pub_state
+            return final_priv_state, pub_state_after
 
         except Exception as e:
             # Create error state

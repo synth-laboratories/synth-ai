@@ -7,6 +7,7 @@ import os
 import json
 import pickle
 import base64
+from io import BytesIO
 import numpy as np
 import tempfile
 from dataclasses import dataclass
@@ -725,6 +726,43 @@ async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) ->
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.get("/env/{env_name}/frame")
+async def get_env_frame(env_name: str, env_id: str) -> Dict[str, Any]:
+    """Return the current rendered frame of the environment as base64 PNG.
+
+    This provides a lightweight way for clients to capture before/after snapshots
+    around steps without modifying core step responses.
+    """
+    env = await storage.get(env_id)
+    if not env:
+        raise HTTPException(status_code=404, detail=f"Environment instance {env_id} not found")
+
+    try:
+        # For CrafterClassic, underlying engine exposes env.render() -> RGB ndarray
+        if hasattr(env, "engine") and hasattr(env.engine, "env") and hasattr(env.engine.env, "render"):
+            rgb = env.engine.env.render()
+        else:
+            raise RuntimeError("Environment does not support render()")
+
+        if rgb is None:
+            raise RuntimeError("render() returned None")
+
+        # Encode to PNG base64
+        try:
+            from PIL import Image  # type: ignore
+            img = Image.fromarray(rgb.astype("uint8"), "RGB")
+            buf = BytesIO()
+            img.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        except Exception as e:
+            raise RuntimeError(f"failed to encode frame: {e}")
+
+        return {"env_id": env_id, "image_base64": b64}
+    except Exception as e:
+        logger.error(f"Error rendering frame for {env_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.get("/env/{env_name}/metadata")

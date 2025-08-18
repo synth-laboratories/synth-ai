@@ -12,6 +12,8 @@ from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 from synth_ai.lm.constants import SPECIAL_BASE_TEMPS, CLAUDE_REASONING_MODELS, SONNET_37_BUDGETS
 from synth_ai.lm.vendors.core.openai_api import OpenAIStructuredOutputClient
+from synth_ai.lm.overrides import use_overrides_for_messages, apply_injection as apply_injection_overrides, apply_param_overrides
+from synth_ai.lm.injection import apply_injection
 
 ANTHROPIC_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (anthropic.APIError,)
 
@@ -56,6 +58,9 @@ class AnthropicAPI(VendorBase):
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
         lm_config["reasoning_effort"] = reasoning_effort
+        # Apply context-scoped overrides and injection before splitting
+        with use_overrides_for_messages(messages):
+            messages = apply_injection_overrides(messages)
         cache_result = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
@@ -70,6 +75,10 @@ class AnthropicAPI(VendorBase):
             "max_tokens": lm_config.get("max_tokens", 4096),
             "temperature": lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
         }
+        with use_overrides_for_messages(messages):
+            from synth_ai.lm.overrides import apply_tool_overrides
+            api_params = apply_tool_overrides(api_params)
+            api_params = apply_param_overrides(api_params)
 
         # Add tools if provided
         if tools:
@@ -147,6 +156,9 @@ class AnthropicAPI(VendorBase):
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only=use_ephemeral_cache_only)
         lm_config["reasoning_effort"] = reasoning_effort
+        with use_overrides_for_messages(messages):
+            # Apply context-scoped injection before splitting into system/messages
+            messages = apply_injection_overrides(messages)
         cache_result = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
@@ -161,6 +173,10 @@ class AnthropicAPI(VendorBase):
             "max_tokens": lm_config.get("max_tokens", 4096),
             "temperature": lm_config.get("temperature", SPECIAL_BASE_TEMPS.get(model, 0)),
         }
+        with use_overrides_for_messages(messages):
+            from synth_ai.lm.overrides import apply_tool_overrides
+            api_params = apply_tool_overrides(api_params)
+            api_params = apply_param_overrides(api_params)
 
         # Add tools if provided
         if tools:

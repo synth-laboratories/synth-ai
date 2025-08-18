@@ -11,7 +11,26 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 import httpx
-from public_tests.environments.utils import check_service_running
+# Prefer the project's test utility; fallback to a local implementation if unavailable
+try:
+    from tests.environments.utils import check_service_running  # type: ignore
+except Exception:
+    import httpx
+    import pytest
+
+    async def check_service_running(port: int = 8901) -> None:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"http://localhost:{port}/health", timeout=2.0)
+                if response.status_code != 200:
+                    raise RuntimeError(f"Service returned status {response.status_code}")
+        except (httpx.ConnectError, httpx.TimeoutException):
+            pytest.fail(  # type: ignore
+                f"\n\nEnvironment service is not running on port {port}!\n"
+                f"Please start the service with:\n"
+                f"  uvicorn synth_ai.environments.service.app:app --port {port}\n"
+                f"You should see: INFO:     Uvicorn running on http://0.0.0.0:{port} (Press CTRL+C to quit)\n"
+            )
 
 from synth_ai.environments.service.app import app
 from synth_ai.environments.service.core_routes import instances
