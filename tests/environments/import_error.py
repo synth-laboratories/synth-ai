@@ -16,7 +16,6 @@ except ImportError as e:
 print("\n2. Checking what's in the synth_ai.environments package directory:")
 import os
 import sys
-import site
 
 print(f"   Python path: {sys.path}")
 
@@ -31,7 +30,7 @@ for path in sys.path:
         print("\n3. Looking at synth_ai.environments/__init__.py:")
         init_file = os.path.join(potential_path, "__init__.py")
         if os.path.exists(init_file):
-            with open(init_file, "r") as f:
+            with open(init_file) as f:
                 print("   " + "\n   ".join(f.read().splitlines()[:10]))  # First 10 lines
         break
 else:

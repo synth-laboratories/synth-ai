@@ -1,10 +1,10 @@
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pytest
 
-from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 from synth_ai.lm.overrides import LMOverridesContext
+from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 
 class _FakeChatCompletions:
@@ -31,11 +31,11 @@ class _FakeAsyncClient:
         self.base_url = "https://api.groq.com/openai/v1"
 
 
-def _make_vendor(recorder: Dict[str, Any]) -> OpenAIStandard:
+def _make_vendor(recorder: dict[str, Any]) -> OpenAIStandard:
     return OpenAIStandard(sync_client=_FakeSyncClient(recorder), async_client=_FakeAsyncClient())
 
 
-def _text_messages(user_text: str) -> List[Dict[str, Any]]:
+def _text_messages(user_text: str) -> list[dict[str, Any]]:
     return [
         {"role": "system", "content": "System."},
         {"role": "user", "content": user_text},
@@ -44,12 +44,15 @@ def _text_messages(user_text: str) -> List[Dict[str, Any]]:
 
 @pytest.mark.unit
 def test_injection_rules_applied_to_messages_sync():
-    rec: Dict[str, Any] = {}
+    rec: dict[str, Any] = {}
     vendor = _make_vendor(rec)
     messages = _text_messages("I used the atm to withdraw cash.")
 
     overrides = [
-        {"match": {"contains": "atm", "role": "user"}, "injection_rules": [{"find": "atm", "replace": "ATM"}]}
+        {
+            "match": {"contains": "atm", "role": "user"},
+            "injection_rules": [{"find": "atm", "replace": "ATM"}],
+        }
     ]
 
     with LMOverridesContext(overrides):
@@ -60,14 +63,15 @@ def test_injection_rules_applied_to_messages_sync():
         )
 
     sent_messages = rec["last_kwargs"]["messages"]
-    assert any("ATM" in (m.get("content") if isinstance(m.get("content"), str) else "") for m in sent_messages), (
-        f"Expected 'ATM' substitution in outgoing messages, got: {sent_messages}"
-    )
+    assert any(
+        "ATM" in (m.get("content") if isinstance(m.get("content"), str) else "")
+        for m in sent_messages
+    ), f"Expected 'ATM' substitution in outgoing messages, got: {sent_messages}"
 
 
 @pytest.mark.unit
 def test_param_overrides_model_and_temperature_sync():
-    rec: Dict[str, Any] = {}
+    rec: dict[str, Any] = {}
     vendor = _make_vendor(rec)
     messages = _text_messages("Hello")
 
@@ -91,7 +95,7 @@ def test_param_overrides_model_and_temperature_sync():
 
 @pytest.mark.unit
 def test_tool_overrides_set_add_remove_and_choice_sync():
-    rec: Dict[str, Any] = {}
+    rec: dict[str, Any] = {}
     vendor = _make_vendor(rec)
     messages = _text_messages("use atm tool")
 
@@ -127,4 +131,3 @@ def test_tool_overrides_set_add_remove_and_choice_sync():
     # set_tools + add_tools -> foo, bar, baz then remove bar => foo, baz
     assert names == ["foo", "baz"]
     assert rec["last_kwargs"].get("tool_choice") == "required"
-

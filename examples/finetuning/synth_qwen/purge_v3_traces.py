@@ -7,7 +7,9 @@ Purge v3 trace databases:
 
 Run with: uvpm examples.finetuning.synth_qwen.purge_v3_traces
 """
+
 import datetime
+import contextlib
 import os
 import shutil
 import sqlite3
@@ -30,7 +32,9 @@ def delete_db_files(db_path: Path) -> None:
 
 
 def purge_older_than_24h(db_path: Path) -> None:
-    cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    cutoff = (datetime.datetime.utcnow() - datetime.timedelta(hours=24)).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
     con = sqlite3.connect(str(db_path))
     cur = con.cursor()
 
@@ -42,7 +46,9 @@ def purge_older_than_24h(db_path: Path) -> None:
         placeholders = ",".join(["?"] * len(session_ids))
         cur.execute(f"DELETE FROM events WHERE session_id IN ({placeholders})", session_ids)
         cur.execute(f"DELETE FROM messages WHERE session_id IN ({placeholders})", session_ids)
-        cur.execute(f"DELETE FROM session_timesteps WHERE session_id IN ({placeholders})", session_ids)
+        cur.execute(
+            f"DELETE FROM session_timesteps WHERE session_id IN ({placeholders})", session_ids
+        )
         cur.execute(
             f"DELETE FROM session_traces WHERE session_id IN ({placeholders}) AND created_at < ?",
             session_ids + [cutoff],
@@ -61,10 +67,8 @@ def purge_older_than_24h(db_path: Path) -> None:
         con2.close()
         return
     except sqlite3.OperationalError:
-        try:
+        with contextlib.suppress(Exception):
             con2.close()
-        except Exception:
-            pass
 
     # Fallback: VACUUM INTO a temp path (e.g., /tmp) then replace atomically
     tmp_target = Path("/tmp") / f"{db_path.stem}_compacted.db"
@@ -81,10 +85,8 @@ def purge_older_than_24h(db_path: Path) -> None:
     finally:
         if tmp_target.exists():
             # Clean up if move failed
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(tmp_target)
-            except Exception:
-                pass
 
 
 def main() -> None:

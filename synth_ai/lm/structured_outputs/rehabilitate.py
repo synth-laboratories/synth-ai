@@ -2,15 +2,13 @@ import ast
 import json
 import logging
 import re
-from typing import Dict, List, Type, Union
 
 from pydantic import BaseModel
 
-from synth_ai.lm.vendors.base import VendorBase
 from synth_ai.lm.vendors.core.openai_api import OpenAIStructuredOutputClient
 
 
-def pull_out_structured_output(response_raw: str, response_model: Type[BaseModel]) -> BaseModel:
+def pull_out_structured_output(response_raw: str, response_model: type[BaseModel]) -> BaseModel:
     logger = logging.getLogger(__name__)
     # logger.debug(f"Raw response received: {response_raw}")
 
@@ -36,7 +34,7 @@ def pull_out_structured_output(response_raw: str, response_model: Type[BaseModel
     try:
         response = json.loads(response_prepared)
         final = response_model(**response)
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         # Attempt to parse using ast.literal_eval as a fallback
         response_prepared = response_prepared.replace("\n", "").replace("\\n", "")
         response_prepared = response_prepared.replace('\\"', '"')
@@ -55,8 +53,8 @@ def pull_out_structured_output(response_raw: str, response_model: Type[BaseModel
 
 def fix_errant_stringified_json_sync(
     response_raw: str,
-    response_model: Type[BaseModel],
-    models: List[str] = ["gpt-4o-mini", "gpt-4o"],
+    response_model: type[BaseModel],
+    models: list[str] = ["gpt-4o-mini", "gpt-4o"],
 ) -> BaseModel:
     try:
         return pull_out_structured_output(response_raw, response_model)
@@ -90,8 +88,8 @@ def fix_errant_stringified_json_sync(
 
 async def fix_errant_stringified_json_async(
     response_raw: str,
-    response_model: Type[BaseModel],
-    models: List[str] = ["gpt-4o-mini", "gpt-4o"],
+    response_model: type[BaseModel],
+    models: list[str] = ["gpt-4o-mini", "gpt-4o"],
 ) -> BaseModel:
     try:
         return pull_out_structured_output(response_raw, response_model)
@@ -123,9 +121,9 @@ async def fix_errant_stringified_json_async(
 
 
 async def fix_errant_forced_async(
-    messages: List[Dict],
+    messages: list[dict],
     response_raw: str,
-    response_model: Type[BaseModel],
+    response_model: type[BaseModel],
     model: str,
 ) -> BaseModel:
     try:
@@ -157,7 +155,7 @@ async def fix_errant_forced_async(
 
 def fix_errant_forced_sync(
     response_raw: str,
-    response_model: Type[BaseModel],
+    response_model: type[BaseModel],
     model: str,
 ) -> BaseModel:
     client = OpenAIStructuredOutputClient()

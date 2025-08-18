@@ -21,37 +21,43 @@ Performance Considerations:
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Sequence, Union
-import pandas as pd
-from sqlalchemy import select, insert, update, delete, text, and_, or_, func
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncSession
-from sqlalchemy.orm import sessionmaker, selectinload, joinedload
-from sqlalchemy.pool import NullPool
-from sqlalchemy.exc import IntegrityError
-import logging
+from typing import Any
 
-from ..config import CONFIG
+import pandas as pd
+from sqlalchemy import select, text, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import selectinload, sessionmaker
+from sqlalchemy.pool import NullPool
+
 from ..abstractions import (
-    SessionTrace,
-    SessionTimeStep,
-    BaseEvent,
-    LMCAISEvent,
     EnvironmentEvent,
+    LMCAISEvent,
     RuntimeEvent,
+    SessionTrace,
 )
-from ..utils import json_dumps
+from ..config import CONFIG
 from .models import (
     Base,
-    SessionTrace as DBSessionTrace,
-    SessionTimestep as DBSessionTimestep,
-    Event as DBEvent,
-    Message as DBMessage,
-    Experiment as DBExperiment,
-    System as DBSystem,
-    SystemVersion as DBSystemVersion,
     analytics_views,
+)
+from .models import (
+    Event as DBEvent,
+)
+from .models import (
+    Experiment as DBExperiment,
+)
+from .models import (
+    Message as DBMessage,
+)
+from .models import (
+    SessionTimestep as DBSessionTimestep,
+)
+from .models import (
+    SessionTrace as DBSessionTrace,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,10 +65,10 @@ logger = logging.getLogger(__name__)
 
 class AsyncSQLTraceManager:
     """Async trace storage manager using SQLAlchemy and Turso/sqld.
-    
+
     Handles all database operations for the tracing system. Designed to work
     with both local SQLite (via aiosqlite) and remote Turso databases.
-    
+
     The manager handles:
     - Connection lifecycle management
     - Schema creation and verification
@@ -71,22 +77,22 @@ class AsyncSQLTraceManager:
     - Analytics view creation
     """
 
-    def __init__(self, db_url: Optional[str] = None):
+    def __init__(self, db_url: str | None = None):
         self.db_url = db_url or CONFIG.db_url
-        self.engine: Optional[AsyncEngine] = None
-        self.SessionLocal: Optional[sessionmaker] = None
+        self.engine: AsyncEngine | None = None
+        self.SessionLocal: sessionmaker | None = None
         self._schema_lock = asyncio.Lock()
         self._schema_ready = False
 
     async def initialize(self):
         """Initialize the database connection and schema.
-        
+
         This method is idempotent and thread-safe. It:
         1. Creates the async engine with appropriate settings
         2. Verifies database file exists (for SQLite)
         3. Creates schema if needed
         4. Sets up analytics views
-        
+
         The schema lock ensures only one worker creates the schema in
         concurrent scenarios.
         """
@@ -136,7 +142,7 @@ class AsyncSQLTraceManager:
 
     async def _ensure_schema(self):
         """Ensure database schema is created.
-        
+
         Uses a lock to prevent race conditions when multiple workers start
         simultaneously. The checkfirst=True parameter handles cases where
         another worker already created the schema.
@@ -154,7 +160,7 @@ class AsyncSQLTraceManager:
                     await conn.run_sync(
                         lambda sync_conn: Base.metadata.create_all(sync_conn, checkfirst=True)
                     )
-                    #logger.info("✅ Database schema created/verified successfully")
+                    # logger.info("✅ Database schema created/verified successfully")
                 except Exception as e:
                     # If tables already exist, that's fine - another worker created them
                     if "already exists" not in str(e):
@@ -183,7 +189,7 @@ class AsyncSQLTraceManager:
                             logger.warning(f"Could not create view {view_name}: {e}")
 
             self._schema_ready = True
-            #logger.debug("🎯 Database ready for use!")
+            # logger.debug("🎯 Database ready for use!")
 
     @asynccontextmanager
     async def session(self):
@@ -195,18 +201,18 @@ class AsyncSQLTraceManager:
 
     async def insert_session_trace(self, trace: SessionTrace) -> str:
         """Insert a complete session trace.
-        
+
         This method handles the complex task of inserting a complete session
         with all its timesteps, events, and messages. It uses a single
         transaction for atomicity and flushes after timesteps to get their
         auto-generated IDs for foreign keys.
-        
+
         Args:
             trace: The complete session trace to store
-            
+
         Returns:
             The session ID
-            
+
         Raises:
             IntegrityError: If session ID already exists (handled gracefully)
         """
@@ -214,7 +220,7 @@ class AsyncSQLTraceManager:
             try:
                 # Convert to cents for cost storage - avoids floating point
                 # precision issues and allows for integer arithmetic
-                def to_cents(cost: Optional[float]) -> Optional[int]:
+                def to_cents(cost: float | None) -> int | None:
                     return int(cost * 100) if cost is not None else None
 
                 # Insert session
@@ -230,7 +236,7 @@ class AsyncSQLTraceManager:
 
                 # Track timestep IDs for foreign keys - we need these to link
                 # events and messages to their respective timesteps
-                step_id_map: Dict[str, int] = {}
+                step_id_map: dict[str, int] = {}
 
                 # Insert timesteps
                 for step in trace.session_time_steps:
@@ -270,8 +276,9 @@ class AsyncSQLTraceManager:
                         call_records_data = None
                         if event.call_records:
                             from dataclasses import asdict
+
                             call_records_data = [asdict(record) for record in event.call_records]
-                        
+
                         event_data.update(
                             {
                                 "event_type": "cais",
@@ -340,7 +347,7 @@ class AsyncSQLTraceManager:
                     return trace.session_id  # Return existing ID
                 raise
 
-    async def get_session_trace(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session_trace(self, session_id: str) -> dict[str, Any] | None:
         """Retrieve a session trace by ID."""
         async with self.session() as sess:
             result = await sess.execute(
@@ -377,7 +384,9 @@ class AsyncSQLTraceManager:
                 ],
             }
 
-    async def query_traces(self, query: str, params: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+    async def query_traces(
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> pd.DataFrame:
         """Execute a query and return results as DataFrame."""
         async with self.session() as sess:
             result = await sess.execute(text(query), params or {})
@@ -385,7 +394,10 @@ class AsyncSQLTraceManager:
             return pd.DataFrame(rows)
 
     async def get_model_usage(
-        self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, model_name: Optional[str] = None
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        model_name: str | None = None,
     ) -> pd.DataFrame:
         """Get model usage statistics."""
         query = """
@@ -414,8 +426,8 @@ class AsyncSQLTraceManager:
         self,
         experiment_id: str,
         name: str,
-        description: Optional[str] = None,
-        configuration: Optional[Dict[str, Any]] = None,
+        description: str | None = None,
+        configuration: dict[str, Any] | None = None,
     ) -> str:
         """Create a new experiment."""
         async with self.session() as sess:
@@ -440,18 +452,18 @@ class AsyncSQLTraceManager:
             await sess.commit()
 
     async def batch_insert_sessions(
-        self, traces: List[SessionTrace], batch_size: Optional[int] = None
-    ) -> List[str]:
+        self, traces: list[SessionTrace], batch_size: int | None = None
+    ) -> list[str]:
         """Batch insert multiple session traces.
-        
+
         Processes traces in batches to balance memory usage and performance.
         Each batch is inserted in a separate transaction to avoid holding
         locks for too long.
-        
+
         Args:
             traces: List of session traces to insert
             batch_size: Number of traces per batch (defaults to config)
-            
+
         Returns:
             List of inserted session IDs
         """
@@ -470,8 +482,8 @@ class AsyncSQLTraceManager:
         return inserted_ids
 
     async def get_sessions_by_experiment(
-        self, experiment_id: str, limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        self, experiment_id: str, limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """Get all sessions for an experiment."""
         async with self.session() as sess:
             query = (
@@ -515,7 +527,7 @@ class AsyncSQLTraceManager:
 
     async def close(self):
         """Close the database connection.
-        
+
         Properly disposes of the engine and all connections. This is important
         for cleanup, especially with SQLite which can leave lock files.
         """

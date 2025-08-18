@@ -1,4 +1,2 @@
-
-
 class OfflineGateway:
     pass

@@ -13,13 +13,14 @@ big “backend.production” code-base.
 
 from __future__ import annotations
 
-import json
-import sqlite3
 import gzip
-import pickle
+import json
 import logging
+import pickle
+import sqlite3
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Iterable
+from typing import Any
 
 import networkx as nx
 
@@ -31,10 +32,9 @@ log = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 # lightweight metadata record                                                 #
 # --------------------------------------------------------------------------- #
-import os
 import hashlib
 import logging
-from typing import Union
+import os
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class FilesystemSnapshotStore:
     is the SHA-256 hash of its compressed content.
     """
 
-    def __init__(self, base_dir: Union[str, Path] = DEFAULT_SNAPSHOT_DIR):
+    def __init__(self, base_dir: str | Path = DEFAULT_SNAPSHOT_DIR):
         self.base_dir = Path(base_dir)
         try:
             self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -69,7 +69,7 @@ class FilesystemSnapshotStore:
         filename = f"{key}.snapshot.gz"
         return self.base_dir / filename
 
-    def write(self, blob: Union[bytes, Dict[str, Any]]) -> str:
+    def write(self, blob: bytes | dict[str, Any]) -> str:
         """
         Stores a snapshot blob (bytes or dict) and returns its SHA-256 key.
 
@@ -95,7 +95,7 @@ class FilesystemSnapshotStore:
             log.error(f"Failed to write snapshot: {e}", exc_info=True)
             raise
 
-    def read(self, key: str) -> Optional[bytes]:
+    def read(self, key: str) -> bytes | None:
         """
         Retrieves the raw *compressed* snapshot bytes for a given key.
 
@@ -143,12 +143,12 @@ class TrajectorySnapshot:
     def __init__(
         self,
         snap_id: str,
-        parent_id: Optional[str],
+        parent_id: str | None,
         depth: int,
-        action: Optional[Any],
+        action: Any | None,
         reward: float = 0.0,
         terminated: bool = False,
-        info: Optional[Dict[str, Any]] = None,
+        info: dict[str, Any] | None = None,
     ):
         self.snap_id = snap_id
         self.parent_id = parent_id
@@ -186,9 +186,9 @@ class TrajectoryTreeStore:
 
     def __init__(
         self,
-        snapshot_store: Optional[FilesystemSnapshotStore] = None,
+        snapshot_store: FilesystemSnapshotStore | None = None,
         *,
-        db_path: Optional[Path | str] = None,
+        db_path: Path | str | None = None,
     ):
         self.snap_store = snapshot_store or FilesystemSnapshotStore()
         self.graph: nx.DiGraph = nx.DiGraph()
@@ -202,7 +202,7 @@ class TrajectoryTreeStore:
 
     # insertion -------------------------------------------------------------
 
-    def add_root(self, snapshot_blob: bytes, *, info: Dict[str, Any] | None = None) -> str:
+    def add_root(self, snapshot_blob: bytes, *, info: dict[str, Any] | None = None) -> str:
         """Insert the very first node and return its content-hash key."""
         snap_id = self.snap_store.write(snapshot_blob)
         self._add_node(TrajectorySnapshot(snap_id, None, 0, None, 0.0, False, info))
@@ -216,7 +216,7 @@ class TrajectoryTreeStore:
         action: Any,
         reward: float,
         terminated: bool = False,
-        info: Dict[str, Any] | None = None,
+        info: dict[str, Any] | None = None,
     ) -> str:
         """Attach `snapshot_blob` as a child reached by `action` from *parent_id*."""
         if parent_id not in self.graph:
@@ -230,10 +230,10 @@ class TrajectoryTreeStore:
 
     # read-side helpers -----------------------------------------------------
 
-    def get_children(self, snap_id: str) -> Tuple[str, ...]:
+    def get_children(self, snap_id: str) -> tuple[str, ...]:
         return tuple(self.graph.successors(snap_id))
 
-    def get_parent(self, snap_id: str) -> Optional[str]:
+    def get_parent(self, snap_id: str) -> str | None:
         preds = tuple(self.graph.predecessors(snap_id))
         return preds[0] if preds else None
 
@@ -246,17 +246,17 @@ class TrajectoryTreeStore:
         """Yield snapshot-ids that currently have no children."""
         return (n for n in self.graph.nodes if self.is_leaf(n))
 
-    def path_to_root(self, snap_id: str) -> Tuple[str, ...]:
+    def path_to_root(self, snap_id: str) -> tuple[str, ...]:
         """Return (snap_id, …, root_id)"""
         path = [snap_id]
         while (p := self.get_parent(path[-1])) is not None:
             path.append(p)
         return tuple(path)
 
-    def reconstruct_actions(self, snap_id: str) -> Tuple[Any, ...]:
+    def reconstruct_actions(self, snap_id: str) -> tuple[Any, ...]:
         """Return the sequence of *actions* from the root → `snap_id`."""
         actions = []
-        for child, parent in zip(self.path_to_root(snap_id)[:-1], self.path_to_root(snap_id)[1:]):
+        for child, parent in zip(self.path_to_root(snap_id)[:-1], self.path_to_root(snap_id)[1:], strict=False):
             actions.append(self.graph.edges[parent, child]["action"])
         return tuple(reversed(actions))
 

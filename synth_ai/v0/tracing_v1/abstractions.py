@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -10,22 +10,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MessageInputs:
-    messages: List[Dict[str, str]]  # {"role": "", "content": ""}
+    messages: list[dict[str, str]]  # {"role": "", "content": ""}
 
 
 @dataclass
 class ArbitraryInputs:
-    inputs: Dict[str, Any]
+    inputs: dict[str, Any]
 
 
 @dataclass
 class MessageOutputs:
-    messages: List[Dict[str, str]]
+    messages: list[dict[str, str]]
 
 
 @dataclass
 class ArbitraryOutputs:
-    outputs: Dict[str, Any]
+    outputs: dict[str, Any]
 
 
 @dataclass
@@ -33,8 +33,8 @@ class ComputeStep:
     event_order: int
     compute_ended: datetime  # time step
     compute_began: datetime  # time step
-    compute_input: Dict[str, Any]  # {variable_name: value}
-    compute_output: Dict[str, Any]  # {variable_name: value}
+    compute_input: dict[str, Any]  # {variable_name: value}
+    compute_output: dict[str, Any]  # {variable_name: value}
 
     def to_dict(self):
         # Serialize compute_input
@@ -74,11 +74,11 @@ class ComputeStep:
 
 @dataclass
 class AgentComputeStep(ComputeStep):
-    model_name: Optional[str] = None
-    model_params: Optional[Dict[str, Any]] = None
-    should_learn: Optional[bool] = None
-    compute_input: List[Union[MessageInputs, ArbitraryInputs]]
-    compute_output: List[Union[MessageOutputs, ArbitraryOutputs]]
+    model_name: str | None = None
+    model_params: dict[str, Any] | None = None
+    should_learn: bool | None = None
+    compute_input: list[MessageInputs | ArbitraryInputs]
+    compute_output: list[MessageOutputs | ArbitraryOutputs]
 
     def to_dict(self):
         base_dict = super().to_dict()  # Get the parent class serialization
@@ -88,8 +88,8 @@ class AgentComputeStep(ComputeStep):
 
 @dataclass
 class EnvironmentComputeStep(ComputeStep):
-    compute_input: List[ArbitraryInputs]
-    compute_output: List[ArbitraryOutputs]
+    compute_input: list[ArbitraryInputs]
+    compute_output: list[ArbitraryOutputs]
 
 
 @dataclass
@@ -97,13 +97,13 @@ class Event:
     system_instance_id: str
     event_type: str
     opened: float
-    closed: Optional[float]
+    closed: float | None
     partition_index: int
     agent_compute_step: AgentComputeStep
-    environment_compute_steps: List["EnvironmentComputeStep"]
-    system_name: Optional[str] = None
-    system_id: Optional[str] = None
-    event_metadata: Dict[str, Any] = None  # JSON-serializable metadata for this specific event
+    environment_compute_steps: list["EnvironmentComputeStep"]
+    system_name: str | None = None
+    system_id: str | None = None
+    event_metadata: dict[str, Any] = None  # JSON-serializable metadata for this specific event
 
     def __post_init__(self):
         if self.event_metadata is None:
@@ -126,7 +126,7 @@ class Event:
 
     # backwards compatibility
     @property
-    def agent_compute_steps(self) -> List[AgentComputeStep]:
+    def agent_compute_steps(self) -> list[AgentComputeStep]:
         """Backwards compatibility method that returns a list containing the agent_compute_step."""
         return [self.agent_compute_step] if self.agent_compute_step is not None else []
 
@@ -134,7 +134,7 @@ class Event:
 @dataclass
 class EventPartitionElement:
     partition_index: int
-    events: List[Event]
+    events: list[Event]
 
     def to_dict(self):
         return {
@@ -148,9 +148,9 @@ class SystemTrace:
     system_name: str
     system_id: str
     system_instance_id: str
-    partition: List[EventPartitionElement]
-    metadata: Optional[Dict[str, Any]] = None  # System-level metadata
-    instance_metadata: Dict[str, Any] = (
+    partition: list[EventPartitionElement]
+    metadata: dict[str, Any] | None = None  # System-level metadata
+    instance_metadata: dict[str, Any] = (
         None  # JSON-serializable metadata for this specific instance
     )
     current_partition_index: int = 0  # Track current partition
@@ -196,8 +196,8 @@ class RewardSignal(BaseModel):
 
     question_id: str
     system_instance_id: str
-    reward: Union[float, int, bool]
-    annotation: Optional[str] = None
+    reward: float | int | bool
+    annotation: str | None = None
 
     def to_dict(self):
         return {
@@ -214,8 +214,8 @@ class Dataset(BaseModel):
     This better represents the data that is used to train a model, and gives us more information about the data.
     """
 
-    questions: List[TrainingQuestion]
-    reward_signals: List[RewardSignal]
+    questions: list[TrainingQuestion]
+    reward_signals: list[RewardSignal]
 
     def to_dict(self):
         return {

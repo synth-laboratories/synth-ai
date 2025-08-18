@@ -1,8 +1,10 @@
-from typing import Optional, Dict, List, Callable, Set, Any
-from synth_ai.environments.v0_observability.history import SynthGlobalTrajectory
-from uuid import UUID
 from abc import abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any, Optional
+from uuid import UUID
+
+from synth_ai.environments.v0_observability.history import SynthGlobalTrajectory
 
 
 @dataclass
@@ -11,7 +13,7 @@ class Task:
     global_constraints: str
     global_objectives: str
 
-    shared_env_params: Optional[Dict]
+    shared_env_params: dict | None
 
 
 @dataclass
@@ -21,10 +23,10 @@ class TaskInstanceMetadata:
 
 @dataclass
 class Intent:
-    rubric: Dict[str, Any]
-    gold_trajectories: Optional[SynthGlobalTrajectory]
-    gold_state_diff: Dict
-    deterministic_eval_functions: List[Callable] = field(default_factory=list)
+    rubric: dict[str, Any]
+    gold_trajectories: SynthGlobalTrajectory | None
+    gold_state_diff: dict
+    deterministic_eval_functions: list[Callable] = field(default_factory=list)
 
 
 @dataclass
@@ -44,7 +46,7 @@ class TaskInstance:
     initial_engine_snapshot: Optional["StatefulEngineSnapshot"]
 
     @abstractmethod
-    async def serialize(self) -> Dict:
+    async def serialize(self) -> dict:
         pass
 
     @abstractmethod
@@ -65,8 +67,8 @@ class TaskInstanceMetadataFilter:
 
 @dataclass
 class SplitInfo:
-    val_instance_ids: Set[str]
-    test_instance_ids: Set[str]
+    val_instance_ids: set[str]
+    test_instance_ids: set[str]
     _is_split_defined: bool
 
 
@@ -74,5 +76,5 @@ class SplitInfo:
 class TaskInstanceSet:
     name: str
     description: str
-    instances: List[TaskInstance]
+    instances: list[TaskInstance]
     split_info: SplitInfo

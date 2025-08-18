@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Literal, Optional, Union
 import os
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from synth_ai.lm.config import reasoning_models
 from synth_ai.lm.core.exceptions import StructuredOutputCoercionFailureException
 from synth_ai.lm.core.vendor_clients import (
     anthropic_naming_regexes,
@@ -10,29 +11,28 @@ from synth_ai.lm.core.vendor_clients import (
     openai_naming_regexes,
 )
 from synth_ai.lm.structured_outputs.handler import StructuredOutputHandler
-from synth_ai.lm.vendors.base import VendorBase
 from synth_ai.lm.tools.base import BaseTool
-from synth_ai.lm.config import reasoning_models
+from synth_ai.lm.vendors.base import VendorBase
 
 
 def build_messages(
     sys_msg: str,
     user_msg: str,
-    images_bytes: List[bytes] = [],
-    model_name: Optional[str] = None,
-) -> List[Dict]:
+    images_bytes: list[bytes] = [],
+    model_name: str | None = None,
+) -> list[dict]:
     """
     Build a messages list for API calls, handling image formatting based on the model provider.
-    
+
     Args:
         sys_msg: System message content
         user_msg: User message content
         images_bytes: List of base64-encoded image bytes
         model_name: Model name to determine proper image format (OpenAI vs Anthropic)
-        
+
     Returns:
         List[Dict]: Formatted messages list ready for API calls
-        
+
     Note:
         Different providers require different image formats:
         - OpenAI: Uses "image_url" with data URL format
@@ -102,7 +102,7 @@ class LM:
     # if str
     model_name: str
     client: VendorBase
-    lm_config: Dict[str, Any]
+    lm_config: dict[str, Any]
     structured_output_handler: StructuredOutputHandler
 
     def __init__(
@@ -113,23 +113,8 @@ class LM:
         max_retries: Literal["None", "Few", "Many"] = "Few",
         structured_output_mode: Literal["stringified_json", "forced_json"] = "stringified_json",
         synth_logging: bool = True,
-        provider: Optional[
-            Union[
-                Literal[
-                    "openai",
-                    "anthropic",
-                    "groq",
-                    "gemini",
-                    "deepseek",
-                    "grok",
-                    "mistral",
-                    "openrouter",
-                    "together",
-                ],
-                str,
-            ]
-        ] = None,
-        enable_thinking: Optional[bool] = None,
+        provider: Literal["openai", "anthropic", "groq", "gemini", "deepseek", "grok", "mistral", "openrouter", "together"] | str | None = None,
+        enable_thinking: bool | None = None,
     ):
         # print("Structured output mode", structured_output_mode)
         # Check for environment variable if provider is not specified
@@ -170,13 +155,13 @@ class LM:
 
     def respond_sync(
         self,
-        system_message: Optional[str] = None,
-        user_message: Optional[str] = None,
-        messages: Optional[List[Dict]] = None,
-        images_as_bytes: List[bytes] = [],
-        response_model: Optional[BaseModel] = None,
+        system_message: str | None = None,
+        user_message: str | None = None,
+        messages: list[dict] | None = None,
+        images_as_bytes: list[bytes] = [],
+        response_model: BaseModel | None = None,
         use_ephemeral_cache_only: bool = False,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
         reasoning_effort: str = "low",
     ):
         assert (system_message is None) == (user_message is None), (
@@ -231,13 +216,13 @@ class LM:
 
     async def respond_async(
         self,
-        system_message: Optional[str] = None,
-        user_message: Optional[str] = None,
-        messages: Optional[List[Dict]] = None,
-        images_as_bytes: List[bytes] = [],
-        response_model: Optional[BaseModel] = None,
+        system_message: str | None = None,
+        user_message: str | None = None,
+        messages: list[dict] | None = None,
+        images_as_bytes: list[bytes] = [],
+        response_model: BaseModel | None = None,
         use_ephemeral_cache_only: bool = False,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
         reasoning_effort: str = "low",
     ):
         # "In respond_async")
@@ -300,8 +285,8 @@ if __name__ == "__main__":
 
     # Update json instructions to handle nested pydantic?
     class Thought(BaseModel):
-        argument_keys: List[str] = Field(description="The keys of the arguments")
-        argument_values: List[str] = Field(
+        argument_keys: list[str] = Field(description="The keys of the arguments")
+        argument_values: list[str] = Field(
             description="Stringified JSON for the values of the arguments"
         )
 

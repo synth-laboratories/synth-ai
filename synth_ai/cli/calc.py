@@ -6,9 +6,9 @@ Safe evaluation of arithmetic expressions.
 
 import ast
 import operator as op
+
 import click
 from rich.console import Console
-
 
 # Supported operators
 _OPS = {
@@ -67,4 +67,3 @@ def register(cli):
             console.print(f"= [bold]{result}[/bold]")
         except Exception as e:
             console.print(f"[red]Error:[/red] {e}")
-

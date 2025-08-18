@@ -1,9 +1,9 @@
 """Storage configuration for tracing v3."""
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
 import os
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class StorageBackend(str, Enum):
@@ -19,7 +19,7 @@ class StorageConfig:
     """Configuration for storage backend."""
 
     backend: StorageBackend = StorageBackend.TURSO
-    connection_string: Optional[str] = None
+    connection_string: str | None = None
 
     # Turso-specific settings
     turso_url: str = os.getenv("TURSO_DATABASE_URL", "sqlite+libsql://http://127.0.0.1:8080")
@@ -48,7 +48,7 @@ class StorageConfig:
         else:
             raise ValueError(f"Unknown backend: {self.backend}")
 
-    def get_backend_config(self) -> Dict[str, Any]:
+    def get_backend_config(self) -> dict[str, Any]:
         """Get backend-specific configuration."""
         if self.backend == StorageBackend.TURSO:
             config = {}

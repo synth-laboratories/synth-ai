@@ -4,8 +4,8 @@ Loads sensitive configuration from environment variables.
 """
 
 import os
-from typing import Optional
 from dataclasses import dataclass
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -15,10 +15,10 @@ load_dotenv()
 def should_use_cache() -> bool:
     """
     Check if caching should be enabled based on environment variable.
-    
+
     Returns:
         bool: True if caching is enabled (default), False if explicitly disabled.
-        
+
     Note:
         Caching is controlled by the USE_ZYK_CACHE environment variable.
         Set to "false", "0", or "no" to disable caching.

@@ -2,22 +2,21 @@ import json
 import logging
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 import google.genai as genai
 from google.api_core.exceptions import ResourceExhausted
 from google.genai import types
+
 from synth_ai.lm.caching.initialize import get_cache_handler
-from synth_ai.lm.tools.base import BaseTool
-from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 from synth_ai.lm.constants import (
-    SPECIAL_BASE_TEMPS,
     GEMINI_REASONING_MODELS,
     GEMINI_THINKING_BUDGETS,
+    SPECIAL_BASE_TEMPS,
 )
+from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 from synth_ai.lm.vendors.retries import BACKOFF_TOLERANCE, MAX_BACKOFF, backoff
-import logging
-
 
 ALIASES = {
     "gemini-2.5-flash": "gemini-2.5-flash-preview-04-17",
@@ -25,7 +24,7 @@ ALIASES = {
 
 logger = logging.getLogger(__name__)
 _CLIENT = None  # Initialize lazily when needed
-GEMINI_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (ResourceExhausted,)
+GEMINI_EXCEPTIONS_TO_RETRY: tuple[type[Exception], ...] = (ResourceExhausted,)
 logging.getLogger("google.genai").setLevel(logging.ERROR)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -49,11 +48,11 @@ def _get_client():
 
 class GeminiAPI(VendorBase):
     used_for_structured_outputs: bool = True
-    exceptions_to_retry: Tuple[Type[Exception], ...] = GEMINI_EXCEPTIONS_TO_RETRY
+    exceptions_to_retry: tuple[type[Exception], ...] = GEMINI_EXCEPTIONS_TO_RETRY
 
     def __init__(
         self,
-        exceptions_to_retry: Tuple[Type[Exception], ...] = GEMINI_EXCEPTIONS_TO_RETRY,
+        exceptions_to_retry: tuple[type[Exception], ...] = GEMINI_EXCEPTIONS_TO_RETRY,
         used_for_structured_outputs: bool = False,
     ):
         self.used_for_structured_outputs = used_for_structured_outputs
@@ -65,7 +64,7 @@ class GeminiAPI(VendorBase):
         return model_name
 
     @staticmethod
-    def _msg_to_contents(messages: List[Dict[str, Any]]) -> List[types.Content]:
+    def _msg_to_contents(messages: list[dict[str, Any]]) -> list[types.Content]:
         # contents, sys_instr = [], None
         contents = []
         for m in messages:
@@ -82,9 +81,9 @@ class GeminiAPI(VendorBase):
         return contents
 
     @staticmethod
-    def _tools_to_genai(tools: List[BaseTool]) -> List[types.Tool]:
+    def _tools_to_genai(tools: list[BaseTool]) -> list[types.Tool]:
         """Convert internal BaseTool → genai Tool."""
-        out: List[types.Tool] = []
+        out: list[types.Tool] = []
         for t in tools:
             # Assume t.to_gemini_tool() now correctly returns a FunctionDeclaration
             # func_decl = t.to_gemini_tool()
@@ -106,15 +105,15 @@ class GeminiAPI(VendorBase):
 
     async def _gen_content_async(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         temperature: float,
         model_name: str,
         reasoning_effort: str,
-        tools: Optional[List[BaseTool]],
-        lm_config: Optional[Dict[str, Any]],
-    ) -> Tuple[str, Optional[List[Dict]]]:
+        tools: list[BaseTool] | None,
+        lm_config: dict[str, Any] | None,
+    ) -> tuple[str, list[dict] | None]:
         model_name = self.get_aliased_model_name(model_name)
-        cfg_kwargs: Dict[str, Any] = {"temperature": temperature}
+        cfg_kwargs: dict[str, Any] = {"temperature": temperature}
         if model_name in GEMINI_REASONING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
             cfg_kwargs["thinking_config"] = types.ThinkingConfig(
                 thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort]
@@ -141,15 +140,15 @@ class GeminiAPI(VendorBase):
 
     def _gen_content_sync(
         self,
-        messages: List[Dict],
+        messages: list[dict],
         temperature: float,
         model_name: str,
         reasoning_effort: str,
-        tools: Optional[List[BaseTool]],
-        lm_config: Optional[Dict[str, Any]],
-    ) -> Tuple[str, Optional[List[Dict]]]:
+        tools: list[BaseTool] | None,
+        lm_config: dict[str, Any] | None,
+    ) -> tuple[str, list[dict] | None]:
         model_name = self.get_aliased_model_name(model_name)
-        cfg_kwargs: Dict[str, Any] = {"temperature": temperature}
+        cfg_kwargs: dict[str, Any] = {"temperature": temperature}
         if model_name in GEMINI_REASONING_MODELS and reasoning_effort in GEMINI_THINKING_BUDGETS:
             cfg_kwargs["thinking_config"] = types.ThinkingConfig(
                 thinking_budget=GEMINI_THINKING_BUDGETS[reasoning_effort]
@@ -174,7 +173,7 @@ class GeminiAPI(VendorBase):
         return self._extract(resp)
 
     @staticmethod
-    def _extract(response) -> Tuple[str, Optional[List[Dict]]]:
+    def _extract(response) -> tuple[str, list[dict] | None]:
         # Extract text, handling cases where it might be missing
         try:
             text = response.text
@@ -208,13 +207,13 @@ class GeminiAPI(VendorBase):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
@@ -257,13 +256,13 @@ class GeminiAPI(VendorBase):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
-        assert lm_config.get("response_model", None) is None, (
+        assert lm_config.get("response_model") is None, (
             "response_model is not supported for standard calls"
         )
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only=use_ephemeral_cache_only)

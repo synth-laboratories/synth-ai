@@ -1,6 +1,6 @@
 import asyncio
 import contextvars
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -29,9 +29,9 @@ class SynthTrackerSync:
     @classmethod
     def track_lm(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
-        model_params: Optional[Dict[str, Union[str, int, float]]] = None,
+        model_params: dict[str, str | int | float] | None = None,
         finetune: bool = False,
     ):
         # print("Tracking LM call in sync context - ",messages)  # Added logging
@@ -52,9 +52,9 @@ class SynthTrackerSync:
     def track_state(
         cls,
         variable_name: str,
-        variable_value: Union[BaseModel, str, dict, int, float, bool, list, None],
+        variable_value: BaseModel | str | dict | int | float | bool | list | None,
         origin: Literal["agent", "environment"],
-        annotation: Optional[str] = None,
+        annotation: str | None = None,
     ):
         # Skip if value is not a trackable type instead of raising error
         if not isinstance(variable_value, VALID_TYPES):
@@ -79,7 +79,7 @@ class SynthTrackerSync:
             # )
 
     @classmethod
-    def get_traced_data(cls) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def get_traced_data(cls) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         return getattr(cls._local, "inputs", []), getattr(cls._local, "outputs", [])
 
     @classmethod
@@ -93,7 +93,7 @@ class SynthTrackerSync:
     @classmethod
     def track_lm_output(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
         finetune: bool = False,
     ):
@@ -137,9 +137,9 @@ class SynthTrackerAsync:
     @classmethod
     def track_lm(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
-        model_params: Optional[Dict[str, Union[str, int, float]]] = None,
+        model_params: dict[str, str | int | float] | None = None,
         finetune: bool = False,
     ):
         # print("Tracking LM call in async context")  # Added logging
@@ -165,9 +165,9 @@ class SynthTrackerAsync:
     def track_state(
         cls,
         variable_name: str,
-        variable_value: Union[BaseModel, str, dict, int, float, bool, list, None],
+        variable_value: BaseModel | str | dict | int | float | bool | list | None,
         origin: Literal["agent", "environment"],
-        annotation: Optional[str] = None,
+        annotation: str | None = None,
         io_type: Literal["input", "output"] = "output",
     ):
         # Skip if value is not a trackable type instead of raising error
@@ -207,7 +207,7 @@ class SynthTrackerAsync:
             # )
 
     @classmethod
-    def get_traced_data(cls) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def get_traced_data(cls) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         traced_inputs = trace_inputs_var.get()
         traced_outputs = trace_outputs_var.get()
         return traced_inputs, traced_outputs
@@ -222,7 +222,7 @@ class SynthTrackerAsync:
     @classmethod
     def track_lm_output(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
         finetune: bool = False,
     ):
@@ -270,9 +270,9 @@ class SynthTracker:
     @classmethod
     def track_lm(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
-        model_params: Optional[Dict[str, Union[str, int, float]]] = None,
+        model_params: dict[str, str | int | float] | None = None,
         finetune: bool = False,
     ):
         # Debug logging disabled: print("DEBUG: Tracking LM call")
@@ -334,9 +334,9 @@ class SynthTracker:
     def track_state(
         cls,
         variable_name: str,
-        variable_value: Union[BaseModel, str, dict, int, float, bool, list, None],
+        variable_value: BaseModel | str | dict | int | float | bool | list | None,
         origin: Literal["agent", "environment"],
-        annotation: Optional[str] = None,
+        annotation: str | None = None,
     ):
         """
         Track a state change or variable value within the current trace.
@@ -392,7 +392,7 @@ class SynthTracker:
         async_sync: Literal[
             "async", "sync", ""
         ] = "",  # Force only async or sync data to be returned
-    ) -> Tuple[list, list]:
+    ) -> tuple[list, list]:
         traced_inputs, traced_outputs = [], []
         # Debug logging disabled: print(
         #     f"\nDEBUG: Getting traced data with async_sync='{async_sync}'"
@@ -424,7 +424,7 @@ class SynthTracker:
     @classmethod
     def track_lm_output(
         cls,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         model_name: str,
         finetune: bool = False,
     ):
@@ -452,10 +452,10 @@ class SynthTracker:
 
 
 def track_messages_sync(
-    input_messages: List[Message],
-    output_messages: List[Message],
+    input_messages: list[Message],
+    output_messages: list[Message],
     model_name: str,
-    model_params: Optional[ModelParams] = None,
+    model_params: ModelParams | None = None,
     finetune: bool = False,
 ) -> None:
     """Track both input and output messages in a conversation synchronously.
@@ -484,10 +484,10 @@ def track_messages_sync(
 
 
 async def track_messages_async(
-    input_messages: List[Message],
-    output_messages: List[Message],
+    input_messages: list[Message],
+    output_messages: list[Message],
     model_name: str,
-    model_params: Optional[ModelParams] = None,
+    model_params: ModelParams | None = None,
     finetune: bool = False,
 ) -> None:
     """Track both input and output messages in a conversation asynchronously.

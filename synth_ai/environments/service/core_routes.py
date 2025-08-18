@@ -1,32 +1,27 @@
-from fastapi import APIRouter, HTTPException, Body
-from uuid import uuid4
-from typing import Dict, Any, List, Optional
-from types import SimpleNamespace
-from pydantic import BaseModel
-import os
-import json
-import pickle
 import base64
-from io import BytesIO
-import numpy as np
-import tempfile
-from dataclasses import dataclass
-import time
 import logging
+import os
+import pickle
+import tempfile
+import time
+from dataclasses import dataclass
+from io import BytesIO
+from types import SimpleNamespace
+from typing import Any
+from uuid import uuid4
 
+import numpy as np
+from fastapi import APIRouter, Body, HTTPException
+from pydantic import BaseModel
+
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.service.registry import get_environment_cls, list_supported_env_types
 from synth_ai.environments.stateful.core import StatefulEnvironment
-from synth_ai.environments.environment.tools import EnvToolCall
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Import tracing abstractions from v3
-from synth_ai.tracing_v3.abstractions import (
-    RuntimeEvent,
-    SessionEventMarkovBlanketMessage,
-    TimeRecord,
-)
 
 # Try to import Redis for persistent storage
 try:
@@ -53,7 +48,7 @@ if os.getenv("SYNTH_USE_INMEM", "1") == "1":
 api_router = APIRouter()
 
 # Fallback in-memory store if Redis is not available
-instances: Dict[str, StatefulEnvironment] = {}
+instances: dict[str, StatefulEnvironment] = {}
 
 
 # Environment-specific task instance creation
@@ -68,9 +63,9 @@ class MinimalTaskInstanceMetadata:
 class MinimalIntent:
     """Minimal intent for environments that need it."""
 
-    rubric: Dict[str, Any]
-    gold_trajectories: Optional[Any] = None
-    gold_state_diff: Dict = None
+    rubric: dict[str, Any]
+    gold_trajectories: Any | None = None
+    gold_state_diff: dict = None
     deterministic_eval_functions: list = None
 
     def __post_init__(self):
@@ -89,8 +84,8 @@ class MinimalImpetus:
 
 def create_task_instance_for_environment(
     env_name: str,
-    initial_state: Optional[Dict[str, Any]] = None,
-    config: Optional[Dict[str, Any]] = None,
+    initial_state: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
 ) -> Any:
     """Create appropriate task instance for different environments."""
 
@@ -173,7 +168,7 @@ def create_task_instance_for_environment(
 
 
 async def reconstruct_task_instance_from_serialized(
-    env_name: str, serialized_data: Dict[str, Any]
+    env_name: str, serialized_data: dict[str, Any]
 ) -> Any:
     """Reconstruct a task instance from serialized data for specific environment types."""
 
@@ -219,9 +214,9 @@ async def reconstruct_task_instance_from_serialized(
 
     elif env_name == "Verilog":
         # Verilog needs special handling with snapshot_dir
+        import tempfile
         from types import SimpleNamespace
         from uuid import UUID
-        import tempfile
 
         task = SimpleNamespace()
         task.id = UUID(serialized_data.get("id", str(uuid4())))
@@ -249,9 +244,10 @@ async def reconstruct_task_instance_from_serialized(
 
     elif env_name == "NetHack":
         # NetHack needs proper TaskInstance structure with NetHackTaskInstanceMetadata
-        from synth_ai.environments.examples.nethack.taskset import NetHackTaskInstanceMetadata
         from types import SimpleNamespace
         from uuid import UUID
+
+        from synth_ai.environments.examples.nethack.taskset import NetHackTaskInstanceMetadata
 
         # Extract metadata from serialized data
         metadata_data = serialized_data.get("metadata", {})
@@ -382,7 +378,7 @@ class InstanceStorage:
         else:
             print(f"✅ Stored environment {env_id} in-memory (Redis not available)")
 
-    async def get(self, env_id: str) -> Optional[StatefulEnvironment]:
+    async def get(self, env_id: str) -> StatefulEnvironment | None:
         """Retrieve an environment instance"""
         # Try in-memory first (most reliable)
         if env_id in instances:
@@ -406,7 +402,7 @@ class InstanceStorage:
         print(f"❌ Environment {env_id} not found in either store")
         return None
 
-    async def remove(self, env_id: str) -> Optional[StatefulEnvironment]:
+    async def remove(self, env_id: str) -> StatefulEnvironment | None:
         """Remove and return an environment instance"""
         # Get the environment first
         env = await self.get(env_id)
@@ -433,7 +429,6 @@ storage = InstanceStorage()
 
 def convert_numpy_types(obj):
     """Convert numpy types to native Python types for JSON serialization"""
-    import numpy as np
     from dataclasses import is_dataclass
 
     if isinstance(obj, dict):
@@ -485,15 +480,15 @@ def convert_numpy_types(obj):
 
 # Request/Response models for better API documentation
 class InitializeRequest(BaseModel):
-    initial_state: Optional[Dict[str, Any]] = None
-    config: Optional[Dict[str, Any]] = None
-    task_instance: Optional[Dict[str, Any]] = None  # Add task_instance field
+    initial_state: dict[str, Any] | None = None
+    config: dict[str, Any] | None = None
+    task_instance: dict[str, Any] | None = None  # Add task_instance field
 
 
 class StepRequest(BaseModel):
     env_id: str
-    request_id: Optional[str] = None
-    action: Dict[str, Any]
+    request_id: str | None = None
+    action: dict[str, Any]
 
 
 class TerminateRequest(BaseModel):
@@ -506,7 +501,7 @@ async def get_health():
 
 
 @api_router.post("/env/{env_name}/initialize")
-async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) -> Dict[str, Any]:
+async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) -> dict[str, Any]:
     """Initialize a new environment instance."""
     import traceback
 
@@ -518,11 +513,11 @@ async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) 
 
         # Handle task_instance parameter - use it if provided, otherwise create a new one
         if request.task_instance:
-            print(f"🔍 Using provided task_instance...")
+            print("🔍 Using provided task_instance...")
             task = await reconstruct_task_instance_from_serialized(env_name, request.task_instance)
             print(f"✅ Reconstructed task instance: {type(task)}")
         else:
-            print(f"🔍 Creating new task instance...")
+            print("🔍 Creating new task instance...")
             # Create environment-specific task instance
             task = create_task_instance_for_environment(
                 env_name, request.initial_state, request.config
@@ -530,28 +525,28 @@ async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) 
             print(f"✅ Created task instance: {type(task)}")
 
         # This is where recursion might happen for Sokoban
-        print(f"🔍 Creating environment instance...")
+        print("🔍 Creating environment instance...")
         env = cls(task)
-        print(f"✅ Created environment instance")
+        print("✅ Created environment instance")
 
         # Generate unique environment ID
         env_id = str(uuid4())
         print(f"✅ Generated env_id: {env_id}")
 
         # Initialize and get first observation - this might also cause recursion
-        print(f"🔍 Calling env.initialize()...")
+        print("🔍 Calling env.initialize()...")
         obs = await env.initialize()
         print(f"✅ Environment initialized, observation type: {type(obs)}")
 
         # Store the fully initialized environment (fixes Redis initialization bug)
-        print(f"🔍 Storing environment...")
+        print("🔍 Storing environment...")
         await storage.store(env_id, env)
-        print(f"✅ Environment stored")
+        print("✅ Environment stored")
 
         # Convert numpy types to Python types for JSON serialization
-        print(f"🔍 Converting numpy types...")
+        print("🔍 Converting numpy types...")
         obs_serializable = convert_numpy_types(obs)
-        print(f"✅ Numpy types converted")
+        print("✅ Numpy types converted")
 
         return {"env_id": env_id, "observation": obs_serializable, "done": False, "info": {}}
 
@@ -575,10 +570,10 @@ async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) 
 
 
 @api_router.post("/env/{env_name}/step")
-async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str, Any]:
+async def step_env(env_name: str, request: StepRequest = Body(...)) -> dict[str, Any]:
     """Execute a step in the environment."""
-    import uuid as uuid_module
     import sys
+    import uuid as uuid_module
 
     # Use provided request_id or generate one
     request_id = request.request_id or str(uuid_module.uuid4())[:8]
@@ -705,7 +700,7 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> Dict[str,
 
 
 @api_router.post("/env/{env_name}/terminate")
-async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) -> Dict[str, Any]:
+async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) -> dict[str, Any]:
     """Terminate an environment instance."""
     logger.info(f"🚪 Terminating environment: {env_name}, env_id: {request.env_id}")
     env = await storage.remove(request.env_id)
@@ -729,7 +724,7 @@ async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) ->
 
 
 @api_router.get("/env/{env_name}/frame")
-async def get_env_frame(env_name: str, env_id: str) -> Dict[str, Any]:
+async def get_env_frame(env_name: str, env_id: str) -> dict[str, Any]:
     """Return the current rendered frame of the environment as base64 PNG.
 
     This provides a lightweight way for clients to capture before/after snapshots
@@ -741,7 +736,11 @@ async def get_env_frame(env_name: str, env_id: str) -> Dict[str, Any]:
 
     try:
         # For CrafterClassic, underlying engine exposes env.render() -> RGB ndarray
-        if hasattr(env, "engine") and hasattr(env.engine, "env") and hasattr(env.engine.env, "render"):
+        if (
+            hasattr(env, "engine")
+            and hasattr(env.engine, "env")
+            and hasattr(env.engine.env, "render")
+        ):
             rgb = env.engine.env.render()
         else:
             raise RuntimeError("Environment does not support render()")
@@ -752,6 +751,7 @@ async def get_env_frame(env_name: str, env_id: str) -> Dict[str, Any]:
         # Encode to PNG base64
         try:
             from PIL import Image  # type: ignore
+
             img = Image.fromarray(rgb.astype("uint8"), "RGB")
             buf = BytesIO()
             img.save(buf, format="PNG")
@@ -766,7 +766,7 @@ async def get_env_frame(env_name: str, env_id: str) -> Dict[str, Any]:
 
 
 @api_router.get("/env/{env_name}/metadata")
-async def get_env_metadata(env_name: str, env_id: str) -> Dict[str, Any]:
+async def get_env_metadata(env_name: str, env_id: str) -> dict[str, Any]:
     """Get metadata about an environment instance."""
     env = await storage.get(env_id)
     if not env:
@@ -814,9 +814,9 @@ async def get_env_metadata(env_name: str, env_id: str) -> Dict[str, Any]:
 @api_router.post("/{env_type}/create", deprecated=True)
 async def create_env_legacy(
     env_type: str,
-    config: Optional[Dict[str, Any]] = None,
-    initial_state: Optional[Dict[str, Any]] = None,
-) -> Dict[str, str]:
+    config: dict[str, Any] | None = None,
+    initial_state: dict[str, Any] | None = None,
+) -> dict[str, str]:
     """[DEPRECATED] Use /env/{env_name}/initialize instead."""
     cls = get_environment_cls(env_type)
     task = create_task_instance_for_environment(env_type, initial_state, config)
@@ -831,8 +831,8 @@ async def create_env_legacy(
 
 @api_router.post("/{env_type}/{instance_id}/reset", deprecated=True)
 async def reset_env_legacy(
-    env_type: str, instance_id: str, seed: Optional[int] = None
-) -> Dict[str, Any]:
+    env_type: str, instance_id: str, seed: int | None = None
+) -> dict[str, Any]:
     """[DEPRECATED] Use /env/{env_name}/initialize instead."""
     env = await storage.get(instance_id)
     if not env:
@@ -843,7 +843,7 @@ async def reset_env_legacy(
 
 
 @api_router.post("/{env_type}/{instance_id}/step", deprecated=True)
-async def step_env_legacy(env_type: str, instance_id: str, calls: List[Any]) -> Dict[str, Any]:
+async def step_env_legacy(env_type: str, instance_id: str, calls: list[Any]) -> dict[str, Any]:
     """[DEPRECATED] Use /env/{env_name}/step instead."""
     env = await storage.get(instance_id)
     if not env:
@@ -865,7 +865,7 @@ async def terminate_env_legacy(env_type: str, instance_id: str) -> Any:
 
 
 @api_router.get("/{env_type}/{instance_id}/checkpoint")
-async def checkpoint_env(env_type: str, instance_id: str) -> Dict[str, Any]:
+async def checkpoint_env(env_type: str, instance_id: str) -> dict[str, Any]:
     """Get a checkpoint of the environment state."""
     env = await storage.get(instance_id)
     if not env:
@@ -877,11 +877,12 @@ async def checkpoint_env(env_type: str, instance_id: str) -> Dict[str, Any]:
 
 # ===== Dynamic Environment Registration API =====
 
+
 class RegisterEnvironmentRequest(BaseModel):
     name: str
     module_path: str
     class_name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class UnregisterEnvironmentRequest(BaseModel):
@@ -889,13 +890,13 @@ class UnregisterEnvironmentRequest(BaseModel):
 
 
 @api_router.post("/registry/environments")
-async def register_environment_api(request: RegisterEnvironmentRequest) -> Dict[str, Any]:
+async def register_environment_api(request: RegisterEnvironmentRequest) -> dict[str, Any]:
     """
     Dynamically register a new environment at runtime.
-    
+
     This endpoint allows third-party packages to register environments without
     restarting the service. The environment class will be imported and validated.
-    
+
     Example:
         POST /registry/environments
         {
@@ -908,119 +909,113 @@ async def register_environment_api(request: RegisterEnvironmentRequest) -> Dict[
     try:
         # Import the module
         import importlib
+
         module = importlib.import_module(request.module_path)
-        
+
         # Get the class from the module
         if not hasattr(module, request.class_name):
             raise HTTPException(
                 status_code=400,
-                detail=f"Class '{request.class_name}' not found in module '{request.module_path}'"
+                detail=f"Class '{request.class_name}' not found in module '{request.module_path}'",
             )
-        
+
         env_cls = getattr(module, request.class_name)
-        
+
         # Validate that it's a StatefulEnvironment subclass
         from synth_ai.environments.stateful.core import StatefulEnvironment
+
         if not issubclass(env_cls, StatefulEnvironment):
             raise HTTPException(
                 status_code=400,
-                detail=f"Class '{request.class_name}' is not a subclass of StatefulEnvironment"
+                detail=f"Class '{request.class_name}' is not a subclass of StatefulEnvironment",
             )
-        
+
         # Register the environment
         from synth_ai.environments.environment.registry import register_environment
+
         register_environment(request.name, env_cls)
-        
+
         logger.info(f"Dynamically registered environment: {request.name}")
-        
+
         return {
             "success": True,
             "message": f"Environment '{request.name}' registered successfully",
             "name": request.name,
             "module_path": request.module_path,
             "class_name": request.class_name,
-            "description": request.description
+            "description": request.description,
         }
-        
+
     except ImportError as e:
         raise HTTPException(
-            status_code=400,
-            detail=f"Failed to import module '{request.module_path}': {str(e)}"
+            status_code=400, detail=f"Failed to import module '{request.module_path}': {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to register environment {request.name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to register environment: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to register environment: {str(e)}")
 
 
 @api_router.delete("/registry/environments/{env_name}")
-async def unregister_environment_api(env_name: str) -> Dict[str, Any]:
+async def unregister_environment_api(env_name: str) -> dict[str, Any]:
     """
     Unregister an environment from the registry.
-    
+
     This removes the environment from the in-memory registry, making it
     unavailable for new instances. Existing instances are not affected.
     """
     try:
         from synth_ai.environments.environment.registry import ENV_REGISTRY
-        
+
         if env_name not in ENV_REGISTRY:
             raise HTTPException(
-                status_code=404,
-                detail=f"Environment '{env_name}' not found in registry"
+                status_code=404, detail=f"Environment '{env_name}' not found in registry"
             )
-        
+
         # Remove from registry
         removed_cls = ENV_REGISTRY.pop(env_name)
-        
+
         logger.info(f"Unregistered environment: {env_name}")
-        
+
         return {
             "success": True,
             "message": f"Environment '{env_name}' unregistered successfully",
             "name": env_name,
-            "class_name": removed_cls.__name__
+            "class_name": removed_cls.__name__,
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to unregister environment {env_name}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to unregister environment: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to unregister environment: {str(e)}")
 
 
 @api_router.get("/registry/environments")
-async def list_registered_environments() -> Dict[str, Any]:
+async def list_registered_environments() -> dict[str, Any]:
     """
     List all registered environments with their details.
-    
+
     Returns information about all available environments in the registry,
     including both built-in and dynamically registered environments.
     """
     try:
         from synth_ai.environments.environment.registry import ENV_REGISTRY
-        
+
         environments = []
         for name, env_cls in ENV_REGISTRY.items():
             env_info = {
                 "name": name,
                 "class_name": env_cls.__name__,
                 "module": env_cls.__module__,
-                "description": getattr(env_cls, "__doc__", "").split("\n")[0] if env_cls.__doc__ else None
+                "description": getattr(env_cls, "__doc__", "").split("\n")[0]
+                if env_cls.__doc__
+                else None,
             }
             environments.append(env_info)
-        
+
         return {
             "environments": sorted(environments, key=lambda x: x["name"]),
-            "total_count": len(environments)
+            "total_count": len(environments),
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to list environments: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to list environments: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to list environments: {str(e)}")

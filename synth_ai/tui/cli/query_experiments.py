@@ -5,9 +5,8 @@ Query experiments and sessions from Turso/sqld using v3 tracing.
 
 import argparse
 import asyncio
-from typing import Optional
+
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-import pandas as pd
 
 
 async def list_experiments(db_url: str):
@@ -119,7 +118,7 @@ async def show_experiment_details(db_url: str, experiment_id: str):
         await db.close()
 
 
-async def show_model_usage(db_url: str, model_name: Optional[str] = None):
+async def show_model_usage(db_url: str, model_name: str | None = None):
     """Show model usage statistics."""
     db = AsyncSQLTraceManager(db_url)
     await db.initialize()

@@ -4,14 +4,13 @@ CLI: status of agent runs/versions and environment service.
 """
 
 import asyncio
-from typing import Optional
 
 import click
+import requests
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
-import requests
 
 
 async def _db_stats(db_url: str) -> dict:
@@ -52,7 +51,7 @@ async def _db_stats(db_url: str) -> dict:
         """
         )
         if not versions.empty:
-            out["version_count"] = int(versions.iloc[0]["version_count"]) 
+            out["version_count"] = int(versions.iloc[0]["version_count"])
         else:
             out["version_count"] = 0
         return out
@@ -108,7 +107,11 @@ def register(cli):
             lines.append("")
             lines.append(f"Env Service: {health_text}  [dim]{service_url}[/dim]")
             if envs_list:
-                lines.append("Environments: " + ", ".join(sorted(envs_list)[:10]) + (" ..." if len(envs_list) > 10 else ""))
+                lines.append(
+                    "Environments: "
+                    + ", ".join(sorted(envs_list)[:10])
+                    + (" ..." if len(envs_list) > 10 else "")
+                )
 
             panel_main = Panel("\n".join(lines), title="Synth AI Status", border_style="cyan")
             console.print(panel_main)
@@ -116,7 +119,11 @@ def register(cli):
             # Systems table
             sys_df = stats.get("systems")
             if sys_df is not None and not sys_df.empty:
-                tbl = Table(title=f"Systems (versions: {stats.get('version_count', 0)})", box=box.SIMPLE, header_style="bold")
+                tbl = Table(
+                    title=f"Systems (versions: {stats.get('version_count', 0)})",
+                    box=box.SIMPLE,
+                    header_style="bold",
+                )
                 tbl.add_column("Type")
                 tbl.add_column("Count", justify="right")
                 for _, r in sys_df.iterrows():

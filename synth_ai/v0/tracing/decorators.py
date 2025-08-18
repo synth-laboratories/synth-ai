@@ -3,8 +3,9 @@ import inspect
 import logging
 import os
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, ParamSpec, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar, Union
 
 if TYPE_CHECKING:
     from .trackers import SynthTrackerAsync, SynthTrackerSync
@@ -207,8 +208,8 @@ def trace_event_sync(
                     # Collect traced inputs and outputs
                     traced_inputs, traced_outputs = synth_tracker_sync.get_traced_data()
 
-                    compute_steps_by_origin: Dict[
-                        Literal["agent", "environment"], Dict[str, List[Any]]
+                    compute_steps_by_origin: dict[
+                        Literal["agent", "environment"], dict[str, list[Any]]
                     ] = {
                         "agent": {"inputs": [], "outputs": []},
                         "environment": {"inputs": [], "outputs": []},
@@ -464,8 +465,8 @@ def trace_event_async(
                     # Collect traced inputs and outputs
                     traced_inputs, traced_outputs = synth_tracker_async.get_traced_data()
 
-                    compute_steps_by_origin: Dict[
-                        Literal["agent", "environment"], Dict[str, List[Any]]
+                    compute_steps_by_origin: dict[
+                        Literal["agent", "environment"], dict[str, list[Any]]
                     ] = {
                         "agent": {"inputs": [], "outputs": []},
                         "environment": {"inputs": [], "outputs": []},

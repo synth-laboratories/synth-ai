@@ -15,12 +15,12 @@ Environments tested:
 - Enron
 """
 
-import pytest
 import asyncio
-import httpx
-import json
-from typing import Dict, Any, List
 import traceback
+from typing import Any
+
+import httpx
+import pytest
 from public_tests.environments.utils import check_service_running
 
 
@@ -33,7 +33,7 @@ class TestAllEnvironmentsAPI:
         return "http://localhost:8901"
 
     @pytest.fixture
-    async def available_environments(self, service_url: str) -> List[str]:
+    async def available_environments(self, service_url: str) -> list[str]:
         """Get list of available environments from the health endpoint."""
         await check_service_running(8901)
         async with httpx.AsyncClient() as client:
@@ -42,7 +42,7 @@ class TestAllEnvironmentsAPI:
             data = response.json()
             return data.get("supported_environments", [])
 
-    def get_test_action_for_env(self, env_name: str) -> Dict[str, Any]:
+    def get_test_action_for_env(self, env_name: str) -> dict[str, Any]:
         """Get appropriate test action for each environment type."""
         # Define basic test actions for each environment
         action_map = {
@@ -61,7 +61,7 @@ class TestAllEnvironmentsAPI:
 
     @pytest.mark.asyncio
     async def test_all_environments_basic_workflow(
-        self, service_url: str, available_environments: List[str]
+        self, service_url: str, available_environments: list[str]
     ):
         """
         Test basic workflow (initialize -> step -> terminate) for all environments.
@@ -116,7 +116,7 @@ class TestAllEnvironmentsAPI:
 
     async def _test_single_environment_workflow(
         self, service_url: str, env_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Test the complete workflow for a single environment."""
         async with httpx.AsyncClient(timeout=30.0) as client:
             # Step 1: Initialize environment
@@ -193,7 +193,7 @@ class TestAllEnvironmentsAPI:
 
     @pytest.mark.asyncio
     async def test_initialize_only_all_environments(
-        self, service_url: str, available_environments: List[str]
+        self, service_url: str, available_environments: list[str]
     ):
         """Test just initialization for all environments (lighter test)."""
         results = {}
@@ -256,7 +256,7 @@ class TestAllEnvironmentsAPI:
             for env in expected_envs:
                 assert env in available_envs, f"Expected environment {env} not in available list"
 
-    def test_action_mapping_completeness(self, available_environments: List[str]):
+    def test_action_mapping_completeness(self, available_environments: list[str]):
         """Test that we have test actions defined for all available environments."""
         missing_actions = []
 
@@ -291,7 +291,7 @@ class TestAllEnvironmentsAPI:
 
     @pytest.mark.asyncio
     async def test_concurrent_environment_initialization(
-        self, service_url: str, available_environments: List[str]
+        self, service_url: str, available_environments: list[str]
     ):
         """Test that multiple environments can be initialized concurrently."""
         # Test with first 3 environments to avoid overwhelming the system

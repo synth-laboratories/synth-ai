@@ -1,9 +1,11 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from openai import AsyncOpenAI, OpenAI
-from synth_ai.lm.vendors.openai_standard import OpenAIStandard
-from synth_ai.lm.vendors.base import BaseLMResponse
+
 from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.base import BaseLMResponse
+from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 
 class OpenRouterAPI(OpenAIStandard):
@@ -44,11 +46,11 @@ class OpenRouterAPI(OpenAIStandard):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         # Strip the 'openrouter/' prefix before calling the API
         model = self._strip_prefix(model)
@@ -59,11 +61,11 @@ class OpenRouterAPI(OpenAIStandard):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         # Strip the 'openrouter/' prefix before calling the API
         model = self._strip_prefix(model)

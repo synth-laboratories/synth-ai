@@ -2,10 +2,9 @@
 
 import asyncio
 import time
-from datetime import datetime
 
 from synth_ai.tracing_v3 import SessionTracer
-from synth_ai.tracing_v3.abstractions import LMCAISEvent, EnvironmentEvent, RuntimeEvent, TimeRecord
+from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
 from synth_ai.tracing_v3.turso.daemon import SqldDaemon
 
 

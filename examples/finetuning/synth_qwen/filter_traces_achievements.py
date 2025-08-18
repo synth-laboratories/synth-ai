@@ -11,20 +11,21 @@ Environment:
 - MAX_TOKENS (int, default: inf)
 - MODELS (optional, space-separated model names; default empty = all)
 """
+
 import asyncio
 import json
 import math
 import os
-from pathlib import Path
-from typing import Any, Dict, List, Set
 import tomllib
+from pathlib import Path
+from typing import Any
 
 from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso import (
     FinetuningDataExtractorV3,
 )
 
 
-def env_list(name: str) -> List[str]:
+def env_list(name: str) -> list[str]:
     val = os.getenv(name, "").strip()
     return val.split() if val else []
 
@@ -40,16 +41,17 @@ def normalize_db_url(raw: str) -> str:
     return raw
 
 
-def build_filters() -> Dict[str, Any]:
+def build_filters() -> dict[str, Any]:
     cfg_default = Path(__file__).with_name("config.toml")
     cfg_path = os.getenv("CRAFTER_CONFIG", str(cfg_default))
-    cfg: Dict[str, Any] = {}
+    cfg: dict[str, Any] = {}
     if os.path.exists(cfg_path):
         with open(cfg_path, "rb") as f:
             cfg = tomllib.load(f)
     fcfg = cfg.get("filter", {})
-    tcfg = cfg.get("traces", {})
-    req = set(env_list("REQUIRED_ACHIEVEMENTS") or fcfg.get("required_achievements", ["collect_wood"]))
+    req = set(
+        env_list("REQUIRED_ACHIEVEMENTS") or fcfg.get("required_achievements", ["collect_wood"])
+    )
     models = env_list("MODELS")
     min_reward = float(os.getenv("MIN_TOTAL_REWARD", str(fcfg.get("min_total_reward", 0.0))))
     max_cost = float(os.getenv("MAX_COST", str(fcfg.get("max_cost", math.inf))))
@@ -66,7 +68,7 @@ def build_filters() -> Dict[str, Any]:
 async def main() -> None:
     cfg_default = Path(__file__).with_name("config.toml")
     cfg_path = os.getenv("CRAFTER_CONFIG", str(cfg_default))
-    cfg: Dict[str, Any] = {}
+    cfg: dict[str, Any] = {}
     if os.path.exists(cfg_path):
         with open(cfg_path, "rb") as f:
             cfg = tomllib.load(f)
@@ -88,21 +90,28 @@ async def main() -> None:
             candidate = repo_root / "traces" / "v3" / "synth_ai.db" / "dbs" / "default" / "data"
             raw_db_url = f"sqlite+aiosqlite:///{candidate}"
     db_url = normalize_db_url(raw_db_url)
-    output_path = os.getenv("OUTPUT_JSONL", fcfg.get("output_jsonl", "ft_data/qwen4b_crafter_sft_ach.jsonl"))
+    output_path = os.getenv(
+        "OUTPUT_JSONL", fcfg.get("output_jsonl", "ft_data/qwen4b_crafter_sft_ach.jsonl")
+    )
     filters = build_filters()
 
     print("🤖 Modal/Synth FT Filter (achievements)")
     print("Using database:", db_url)
     print("Output file:", output_path)
-    print("Filters:", json.dumps({k: (list(v) if isinstance(v, set) else v) for k, v in filters.items()}, indent=2))
+    print(
+        "Filters:",
+        json.dumps(
+            {k: (list(v) if isinstance(v, set) else v) for k, v in filters.items()}, indent=2
+        ),
+    )
 
-    required: Set[str] = filters["required_achievements"]
-    models: List[str] = filters["models"]
+    required: set[str] = filters["required_achievements"]
+    models: list[str] = filters["models"]
     min_reward: float = filters["min_total_reward"]
     max_cost: float = filters["max_cost"]
     max_tokens: int = filters["max_tokens"]
 
-    stats: Dict[str, Any] = {
+    stats: dict[str, Any] = {
         "total_sessions": 0,
         "kept_sessions": 0,
         "total_examples": 0,
@@ -112,7 +121,7 @@ async def main() -> None:
         all_sessions = await extractor.get_all_sessions()
         stats["total_sessions"] = len(all_sessions)
 
-        kept: List[str] = []
+        kept: list[str] = []
         for _, row in all_sessions.iterrows():
             session_id = row["session_id"]
             metrics = await extractor.get_session_metrics(session_id)
@@ -125,16 +134,16 @@ async def main() -> None:
                 continue
 
             if models:
-                model_query = (
-                    """
+                model_query = """
                     SELECT DISTINCT model_name
                     FROM events
                     WHERE session_id = :session_id
                       AND event_type = 'cais'
                       AND model_name IS NOT NULL
                     """
+                model_df = await extractor.db_manager.query_traces(
+                    model_query, {"session_id": session_id}
                 )
-                model_df = await extractor.db_manager.query_traces(model_query, {"session_id": session_id})
                 session_models = model_df["model_name"].tolist() if not model_df.empty else []
                 if not any(m in models for m in session_models):
                     continue
@@ -156,7 +165,9 @@ async def main() -> None:
                 f.write(json.dumps(ex) + "\n")
         stats["total_examples"] = len(training_data)
 
-    print("\n✅ Wrote", stats["total_examples"], "examples from", stats["kept_sessions"], "sessions")
+    print(
+        "\n✅ Wrote", stats["total_examples"], "examples from", stats["kept_sessions"], "sessions"
+    )
 
 
 if __name__ == "__main__":

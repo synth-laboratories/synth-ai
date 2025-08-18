@@ -11,27 +11,31 @@ Environment:
 - QWEN_BASE_MODEL (optional, defaults to Qwen/Qwen3-4B-Instruct-2507)
 - QWEN_TRAINING_JSONL (optional, defaults to ft_data/qwen4b_crafter_sft.jsonl)
 """
+
 import asyncio
 import os
 import time
-from typing import Dict, Any
 import tomllib
+from typing import Any
 
 import aiohttp
+
 from synth_ai.config.base_url import get_learning_v2_base_url
 
 API_URL = get_learning_v2_base_url()
 API_KEY = os.getenv("SYNTH_API_KEY")
 
 _cfg_path = os.getenv("CRAFTER_CONFIG", "examples/finetuning/synth_qwen/config.toml")
-_cfg: Dict[str, Any] = {}
+_cfg: dict[str, Any] = {}
 if os.path.exists(_cfg_path):
     with open(_cfg_path, "rb") as _f:
         _cfg = tomllib.load(_f)
 scfg = _cfg.get("sft", {})
 
 MODEL = os.getenv("QWEN_BASE_MODEL", scfg.get("base_model", "Qwen/Qwen3-4B-Instruct-2507"))
-TRAINING_PATH = os.getenv("QWEN_TRAINING_JSONL", scfg.get("training_jsonl", "ft_data/qwen4b_crafter_sft.jsonl"))
+TRAINING_PATH = os.getenv(
+    "QWEN_TRAINING_JSONL", scfg.get("training_jsonl", "ft_data/qwen4b_crafter_sft.jsonl")
+)
 
 
 async def upload_file() -> str:
@@ -70,7 +74,7 @@ async def create_job(file_id: str) -> str:
             return data["id"]
 
 
-async def await_success(job_id: str) -> Dict[str, object]:
+async def await_success(job_id: str) -> dict[str, object]:
     headers = {"Authorization": f"Bearer {API_KEY}"}
     async with aiohttp.ClientSession() as session:
         check_interval_seconds = 15
@@ -81,7 +85,7 @@ async def await_success(job_id: str) -> Dict[str, object]:
                     continue
                 job = await resp.json()
                 status = job.get("status")
-                print(f"⏳ poll {attempt+1}/20 – status = {status}")
+                print(f"⏳ poll {attempt + 1}/20 – status = {status}")
                 if status == "succeeded":
                     return job
                 if status in {"failed", "cancelled"}:
@@ -92,7 +96,9 @@ async def await_success(job_id: str) -> Dict[str, object]:
 
 async def main() -> None:
     if not API_URL or not API_KEY:
-        raise RuntimeError("LEARNING_V2_BASE_URL/SYNTH_BASE_URL and SYNTH_API_KEY must be set or use the default http://localhost:8000/api")
+        raise RuntimeError(
+            "LEARNING_V2_BASE_URL/SYNTH_BASE_URL and SYNTH_API_KEY must be set or use the default http://localhost:8000/api"
+        )
     print("🚀 Starting Qwen 4B SFT")
     fid = await upload_file()
     job_id = await create_job(fid)

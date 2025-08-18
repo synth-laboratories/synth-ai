@@ -5,12 +5,11 @@ CLI: experiments active in the last K hours with summary stats.
 
 import asyncio
 from datetime import datetime, timedelta
-from typing import Optional
 
 import click
+from rich import box
 from rich.console import Console
 from rich.table import Table
-from rich import box
 
 
 def _fmt_int(v) -> str:
@@ -90,9 +89,13 @@ def register(cli):
         async def _run():
             df = await _fetch_recent(db_url, hours)
 
-            table = Table(title=f"Experiments in last {hours:g}h", header_style="bold", box=box.SIMPLE)
+            table = Table(
+                title=f"Experiments in last {hours:g}h", header_style="bold", box=box.SIMPLE
+            )
             for col in ["Experiment", "Runs", "First", "Last", "Events", "Msgs", "Cost", "Tokens"]:
-                table.add_column(col, justify="right" if col in {"Runs","Events","Msgs","Tokens"} else "left")
+                table.add_column(
+                    col, justify="right" if col in {"Runs", "Events", "Msgs", "Tokens"} else "left"
+                )
 
             if df is None or df.empty:
                 table.add_row("-", "0", "-", "-", "-", "-", "-", "-")

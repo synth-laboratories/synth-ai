@@ -9,5 +9,3 @@ def test_get_balance_current(base_url: str, auth_headers: dict):
         data = r.json()
         assert "balance_cents" in data
         assert "balance_dollars" in data
-
-

@@ -9,8 +9,8 @@ import pytest
 pytestmark = pytest.mark.integration
 from pydantic import BaseModel
 
-from synth_ai.zyk import LM
 from synth_ai.lm.vendors.supported.grok import GrokAPI
+from synth_ai.zyk import LM
 
 TEST_PROMPT = "What is 2+2? Answer with just the number."
 

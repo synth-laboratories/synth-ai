@@ -1,8 +1,7 @@
+import contextlib
 import sqlite3
 import threading
-import contextlib
 from pathlib import Path
-from typing import Optional
 
 
 class SQLiteManager:
@@ -36,7 +35,7 @@ class SQLiteManager:
                 self._conn.close()
                 self._conn = None
 
-    def reset(self, new_db_path: Optional[Path] = None):
+    def reset(self, new_db_path: Path | None = None):
         """Resets the connection, optionally switching to a new database path for a fresh session."""
         with self._lock:
             if self._conn:

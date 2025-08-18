@@ -7,26 +7,24 @@ concurrent operations that would cause race conditions in DuckDB.
 These tests should PASS with Turso's multi-writer MVCC.
 """
 
+import asyncio
+import os
+import tempfile
+import time
+import uuid
+
 import pytest
 import pytest_asyncio
-import asyncio
-import tempfile
-import os
-import uuid
-import time
-from datetime import datetime
-from typing import List
 
-from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.abstractions import (
-    SessionEventMarkovBlanketMessage,
-    TimeRecord,
-    RuntimeEvent,
     EnvironmentEvent,
     LMCAISEvent,
+    RuntimeEvent,
+    TimeRecord,
 )
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 
 
 @pytest.mark.asyncio

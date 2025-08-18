@@ -1,6 +1,6 @@
 import asyncio
-import pytest
 
+import pytest
 from pydantic import BaseModel
 
 # Run these as part of the ultra-fast unit suite

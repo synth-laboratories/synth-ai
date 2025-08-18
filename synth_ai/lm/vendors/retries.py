@@ -1,4 +1,3 @@
-import backoff
 import os
 
 # Number of retry attempts that some legacy decorators rely on.

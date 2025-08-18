@@ -1,22 +1,19 @@
 import json
+import warnings
 from typing import (
     Any,
-    Dict,
-    List,
+    Literal,
     Optional,
-    Tuple,
-    Type,
-    get_type_hints,
+    Union,
     get_args,
     get_origin,
-    Union,
-    Literal,
+    get_type_hints,
 )
+
 from pydantic import BaseModel
-import warnings
 
 
-def generate_type_map() -> Dict[Any, str]:
+def generate_type_map() -> dict[Any, str]:
     base_types = {
         int: "int",
         float: "float",
@@ -26,8 +23,8 @@ def generate_type_map() -> Dict[Any, str]:
     }
 
     collection_types = {
-        List: "List",
-        Dict: "Dict",
+        list: "List",
+        dict: "Dict",
         Optional: "Optional",
     }
 
@@ -37,19 +34,19 @@ def generate_type_map() -> Dict[Any, str]:
         for collection, collection_name in collection_types.items():
             if collection is Optional:
                 type_map[Optional[base_type]] = name
-            elif collection is Dict:
+            elif collection is dict:
                 # Handle generic Dict type
-                type_map[Dict] = "Dict[Any,Any]"
+                type_map[dict] = "Dict[Any,Any]"
                 # Provide both key and value types for Dict
-                type_map[Dict[base_type, base_type]] = f"{collection_name}[{name},{name}]"
+                type_map[dict[base_type, base_type]] = f"{collection_name}[{name},{name}]"
                 # Handle Dict[Any, Any] explicitly
-                type_map[Dict[Any, Any]] = "Dict[Any,Any]"
+                type_map[dict[Any, Any]] = "Dict[Any,Any]"
             else:
                 type_map[collection[base_type]] = f"{collection_name}[{name}]"
     return type_map
 
 
-def generate_example_dict() -> Dict[str, Any]:
+def generate_example_dict() -> dict[str, Any]:
     example_values = {
         "str": "<Your type-str response here>",
         "int": "<Your type-int response here>",
@@ -101,10 +98,10 @@ def get_type_string(type_hint):
             return f"{type_hint.__name__}({', '.join(f'{k}: {v}' for k, v in field_types.items())})"
         else:
             return base_type_examples.get(type_hint, ("Unknown", "unknown"))[0]
-    elif origin in (list, List):
+    elif origin in (list, list):
         elem_type = get_type_string(args[0])
         return f"List[{elem_type}]"
-    elif origin in (dict, Dict):
+    elif origin in (dict, dict):
         key_type = get_type_string(args[0])
         value_type = get_type_string(args[1])
         return f"Dict[{key_type}, {value_type}]"
@@ -167,10 +164,10 @@ def get_example_value(type_hint):
             return example, union_docs
         else:
             return base_type_examples.get(type_hint, ("Unknown", "unknown"))[1], []
-    elif origin in (list, List):
+    elif origin in (list, list):
         value, docs = get_example_value(args[0])
         return [value], docs
-    elif origin in (dict, Dict):
+    elif origin in (dict, dict):
         if not args or len(args) < 2:
             warnings.warn(
                 f"Dictionary type hint {type_hint} missing type arguments. "
@@ -224,9 +221,9 @@ def get_example_value(type_hint):
 def add_json_instructions_to_messages(
     system_message,
     user_message,
-    response_model: Optional[Type[BaseModel]] = None,
-    previously_failed_error_messages: List[str] = [],
-) -> Tuple[str, str]:
+    response_model: type[BaseModel] | None = None,
+    previously_failed_error_messages: list[str] = [],
+) -> tuple[str, str]:
     if response_model:
         type_hints = get_type_hints(response_model)
         # print("Type hints", type_hints)
@@ -283,10 +280,10 @@ Here are some error traces from previous attempts:
 
 
 def inject_structured_output_instructions(
-    messages: List[Dict[str, str]],
-    response_model: Optional[Type[BaseModel]] = None,
-    previously_failed_error_messages: List[str] = [],
-) -> List[Dict[str, str]]:
+    messages: list[dict[str, str]],
+    response_model: type[BaseModel] | None = None,
+    previously_failed_error_messages: list[str] = [],
+) -> list[dict[str, str]]:
     prev_system_message_content = messages[0]["content"]
     prev_user_message_content = messages[1]["content"]
     system_message, user_message = add_json_instructions_to_messages(

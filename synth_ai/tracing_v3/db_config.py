@@ -2,11 +2,9 @@
 Centralized database configuration for v3 tracing.
 """
 
-import os
-import tempfile
-from pathlib import Path
-from typing import Optional, Tuple, TYPE_CHECKING
 import logging
+import os
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .turso.daemon import SqldDaemon
@@ -22,7 +20,7 @@ class DatabaseConfig:
     DEFAULT_HTTP_PORT = 8080
 
     def __init__(
-        self, db_path: Optional[str] = None, http_port: Optional[int] = None, use_sqld: bool = True
+        self, db_path: str | None = None, http_port: int | None = None, use_sqld: bool = True
     ):
         """
         Initialize database configuration.
@@ -34,7 +32,7 @@ class DatabaseConfig:
         """
         self.use_sqld = use_sqld
         self.http_port = http_port or int(os.getenv("SQLD_HTTP_PORT", self.DEFAULT_HTTP_PORT))
-        self._daemon: Optional["SqldDaemon"] = None
+        self._daemon: SqldDaemon | None = None
 
         # Set up database path to match serve.sh configuration
         if db_path is None:
@@ -106,7 +104,7 @@ class DatabaseConfig:
             self._daemon.stop()
             self._daemon = None
 
-    def get_daemon_and_url(self, wait_time: float = 2.0) -> Tuple[Optional["SqldDaemon"], str]:
+    def get_daemon_and_url(self, wait_time: float = 2.0) -> tuple[Optional["SqldDaemon"], str]:
         """
         Get daemon (starting if needed) and database URL.
 
@@ -121,7 +119,7 @@ class DatabaseConfig:
 
 
 # Global default configuration
-_default_config: Optional[DatabaseConfig] = None
+_default_config: DatabaseConfig | None = None
 
 
 def get_default_db_config() -> DatabaseConfig:

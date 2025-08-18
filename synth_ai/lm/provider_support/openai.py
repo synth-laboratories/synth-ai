@@ -4,7 +4,6 @@ import types
 from collections import defaultdict
 from dataclasses import dataclass
 from inspect import isclass
-from typing import List, Optional
 
 import openai.resources
 from langfuse import Langfuse
@@ -15,14 +14,15 @@ from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from packaging.version import Version
 from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
+
 from synth_ai.lm.overrides import (
-    use_overrides_for_messages,
     apply_injection as apply_injection_overrides,
+)
+from synth_ai.lm.overrides import (
     apply_param_overrides,
     apply_tool_overrides,
+    use_overrides_for_messages,
 )
-from synth_ai.lm.injection import apply_injection
-
 from synth_ai.lm.provider_support.suppress_logging import *
 from synth_ai.tracing_v1.abstractions import MessageInputs
 from synth_ai.tracing_v1.trackers import synth_tracker_async, synth_tracker_sync
@@ -59,7 +59,7 @@ class OpenAiDefinition:
     method: str
     type: str
     sync: bool
-    min_version: Optional[str] = None
+    min_version: str | None = None
 
 
 OPENAI_METHODS_V0 = [
@@ -212,7 +212,7 @@ def _extract_chat_response(kwargs: dict):
     Extracts the LLM output from the response.
     """
     response = {
-        "role": kwargs.get("role", None),
+        "role": kwargs.get("role"),
     }
 
     if kwargs.get("function_call") is not None:
@@ -221,7 +221,7 @@ def _extract_chat_response(kwargs: dict):
     if kwargs.get("tool_calls") is not None:
         response.update({"tool_calls": kwargs["tool_calls"]})
 
-    response["content"] = kwargs.get("content", None)
+    response["content"] = kwargs.get("content")
     return response
 
 
@@ -762,7 +762,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
 
 
 class OpenAILangfuse:
-    _langfuse: Optional[Langfuse] = None
+    _langfuse: Langfuse | None = None
 
     def initialize(self):
         self._langfuse = LangfuseSingleton().get(
@@ -820,15 +820,15 @@ class OpenAILangfuse:
                 else _wrap_async(resource, self.initialize),
             )
 
-        setattr(openai, "langfuse_public_key", None)
-        setattr(openai, "langfuse_secret_key", None)
-        setattr(openai, "langfuse_host", None)
-        setattr(openai, "langfuse_debug", None)
-        setattr(openai, "langfuse_enabled", True)
-        setattr(openai, "langfuse_sample_rate", None)
-        setattr(openai, "langfuse_mask", None)
-        setattr(openai, "langfuse_auth_check", self.langfuse_auth_check)
-        setattr(openai, "flush_langfuse", self.flush)
+        openai.langfuse_public_key = None
+        openai.langfuse_secret_key = None
+        openai.langfuse_host = None
+        openai.langfuse_debug = None
+        openai.langfuse_enabled = True
+        openai.langfuse_sample_rate = None
+        openai.langfuse_mask = None
+        openai.langfuse_auth_check = self.langfuse_auth_check
+        openai.flush_langfuse = self.flush
 
 
 modifier = OpenAILangfuse()
@@ -843,7 +843,7 @@ def auth_check():
     return modifier._langfuse.auth_check()
 
 
-def _filter_image_data(messages: List[dict]):
+def _filter_image_data(messages: list[dict]):
     """https://platform.openai.com/docs/guides/vision?lang=python
 
     The messages array remains the same, but the 'image_url' is removed from the 'content' array.

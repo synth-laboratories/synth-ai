@@ -1,8 +1,7 @@
-import pytest
 import asyncio
 import unittest
-from typing import List
 
+import pytest
 from pydantic import BaseModel, Field
 
 from synth_ai.lm.core.main import LM
@@ -16,13 +15,13 @@ class SimpleResponse(BaseModel):
 
 class ComplexResponse(BaseModel):
     title: str
-    tags: List[str]
+    tags: list[str]
     content: str
 
 
 class NestedResponse(BaseModel):
     main_category: str
-    subcategories: List[str]
+    subcategories: list[str]
     details: SimpleResponse
 
 

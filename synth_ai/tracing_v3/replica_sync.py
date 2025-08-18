@@ -25,10 +25,10 @@ application to continue without blocking on sync operations.
 """
 
 import asyncio
-import libsql
-import os
 import logging
-from typing import Optional
+
+import libsql
+
 from .config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -36,13 +36,13 @@ logger = logging.getLogger(__name__)
 
 class ReplicaSync:
     """Manages synchronization of embedded SQLite replica with remote Turso database.
-    
+
     This class handles the lifecycle of replica synchronization, including:
     - Establishing connections to both local and remote databases
     - Running periodic sync operations
     - Handling sync failures gracefully
     - Managing the background sync task
-    
+
     The sync is designed to be resilient to network failures and will
     continue retrying with exponential backoff.
     """
@@ -50,9 +50,9 @@ class ReplicaSync:
     def __init__(
         self,
         db_path: str = "embedded.db",
-        sync_url: Optional[str] = None,
-        auth_token: Optional[str] = None,
-        sync_interval: Optional[int] = None,
+        sync_url: str | None = None,
+        auth_token: str | None = None,
+        sync_interval: int | None = None,
     ):
         """Initialize replica sync manager.
 
@@ -66,16 +66,16 @@ class ReplicaSync:
         self.sync_url = sync_url or CONFIG.sync_url
         self.auth_token = auth_token or CONFIG.auth_token
         self.sync_interval = sync_interval or CONFIG.sync_interval
-        self._sync_task: Optional[asyncio.Task] = None
-        self._conn: Optional[libsql.Connection] = None
+        self._sync_task: asyncio.Task | None = None
+        self._conn: libsql.Connection | None = None
 
     def _ensure_connection(self):
         """Ensure libsql connection is established.
-        
+
         Creates a connection to the local embedded database with sync
         capabilities. The libsql library handles the replication protocol
         with the remote Turso database.
-        
+
         Raises:
             ValueError: If no sync_url is configured
         """
@@ -97,12 +97,12 @@ class ReplicaSync:
 
     async def sync_once(self) -> bool:
         """Perform a single sync operation.
-        
+
         This method:
         1. Ensures a connection exists
         2. Runs the sync in a thread pool to avoid blocking
         3. Handles failures gracefully
-        
+
         The actual sync protocol is handled by libsql and includes:
         - Sending local changes to remote
         - Receiving remote changes (if configured)
@@ -123,10 +123,10 @@ class ReplicaSync:
 
     async def keep_fresh(self):
         """Background task to continuously sync the replica.
-        
+
         Runs in an infinite loop, performing sync operations at the configured
         interval. Handles cancellation gracefully for clean shutdown.
-        
+
         The task will continue running even if individual syncs fail, ensuring
         eventual consistency when connectivity is restored.
         """
@@ -148,10 +148,10 @@ class ReplicaSync:
 
     def start_background_sync(self) -> asyncio.Task:
         """Start the background sync task.
-        
+
         Creates an asyncio task that runs the sync loop. The task is stored
         internally for lifecycle management.
-        
+
         This method is idempotent - calling it multiple times will not create
         multiple sync tasks.
 
@@ -168,12 +168,12 @@ class ReplicaSync:
 
     async def stop(self):
         """Stop the background sync task and close connection.
-        
+
         Performs a clean shutdown:
         1. Cancels the background sync task
         2. Waits for task completion
         3. Closes the database connection
-        
+
         This method is safe to call multiple times.
         """
         if self._sync_task and not self._sync_task.done():
@@ -194,22 +194,22 @@ class ReplicaSync:
 
 
 # Global replica sync instance
-_replica_sync: Optional[ReplicaSync] = None
+_replica_sync: ReplicaSync | None = None
 
 
-def get_replica_sync() -> Optional[ReplicaSync]:
+def get_replica_sync() -> ReplicaSync | None:
     """Get the global replica sync instance."""
     return _replica_sync
 
 
 async def start_replica_sync(
     db_path: str = "embedded.db",
-    sync_url: Optional[str] = None,
-    auth_token: Optional[str] = None,
-    sync_interval: Optional[int] = None,
+    sync_url: str | None = None,
+    auth_token: str | None = None,
+    sync_interval: int | None = None,
 ) -> ReplicaSync:
     """Start global replica sync.
-    
+
     Convenience function to create and start a replica sync instance.
     Performs an initial sync before starting the background task to ensure
     the local database is up-to-date.
@@ -222,7 +222,7 @@ async def start_replica_sync(
 
     Returns:
         The ReplicaSync instance
-        
+
     Raises:
         ValueError: If sync_url is not provided and not in environment
     """
@@ -247,7 +247,7 @@ async def start_replica_sync(
 
 async def stop_replica_sync():
     """Stop the global replica sync.
-    
+
     Stops the global replica sync instance if one is running.
     This should be called during application shutdown to ensure
     clean termination of the sync task.

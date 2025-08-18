@@ -1,4 +1,3 @@
-from typing import Any, Dict, Optional
 
 import pytest
 from pydantic import BaseModel
@@ -7,13 +6,12 @@ from synth_ai import LM
 from synth_ai.lm.vendors.base import BaseLMResponse
 
 
-
 class StateUpdate(BaseModel):
     """Response model for state updates from LLM"""
 
-    short_term_plan: Optional[str] = None
-    objective: Optional[str] = None
-    final_results: Optional[dict] = (
+    short_term_plan: str | None = None
+    objective: str | None = None
+    final_results: dict | None = (
         None  # Use dict instead of Dict[str, Any] for better OpenAI compatibility
     )
 
@@ -122,7 +120,7 @@ def current_state():
 )
 @pytest.mark.fast
 def test_state_delta_handling(
-    model_name: str, models: Dict[str, LM], system_message: str, current_state: Dict
+    model_name: str, models: dict[str, LM], system_message: str, current_state: dict
 ):
     """Test that each model correctly handles state updates"""
 
@@ -178,7 +176,7 @@ def test_state_delta_handling(
     ],
 )
 @pytest.mark.fast
-def test_state_delta_protected_fields(model_name: str, models: Dict[str, LM], system_message: str):
+def test_state_delta_protected_fields(model_name: str, models: dict[str, LM], system_message: str):
     """Test that models respect protected fields"""
 
     current_state = {

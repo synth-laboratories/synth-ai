@@ -2,17 +2,19 @@
 Utility functions and generic filters for taskset creation.
 """
 
-from typing import Any, Collection, Optional, List, Set
+from collections.abc import Collection
+from typing import Any
 from uuid import UUID, uuid4
+
 from synth_ai.environments.tasks.core import (
-    TaskInstanceMetadataFilter,
-    TaskInstanceSet,
     SplitInfo,
     TaskInstance,
+    TaskInstanceMetadataFilter,
+    TaskInstanceSet,
 )
 
 
-def parse_or_new_uuid(raw_id: Optional[str]) -> UUID:
+def parse_or_new_uuid(raw_id: str | None) -> UUID:
     """
     Parse a raw ID string into a UUID, or generate a new one if invalid or missing.
     """
@@ -43,8 +45,8 @@ class RangeFilter(TaskInstanceMetadataFilter):
     def __init__(
         self,
         key: str,
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
     ):
         self.key = key
         self.min_value = min_value
@@ -62,15 +64,15 @@ class RangeFilter(TaskInstanceMetadataFilter):
 def make_taskset(
     name: str,
     description: str,
-    instances: List[TaskInstance],
-    val_filter: Optional[TaskInstanceMetadataFilter] = None,
-    test_filter: Optional[TaskInstanceMetadataFilter] = None,
+    instances: list[TaskInstance],
+    val_filter: TaskInstanceMetadataFilter | None = None,
+    test_filter: TaskInstanceMetadataFilter | None = None,
 ) -> TaskInstanceSet:
     """
     Assemble a TaskInstanceSet by applying optional validation and test filters.
     """
-    val_ids: Set[Any] = set()
-    test_ids: Set[Any] = set()
+    val_ids: set[Any] = set()
+    test_ids: set[Any] = set()
     if val_filter:
         val_ids = {inst.id for inst in instances if val_filter(inst)}
     if test_filter:

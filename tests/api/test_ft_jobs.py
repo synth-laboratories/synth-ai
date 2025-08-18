@@ -12,6 +12,10 @@ def test_ft_jobs_list_and_get_stub(base_url: str, auth_headers: dict):
     if r2.status_code == 200:
         data = r2.json()
         assert data.get("id") == job_id
-        assert data.get("status") in ("queued", "running", "succeeded", "failed", "validating_files")
-
-
+        assert data.get("status") in (
+            "queued",
+            "running",
+            "succeeded",
+            "failed",
+            "validating_files",
+        )

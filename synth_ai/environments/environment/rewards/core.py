@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Any
+from typing import Any
 
 
 class RewardComponent(ABC):
@@ -17,7 +18,7 @@ class RewardComponent(ABC):
 class RewardStack:
     """Aggregates multiple RewardComponent instances to compute a total reward."""
 
-    def __init__(self, components: List[RewardComponent]):
+    def __init__(self, components: list[RewardComponent]):
         self.components = components
 
     async def step_reward(self, state: Any, action: Any) -> float:

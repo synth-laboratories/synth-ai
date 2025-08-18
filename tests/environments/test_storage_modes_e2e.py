@@ -11,18 +11,15 @@ This test verifies that:
 """
 
 import asyncio
+import logging
 import os
-import sys
 import subprocess
+import sys
 import time
+from typing import Any
+
 import requests
 from requests.exceptions import RequestException
-import json
-import tempfile
-import signal
-from pathlib import Path
-from typing import Optional, Dict, Any
-import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -38,9 +35,9 @@ TEST_TIMEOUT = 60  # seconds per test mode
 class ServiceManager:
     """Manages the synth-env service for testing."""
 
-    def __init__(self, port: int, env_vars: Optional[Dict[str, str]] = None):
+    def __init__(self, port: int, env_vars: dict[str, str] | None = None):
         self.port = port
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self.env_vars = env_vars or {}
 
     def start(self) -> bool:
@@ -116,7 +113,7 @@ class ServiceManager:
                 self.process = None
 
 
-def analyze_storage_logs(logs: str, mode_name: str) -> Dict[str, Any]:
+def analyze_storage_logs(logs: str, mode_name: str) -> dict[str, Any]:
     """Analyze logs to determine actual storage behavior."""
     redis_indicators = ["Stored environment", "Retrieved environment", "Redis", "redis_client"]
 
@@ -133,7 +130,7 @@ def analyze_storage_logs(logs: str, mode_name: str) -> Dict[str, Any]:
     }
 
 
-def run_storage_mode_test(mode_name: str, env_vars: Dict[str, str]) -> Dict[str, Any]:
+def run_storage_mode_test(mode_name: str, env_vars: dict[str, str]) -> dict[str, Any]:
     """Test a specific storage mode."""
     logger.info(f"\n{'=' * 60}")
     logger.info(f"🧪 TESTING STORAGE MODE: {mode_name}")

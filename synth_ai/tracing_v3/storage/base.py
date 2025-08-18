@@ -2,7 +2,8 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import pandas as pd
 
 from ..abstractions import SessionTrace
@@ -29,7 +30,7 @@ class TraceStorage(ABC):
         pass
 
     @abstractmethod
-    async def get_session_trace(self, session_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session_trace(self, session_id: str) -> dict[str, Any] | None:
         """Retrieve a session trace by ID.
 
         Args:
@@ -41,7 +42,7 @@ class TraceStorage(ABC):
         pass
 
     @abstractmethod
-    async def query_traces(self, query: str, params: Dict[str, Any] = None) -> pd.DataFrame:
+    async def query_traces(self, query: str, params: dict[str, Any] = None) -> pd.DataFrame:
         """Execute a query and return results as DataFrame.
 
         Args:
@@ -92,7 +93,7 @@ class TraceStorage(ABC):
         experiment_id: str,
         name: str,
         description: str = None,
-        configuration: Dict[str, Any] = None,
+        configuration: dict[str, Any] = None,
     ) -> str:
         """Create a new experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
@@ -103,14 +104,14 @@ class TraceStorage(ABC):
 
     async def get_sessions_by_experiment(
         self, experiment_id: str, limit: int = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get all sessions for an experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
 
     # Batch operations
     async def batch_insert_sessions(
-        self, traces: List[SessionTrace], batch_size: int = 1000
-    ) -> List[str]:
+        self, traces: list[SessionTrace], batch_size: int = 1000
+    ) -> list[str]:
         """Batch insert multiple session traces.
 
         Default implementation calls insert_session_trace for each trace.

@@ -2,11 +2,10 @@
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
+
 from synth_ai.tracing.decorators import (
-    active_events_var,
     trace_event_async,
     trace_event_sync,
 )

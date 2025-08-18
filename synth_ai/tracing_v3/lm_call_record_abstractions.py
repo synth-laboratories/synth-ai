@@ -23,8 +23,8 @@ Design goals:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Literal
 from datetime import datetime
+from typing import Any, Literal
 
 
 @dataclass
@@ -222,7 +222,7 @@ class LLMCallRecord:
     redactions: list[dict[str, Any]] | None = None
 
 
-def compute_latency_ms(record: LLMCallRecord) -> Optional[int]:
+def compute_latency_ms(record: LLMCallRecord) -> int | None:
     """Compute and update latency_ms from timestamps if available."""
     if record.started_at and record.completed_at:
         delta = int((record.completed_at - record.started_at).total_seconds() * 1000)
@@ -253,5 +253,3 @@ def compute_latency_ms(record: LLMCallRecord) -> Optional[int]:
 #
 # Tool execution results should be attached as ToolCallResult entries when the
 # agent runtime executes the requested tool(s) and has ground-truth outputs.
-
-

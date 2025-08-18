@@ -6,7 +6,6 @@ Analogous to the modified OpenAI version.
 import logging
 import types
 from dataclasses import dataclass
-from typing import Optional
 
 try:
     import anthropic
@@ -27,14 +26,15 @@ from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from wrapt import wrap_function_wrapper
+
 from synth_ai.lm.overrides import (
-    use_overrides_for_messages,
     apply_injection as apply_injection_overrides,
+)
+from synth_ai.lm.overrides import (
     apply_param_overrides,
     apply_tool_overrides,
+    use_overrides_for_messages,
 )
-from synth_ai.lm.injection import apply_injection
-
 from synth_ai.lm.provider_support.suppress_logging import *
 from synth_ai.tracing_v1.trackers import (
     synth_tracker_async,
@@ -799,7 +799,7 @@ class LangfuseAnthropicResponseGeneratorAsync:
 
 
 class AnthropicLangfuse:
-    _langfuse: Optional[Langfuse] = None
+    _langfuse: Langfuse | None = None
 
     def initialize(self):
         self._langfuse = LangfuseSingleton().get(
@@ -946,14 +946,14 @@ class AnthropicLangfuse:
 
         anthropic.AsyncClient.__init__ = new_async_init
 
-        setattr(anthropic, "langfuse_public_key", None)
-        setattr(anthropic, "langfuse_secret_key", None)
-        setattr(anthropic, "langfuse_host", None)
-        setattr(anthropic, "langfuse_debug", None)
-        setattr(anthropic, "langfuse_enabled", True)
-        setattr(anthropic, "langfuse_sample_rate", None)
-        setattr(anthropic, "langfuse_auth_check", self.langfuse_auth_check)
-        setattr(anthropic, "flush_langfuse", self.flush)
+        anthropic.langfuse_public_key = None
+        anthropic.langfuse_secret_key = None
+        anthropic.langfuse_host = None
+        anthropic.langfuse_debug = None
+        anthropic.langfuse_enabled = True
+        anthropic.langfuse_sample_rate = None
+        anthropic.langfuse_auth_check = self.langfuse_auth_check
+        anthropic.flush_langfuse = self.flush
 
 
 modifier = AnthropicLangfuse()

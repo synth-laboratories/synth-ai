@@ -1,6 +1,6 @@
 import os
-import pytest
 
+import pytest
 
 # Prod-only base URL for all tests in this folder
 PROD_BASE = "https://agent-learning.onrender.com/api/v1"
@@ -23,5 +23,3 @@ def base_url() -> str:
 def auth_headers() -> dict:
     api_key = _get_api_key()
     return {"Authorization": f"Bearer {api_key}"}
-
-

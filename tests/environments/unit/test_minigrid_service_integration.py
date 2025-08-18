@@ -9,11 +9,12 @@ Original bug: "Tool call missing 'tool' or 'name' field"
 Fix: Updated validate_tool_calls to handle List[EnvToolCall] from service
 """
 
+
 import pytest
-import asyncio
+
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.minigrid.environment import MiniGridEnvironment
 from synth_ai.environments.examples.minigrid.taskset import DEFAULT_MINIGRID_TASK
-from synth_ai.environments.environment.tools import EnvToolCall
 
 
 class TestMiniGridServiceIntegration:

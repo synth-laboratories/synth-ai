@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-from typing import Dict
 
 import httpx
 
@@ -20,7 +19,7 @@ class ImmediateLogClient(BaseLogClient):
         super().__init__(config)
         self.client_manager = ClientManager.initialize(config)
 
-    def send_event(self, event: Event, system_info: Dict[str, str]) -> bool:
+    def send_event(self, event: Event, system_info: dict[str, str]) -> bool:
         """Send a single event with retries and fallback"""
         from .retry_queue import (
             retry_queue,  # Import here to avoid circular import
@@ -71,7 +70,7 @@ class AsyncImmediateLogClient(BaseAsyncLogClient):
         super().__init__(config)
         self.client_manager = ClientManager.initialize(config)
 
-    async def send_event(self, event: Event, system_info: Dict[str, str]) -> bool:
+    async def send_event(self, event: Event, system_info: dict[str, str]) -> bool:
         """Send a single event with retries and fallback (async version)"""
         from .retry_queue import retry_queue
 
@@ -96,7 +95,7 @@ class AsyncImmediateLogClient(BaseAsyncLogClient):
                         f"No access token received from auth endpoint. Response data: {auth_data}"
                     )
                     return False
-            except Exception as e:
+            except Exception:
                 # logger.error(f"Failed to get auth token: {e}")
                 return False
 
@@ -138,7 +137,7 @@ class AsyncImmediateLogClient(BaseAsyncLogClient):
                         event.id = response_data.get("event_id")
                         return True
 
-                    except Exception as e:
+                    except Exception:
                         # last_exception = e
                         # logger.error(f"Upload attempt {attempt + 1} failed: {str(e)}")
                         if attempt < self.config.max_retries:

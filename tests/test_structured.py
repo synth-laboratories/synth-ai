@@ -1,10 +1,8 @@
-from typing import List
 
 import pytest
 
 # Structured outputs against OpenAI; treat as integration by default
 pytestmark = pytest.mark.integration
-import openai
 from pydantic import BaseModel
 
 from synth_ai.zyk import LM
@@ -13,7 +11,7 @@ from synth_ai.zyk import LM
 class Person(BaseModel):
     name: str
     age: int
-    hobbies: List[str]
+    hobbies: list[str]
 
 
 TEST_PROMPT = "Extract information about a person from this text: John is 30 years old and enjoys reading, hiking, and photography."

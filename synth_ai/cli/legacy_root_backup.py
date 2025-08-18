@@ -3,22 +3,20 @@
 Synth AI CLI - Command line interface for Synth AI services.
 """
 
-import sys
-import os
-import subprocess
-import signal
-import time
-import shutil
-from pathlib import Path
-from typing import Optional
 import logging
+import os
+import shutil
+import signal
+import subprocess
+import sys
+import time
 
 import click
 
 logger = logging.getLogger(__name__)
 
 
-def find_sqld_binary() -> Optional[str]:
+def find_sqld_binary() -> str | None:
     """Find the sqld binary in common locations."""
     # Check if sqld is in PATH
     sqld_path = shutil.which("sqld")
@@ -132,14 +130,18 @@ def env():
 
 @env.command("register")
 @click.option("--name", required=True, help="Environment name (e.g., 'MyEnv-v1')")
-@click.option("--module", "module_path", required=True, help="Python module path (e.g., 'my_package.env')")
+@click.option(
+    "--module", "module_path", required=True, help="Python module path (e.g., 'my_package.env')"
+)
 @click.option("--class-name", "class_name", required=True, help="Environment class name")
 @click.option("--description", help="Optional description")
 @click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
-def register_env(name: str, module_path: str, class_name: str, description: Optional[str], service_url: str):
+def register_env(
+    name: str, module_path: str, class_name: str, description: str | None, service_url: str
+):
     """Register a new environment with the service."""
     import requests
-    
+
     payload = {
         "name": name,
         "module_path": module_path,
@@ -147,14 +149,14 @@ def register_env(name: str, module_path: str, class_name: str, description: Opti
     }
     if description:
         payload["description"] = description
-    
+
     try:
         response = requests.post(f"{service_url}/registry/environments", json=payload, timeout=10)
         response.raise_for_status()
-        
+
         result = response.json()
         click.echo(f"✅ {result['message']}")
-        
+
     except requests.exceptions.ConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
@@ -170,29 +172,29 @@ def register_env(name: str, module_path: str, class_name: str, description: Opti
 def list_envs(service_url: str):
     """List all registered environments."""
     import requests
-    
+
     try:
         response = requests.get(f"{service_url}/registry/environments", timeout=10)
         response.raise_for_status()
-        
+
         result = response.json()
         environments = result["environments"]
-        
+
         if not environments:
             click.echo("No environments registered.")
             return
-        
+
         click.echo(f"\n📦 Registered Environments ({result['total_count']}):")
         click.echo("=" * 60)
-        
+
         for env in environments:
             click.echo(f"🌍 {env['name']}")
             click.echo(f"   Class: {env['class_name']}")
             click.echo(f"   Module: {env['module']}")
-            if env['description']:
+            if env["description"]:
                 click.echo(f"   Description: {env['description']}")
             click.echo()
-            
+
     except requests.exceptions.ConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
@@ -206,14 +208,14 @@ def list_envs(service_url: str):
 def unregister_env(name: str, service_url: str):
     """Unregister an environment from the service."""
     import requests
-    
+
     try:
         response = requests.delete(f"{service_url}/registry/environments/{name}", timeout=10)
         response.raise_for_status()
-        
+
         result = response.json()
         click.echo(f"✅ {result['message']}")
-        
+
     except requests.exceptions.ConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
@@ -228,11 +230,14 @@ def unregister_env(name: str, service_url: str):
 
 
 @cli.command()
-@click.option("--url", default="sqlite+aiosqlite:///./synth_ai.db/dbs/default/data", help="Database URL")
+@click.option(
+    "--url", default="sqlite+aiosqlite:///./synth_ai.db/dbs/default/data", help="Database URL"
+)
 def view(url: str):
     """Launch the interactive TUI dashboard."""
     try:
         from .tui.dashboard import SynthDashboard
+
         app = SynthDashboard(db_url=url)
         app.run()
     except ImportError:
@@ -240,6 +245,7 @@ def view(url: str):
         sys.exit(1)
     except KeyboardInterrupt:
         click.echo("\n👋 Dashboard closed", err=True)
+
 
 # Note: subcommands (watch, experiments, experiment, usage, traces, status, recent, calc)
 # are registered from the package module synth_ai.cli at import time.
@@ -251,9 +257,23 @@ def view(url: str):
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
-@click.option("--reload/--no-reload", default=False, help="Enable auto-reload (default: off). Or set SYNTH_RELOAD=1")
-@click.option("--force", is_flag=True, help="Kill any process already bound to --env-port without prompting")
-def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bool, reload: bool, force: bool):
+@click.option(
+    "--reload/--no-reload",
+    default=False,
+    help="Enable auto-reload (default: off). Or set SYNTH_RELOAD=1",
+)
+@click.option(
+    "--force", is_flag=True, help="Kill any process already bound to --env-port without prompting"
+)
+def serve(
+    db_file: str,
+    sqld_port: int,
+    env_port: int,
+    no_sqld: bool,
+    no_env: bool,
+    reload: bool,
+    force: bool,
+):
     """Start Synth AI services (sqld daemon and environment service)."""
 
     # Configure logging
@@ -317,7 +337,7 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                 # Verify it started
                 if proc.poll() is not None:
                     click.echo("❌ Failed to start sqld. Check sqld.log for details.", err=True)
-                    with open("sqld.log", "r") as f:
+                    with open("sqld.log") as f:
                         click.echo("\nLast 10 lines of sqld.log:")
                         lines = f.readlines()
                         for line in lines[-10:]:
@@ -362,7 +382,9 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
             # Try to find PIDs using lsof (macOS/Linux)
             pids: list[str] = []
             try:
-                out = subprocess.run(["lsof", "-ti", f":{env_port}"], capture_output=True, text=True)
+                out = subprocess.run(
+                    ["lsof", "-ti", f":{env_port}"], capture_output=True, text=True
+                )
                 if out.returncode == 0 and out.stdout.strip():
                     pids = [p for p in out.stdout.strip().splitlines() if p]
             except FileNotFoundError:
@@ -374,12 +396,16 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                     time.sleep(0.5)
             else:
                 pid_info = f" PIDs: {', '.join(pids)}" if pids else ""
-                if click.confirm(f"⚠️  Port {env_port} is in use.{pid_info} Kill and continue?", default=True):
+                if click.confirm(
+                    f"⚠️  Port {env_port} is in use.{pid_info} Kill and continue?", default=True
+                ):
                     if pids:
                         subprocess.run(["kill", "-9", *pids], check=False)
                         time.sleep(0.5)
                 else:
-                    click.echo("❌ Aborting. Re-run with --force to auto-kill or choose a different --env-port.")
+                    click.echo(
+                        "❌ Aborting. Re-run with --force to auto-kill or choose a different --env-port."
+                    )
                     sys.exit(1)
 
         # Set environment variables

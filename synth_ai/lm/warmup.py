@@ -3,13 +3,14 @@ Model warmup utilities for Synth backend.
 Handles model preloading and warmup polling.
 """
 
-import httpx
 import asyncio
 import logging
 import sys
 import time
-from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+
+import httpx
+
 from .config import SynthConfig
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class WarmupStatus:
     """Track warmup status for models with TTL."""
 
     def __init__(self):
-        self._warmed_models: Dict[str, datetime] = {}
+        self._warmed_models: dict[str, datetime] = {}
         self._ttl = timedelta(minutes=10)  # Consider models warm for 10 minutes
 
     def is_warm(self, model_name: str) -> bool:
@@ -47,11 +48,11 @@ _warmup_status = WarmupStatus()
 
 async def warmup_synth_model(
     model_name: str,
-    config: Optional[SynthConfig] = None,
-    max_attempts: Optional[int] = None,
+    config: SynthConfig | None = None,
+    max_attempts: int | None = None,
     force: bool = False,
     verbose: bool = True,
-    gpu_preference: Optional[str] = None,
+    gpu_preference: str | None = None,
 ) -> bool:
     """
     Warm up a model on the Synth backend using fire-and-forget approach.
@@ -161,7 +162,7 @@ async def warmup_synth_model(
                 )
                 sys.stdout.flush()
                 await asyncio.sleep(1.0)
-            except Exception as e:
+            except Exception:
                 # Continue polling; update spinner line with error label
                 elapsed = int(time.time() - start_time)
                 wheel = spinner[spin_idx % len(spinner)]

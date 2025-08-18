@@ -5,11 +5,10 @@ CLI: human-friendly manual for Synth AI commands and options.
 
 from __future__ import annotations
 
-import click
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 
 def _commands_table() -> Table:
@@ -23,28 +22,23 @@ def _commands_table() -> Table:
     )
     t.add_row(
         "traces",
-        "List local trace DBs, trace counts, experiments, and per-system counts.\n"
-        "Options: --root",
+        "List local trace DBs, trace counts, experiments, and per-system counts.\nOptions: --root",
     )
     t.add_row(
         "experiments",
-        "Snapshot table of experiments from the local traces DB.\n"
-        "Options: --url, --limit",
+        "Snapshot table of experiments from the local traces DB.\nOptions: --url, --limit",
     )
     t.add_row(
         "experiment <id>",
-        "Details and sessions for an experiment (accepts partial ID).\n"
-        "Options: --url",
+        "Details and sessions for an experiment (accepts partial ID).\nOptions: --url",
     )
     t.add_row(
         "usage",
-        "Model usage statistics (tokens, cost).\n"
-        "Options: --url, --model",
+        "Model usage statistics (tokens, cost).\nOptions: --url, --model",
     )
     t.add_row(
         "status",
-        "DB stats, systems, and environment service health.\n"
-        "Options: --url, --service-url",
+        "DB stats, systems, and environment service health.\nOptions: --url, --service-url",
     )
     t.add_row(
         "calc '<expr>'",
@@ -52,8 +46,7 @@ def _commands_table() -> Table:
     )
     t.add_row(
         "env list | env register | env unregister",
-        "Manage environment registry via the service.\n"
-        "Options vary; see examples.",
+        "Manage environment registry via the service.\nOptions vary; see examples.",
     )
     return t
 
@@ -63,14 +56,22 @@ def _env_table() -> Table:
     t.add_column("Variable")
     t.add_column("Used By")
     t.add_column("Purpose")
-    t.add_row("SYNTH_BACKEND_BASE_URL", "balance", "Backend base URL (preferred) e.g. http://localhost:8000/api/v1")
+    t.add_row(
+        "SYNTH_BACKEND_BASE_URL",
+        "balance",
+        "Backend base URL (preferred) e.g. http://localhost:8000/api/v1",
+    )
     t.add_row("BACKEND_BASE_URL", "balance", "Fallback backend base URL")
     t.add_row("LOCAL_BACKEND_URL", "balance", "Another fallback backend base URL")
     t.add_row("SYNTH_BASE_URL", "balance", "Generic base URL (may point to Modal, guarded)")
     t.add_row("SYNTH_BACKEND_API_KEY", "balance", "Backend API key (preferred)")
     t.add_row("SYNTH_API_KEY", "balance, env*", "API key used if backend-specific key not set")
     t.add_row("DEFAULT_DEV_API_KEY", "balance", "Dev fallback key for local testing")
-    t.add_row("SYNTH_TRACES_ROOT", "traces", "Root directory of local trace DBs (default ./synth_ai.db/dbs)")
+    t.add_row(
+        "SYNTH_TRACES_ROOT",
+        "traces",
+        "Root directory of local trace DBs (default ./synth_ai.db/dbs)",
+    )
     return t
 
 
@@ -79,7 +80,10 @@ def _examples_table() -> Table:
     t.add_column("Command")
     t.add_column("Example")
     t.add_row("Balance (local backend)", "uvx . balance")
-    t.add_row("Balance with URL+key", "uvx . balance --base-url http://localhost:8000 --api-key $SYNTH_API_KEY")
+    t.add_row(
+        "Balance with URL+key",
+        "uvx . balance --base-url http://localhost:8000 --api-key $SYNTH_API_KEY",
+    )
     t.add_row("Traces (default root)", "uvx . traces")
     t.add_row("Traces (custom root)", "uvx . traces --root /path/to/dbs")
     t.add_row("Experiments", "uvx . experiments --limit 20")
@@ -100,4 +104,3 @@ def register(cli):
         console.print(_commands_table())
         console.print(_env_table())
         console.print(_examples_table())
-

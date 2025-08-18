@@ -1,9 +1,9 @@
-import pytest
 import openai
+import pytest
 
-from synth_ai.zyk import LM
 from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
+from synth_ai.zyk import LM
 
 TEST_PROMPT = "What is 2+2? Answer with just the number."
 

@@ -1,19 +1,20 @@
 """Tests for synth_ai.tracing.upload module."""
 
-import json
 import os
+import time
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
 from requests.exceptions import HTTPError
+
 from synth_ai.tracing.abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
     ArbitraryOutputs,
-    Event,
     Dataset,
     EnvironmentComputeStep,
+    Event,
     EventPartitionElement,
     MessageInputs,
     MessageOutputs,
@@ -21,6 +22,7 @@ from synth_ai.tracing.abstractions import (
     SystemTrace,
     TrainingQuestion,
 )
+from synth_ai.tracing.events.store import event_store
 from synth_ai.tracing.upload import (
     UploadValidator,
     createPayload,
@@ -29,10 +31,6 @@ from synth_ai.tracing.upload import (
     validate_json,
     validate_upload,
 )
-
-import time
-from datetime import datetime
-from synth_ai.tracing.events.store import event_store
 
 
 @pytest.fixture(autouse=True)

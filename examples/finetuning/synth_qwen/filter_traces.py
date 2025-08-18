@@ -13,10 +13,11 @@ Environment:
 - MAX_TOKENS (int, default: 100000)
 - MODELS (optional, space-separated model names; default empty = all)
 """
+
 import asyncio
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 # Reuse the existing filtering implementation
 from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso import (
@@ -24,9 +25,9 @@ from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft
 )
 
 
-def build_config() -> Dict[str, Any]:
+def build_config() -> dict[str, Any]:
     models_env = os.getenv("MODELS", "").strip()
-    models: List[str] = models_env.split() if models_env else []
+    models: list[str] = models_env.split() if models_env else []
     return {
         "mode": "trajectory",
         "filters": {

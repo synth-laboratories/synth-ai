@@ -12,12 +12,11 @@ import signal
 import subprocess
 import sys
 import time
-from typing import Optional
 
 import click
 
 
-def find_sqld_binary() -> Optional[str]:
+def find_sqld_binary() -> str | None:
     sqld_path = shutil.which("sqld")
     if sqld_path:
         return sqld_path
@@ -78,9 +77,25 @@ def cli():
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
-@click.option("--reload/--no-reload", default=False, help="Enable auto-reload (default: off). Or set SYNTH_RELOAD=1")
-@click.option("--force/--no-force", default=True, help="Kill any process already bound to --env-port without prompting")
-def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bool, reload: bool, force: bool):
+@click.option(
+    "--reload/--no-reload",
+    default=False,
+    help="Enable auto-reload (default: off). Or set SYNTH_RELOAD=1",
+)
+@click.option(
+    "--force/--no-force",
+    default=True,
+    help="Kill any process already bound to --env-port without prompting",
+)
+def serve(
+    db_file: str,
+    sqld_port: int,
+    env_port: int,
+    no_sqld: bool,
+    no_env: bool,
+    reload: bool,
+    force: bool,
+):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     processes = []
 
@@ -100,11 +115,25 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
 
     if not no_sqld:
         try:
-            result = subprocess.run(["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
+                capture_output=True,
+                text=True,
+            )
             if result.returncode != 0:
                 sqld_bin = find_sqld_binary() or install_sqld()
                 click.echo(f"🗄️  Starting sqld (local only) on port {sqld_port}")
-                proc = subprocess.Popen([sqld_bin, "--db-path", db_file, "--http-listen-addr", f"127.0.0.1:{sqld_port}"], stdout=open("sqld.log", "w"), stderr=subprocess.STDOUT)
+                proc = subprocess.Popen(
+                    [
+                        sqld_bin,
+                        "--db-path",
+                        db_file,
+                        "--http-listen-addr",
+                        f"127.0.0.1:{sqld_port}",
+                    ],
+                    stdout=open("sqld.log", "w"),
+                    stderr=subprocess.STDOUT,
+                )
                 processes.append(proc)
                 time.sleep(2)
         except FileNotFoundError:
@@ -118,6 +147,7 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
         # Ensure port is free
         try:
             import socket
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 in_use = s.connect_ex(("127.0.0.1", env_port)) == 0
         except Exception:
@@ -125,7 +155,9 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
         if in_use:
             pids: list[str] = []
             try:
-                out = subprocess.run(["lsof", "-ti", f":{env_port}"], capture_output=True, text=True)
+                out = subprocess.run(
+                    ["lsof", "-ti", f":{env_port}"], capture_output=True, text=True
+                )
                 if out.returncode == 0 and out.stdout.strip():
                     pids = [p for p in out.stdout.strip().splitlines() if p]
             except FileNotFoundError:
@@ -136,7 +168,9 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
                     time.sleep(0.5)
             else:
                 suffix = f" PIDs: {', '.join(pids)}" if pids else ""
-                if click.confirm(f"⚠️  Port {env_port} is in use.{suffix} Kill and continue?", default=True):
+                if click.confirm(
+                    f"⚠️  Port {env_port} is in use.{suffix} Kill and continue?", default=True
+                ):
                     if pids:
                         subprocess.run(["kill", "-9", *pids], check=False)
                         time.sleep(0.5)
@@ -158,12 +192,24 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
         click.echo("   - Check sqld.log if database issues occur")
         click.echo("   - Use Ctrl+C to stop all services")
         reload_enabled = reload or (os.getenv("SYNTH_RELOAD", "0") == "1")
-        click.echo("   - Auto-reload ENABLED (code changes restart service)" if reload_enabled else "   - Auto-reload DISABLED (stable in-memory sessions)")
+        click.echo(
+            "   - Auto-reload ENABLED (code changes restart service)"
+            if reload_enabled
+            else "   - Auto-reload DISABLED (stable in-memory sessions)"
+        )
         click.echo("")
 
         uvicorn_cmd = [
-            sys.executable, "-m", "uvicorn", "synth_ai.environments.service.app:app",
-            "--host", "0.0.0.0", "--port", str(env_port), "--log-level", "info",
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "synth_ai.environments.service.app:app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            str(env_port),
+            "--log-level",
+            "info",
         ]
         if reload_enabled:
             uvicorn_cmd.append("--reload")
@@ -181,4 +227,3 @@ def serve(db_file: str, sqld_port: int, env_port: int, no_sqld: bool, no_env: bo
             pass
     else:
         click.echo("No services to start.")
-

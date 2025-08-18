@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from openai import AsyncOpenAI, OpenAI
 
@@ -19,7 +19,7 @@ class GrokAPI(OpenAIStandard):
     def __init__(
         self,
         *,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         base_url: str = "https://api.x.ai/v1",
     ) -> None:
         api_key = api_key or os.getenv("XAI_API_KEY")
@@ -35,11 +35,11 @@ class GrokAPI(OpenAIStandard):
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ):
         if not model:
             raise ValueError("Model name is required for Grok API calls")
@@ -56,11 +56,11 @@ class GrokAPI(OpenAIStandard):
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "high",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ):
         if not model:
             raise ValueError("Model name is required for Grok API calls")

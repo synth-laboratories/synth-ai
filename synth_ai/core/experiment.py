@@ -1,4 +1,3 @@
-from typing import List
 
 
 class ExperimentalSystem:
@@ -13,4 +12,4 @@ class Experiment:
     description: str
     created_at: str
     updated_at: str
-    related_systems: List[ExperimentalSystem]
+    related_systems: list[ExperimentalSystem]

@@ -11,12 +11,11 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import List
 
 import click
 
 
-def _find_demo_scripts(root: Path) -> List[Path]:
+def _find_demo_scripts(root: Path) -> list[Path]:
     if not root.exists():
         return []
     return sorted([p for p in root.rglob("run_demo.sh") if p.is_file()])
@@ -71,4 +70,3 @@ def register(cli):
             click.echo(f"❌ Demo exited with non-zero status: {e.returncode}")
         except KeyboardInterrupt:
             click.echo("\n🛑 Demo interrupted by user")
-

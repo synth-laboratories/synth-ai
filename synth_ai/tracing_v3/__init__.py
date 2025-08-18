@@ -1,7 +1,7 @@
 """Tracing v3 - Turso/sqld based tracing implementation.
 
 This module provides a modern, async-first tracing system for capturing and storing
-detailed execution traces from AI systems. It's designed to handle high-throughput 
+detailed execution traces from AI systems. It's designed to handle high-throughput
 scenarios with proper async/await patterns throughout.
 
 Architecture Overview:
@@ -49,10 +49,10 @@ Key Features:
 Usage Example:
 -------------
     from synth_ai.tracing_v3 import SessionTracer
-    
+
     tracer = SessionTracer()
     await tracer.initialize()
-    
+
     async with tracer.session() as session_id:
         async with tracer.timestep("step1", turn_number=1):
             # Record events during execution
@@ -70,17 +70,17 @@ The system uses environment variables for configuration:
 See `config.py` for full configuration options.
 """
 
-from .session_tracer import SessionTracer
 from .abstractions import (
-    SessionTrace,
-    SessionTimeStep,
     BaseEvent,
-    RuntimeEvent,
     EnvironmentEvent,
+    RuntimeEvent,
     SessionEventMarkovBlanketMessage,
+    SessionTimeStep,
+    SessionTrace,
     TimeRecord,
 )
 from .config import TursoConfig
+from .session_tracer import SessionTracer
 
 __all__ = [
     "SessionTracer",

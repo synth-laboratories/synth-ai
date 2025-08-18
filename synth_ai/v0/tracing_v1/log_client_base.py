@@ -1,4 +1,3 @@
-from typing import Dict
 
 from .abstractions import Event
 from .config import TracingConfig
@@ -11,7 +10,7 @@ class BaseLogClient:
         self.config = config
         self.client_manager = None
 
-    def _prepare_payload(self, event: Event, system_info: Dict[str, str]) -> Dict:
+    def _prepare_payload(self, event: Event, system_info: dict[str, str]) -> dict:
         """Prepare the payload for sending."""
         return {
             "event": event.to_dict(),
@@ -33,7 +32,7 @@ class BaseLogClient:
         pass
 
     def _handle_failure(
-        self, event: Event, system_info: Dict[str, str], exception: Exception
+        self, event: Event, system_info: dict[str, str], exception: Exception
     ) -> None:
         """Handle failed event sending."""
         pass
@@ -46,7 +45,7 @@ class BaseAsyncLogClient:
         self.config = config
         self.client_manager = None
 
-    def _prepare_payload(self, event: Event, system_info: Dict[str, str]) -> Dict:
+    def _prepare_payload(self, event: Event, system_info: dict[str, str]) -> dict:
         """Prepare the payload for sending."""
         return {
             "event": event.to_dict(),
@@ -68,7 +67,7 @@ class BaseAsyncLogClient:
         pass
 
     def _handle_failure(
-        self, event: Event, system_info: Dict[str, str], exception: Exception
+        self, event: Event, system_info: dict[str, str], exception: Exception
     ) -> None:
         """Handle failed event sending."""
         pass

@@ -9,7 +9,6 @@ import json
 import os
 import sqlite3
 from dataclasses import dataclass
-from typing import Optional, Type, Union
 
 from pydantic import BaseModel
 
@@ -20,10 +19,11 @@ from synth_ai.lm.vendors.base import BaseLMResponse
 class PersistentCache:
     """
     Persistent cache implementation using SQLite.
-    
+
     This cache stores LM responses in a SQLite database that persists
     across application restarts.
     """
+
     def __init__(self, db_path: str = ".cache/persistent_cache.db"):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.conn = sqlite3.connect(db_path)
@@ -33,15 +33,15 @@ class PersistentCache:
         self.conn.commit()
 
     def hit_cache(
-        self, key: str, response_model: Optional[Type[BaseModel]] = None
-    ) -> Optional[BaseLMResponse]:
+        self, key: str, response_model: type[BaseModel] | None = None
+    ) -> BaseLMResponse | None:
         """
         Check if a response exists in cache for the given key.
-        
+
         Args:
             key: Cache key to look up
             response_model: Optional Pydantic model class to reconstruct structured output
-            
+
         Returns:
             BaseLMResponse if found in cache, None otherwise
         """
@@ -72,17 +72,17 @@ class PersistentCache:
             tool_calls=tool_calls,
         )
 
-    def add_to_cache(self, key: str, response: Union[BaseLMResponse, str]) -> None:
+    def add_to_cache(self, key: str, response: BaseLMResponse | str) -> None:
         """
         Add a response to the cache.
-        
+
         Args:
             key: Cache key to store under
             response: Either a BaseLMResponse object or raw string response
-            
+
         Raises:
             ValueError: If response type is not supported
-        
+
         Note:
             Uses INSERT OR REPLACE to update existing cache entries.
         """

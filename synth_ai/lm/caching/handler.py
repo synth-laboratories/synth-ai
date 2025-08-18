@@ -1,5 +1,5 @@
 import hashlib
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 
 
 def map_params_to_key(
-    messages: List[Dict],
+    messages: list[dict],
     model: str,
     temperature: float,
-    response_model: Optional[Type[BaseModel]],
-    tools: Optional[List[BaseTool]] = None,
+    response_model: type[BaseModel] | None,
+    tools: list[BaseTool] | None = None,
     reasoning_effort: str = "low",
 ) -> str:
     if any(m is None for m in messages):
@@ -76,7 +76,7 @@ class CacheHandler:
         self.use_persistent_store = use_persistent_store
         self.use_ephemeral_store = use_ephemeral_store
 
-    def _validate_messages(self, messages: List[Dict[str, Any]]) -> None:
+    def _validate_messages(self, messages: list[dict[str, Any]]) -> None:
         """Validate that messages are in the correct format."""
         assert all([type(msg["content"]) == str for msg in messages]), (
             "All message contents must be strings"
@@ -85,10 +85,10 @@ class CacheHandler:
     def hit_managed_cache(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
-        tools: Optional[List[BaseTool]] = None,
-    ) -> Optional[BaseLMResponse]:
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
+        tools: list[BaseTool] | None = None,
+    ) -> BaseLMResponse | None:
         """Hit the cache with the given key."""
         self._validate_messages(messages)
         assert type(lm_config) == dict, "lm_config must be a dictionary"
@@ -96,17 +96,17 @@ class CacheHandler:
             messages,
             model,
             lm_config.get("temperature", 0.0),
-            lm_config.get("response_model", None),
+            lm_config.get("response_model"),
             tools,
             lm_config.get("reasoning_effort", "low"),
         )
         if self.use_persistent_store:
             return persistent_cache.hit_cache(
-                key=key, response_model=lm_config.get("response_model", None)
+                key=key, response_model=lm_config.get("response_model")
             )
         elif self.use_ephemeral_store:
             return ephemeral_cache.hit_cache(
-                key=key, response_model=lm_config.get("response_model", None)
+                key=key, response_model=lm_config.get("response_model")
             )
         else:
             return None
@@ -114,10 +114,10 @@ class CacheHandler:
     def add_to_managed_cache(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         output: BaseLMResponse,
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> None:
         """Add the given output to the cache."""
         self._validate_messages(messages)
@@ -127,7 +127,7 @@ class CacheHandler:
             messages,
             model,
             lm_config.get("temperature", 0.0),
-            lm_config.get("response_model", None),
+            lm_config.get("response_model"),
             tools,
             lm_config.get("reasoning_effort", "low"),
         )

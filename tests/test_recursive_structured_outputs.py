@@ -4,7 +4,6 @@ import pytest
 pytestmark = pytest.mark.unit
 import asyncio
 import unittest
-from typing import List
 
 from pydantic import BaseModel
 
@@ -19,13 +18,13 @@ class SimpleResponse(BaseModel):
 
 class ComplexResponse(BaseModel):
     title: str
-    tags: List[str]
+    tags: list[str]
     content: str
 
 
 class NestedResponse(BaseModel):
     main_category: str
-    subcategories: List[str]
+    subcategories: list[str]
     details: SimpleResponse
 
 
@@ -51,18 +50,18 @@ class WorkInfo(BaseModel):
 class NestedPersonResponse(BaseModel):
     personal: PersonalInfo
     work: WorkInfo
-    skills: List[str]
+    skills: list[str]
 
 
 class ProjectDetails(BaseModel):
     name: str
     description: str
-    technologies: List[str]
+    technologies: list[str]
 
 
 class NestedPortfolioResponse(BaseModel):
     developer: PersonalInfo
-    projects: List[ProjectDetails]
+    projects: list[ProjectDetails]
     total_experience: int
 
 
@@ -70,8 +69,8 @@ class NestedCompanyResponse(BaseModel):
     name: str
     founded: int
     headquarters: Address
-    employees: List[PersonalInfo]
-    main_products: List[str]
+    employees: list[PersonalInfo]
+    main_products: list[str]
 
 
 @pytest.mark.fast

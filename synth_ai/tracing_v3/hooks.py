@@ -32,18 +32,18 @@ Common Use Cases:
 - Custom filtering and sampling
 """
 
-from typing import Any, Callable, Dict, List, Optional
-from dataclasses import dataclass
 import asyncio
-import inspect
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
-from .abstractions import SessionTrace, SessionTimeStep, BaseEvent, SessionEventMarkovBlanketMessage
+from .abstractions import BaseEvent
 
 
 @dataclass
 class Hook:
     """A hook that can be registered with the tracer.
-    
+
     Attributes:
         name: Unique identifier for the hook
         callback: Function to call when hook is triggered. Can be sync or async.
@@ -54,25 +54,25 @@ class Hook:
 
     name: str
     callback: Callable
-    event_types: Optional[List[str]] = None
+    event_types: list[str] | None = None
     priority: int = 0
     enabled: bool = True
 
 
 class HookManager:
     """Manages hooks for session tracing.
-    
+
     The HookManager maintains collections of hooks for each hook point and
     handles their execution. It ensures hooks are called in priority order
     and handles both sync and async callbacks appropriately.
-    
+
     Thread Safety:
         The HookManager is designed to be thread-safe for registration and
         execution. Multiple async tasks can trigger hooks concurrently.
     """
 
     def __init__(self):
-        self.hooks: Dict[str, List[Hook]] = {
+        self.hooks: dict[str, list[Hook]] = {
             "session_start": [],
             "session_end": [],
             "timestep_start": [],
@@ -89,10 +89,10 @@ class HookManager:
         callback: Callable,
         name: str = None,
         priority: int = 0,
-        event_types: List[str] = None,
+        event_types: list[str] = None,
     ) -> Hook:
         """Register a new hook.
-        
+
         Args:
             event: Hook point name (e.g., 'session_start', 'event_recorded')
             callback: Function to call. Signature depends on hook point:
@@ -102,10 +102,10 @@ class HookManager:
             name: Optional name for the hook (defaults to callback.__name__)
             priority: Execution priority (higher = earlier execution)
             event_types: For 'event_recorded' hook, filter to specific event types
-        
+
         Returns:
             The created Hook instance
-            
+
         Raises:
             ValueError: If the event name is not a valid hook point
         """
@@ -126,7 +126,7 @@ class HookManager:
 
     def unregister(self, event: str, name: str):
         """Unregister a hook by name.
-        
+
         Args:
             event: Hook point name
             name: Name of the hook to remove
@@ -136,18 +136,18 @@ class HookManager:
 
         self.hooks[event] = [h for h in self.hooks[event] if h.name != name]
 
-    async def trigger(self, event: str, *args, **kwargs) -> List[Any]:
+    async def trigger(self, event: str, *args, **kwargs) -> list[Any]:
         """Trigger all hooks for an event.
-        
+
         Executes all registered hooks for the given event in priority order.
         Handles both sync and async callbacks appropriately. Exceptions in
         hooks are caught and logged but don't stop execution of other hooks.
-        
+
         Args:
             event: Hook point name
             *args: Positional arguments passed to hook callbacks
             **kwargs: Keyword arguments passed to hook callbacks
-            
+
         Returns:
             List of return values from all executed hooks
         """
@@ -187,19 +187,19 @@ class HookManager:
 # Default hooks for common use cases
 def create_default_hooks() -> HookManager:
     """Create hook manager with default hooks.
-    
+
     Sets up a basic set of hooks that provide common functionality:
     - Session start logging
     - Event validation
     - Automatic event enrichment
-    
+
     Returns:
         HookManager with default hooks registered
     """
     manager = HookManager()
 
     # Example: Log session starts - useful for debugging and monitoring
-    async def log_session_start(session_id: str, metadata: Dict[str, Any]):
+    async def log_session_start(session_id: str, metadata: dict[str, Any]):
         print(f"Session started: {session_id}")
 
     # Example: Validate events before recording - ensures data quality

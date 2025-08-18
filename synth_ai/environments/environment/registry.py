@@ -27,19 +27,18 @@ Example:
     >>> env_instance = env_cls(task_config)
 """
 
-from typing import Type, Dict, List
-import logging
 import importlib.metadata
+import logging
 
 from synth_ai.environments.stateful.core import StatefulEnvironment
 
 logger = logging.getLogger(__name__)
 
 # Global registry for environment types
-ENV_REGISTRY: Dict[str, Type[StatefulEnvironment]] = {}
+ENV_REGISTRY: dict[str, type[StatefulEnvironment]] = {}
 
 
-def register_environment(name: str, cls: Type[StatefulEnvironment]) -> None:
+def register_environment(name: str, cls: type[StatefulEnvironment]) -> None:
     """
     Register an environment class under a unique name.
 
@@ -78,7 +77,7 @@ def register_environment(name: str, cls: Type[StatefulEnvironment]) -> None:
     ENV_REGISTRY[name] = cls
 
 
-def get_environment_cls(env_type: str) -> Type[StatefulEnvironment]:
+def get_environment_cls(env_type: str) -> type[StatefulEnvironment]:
     """
     Retrieve a registered environment class by name.
 
@@ -125,7 +124,7 @@ def get_environment_cls(env_type: str) -> Type[StatefulEnvironment]:
         )
 
 
-def list_supported_env_types() -> List[str]:
+def list_supported_env_types() -> list[str]:
     """
     List all registered environment type names.
 
@@ -171,30 +170,30 @@ def list_supported_env_types() -> List[str]:
 def discover_entry_point_environments() -> None:
     """
     Discover and register environments from entry points.
-    
+
     This function scans for environments registered via setuptools entry points
     under the group 'synth_ai.environments'. This allows third-party packages
     to register environments by declaring them in their pyproject.toml:
-    
+
     [project.entry-points."synth_ai.environments"]
     my_env = "my_package.my_env:MyEnvironment"
     another_env = "my_package.other:AnotherEnv"
-    
+
     The function will automatically import and register all discovered environments.
     """
     try:
         entry_points = importlib.metadata.entry_points()
-        if hasattr(entry_points, 'select'):
+        if hasattr(entry_points, "select"):
             # Python 3.10+
-            env_entry_points = entry_points.select(group='synth_ai.environments')
+            env_entry_points = entry_points.select(group="synth_ai.environments")
         else:
             # Python 3.9 and below
-            env_entry_points = entry_points.get('synth_ai.environments', [])
-        
+            env_entry_points = entry_points.get("synth_ai.environments", [])
+
         for entry_point in env_entry_points:
             try:
                 env_cls = entry_point.load()
-                
+
                 # Validate that it's a StatefulEnvironment subclass
                 if not issubclass(env_cls, StatefulEnvironment):
                     logger.warning(
@@ -202,10 +201,10 @@ def discover_entry_point_environments() -> None:
                         f"is not a StatefulEnvironment subclass. Skipping."
                     )
                     continue
-                
+
                 register_environment(entry_point.name, env_cls)
                 logger.info(f"Registered environment '{entry_point.name}' from entry point")
-                
+
             except Exception as e:
                 logger.error(
                     f"Failed to load environment entry point '{entry_point.name}' "
@@ -218,11 +217,11 @@ def discover_entry_point_environments() -> None:
 def auto_discover_environments() -> None:
     """
     Automatically discover and register environments from multiple sources.
-    
+
     This function combines multiple discovery mechanisms:
     1. Entry points (setuptools plugins)
     2. Could be extended with more discovery methods in the future
-    
+
     This should be called once at application startup to populate the registry
     with all available environments.
     """

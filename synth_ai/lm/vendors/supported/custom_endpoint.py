@@ -1,22 +1,22 @@
-import re
-import os
-import json
 import asyncio
+import json
+import os
+import random
+import re
 import time
-from typing import Any, Dict, List, Optional, Tuple, Type
-import requests
+from typing import Any
+
 import httpx
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import random
-from urllib.parse import urlparse
 
-from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
-from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.caching.initialize import get_cache_handler
+from synth_ai.lm.tools.base import BaseTool
+from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 
 # Exception types for retry
-CUSTOM_ENDPOINT_EXCEPTIONS_TO_RETRY: Tuple[Type[Exception], ...] = (
+CUSTOM_ENDPOINT_EXCEPTIONS_TO_RETRY: tuple[type[Exception], ...] = (
     requests.RequestException,
     requests.Timeout,
     httpx.RequestError,
@@ -28,7 +28,7 @@ class CustomEndpointAPI(VendorBase):
     """Generic vendor client for custom OpenAI-compatible endpoints."""
 
     used_for_structured_outputs: bool = False
-    exceptions_to_retry: List = list(CUSTOM_ENDPOINT_EXCEPTIONS_TO_RETRY)
+    exceptions_to_retry: list = list(CUSTOM_ENDPOINT_EXCEPTIONS_TO_RETRY)
 
     def __init__(self, endpoint_url: str):
         # Validate and sanitize URL
@@ -89,7 +89,7 @@ class CustomEndpointAPI(VendorBase):
 
         # Limit URL length
         if len(url) > 256:
-            raise ValueError(f"Endpoint URL too long (max 256 chars)")
+            raise ValueError("Endpoint URL too long (max 256 chars)")
 
         # Basic URL format check
         if not re.match(r"^[a-zA-Z0-9\-._~:/?#\[\]@!$&\'()*+,;=]+$", url):
@@ -123,13 +123,13 @@ class CustomEndpointAPI(VendorBase):
             )
         return self.async_client
 
-    def _get_timeout(self, lm_config: Dict[str, Any]) -> float:
+    def _get_timeout(self, lm_config: dict[str, Any]) -> float:
         """Get timeout with per-call override support."""
         return lm_config.get(
             "timeout", float(os.environ.get("CUSTOM_ENDPOINT_REQUEST_TIMEOUT", "30"))
         )
 
-    def _get_temperature_override(self) -> Optional[float]:
+    def _get_temperature_override(self) -> float | None:
         """Get temperature override from environment for this specific endpoint."""
         # Create a safe env var key from the endpoint URL
         # e.g., "example.com/api" -> "CUSTOM_ENDPOINT_TEMP_EXAMPLE_COM_API"
@@ -140,7 +140,7 @@ class CustomEndpointAPI(VendorBase):
         temp_str = os.environ.get(env_key)
         return float(temp_str) if temp_str else None
 
-    def _compress_tool_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+    def _compress_tool_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
         """Compress JSON schema to reduce token usage."""
         if isinstance(schema, dict):
             # Remove verbose keys
@@ -157,7 +157,7 @@ class CustomEndpointAPI(VendorBase):
             return [self._compress_tool_schema(item) for item in schema]
         return schema
 
-    def _inject_tools_into_prompt(self, system_message: str, tools: List[BaseTool]) -> str:
+    def _inject_tools_into_prompt(self, system_message: str, tools: list[BaseTool]) -> str:
         """Inject tool definitions with compressed schemas and clear output format."""
         if not tools:
             return system_message
@@ -185,8 +185,8 @@ IMPORTANT: To use a tool, respond with JSON wrapped in ```json fences:
 For regular responses, just respond normally without JSON fences."""
 
     def _extract_tool_calls(
-        self, content: str, tools: List[BaseTool]
-    ) -> tuple[Optional[List], str]:
+        self, content: str, tools: list[BaseTool]
+    ) -> tuple[list | None, str]:
         """Extract and validate tool calls from response."""
         # Look for JSON fenced blocks
         json_pattern = r"```json\s*(\{.*?\})\s*```"
@@ -242,11 +242,11 @@ For regular responses, just respond normally without JSON fences."""
     async def _hit_api_async(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "low",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         """Async API call with comprehensive error handling and streaming support."""
 
@@ -314,7 +314,7 @@ For regular responses, just respond normally without JSON fences."""
 
                 return lm_response
 
-            except (httpx.RequestError, httpx.TimeoutException) as e:
+            except (httpx.RequestError, httpx.TimeoutException):
                 if attempt == 2:  # Last attempt
                     raise
                 await asyncio.sleep(self._exponential_backoff_with_jitter(attempt))
@@ -322,11 +322,11 @@ For regular responses, just respond normally without JSON fences."""
     def _hit_api_sync(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        lm_config: Dict[str, Any],
+        messages: list[dict[str, Any]],
+        lm_config: dict[str, Any],
         use_ephemeral_cache_only: bool = False,
         reasoning_effort: str = "low",
-        tools: Optional[List[BaseTool]] = None,
+        tools: list[BaseTool] | None = None,
     ) -> BaseLMResponse:
         """Sync version with same logic as async."""
 
@@ -393,7 +393,7 @@ For regular responses, just respond normally without JSON fences."""
 
                 return lm_response
 
-            except (requests.RequestException, requests.Timeout) as e:
+            except (requests.RequestException, requests.Timeout):
                 if attempt == 2:  # Last attempt
                     raise
                 time.sleep(self._exponential_backoff_with_jitter(attempt))

@@ -9,4 +9,3 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if item.get_closest_marker("slow") and not item.get_closest_marker("integration"):
             item.add_marker(pytest.mark.integration)
-

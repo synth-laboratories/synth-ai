@@ -4,28 +4,23 @@ Unit tests for Turso/sqld manager conversion utilities and core functionality.
 Async version of test_duckdb_manager.py for tracing v3.
 """
 
+import json
+from datetime import datetime
+
 import pytest
 import pytest_asyncio
-import json
-import tempfile
-import os
-import asyncio
-from datetime import datetime, timezone
-from unittest.mock import Mock, patch
-import pandas as pd
+
+from synth_ai.tracing_v3.abstractions import (
+    EnvironmentEvent,
+    LMCAISEvent,
+    RuntimeEvent,
+    TimeRecord,
+)
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 # Import the utilities and components we want to test
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.abstractions import (
-    SessionEventMarkovBlanketMessage,
-    TimeRecord,
-    RuntimeEvent,
-    EnvironmentEvent,
-    LMCAISEvent,
-)
-from synth_ai.tracing_v3.utils import json_dumps, detect_provider, calculate_cost
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+from synth_ai.tracing_v3.utils import calculate_cost, detect_provider, json_dumps
 
 
 @pytest.mark.asyncio
@@ -114,8 +109,8 @@ class TestAsyncSQLTraceManager:
     @pytest_asyncio.fixture
     async def db_manager(self, sqld_daemon):
         """Create an AsyncSQLTraceManager instance using centralized config."""
+
         from synth_ai.tracing_v3.db_config import get_default_db_config
-        import subprocess
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -425,8 +420,8 @@ class TestIntegrationScenarios:
     @pytest_asyncio.fixture
     async def db_manager(self, sqld_daemon):
         """Create an AsyncSQLTraceManager instance using centralized config."""
+
         from synth_ai.tracing_v3.db_config import get_default_db_config
-        import subprocess
 
         config = get_default_db_config()
         db_url = config.database_url

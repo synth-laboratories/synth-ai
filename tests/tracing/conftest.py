@@ -1,8 +1,9 @@
 """Configuration for tracing tests."""
 
-import pytest
 import asyncio
 from unittest.mock import MagicMock
+
+import pytest
 
 
 # Add any common test fixtures here

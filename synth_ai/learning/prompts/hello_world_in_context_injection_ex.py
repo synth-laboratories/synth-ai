@@ -27,18 +27,17 @@ from __future__ import annotations
 import asyncio
 import os
 import random
-from typing import Any, Dict, List, Optional
 
 from datasets import load_dataset
 
 # Use the v3 LM class present in this repo
 from synth_ai.lm.core.main_v3 import LM, build_messages
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.abstractions import LMCAISEvent
-
 
 # Use Overrides context to demonstrate matching by content
 from synth_ai.lm.overrides import LMOverridesContext
+from synth_ai.tracing_v3.abstractions import LMCAISEvent
+from synth_ai.tracing_v3.session_tracer import SessionTracer
+
 INJECTION_RULES = [
     {"find": "accnt", "replace": "account"},
     {"find": "atm", "replace": "ATM"},
@@ -46,7 +45,7 @@ INJECTION_RULES = [
 ]
 
 
-async def classify_sample(lm: LM, text: str, label_names: List[str]) -> str:
+async def classify_sample(lm: LM, text: str, label_names: list[str]) -> str:
     """Classify one Banking77 utterance and return the predicted label name."""
     labels_joined = ", ".join(label_names)
     system_message = (
@@ -77,7 +76,7 @@ async def main() -> None:
     # Columns: {"text": str, "label": int}; label names at ds.features["label"].names
     print("Loading Banking77 dataset (split='test')...")
     ds = load_dataset("banking77", split="test")
-    label_names: List[str] = ds.features["label"].names  # type: ignore
+    label_names: list[str] = ds.features["label"].names  # type: ignore
 
     # Sample a few items for a quick demo
     n = int(os.getenv("N_SAMPLES", "8"))
@@ -116,7 +115,9 @@ async def main() -> None:
 
             is_correct = pred_label == gold_label
             correct += int(is_correct)
-            print(f"[{i}] text={text!r}\n    gold={gold_label}\n    pred={pred} -> mapped={pred_label} {'✅' if is_correct else '❌'}")
+            print(
+                f"[{i}] text={text!r}\n    gold={gold_label}\n    pred={pred} -> mapped={pred_label} {'✅' if is_correct else '❌'}"
+            )
 
     if idxs:
         acc = correct / len(idxs)
@@ -137,7 +138,11 @@ async def main() -> None:
     with LMOverridesContext([{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]):
         _ = await classify_sample(lm_traced, test_text, label_names)
     # inspect trace
-    events = [e for e in (tracer.current_session.event_history if tracer.current_session else []) if isinstance(e, LMCAISEvent)]
+    events = [
+        e
+        for e in (tracer.current_session.event_history if tracer.current_session else [])
+        if isinstance(e, LMCAISEvent)
+    ]
     assert events, "No LMCAISEvent recorded by SessionTracer"
     cr = events[-1].call_records[0]
     traced_user = ""
@@ -145,7 +150,7 @@ async def main() -> None:
         if m.role == "user":
             for part in m.parts:
                 if getattr(part, "type", None) == "text":
-                    traced_user += (part.text or "")
+                    traced_user += part.text or ""
     assert "ATM" in traced_user, f"Expected substitution in traced prompt; got: {traced_user!r}"
     print("LM path trace verified: substitution present in traced prompt.")
     await tracer.end_timestep()
@@ -153,9 +158,10 @@ async def main() -> None:
 
     # 2) OpenAI wrapper path (AsyncOpenAI to Groq): ensure apply_injection is active
     try:
-        import synth_ai.lm.provider_support.openai as _synth_openai_patch  # noqa: F401
         from openai import AsyncOpenAI
-        from datasets import load_dataset as _ld  # ensure datasets present
+
+        import synth_ai.lm.provider_support.openai as _synth_openai_patch  # noqa: F401
+
         base_url = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
         api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY") or ""
         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
@@ -163,8 +169,12 @@ async def main() -> None:
             {"role": "system", "content": "Echo user label."},
             {"role": "user", "content": f"Please classify: {test_text}"},
         ]
-        with LMOverridesContext([{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]):
-            resp = await client.chat.completions.create(model=model, messages=messages, temperature=0)
+        with LMOverridesContext(
+            [{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]
+        ):
+            resp = await client.chat.completions.create(
+                model=model, messages=messages, temperature=0
+            )
         # Not all models echo input; instead, verify that our injected expectation matches
         expected_user = messages[1]["content"].replace("atm", "ATM")
         if messages[1]["content"] == expected_user:
@@ -176,13 +186,17 @@ async def main() -> None:
 
     # 3) Anthropic wrapper path (AsyncClient): ensure apply_injection is active
     try:
-        import synth_ai.lm.provider_support.anthropic as _synth_anthropic_patch  # noqa: F401
         import anthropic
+
+        import synth_ai.lm.provider_support.anthropic as _synth_anthropic_patch  # noqa: F401
+
         a_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
         a_key = os.getenv("ANTHROPIC_API_KEY")
         if a_key:
             a_client = anthropic.AsyncClient(api_key=a_key)
-            with LMOverridesContext([{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]):
+            with LMOverridesContext(
+                [{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]
+            ):
                 _ = await a_client.messages.create(
                     model=a_model,
                     system="Echo user label.",

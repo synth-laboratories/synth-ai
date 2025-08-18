@@ -1,12 +1,12 @@
 """sqld daemon management utilities."""
 
-import subprocess
 import pathlib
 import shutil
-import sys
+import subprocess
 import time
+
 import requests
-from typing import Optional
+
 from ..config import CONFIG
 
 
@@ -15,23 +15,23 @@ class SqldDaemon:
 
     def __init__(self, db_path: str = None, http_port: int = None, binary_path: str = None):
         """Initialize sqld daemon manager.
-        
+
         Args:
             db_path: Path to database file (uses config default if not provided)
-            http_port: HTTP port for daemon (uses config default if not provided)  
+            http_port: HTTP port for daemon (uses config default if not provided)
             binary_path: Path to sqld binary (auto-detected if not provided)
         """
         self.db_path = db_path or CONFIG.sqld_db_path
         self.http_port = http_port or CONFIG.sqld_http_port
         self.binary_path = binary_path or self._find_binary()
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
 
     def _find_binary(self) -> str:
         """Find sqld binary in PATH."""
         binary = shutil.which(CONFIG.sqld_binary) or shutil.which("libsql-server")
         if not binary:
             raise RuntimeError(
-                f"sqld binary not found in PATH. Install with: brew install turso-tech/tools/sqld"
+                "sqld binary not found in PATH. Install with: brew install turso-tech/tools/sqld"
             )
         return binary
 
@@ -117,7 +117,7 @@ class SqldDaemon:
 
 
 # Convenience functions
-_daemon: Optional[SqldDaemon] = None
+_daemon: SqldDaemon | None = None
 
 
 def start_sqld(db_path: str = None, port: int = None) -> SqldDaemon:
@@ -139,6 +139,6 @@ def stop_sqld():
         _daemon = None
 
 
-def get_daemon() -> Optional[SqldDaemon]:
+def get_daemon() -> SqldDaemon | None:
     """Get the global daemon instance."""
     return _daemon

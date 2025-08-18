@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import ClassVar, Dict, Optional
+from typing import ClassVar
 
 import httpx
 
@@ -12,14 +12,14 @@ from .config import TracingConfig
 class ClientManager:
     """Singleton manager for HTTP clients with both sync and async support"""
 
-    _instance: ClassVar[Optional[ClientManager]] = None
+    _instance: ClassVar[ClientManager | None] = None
     _lock = asyncio.Lock()
 
     def __init__(self):
-        self._config: Optional[TracingConfig] = None
-        self._sync_client: Optional[httpx.Client] = None
-        self._async_client: Optional[httpx.AsyncClient] = None
-        self._credentials_cache: Dict[str, str] = {}
+        self._config: TracingConfig | None = None
+        self._sync_client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
+        self._credentials_cache: dict[str, str] = {}
 
     @classmethod
     async def get_instance(cls) -> ClientManager:
@@ -121,7 +121,7 @@ class ClientManager:
             asyncio.create_task(self.aclose())
 
     @property
-    def config(self) -> Optional[TracingConfig]:
+    def config(self) -> TracingConfig | None:
         """Get the current configuration"""
         return self._config
 

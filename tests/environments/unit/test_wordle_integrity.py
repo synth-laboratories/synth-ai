@@ -1,7 +1,6 @@
 import pytest
 
-from synth_ai.environments.examples.wordle import create_wordle_taskset, WordleEnvironment
-
+from synth_ai.environments.examples.wordle import WordleEnvironment, create_wordle_taskset
 
 pytestmark = pytest.mark.asyncio
 

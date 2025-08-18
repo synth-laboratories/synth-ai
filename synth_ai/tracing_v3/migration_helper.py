@@ -5,11 +5,9 @@ Helper script to identify files that need migration from v2 to v3 tracing.
 
 import os
 import re
-from pathlib import Path
-from typing import List, Tuple
 
 
-def find_v2_imports(root_path: str = ".") -> List[Tuple[str, List[str]]]:
+def find_v2_imports(root_path: str = ".") -> list[tuple[str, list[str]]]:
     """Find all Python files importing from tracing_v2."""
     v2_files = []
 
@@ -37,7 +35,7 @@ def find_v2_imports(root_path: str = ".") -> List[Tuple[str, List[str]]]:
             if file.endswith(".py"):
                 file_path = os.path.join(root, file)
                 try:
-                    with open(file_path, "r") as f:
+                    with open(file_path) as f:
                         content = f.read()
 
                     matches = []
@@ -53,7 +51,7 @@ def find_v2_imports(root_path: str = ".") -> List[Tuple[str, List[str]]]:
     return v2_files
 
 
-def categorize_files(v2_files: List[Tuple[str, List[str]]]) -> dict:
+def categorize_files(v2_files: list[tuple[str, list[str]]]) -> dict:
     """Categorize files by their type/location."""
     categories = {"tests": [], "core_library": [], "examples": [], "debug_scripts": [], "other": []}
 

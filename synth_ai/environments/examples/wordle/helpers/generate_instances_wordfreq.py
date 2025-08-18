@@ -10,24 +10,24 @@ Usage:
 This script writes a deterministic list of 5-letter English words ranked by frequency.
 Commit the resulting instances.json to remove runtime dependencies.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
-from typing import List
 
-from wordfreq import zipf_frequency, top_n_list
+from wordfreq import top_n_list, zipf_frequency
 
 
-def build_word_list(count: int, length: int, min_zipf: float, wordlist: str = "large") -> List[str]:
+def build_word_list(count: int, length: int, min_zipf: float, wordlist: str = "large") -> list[str]:
     N = max(count * 20, 5000)
     cands = [w.lower() for w in top_n_list("en", N, wordlist=wordlist)]
     cands = [w for w in cands if len(w) == length and re.fullmatch(r"[a-z]+", w)]
     scored = [(w, zipf_frequency(w, "en")) for w in cands]
     scored = [p for p in scored if p[1] >= float(min_zipf)]
     scored.sort(key=lambda t: (-t[1], t[0]))
-    out: List[str] = []
+    out: list[str] = []
     seen = set()
     for w, _ in scored:
         if w in seen:

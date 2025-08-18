@@ -1,7 +1,7 @@
 """Configuration for tracing v3 with Turso/sqld."""
 
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 
 
 @dataclass
@@ -28,7 +28,9 @@ class TursoConfig:
     # Remote database sync configuration
     sync_url: str = os.getenv("TURSO_DATABASE_URL", "")
     auth_token: str = os.getenv("TURSO_AUTH_TOKEN", "")
-    sync_interval: int = int(os.getenv("TURSO_SYNC_SECONDS", "2"))  # 2 seconds for responsive local development
+    sync_interval: int = int(
+        os.getenv("TURSO_SYNC_SECONDS", "2")
+    )  # 2 seconds for responsive local development
 
     # Connection pool settings
     pool_size: int = int(os.getenv("TURSO_POOL_SIZE", "8"))

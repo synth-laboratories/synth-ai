@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Tuple
 import contextvars
+from contextlib import contextmanager
+from typing import Any
 
 from synth_ai.lm.injection import (
-    set_injection_rules,
-    clear_injection_rules,
     apply_injection as _apply_injection,
+)
+from synth_ai.lm.injection import (
+    clear_injection_rules,
+    set_injection_rules,
 )
 
 # Context to hold a list of override specs to evaluate per-call
@@ -18,29 +20,29 @@ from synth_ai.lm.injection import (
 #   "params": { ... api params to override ... },
 #   "tools": { ... optional tools overrides ... },
 # }
-_override_specs_ctx: contextvars.ContextVar[Optional[List[Dict[str, Any]]]] = contextvars.ContextVar(
-    "override_specs", default=None
+_override_specs_ctx: contextvars.ContextVar[list[dict[str, Any]] | None] = (
+    contextvars.ContextVar("override_specs", default=None)
 )
 
 # ContextVars actually applied for the specific call once matched
-_param_overrides_ctx: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+_param_overrides_ctx: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "param_overrides", default=None
 )
-_tool_overrides_ctx: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
+_tool_overrides_ctx: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "tool_overrides", default=None
 )
-_current_override_label_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+_current_override_label_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "override_label", default=None
 )
 
 
-def set_override_specs(specs: List[Dict[str, Any]]):
+def set_override_specs(specs: list[dict[str, Any]]):
     if not isinstance(specs, list):
         raise ValueError("override specs must be a list of dicts")
     return _override_specs_ctx.set(specs)
 
 
-def get_override_specs() -> Optional[List[Dict[str, Any]]]:
+def get_override_specs() -> list[dict[str, Any]] | None:
     return _override_specs_ctx.get()
 
 
@@ -48,7 +50,7 @@ def clear_override_specs(token) -> None:
     _override_specs_ctx.reset(token)
 
 
-def _matches(spec: Dict[str, Any], messages: List[Dict[str, Any]]) -> bool:
+def _matches(spec: dict[str, Any], messages: list[dict[str, Any]]) -> bool:
     match = spec.get("match") or {}
     contains = match.get("contains")
     role = match.get("role")  # optional
@@ -69,7 +71,7 @@ def _matches(spec: Dict[str, Any], messages: List[Dict[str, Any]]) -> bool:
     return False
 
 
-def resolve_override_for_messages(messages: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def resolve_override_for_messages(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     specs = get_override_specs() or []
     for spec in specs:
         try:
@@ -81,12 +83,12 @@ def resolve_override_for_messages(messages: List[Dict[str, Any]]) -> Optional[Di
     return None
 
 
-def apply_injection(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def apply_injection(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Delegate to injection.apply_injection
     return _apply_injection(messages)
 
 
-def apply_param_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
+def apply_param_overrides(api_params: dict[str, Any]) -> dict[str, Any]:
     ov = _param_overrides_ctx.get()
     if not ov:
         return api_params
@@ -96,7 +98,7 @@ def apply_param_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
     return api_params
 
 
-def apply_tool_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
+def apply_tool_overrides(api_params: dict[str, Any]) -> dict[str, Any]:
     """Apply tool overrides to OpenAI/Anthropic-like api_params in place.
 
     Supports keys under spec["tools"]:
@@ -138,7 +140,7 @@ def apply_tool_overrides(api_params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @contextmanager
-def use_overrides_for_messages(messages: List[Dict[str, Any]]):
+def use_overrides_for_messages(messages: list[dict[str, Any]]):
     """Resolve an override spec against messages and apply its contexts within the scope.
 
     - Sets injection rules and param overrides if present on the matched spec.
@@ -174,7 +176,7 @@ def use_overrides_for_messages(messages: List[Dict[str, Any]]):
             _current_override_label_ctx.reset(label_tok)
 
 
-def get_current_override_label() -> Optional[str]:
+def get_current_override_label() -> str | None:
     return _current_override_label_ctx.get()
 
 
@@ -189,7 +191,7 @@ class LMOverridesContext:
             run_pipeline()
     """
 
-    def __init__(self, override_specs: Optional[List[Dict[str, Any]]] | Dict[str, Any] = None):
+    def __init__(self, override_specs: list[dict[str, Any]] | None | dict[str, Any] = None):
         if isinstance(override_specs, dict):
             override_specs = [override_specs]
         self._specs = override_specs or []

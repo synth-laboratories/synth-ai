@@ -1,4 +1,5 @@
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
+
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 
 

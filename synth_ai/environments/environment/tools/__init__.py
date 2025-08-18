@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field
 from typing import Any, Dict, Type
+
+from pydantic import BaseModel, Field
 
 
 class EnvToolCall(BaseModel):
@@ -38,7 +40,7 @@ class EnvToolCall(BaseModel):
     """
 
     tool: str
-    args: Dict[str, Any] = Field(default_factory=dict)
+    args: dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolResult(BaseModel):
@@ -123,8 +125,8 @@ class AbstractTool(ABC):
     """
 
     name: str
-    call_schema: Type[BaseModel]
-    result_schema: Type[BaseModel] = ToolResult
+    call_schema: type[BaseModel]
+    result_schema: type[BaseModel] = ToolResult
 
     @abstractmethod
     async def __call__(self, call: EnvToolCall) -> ToolResult:
