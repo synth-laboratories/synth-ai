@@ -5,41 +5,39 @@ This module provides the LM class with async v3 tracing support,
 replacing the v2 DuckDB-based implementation.
 """
 
-from typing import Any, Dict, List, Literal, Optional, Union
-import os
-import functools
 import asyncio
 import time
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from synth_ai.lm.core.exceptions import StructuredOutputCoercionFailureException
+from synth_ai.lm.config import reasoning_models
 from synth_ai.lm.core.vendor_clients import (
     anthropic_naming_regexes,
     get_client,
     openai_naming_regexes,
 )
 from synth_ai.lm.structured_outputs.handler import StructuredOutputHandler
-from synth_ai.lm.vendors.base import VendorBase, BaseLMResponse
 from synth_ai.lm.tools.base import BaseTool
-from synth_ai.lm.config import reasoning_models
+from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
 
 # V3 tracing imports
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.decorators import set_session_id, set_turn_number, set_session_tracer
 from synth_ai.tracing_v3.abstractions import LMCAISEvent, TimeRecord
+from synth_ai.tracing_v3.decorators import set_turn_number
 from synth_ai.tracing_v3.llm_call_record_helpers import (
-    create_llm_call_record_from_response,
     compute_aggregates_from_call_records,
+    create_llm_call_record_from_response,
 )
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 
 def build_messages(
     sys_msg: str,
     user_msg: str,
-    images_bytes: List = [],
-    model_name: Optional[str] = None,
-) -> List[Dict]:
+    images_bytes: list | None = None,
+    model_name: str | None = None,
+) -> list[dict]:
+    images_bytes = images_bytes or []
     if len(images_bytes) > 0 and any(regex.match(model_name) for regex in openai_naming_regexes):
         return [
             {"role": "system", "content": sys_msg},
@@ -55,9 +53,7 @@ def build_messages(
                 ],
             },
         ]
-    elif len(images_bytes) > 0 and any(
-        regex.match(model_name) for regex in anthropic_naming_regexes
-    ):
+    elif len(images_bytes) > 0 and any(regex.match(model_name) for regex in anthropic_naming_regexes):
         return [
             {"role": "system", "content": sys_msg},
             {
@@ -88,27 +84,27 @@ class LM:
 
     def __init__(
         self,
-        vendor: Optional[str] = None,
-        model: Optional[str] = None,
+        vendor: str | None = None,
+        model: str | None = None,
         # v2 compatibility parameters
-        model_name: Optional[str] = None,  # Alias for model
-        formatting_model_name: Optional[str] = None,  # For structured outputs
-        provider: Optional[str] = None,  # Alias for vendor
+        model_name: str | None = None,  # Alias for model
+        formatting_model_name: str | None = None,  # For structured outputs
+        provider: str | None = None,  # Alias for vendor
         synth_logging: bool = True,  # v2 compatibility
         max_retries: Literal["None", "Few", "Many"] = "Few",  # v2 compatibility
         # v3 parameters
-        is_structured: Optional[bool] = None,
-        structured_outputs_vendor: Optional[str] = None,
-        response_format: Union[BaseModel, Dict[str, Any], None] = None,
+        is_structured: bool | None = None,
+        structured_outputs_vendor: str | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
         json_mode: bool = False,
         temperature: float = 0.8,
-        session_tracer: Optional[SessionTracer] = None,
-        system_id: Optional[str] = None,
+        session_tracer: SessionTracer | None = None,
+        system_id: str | None = None,
         enable_v3_tracing: bool = True,
-        enable_v2_tracing: Optional[bool] = None,  # v2 compatibility
+        enable_v2_tracing: bool | None = None,  # v2 compatibility
         # Responses API parameters
         auto_store_responses: bool = True,
-        use_responses_api: Optional[bool] = None,
+        use_responses_api: bool | None = None,
         **additional_params,
     ):
         # Handle v2 compatibility parameters
@@ -123,14 +119,14 @@ class LM:
         if vendor is None and model is not None:
             # Import vendor detection logic
             from synth_ai.lm.core.vendor_clients import (
-                openai_naming_regexes,
                 anthropic_naming_regexes,
-                gemini_naming_regexes,
-                deepseek_naming_regexes,
-                groq_naming_regexes,
-                grok_naming_regexes,
-                openrouter_naming_regexes,
                 custom_endpoint_naming_regexes,
+                deepseek_naming_regexes,
+                gemini_naming_regexes,
+                grok_naming_regexes,
+                groq_naming_regexes,
+                openai_naming_regexes,
+                openrouter_naming_regexes,
                 together_naming_regexes,
             )
 
@@ -168,22 +164,51 @@ class LM:
         self.enable_v3_tracing = enable_v3_tracing
         self.additional_params = additional_params
         
+        # Initialize vendor wrapper early, before any potential usage
+        # (e.g., within StructuredOutputHandler initialization below)
+        self._vendor_wrapper = None
+
         # Responses API thread management
         self.auto_store_responses = auto_store_responses
         self.use_responses_api = use_responses_api
-        self._last_response_id: Optional[str] = None
+        self._last_response_id: str | None = None
 
         # Set structured output handler if needed
         if self.response_format:
             self.is_structured = True
+            # Choose mode automatically: prefer forced_json for OpenAI/reasoning models
+            forced_json_preferred = (self.vendor == "openai") or (
+                self.model in reasoning_models if self.model else False
+            )
+            structured_output_mode = "forced_json" if forced_json_preferred else "stringified_json"
+
+            # Build core and formatting clients
+            core_client = get_client(
+                self.model,
+                with_formatting=(structured_output_mode == "forced_json"),
+                provider=self.vendor,
+            )
+            formatting_model = formatting_model_name or self.model
+            formatting_client = get_client(
+                formatting_model,
+                with_formatting=True,
+                provider=self.vendor if self.vendor != "custom_endpoint" else None,
+            )
+
+            # Map retries
+            max_retries_dict = {"None": 0, "Few": 2, "Many": 5}
+            handler_params = {"max_retries": max_retries_dict.get(max_retries, 2)}
+
             self.structured_output_handler = StructuredOutputHandler(
-                response_format=self.response_format, vendor_wrapper=self.get_vendor_wrapper()
+                core_client,
+                formatting_client,
+                structured_output_mode,
+                handler_params,
             )
         else:
             self.structured_output_handler = None
 
-        # Initialize vendor wrapper
-        self._vendor_wrapper = None
+        # Vendor wrapper lazy-instantiated via get_vendor_wrapper()
 
     def get_vendor_wrapper(self) -> VendorBase:
         """Get or create the vendor wrapper."""
@@ -198,45 +223,62 @@ class LM:
             return self.use_responses_api
         
         # Auto-detect based on model
-        RESPONSES_MODELS = {
+        responses_models = {
             "o4-mini", "o3", "o3-mini",  # Supported Synth-hosted models
             "gpt-oss-120b", "gpt-oss-20b"  # OSS models via Synth
         }
-        return self.model in RESPONSES_MODELS or (self.model and self.model in reasoning_models)
+        return self.model in responses_models or (self.model and self.model in reasoning_models)
 
     def _should_use_harmony(self) -> bool:
         """Determine if Harmony encoding should be used for OSS models."""
         # Only use Harmony for OSS models when NOT using OpenAI vendor
         # OpenAI hosts these models directly via Responses API
-        HARMONY_MODELS = {"gpt-oss-120b", "gpt-oss-20b"}
-        return self.model in HARMONY_MODELS and self.vendor != "openai"
+        harmony_models = {"gpt-oss-120b", "gpt-oss-20b"}
+        return self.model in harmony_models and self.vendor != "openai"
 
     async def respond_async(
         self,
-        system_message: Optional[str] = None,
-        user_message: Optional[str] = None,
-        messages: Optional[List[Dict]] = None,  # v2 compatibility
-        images_bytes: List[bytes] = [],
-        images_as_bytes: Optional[List[bytes]] = None,  # v2 compatibility
-        response_model: Optional[BaseModel] = None,  # v2 compatibility
-        tools: Optional[List[BaseTool]] = None,
-        turn_number: Optional[int] = None,
-        previous_response_id: Optional[str] = None,  # Responses API thread management
+        system_message: str | None = None,
+        user_message: str | None = None,
+        messages: list[dict] | None = None,  # v2 compatibility
+        images_bytes: list[bytes] | None = None,
+        images_as_bytes: list[bytes] | None = None,  # v2 compatibility
+        response_model: type[BaseModel] | None = None,  # v2 compatibility
+        tools: list[BaseTool] | None = None,
+        turn_number: int | None = None,
+        previous_response_id: str | None = None,  # Responses API thread management
         **kwargs,
     ) -> BaseLMResponse:
         """Async method to get LM response with v3 tracing."""
         start_time = time.time()
 
         # Handle v2 compatibility
-        if images_as_bytes is not None:
-            images_bytes = images_as_bytes
+        images_bytes = images_as_bytes if images_as_bytes is not None else (images_bytes or [])
 
-        # Handle response_model for structured outputs
+        # Handle response_model for structured outputs (runtime-provided)
         if response_model and not self.response_format:
             self.response_format = response_model
             self.is_structured = True
+            # Mirror initialization logic from __init__
+            forced_json_preferred = (self.vendor == "openai") or (
+                self.model in reasoning_models if self.model else False
+            )
+            structured_output_mode = "forced_json" if forced_json_preferred else "stringified_json"
+            core_client = get_client(
+                self.model,
+                with_formatting=(structured_output_mode == "forced_json"),
+                provider=self.vendor,
+            )
+            formatting_client = get_client(
+                self.model,
+                with_formatting=True,
+                provider=self.vendor if self.vendor != "custom_endpoint" else None,
+            )
             self.structured_output_handler = StructuredOutputHandler(
-                response_format=self.response_format, vendor_wrapper=self.get_vendor_wrapper()
+                core_client,
+                formatting_client,
+                structured_output_mode,
+                {"max_retries": 2},
             )
 
         # Set turn number if provided
@@ -259,83 +301,94 @@ class LM:
                 )
             messages_to_use = build_messages(system_message, user_message, images_bytes, self.model)
 
-        # Get vendor wrapper
-        vendor_wrapper = self.get_vendor_wrapper()
-        
-        # Determine API type to use
-        use_responses = self._should_use_responses_api()
-        use_harmony = self._should_use_harmony()
-        
-        # Decide response ID to use for thread management
-        response_id_to_use = None
-        if previous_response_id:
-            response_id_to_use = previous_response_id  # Manual override
-        elif self.auto_store_responses and self._last_response_id:
-            response_id_to_use = self._last_response_id  # Auto-chain
-
-        # Prepare parameters based on vendor type
-        if hasattr(vendor_wrapper, "_hit_api_async"):
-            # OpenAIStandard expects lm_config
-            lm_config = {"temperature": self.temperature, **self.additional_params, **kwargs}
-            if self.json_mode:
-                lm_config["response_format"] = {"type": "json_object"}
-
-            params = {"model": self.model, "messages": messages_to_use, "lm_config": lm_config}
+        # If using structured outputs, route through the handler
+        if self.structured_output_handler and self.response_format:
             if tools:
-                params["tools"] = tools
+                raise ValueError("Tools are not supported with structured output mode")
+            response = await self.structured_output_handler.call_async(
+                messages=messages_to_use,
+                model=self.model,
+                response_model=self.response_format,
+                use_ephemeral_cache_only=False,
+                lm_config={"temperature": self.temperature, **self.additional_params, **kwargs},
+                reasoning_effort="high",
+            )
         else:
-            # Other vendors use flat params
-            params = {
-                "model": self.model,
-                "messages": messages_to_use,
-                "temperature": self.temperature,
-                **self.additional_params,
-                **kwargs,
-            }
+            # Get vendor wrapper
+            vendor_wrapper = self.get_vendor_wrapper()
 
-            if tools:
-                params["tools"] = [tool.to_dict() for tool in tools]
+            # Determine API type to use
+            use_responses = self._should_use_responses_api()
+            use_harmony = self._should_use_harmony()
 
-            if self.json_mode:
-                params["response_format"] = {"type": "json_object"}
+            # Decide response ID to use for thread management
+            response_id_to_use = None
+            if previous_response_id:
+                response_id_to_use = previous_response_id  # Manual override
+            elif self.auto_store_responses and self._last_response_id:
+                response_id_to_use = self._last_response_id  # Auto-chain
 
-        # Call vendor with appropriate API type
-        try:
-            # Route to appropriate API
-            if use_harmony and hasattr(vendor_wrapper, "_hit_api_async_harmony"):
-                params["previous_response_id"] = response_id_to_use
-                response = await vendor_wrapper._hit_api_async_harmony(**params)
-            elif use_responses and hasattr(vendor_wrapper, "_hit_api_async_responses"):
-                params["previous_response_id"] = response_id_to_use
-                response = await vendor_wrapper._hit_api_async_responses(**params)
+            # Prepare parameters based on vendor type
+            if hasattr(vendor_wrapper, "_hit_api_async"):
+                # OpenAIStandard expects lm_config
+                lm_config = {"temperature": self.temperature, **self.additional_params, **kwargs}
+                if self.json_mode:
+                    lm_config["response_format"] = {"type": "json_object"}
+
+                params = {"model": self.model, "messages": messages_to_use, "lm_config": lm_config}
+                if tools:
+                    params["tools"] = tools
             else:
-                # Standard chat completions API
-                if hasattr(vendor_wrapper, "_hit_api_async"):
-                    response = await vendor_wrapper._hit_api_async(**params)
-                elif hasattr(vendor_wrapper, "respond_async"):
-                    response = await vendor_wrapper.respond_async(**params)
-                elif hasattr(vendor_wrapper, "respond"):
-                    # Fallback to sync in executor
-                    loop = asyncio.get_event_loop()
-                    response = await loop.run_in_executor(None, vendor_wrapper.respond, params)
-                else:
-                    raise AttributeError(
-                        f"Vendor wrapper {type(vendor_wrapper).__name__} has no suitable response method"
-                    )
-                if not hasattr(response, 'api_type'):
-                    response.api_type = "chat"
-                    
-            # Update stored response ID if auto-storing
-            if self.auto_store_responses and hasattr(response, 'response_id') and response.response_id:
-                self._last_response_id = response.response_id
-                
-        except Exception as e:
-            print(f"Error calling vendor: {e}")
-            raise
+                # Other vendors use flat params
+                params = {
+                    "model": self.model,
+                    "messages": messages_to_use,
+                    "temperature": self.temperature,
+                    **self.additional_params,
+                    **kwargs,
+                }
 
-        # Handle structured output
-        if self.structured_output_handler:
-            response = self.structured_output_handler.process_response(response)
+                if tools:
+                    params["tools"] = [tool.to_dict() for tool in tools]
+
+                if self.json_mode:
+                    params["response_format"] = {"type": "json_object"}
+
+            # Call vendor with appropriate API type
+            try:
+                # Route to appropriate API
+                if use_harmony and hasattr(vendor_wrapper, "_hit_api_async_harmony"):
+                    params["previous_response_id"] = response_id_to_use
+                    response = await vendor_wrapper._hit_api_async_harmony(**params)
+                elif use_responses and hasattr(vendor_wrapper, "_hit_api_async_responses"):
+                    params["previous_response_id"] = response_id_to_use
+                    response = await vendor_wrapper._hit_api_async_responses(**params)
+                else:
+                    # Standard chat completions API
+                    if hasattr(vendor_wrapper, "_hit_api_async"):
+                        response = await vendor_wrapper._hit_api_async(**params)
+                    elif hasattr(vendor_wrapper, "respond_async"):
+                        response = await vendor_wrapper.respond_async(**params)
+                    elif hasattr(vendor_wrapper, "respond"):
+                        # Fallback to sync in executor
+                        loop = asyncio.get_event_loop()
+                        response = await loop.run_in_executor(None, vendor_wrapper.respond, params)
+                    else:
+                        raise AttributeError(
+                            f"Vendor wrapper {type(vendor_wrapper).__name__} has no suitable response method"
+                        )
+                    if not hasattr(response, 'api_type'):
+                        response.api_type = "chat"
+
+                # Update stored response ID if auto-storing
+                if self.auto_store_responses and hasattr(response, 'response_id') and response.response_id:
+                    self._last_response_id = response.response_id
+
+            except Exception as e:
+                print(f"Error calling vendor: {e}")
+                raise
+
+        # No additional post-processing needed for structured outputs here
 
         # Record tracing event if enabled
         if (
@@ -425,15 +478,15 @@ class LM:
 
     def respond(
         self,
-        system_message: Optional[str] = None,
-        user_message: Optional[str] = None,
-        messages: Optional[List[Dict]] = None,  # v2 compatibility
-        images_bytes: List[bytes] = [],
-        images_as_bytes: Optional[List[bytes]] = None,  # v2 compatibility
-        response_model: Optional[BaseModel] = None,  # v2 compatibility
-        tools: Optional[List[BaseTool]] = None,
-        previous_response_id: Optional[str] = None,  # Responses API thread management
-        turn_number: Optional[int] = None,
+        system_message: str | None = None,
+        user_message: str | None = None,
+        messages: list[dict] | None = None,  # v2 compatibility
+        images_bytes: list[bytes] | None = None,
+        images_as_bytes: list[bytes] | None = None,  # v2 compatibility
+        response_model: type[BaseModel] | None = None,  # v2 compatibility
+        tools: list[BaseTool] | None = None,
+        previous_response_id: str | None = None,  # Responses API thread management
+        turn_number: int | None = None,
         **kwargs,
     ) -> BaseLMResponse:
         """Synchronous wrapper for respond_async."""

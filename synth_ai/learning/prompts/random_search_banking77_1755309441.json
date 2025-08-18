@@ -1,0 +1,1263 @@
+{
+  "context": {
+    "model": "openai/gpt-oss-20b",
+    "vendor": "groq",
+    "train_size": 40,
+    "val_size": 20
+  },
+  "candidates": [
+    {
+      "score": 0.2777777777777778,
+      "subscores": [
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": -3,
+        "demos": [],
+        "kind": "zero_shot",
+        "label": "zero-shot"
+      }
+    },
+    {
+      "score": 0.13333333333333333,
+      "subscores": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": -2,
+        "demos": [
+          [
+            "What's the refund process?",
+            "request_refund"
+          ],
+          [
+            "I transferred some money and it didint arrive",
+            "transfer_not_received_by_recipient"
+          ],
+          [
+            "If I only have 1 other US card, can you take it?",
+            "supported_cards_and_currencies"
+          ],
+          [
+            "I see a cash withdrawal that I did not perform.",
+            "cash_withdrawal_not_recognised"
+          ]
+        ],
+        "kind": "labeled_few_shot",
+        "label": "labeled-4"
+      }
+    },
+    {
+      "score": 0.14285714285714285,
+      "subscores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": -1,
+        "demos": [
+          [
+            "My card doesn't work.",
+            "card_not_working"
+          ],
+          [
+            "My card was declined today when eating and I need to know what's wrong.",
+            "card_not_working"
+          ],
+          [
+            "Is there any nearby ATM's?",
+            "atm_support"
+          ],
+          [
+            "Can you delete my account please?",
+            "terminate_account"
+          ]
+        ],
+        "kind": "bootstrapped_few_shot",
+        "label": "boot-b0-l4"
+      }
+    },
+    {
+      "score": 0.26666666666666666,
+      "subscores": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": 0,
+        "demos": [
+          [
+            "Can I use my card at any ATMs?",
+            "atm_support"
+          ],
+          [
+            "I requested a refund and it is missing.",
+            "Refund_not_showing_up"
+          ],
+          [
+            "Where do I order a virtual card from?",
+            "getting_virtual_card"
+          ],
+          [
+            "Delete this account!",
+            "terminate_account"
+          ]
+        ],
+        "kind": "bootstrapped_few_shot",
+        "label": "boot-b0-l4"
+      }
+    },
+    {
+      "score": 0.07692307692307693,
+      "subscores": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": 1,
+        "demos": [
+          [
+            "I finally got my new card and was very excited to use it today. However, my payment kept declining. What is happening?",
+            "declined_card_payment"
+          ],
+          [
+            "My top-up was cancelled; will I receive a refund?",
+            "top_up_reverted"
+          ],
+          [
+            "What's the refund process?",
+            "request_refund"
+          ],
+          [
+            "cash from this morning has not deposited",
+            "balance_not_updated_after_cheque_or_cash_deposit"
+          ]
+        ],
+        "kind": "bootstrapped_few_shot",
+        "label": "boot-b0-l4"
+      }
+    },
+    {
+      "score": 0.23076923076923078,
+      "subscores": [
+        0.0,
+        1.0,
+        0.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "intervention": {
+        "seed": 2,
+        "demos": [
+          [
+            "I have friends that would like to top-up my account is that possible?",
+            "topping_up_by_card"
+          ],
+          [
+            "I requested a refund and it is missing.",
+            "Refund_not_showing_up"
+          ],
+          [
+            "Can you delete my account please?",
+            "terminate_account"
+          ],
+          [
+            "My top-up was cancelled; will I receive a refund?",
+            "top_up_reverted"
+          ]
+        ],
+        "kind": "bootstrapped_few_shot",
+        "label": "boot-b0-l4"
+      }
+    }
+  ],
+  "candidate_eval_details": {
+    "1": {
+      "score": 0.2777777777777778,
+      "mean_in": 105.16666666666667,
+      "mean_out": 2698.5555555555557,
+      "instances": [
+        {
+          "index": 4,
+          "seconds": 0.7424624160048552,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 108,
+            "completion_tokens": 101
+          }
+        },
+        {
+          "index": 9,
+          "seconds": 0.7423575420107227,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 104,
+            "completion_tokens": 133
+          }
+        },
+        {
+          "index": 6,
+          "seconds": 0.7864964169857558,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 104,
+            "completion_tokens": 240
+          }
+        },
+        {
+          "index": 7,
+          "seconds": 1.0705170000146609,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 105,
+            "completion_tokens": 588
+          }
+        },
+        {
+          "index": 3,
+          "seconds": 1.2137717910227366,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 103,
+            "completion_tokens": 713
+          }
+        },
+        {
+          "index": 2,
+          "seconds": 1.8604967079882044,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 111,
+            "completion_tokens": 1518
+          }
+        },
+        {
+          "index": 15,
+          "seconds": 2.0951852909929585,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 103,
+            "completion_tokens": 95
+          }
+        },
+        {
+          "index": 12,
+          "seconds": 2.2042506670113653,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 104,
+            "completion_tokens": 1535
+          }
+        },
+        {
+          "index": 16,
+          "seconds": 2.2961473330215085,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 108,
+            "completion_tokens": 77
+          }
+        },
+        {
+          "index": 18,
+          "seconds": 2.572414416994434,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 108,
+            "completion_tokens": 93
+          }
+        },
+        {
+          "index": 11,
+          "seconds": 2.5862018339976203,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 103,
+            "completion_tokens": 2050
+          }
+        },
+        {
+          "index": 14,
+          "seconds": 2.6186209580046125,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 109,
+            "completion_tokens": 1506
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 3.197278792009456,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 102,
+            "completion_tokens": 577
+          }
+        },
+        {
+          "index": 8,
+          "seconds": 5.052646541997092,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 102,
+            "completion_tokens": 5360
+          }
+        },
+        {
+          "index": 10,
+          "seconds": 5.630139583983691,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 104,
+            "completion_tokens": 5646
+          }
+        },
+        {
+          "index": 5,
+          "seconds": 8.068820541986497,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 103,
+            "completion_tokens": 9044
+          }
+        },
+        {
+          "index": 0,
+          "seconds": 8.35487004200695,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 102,
+            "completion_tokens": 9226
+          }
+        },
+        {
+          "index": 13,
+          "seconds": 9.683934958011378,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 110,
+            "completion_tokens": 10072
+          }
+        }
+      ]
+    },
+    "2": {
+      "score": 0.13333333333333333,
+      "mean_in": 190.13333333333333,
+      "mean_out": 3570.2,
+      "instances": [
+        {
+          "index": 0,
+          "seconds": 0.5936310419929214,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 187,
+            "completion_tokens": 360
+          }
+        },
+        {
+          "index": 4,
+          "seconds": 0.5935877500160132,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 335
+          }
+        },
+        {
+          "index": 11,
+          "seconds": 0.8722125830245204,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 137
+          }
+        },
+        {
+          "index": 10,
+          "seconds": 0.8766522500081919,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 150
+          }
+        },
+        {
+          "index": 6,
+          "seconds": 1.5934114580159076,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 1618
+          }
+        },
+        {
+          "index": 14,
+          "seconds": 2.1564100830000825,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 194,
+            "completion_tokens": 205
+          }
+        },
+        {
+          "index": 3,
+          "seconds": 2.835632500005886,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 3136
+          }
+        },
+        {
+          "index": 16,
+          "seconds": 3.7637482499994803,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 819
+          }
+        },
+        {
+          "index": 13,
+          "seconds": 6.131036291975761,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 6046
+          }
+        },
+        {
+          "index": 18,
+          "seconds": 6.535687291994691,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 193,
+            "completion_tokens": 225
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 7.369259500002954,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 187,
+            "completion_tokens": 803
+          }
+        },
+        {
+          "index": 5,
+          "seconds": 7.858073666982818,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 9084
+          }
+        },
+        {
+          "index": 12,
+          "seconds": 8.516921999980696,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 8989
+          }
+        },
+        {
+          "index": 1,
+          "seconds": 10.095098166988464,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 190,
+            "completion_tokens": 11827
+          }
+        },
+        {
+          "index": 17,
+          "seconds": 12.332739834004315,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 9819
+          }
+        }
+      ]
+    },
+    "3": {
+      "score": 0.14285714285714285,
+      "mean_in": 172.92857142857142,
+      "mean_out": 2121.8571428571427,
+      "instances": [
+        {
+          "index": 4,
+          "seconds": 0.28467591700609773,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 176,
+            "completion_tokens": 123
+          }
+        },
+        {
+          "index": 8,
+          "seconds": 0.3327182500215713,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 170,
+            "completion_tokens": 141
+          }
+        },
+        {
+          "index": 5,
+          "seconds": 0.34385912501602434,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 171,
+            "completion_tokens": 146
+          }
+        },
+        {
+          "index": 3,
+          "seconds": 0.3466379170131404,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 171,
+            "completion_tokens": 166
+          }
+        },
+        {
+          "index": 13,
+          "seconds": 0.5345912500051782,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 178,
+            "completion_tokens": 51
+          }
+        },
+        {
+          "index": 10,
+          "seconds": 0.7883158749900758,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 172,
+            "completion_tokens": 436
+          }
+        },
+        {
+          "index": 6,
+          "seconds": 0.9684150409884751,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 172,
+            "completion_tokens": 867
+          }
+        },
+        {
+          "index": 2,
+          "seconds": 1.0583106669946574,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 179,
+            "completion_tokens": 1038
+          }
+        },
+        {
+          "index": 0,
+          "seconds": 1.1163309999974445,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 170,
+            "completion_tokens": 1055
+          }
+        },
+        {
+          "index": 18,
+          "seconds": 1.3515829579846468,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 176,
+            "completion_tokens": 114
+          }
+        },
+        {
+          "index": 7,
+          "seconds": 1.6117182500020135,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 173,
+            "completion_tokens": 1702
+          }
+        },
+        {
+          "index": 15,
+          "seconds": 7.181618958013132,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 171,
+            "completion_tokens": 7437
+          }
+        },
+        {
+          "index": 17,
+          "seconds": 8.13406891701743,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 172,
+            "completion_tokens": 8142
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 8.463175582990516,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 170,
+            "completion_tokens": 8288
+          }
+        }
+      ]
+    },
+    "4": {
+      "score": 0.26666666666666666,
+      "mean_in": 171.13333333333333,
+      "mean_out": 2869.4,
+      "instances": [
+        {
+          "index": 5,
+          "seconds": 0.5164171660144348,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 169,
+            "completion_tokens": 185
+          }
+        },
+        {
+          "index": 7,
+          "seconds": 0.5164584160083905,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 171,
+            "completion_tokens": 301
+          }
+        },
+        {
+          "index": 0,
+          "seconds": 0.5739814580010716,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 168,
+            "completion_tokens": 387
+          }
+        },
+        {
+          "index": 10,
+          "seconds": 0.7607288330036681,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 170,
+            "completion_tokens": 110
+          }
+        },
+        {
+          "index": 11,
+          "seconds": 0.8654505829908885,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 169,
+            "completion_tokens": 205
+          }
+        },
+        {
+          "index": 13,
+          "seconds": 0.9687737080093939,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 176,
+            "completion_tokens": 66
+          }
+        },
+        {
+          "index": 14,
+          "seconds": 1.1915927499940153,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 175,
+            "completion_tokens": 207
+          }
+        },
+        {
+          "index": 6,
+          "seconds": 1.5770322500029579,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 170,
+            "completion_tokens": 1579
+          }
+        },
+        {
+          "index": 8,
+          "seconds": 2.557686874992214,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 168,
+            "completion_tokens": 2682
+          }
+        },
+        {
+          "index": 16,
+          "seconds": 3.0197589159943163,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 174,
+            "completion_tokens": 341
+          }
+        },
+        {
+          "index": 15,
+          "seconds": 4.071464832988568,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 169,
+            "completion_tokens": 3520
+          }
+        },
+        {
+          "index": 4,
+          "seconds": 5.350406416982878,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 174,
+            "completion_tokens": 6155
+          }
+        },
+        {
+          "index": 3,
+          "seconds": 7.798645167000359,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 169,
+            "completion_tokens": 9057
+          }
+        },
+        {
+          "index": 2,
+          "seconds": 8.371815833001165,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 177,
+            "completion_tokens": 9864
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 10.263494542014087,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 168,
+            "completion_tokens": 8382
+          }
+        }
+      ]
+    },
+    "5": {
+      "score": 0.07692307692307693,
+      "mean_in": 197.69230769230768,
+      "mean_out": 2085.076923076923,
+      "instances": [
+        {
+          "index": 8,
+          "seconds": 0.28692516600131057,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 108
+          }
+        },
+        {
+          "index": 7,
+          "seconds": 0.3504907500173431,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 198,
+            "completion_tokens": 152
+          }
+        },
+        {
+          "index": 0,
+          "seconds": 0.7338170410075691,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 621
+          }
+        },
+        {
+          "index": 12,
+          "seconds": 1.1519714159949217,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 197,
+            "completion_tokens": 278
+          }
+        },
+        {
+          "index": 10,
+          "seconds": 1.2295420829905197,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 197,
+            "completion_tokens": 953
+          }
+        },
+        {
+          "index": 3,
+          "seconds": 1.3434473339875694,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 1381
+          }
+        },
+        {
+          "index": 15,
+          "seconds": 1.7180776669993065,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 225
+          }
+        },
+        {
+          "index": 16,
+          "seconds": 2.0244879579986446,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 201,
+            "completion_tokens": 181
+          }
+        },
+        {
+          "index": 4,
+          "seconds": 3.220368625014089,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 201,
+            "completion_tokens": 3605
+          }
+        },
+        {
+          "index": 5,
+          "seconds": 5.221955583983799,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 196,
+            "completion_tokens": 5925
+          }
+        },
+        {
+          "index": 14,
+          "seconds": 5.2664740000036545,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 202,
+            "completion_tokens": 4656
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 6.245352249999996,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 195,
+            "completion_tokens": 1052
+          }
+        },
+        {
+          "index": 18,
+          "seconds": 10.114953416021308,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 201,
+            "completion_tokens": 7969
+          }
+        }
+      ]
+    },
+    "6": {
+      "score": 0.23076923076923078,
+      "mean_in": 185.3846153846154,
+      "mean_out": 2861.769230769231,
+      "instances": [
+        {
+          "index": 5,
+          "seconds": 0.33459579199552536,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 183,
+            "completion_tokens": 156
+          }
+        },
+        {
+          "index": 4,
+          "seconds": 0.40426849998766556,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 246
+          }
+        },
+        {
+          "index": 6,
+          "seconds": 1.4221634579880629,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 184,
+            "completion_tokens": 1415
+          }
+        },
+        {
+          "index": 9,
+          "seconds": 5.05416304199025,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 184,
+            "completion_tokens": 5776
+          }
+        },
+        {
+          "index": 13,
+          "seconds": 5.308688582998002,
+          "score": 1.0,
+          "usage": {
+            "prompt_tokens": 190,
+            "completion_tokens": 58
+          }
+        },
+        {
+          "index": 14,
+          "seconds": 5.596111499995459,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 189,
+            "completion_tokens": 173
+          }
+        },
+        {
+          "index": 0,
+          "seconds": 5.634782500012079,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 182,
+            "completion_tokens": 6516
+          }
+        },
+        {
+          "index": 16,
+          "seconds": 5.9985814160027076,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 206
+          }
+        },
+        {
+          "index": 17,
+          "seconds": 6.346567625005264,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 184,
+            "completion_tokens": 248
+          }
+        },
+        {
+          "index": 15,
+          "seconds": 6.724111041025026,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 183,
+            "completion_tokens": 1164
+          }
+        },
+        {
+          "index": 7,
+          "seconds": 8.25370808300795,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 185,
+            "completion_tokens": 9637
+          }
+        },
+        {
+          "index": 19,
+          "seconds": 8.40678241700516,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 182,
+            "completion_tokens": 1852
+          }
+        },
+        {
+          "index": 18,
+          "seconds": 14.768854750000173,
+          "score": 0.0,
+          "usage": {
+            "prompt_tokens": 188,
+            "completion_tokens": 9756
+          }
+        }
+      ]
+    }
+  },
+  "best_eval_details": {
+    "score": 0.2631578947368421,
+    "mean_in": 105.15789473684211,
+    "mean_out": 3365.4210526315787,
+    "instances": [
+      {
+        "index": 9,
+        "seconds": 0.37236158302403055,
+        "score": 1.0,
+        "usage": {
+          "prompt_tokens": 104,
+          "completion_tokens": 133
+        }
+      },
+      {
+        "index": 6,
+        "seconds": 0.45151983300456777,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 104,
+          "completion_tokens": 240
+        }
+      },
+      {
+        "index": 4,
+        "seconds": 0.5034321660059504,
+        "score": 1.0,
+        "usage": {
+          "prompt_tokens": 108,
+          "completion_tokens": 288
+        }
+      },
+      {
+        "index": 7,
+        "seconds": 0.7648492089938372,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 105,
+          "completion_tokens": 588
+        }
+      },
+      {
+        "index": 3,
+        "seconds": 0.8779982090054546,
+        "score": 1.0,
+        "usage": {
+          "prompt_tokens": 103,
+          "completion_tokens": 713
+        }
+      },
+      {
+        "index": 2,
+        "seconds": 1.535685167007614,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 111,
+          "completion_tokens": 1510
+        }
+      },
+      {
+        "index": 0,
+        "seconds": 1.6144874159945175,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 102,
+          "completion_tokens": 1611
+        }
+      },
+      {
+        "index": 15,
+        "seconds": 1.7648205420118757,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 103,
+          "completion_tokens": 95
+        }
+      },
+      {
+        "index": 16,
+        "seconds": 1.8212983749981504,
+        "score": 1.0,
+        "usage": {
+          "prompt_tokens": 108,
+          "completion_tokens": 77
+        }
+      },
+      {
+        "index": 12,
+        "seconds": 1.9229772500111721,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 104,
+          "completion_tokens": 1539
+        }
+      },
+      {
+        "index": 18,
+        "seconds": 2.041719583008671,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 108,
+          "completion_tokens": 93
+        }
+      },
+      {
+        "index": 11,
+        "seconds": 2.2328025409951806,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 103,
+          "completion_tokens": 1976
+        }
+      },
+      {
+        "index": 19,
+        "seconds": 2.6460270840034354,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 102,
+          "completion_tokens": 577
+        }
+      },
+      {
+        "index": 8,
+        "seconds": 3.7674445410084445,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 102,
+          "completion_tokens": 4201
+        }
+      },
+      {
+        "index": 14,
+        "seconds": 4.869904084014706,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 109,
+          "completion_tokens": 4624
+        }
+      },
+      {
+        "index": 5,
+        "seconds": 7.748357541015139,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 103,
+          "completion_tokens": 8981
+        }
+      },
+      {
+        "index": 10,
+        "seconds": 9.143320790986763,
+        "score": 1.0,
+        "usage": {
+          "prompt_tokens": 104,
+          "completion_tokens": 10321
+        }
+      },
+      {
+        "index": 1,
+        "seconds": 10.019952832983108,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 105,
+          "completion_tokens": 11749
+        }
+      },
+      {
+        "index": 13,
+        "seconds": 13.09767274998012,
+        "score": 0.0,
+        "usage": {
+          "prompt_tokens": 110,
+          "completion_tokens": 14627
+        }
+      }
+    ]
+  }
+}

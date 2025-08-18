@@ -38,6 +38,14 @@ import synth_ai.environments.examples.crafter_custom.environment as ccustom
 
 register_environment("CrafterCustom", ccustom.CrafterCustomEnvironment)
 
+# Register Wordle example environment
+try:
+    import synth_ai.environments.examples.wordle.environment as wordle_mod
+    register_environment("Wordle", wordle_mod.WordleEnvironment)
+except Exception as _e:
+    # Keep service robust even if example env import fails
+    logging.getLogger(__name__).warning(f"Wordle env not registered: {_e}")
+
 app = FastAPI(title="Environment Service")
 
 
