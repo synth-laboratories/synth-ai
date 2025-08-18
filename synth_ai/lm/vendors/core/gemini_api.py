@@ -86,11 +86,7 @@ class GeminiAPI(VendorBase):
         out: list[types.Tool] = []
         for t in tools:
             # Assume t.to_gemini_tool() now correctly returns a FunctionDeclaration
-            # func_decl = t.to_gemini_tool()
-            if isinstance(t, dict):
-                func_decl = t
-            else:
-                func_decl = t.to_gemini_tool()
+            func_decl = t if isinstance(t, dict) else t.to_gemini_tool()
             if not isinstance(func_decl, types.FunctionDeclaration):
                 # Or fetch schema parts if to_gemini_tool still returns dict
                 # This depends on BaseTool.to_gemini_tool implementation

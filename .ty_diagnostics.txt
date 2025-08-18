@@ -1,0 +1,467 @@
+examples/evals/compare_models.py:153:11: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+examples/evals/compare_models.py:804:16: error[invalid-return-type] Return type does not match returned value: expected `list[dict[str, Any]]`, found `tuple[Unknown]`
+examples/finetuning/synth_qwen/purge_v3_traces.py:35:33: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+examples/finetuning/synth_qwen/react_agent_lm.py:93:10: error[unresolved-import] Cannot resolve imported module `synth_ai.lm.core.main_v2`
+examples/finetuning/synth_qwen/react_agent_lm.py:224:5: error[invalid-assignment] Method `__setitem__` of type `bound method _Environ[str].__setitem__(key: str, value: str) -> None` cannot be called with a key of type `Literal["OPENAI_API_KEY"]` and a value of type `str | None` on object of type `_Environ[str]`
+examples/finetuning/synth_qwen/react_agent_lm.py:259:11: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+examples/finetuning/synth_qwen/react_agent_lm.py:1084:9: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `str`, found `str | None`
+examples/finetuning/synth_qwen/react_agent_lm.py:1147:26: error[unresolved-attribute] Type `<module 'asyncio'>` has no attribute `nullcontext`
+examples/finetuning/synth_qwen/react_agent_lm.py:1573:51: error[invalid-argument-type] Argument to function `warmup_synth_model` is incorrect: Expected `str`, found `str | None | (Any & ~AlwaysFalsy)`
+examples/finetuning/synth_qwen/react_agent_lm.py:1649:13: error[unresolved-attribute] Unresolved attribute `_initialized` on type `SessionTracer`.
+examples/finetuning/synth_qwen/react_agent_lm.py:1800:36: error[non-subscriptable] Cannot subscript object of type `None` with no `__getitem__` method
+examples/finetuning/synth_qwen/react_agent_lm.py:1841:23: warning[possibly-unbound-attribute] Attribute `replace` on type `str | None | (Any & ~AlwaysFalsy)` is possibly unbound
+synth_ai/__init__.py:15:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.abstractions`
+synth_ai/__init__.py:21:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.decorators`
+synth_ai/__init__.py:22:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.upload`
+synth_ai/cli/calc.py:33:30: warning[deprecated] The class `Num` is deprecated: Replaced by ast.Constant; removed in Python 3.14
+synth_ai/cli/legacy_root_backup.py:160:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:163:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:198:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:219:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:222:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/cli/legacy_root_backup.py:239:15: error[unresolved-import] Cannot resolve imported module `.tui.dashboard`
+synth_ai/cli/traces.py:76:45: warning[possibly-unbound-attribute] Attribute `iterrows` on type `(DataFrame & ~AlwaysFalsy) | list[Unknown]` is possibly unbound
+synth_ai/environments/__init__.py:31:1: error[unresolved-attribute] Unresolved attribute `synth_env` on type `ModuleType`.
+synth_ai/environments/environment/artifacts/base.py:17:24: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/environment/artifacts/base.py:31:14: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/environment/artifacts/base.py:33:24: error[invalid-type-form] Variable of type `def bytes(self) -> Unknown` is not allowed in a type expression
+synth_ai/environments/examples/wordle/engine.py:377:16: error[invalid-return-type] Return type does not match returned value: expected `InternalObservation`, found `dict[Unknown, Unknown]`
+synth_ai/environments/examples/wordle/engine.py:393:16: error[invalid-return-type] Return type does not match returned value: expected `InternalObservation`, found `dict[Unknown, Unknown]`
+synth_ai/environments/examples/wordle/environment.py:142:48: error[too-many-positional-arguments] Too many positional arguments to bound method `get_observation`: expected 1, got 3
+synth_ai/environments/examples/wordle/environment.py:144:13: error[invalid-assignment] Object of type `dict[Unknown, Unknown]` is not assignable to `InternalObservation`
+synth_ai/environments/examples/wordle/helpers/generate_instances_wordfreq.py:20:6: error[unresolved-import] Cannot resolve imported module `wordfreq`
+synth_ai/environments/service/app.py:53:6: warning[deprecated] The function `on_event` is deprecated: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+synth_ai/environments/service/core_routes.py:67:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[Unknown, Unknown]`
+synth_ai/environments/service/core_routes.py:68:5: error[invalid-assignment] Object of type `None` is not assignable to `list[Unknown]`
+synth_ai/environments/service/core_routes.py:528:19: error[too-many-positional-arguments] Too many positional arguments to bound method `__init__`: expected 1, got 2
+synth_ai/environments/service/core_routes.py:822:15: error[too-many-positional-arguments] Too many positional arguments to bound method `__init__`: expected 1, got 2
+synth_ai/environments/service/external_registry.py:16:24: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[dict[str, str]]`
+synth_ai/environments/tasks/core.py:46:40: error[unresolved-reference] Name `StatefulEngineSnapshot` used when not defined
+synth_ai/evals/base.py:5:65: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[str]`
+synth_ai/evals/base.py:14:31: error[invalid-type-form] Variable of type `def any(iterable: Iterable[object], /) -> bool` is not allowed in a type expression
+synth_ai/evals/base.py:14:39: error[invalid-return-type] Function always implicitly returns `None`, which is not assignable to return type `list[Judgement]`
+synth_ai/learning/prompts/banking77_injection_eval.py:91:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:91:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+synth_ai/learning/prompts/banking77_injection_eval.py:93:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:83:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/hello_world_in_context_injection_ex.py:83:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+synth_ai/learning/prompts/random_search.py:235:13: error[invalid-assignment] Object of type `list[Unknown]` is not assignable to attribute `candidate_programs` on type `(Any & <Protocol with members 'candidate_programs'>) | (_ProgramLike & <Protocol with members 'candidate_programs'>)`
+synth_ai/learning/prompts/random_search.py:239:29: error[call-non-callable] Object of type `_ProgramLike` is not callable
+synth_ai/learning/prompts/run_mipro_banking77.py:69:24: error[unresolved-reference] Name `state_ref` used when not defined
+synth_ai/learning/prompts/run_mipro_banking77.py:72:68: error[unresolved-reference] Name `state_ref` used when not defined
+synth_ai/learning/prompts/run_mipro_banking77.py:113:12: warning[unresolved-global] Invalid global declaration of `state_ref`: `state_ref` has no declarations or bindings in the global scope
+synth_ai/learning/prompts/run_random_search_banking77.py:125:25: error[unresolved-reference] Name `Optional` used when not defined
+synth_ai/learning/prompts/run_random_search_banking77.py:276:9: error[invalid-argument-type] Argument to function `random_search_compile` is incorrect: Expected `_ProgramLike`, found `StudentProgram`
+synth_ai/learning/prompts/run_random_search_banking77.py:280:9: error[invalid-argument-type] Argument to function `random_search_compile` is incorrect: Expected `((_ProgramLike, Sequence[tuple[Any, Any]], (Any, Any, /) -> int | float, /) -> EvalResult) | None`, found `def eval_parallel(program: StudentProgram, dataset: Sequence[tuple[str, str]], metric_fn) -> Unknown`
+synth_ai/learning/prompts/run_random_search_banking77.py:291:30: error[invalid-argument-type] Argument to function `eval_parallel` is incorrect: Expected `StudentProgram`, found `_ProgramLike`
+synth_ai/lm/core/main.py:176:17: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:176:33: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:239:17: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:239:33: error[invalid-argument-type] Argument to function `build_messages` is incorrect: Expected `str`, found `str | None`
+synth_ai/lm/core/main.py:315:17: error[invalid-argument-type] Argument to bound method `respond_async` is incorrect: Expected `BaseModel | None`, found `<class 'TestModel'>`
+synth_ai/lm/core/main_v3.py:357:40: error[unresolved-attribute] Type `BaseTool` has no attribute `to_dict`
+synth_ai/lm/core/main_v3.py:413:35: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/lm/core/main_v3.py:414:37: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/lm/injection.py:9:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[list[dict[str, Any]] | None]`
+synth_ai/lm/overrides.py:23:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[list[dict[str, Any]] | None]`
+synth_ai/lm/overrides.py:28:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[dict[str, Any] | None]`
+synth_ai/lm/overrides.py:31:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[dict[str, Any] | None]`
+synth_ai/lm/overrides.py:34:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str | None]`
+synth_ai/lm/provider_support/anthropic.py:39:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.trackers`
+synth_ai/lm/provider_support/anthropic.py:886:9: error[invalid-assignment] Object of type `def new_client_init(instance, *args, **kwargs) -> Unknown` is not assignable to attribute `__init__` on type `Unknown | <class 'Anthropic'>`
+synth_ai/lm/provider_support/anthropic.py:947:9: error[invalid-assignment] Object of type `def new_async_init(instance, *args, **kwargs) -> Unknown` is not assignable to attribute `__init__` on type `Unknown | <class 'AsyncAnthropic'>`
+synth_ai/lm/provider_support/anthropic.py:949:9: error[unresolved-attribute] Unresolved attribute `langfuse_public_key` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:950:9: error[unresolved-attribute] Unresolved attribute `langfuse_secret_key` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:951:9: error[unresolved-attribute] Unresolved attribute `langfuse_host` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:952:9: error[unresolved-attribute] Unresolved attribute `langfuse_debug` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:953:9: error[unresolved-attribute] Unresolved attribute `langfuse_enabled` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:954:9: error[unresolved-attribute] Unresolved attribute `langfuse_sample_rate` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:955:9: error[unresolved-attribute] Unresolved attribute `langfuse_auth_check` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:956:9: error[unresolved-attribute] Unresolved attribute `flush_langfuse` on type `<module 'anthropic'>`.
+synth_ai/lm/provider_support/anthropic.py:967:12: warning[possibly-unbound-attribute] Attribute `auth_check` on type `Unknown | Langfuse | None` is possibly unbound
+synth_ai/lm/provider_support/openai.py:27:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.abstractions`
+synth_ai/lm/provider_support/openai.py:28:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.trackers`
+synth_ai/lm/provider_support/openai.py:44:5: error[invalid-assignment] Implicit shadowing of class `AsyncAzureOpenAI`
+synth_ai/lm/provider_support/openai.py:45:5: error[invalid-assignment] Implicit shadowing of class `AsyncOpenAI`
+synth_ai/lm/provider_support/openai.py:46:5: error[invalid-assignment] Implicit shadowing of class `AzureOpenAI`
+synth_ai/lm/provider_support/openai.py:47:5: error[invalid-assignment] Implicit shadowing of class `OpenAI`
+synth_ai/lm/provider_support/openai.py:771:24: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_public_key`
+synth_ai/lm/provider_support/openai.py:772:24: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_secret_key`
+synth_ai/lm/provider_support/openai.py:773:18: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_host`
+synth_ai/lm/provider_support/openai.py:774:19: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_debug`
+synth_ai/lm/provider_support/openai.py:775:21: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_enabled`
+synth_ai/lm/provider_support/openai.py:777:25: error[unresolved-attribute] Type `<module 'openai'>` has no attribute `langfuse_sample_rate`
+synth_ai/lm/provider_support/openai.py:825:9: error[unresolved-attribute] Unresolved attribute `langfuse_public_key` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:826:9: error[unresolved-attribute] Unresolved attribute `langfuse_secret_key` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:827:9: error[unresolved-attribute] Unresolved attribute `langfuse_host` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:828:9: error[unresolved-attribute] Unresolved attribute `langfuse_debug` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:829:9: error[unresolved-attribute] Unresolved attribute `langfuse_enabled` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:830:9: error[unresolved-attribute] Unresolved attribute `langfuse_sample_rate` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:831:9: error[unresolved-attribute] Unresolved attribute `langfuse_mask` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:832:9: error[unresolved-attribute] Unresolved attribute `langfuse_auth_check` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:833:9: error[unresolved-attribute] Unresolved attribute `flush_langfuse` on type `<module 'openai'>`.
+synth_ai/lm/provider_support/openai.py:845:12: warning[possibly-unbound-attribute] Attribute `auth_check` on type `Unknown | Langfuse | None` is possibly unbound
+synth_ai/lm/structured_outputs/handler.py:172:17: error[invalid-argument-type] Argument to function `inject_structured_output_instructions` is incorrect: Expected `type[BaseModel] | None`, found `BaseModel`
+synth_ai/lm/structured_outputs/handler.py:198:83: error[invalid-argument-type] Argument to function `pull_out_structured_output` is incorrect: Expected `type[BaseModel]`, found `BaseModel`
+synth_ai/lm/structured_outputs/handler.py:209:25: error[invalid-argument-type] Argument to function `fix_errant_forced_async` is incorrect: Expected `type[BaseModel]`, found `BaseModel`
+synth_ai/lm/structured_outputs/handler.py:265:17: error[invalid-argument-type] Argument to function `inject_structured_output_instructions` is incorrect: Expected `type[BaseModel] | None`, found `BaseModel`
+synth_ai/lm/structured_outputs/handler.py:290:83: error[invalid-argument-type] Argument to function `pull_out_structured_output` is incorrect: Expected `type[BaseModel]`, found `BaseModel`
+synth_ai/lm/structured_outputs/handler.py:298:44: error[invalid-argument-type] Argument to function `fix_errant_forced_sync` is incorrect: Expected `type[BaseModel]`, found `BaseModel`
+synth_ai/lm/structured_outputs/rehabilitate.py:150:13: error[invalid-argument-type] Argument to bound method `_hit_api_async_structured_output` is incorrect: Expected `BaseModel`, found `type[BaseModel]`
+synth_ai/lm/structured_outputs/rehabilitate.py:155:16: error[unresolved-attribute] Type `str` has no attribute `structured_output`
+synth_ai/lm/structured_outputs/rehabilitate.py:177:41: error[invalid-argument-type] Argument to bound method `_hit_api_sync_structured_output` is incorrect: Expected `BaseModel`, found `type[BaseModel]`
+synth_ai/lm/structured_outputs/rehabilitate.py:181:12: error[unresolved-attribute] Type `str` has no attribute `structured_output`
+synth_ai/lm/vendors/core/anthropic_api.py:257:13: error[invalid-assignment] Object of type `dict[str, Any] | str` is not assignable to `str`
+synth_ai/lm/vendors/core/anthropic_api.py:276:17: error[invalid-assignment] Object of type `dict[str, Any] | Unknown | Literal[1, 0]` is not assignable to `int | float`
+synth_ai/lm/vendors/core/anthropic_api.py:288:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/anthropic_api.py:316:13: error[invalid-assignment] Object of type `dict[str, Any] | str` is not assignable to `str`
+synth_ai/lm/vendors/core/anthropic_api.py:335:17: error[invalid-assignment] Object of type `dict[str, Any] | Unknown | Literal[1, 0]` is not assignable to `int | float`
+synth_ai/lm/vendors/core/anthropic_api.py:349:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/anthropic_api.py:374:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/lm/vendors/core/mistral_api.py:241:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/mistral_api.py:280:35: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/mistral_api.py:305:59: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `tuple[type[Exception], ...]`, found `list[Unknown]`
+synth_ai/lm/vendors/core/mistral_api.py:314:13: error[invalid-argument-type] Argument to bound method `_hit_api_async_structured_output` is incorrect: Expected `BaseModel`, found `<class 'TestModel'>`
+synth_ai/lm/vendors/core/openai_api.py:24:1: error[invalid-assignment] Object of type `tuple[Unknown, <class 'OpenAIError'>, <class 'APIConnectionError'>, <class 'RateLimitError'>, <class 'APIError'>, <class 'Timeout'>, <class 'InternalServerError'>, <class 'APIConnectionError'>]` is not assignable to `tuple[type[Exception], ...]`
+synth_ai/lm/vendors/core/openai_api.py:25:5: error[unresolved-attribute] Type `<module 'pydantic_core'>` has no attribute `_pydantic_core`
+synth_ai/lm/vendors/core/openai_api.py:101:22: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/openai_api.py:108:16: error[invalid-return-type] Return type does not match returned value: expected `str`, found `BaseLMResponse`
+synth_ai/lm/vendors/core/openai_api.py:149:22: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/core/openai_api.py:159:16: error[invalid-return-type] Return type does not match returned value: expected `str`, found `BaseLMResponse`
+synth_ai/lm/vendors/core/openai_api.py:177:9: error[unknown-argument] Argument `sync_client` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:178:9: error[unknown-argument] Argument `async_client` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:179:9: error[unknown-argument] Argument `used_for_structured_outputs` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:180:9: error[unknown-argument] Argument `exceptions_to_retry` does not match any known parameter of bound method `__init__`
+synth_ai/lm/vendors/core/openai_api.py:189:9: error[invalid-argument-type] Argument to bound method `_hit_api_sync_structured_output` is incorrect: Expected `BaseModel`, found `<class 'TestModel'>`
+synth_ai/lm/vendors/openai_standard.py:28:5: error[unresolved-attribute] Type `<module 'pydantic_core'>` has no attribute `_pydantic_core`
+synth_ai/lm/vendors/openai_standard.py:78:5: error[invalid-assignment] Object of type `tuple[Unknown, <class 'APIConnectionError'>, <class 'APITimeoutError'>, <class 'InternalServerError'>, <class 'APITimeoutError'>, <class 'APIConnectionError'>]` is not assignable to `list[Unknown]`
+synth_ai/lm/vendors/openai_standard.py:86:9: error[invalid-parameter-default] Default value of type `tuple[Unknown, <class 'APIConnectionError'>, <class 'APITimeoutError'>, <class 'InternalServerError'>, <class 'APITimeoutError'>, <class 'APIConnectionError'>]` is not assignable to annotated parameter type `list[Exception]`
+synth_ai/lm/vendors/openai_standard.py:665:40: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/openai_standard.py:738:40: error[call-non-callable] Object of type `BaseModel` is not callable
+synth_ai/lm/vendors/supported/custom_endpoint.py:240:23: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/lm/vendors/supported/custom_endpoint.py:250:10: error[invalid-return-type] Function can implicitly return `None`, which is not assignable to return type `BaseLMResponse`
+synth_ai/lm/vendors/supported/custom_endpoint.py:330:10: error[invalid-return-type] Function can implicitly return `None`, which is not assignable to return type `BaseLMResponse`
+synth_ai/tracing_v3/abstractions.py:235:58: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/abstractions.py:269:59: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/decorators.py:38:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str | None]`
+synth_ai/tracing_v3/decorators.py:41:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[int | None]`
+synth_ai/tracing_v3/decorators.py:121:65: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:131:65: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:140:5: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/decorators.py:217:41: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:236:45: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/decorators.py:251:47: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/decorators.py:290:35: error[unresolved-attribute] Type `(...) -> T@decorator` has no attribute `__name__`
+synth_ai/tracing_v3/examples/basic_usage.py:136:29: warning[possibly-unbound-attribute] Attribute `get_model_usage` on type `AsyncSQLTraceManager | None` is possibly unbound
+synth_ai/tracing_v3/examples/basic_usage.py:152:36: warning[possibly-unbound-attribute] Attribute `get_session_trace` on type `AsyncSQLTraceManager | None` is possibly unbound
+synth_ai/tracing_v3/examples/basic_usage.py:153:43: error[non-subscriptable] Cannot subscript object of type `None` with no `__getitem__` method
+synth_ai/tracing_v3/examples/basic_usage.py:154:33: error[non-subscriptable] Cannot subscript object of type `None` with no `__getitem__` method
+synth_ai/tracing_v3/examples/basic_usage.py:155:39: error[non-subscriptable] Cannot subscript object of type `None` with no `__getitem__` method
+synth_ai/tracing_v3/examples/basic_usage.py:178:1: error[invalid-syntax] Unexpected indentation
+synth_ai/tracing_v3/examples/basic_usage.py:187:1: error[invalid-syntax] Expected a statement
+synth_ai/tracing_v3/hooks.py:90:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/hooks.py:92:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `list[str]`
+synth_ai/tracing_v3/hooks.py:116:26: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/tracing_v3/llm_call_record_helpers.py:164:43: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:165:47: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:175:9: error[invalid-argument-type] Argument is incorrect: Expected `str | None`, found `object`
+synth_ai/tracing_v3/llm_call_record_helpers.py:325:43: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/llm_call_record_helpers.py:326:47: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/replica_sync.py:70:21: error[unresolved-attribute] Type `<module 'libsql'>` has no attribute `Connection`
+synth_ai/tracing_v3/replica_sync.py:90:26: error[unresolved-attribute] Type `<module 'libsql'>` has no attribute `connect`
+synth_ai/tracing_v3/session_tracer.py:99:37: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:139:32: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:173:42: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:228:51: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:245:33: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `bool`
+synth_ai/tracing_v3/session_tracer.py:261:50: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/session_tracer.py:292:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `bool`
+synth_ai/tracing_v3/storage/base.py:45:46: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/tracing_v3/storage/base.py:59:15: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `datetime`
+synth_ai/tracing_v3/storage/base.py:59:44: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `datetime`
+synth_ai/tracing_v3/storage/base.py:59:71: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/storage/base.py:95:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/storage/base.py:96:9: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `dict[str, Any]`
+synth_ai/tracing_v3/storage/base.py:106:35: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/storage/factory.py:28:16: error[invalid-return-type] Return type does not match returned value: expected `TraceStorage`, found `AsyncSQLTraceManager`
+synth_ai/tracing_v3/storage/factory.py:32:16: error[invalid-return-type] Return type does not match returned value: expected `TraceStorage`, found `AsyncSQLTraceManager`
+synth_ai/tracing_v3/storage/utils.py:38:19: error[invalid-raise] Cannot raise object of type `None | Exception` (must be a `BaseException` subclass or instance)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:37:31: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:58:16: warning[possibly-unbound-attribute] Attribute `total_tokens` on type `LLMUsage | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_llm_call_records.py:64:31: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:65:33: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:129:16: warning[possibly-unbound-attribute] Attribute `total_tokens` on type `LLMUsage | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_llm_call_records.py:237:82: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:329:22: error[unresolved-attribute] Type `BaseEvent` has no attribute `call_records`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:330:22: error[unresolved-attribute] Type `BaseEvent` has no attribute `call_records`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:344:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:351:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:358:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:365:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:372:38: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/tracing_v3/tests/test_llm_call_records.py:387:20: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `list[LLMChunk] | None`
+synth_ai/tracing_v3/tests/test_llm_call_records.py:443:16: warning[possibly-unbound-attribute] Attribute `total_tokens` on type `LLMUsage | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_llm_call_records.py:488:16: warning[possibly-unbound-attribute] Attribute `total_tokens` on type `LLMUsage | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_replica_sync.py:113:17: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `int | None`, found `float`
+synth_ai/tracing_v3/tests/test_replica_sync.py:149:69: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `int | None`, found `float`
+synth_ai/tracing_v3/tests/test_replica_sync.py:209:69: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `int | None`, found `float`
+synth_ai/tracing_v3/tests/test_session_tracer.py:52:20: warning[possibly-unbound-attribute] Attribute `events` on type `SessionTimeStep | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:57:20: warning[possibly-unbound-attribute] Attribute `markov_blanket_messages` on type `SessionTimeStep | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:226:16: warning[possibly-unbound-attribute] Attribute `session_id` on type `SessionTrace | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:226:54: warning[possibly-unbound-attribute] Attribute `session_id` on type `SessionTrace | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:232:20: warning[possibly-unbound-attribute] Attribute `markov_blanket_message_history` on type `SessionTrace | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:233:20: warning[possibly-unbound-attribute] Attribute `markov_blanket_message_history` on type `SessionTrace | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:352:16: warning[possibly-unbound-attribute] Attribute `total_tokens` on type `LLMUsage | None` is possibly unbound
+synth_ai/tracing_v3/tests/test_session_tracer.py:368:20: warning[possibly-unbound-attribute] Attribute `session_time_steps` on type `SessionTrace | None` is possibly unbound
+synth_ai/tracing_v3/turso/daemon.py:16:24: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:16:45: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/turso/daemon.py:16:68: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:77:20: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/tracing_v3/turso/daemon.py:123:16: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `str`
+synth_ai/tracing_v3/turso/daemon.py:123:37: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/tracing_v3/utils.py:12:21: warning[deprecated] The function `utcnow` is deprecated: Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .now(datetime.timezone.utc)
+synth_ai/v0/tracing/abstractions.py:106:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing/abstractions.py:153:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing/context.py:94:51: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:95:47: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:96:65: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing/context.py:100:77: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[str, Any] | dict[Unknown, Unknown]`
+synth_ai/v0/tracing/context.py:104:37: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[Unknown, Unknown]`
+synth_ai/v0/tracing/decorators.py:136:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:136:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:157:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:158:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:159:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:177:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/decorators.py:306:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:307:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:314:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:315:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:322:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing/decorators.py:324:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing/decorators.py:353:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing/decorators.py:390:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:390:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing/decorators.py:411:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:412:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:413:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing/decorators.py:431:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/decorators.py:552:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:553:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:560:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:561:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing/decorators.py:568:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing/decorators.py:570:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing/decorators.py:607:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing/decorators.py:637:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing/decorators.py:638:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing/decorators.py:639:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing/decorators.py:640:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing/decorators.py:649:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing/decorators.py:650:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing/decorators.py:651:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing/decorators.py:652:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing/events/manage.py:20:49: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `Literal["sync", "async"]`
+synth_ai/v0/tracing/events/scope.py:50:9: error[invalid-argument-type] Argument is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/events/scope.py:55:9: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing/events/scope.py:86:35: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/events/scope.py:86:48: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing/immediate_client.py:43:17: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing/immediate_client.py:137:25: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing/local.py:12:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/local.py:13:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/local.py:14:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing/log_client_base.py:22:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing/log_client_base.py:57:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing/retry_queue.py:141:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.immediate_client`
+synth_ai/v0/tracing/trackers.py:133:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:134:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:148:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:183:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:193:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/trackers.py:213:16: error[invalid-return-type] Return type does not match returned value: expected `tuple[list[dict[str, Any]], list[dict[str, Any]]]`, found `tuple[Unknown | None, Unknown | None]`
+synth_ai/v0/tracing/trackers.py:218:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:219:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing/trackers.py:234:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing/upload.py:74:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:105:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:124:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:159:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing/upload.py:359:6: error[invalid-return-type] Function always implicitly returns `None`, which is not assignable to return type `tuple[ProcessUploadResponse, list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]`
+synth_ai/v0/tracing_v1/abstractions.py:106:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing_v1/abstractions.py:153:5: error[invalid-assignment] Object of type `None` is not assignable to `dict[str, Any]`
+synth_ai/v0/tracing_v1/context.py:94:51: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:95:47: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:96:65: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[str]`, found `str`
+synth_ai/v0/tracing_v1/context.py:100:77: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[str, Any] | dict[Unknown, Unknown]`
+synth_ai/v0/tracing_v1/context.py:104:37: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `ContextVar[dict[str, Any]]`, found `dict[Unknown, Unknown]`
+synth_ai/v0/tracing_v1/decorators.py:147:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:147:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:168:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:169:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:170:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:188:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/decorators.py:317:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:318:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:325:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:326:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:333:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing_v1/decorators.py:335:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing_v1/decorators.py:364:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing_v1/decorators.py:411:34: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:411:53: error[invalid-type-form] The first argument to `Callable` must be either a list of types, ParamSpec, Concatenate, or `...`
+synth_ai/v0/tracing_v1/decorators.py:432:29: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:433:41: warning[possibly-unbound-attribute] Attribute `system_name` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:434:36: warning[possibly-unbound-attribute] Attribute `system_instance_id` on type `@Todo | ~AlwaysFalsy` is possibly unbound
+synth_ai/v0/tracing_v1/decorators.py:452:29: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/decorators.py:573:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:574:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:581:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:582:37: error[invalid-argument-type] Argument is incorrect: Expected `datetime`, found `int | float`
+synth_ai/v0/tracing_v1/decorators.py:589:37: error[invalid-assignment] Object of type `AgentComputeStep | EnvironmentComputeStep` is not assignable to attribute `agent_compute_step` on type `Event & ~AlwaysFalsy`
+synth_ai/v0/tracing_v1/decorators.py:591:76: error[invalid-argument-type] Argument to bound method `append` is incorrect: Expected `EnvironmentComputeStep`, found `AgentComputeStep | EnvironmentComputeStep`
+synth_ai/v0/tracing_v1/decorators.py:628:67: error[unresolved-attribute] Type `(...) -> Unknown` has no attribute `__name__`
+synth_ai/v0/tracing_v1/decorators.py:658:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing_v1/decorators.py:659:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:660:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing_v1/decorators.py:661:17: error[invalid-argument-type] Argument to function `trace_event_async` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:670:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `str`
+synth_ai/v0/tracing_v1/decorators.py:671:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `Origin`, found `bool`
+synth_ai/v0/tracing_v1/decorators.py:672:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `bool`, found `Literal["create", "end", "lazy_end"] | None`
+synth_ai/v0/tracing_v1/decorators.py:673:17: error[invalid-argument-type] Argument to function `trace_event_sync` is incorrect: Expected `EventManagement`, found `bool`
+synth_ai/v0/tracing_v1/events/manage.py:20:49: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `Literal["sync", "async"]`
+synth_ai/v0/tracing_v1/events/scope.py:50:9: error[invalid-argument-type] Argument is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/events/scope.py:55:9: error[invalid-argument-type] Argument is incorrect: Expected `AgentComputeStep`, found `None`
+synth_ai/v0/tracing_v1/events/scope.py:86:35: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/events/scope.py:86:48: error[invalid-argument-type] Argument to bound method `add_event` is incorrect: Expected `str`, found `str | Any | None`
+synth_ai/v0/tracing_v1/immediate_client.py:43:17: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing_v1/immediate_client.py:137:25: error[unresolved-attribute] Unresolved attribute `id` on type `Event`.
+synth_ai/v0/tracing_v1/local.py:12:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/local.py:13:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/local.py:14:1: error[invalid-assignment] Object of type `ContextVar[None]` is not assignable to `ContextVar[str]`
+synth_ai/v0/tracing_v1/log_client_base.py:22:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing_v1/log_client_base.py:57:43: error[invalid-parameter-default] Default value of type `None` is not assignable to annotated parameter type `int`
+synth_ai/v0/tracing_v1/retry_queue.py:141:18: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing_v1.immediate_client`
+synth_ai/v0/tracing_v1/trackers.py:133:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:134:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:148:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:183:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:193:17: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/trackers.py:213:16: error[invalid-return-type] Return type does not match returned value: expected `tuple[list[dict[str, Any]], list[dict[str, Any]]]`, found `tuple[Unknown | None, Unknown | None]`
+synth_ai/v0/tracing_v1/trackers.py:218:30: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:219:31: error[invalid-argument-type] Argument to bound method `set` is incorrect: Expected `None`, found `list[Unknown]`
+synth_ai/v0/tracing_v1/trackers.py:234:13: warning[possibly-unbound-attribute] Attribute `append` on type `Unknown | None` is possibly unbound
+synth_ai/v0/tracing_v1/upload.py:89:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:120:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:139:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:174:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+synth_ai/v0/tracing_v1/upload.py:517:12: error[unresolved-attribute] Type `<module 'requests'>` has no attribute `exceptions`
+tests/api/conftest.py:14:12: error[invalid-return-type] Return type does not match returned value: expected `str`, found `str | None`
+tests/environments/integration/test_service_api.py:223:9: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/integration/test_service_api.py:226:35: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/integration/test_sokoban_service.py:8:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/integration/test_sokoban_service.py:136:9: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/integration/test_sokoban_service.py:139:35: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/integration/test_sokoban_service.py:177:9: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/integration/test_sokoban_service.py:179:35: error[unresolved-attribute] Type `StatefulEnvironment` has no attribute `engine`
+tests/environments/unit/test_all_environments_api.py:24:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/unit/test_all_environments_api.py:320:47: error[not-iterable] Object of type `BaseException & ~Exception` is not iterable
+tests/environments/unit/test_crafter_api_bug.py:16:6: error[unresolved-import] Cannot resolve imported module `public_tests.environments.utils`
+tests/environments/unit/test_crafter_api_bug.py:258:16: error[unsupported-operator] Operator `not in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["error"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:261:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["inventory"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:262:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["achievements_status"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:263:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["player_position"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:264:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["player_direction"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:265:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["num_steps_taken"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:266:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["max_steps_episode"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:267:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["terminated"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:268:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["truncated"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:271:28: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:272:25: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:273:30: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:274:29: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:295:20: error[unsupported-operator] Operator `not in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["error"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:298:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["player_position"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:299:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["num_steps_taken"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:302:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["terminated"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:303:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["truncated"]` with `InternalObservation`
+tests/environments/unit/test_crafter_api_bug.py:309:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:309:42: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_crafter_api_bug.py:315:16: error[unsupported-operator] Operator `not in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["error"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:37:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:44:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["observation"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:45:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["reward_last"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:53:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["observation"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:54:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["reward_last"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:62:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["observation"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:63:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["reward_last"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:71:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["observation"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:72:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["reward_last"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:136:28: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:147:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["observation"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:148:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["reward_last"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:149:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["public"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:150:20: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["private"]` with `InternalObservation`
+tests/environments/unit/test_minigrid_service_integration.py:153:20: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:154:20: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:157:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:160:26: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_minigrid_service_integration.py:165:31: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_sokoban_failure.py:1:8: error[unresolved-import] Cannot resolve imported module `gym_sokoban.envs.room_utils`
+tests/environments/unit/test_sokoban_failure.py:3:6: error[unresolved-import] Cannot resolve imported module `gym_sokoban.envs.room_utils`
+tests/environments/unit/test_sokoban_qstar.py:288:16: error[unsupported-operator] Operator `in` is not supported for types `str` and `InternalObservation`, in comparing `Literal["room_text"]` with `InternalObservation`
+tests/environments/unit/test_sokoban_qstar.py:289:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_sokoban_qstar.py:290:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_sokoban_qstar.py:306:19: error[unresolved-attribute] Type `InternalObservation` has no attribute `get`
+tests/environments/unit/test_sokoban_qstar.py:309:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_sokoban_qstar.py:310:16: warning[possibly-unbound-attribute] Attribute `get` on type `InternalObservation | Unknown` is possibly unbound
+tests/environments/unit/test_wordle.py:25:14: error[unresolved-attribute] Type `TaskInstanceMetadata` has no attribute `target_word`
+tests/environments/unit/test_wordle.py:30:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:31:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:32:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:45:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:60:41: error[unresolved-attribute] Type `TaskInstanceMetadata` has no attribute `target_word`
+tests/environments/unit/test_wordle.py:65:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:66:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:68:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:88:14: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:88:31: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:89:14: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:89:32: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:96:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle.py:96:30: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle_integrity.py:27:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle_integrity.py:28:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle_integrity.py:41:12: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle_integrity.py:44:16: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/environments/unit/test_wordle_integrity.py:45:15: error[non-subscriptable] Cannot subscript object of type `InternalObservation` with no `__getitem__` method
+tests/evals/banking77_injection_eval.py:72:36: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+tests/evals/banking77_injection_eval.py:72:55: error[invalid-argument-type] Argument to function `len` is incorrect: Expected `Sized`, found `DatasetDict | Dataset | IterableDatasetDict | IterableDataset`
+tests/evals/banking77_injection_eval.py:74:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+tests/evals/banking77_injection_eval.py:74:10: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+tests/evals/banking77_injection_eval.py:74:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDatasetDict.__getitem__(key: str | NamedSplit, /) -> IterableDataset` cannot be called with key of type `int` on object of type `IterableDatasetDict`
+tests/evals/banking77_injection_eval.py:74:41: error[invalid-argument-type] Method `__getitem__` of type `bound method IterableDataset.__getitem__(column_name: str) -> IterableColumn` cannot be called with key of type `int` on object of type `IterableDataset`
+tests/modal_test_qwen_app.py:25:10: error[unresolved-import] Cannot resolve imported module `transformers`
+tests/test_all_structured_outputs.py:134:9: error[invalid-argument-type] Argument to bound method `respond_sync` is incorrect: Expected `BaseModel | None`, found `<class 'StateUpdate'>`
+tests/test_all_structured_outputs.py:202:9: error[invalid-argument-type] Argument to bound method `respond_sync` is incorrect: Expected `BaseModel | None`, found `<class 'StateUpdate'>`
+tests/test_grok_integration.py:152:13: error[invalid-argument-type] Argument to bound method `respond_sync` is incorrect: Expected `BaseModel | None`, found `<class 'SimpleResponse'>`
+tests/test_structured.py:31:9: error[invalid-argument-type] Argument to bound method `respond_sync` is incorrect: Expected `BaseModel | None`, found `<class 'Person'>`
+tests/test_structured.py:55:9: error[invalid-argument-type] Argument to bound method `respond_sync` is incorrect: Expected `BaseModel | None`, found `<class 'Person'>`
+tests/test_text.py:49:9: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `tuple[type[Exception], ...]`, found `list[Unknown]`
+tests/test_tools.py:101:9: error[invalid-argument-type] Argument to bound method `__init__` is incorrect: Expected `tuple[type[Exception], ...]`, found `list[Unknown]`
+tests/tracing/test_abstractions.py:7:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.abstractions`
+tests/tracing/test_decorators.py:8:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.decorators`
+tests/tracing/test_decorators.py:12:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.events.store`
+tests/tracing/test_upload.py:11:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.abstractions`
+tests/tracing/test_upload.py:25:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.events.store`
+tests/tracing/test_upload.py:26:6: error[unresolved-import] Cannot resolve imported module `synth_ai.tracing.upload`
+tests/unit/test_main_v3_structured.py:33:20: error[call-non-callable] Object of type `BaseModel` is not callable
+Found 461 diagnostics

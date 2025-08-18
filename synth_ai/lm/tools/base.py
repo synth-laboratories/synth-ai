@@ -41,7 +41,7 @@ class BaseTool(BaseModel):
         schema["additionalProperties"] = False
 
         if "properties" in schema:
-            for prop_name, prop_schema in schema["properties"].items():
+            for _prop_name, prop_schema in schema["properties"].items():
                 if prop_schema.get("type") == "array":
                     items_schema = prop_schema.get("items", {})
                     if not isinstance(items_schema, dict) or not items_schema.get("type"):

@@ -95,8 +95,11 @@ class AnthropicAPI(VendorBase):
             import inspect
 
             create_sig = inspect.signature(self.async_client.messages.create)
-            if "thinking" in create_sig.parameters and model in CLAUDE_REASONING_MODELS:
-                if reasoning_effort in ["high", "medium"]:
+            if (
+                "thinking" in create_sig.parameters
+                and model in CLAUDE_REASONING_MODELS
+                and reasoning_effort in ["high", "medium"]
+            ):
                     budget = SONNET_37_BUDGETS[reasoning_effort]
                     api_params["thinking"] = {
                         "type": "enabled",

@@ -140,12 +140,12 @@ class StringifiedJSONHandler(StructuredHandlerBase):
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
-        handler_params: dict[str, Any] = {"retries": 3},
+        handler_params: dict[str, Any] | None = None,
     ):
         super().__init__(
             core_client,
             retry_client,
-            handler_params,
+            handler_params or {"retries": 3},
             structured_output_mode="stringified_json",
         )
 
@@ -328,13 +328,13 @@ class ForcedJSONHandler(StructuredHandlerBase):
         self,
         core_client: VendorBase,
         retry_client: VendorBase,
-        handler_params: dict[str, Any] = {},
+        handler_params: dict[str, Any] | None = None,
         reasoning_effort: str = "high",
     ):
         super().__init__(
             core_client,
             retry_client,
-            handler_params,
+            handler_params or {"retries": 3},
             structured_output_mode="forced_json",
         )
         self.reasoning_effort = reasoning_effort
