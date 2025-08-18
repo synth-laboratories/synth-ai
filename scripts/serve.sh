@@ -142,10 +142,36 @@ kill_port "${ENV_PORT}"
 kill_pattern "uvicorn .*synth_ai\.environments\.service\.app:app"
 
 # Add project root to PYTHONPATH idempotently and without leading ':'
-if [ -z "${PYTHONPATH}" ]; then
-  export PYTHONPATH="$(pwd)"
-elif ! printf %s "$PYTHONPATH" | tr ':' '\n' | grep -Fxq "$(pwd)"; then
-  export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+# Normalize PYTHONPATH and ensure project root is present exactly once
+project_root="$(pwd)"
+current_pp="${PYTHONPATH:-}"
+if [ -z "$current_pp" ] || [ "$current_pp" = ":" ]; then
+  export PYTHONPATH="$project_root"
+else
+  # Split on ':' and rebuild without empty segments
+  IFS=':' read -r -a parts <<< "$current_pp"
+  rebuilt=""
+  for seg in "${parts[@]}"; do
+    if [ -n "$seg" ]; then
+      if [ -z "$rebuilt" ]; then
+        rebuilt="$seg"
+      else
+        rebuilt="$rebuilt:$seg"
+      fi
+    fi
+  done
+  # Append project root if missing
+  case ":$rebuilt:" in
+    *:"$project_root":*) ;;
+    *)
+      if [ -n "$rebuilt" ]; then
+        rebuilt="$rebuilt:$project_root"
+      else
+        rebuilt="$project_root"
+      fi
+      ;;
+  esac
+  export PYTHONPATH="$rebuilt"
 fi
 export SYNTH_LOGGING="true"
 

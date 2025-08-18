@@ -2,6 +2,7 @@ from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
 from synth_ai.lm.vendors.core.gemini_api import GeminiAPI
 from synth_ai.lm.vendors.core.openai_api import (
     OpenAIPrivate,
+    OpenAIStructuredOutputClient,
 )
 from synth_ai.lm.vendors.supported.custom_endpoint import CustomEndpointAPI
 from synth_ai.lm.vendors.supported.deepseek import DeepSeekAPI
