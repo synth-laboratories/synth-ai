@@ -104,3 +104,7 @@ temp/
 
 .github
 .env.bak
+
+# Generated learning prompt JSONs
+synth_ai/learning/prompts/*.json
+synth_ai/learning/prompts/**/*.json
