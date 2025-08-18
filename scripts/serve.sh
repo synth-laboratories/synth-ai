@@ -13,14 +13,46 @@ ENV_PORT="8901"
 SQLD_BIN="sqld"
 
 ########################################
+# HELPERS
+########################################
+kill_port() {
+  local port="$1"
+  # Get all listening PIDs on the port and kill them
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids=$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null || true)
+    if [ -n "${pids}" ]; then
+      echo "🔪 Killing processes on port ${port}: ${pids}"
+      kill ${pids} 2>/dev/null || true
+      sleep 1
+      # Force kill if still alive
+      pids=$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null || true)
+      if [ -n "${pids}" ]; then
+        echo "💥 Force killing processes on port ${port}: ${pids}"
+        kill -9 ${pids} 2>/dev/null || true
+        sleep 1
+      fi
+    fi
+  fi
+}
+
+kill_pattern() {
+  local pattern="$1"
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -f "$pattern" 2>/dev/null || true
+    sleep 1
+  fi
+}
+
+########################################
 # START TURSO SQLD (background)
 ########################################
 # Always start sqld for v3 tracing support
 echo "🗄️  Starting sqld for v3 tracing support"
 
 # First, ensure sqld is properly installed
-if [ -f "./install_sqld.sh" ]; then
-  ./install_sqld.sh
+if [ -f "scripts/install_sqld.sh" ]; then
+  scripts/install_sqld.sh
 else
   echo "⚠️  install_sqld.sh not found, checking if sqld is already installed..."
   if ! command -v "${SQLD_BIN}" >/dev/null 2>&1; then
@@ -33,7 +65,11 @@ fi
 # Ensure DB directory exists
 mkdir -p "$(dirname \"${DB_FILE}\")"
 
-# Check if sqld is already running
+# Ensure previous daemons are stopped
+kill_port "${SQLD_PORT}"
+kill_pattern "${SQLD_BIN}.*--http-listen-addr.*:${SQLD_PORT}"
+
+# Check if sqld is already running (after kill attempts)
 if pgrep -f "${SQLD_BIN}.*--http-listen-addr.*:${SQLD_PORT}" >/dev/null; then
   echo "✅ sqld already running on port ${SQLD_PORT}"
   echo "   Database: ${DB_FILE}"
@@ -101,13 +137,9 @@ if [ ! -f "pyproject.toml" ] || [ ! -d "synth_ai" ]; then
   exit 1
 fi
 
-# Check if port is already in use
-if lsof -i:${ENV_PORT} >/dev/null 2>&1; then
-  echo "⚠️  Port ${ENV_PORT} is already in use!"
-  echo "   Another instance of the environment service may be running."
-  echo "   To stop it, find the process using: lsof -i:${ENV_PORT}"
-  echo ""
-fi
+# Kill any previous uvicorn on ENV_PORT or by pattern
+kill_port "${ENV_PORT}"
+kill_pattern "uvicorn .*synth_ai\.environments\.service\.app:app"
 
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 export SYNTH_LOGGING="true"

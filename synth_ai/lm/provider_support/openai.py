@@ -15,6 +15,13 @@ from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from packaging.version import Version
 from pydantic import BaseModel
 from wrapt import wrap_function_wrapper
+from synth_ai.lm.overrides import (
+    use_overrides_for_messages,
+    apply_injection as apply_injection_overrides,
+    apply_param_overrides,
+    apply_tool_overrides,
+)
+from synth_ai.lm.injection import apply_injection
 
 from synth_ai.lm.provider_support.suppress_logging import *
 from synth_ai.tracing_v1.abstractions import MessageInputs
@@ -475,7 +482,17 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
     )
     generation = new_langfuse.generation(**generation)
     try:
-        openai_response = wrapped(**arg_extractor.get_openai_args())
+        openai_args = arg_extractor.get_openai_args()
+        # Apply context-scoped injection to chat messages if present
+        if isinstance(openai_args, dict) and "messages" in openai_args:
+            try:
+                with use_overrides_for_messages(openai_args["messages"]):  # type: ignore[arg-type]
+                    openai_args["messages"] = apply_injection_overrides(openai_args["messages"])  # type: ignore[arg-type]
+                    openai_args = apply_tool_overrides(openai_args)
+                    openai_args = apply_param_overrides(openai_args)
+            except Exception:
+                pass
+        openai_response = wrapped(**openai_args)
 
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorSync(
@@ -527,7 +544,7 @@ def _wrap(open_ai_resource: OpenAiDefinition, initialize, wrapped, args, kwargs)
                 )
 
             elif open_ai_resource.type == "chat":
-                messages = arg_extractor.get_openai_args().get("messages", [])
+                messages = openai_args.get("messages", [])
                 message_input = MessageInputs(messages=messages)
 
                 # Track user input
@@ -605,7 +622,17 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
     generation = new_langfuse.generation(**generation)
 
     try:
-        openai_response = await wrapped(**arg_extractor.get_openai_args())
+        openai_args = arg_extractor.get_openai_args()
+        # Apply context-scoped injection to chat messages if present
+        if isinstance(openai_args, dict) and "messages" in openai_args:
+            try:
+                with use_overrides_for_messages(openai_args["messages"]):  # type: ignore[arg-type]
+                    openai_args["messages"] = apply_injection_overrides(openai_args["messages"])  # type: ignore[arg-type]
+                    openai_args = apply_tool_overrides(openai_args)
+                    openai_args = apply_param_overrides(openai_args)
+            except Exception:
+                pass
+        openai_response = await wrapped(**openai_args)
 
         if _is_streaming_response(openai_response):
             return LangfuseResponseGeneratorAsync(
@@ -654,7 +681,7 @@ async def _wrap_async(open_ai_resource: OpenAiDefinition, initialize, wrapped, a
                 )
 
             elif open_ai_resource.type == "chat":
-                messages = arg_extractor.get_openai_args().get("messages", [])
+                messages = openai_args.get("messages", [])
                 message_input = MessageInputs(messages=messages)
 
                 # Track user input

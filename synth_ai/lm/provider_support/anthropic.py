@@ -27,6 +27,13 @@ from langfuse.decorators import langfuse_context
 from langfuse.utils import _get_timestamp
 from langfuse.utils.langfuse_singleton import LangfuseSingleton
 from wrapt import wrap_function_wrapper
+from synth_ai.lm.overrides import (
+    use_overrides_for_messages,
+    apply_injection as apply_injection_overrides,
+    apply_param_overrides,
+    apply_tool_overrides,
+)
+from synth_ai.lm.injection import apply_injection
 
 from synth_ai.lm.provider_support.suppress_logging import *
 from synth_ai.tracing_v1.trackers import (
@@ -349,7 +356,17 @@ def _wrap(anthropic_resource: AnthropicDefinition, initialize, wrapped, args, kw
     generation = new_langfuse.generation(**generation_data)
 
     try:
-        anthropic_response = wrapped(*args, **arg_extractor.get_anthropic_args())
+        call_kwargs = arg_extractor.get_anthropic_args()
+        # Apply context-scoped injection to chat messages if present
+        if isinstance(call_kwargs, dict) and "messages" in call_kwargs:
+            try:
+                with use_overrides_for_messages(call_kwargs["messages"]):  # type: ignore[arg-type]
+                    call_kwargs["messages"] = apply_injection_overrides(call_kwargs["messages"])  # type: ignore[arg-type]
+                    call_kwargs = apply_tool_overrides(call_kwargs)
+                    call_kwargs = apply_param_overrides(call_kwargs)
+            except Exception:
+                pass
+        anthropic_response = wrapped(*args, **call_kwargs)
 
         # If it's a streaming call, returns a generator
         if isinstance(anthropic_response, types.GeneratorType):
@@ -363,10 +380,10 @@ def _wrap(anthropic_resource: AnthropicDefinition, initialize, wrapped, args, kw
         else:
             model, completion, usage = _extract_anthropic_completion(anthropic_response)
             # Synth tracking
-            if "messages" in arg_extractor.get_anthropic_args():
+            if "messages" in call_kwargs:
                 # print("\nWRAP: Messages API path")
-                system_content = arg_extractor.get_anthropic_args().get("system")
-                original_messages = arg_extractor.get_anthropic_args()["messages"]
+                system_content = call_kwargs.get("system")
+                original_messages = call_kwargs["messages"]
                 # print(f"WRAP: Original messages: {original_messages}")
                 # print(f"WRAP: System content: {system_content}")
 
@@ -397,9 +414,9 @@ def _wrap(anthropic_resource: AnthropicDefinition, initialize, wrapped, args, kw
                 )
                 # print("Finished tracking LM output")
 
-            elif "prompt" in arg_extractor.get_anthropic_args():
+            elif "prompt" in call_kwargs:
                 # print("\nWRAP: Completions API path")
-                user_prompt = arg_extractor.get_anthropic_args().get("prompt", "")
+                user_prompt = call_kwargs.get("prompt", "")
                 # print(f"WRAP: User prompt: {user_prompt}")
                 messages = [{"role": "user", "content": user_prompt}]
                 # print(f"WRAP: Messages created: {messages}")
@@ -476,17 +493,27 @@ async def _wrap_async(anthropic_resource: AnthropicDefinition, initialize, wrapp
 
     try:
         logger.debug("About to call wrapped function")
-        response = await wrapped(*args, **kwargs)
+        call_kwargs = kwargs
+        # Apply context-scoped injection to chat messages if present
+        if isinstance(call_kwargs, dict) and "messages" in call_kwargs:
+            try:
+                with use_overrides_for_messages(call_kwargs["messages"]):  # type: ignore[arg-type]
+                    call_kwargs["messages"] = apply_injection_overrides(call_kwargs["messages"])  # type: ignore[arg-type]
+                    call_kwargs = apply_tool_overrides(call_kwargs)
+                    call_kwargs = apply_param_overrides(call_kwargs)
+            except Exception:
+                pass
+        response = await wrapped(*args, **call_kwargs)
         logger.debug(f"Got response: {response}")
 
         model, completion, usage = _extract_anthropic_completion(response)
         logger.debug(f"Extracted completion - Model: {model}, Usage: {usage}")
 
         # Synth tracking
-        if "messages" in arg_extractor.get_anthropic_args():
+        if "messages" in call_kwargs:
             # logger.debug("WRAP_ASYNC: Messages API path detected")
-            system_content = arg_extractor.get_anthropic_args().get("system")
-            original_messages = arg_extractor.get_anthropic_args()["messages"]
+            system_content = call_kwargs.get("system")
+            original_messages = call_kwargs["messages"]
             # logger.debug("WRAP_ASYNC: Original messages: %s", original_messages)
             # logger.debug("WRAP_ASYNC: System content: %s", system_content)
 
@@ -511,9 +538,9 @@ async def _wrap_async(anthropic_resource: AnthropicDefinition, initialize, wrapp
                 model_name=model,
                 finetune=False,
             )
-        elif "prompt" in arg_extractor.get_anthropic_args():
+        elif "prompt" in call_kwargs:
             # Handle Completions API format
-            user_prompt = arg_extractor.get_anthropic_args().get("prompt", "")
+            user_prompt = call_kwargs.get("prompt", "")
             messages = [{"role": "user", "content": user_prompt}]
             assistant_msg = [{"role": "assistant", "content": completion}]
 

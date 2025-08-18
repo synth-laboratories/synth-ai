@@ -110,6 +110,7 @@ Notes:
   - `export LEARNING_V2_BASE_URL="http://localhost:8000/api"` (or your proxy)
   - `export SYNTH_API_KEY="sk_live_..."`
 - v3 trace data is stored under `traces/v3/synth_ai.db/` by default. Inspect with `uvx synth-ai traces`.
+ - LM tracing: all model calls (prompts, outputs, tool calls, token usage, latency, cost) are automatically captured via v3 tracing and stored locally; inspect with `uvx synth-ai traces`.
 
 ### One-Command Demos
 

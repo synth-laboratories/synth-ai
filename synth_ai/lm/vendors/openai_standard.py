@@ -13,6 +13,8 @@ from synth_ai.lm.caching.initialize import (
 )
 from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.base import BaseLMResponse, VendorBase
+from synth_ai.lm.injection import apply_injection
+from synth_ai.lm.overrides import use_overrides_for_messages, apply_param_overrides, apply_tool_overrides
 from synth_ai.lm.constants import SPECIAL_BASE_TEMPS
 from synth_ai.lm.vendors.retries import MAX_BACKOFF
 from synth_ai.lm.vendors.openai_standard_responses import OpenAIResponsesAPIMixin
@@ -123,6 +125,9 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             print(f"   LM config: {lm_config}")
         
         messages = special_orion_transform(model, messages)
+        # Apply context-scoped overrides and prompt injection just before building API params
+        with use_overrides_for_messages(messages):
+            messages = apply_injection(messages)
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only)
         lm_config["reasoning_effort"] = reasoning_effort
         cache_result = used_cache_handler.hit_managed_cache(
@@ -143,6 +148,8 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "model": model,
             "messages": messages,
         }
+        with use_overrides_for_messages(messages):
+            api_params = apply_param_overrides(api_params)
 
         # Add tools if provided
         if tools and all(isinstance(tool, BaseTool) for tool in tools):
@@ -150,8 +157,11 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         elif tools:
             api_params["tools"] = tools
 
-        # Only add temperature for non o1/o3 models
-        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+        # Only add temperature for non o1/o3 models, and do not override if already set via overrides
+        if (
+            not any(prefix in model for prefix in ["o1-", "o3-"])
+            and "temperature" not in api_params
+        ):
             api_params["temperature"] = lm_config.get(
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
             )
@@ -187,6 +197,11 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 api_params["extra_headers"] = hdrs
         except Exception:
             pass
+        # Apply overrides (tools and params) from context after building baseline params
+        with use_overrides_for_messages(messages):
+            api_params = apply_tool_overrides(api_params)
+            api_params = apply_param_overrides(api_params)
+
         # Forward Qwen3 chat template kwargs via extra_body when requested
         if lm_config.get("enable_thinking") is not None:
             api_params["extra_body"] = api_params.get("extra_body", {})
@@ -417,12 +432,17 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "response_model is not supported for standard calls"
         )
         messages = special_orion_transform(model, messages)
+        with use_overrides_for_messages(messages):
+            # Apply context-scoped prompt injection just before building API params
+            messages = apply_injection(messages)
         used_cache_handler = get_cache_handler(use_ephemeral_cache_only=use_ephemeral_cache_only)
         lm_config["reasoning_effort"] = reasoning_effort
         cache_result = used_cache_handler.hit_managed_cache(
             model, messages, lm_config=lm_config, tools=tools
         )
-        if cache_result:
+        # During pytest runs, bypass returning cache to allow tests to inspect outgoing params
+        IN_PYTEST = os.getenv("PYTEST_CURRENT_TEST") is not None
+        if cache_result and not IN_PYTEST:
             return cache_result
 
         # Common API call params
@@ -430,6 +450,8 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             "model": model,
             "messages": messages,
         }
+        with use_overrides_for_messages(messages):
+            api_params = apply_param_overrides(api_params)
 
         # Add tools if provided
         if tools and all(isinstance(tool, BaseTool) for tool in tools):
@@ -437,8 +459,16 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         elif tools:
             api_params["tools"] = tools
 
-        # Only add temperature for non o1/o3 models
-        if not any(prefix in model for prefix in ["o1-", "o3-"]):
+        # Apply overrides (tools and params) using module-level imports
+        with use_overrides_for_messages(messages):
+            api_params = apply_tool_overrides(api_params)
+            api_params = apply_param_overrides(api_params)
+
+        # Only add temperature for non o1/o3 models, and do not override if already set via overrides
+        if (
+            not any(prefix in model for prefix in ["o1-", "o3-"])
+            and "temperature" not in api_params
+        ):
             api_params["temperature"] = lm_config.get(
                 "temperature", SPECIAL_BASE_TEMPS.get(model, 0)
             )

@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.parametrize(
     "model",
     [
-        "gpt-5-nano",
+        "Qwen/Qwen3-0.6B",
         # keep simple and cheap; adjust if needed
     ],
 )
