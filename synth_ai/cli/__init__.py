@@ -7,10 +7,6 @@ pyproject entry point `synth_ai.cli:cli`.
 
 from __future__ import annotations
 
-import importlib.util
-import pathlib
-import sys
-
 # Load environment variables from a local .env if present (repo root)
 try:
     from dotenv import find_dotenv, load_dotenv

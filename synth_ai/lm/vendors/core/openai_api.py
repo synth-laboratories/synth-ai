@@ -82,7 +82,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
                 dict,
                 BaseLMResponse,
             ], f"Expected dict or BaseLMResponse, got {type(cache_result)}"
-            return cache_result["response"] if type(cache_result) == dict else cache_result
+            return cache_result["response"] if isinstance(cache_result, dict) else cache_result
         if model in OPENAI_REASONING_MODELS:
             output = await self.async_client.beta.chat.completions.parse(
                 model=model,
@@ -131,7 +131,7 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
                 dict,
                 BaseLMResponse,
             ], f"Expected dict or BaseLMResponse, got {type(cache_result)}"
-            return cache_result["response"] if type(cache_result) == dict else cache_result
+            return cache_result["response"] if isinstance(cache_result, dict) else cache_result
         if model in OPENAI_REASONING_MODELS:
             output = self.sync_client.beta.chat.completions.parse(
                 model=model,

@@ -29,8 +29,10 @@ from synth_ai.tracing_v1.trackers import synth_tracker_async, synth_tracker_sync
 
 try:
     import openai
-except ImportError:
-    raise ModuleNotFoundError("Please install OpenAI to use this feature: 'pip install openai'")
+except ImportError as err:
+    raise ModuleNotFoundError(
+        "Please install OpenAI to use this feature: 'pip install openai'"
+    ) from err
 
 # CREDIT TO LANGFUSE FOR OPEN-SOURCING THE CODE THAT THIS IS BASED ON
 # USING WITH MIT LICENSE PERMISSION
@@ -418,7 +420,7 @@ def _extract_streamed_openai_response(resource, chunks):
             usage = chunk_usage
 
         # Process choices
-        choices = chunk.get("choices", [])
+        choices = chunk.get("choices", [])  # noqa: F841
         # logger.debug(f"Extracted - model: {model}, choices: {choices}")
 
     # logger.debug(f"Final completion: {completion}")

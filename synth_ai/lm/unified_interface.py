@@ -46,8 +46,8 @@ class OpenAIProvider(UnifiedLMProvider):
         """
         try:
             from openai import AsyncOpenAI
-        except ImportError:
-            raise ImportError("OpenAI package not installed. Run: pip install openai")
+        except ImportError as err:
+            raise ImportError("OpenAI package not installed. Run: pip install openai") from err
 
         # Use provided key or load from environment
         if api_key is None:

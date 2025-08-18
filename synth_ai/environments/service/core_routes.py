@@ -557,7 +557,7 @@ async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) 
         print(stack_trace)
         raise HTTPException(
             status_code=400, detail=f"Recursion error during {env_name} initialization: {str(e)}"
-        )
+        ) from e
 
     except Exception as e:
         # Capture all other errors
@@ -566,7 +566,7 @@ async def initialize_env(env_name: str, request: InitializeRequest = Body(...)) 
         print(stack_trace)
         raise HTTPException(
             status_code=400, detail=f"Error during {env_name} initialization: {str(e)}"
-        )
+        ) from e
 
 
 @api_router.post("/env/{env_name}/step")
@@ -696,7 +696,7 @@ async def step_env(env_name: str, request: StepRequest = Body(...)) -> dict[str,
         logger.error(
             f"🌐 [{request_id}] STEP FAILED - env: {env_name}, time: {elapsed_time:.3f}s, error: {type(e).__name__} - {e}"
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @api_router.post("/env/{env_name}/terminate")
@@ -720,7 +720,7 @@ async def terminate_env(env_name: str, request: TerminateRequest = Body(...)) ->
             "private": {"instance_id": request.env_id},
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @api_router.get("/env/{env_name}/frame")
@@ -757,12 +757,12 @@ async def get_env_frame(env_name: str, env_id: str) -> dict[str, Any]:
             img.save(buf, format="PNG")
             b64 = base64.b64encode(buf.getvalue()).decode("ascii")
         except Exception as e:
-            raise RuntimeError(f"failed to encode frame: {e}")
+            raise RuntimeError(f"failed to encode frame: {e}") from e
 
         return {"env_id": env_id, "image_base64": b64}
     except Exception as e:
         logger.error(f"Error rendering frame for {env_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @api_router.get("/env/{env_name}/metadata")
@@ -807,7 +807,7 @@ async def get_env_metadata(env_name: str, env_id: str) -> dict[str, Any]:
         return metadata
     except Exception as e:
         logger.error(f"Error getting metadata for environment {env_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Keep backward compatibility endpoints but mark as deprecated
@@ -949,10 +949,10 @@ async def register_environment_api(request: RegisterEnvironmentRequest) -> dict[
     except ImportError as e:
         raise HTTPException(
             status_code=400, detail=f"Failed to import module '{request.module_path}': {str(e)}"
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Failed to register environment {request.name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to register environment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to register environment: {str(e)}") from e
 
 
 @api_router.delete("/registry/environments/{env_name}")
@@ -985,7 +985,7 @@ async def unregister_environment_api(env_name: str) -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to unregister environment {env_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to unregister environment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to unregister environment: {str(e)}") from e
 
 
 @api_router.get("/registry/environments")
@@ -1018,4 +1018,4 @@ async def list_registered_environments() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to list environments: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list environments: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list environments: {str(e)}") from e

@@ -1,5 +1,5 @@
-
-"""
+# ruff: noqa
+'''
 Synth OSS Integration Module
 
 This module provides integration with Synth's open-source inference and training APIs
@@ -336,7 +336,7 @@ Implementation sketch (backend == "synth")
 The method is a *no-op* for the default (OpenAI) backend so existing code keeps
 working.
 
-"""
+'''
 
 
 """

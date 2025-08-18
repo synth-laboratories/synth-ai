@@ -57,3 +57,17 @@ class CustomEndpointClient(CustomEndpointAPI):
 class OpenRouterClient(OpenRouterAPI):
     def __init__(self):
         super().__init__()
+
+
+__all__ = [
+    "OpenAIClient",
+    "AnthropicClient",
+    "GeminiClient",
+    "DeepSeekClient",
+    "TogetherClient",
+    "GroqClient",
+    "GrokClient",
+    "CustomEndpointClient",
+    "OpenRouterClient",
+    "OpenAIStructuredOutputClient",
+]

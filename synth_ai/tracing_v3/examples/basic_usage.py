@@ -30,7 +30,7 @@ async def main():
     print("Starting tracing v3 example...")
 
     # Option 1: Start sqld daemon programmatically
-    with SqldDaemon() as daemon:
+    with SqldDaemon():
         print("✓ Started sqld daemon")
 
         # Wait for daemon to be ready

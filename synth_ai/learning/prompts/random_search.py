@@ -8,6 +8,7 @@ metric, and this module will explore baselines and bootstrapped few-shot variant
 
 from __future__ import annotations
 
+import contextlib
 import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -209,12 +210,6 @@ def random_search_compile(
             intervention["label"] = f"labeled-{max_labeled_demos}"
         else:
             intervention["kind"] = "bootstrapped_few_shot"
-            bs = 0
-            try:
-                # try to infer from program demos length if present
-                bs = len(intervention.get("demos") or [])
-            except Exception:
-                bs = 0
             intervention["label"] = f"boot-b{max_bootstrapped_demos}-l{max_labeled_demos}"
         record_obj = {
             "score": cand.score,
@@ -230,20 +225,16 @@ def random_search_compile(
             break
 
         if on_candidate_evaluated is not None:
-            try:
+            with contextlib.suppress(Exception):
                 on_candidate_evaluated(idx + 1, res.score, res, intervention)
-            except Exception:
-                pass
 
     # Attach candidates for inspection
     if hasattr(best_program, "candidate_programs"):
         # If user object supports attribute assignment
-        try:
+        with contextlib.suppress(Exception):
             best_program.candidate_programs = sorted(
                 candidates, key=lambda c: c.score, reverse=True
             )  # type: ignore[attr-defined]
-        except Exception:
-            pass
 
     return (best_program or getattr(student, "deepcopy", student)(), records)
 
