@@ -171,11 +171,11 @@ async def main():
         ):
             for i in range(3):
                 event = RuntimeEvent(
-                        system_instance_id="hook_test",
-                        time_record=TimeRecord(event_time=time.time()),
-                        actions=[i],
-                    )
-                    await tracer.record_event(event)
+                    system_instance_id="hook_test",
+                    time_record=TimeRecord(event_time=time.time()),
+                    actions=[i],
+                )
+                await tracer.record_event(event)
 
         print(f"✓ Hook called {call_count['count']} times")
 

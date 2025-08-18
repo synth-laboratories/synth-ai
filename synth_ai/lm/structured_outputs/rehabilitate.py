@@ -56,8 +56,10 @@ def pull_out_structured_output(response_raw: str, response_model: type[BaseModel
 def fix_errant_stringified_json_sync(
     response_raw: str,
     response_model: type[BaseModel],
-    models: list[str] = ["gpt-4o-mini", "gpt-4o"],
+    models: list[str] | None = None,
 ) -> BaseModel:
+    if models is None:
+        models = ["gpt-4o-mini", "gpt-4o"]
     try:
         return pull_out_structured_output(response_raw, response_model)
     except ValueError as e:
@@ -91,8 +93,10 @@ def fix_errant_stringified_json_sync(
 async def fix_errant_stringified_json_async(
     response_raw: str,
     response_model: type[BaseModel],
-    models: list[str] = ["gpt-4o-mini", "gpt-4o"],
+    models: list[str] | None = None,
 ) -> BaseModel:
+    if models is None:
+        models = ["gpt-4o-mini", "gpt-4o"]
     try:
         return pull_out_structured_output(response_raw, response_model)
     except ValueError as e:

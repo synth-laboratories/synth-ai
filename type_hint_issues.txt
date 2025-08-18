@@ -1,0 +1,51 @@
+Type checking summary (ty)
+
+- Total diagnostics: 461
+- Errors: 395
+- Warnings: 66
+
+Top rules (by count):
+- invalid-argument-type: 113
+- unresolved-attribute: 74
+- possibly-unbound-attribute: 39
+- non-subscriptable: 38
+- invalid-assignment: 38
+- unsupported-operator: 28
+- invalid-parameter-default: 28
+- deprecated: 26
+- unresolved-import: 23
+- invalid-return-type: 14
+- invalid-type-form: 12
+- call-non-callable: 10
+- unresolved-reference: 4
+- unknown-argument: 4
+- too-many-positional-arguments: 3
+
+Hotspot files (most diagnostics):
+- synth_ai/v0/tracing/decorators.py: 34
+- synth_ai/v0/tracing_v1/decorators.py: 34
+- tests/environments/unit/test_crafter_api_bug.py: 22
+- synth_ai/lm/provider_support/openai.py: 22
+- tests/environments/unit/test_minigrid_service_integration.py: 19
+- synth_ai/tracing_v3/tests/test_llm_call_records.py: 16
+- tests/environments/unit/test_wordle.py: 15
+- synth_ai/lm/provider_support/anthropic.py: 12
+- synth_ai/lm/vendors/core/openai_api.py: 11
+- synth_ai/v0/tracing/trackers.py: 9
+- synth_ai/v0/tracing_v1/trackers.py: 9
+- synth_ai/tracing_v3/decorators.py: 9
+- examples/finetuning/synth_qwen/react_agent_lm.py: 9
+- synth_ai/tracing_v3/tests/test_session_tracer.py: 8
+- synth_ai/tracing_v3/storage/base.py: 7
+
+Representative issues:
+- invalid-raise: raising `last_exception` where type is `Exception | None` (e.g., examples/evals/compare_models.py:153)
+- unresolved-import: missing modules like `synth_ai.tracing_v1.*` or optional deps (e.g., wordfreq)
+- invalid-assignment: assigning possibly-None values to non-Optional types (e.g., env var assignments)
+- invalid-argument-type: passing `Optional[str]` where `str` is required (LM/warmup and agent configs)
+- unresolved-attribute: accessing attributes not present on modules (e.g., asyncio.nullcontext)
+- deprecated: usage of deprecated APIs (e.g., datetime.utcnow, FastAPI on_event, ast.Num)
+
+Notes:
+- Diagnostics were generated via `ty check . --output-format concise --exit-zero`.
+- Counts may vary from other runs based on environment and file selection.

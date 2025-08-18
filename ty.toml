@@ -1,0 +1,30 @@
+[tool.ty]
+# Exclude everything outside the core package from type checking.
+# This keeps `ty check` focused on `synth_ai/` only.
+exclude = [
+  # Top-level project directories to exclude
+  "examples/**",
+  "tests/**",
+  "private_tests/**",
+  "dev/**",
+  "docs/**",
+  "scripts/**",
+  "old/**",
+  "tauri/**",
+  "temp/**",
+  "traces/**",
+  "traces_*",
+  "ft_data/**",
+  "dist/**",
+  "logs/**",
+  # Environments and caches
+  ".venv/**",
+  "**/__pycache__/**",
+  # Packaging / metadata
+  "synth_ai.egg-info/**",
+  "*.egg-info/**",
+  # Misc
+  "*.log",
+  "*.tmp",
+  "*.db",
+]

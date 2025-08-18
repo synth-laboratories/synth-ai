@@ -1,0 +1,14 @@
+WARN ty is pre-release software and not ready for production use. Expect to encounter bugs, missing features, and fatal errors.
+ty failed
+  Cause: /Users/joshuapurtell/Documents/GitHub/synth-ai/ty.toml is not a valid `ty.toml`: TOML parse error at line 1, column 2
+  |
+1 | [tool.ty]
+  |  ^^^^
+unknown field `tool`, expected one of `environment`, `src`, `rules`, `terminal`, `overrides`
+
+  Cause: TOML parse error at line 1, column 2
+  |
+1 | [tool.ty]
+  |  ^^^^
+unknown field `tool`, expected one of `environment`, `src`, `rules`, `terminal`, `overrides`
+
