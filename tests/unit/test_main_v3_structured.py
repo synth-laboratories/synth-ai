@@ -3,6 +3,9 @@ import pytest
 
 from pydantic import BaseModel
 
+# Run these as part of the ultra-fast unit suite
+pytestmark = [pytest.mark.unit]
+
 from synth_ai.lm.core.main_v3 import LM as LMv3
 from synth_ai.lm.vendors.base import BaseLMResponse
 
@@ -31,8 +34,18 @@ class FakeStructuredClient:
         return BaseLMResponse(raw_response="", structured_output=instance, tool_calls=None)
 
     # Provide a no-op standard async path in case it's selected
-    async def _hit_api_async(self, messages, model, lm_config, use_ephemeral_cache_only=False, tools=None, reasoning_effort="high"):
-        return BaseLMResponse(raw_response='{"message":"ok"}', structured_output=None, tool_calls=None)
+    async def _hit_api_async(
+        self,
+        messages,
+        model,
+        lm_config,
+        use_ephemeral_cache_only=False,
+        tools=None,
+        reasoning_effort="high",
+    ):
+        return BaseLMResponse(
+            raw_response='{"message":"ok"}', structured_output=None, tool_calls=None
+        )
 
 
 @pytest.mark.fast
@@ -46,7 +59,9 @@ def test_main_v3_structured_output_forced_json(monkeypatch):
     # Monkeypatch the get_client symbol used within main_v3
     import synth_ai.lm.core.main_v3 as main_v3_module
 
-    def fake_get_client(model_name: str, with_formatting: bool = False, synth_logging: bool = True, provider=None):
+    def fake_get_client(
+        model_name: str, with_formatting: bool = False, synth_logging: bool = True, provider=None
+    ):
         return FakeStructuredClient()
 
     monkeypatch.setattr(main_v3_module, "get_client", fake_get_client)
@@ -66,11 +81,11 @@ def test_main_v3_structured_output_forced_json(monkeypatch):
     lm2 = LMv3(vendor="openai", model="gpt-5-nano")
 
     async def run2():
-        return await lm2.respond_async(system_message="system", user_message="hello", response_model=ExampleModel)
+        return await lm2.respond_async(
+            system_message="system", user_message="hello", response_model=ExampleModel
+        )
 
     result2 = asyncio.run(run2())
     assert isinstance(result2, BaseLMResponse)
     assert isinstance(result2.structured_output, ExampleModel)
     assert result2.structured_output.message == "ok"
-
-

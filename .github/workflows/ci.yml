@@ -40,10 +40,18 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run fast unit tests
+      - name: Run fast unit tests (≤5s)
         env:
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
         run: |
-          # Run only tests marked fast and unit; keep extremely quick
-          uvx --from pytest pytest -m "fast and unit" -q --maxfail=1
-
+          SECONDS=0
+          set -e
+          # Strict ultra-fast unit tests only
+          uvx --from pytest pytest tests/unit -m unit -q --maxfail=1
+          uvx --from pytest pytest tests/environments/unit/test_external_registry.py -q --maxfail=1
+          DUR=$SECONDS
+          echo "Total fast unit test time: ${DUR}s"
+          if [ "$DUR" -gt 5 ]; then
+            echo "Fast unit tests exceeded 5 seconds (${DUR}s)" >&2
+            exit 1
+          fi
