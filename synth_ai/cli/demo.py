@@ -51,8 +51,8 @@ def register(cli):
         def _validate_choice(val: str) -> int:
             try:
                 i = int(val)
-            except Exception:
-                raise click.BadParameter("Enter a number from the list")
+            except Exception as err:
+                raise click.BadParameter("Enter a number from the list") from err
             if i < 1 or i > len(demos):
                 raise click.BadParameter(f"Choose a number between 1 and {len(demos)}")
             return i

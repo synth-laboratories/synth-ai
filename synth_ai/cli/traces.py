@@ -50,10 +50,9 @@ def register(cli):
                 for dp, _, files in os.walk(dir_path):
                     for fn in files:
                         fp = os.path.join(dp, fn)
-                        try:
+                        import contextlib
+                        with contextlib.suppress(OSError):
                             total += os.path.getsize(fp)
-                        except OSError:
-                            pass
                 return total
 
             async def db_counts(db_dir: str) -> tuple[int, dict[str, int], int, str | None, int]:

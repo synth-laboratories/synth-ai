@@ -179,12 +179,10 @@ class ReplicaSync:
         if self._sync_task and not self._sync_task.done():
             # Request cancellation
             self._sync_task.cancel()
-            try:
+            import contextlib
+            with contextlib.suppress(asyncio.CancelledError):
                 # Wait for the task to finish
                 await self._sync_task
-            except asyncio.CancelledError:
-                # Expected when task is cancelled
-                pass
 
         if self._conn:
             # Close the libsql connection

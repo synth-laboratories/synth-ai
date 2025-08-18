@@ -78,7 +78,7 @@ class CacheHandler:
 
     def _validate_messages(self, messages: list[dict[str, Any]]) -> None:
         """Validate that messages are in the correct format."""
-        assert all([type(msg["content"]) == str for msg in messages]), (
+        assert all(isinstance(msg["content"], str) for msg in messages), (
             "All message contents must be strings"
         )
 
@@ -91,7 +91,7 @@ class CacheHandler:
     ) -> BaseLMResponse | None:
         """Hit the cache with the given key."""
         self._validate_messages(messages)
-        assert type(lm_config) == dict, "lm_config must be a dictionary"
+        assert isinstance(lm_config, dict), "lm_config must be a dictionary"
         key = map_params_to_key(
             messages,
             model,
@@ -121,8 +121,8 @@ class CacheHandler:
     ) -> None:
         """Add the given output to the cache."""
         self._validate_messages(messages)
-        assert type(output) == BaseLMResponse, "output must be a BaseLMResponse"
-        assert type(lm_config) == dict, "lm_config must be a dictionary"
+        assert isinstance(output, BaseLMResponse), "output must be a BaseLMResponse"
+        assert isinstance(lm_config, dict), "lm_config must be a dictionary"
         key = map_params_to_key(
             messages,
             model,

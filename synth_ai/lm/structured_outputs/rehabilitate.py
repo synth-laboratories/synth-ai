@@ -44,9 +44,11 @@ def pull_out_structured_output(response_raw: str, response_model: type[BaseModel
         except Exception as inner_e:
             raise ValueError(
                 f"Failed to parse response as {response_model}: {inner_e} - {response_prepared}"
-            )
+            ) from inner_e
     except Exception as e:
-        raise ValueError(f"Failed to parse response as {response_model}: {e} - {response_prepared}")
+        raise ValueError(
+            f"Failed to parse response as {response_model}: {e} - {response_prepared}"
+        ) from e
     assert isinstance(final, BaseModel), "Structured output must be a Pydantic model"
     return final
 

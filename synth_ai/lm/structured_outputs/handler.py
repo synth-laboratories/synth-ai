@@ -172,7 +172,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
                 response_model=response_model,
                 previously_failed_error_messages=previously_failed_error_messages,
             )
-            t0 = time.time()
+            # t0 = time.time()  # unused
             raw_text_response_or_cached_hit = await api_call_method(
                 messages=messages_with_json_formatting_instructions,
                 model=model,
@@ -186,7 +186,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             assert type(raw_text_response_or_cached_hit) in [str, BaseLMResponse], (
                 f"Expected str or BaseLMResponse, got {type(raw_text_response_or_cached_hit)}"
             )
-            if type(raw_text_response_or_cached_hit) == BaseLMResponse:
+            if isinstance(raw_text_response_or_cached_hit, BaseLMResponse):
                 # print("Got cached hit, returning directly")
                 raw_text_response = raw_text_response_or_cached_hit.raw_response
             else:
@@ -279,7 +279,7 @@ class StringifiedJSONHandler(StructuredHandlerBase):
             assert type(raw_text_response_or_cached_hit) in [str, BaseLMResponse], (
                 f"Expected str or BaseLMResponse, got {type(raw_text_response_or_cached_hit)}"
             )
-            if type(raw_text_response_or_cached_hit) == BaseLMResponse:
+            if isinstance(raw_text_response_or_cached_hit, BaseLMResponse):
                 logger.info("Got cached hit, returning directly")
                 raw_text_response = raw_text_response_or_cached_hit.raw_response
             else:

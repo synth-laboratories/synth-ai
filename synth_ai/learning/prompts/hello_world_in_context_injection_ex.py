@@ -172,7 +172,7 @@ async def main() -> None:
         with LMOverridesContext(
             [{"match": {"contains": "atm"}, "injection_rules": INJECTION_RULES}]
         ):
-            resp = await client.chat.completions.create(
+            _ = await client.chat.completions.create(
                 model=model, messages=messages, temperature=0
             )
         # Not all models echo input; instead, verify that our injected expectation matches

@@ -185,6 +185,7 @@ def main():
                     done, pending = await asyncio.wait(
                         pending, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
                     )
+                    import contextlib
                     for task in done:
                         try:
                             i, y_true, pred, t_start, t_end, usage = task.result()
@@ -194,11 +195,9 @@ def main():
                         durations.append(max(0.0, t_end - t_start))
                         preds[i] = pred
                         processed += 1
-                        try:
+                        with contextlib.suppress(Exception):
                             correct_sum += float(metric_fn(pred, y_true))
-                        except Exception:
-                            pass
-                        try:
+                        with contextlib.suppress(Exception):
                             pt = usage.get("prompt_tokens") or usage.get("input_tokens")
                             ct = usage.get("completion_tokens") or usage.get("output_tokens")
                             if isinstance(pt, (int, float)):
@@ -207,8 +206,6 @@ def main():
                             if isinstance(ct, (int, float)):
                                 out_tok_sum += int(ct)
                                 out_tok_count += 1
-                        except Exception:
-                            pass
                         details.append(
                             {
                                 "index": i,
@@ -254,15 +251,14 @@ def main():
         pbar.update(1)
         pbar.set_postfix({"score": f"{score:.2f}"})
         # store per-instance details (for apples-to-apples)
-        try:
+        import contextlib
+        with contextlib.suppress(Exception):
             candidate_eval_details[idx] = {
                 "score": score,
                 "mean_in": getattr(res, "mean_in", None),
                 "mean_out": getattr(res, "mean_out", None),
                 "instances": getattr(res, "details", None),
             }
-        except Exception:
-            pass
         # visible summary line per candidate
         kind = (
             intervention.get("kind", "candidate") if isinstance(intervention, dict) else "candidate"

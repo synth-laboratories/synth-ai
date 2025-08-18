@@ -63,7 +63,7 @@ class MistralAPI(VendorBase):
             ], f"Expected BaseLMResponse or str, got {type(cache_result)}"
             return (
                 cache_result
-                if type(cache_result) == BaseLMResponse
+                if isinstance(cache_result, BaseLMResponse)
                 else BaseLMResponse(
                     raw_response=cache_result, structured_output=None, tool_calls=None
                 )
@@ -154,7 +154,7 @@ class MistralAPI(VendorBase):
             ], f"Expected BaseLMResponse or str, got {type(cache_result)}"
             return (
                 cache_result
-                if type(cache_result) == BaseLMResponse
+                if isinstance(cache_result, BaseLMResponse)
                 else BaseLMResponse(
                     raw_response=cache_result, structured_output=None, tool_calls=None
                 )

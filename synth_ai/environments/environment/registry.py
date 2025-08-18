@@ -121,7 +121,7 @@ def get_environment_cls(env_type: str) -> type[StatefulEnvironment]:
         available_types = list(ENV_REGISTRY.keys())
         raise ValueError(
             f"Unsupported environment type: '{env_type}'. Available types: {available_types}"
-        )
+        ) from None
 
 
 def list_supported_env_types() -> list[str]:

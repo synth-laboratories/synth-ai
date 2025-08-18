@@ -9,10 +9,10 @@ from dataclasses import dataclass
 
 try:
     import anthropic
-except ImportError:
+except ImportError as err:
     raise ModuleNotFoundError(
         "Please install anthropic to use this feature: 'pip install anthropic'"
-    )
+    ) from err
 
 try:
     from anthropic import AsyncClient, Client

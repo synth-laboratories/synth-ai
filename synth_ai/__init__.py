@@ -30,4 +30,12 @@ __all__ = [
     "Anthropic",
     "AsyncAnthropic",
     "environments",
+    # v1 tracing legacy API re-exports
+    "EventPartitionElement",
+    "RewardSignal",
+    "SystemTrace",
+    "TrainingQuestion",
+    "trace_event_async",
+    "trace_event_sync",
+    "upload",
 ]  # Explicitly define public API
