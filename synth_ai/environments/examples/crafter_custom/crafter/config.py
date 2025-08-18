@@ -4,8 +4,8 @@ Configuration system for customizable Crafter environment.
 
 import json
 import os
-from dataclasses import dataclass, field, asdict
-from typing import Dict, Any, Optional
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, Optional
 
 
 @dataclass

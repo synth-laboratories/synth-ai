@@ -3,19 +3,20 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from typing import List
+from uuid import uuid4
+
 import numpy as np
 
-from uuid import uuid4
 from synth_ai.environments.tasks.core import (
-    TaskInstance,
-    TaskInstanceMetadata,
-    TaskInstanceSet,
     Impetus,
     Intent,
     SplitInfo,
+    TaskInstance,
+    TaskInstanceMetadata,
+    TaskInstanceSet,
 )
 
-from .engine import COORD_TO_IDX, WIN_PATTERNS, PLAYER_MARKS
+from .engine import COORD_TO_IDX, PLAYER_MARKS, WIN_PATTERNS
 
 
 @dataclass

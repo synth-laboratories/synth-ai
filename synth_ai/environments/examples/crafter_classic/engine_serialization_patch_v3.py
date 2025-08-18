@@ -5,10 +5,11 @@ This version handles player references for Zombie and Skeleton objects.
 
 import collections
 import pickle
-import numpy as np
+from typing import Any, Dict, Optional, Set
+
 import crafter
+import numpy as np
 from crafter import objects
-from typing import Dict, Any, Optional, Set
 
 print("[PATCH] Attempting to apply Crafter serialization patch v3...")
 

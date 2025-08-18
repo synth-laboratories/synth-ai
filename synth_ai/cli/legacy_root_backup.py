@@ -327,7 +327,7 @@ def serve(
                 ]
 
                 # Create log file
-                sqld_log = open("sqld.log", "w")
+                sqld_log = open("sqld.log", "w")  # noqa: SIM115
                 proc = subprocess.Popen(sqld_cmd, stdout=sqld_log, stderr=subprocess.STDOUT)
                 processes.append(proc)
 

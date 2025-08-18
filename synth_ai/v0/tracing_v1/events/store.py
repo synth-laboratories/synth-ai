@@ -225,3 +225,4 @@ class EventStore:
 
 # Global event store instance
 event_store = EventStore()
+# ruff: noqa

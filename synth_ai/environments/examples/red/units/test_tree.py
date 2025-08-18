@@ -14,24 +14,23 @@ Run with pytest: pytest src/examples/red/units/test_tree.py
 
 import asyncio
 import gzip
+import logging
 import pickle
 import random
+import sys
 import time
-import logging
 from pathlib import Path
 
 import pytest
 
-import sys
-
 sys.path.append("/Users/joshuapurtell/Documents/GitHub/Environments/src")
 
-from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
 from synth_ai.environments.examples.red.taskset import (
     INSTANCE as DEFAULT_TASK,
 )
-from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
-from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
 
 logging.basicConfig(level=logging.DEBUG, format="%(message)s")
 LOG = logging.getLogger("pokemon-mcts")

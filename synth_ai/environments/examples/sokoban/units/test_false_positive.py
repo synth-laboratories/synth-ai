@@ -5,20 +5,19 @@ and that the environment never reports a false positive.
 
 import asyncio
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
-
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
-from synth_ai.environments.examples.sokoban.units.astar_common import (
-    astar,
-    solved,
-)  # buggy solved()!
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
     SokobanTaskInstanceMetadata,
 )
-from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.units.astar_common import (
+    astar,
+    solved,
+)  # buggy solved()!
 from synth_ai.environments.tasks.core import Impetus, Intent
 
 # ───────────────────────────────── snapshot ───────────────────────────── #

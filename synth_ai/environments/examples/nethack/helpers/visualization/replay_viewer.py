@@ -1,19 +1,19 @@
 """Interactive replay viewer for NetHack trajectories."""
 
+import gzip
+import json
 import os
 import sys
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-import json
-import gzip
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent.parent.parent.parent))
 
 from src.synth_env.examples.nethack.helpers.trajectory_recorder import (
-    TrajectoryRecorder,
     TrajectoryFrame,
+    TrajectoryRecorder,
 )
 from src.synth_env.examples.nethack.helpers.visualization.visualizer import (
     NetHackVisualizer,

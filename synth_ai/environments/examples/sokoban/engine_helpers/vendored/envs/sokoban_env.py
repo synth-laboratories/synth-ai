@@ -1,10 +1,11 @@
 import gym
-from gym.utils import seeding
-from gym.spaces.discrete import Discrete
-from gym.spaces import Box
-from .room_utils import generate_room
-from .render_utils import room_to_rgb, room_to_tiny_world_rgb
 import numpy as np
+from gym.spaces import Box
+from gym.spaces.discrete import Discrete
+from gym.utils import seeding
+
+from .render_utils import room_to_rgb, room_to_tiny_world_rgb
+from .room_utils import generate_room
 
 
 class SokobanEnv(gym.Env):

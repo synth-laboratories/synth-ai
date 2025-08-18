@@ -1,16 +1,18 @@
 import asyncio
-import uuid
-import pytest
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Deque, Literal
-from pydantic import BaseModel, Field, validator
+import uuid
 from collections import deque
+from pathlib import Path
+from typing import Any, Deque, Dict, List, Literal, Optional
+
+import pytest
+from pydantic import BaseModel, Field, validator
+from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
+from synth_sdk.tracing.decorators import trace_event_async
+from synth_sdk.tracing.utils import get_system_id
+
 from synth_ai.zyk import LM
 from synth_ai.zyk.lms.tools.base import BaseTool
-from synth_sdk.tracing.decorators import trace_event_async
-from synth_sdk.tracing.abstractions import RewardSignal, Dataset, TrainingQuestion
-from synth_sdk.tracing.utils import get_system_id
 
 # Monkey patch the zyk cache handler to allow mixed content types (for images)
 try:
@@ -32,52 +34,51 @@ except Exception as e:
     # Continue anyway - the assertion might not be hit in all cases
 
 # Pokemon Red specific imports
-from synth_ai.environments.examples.red.environment import (
-    PokemonRedEnvironment,
-    PokemonRedPublicState,
-    PokemonRedPrivateState,
-)
+import logging
 
-# Import early game reward components
-from synth_ai.environments.examples.red.engine_helpers.reward_library.pallet_town_rewards import (
-    LeaveStartingRoomReward,
-    TalkToMomReward,
-    InteractWithTVReward,
-    CheckComputerReward,
-    ExitHouseReward,
-    ExploreTownReward,
-    TalkToNPCsReward,
-    OakLabDiscoveryReward,
-    AttemptRoute1Reward,
-    ChooseStarterPokemonReward,
-    DoorInteractionReward,
-    ObjectInteractionReward,
-    TryAllDirectionsReward,
+from synth_ai.environments.environment.shared_engine import (
+    GetObservationCallable,
+    InternalObservation,
 )
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.red.engine_helpers.reward_library.exploration_rewards import (
-    NewAreaDiscoveryReward,
     BuildingEntryReward,
+    NewAreaDiscoveryReward,
 )
 from synth_ai.environments.examples.red.engine_helpers.reward_library.novelty_rewards import (
     FirstBattleReward,
     FirstPokemonCenterVisitReward,
 )
 
-from synth_ai.environments.environment.shared_engine import (
-    GetObservationCallable,
-    InternalObservation,
+# Import early game reward components
+from synth_ai.environments.examples.red.engine_helpers.reward_library.pallet_town_rewards import (
+    AttemptRoute1Reward,
+    CheckComputerReward,
+    ChooseStarterPokemonReward,
+    DoorInteractionReward,
+    ExitHouseReward,
+    ExploreTownReward,
+    InteractWithTVReward,
+    LeaveStartingRoomReward,
+    OakLabDiscoveryReward,
+    ObjectInteractionReward,
+    TalkToMomReward,
+    TalkToNPCsReward,
+    TryAllDirectionsReward,
 )
-from synth_ai.environments.examples.red.taskset import PokemonRedTaskInstance
-from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstanceMetadata
-from synth_ai.environments.environment.tools import EnvToolCall
 
 # Import screen analysis functions
 from synth_ai.environments.examples.red.engine_helpers.screen_analysis import (
     analyze_screen_buffer,
     create_detailed_screen_description,
 )
-
-import logging
+from synth_ai.environments.examples.red.environment import (
+    PokemonRedEnvironment,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+)
+from synth_ai.environments.examples.red.taskset import PokemonRedTaskInstance
+from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstanceMetadata
 
 logging.disable(logging.CRITICAL)
 
@@ -681,8 +682,9 @@ class ReActAgent:
                     # Convert screen buffer to base64 image
                     import base64
                     import io
-                    from PIL import Image
+
                     import numpy as np
+                    from PIL import Image
 
                     # Ensure the array is in the right format (0-255 uint8)
                     if screen_buffer.dtype != np.uint8:

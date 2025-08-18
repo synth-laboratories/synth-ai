@@ -5,12 +5,12 @@ OpenAI Fine-Tuning Script
 Uploads a JSONL file, kicks off a fine-tuning job, and polls until completion.
 """
 
-import os
-import sys
-import time
 import argparse
 import json
+import os
 import random
+import sys
+import time
 from pathlib import Path
 from typing import Optional
 

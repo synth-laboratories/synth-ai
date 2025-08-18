@@ -4,8 +4,9 @@ Story & Achievement Progression Reward Components
 Rewards for major milestones, story gates, and achievements.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class GymBadgeEarnedReward(RewardComponent):

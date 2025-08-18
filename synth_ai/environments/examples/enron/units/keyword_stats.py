@@ -15,13 +15,14 @@ Outputs a CSV "keyword_stats.csv" for easy inspection in Excel/Sheets.
 from __future__ import annotations
 
 import argparse
-import csv
-import re
-import random
 import asyncio
+import csv
+import random
+import re
 from pathlib import Path
-from synth_ai.environments.examples.enron.taskset import create_enron_taskset
+
 from synth_ai.environments.examples.enron.art_helpers import email_search_tools  # low-level search
+from synth_ai.environments.examples.enron.taskset import create_enron_taskset
 
 # --- simple helpers ---------------------------------------------------------
 STOPWORDS = {

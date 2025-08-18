@@ -5,9 +5,10 @@ Puzzle loader for pre-generated verified Sokoban puzzles.
 import json
 import logging
 import random
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 logger = logging.getLogger(__name__)

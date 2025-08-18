@@ -1,25 +1,28 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any, Tuple
 
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.tasks.core import TaskInstance
-import numpy as np
-from dataclasses import dataclass
+from synth_ai.environments.examples.sokoban.engine_helpers.vendored.envs.sokoban_env import (
+    ACTION_LOOKUP,
+)
+from synth_ai.environments.examples.sokoban.engine_helpers.vendored.envs.sokoban_env import (
+    SokobanEnv as GymSokobanEnv,
+)
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
 )  # Assuming this is where SokobanTaskInstance is defined
 from synth_ai.environments.reproducibility.core import IReproducibleEngine  # Added import
-import logging
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent
-from synth_ai.environments.examples.sokoban.engine_helpers.vendored.envs.sokoban_env import (
-    ACTION_LOOKUP,
-    SokobanEnv as GymSokobanEnv,
-)
-import numpy as np
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
+from synth_ai.environments.tasks.core import TaskInstance
 
 # No monkey-patch needed - we fixed the vendored code directly
 
@@ -623,8 +626,8 @@ if __name__ == "__main__":
             "num_env_steps": 0,
         }
     }
-    import random
     import asyncio
+    import random
 
     async def sanity():
         task_instance = TaskInstance()

@@ -19,22 +19,23 @@ Analyzes and compares:
 - Cost analysis
 """
 
+import argparse
 import asyncio
 import json
-import argparse
 import logging
-import time
-from datetime import datetime
-from typing import Any
-from pathlib import Path
-import sys
 import os
+import sys
+import time
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
+
 import numpy as np
 import pandas as pd
-from tqdm.asyncio import tqdm_asyncio as atqdm
 from tqdm import tqdm
+from tqdm.asyncio import tqdm_asyncio as atqdm
 
 # Disable httpx logging for cleaner output
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -48,16 +49,19 @@ os.environ["SYNTH_LOGGING"] = "false"
 
 # Import enhanced LM with v3 tracing
 from synth_ai.lm.core.main_v3 import LM
+from synth_ai.tracing_v3.abstractions import (
+    EnvironmentEvent,
+    RuntimeEvent,
+    SessionEventMarkovBlanketMessage,
+    TimeRecord,
+)
+from synth_ai.tracing_v3.decorators import set_turn_number
 
 # Import session tracer for v3 tracing
 from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.abstractions import (
-    SessionEventMarkovBlanketMessage, TimeRecord,
-    RuntimeEvent, EnvironmentEvent
-)
+
 # from synth_ai.tracing_v3.utils import create_experiment_context  # Not needed
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-from synth_ai.tracing_v3.decorators import set_turn_number
 
 # Import Crafter hooks
 try:
@@ -68,8 +72,9 @@ except ImportError:
     from synth_ai.tracing_v3.hooks import HookManager
     CRAFTER_HOOKS = HookManager()
 
-import httpx
 import random
+
+import httpx
 
 # Global buckets for sessions
 _SESSIONS: dict[str, tuple[str, object]] = {}  # session_id -> (experiment_id, trace)
@@ -85,6 +90,7 @@ CRAFTER_SERVICE_URL = "http://localhost:8901"
 
 # Database configuration - uses the centralized config which matches serve.sh
 from synth_ai.tracing_v3.db_config import get_default_db_config
+
 db_config = get_default_db_config()
 DATABASE_URL = db_config.database_url
 
@@ -375,8 +381,8 @@ What actions do you want to take?"""
                 turn_start_time = time.time()
                 try:
                     # Define the interact tool for Crafter
-                    from synth_ai.lm.tools.base import BaseTool
                     from pydantic import BaseModel, Field
+                    from synth_ai.lm.tools.base import BaseTool
                     
                     class InteractArgs(BaseModel):
                         actions: list[int] = Field(..., description="List of action IDs to execute")

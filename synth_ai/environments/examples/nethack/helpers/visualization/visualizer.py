@@ -1,14 +1,15 @@
 """Visualization tools for NetHack trajectories."""
 
-import numpy as np
-from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib.patches import Rectangle
-import seaborn as sns
-from datetime import datetime
 import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+from matplotlib.patches import Rectangle
 
 try:
     from PIL import Image, ImageDraw, ImageFont

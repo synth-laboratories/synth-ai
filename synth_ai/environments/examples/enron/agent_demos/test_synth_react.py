@@ -2,20 +2,17 @@
 # Combined with tests_eval_enron.py
 import asyncio
 import json
+import os
+import textwrap
 import uuid
 from collections import deque
 from pathlib import Path
 from typing import Any, Deque, Dict, List
-import textwrap
-import os
 
 import pytest
 from pydantic import BaseModel
-
-from synth_ai.zyk import LM
-from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
 from synth_ai.environments.environment.tools import EnvToolCall
-
+from synth_ai.environments.examples.enron.art_helpers import email_search_tools, local_email_db
 from synth_ai.environments.examples.enron.engine import ACTION_ANSWER
 from synth_ai.environments.examples.enron.environment import (
     AnswerQuestion,
@@ -28,7 +25,8 @@ from synth_ai.environments.examples.enron.environment import (
     Terminate,
 )
 from synth_ai.environments.examples.enron.taskset import create_enron_taskset
-from synth_ai.environments.examples.enron.art_helpers import local_email_db, email_search_tools
+from synth_ai.zyk import LM
+from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
 
 # ensure SQLite email database exists in dataset directory
 # align database path with HF dataset cache folder

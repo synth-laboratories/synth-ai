@@ -22,7 +22,6 @@ from typing import Any
 
 from datasets import load_dataset
 from dotenv import load_dotenv
-
 from synth_ai.learning.prompts.mipro import ProgramAdapter, evaluate_program, mipro_v2_compile
 from synth_ai.lm.core.main_v3 import LM, build_messages
 

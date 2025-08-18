@@ -1,7 +1,8 @@
 """Test debug message functionality in MiniGrid."""
 
-import pytest
 import asyncio
+
+import pytest
 from synth_ai.environments.examples.minigrid.environment import MiniGridEnvironment
 from synth_ai.environments.examples.minigrid.taskset import DEFAULT_MINIGRID_TASK
 

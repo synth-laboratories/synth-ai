@@ -1,26 +1,27 @@
 # environment.py
 from __future__ import annotations
-from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field
 
-from synth_ai.environments.environment.tools import (
-    EnvToolCall,
-    ToolResult,
-    TOOL_REGISTRY,
-    register_tool,
-)
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.stateful.core import StatefulEnvironment
+from synth_ai.environments.environment.tools import (
+    TOOL_REGISTRY,
+    EnvToolCall,
+    ToolResult,
+    register_tool,
+)
 from synth_ai.environments.examples.enron.engine import (
-    EnronEngine,
-    ACTION_SEARCH,
-    ACTION_READ,
     ACTION_ANSWER,
+    ACTION_READ,
+    ACTION_SEARCH,
+    EnronEngine,
 )
 from synth_ai.environments.examples.enron.taskset import EnronTaskInstance
+from synth_ai.environments.stateful.core import StatefulEnvironment
 
 
 # -------- pydantic schemas (used by agent / LLM function calls)

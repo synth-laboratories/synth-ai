@@ -5,16 +5,16 @@ Provides detailed metrics, trajectory analysis, and achievement statistics.
 
 import asyncio
 import json
-import time
 import math
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Set, Tuple, Any
-from collections import defaultdict
+import time
 import uuid
+from collections import defaultdict
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
-from tqdm import tqdm
 from synth_ai.lm.core.main import LM
+from tqdm import tqdm
 
 # Achievement categories based on difficulty/complexity
 ACHIEVEMENT_CATEGORIES = {
@@ -129,7 +129,7 @@ def crafter_score(success_rates_percent: List[float]) -> float:
     if not success_rates_percent:
         return 0.0
 
-    N = len(success_rates_percent)
+    N = len(success_rates_percent)  # noqa: N806
     g = sum(math.log(1 + s) for s in success_rates_percent) / N
     return math.exp(g) - 1
 
@@ -241,9 +241,9 @@ class CrafterEvalFramework:
     ) -> TrajectoryResult:
         """Run a single trajectory and collect detailed metrics."""
         from src.synth_env.examples.crafter_classic.agent_demos.crafter_react_agent import (
-            ReActAgent,
             CrafterHistoryObservationCallable,
             CrafterMove,
+            ReActAgent,
         )
         from src.synth_env.examples.crafter_classic.environment import (
             CrafterClassicEnvironment,

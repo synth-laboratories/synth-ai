@@ -1,13 +1,15 @@
-from .sokoban_env import SokobanEnv
-from .render_utils import room_to_rgb
 import os
+import random
+import zipfile
 from os import listdir
 from os.path import isfile, join
-import requests
-import zipfile
-from tqdm import tqdm
-import random
+
 import numpy as np
+import requests
+from tqdm import tqdm
+
+from .render_utils import room_to_rgb
+from .sokoban_env import SokobanEnv
 
 
 class BoxobanEnv(SokobanEnv):

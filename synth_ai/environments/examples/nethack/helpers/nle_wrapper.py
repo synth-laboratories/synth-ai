@@ -1,6 +1,7 @@
 """NLE integration wrapper for NetHack environment."""
 
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 try:

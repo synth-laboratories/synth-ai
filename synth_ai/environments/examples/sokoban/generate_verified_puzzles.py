@@ -8,10 +8,12 @@ and saves them as JSON. Each puzzle is verified to be solvable using BFS.
 
 import json
 import logging
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any, Set
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+import numpy as np
+
 from synth_ai.environments.examples.sokoban.engine_helpers.room_utils import (
     generate_room,
     get_shortest_action_path,

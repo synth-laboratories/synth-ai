@@ -1,20 +1,19 @@
 """Unit tests for NetHack environment."""
 
-import pytest
 import asyncio
 from uuid import uuid4
 
+import pytest
 from synth_ai.environments.environment.tools import EnvToolCall
-from synth_ai.environments.tasks.core import Impetus, Intent
-
 from synth_ai.environments.examples.nethack.environment import (
     NetHackEnvironment,
     NetHackInteractTool,
 )
 from synth_ai.environments.examples.nethack.taskset import (
-    NetHackTaskInstanceMetadata,
     NetHackTaskInstance,
+    NetHackTaskInstanceMetadata,
 )
+from synth_ai.environments.tasks.core import Impetus, Intent
 
 
 class TestNetHackEnvironment:

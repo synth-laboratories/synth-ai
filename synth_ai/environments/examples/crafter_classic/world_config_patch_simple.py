@@ -5,7 +5,8 @@ This version modifies generation parameters rather than rewriting functions.
 
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 import crafter
 
 print("[PATCH] Attempting to apply simplified Crafter world configuration patch...")

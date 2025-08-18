@@ -3,26 +3,26 @@
 import asyncio
 import json
 import os
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel, Field
+import sys
 import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 # Import SynthAI LM and BaseTool
 from synth_ai.zyk import LM
 from synth_ai.zyk.lms.tools.base import BaseTool
 from synth_sdk.tracing.decorators import trace_event_async
-import sys
-import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.minigrid.environment import MiniGridEnvironment
 from synth_ai.environments.examples.minigrid.taskset import (
-    create_minigrid_taskset,
     DEFAULT_MINIGRID_TASK,
+    create_minigrid_taskset,
 )
-from synth_ai.environments.environment.tools import EnvToolCall
 
 
 # --- Pydantic Models for Tool Arguments ---

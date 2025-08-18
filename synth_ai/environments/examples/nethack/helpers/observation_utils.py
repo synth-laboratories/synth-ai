@@ -1,7 +1,7 @@
 """Observation processing utilities for NetHack."""
 
-from typing import Dict, Any, List, Optional, Tuple
 import re
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def format_observation_for_llm(observation: Dict[str, Any]) -> str:

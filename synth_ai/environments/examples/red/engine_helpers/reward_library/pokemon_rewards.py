@@ -4,8 +4,9 @@ Pokemon Collection & Management Reward Components
 Rewards for catching Pokemon, Pokedex progress, and Pokemon development.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class FirstPokemonCaughtReward(RewardComponent):

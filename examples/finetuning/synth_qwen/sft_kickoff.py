@@ -19,7 +19,6 @@ import tomllib
 from typing import Any
 
 import aiohttp
-
 from synth_ai.config.base_url import get_learning_v2_base_url
 
 API_URL = get_learning_v2_base_url()
@@ -42,17 +41,18 @@ async def upload_file() -> str:
     headers = {"Authorization": f"Bearer {API_KEY}"}
     async with aiohttp.ClientSession() as session:
         form = aiohttp.FormData()
-        form.add_field(
-            "file",
-            open(TRAINING_PATH, "rb"),
-            filename=os.path.basename(TRAINING_PATH),
-            content_type="application/jsonl",
-        )
-        form.add_field("purpose", "fine-tune")
-        async with session.post(f"{API_URL}/files", data=form, headers=headers) as resp:
-            assert resp.status == 200, await resp.text()
-            data = await resp.json()
-            return data["id"]
+        with open(TRAINING_PATH, "rb") as f:
+            form.add_field(
+                "file",
+                f,
+                filename=os.path.basename(TRAINING_PATH),
+                content_type="application/jsonl",
+            )
+            form.add_field("purpose", "fine-tune")
+            async with session.post(f"{API_URL}/files", data=form, headers=headers) as resp:
+                assert resp.status == 200, await resp.text()
+                data = await resp.json()
+                return data["id"]
 
 
 async def create_job(file_id: str) -> str:
@@ -67,11 +67,12 @@ async def create_job(file_id: str) -> str:
         "upload_to_wasabi": bool(scfg.get("upload_to_wasabi", True)),
     }
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    async with aiohttp.ClientSession() as session:
-        async with session.post(f"{API_URL}/fine_tuning/jobs", json=body, headers=headers) as resp:
-            assert resp.status == 200, await resp.text()
-            data = await resp.json()
-            return data["id"]
+    async with aiohttp.ClientSession() as session, session.post(
+        f"{API_URL}/fine_tuning/jobs", json=body, headers=headers
+    ) as resp:
+        assert resp.status == 200, await resp.text()
+        data = await resp.json()
+        return data["id"]
 
 
 async def await_success(job_id: str) -> dict[str, object]:

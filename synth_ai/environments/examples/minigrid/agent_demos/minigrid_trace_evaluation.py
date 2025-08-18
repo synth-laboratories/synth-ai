@@ -14,13 +14,14 @@ from pathlib import Path
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
+import base64
+import io
+
 import gymnasium as gym
 import minigrid
-from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 import numpy as np
-import base64
+from minigrid.wrappers import ImgObsWrapper, RGBImgPartialObsWrapper
 from PIL import Image
-import io
 
 
 # Environment setup

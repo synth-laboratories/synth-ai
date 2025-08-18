@@ -732,12 +732,15 @@ class BaseReActAgentWithLMSynth:
                             parsed_decision = {"name": name, "parameters": args}
                     except Exception as _e:
                         parsed_decision = {"name": name, "parameters": {"arguments": args_raw}}
-                if not parsed_decision and isinstance(tool_call, dict):
-                    if "name" in tool_call or "parameters" in tool_call:
-                        parsed_decision = {
-                            "name": tool_call.get("name", "interact"),
-                            "parameters": tool_call.get("parameters", {}),
-                        }
+                if (
+                    not parsed_decision
+                    and isinstance(tool_call, dict)
+                    and ("name" in tool_call or "parameters" in tool_call)
+                ):
+                    parsed_decision = {
+                        "name": tool_call.get("name", "interact"),
+                        "parameters": tool_call.get("parameters", {}),
+                    }
                 if parsed_decision:
                     decision = parsed_decision
                     try:
@@ -1197,7 +1200,7 @@ async def run_episode(
                     info = {}
 
                     # Define action mapping
-                    CRAFTER_ACTION_MAP = {
+                    crafter_action_map = {
                         "noop": 0,
                         "move_left": 1,
                         "move_right": 2,
@@ -1220,7 +1223,7 @@ async def run_episode(
                     # Execute each action in the sequence (may be empty)
                     for action in actions:
                         # Convert action name to integer
-                        action_int = CRAFTER_ACTION_MAP.get(action, 0)  # Default to noop
+                        action_int = crafter_action_map.get(action, 0)  # Default to noop
 
                         # Get state before action
                         state_before = {"observation": obs} if "obs" in locals() else {}
@@ -1258,18 +1261,19 @@ async def run_episode(
                         info = step_data.get("info", {})
 
                         # Calculate achievement reward if not provided by service
-                        if reward == 0 or reward is None:
-                            # Check for newly unlocked achievements
-                            if "achievements_status" in obs and "achievements_status" in prev_obs:
-                                prev_achievements = prev_obs["achievements_status"]
-                                curr_achievements = obs["achievements_status"]
-                                new_unlocks = sum(
-                                    1
-                                    for k in curr_achievements
-                                    if curr_achievements.get(k) and not prev_achievements.get(k)
-                                )
-                                if new_unlocks > 0:
-                                    reward = float(new_unlocks)  # +1 for each new achievement
+                        if (
+                            (reward == 0 or reward is None)
+                            and ("achievements_status" in obs and "achievements_status" in prev_obs)
+                        ):
+                            prev_achievements = prev_obs["achievements_status"]
+                            curr_achievements = obs["achievements_status"]
+                            new_unlocks = sum(
+                                1
+                                for k in curr_achievements
+                                if curr_achievements.get(k) and not prev_achievements.get(k)
+                            )
+                            if new_unlocks > 0:
+                                reward = float(new_unlocks)  # +1 for each new achievement
 
                         if reward is not None:
                             episode_reward += reward

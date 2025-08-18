@@ -131,7 +131,7 @@ def serve(
                         "--http-listen-addr",
                         f"127.0.0.1:{sqld_port}",
                     ],
-                    stdout=open("sqld.log", "w"),
+                    stdout=open("sqld.log", "w"),  # noqa: SIM115
                     stderr=subprocess.STDOUT,
                 )
                 processes.append(proc)

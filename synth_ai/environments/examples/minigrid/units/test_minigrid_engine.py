@@ -1,13 +1,13 @@
 """Unit tests for MiniGrid engine."""
 
 import asyncio
-import pytest
-import numpy as np
 
+import numpy as np
+import pytest
 from synth_ai.environments.examples.minigrid.engine import (
     MiniGridEngine,
-    MiniGridPublicState,
     MiniGridPrivateState,
+    MiniGridPublicState,
     MiniGridStepPenaltyComponent,
 )
 from synth_ai.environments.examples.minigrid.taskset import DEFAULT_MINIGRID_TASK
@@ -179,12 +179,13 @@ async def test_get_available_actions():
 @pytest.mark.asyncio
 async def test_different_environments():
     """Test different MiniGrid environments."""
+    from uuid import uuid4
+
     from synth_ai.environments.examples.minigrid.taskset import (
         MiniGridTaskInstance,
         MiniGridTaskInstanceMetadata,
     )
     from synth_ai.environments.tasks.api import Impetus, Intent
-    from uuid import uuid4
 
     # Test DoorKey environment
     task = MiniGridTaskInstance(

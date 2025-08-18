@@ -3,12 +3,11 @@ Trace hooks for Crafter Classic environment - v3 version.
 Updated to use the v3 tracing architecture with async support.
 """
 
-from typing import Any, Optional, Dict, Set
 from datetime import datetime
+from typing import Any, Dict, Optional, Set
 
-from synth_ai.tracing_v3.hooks import HookManager
 from synth_ai.tracing_v3.abstractions import BaseEvent, EnvironmentEvent
-
+from synth_ai.tracing_v3.hooks import HookManager
 
 # Achievement categorization by difficulty
 EASY_ACHIEVEMENTS = {

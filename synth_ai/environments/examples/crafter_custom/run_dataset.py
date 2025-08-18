@@ -3,14 +3,14 @@
 Run script for Crafter dataset instances
 """
 
-import json
 import argparse
-import random
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-import uuid
+import json
 import os
+import random
 import sys
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 

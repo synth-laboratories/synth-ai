@@ -1,11 +1,12 @@
 import uuid
 from pathlib import Path
-from synth_ai.environments.examples.red.taskset import TASK, INSTANCE, PokemonRedTaskInstance
+
+from synth_ai.environments.examples.red.taskset import INSTANCE, TASK, PokemonRedTaskInstance
 from synth_ai.environments.tasks.core import (
-    Task,
-    TaskInstance,
     Impetus,
     Intent,
+    Task,
+    TaskInstance,
     TaskInstanceMetadata,
 )
 

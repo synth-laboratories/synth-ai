@@ -1,15 +1,14 @@
 """Environment wrapper that adds trajectory recording capabilities."""
 
-from typing import Dict, Any, Optional, Tuple
-from pathlib import Path
 import logging
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
+from src.synth_env.environment.tools import EnvToolCall
 from src.synth_env.examples.nethack.environment import NetHackEnvironment
 from src.synth_env.examples.nethack.helpers.trajectory_recorder import (
     TrajectoryRecorder,
 )
-from src.synth_env.environment.tools import EnvToolCall
-
 
 logger = logging.getLogger(__name__)
 

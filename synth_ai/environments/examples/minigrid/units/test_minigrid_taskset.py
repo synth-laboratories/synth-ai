@@ -1,15 +1,15 @@
 """Unit tests for MiniGrid taskset."""
 
 import asyncio
-import pytest
 from uuid import UUID
 
+import pytest
 from synth_ai.environments.examples.minigrid.taskset import (
+    DEFAULT_MINIGRID_TASK,
+    ENVIRONMENTS,
     MiniGridTaskInstance,
     MiniGridTaskInstanceMetadata,
     create_minigrid_taskset,
-    DEFAULT_MINIGRID_TASK,
-    ENVIRONMENTS,
 )
 
 

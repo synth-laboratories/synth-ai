@@ -158,9 +158,8 @@ async def main() -> None:
 
     # 2) OpenAI wrapper path (AsyncOpenAI to Groq): ensure apply_injection is active
     try:
-        from openai import AsyncOpenAI
-
         import synth_ai.lm.provider_support.openai as _synth_openai_patch  # noqa: F401
+        from openai import AsyncOpenAI
 
         base_url = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
         api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY") or ""
@@ -187,7 +186,6 @@ async def main() -> None:
     # 3) Anthropic wrapper path (AsyncClient): ensure apply_injection is active
     try:
         import anthropic
-
         import synth_ai.lm.provider_support.anthropic as _synth_anthropic_patch  # noqa: F401
 
         a_model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")

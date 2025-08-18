@@ -1,20 +1,20 @@
 # taskset.py
 from __future__ import annotations
+
 import asyncio
-from uuid import uuid4
 import os
+from dataclasses import asdict, dataclass
+from uuid import uuid4
 
 from datasets import load_dataset
-from dataclasses import dataclass, asdict
-
 from synth_ai.environments.tasks.core import (
-    Task,
-    TaskInstance,
-    TaskInstanceSet,
-    TaskInstanceMetadata,
-    SplitInfo,
     Impetus,
     Intent,
+    SplitInfo,
+    Task,
+    TaskInstance,
+    TaskInstanceMetadata,
+    TaskInstanceSet,
 )
 
 enron_task = Task(

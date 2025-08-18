@@ -6,15 +6,15 @@ import sys
 sys.path.append("/Users/joshuapurtell/Documents/GitHub/Environments/src")
 
 import asyncio
-import logging
-from pathlib import Path
-import tempfile
 import gzip
+import logging
 import pickle
+import tempfile
+from pathlib import Path
 
-from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
 from synth_ai.environments.examples.red.environment import PokemonRedEnvironment
 from synth_ai.environments.examples.red.taskset import INSTANCE as DEFAULT_TASK
+from synth_ai.environments.reproducibility.tree import FilesystemSnapshotStore, TrajectoryTreeStore
 
 # Set up detailed logging
 logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")

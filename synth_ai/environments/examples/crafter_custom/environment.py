@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Any, Dict, Union
 import dataclasses
 import logging
 import time
+from typing import Any, Dict, List, Optional, Union
 
 # Import logging configuration to suppress JAX debug messages
 from synth_ai.environments.examples.crafter_classic.config_logging import safe_compare
@@ -20,28 +20,25 @@ from synth_ai.tracing_v3.abstractions import (
 logger = logging.getLogger(__name__)
 
 # Import the base Crafter components
-from synth_ai.environments.examples.crafter_classic.engine import (
-    CrafterEngine,
-    CrafterPrivateState,
-    CrafterPublicState,
-    CrafterEngineSnapshot,
-)
-from synth_ai.environments.examples.crafter_classic.taskset import CrafterTaskInstance
+from pydantic import BaseModel, Field
+
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
-from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import (
+    TOOL_REGISTRY,
     AbstractTool,
     EnvToolCall,
     ToolResult,
-    TOOL_REGISTRY,
     register_tool,
 )
-from pydantic import BaseModel, Field
-
+from synth_ai.environments.examples.crafter_classic.engine import (
+    CrafterEngine,
+    CrafterEngineSnapshot,
+    CrafterPrivateState,
+    CrafterPublicState,
+)
 
 # Use the same tool and observation classes as CrafterClassic
 from synth_ai.environments.examples.crafter_classic.environment import (
@@ -49,6 +46,9 @@ from synth_ai.environments.examples.crafter_classic.environment import (
     CrafterInteractTool,
     SynthCrafterObservationCallable,
 )
+from synth_ai.environments.examples.crafter_classic.taskset import CrafterTaskInstance
+from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
+from synth_ai.environments.stateful.core import StatefulEnvironment
 
 
 class CrafterCustomEnvironment(StatefulEnvironment, ReproducibleEnvironment[CrafterEngine]):

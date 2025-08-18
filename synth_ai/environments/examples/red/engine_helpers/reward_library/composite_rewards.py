@@ -4,8 +4,9 @@ Composite & Milestone Reward Components
 Rewards for achievement combinations and progression streaks.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class PerfectGymRunReward(RewardComponent):

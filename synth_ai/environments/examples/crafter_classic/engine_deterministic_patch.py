@@ -6,6 +6,7 @@ the hash-based set-iteration nondeterminism that caused the drift.
 """
 
 import collections
+
 import crafter
 
 print("[PATCH] Attempting to apply Crafter deterministic patch...")

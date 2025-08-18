@@ -1,29 +1,32 @@
 from __future__ import annotations
-from typing import List, Optional, Any, Dict, Union
+
+from typing import Any, Dict, List, Optional, Union
+
 from pydantic import BaseModel, Field
 
-# Import logging configuration to suppress JAX debug messages
-
-from .engine import (
-    PokemonRedEngine,
-    PokemonRedPrivateState,
-    PokemonRedPublicState,
-    PokemonRedEngineSnapshot,
-)
-from .taskset import PokemonRedTaskInstance, INSTANCE as DEFAULT_TASK_INSTANCE
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
-from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
-from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import (
+    TOOL_REGISTRY,
     AbstractTool,
     EnvToolCall,
     ToolResult,
-    TOOL_REGISTRY,
     register_tool,
 )
+from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
+from synth_ai.environments.stateful.core import StatefulEnvironment
+
+# Import logging configuration to suppress JAX debug messages
+from .engine import (
+    PokemonRedEngine,
+    PokemonRedEngineSnapshot,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+)
+from .taskset import INSTANCE as DEFAULT_TASK_INSTANCE
+from .taskset import PokemonRedTaskInstance
 
 
 # Tool input schemas
@@ -73,9 +76,9 @@ class PokemonRedObservationCallable(GetObservationCallable):
     ) -> InternalObservation:
         """Convert Pokemon Red states to agent observation"""
         from .engine_helpers.state_extraction import (
-            get_badge_count,
-            format_position,
             format_hp_status,
+            format_position,
+            get_badge_count,
         )
 
         badge_count = get_badge_count(pub.badges)

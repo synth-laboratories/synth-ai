@@ -8,8 +8,8 @@ Purge v3 trace databases:
 Run with: uvpm examples.finetuning.synth_qwen.purge_v3_traces
 """
 
-import datetime
 import contextlib
+import datetime
 import os
 import shutil
 import sqlite3

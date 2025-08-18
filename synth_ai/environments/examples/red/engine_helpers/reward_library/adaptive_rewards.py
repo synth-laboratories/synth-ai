@@ -4,8 +4,9 @@ Adaptive & Learning Reward Components
 Rewards for improvement over time and meta-learning.
 """
 
+from typing import Any, Dict
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any
 
 
 class MistakeRecoveryReward(RewardComponent):

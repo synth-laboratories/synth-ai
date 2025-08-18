@@ -4,8 +4,9 @@ Novelty & Exploration Bonus Reward Components
 Rewards for first-time experiences and curiosity.
 """
 
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class FirstBattleReward(RewardComponent):

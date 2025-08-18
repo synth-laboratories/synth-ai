@@ -1,7 +1,6 @@
 import numpy as np
 
-from . import constants
-from . import engine
+from . import constants, engine
 
 
 class Object:

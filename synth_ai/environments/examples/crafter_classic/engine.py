@@ -4,32 +4,32 @@ This file follows the same structure as the SokobanEngine shown earlier.
 
 from __future__ import annotations
 
-# Import logging configuration first to suppress JAX debug messages
-from .config_logging import safe_compare
+import copy
+import dataclasses
+import logging
+import time
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple, Union
+
+import crafter  # type: ignore
+import numpy as np
+
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack  # Added
+from synth_ai.environments.environment.shared_engine import (
+    GetObservationCallable,
+    InternalObservation,
+)
+from synth_ai.environments.reproducibility.core import IReproducibleEngine
+from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
+from synth_ai.environments.tasks.core import TaskInstance
 
 # Import patches
 from . import engine_deterministic_patch  # Ensures deterministic behavior
 from . import engine_serialization_patch_v3 as engine_serialization_patch  # Adds save/load methods
 from . import world_config_patch_simple as world_config_patch  # Adds configurable world generation
 
-import logging
-import time
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple, Union
-
-import numpy as np
-import crafter  # type: ignore
-import copy
-import dataclasses
-
-from synth_ai.environments.environment.shared_engine import (
-    GetObservationCallable,
-    InternalObservation,
-)
-from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.environments.tasks.core import TaskInstance
-from synth_ai.environments.reproducibility.core import IReproducibleEngine
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent  # Added
+# Import logging configuration first to suppress JAX debug messages
+from .config_logging import safe_compare
 
 # Local helper imports (must exist relative to this file)
 from .engine_helpers.action_map import CRAFTER_ACTION_MAP  # action‑name → int

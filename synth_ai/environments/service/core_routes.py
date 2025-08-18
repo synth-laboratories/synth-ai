@@ -13,7 +13,6 @@ from uuid import uuid4
 import numpy as np
 from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel
-
 from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.service.registry import get_environment_cls, list_supported_env_types
 from synth_ai.environments.stateful.core import StatefulEnvironment

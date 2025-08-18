@@ -9,10 +9,9 @@ from synth_ai.environments.service.external_registry import (
     load_external_environments,
 )
 
+pytestmark = [pytest.mark.unit]
 
 @pytest.mark.fast
-# Include in ultra-fast unit suite
-pytestmark = [pytest.mark.unit]
 class TestExternalRegistry:
     """Test the external environment registry functions."""
 

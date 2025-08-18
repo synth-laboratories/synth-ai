@@ -1,17 +1,20 @@
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add timeout to all async tests
 pytestmark = pytest.mark.timeout(15)
 
+from uuid import uuid4
+
 from synth_ai.environments.examples.verilog.engine import (
-    VerilogEngine,
-    VerilogPublicState,
-    VerilogPrivateState,
     VerilogCompileSuccessComponent,
+    VerilogEngine,
+    VerilogPrivateState,
+    VerilogPublicState,
     VerilogSimulationPassComponent,
     VerilogStepPenaltyComponent,
 )
@@ -20,7 +23,6 @@ from synth_ai.environments.examples.verilog.taskset import (
     VerilogTaskInstanceMetadata,
 )
 from synth_ai.environments.tasks.core import Impetus, Intent
-from uuid import uuid4
 
 
 @pytest.fixture

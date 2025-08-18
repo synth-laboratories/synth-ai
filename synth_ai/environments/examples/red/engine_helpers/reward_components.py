@@ -1,5 +1,6 @@
+from typing import Any, Dict, Set
+
 from synth_ai.environments.environment.rewards.core import RewardComponent
-from typing import Dict, Any, Set
 
 
 class BadgeRewardComponent(RewardComponent):

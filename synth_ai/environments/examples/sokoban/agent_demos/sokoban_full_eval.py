@@ -6,45 +6,43 @@ Generates proper trace files for the Streamlit viewer.
 
 import asyncio
 import json
-import uuid
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, asdict
-import time
 import os
+import time
+import uuid
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from synth_ai.zyk import LM
-from synth_sdk.tracing.decorators import trace_event_async
-from synth_sdk.tracing.abstractions import (
-    RewardSignal,
-    Dataset,
-    TrainingQuestion,
-    EventPartitionElement,
-    SystemTrace,
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.engine import ACTION_STRING_TO_INT, _grid_to_text
+from synth_ai.environments.examples.sokoban.engine_helpers.room_utils import (
+    generate_room,
+    get_shortest_action_path,
 )
-from synth_sdk.tracing.utils import get_system_id
-
 from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
 from synth_ai.environments.examples.sokoban.taskset import (
     SokobanTaskInstance,
     SokobanTaskInstanceMetadata,
 )
-from synth_ai.environments.examples.sokoban.engine import _grid_to_text, ACTION_STRING_TO_INT
-from synth_ai.environments.examples.sokoban.engine_helpers.room_utils import (
-    generate_room,
-    get_shortest_action_path,
-)
 from synth_ai.environments.tasks.core import Impetus, Intent
-from synth_ai.environments.environment.tools import EnvToolCall
-
+from synth_ai.zyk import LM
+from synth_sdk.tracing.abstractions import (
+    Dataset,
+    EventPartitionElement,
+    RewardSignal,
+    SystemTrace,
+    TrainingQuestion,
+)
+from synth_sdk.tracing.decorators import trace_event_async
+from synth_sdk.tracing.utils import get_system_id
 from test_synth_react_locally import (
-    ReActAgent,
-    HistoryObservationCallable,
-    format_obs_for_llm_from_states,
-    SokobanInteractArgs,
-    Move,
     AgentDecisionRecord,
+    HistoryObservationCallable,
+    Move,
+    ReActAgent,
+    SokobanInteractArgs,
+    format_obs_for_llm_from_states,
 )
 
 
@@ -871,7 +869,8 @@ async def _run_with_config(cfg: SokobanConfig):
 
 # --- CLI Entry Point ---
 if __name__ == "__main__":
-    import argparse, asyncio
+    import argparse
+    import asyncio
 
     parser = argparse.ArgumentParser(description="Run Sokoban evaluation with optional TOML config")
     parser.add_argument("--config", "-c", type=str, help="Path to TOML configuration file")

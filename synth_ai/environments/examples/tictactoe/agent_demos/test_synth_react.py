@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional
 
-from synth_ai.zyk import LM
+from pydantic import BaseModel
 from synth_ai.environments.examples.tictactoe.environment import TicTacToeEnvironment
 from synth_ai.environments.examples.tictactoe.taskset import create_tictactoe_taskset
+from synth_ai.zyk import LM
 
 
 class TicTacToeActionInput(BaseModel):

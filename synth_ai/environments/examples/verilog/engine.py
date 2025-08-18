@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 import shutil
 import subprocess
-from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
+from synth_ai.environments.environment.rewards.core import RewardComponent, RewardStack
 from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
 from synth_ai.environments.tasks.core import TaskInstance
-from synth_ai.environments.environment.rewards.core import RewardStack, RewardComponent
 
 
 @dataclass

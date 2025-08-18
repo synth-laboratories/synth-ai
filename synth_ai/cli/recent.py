@@ -100,11 +100,9 @@ def register(cli):
             if df is None or df.empty:
                 table.add_row("-", "0", "-", "-", "-", "-", "-", "-")
             else:
-                count = 0
-                for _, r in df.iterrows():
-                    if count >= limit:
+                for count, (_, r) in enumerate(df.iterrows(), start=1):
+                    if count > limit:
                         break
-                    count += 1
                     name = r.get("name") or "Unnamed"
                     exp_disp = f"{name[:28]} [dim]({_short(r.get('experiment_id'))})[/dim]"
                     table.add_row(

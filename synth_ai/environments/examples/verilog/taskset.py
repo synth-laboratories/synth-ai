@@ -1,21 +1,23 @@
+import atexit
+import os
+import shutil
+import tempfile
+from dataclasses import asdict, dataclass, fields
+from pathlib import Path
+from typing import Optional
+from uuid import UUID, uuid4
+
+from datasets import load_dataset
+
 from synth_ai.environments.tasks.core import (
+    Impetus,
+    Intent,
+    SplitInfo,
     Task,
     TaskInstance,
     TaskInstanceMetadata,
     TaskInstanceSet,
-    SplitInfo,
-    Impetus,
-    Intent,
 )
-from uuid import uuid4, UUID
-from dataclasses import dataclass, asdict, fields
-from typing import Optional
-from pathlib import Path
-import tempfile
-import os
-import shutil
-import atexit
-from datasets import load_dataset
 
 # Global list to track temp directories for cleanup
 _temp_dirs = []

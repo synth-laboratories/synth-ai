@@ -1,16 +1,16 @@
 """Unit tests for NetHack trajectory recording and visualization."""
 
-import unittest
-import tempfile
 import shutil
-from pathlib import Path
-import numpy as np
+import tempfile
+import unittest
 from datetime import datetime
+from pathlib import Path
 
+import numpy as np
 from src.synth_env.examples.nethack.helpers.trajectory_recorder import (
-    TrajectoryRecorder,
     TrajectoryFrame,
     TrajectoryMetadata,
+    TrajectoryRecorder,
 )
 from src.synth_env.examples.nethack.helpers.visualization.visualizer import (
     NetHackVisualizer,

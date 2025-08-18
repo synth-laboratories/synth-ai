@@ -1,8 +1,8 @@
-import sqlite3
 import logging
+import sqlite3
 import textwrap
-from typing import List, Optional
 from dataclasses import dataclass
+from typing import List, Optional
 
 from synth_ai.environments.environment.db.sqlite import SQLiteManager
 from synth_ai.environments.examples.enron.art_helpers.types_enron import Email

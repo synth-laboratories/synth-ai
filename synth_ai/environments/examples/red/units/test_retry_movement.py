@@ -1,20 +1,21 @@
-import pytest
 import asyncio
-import uuid
 import logging
+import uuid
 
-from synth_ai.environments.examples.red.environment import (
-    PokemonRedEnvironment,
-    PokemonRedPublicState,
-    PokemonRedPrivateState,
-)
+import pytest
+
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,
 )
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.red.environment import (
+    PokemonRedEnvironment,
+    PokemonRedPrivateState,
+    PokemonRedPublicState,
+)
 from synth_ai.environments.examples.red.taskset import PokemonRedTaskInstance
 from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstanceMetadata
-from synth_ai.environments.environment.tools import EnvToolCall
 
 # Set up logging to see debug messages from the engine
 logging.basicConfig(level=logging.DEBUG)

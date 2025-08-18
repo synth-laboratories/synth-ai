@@ -94,11 +94,9 @@ def _experiments_table(df, limit: int | None = None) -> Table:
 
     if df is not None and not df.empty:
         rows = df.itertuples(index=False)
-        count = 0
-        for row in rows:
-            if limit is not None and count >= limit:
+        for count, row in enumerate(rows, start=1):
+            if limit is not None and count > limit:
                 break
-            count += 1
             table.add_row(
                 _short_id(getattr(row, "experiment_id", "")),
                 str(getattr(row, "name", "Unnamed"))[:28],
@@ -436,11 +434,9 @@ async def _traces_table(db_url: str, limit: int):
     if df is None or df.empty:
         table.add_row("-", "No sessions found", "-", "-", "-", "-", "-")
     else:
-        count = 0
-        for _, r in df.iterrows():
-            if count >= limit:
+        for count, (_, r) in enumerate(df.iterrows(), start=1):
+            if count > limit:
                 break
-            count += 1
             table.add_row(
                 str(r.get("session_id", ""))[:10],
                 str(r.get("experiment_name", ""))[:24],
@@ -497,11 +493,9 @@ async def _recent_table(db_url: str, hours: float, limit: int):
     if df is None or df.empty:
         table.add_row("-", "0", "-", "-", "-", "-", "-", "-")
     else:
-        count = 0
-        for _, r in df.iterrows():
-            if count >= limit:
+        for count, (_, r) in enumerate(df.iterrows(), start=1):
+            if count > limit:
                 break
-            count += 1
             name = r.get("name") or "Unnamed"
             exp_disp = f"{name[:28]} [dim]({(str(r.get('experiment_id', ''))[:8])})[/dim]"
             table.add_row(

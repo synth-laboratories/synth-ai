@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import random
-from uuid import uuid4
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
+from uuid import uuid4
 
 from synth_ai.environments.tasks.core import (
-    TaskInstance,
-    TaskInstanceMetadata,
-    TaskInstanceSet,
     Impetus,
     Intent,
     SplitInfo,
+    TaskInstance,
+    TaskInstanceMetadata,
+    TaskInstanceSet,
 )
 
 

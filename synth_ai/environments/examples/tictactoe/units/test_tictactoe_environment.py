@@ -1,19 +1,19 @@
-import pytest
-import numpy as np
 from uuid import uuid4
 
+import numpy as np
+import pytest
 from synth_ai.environments.environment.tools import EnvToolCall, ToolResult
-from synth_ai.environments.tasks.core import TaskInstance, Impetus, Intent
+from synth_ai.environments.examples.tictactoe.engine import TicTacToeEngine
 from synth_ai.environments.examples.tictactoe.environment import (
-    TicTacToeEnvironment,
     TicTacToeActionInput,
+    TicTacToeEnvironment,
     TicTacToeInteractTool,
 )
-from synth_ai.environments.examples.tictactoe.engine import TicTacToeEngine
 from synth_ai.environments.examples.tictactoe.taskset import (
     TicTacToeTaskInstance,
     TicTacToeTaskInstanceMetadata,
 )
+from synth_ai.environments.tasks.core import Impetus, Intent, TaskInstance
 
 
 @pytest.fixture

@@ -6,8 +6,9 @@ with deterministic seed-based selection and difficulty filtering.
 """
 
 import logging
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
 from synth_ai.environments.examples.minigrid.environment_mapping import ENVIRONMENT_MAPPING
 
 logger = logging.getLogger(__name__)

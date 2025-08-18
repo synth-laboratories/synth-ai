@@ -1,15 +1,14 @@
-import pytest
 import asyncio
 import json
 
+import pytest
 from httpx import AsyncClient
-
 from synth_ai.environments.examples.sokoban.agent_demos.test_synth_react_locally import (
-    ReActAgent,
     SIMPLE_SNAPSHOT,
+    ReActAgent,
 )
-from synth_sdk.tracing.abstractions import RewardSignal, Dataset, TrainingQuestion
 from synth_ai.zyk import LM
+from synth_sdk.tracing.abstractions import Dataset, RewardSignal, TrainingQuestion
 
 # Demo: drive Sokoban via FastAPI service endpoints
 
