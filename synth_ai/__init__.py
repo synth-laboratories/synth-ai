@@ -23,7 +23,7 @@ from synth_ai.tracing_v1.abstractions import (
 from synth_ai.tracing_v1.decorators import trace_event_async, trace_event_sync
 from synth_ai.tracing_v1.upload import upload
 
-__version__ = "0.2.4.dev7"
+__version__ = "0.2.4.dev8"
 __all__ = [
     "LM",
     "tracing",

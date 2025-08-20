@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.4.dev7"
+version = "0.2.4.dev8"
 description = "Software for aiding the best and multiplying the will - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -51,6 +51,7 @@ dependencies = [
     "openai-harmony>=0.0.1", # For OSS-GPT Harmony encoding support
     "asyncpg>=0.30.0",
     "aiohttp>=3.8.0", # For async HTTP requests in Harmony integration
+    "httpx>=0.24.0",  # For async HTTP client used in services/tests
     "datasets>=4.0.0",
 ]
 
