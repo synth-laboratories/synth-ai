@@ -21,8 +21,8 @@ from wordfreq import top_n_list, zipf_frequency
 
 
 def build_word_list(count: int, length: int, min_zipf: float, wordlist: str = "large") -> list[str]:
-    N = max(count * 20, 5000)
-    cands = [w.lower() for w in top_n_list("en", N, wordlist=wordlist)]
+    n_candidates = max(count * 20, 5000)
+    cands = [w.lower() for w in top_n_list("en", n_candidates, wordlist=wordlist)]
     cands = [w for w in cands if len(w) == length and re.fullmatch(r"[a-z]+", w)]
     scored = [(w, zipf_frequency(w, "en")) for w in cands]
     scored = [p for p in scored if p[1] >= float(min_zipf)]
