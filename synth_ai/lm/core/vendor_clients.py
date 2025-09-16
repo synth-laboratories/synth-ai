@@ -21,6 +21,7 @@ from synth_ai.lm.core.all import (
     OpenRouterClient,
     TogetherClient,
 )
+from synth_ai.lm.core.synth_models import SYNTH_SUPPORTED_MODELS
 
 # Regular expressions to match model names to their respective providers
 openai_naming_regexes: list[Pattern] = [
@@ -39,8 +40,10 @@ gemini_naming_regexes: list[Pattern] = [
 deepseek_naming_regexes: list[Pattern] = [
     re.compile(r"^deepseek-.*$"),
 ]
-together_naming_regexes: list[Pattern] = [
-    re.compile(r"^.*\/.*$"),
+# Synth-specific model patterns (Qwen3 and fine-tuned models)
+synth_naming_regexes: list[Pattern] = [
+    re.compile(r"^ft:.*$"),  # Fine-tuned models (ft:model-name)
+    re.compile(r"^Qwen/Qwen3.*$"),  # Qwen3 models specifically (Qwen/Qwen3-*)
 ]
 
 groq_naming_regexes: list[Pattern] = [
@@ -79,8 +82,6 @@ openrouter_naming_regexes: list[Pattern] = [
 
 # Custom endpoint patterns - check these before generic patterns
 custom_endpoint_naming_regexes: list[Pattern] = [
-    # Modal endpoints: org--app.modal.run
-    re.compile(r"^[a-zA-Z0-9\-]+--[a-zA-Z0-9\-]+\.modal\.run$"),
     # Generic domain patterns for custom endpoints
     re.compile(r"^[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+\.[a-zA-Z]+$"),  # domain.tld
     re.compile(r"^[a-zA-Z0-9\-]+\.[a-zA-Z0-9\-]+\.[a-zA-Z]+\/[a-zA-Z0-9\-\/]+$"),  # domain.tld/path
@@ -179,7 +180,9 @@ def get_client(
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):
         # Custom endpoints are passed as the endpoint URL
         return CustomEndpointClient(endpoint_url=model_name)
-    elif any(regex.match(model_name) for regex in together_naming_regexes):
-        return TogetherClient()
+    elif (any(regex.match(model_name) for regex in synth_naming_regexes) or
+          model_name in SYNTH_SUPPORTED_MODELS):
+        # Synth models use OpenAI-compatible client with custom endpoint
+        return OpenAIStructuredOutputClient(synth_logging=synth_logging)
     else:
         raise ValueError(f"Invalid model name: {model_name}")

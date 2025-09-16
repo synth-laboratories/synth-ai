@@ -23,12 +23,11 @@ Create a `.env` file in your project root:
 
 ```bash
 # Synth Configuration
-SYNTH_BASE_URL=https://your-synth-url.modal.run
+SYNTH_BASE_URL=https://your-synth-url.example.com
 SYNTH_API_KEY=your-synth-api-key
 
-# Optional: Modal compatibility
-MODAL_BASE_URL=https://your-modal-url.modal.run
-MODAL_API_KEY=your-modal-api-key
+# Optional: Custom endpoint
+# OPENAI_API_BASE=https://your-custom-endpoint.example.com/api
 
 # OpenAI Configuration (if using)
 OPENAI_API_KEY=your-openai-api-key
@@ -164,7 +163,7 @@ from synth_ai.lm import SynthConfig, SynthProvider
 
 # Create custom config
 config = SynthConfig(
-    base_url="https://custom-url.com",
+    base_url="https://custom-url.example.com",
     api_key="custom-key",
     timeout=60.0,
     max_retries=5
@@ -228,7 +227,7 @@ response = await provider.create_chat_completion(...)
 ```python
 # Before (Direct HTTP)
 response = httpx.post(
-    "https://synth-url/v1/chat/completions",
+    "https://synth-url.example.com/v1/chat/completions",
     headers={"Authorization": f"Bearer {api_key}"},
     json={...}
 )
@@ -255,7 +254,7 @@ response = await create_chat_completion_async(
 
 Make sure your `.env` file exists and contains:
 ```
-SYNTH_BASE_URL=https://your-synth-url.modal.run
+SYNTH_BASE_URL=https://your-synth-url.example.com
 SYNTH_API_KEY=your-api-key
 ```
 

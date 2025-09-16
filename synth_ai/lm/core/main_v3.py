@@ -117,7 +117,11 @@ class LM:
         if enable_v2_tracing is not None:
             enable_v3_tracing = enable_v2_tracing
 
+        # Debug logging
+        print(f"🔍 LM __init__: provider={provider}, vendor={vendor}, model={model}")
+
         # If vendor not provided, infer from model name
+        # But only if no explicit provider was given
         if vendor is None and model is not None:
             # Import vendor detection logic
             from synth_ai.lm.core.vendor_clients import (
@@ -156,6 +160,7 @@ class LM:
 
         self.vendor = vendor
         self.model = model
+        print(f"🔍 LM final: vendor={self.vendor}, model={self.model}")
         self.is_structured = is_structured
         self.structured_outputs_vendor = structured_outputs_vendor
         self.response_format = response_format
@@ -337,6 +342,14 @@ class LM:
             if hasattr(vendor_wrapper, "_hit_api_async"):
                 # OpenAIStandard expects lm_config
                 lm_config = {"temperature": self.temperature, **self.additional_params, **kwargs}
+                # Map convenience enable_thinking => thinking_mode unless explicitly set
+                if "enable_thinking" in lm_config and "thinking_mode" not in lm_config:
+                    try:
+                        et = lm_config.get("enable_thinking")
+                        if isinstance(et, bool):
+                            lm_config["thinking_mode"] = "think" if et else "no_think"
+                    except Exception:
+                        pass
                 if self.json_mode:
                     lm_config["response_format"] = {"type": "json_object"}
 

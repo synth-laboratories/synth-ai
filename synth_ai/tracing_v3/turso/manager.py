@@ -30,6 +30,7 @@ import pandas as pd
 from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy import event
 from sqlalchemy.orm import selectinload, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -58,6 +59,12 @@ from .models import (
 )
 from .models import (
     SessionTrace as DBSessionTrace,
+)
+from .models import (
+    OutcomeReward as DBOutcomeReward,
+)
+from .models import (
+    EventReward as DBEventReward,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,6 +132,18 @@ class AsyncSQLTraceManager:
                     connect_args=connect_args,
                     echo=CONFIG.echo_sql,
                 )
+                # Ensure PRAGMA foreign_keys=ON for every connection
+                try:
+                    @event.listens_for(self.engine.sync_engine, "connect")
+                    def _set_sqlite_pragma(dbapi_connection, connection_record):  # type: ignore[no-redef]
+                        try:
+                            cursor = dbapi_connection.cursor()
+                            cursor.execute("PRAGMA foreign_keys=ON")
+                            cursor.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             else:
                 connect_args = CONFIG.get_connect_args()
                 engine_kwargs = CONFIG.get_engine_kwargs()
@@ -538,3 +557,202 @@ class AsyncSQLTraceManager:
             self.engine = None
             self.SessionLocal = None
             self._schema_ready = False
+
+    # -------------------------------
+    # Incremental insert helpers
+    # -------------------------------
+
+    async def ensure_session(self, session_id: str, *, created_at: datetime | None = None, metadata: dict[str, Any] | None = None):
+        """Ensure a DB session row exists for session_id."""
+        async with self.session() as sess:
+            result = await sess.execute(select(DBSessionTrace).where(DBSessionTrace.session_id == session_id))
+            existing = result.scalar_one_or_none()
+            if existing:
+                return
+            row = DBSessionTrace(
+                session_id=session_id,
+                created_at=created_at or datetime.utcnow(),
+                num_timesteps=0,
+                num_events=0,
+                num_messages=0,
+                session_metadata=metadata or {},
+            )
+            sess.add(row)
+            await sess.commit()
+
+    async def ensure_timestep(self, session_id: str, *, step_id: str, step_index: int, turn_number: int | None = None, started_at: datetime | None = None, completed_at: datetime | None = None, metadata: dict[str, Any] | None = None) -> int:
+        """Ensure a timestep row exists; return its DB id."""
+        async with self.session() as sess:
+            result = await sess.execute(
+                select(DBSessionTimestep).where(DBSessionTimestep.session_id == session_id, DBSessionTimestep.step_id == step_id)
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                return row.id
+            row = DBSessionTimestep(
+                session_id=session_id,
+                step_id=step_id,
+                step_index=step_index,
+                turn_number=turn_number,
+                started_at=started_at or datetime.utcnow(),
+                completed_at=completed_at,
+                num_events=0,
+                num_messages=0,
+                step_metadata=metadata or {},
+            )
+            sess.add(row)
+            await sess.flush()
+            # increment session num_timesteps
+            await sess.execute(
+                update(DBSessionTrace)
+                .where(DBSessionTrace.session_id == session_id)
+                .values(num_timesteps=DBSessionTrace.num_timesteps + 1)
+            )
+            await sess.commit()
+            return row.id
+
+    async def insert_message_row(self, session_id: str, *, timestep_db_id: int | None, message_type: str, content: str, event_time: float | None = None, message_time: int | None = None, metadata: dict[str, Any] | None = None) -> int:
+        """Insert a message and return its id."""
+        async with self.session() as sess:
+            db_msg = DBMessage(
+                session_id=session_id,
+                timestep_id=timestep_db_id,
+                message_type=message_type,
+                content=content,
+                event_time=event_time,
+                message_time=message_time,
+                message_metadata=metadata or {},
+            )
+            sess.add(db_msg)
+            await sess.flush()
+            # increment session num_messages
+            await sess.execute(
+                update(DBSessionTrace)
+                .where(DBSessionTrace.session_id == session_id)
+                .values(num_messages=DBSessionTrace.num_messages + 1)
+            )
+            await sess.commit()
+            return db_msg.id
+
+    async def insert_event_row(self, session_id: str, *, timestep_db_id: int | None, event: EnvironmentEvent | LMCAISEvent | RuntimeEvent, metadata_override: dict[str, Any] | None = None) -> int:
+        """Insert an event and return its id."""
+        def to_cents(cost: float | None) -> int | None:
+            return int(cost * 100) if cost is not None else None
+
+        event_data: dict[str, Any] = {
+            "session_id": session_id,
+            "timestep_id": timestep_db_id,
+            "system_instance_id": event.system_instance_id,
+            "event_time": event.time_record.event_time,
+            "message_time": event.time_record.message_time,
+            "event_metadata_json": metadata_override or event.metadata or {},
+            "event_extra_metadata": getattr(event, "event_metadata", None),
+        }
+        if isinstance(event, LMCAISEvent):
+            call_records_data = None
+            if getattr(event, "call_records", None):
+                from dataclasses import asdict
+
+                call_records_data = [asdict(record) for record in event.call_records]
+            event_data.update({
+                "event_type": "cais",
+                "model_name": event.model_name,
+                "provider": event.provider,
+                "input_tokens": event.input_tokens,
+                "output_tokens": event.output_tokens,
+                "total_tokens": event.total_tokens,
+                "cost_usd": to_cents(event.cost_usd),
+                "latency_ms": event.latency_ms,
+                "span_id": event.span_id,
+                "trace_id": event.trace_id,
+                "system_state_before": event.system_state_before,
+                "system_state_after": event.system_state_after,
+                "call_records": call_records_data,
+            })
+        elif isinstance(event, EnvironmentEvent):
+            event_data.update({
+                "event_type": "environment",
+                "reward": event.reward,
+                "terminated": event.terminated,
+                "truncated": event.truncated,
+                "system_state_before": event.system_state_before,
+                "system_state_after": event.system_state_after,
+            })
+        elif isinstance(event, RuntimeEvent):
+            event_data.update({
+                "event_type": "runtime",
+                "event_metadata_json": {**(event.metadata or {}), "actions": event.actions},
+            })
+        else:
+            event_data["event_type"] = event.__class__.__name__.lower()
+
+        async with self.session() as sess:
+            db_event = DBEvent(**event_data)
+            sess.add(db_event)
+            await sess.flush()
+            # increment session num_events
+            await sess.execute(
+                update(DBSessionTrace)
+                .where(DBSessionTrace.session_id == session_id)
+                .values(num_events=DBSessionTrace.num_events + 1)
+            )
+            await sess.commit()
+            return db_event.id
+
+    # -------------------------------
+    # Reward helpers
+    # -------------------------------
+
+    async def insert_outcome_reward(self, session_id: str, *, total_reward: int, achievements_count: int, total_steps: int) -> int:
+        async with self.session() as sess:
+            row = DBOutcomeReward(
+                session_id=session_id,
+                total_reward=total_reward,
+                achievements_count=achievements_count,
+                total_steps=total_steps,
+            )
+            sess.add(row)
+            await sess.flush()
+            await sess.commit()
+            return row.id
+
+    async def insert_event_reward(self, session_id: str, *, event_id: int, message_id: int | None = None, turn_number: int | None = None, reward_value: float = 0.0, reward_type: str | None = None, key: str | None = None, annotation: dict[str, Any] | None = None, source: str | None = None) -> int:
+        async with self.session() as sess:
+            row = DBEventReward(
+                event_id=event_id,
+                session_id=session_id,
+                message_id=message_id,
+                turn_number=turn_number,
+                reward_value=reward_value,
+                reward_type=reward_type,
+                key=key,
+                annotation=annotation or {},
+                source=source,
+            )
+            sess.add(row)
+            await sess.flush()
+            await sess.commit()
+            return row.id
+
+    async def get_outcome_rewards(self) -> list[dict[str, Any]]:
+        async with self.session() as sess:
+            result = await sess.execute(select(DBOutcomeReward))
+            rows = result.scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "session_id": r.session_id,
+                    "total_reward": r.total_reward,
+                    "achievements_count": r.achievements_count,
+                    "total_steps": r.total_steps,
+                    "created_at": r.created_at,
+                }
+                for r in rows
+            ]
+
+    async def get_outcome_rewards_by_min_reward(self, min_reward: int) -> list[str]:
+        async with self.session() as sess:
+            result = await sess.execute(
+                select(DBOutcomeReward.session_id).where(DBOutcomeReward.total_reward >= min_reward)
+            )
+            return [row[0] for row in result.all()]

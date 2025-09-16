@@ -207,7 +207,22 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
             api_params = apply_tool_overrides(api_params)
             api_params = apply_param_overrides(api_params)
 
-        # Forward Qwen3 chat template kwargs via extra_body when requested
+        # Thinking controls: route via extra_body.chat_template_kwargs for compatibility
+        thinking_mode_val = lm_config.get("thinking_mode")
+        thinking_budget_val = lm_config.get("thinking_budget")
+        if thinking_mode_val is not None or thinking_budget_val is not None:
+            api_params["extra_body"] = api_params.get("extra_body", {})
+            ctk = api_params["extra_body"].get("chat_template_kwargs", {})
+            if thinking_mode_val is not None:
+                ctk["thinking_mode"] = thinking_mode_val
+            if thinking_budget_val is not None:
+                try:
+                    ctk["thinking_budget"] = int(thinking_budget_val)
+                except Exception:
+                    ctk["thinking_budget"] = thinking_budget_val
+            api_params["extra_body"]["chat_template_kwargs"] = ctk
+
+        # Backward-compatible: forward legacy enable_thinking only via extra_body for callers still using it
         if lm_config.get("enable_thinking") is not None:
             api_params["extra_body"] = api_params.get("extra_body", {})
             ctk = api_params["extra_body"].get("chat_template_kwargs", {})
@@ -220,7 +235,7 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                 **api_params.get("extra_body", {}),
                 **(lm_config.get("extra_body") or {}),
             }
-        # Forward Qwen3 chat template kwargs via extra_body when requested
+        # Ensure legacy extra_body flag remains merged (do not override top-level fields)
         if lm_config.get("enable_thinking") is not None:
             api_params["extra_body"] = api_params.get("extra_body", {})
             ctk = api_params["extra_body"].get("chat_template_kwargs", {})
@@ -387,20 +402,36 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
         #     raise
         message = output.choices[0].message
 
-        # Convert tool calls to dict format
+        # Convert tool calls to dict format, preferring dict-shaped entries first
         tool_calls = None
         if message.tool_calls:
-            tool_calls = [
-                {
-                    "id": tc.id,
-                    "type": tc.type,
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    },
-                }
-                for tc in message.tool_calls
-            ]
+            converted: list[dict] = []
+            for tc in message.tool_calls:
+                if isinstance(tc, dict):
+                    fn = tc.get("function") or {}
+                    converted.append(
+                        {
+                            "id": tc.get("id"),
+                            "type": tc.get("type", "function"),
+                            "function": {
+                                "name": fn.get("name") or tc.get("name"),
+                                "arguments": fn.get("arguments") or tc.get("arguments"),
+                            },
+                        }
+                    )
+                else:
+                    # SDK object path
+                    converted.append(
+                        {
+                            "id": getattr(tc, "id", None),
+                            "type": getattr(tc, "type", "function"),
+                            "function": {
+                                "name": getattr(getattr(tc, "function", None), "name", None),
+                                "arguments": getattr(getattr(tc, "function", None), "arguments", None),
+                            },
+                        }
+                    )
+            tool_calls = converted or None
 
         # Attach basic usage if available
         usage_dict = None

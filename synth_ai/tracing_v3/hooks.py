@@ -200,7 +200,9 @@ def create_default_hooks() -> HookManager:
 
     # Example: Log session starts - useful for debugging and monitoring
     async def log_session_start(session_id: str, metadata: dict[str, Any]):
-        print(f"Session started: {session_id}")
+        import os
+        if os.getenv("SYNTH_TRACE_VERBOSE", "0") in ("1", "true", "True"):
+            print(f"Session started: {session_id}")
 
     # Example: Validate events before recording - ensures data quality
     def validate_event(event_obj: BaseEvent) -> bool:

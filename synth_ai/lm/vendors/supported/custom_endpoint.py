@@ -38,8 +38,18 @@ class CustomEndpointAPI(VendorBase):
         # Construct full chat completions URL
         if endpoint_url.endswith("/"):
             endpoint_url = endpoint_url[:-1]
-        self.chat_completions_url = f"https://{endpoint_url}/chat/completions"
-        self.health_url = f"https://{endpoint_url}/health"
+
+        # Handle full URLs that already include protocol
+        if endpoint_url.startswith(("http://", "https://")):
+            # Remove protocol and domain part, keep only the base path if any
+            parsed = endpoint_url.replace("https://", "").replace("http://", "")
+            base_url = parsed.split("/")[0]  # Get domain only
+            self.chat_completions_url = f"https://{base_url}/chat/completions"
+            self.health_url = f"https://{base_url}/health"
+        else:
+            # Original logic for domain-only URLs
+            self.chat_completions_url = f"https://{endpoint_url}/chat/completions"
+            self.health_url = f"https://{endpoint_url}/health"
 
         # Setup session with connection pooling and retries
         self.session = self._create_session()

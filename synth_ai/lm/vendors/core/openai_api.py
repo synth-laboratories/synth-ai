@@ -6,6 +6,7 @@ supporting both standard and structured output modes.
 """
 
 import json
+import os
 from typing import Any
 
 import openai
@@ -42,18 +43,45 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
     """
 
     def __init__(self, synth_logging: bool = True):
-        if synth_logging:
+        # Check if we should use Synth clients instead of OpenAI
+        openai_base = os.getenv("OPENAI_API_BASE", "")
+        use_synth = (openai_base.startswith("https://synth") or
+                    openai_base.startswith("https://agent-learning") or
+                    os.getenv("SYNTH_BASE_URL") or os.getenv("MODAL_BASE_URL"))
+
+        if use_synth:
+            # Use Synth clients for Synth endpoints
+            from synth_ai.lm.vendors.synth_client import AsyncSynthClient, SyncSynthClient
+            from synth_ai.lm.config import SynthConfig
+
+            # Create config from OPENAI_* environment variables if available
+            openai_base = os.getenv("OPENAI_API_BASE")
+            openai_key = os.getenv("OPENAI_API_KEY")
+
+            if openai_base and openai_key:
+                config = SynthConfig(base_url=openai_base, api_key=openai_key)
+                sync_client = SyncSynthClient(config)
+                async_client = AsyncSynthClient(config)
+            else:
+                # Fall back to default config loading
+                sync_client = SyncSynthClient()
+                async_client = AsyncSynthClient()
+        elif synth_logging:
             # print("Using synth logging - OpenAIStructuredOutputClient")
             from synth_ai.lm.provider_support.openai import AsyncOpenAI, OpenAI
+            sync_client = OpenAI()
+            async_client = AsyncOpenAI()
         else:
             # print("Not using synth logging - OpenAIStructuredOutputClient")
             from openai import AsyncOpenAI, OpenAI
+            sync_client = OpenAI()
+            async_client = AsyncOpenAI()
 
         super().__init__(
             used_for_structured_outputs=True,
             exceptions_to_retry=OPENAI_EXCEPTIONS_TO_RETRY,
-            sync_client=OpenAI(),
-            async_client=AsyncOpenAI(),
+            sync_client=sync_client,
+            async_client=async_client,
         )
 
     async def _hit_api_async_structured_output(

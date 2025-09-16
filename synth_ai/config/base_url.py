@@ -49,3 +49,50 @@ def get_learning_v2_base_url(mode: Literal["dev", "prod"] = "prod") -> str:
         return _normalize_base(dev)
 
     raise Exception()
+
+
+def _resolve_override_mode() -> str:
+    """Return one of 'local', 'dev', 'prod' based on SYNTH_BACKEND_URL_OVERRIDE.
+
+    Defaults to 'prod' when unset or unrecognized.
+    """
+    ov = (os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "") or "").strip().lower()
+    if ov in {"local", "dev", "prod"}:
+        return ov
+    return "prod"
+
+
+def get_backend_from_env() -> tuple[str, str]:
+    """Resolve (base_url, api_key) using a simple LOCAL/DEV/PROD override scheme.
+
+    Env vars consulted:
+    - SYNTH_BACKEND_URL_OVERRIDE = local|dev|prod (case-insensitive)
+    - LOCAL_BACKEND_URL, TESTING_LOCAL_SYNTH_API_KEY
+    - DEV_BACKEND_URL, DEV_SYNTH_API_KEY
+    - PROD_BACKEND_URL, TESTING_PROD_SYNTH_API_KEY (fallback to SYNTH_API_KEY)
+
+    Base URL is normalized to end with '/api'.
+    Defaults: prod base URL → https://agent-learning.onrender.com/api
+    """
+    mode = _resolve_override_mode()
+    if mode == "local":
+        base = os.getenv("LOCAL_BACKEND_URL", "http://localhost:8000")
+        key = os.getenv("TESTING_LOCAL_SYNTH_API_KEY", "")
+        return base.rstrip("/"), key
+    if mode == "dev":
+        base = os.getenv("DEV_BACKEND_URL", "") or "http://localhost:8000"
+        key = os.getenv("DEV_SYNTH_API_KEY", "")
+        return base.rstrip("/"), key
+    # prod
+    base = os.getenv("PROD_BACKEND_URL", f"{PROD_BASE_URL_DEFAULT}")
+    # Ensure we return the root (no trailing /api). If default includes /api, strip it.
+    base = base.rstrip("/")
+    if base.endswith("/api"):
+        base = base[: -len("/api")]
+    # Prefer explicit PROD key, then testing key, then generic fallback
+    key = (
+        os.getenv("PROD_SYNTH_API_KEY", "")
+        or os.getenv("TESTING_PROD_SYNTH_API_KEY", "")
+        or os.getenv("SYNTH_API_KEY", "")
+    )
+    return base, key
