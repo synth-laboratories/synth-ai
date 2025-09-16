@@ -311,9 +311,30 @@ def fastapi_app():
     async def rollout(req: RolloutRequest, request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")):
         expected = os.environ.get("ENVIRONMENT_API_KEY")
         if not expected:
+            logger.error("rollout.auth.misconfigured: missing ENVIRONMENT_API_KEY")
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auth not configured: missing ENVIRONMENT_API_KEY")
+        # Compute masked diagnostics (never log full keys)
+        try:
+            exp_len = len(expected)
+            exp_suf = expected[-5:] if exp_len >= 5 else ""  # last 5 chars
+            got_len = len(x_api_key or "")
+            got_suf = (x_api_key or "")[-5:] if got_len >= 5 else ""
+        except Exception:
+            exp_len = -1
+            exp_suf = ""
+            got_len = -1
+            got_suf = ""
         if not x_api_key or x_api_key != expected:
+            logger.warning(
+                "rollout.auth.failed: header_present=%s expect_len=%s expect_last5=%s got_len=%s got_last5=%s",
+                bool(x_api_key), exp_len, exp_suf, got_len, got_suf,
+            )
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+        else:
+            logger.info(
+                "rollout.auth.ok: expect_len=%s expect_last5=%s got_len=%s got_last5=%s",
+                exp_len, exp_suf, got_len, got_suf,
+            )
 
         # Extract policy config
         inference_url = req.policy.config["inference_url"]
