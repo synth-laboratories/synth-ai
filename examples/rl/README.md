@@ -21,18 +21,32 @@ python examples/rl/run_rl_job.py \
   --stream-seconds 0
 ```
 
-Setting ENVIRONMENT_API_KEY via SDK
-- Use `synth_ai.rl.setup_environment_api_key` to mint, encrypt, and upload the token to the backend.
-- The helper fetches the sealed-box public key, encrypts the token client-side, and returns the minted value so you can store it securely.
+Setting ENVIRONMENT_API_KEY (secure upload)
+- Use the SDK helper to mint, encrypt (sealed box), and upload the token to the backend. The helper prints the token once; store it securely. The backend persists only ciphertext and injects the token at trainer start.
 ```python
-from synth_ai.rl import setup_environment_api_key
+import os
+from synth_ai.rl.env_keys import setup_environment_api_key
 
-result = setup_environment_api_key(
-    backend_base="https://your-backend",
-    synth_api_key="sk_your_org_key",
+setup_environment_api_key(
+    backend_base="https://agent-learning.onrender.com",
+    synth_api_key=os.environ["SYNTH_API_KEY"],
 )
-print("ENVIRONMENT_API_KEY:", result["token"])
+# The helper prints the token once to stdout. Keep it safe; it is not retrievable later.
 ```
+CLI one-liner (optional):
+```bash
+DEV_BACKEND_URL=https://agent-learning.onrender.com \
+SYNTH_API_KEY=sk_your_org_key \
+uv run python - <<'PY'
+import os
+from synth_ai.rl.env_keys import setup_environment_api_key
+setup_environment_api_key(os.environ["DEV_BACKEND_URL"], os.environ["SYNTH_API_KEY"])
+PY
+```
+Notes
+- Do not send ENVIRONMENT_API_KEY from public clients. The backend decrypts and injects it into trainer containers.
+- Endpoints used: `GET /api/v1/crypto/public-key`, `POST /api/v1/env-keys`.
+- Details: see `examples/rl/env_api_key_crypto.txt` and `examples/rl/env_api_crypto_plan.txt`.
 
 Notes
 - Trainer endpoints are resolved server-side via trainer_id; no provider URLs in the SDK/example.

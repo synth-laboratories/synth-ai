@@ -14,12 +14,18 @@ if str(_LOCAL_CRAFTER_PARENT) not in _sys.path:
 if "/opt" not in _sys.path:
     _sys.path.insert(0, "/opt")
 
-# Use a distinct secret name to avoid collisions with monorepo task apps
-MODAL_SECRET_NAME = "crafter-environment-sdk"
+# Use environment-aware names to avoid collisions across dev/prod
+_env_flag = (_os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "") or _os.getenv("ENVIRONMENT", "") or _os.getenv("APP_ENVIRONMENT", "")).strip().lower()
+_is_prod = _env_flag in ("prod", "production")
+
+# Secret name (overridable via TASK_APP_SECRET_NAME)
+_default_secret = "crafter-environment-sdk-prod" if _is_prod else "crafter-environment-sdk"
+MODAL_SECRET_NAME = _os.getenv("TASK_APP_SECRET_NAME", _default_secret)
 
 
-# Use a distinct app name to avoid collisions with monorepo task apps
-app = modal.App("grpo-task-service-sdk")
+# Modal app name (overridable via TASK_APP_NAME)
+_default_app_name = "grpo-task-service-sdk-prod" if _is_prod else "grpo-task-service-sdk"
+app = modal.App(_os.getenv("TASK_APP_NAME", _default_app_name))
 
 image = (
     modal.Image.debian_slim(python_version="3.11")

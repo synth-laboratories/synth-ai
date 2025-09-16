@@ -83,7 +83,10 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
         except ImportError:
             # Fallback to hardcoded prod URL
             base = "https://agent-learning.onrender.com/api"
-        api_key = os.getenv("SYNTH_API_KEY", "").strip()
+        api_key = (
+            os.getenv("PROD_SYNTH_API_KEY", "").strip()
+            or os.getenv("SYNTH_API_KEY", "").strip()
+        )
         if not api_key:
             raise RuntimeError("Missing SYNTH_API_KEY in environment/.env")
         return base.rstrip("/"), api_key
@@ -112,7 +115,11 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
         except ImportError:
             # Fallback to hardcoded prod URL
             base_url = "https://agent-learning.onrender.com/api"
-        api_key = os.getenv("TESTING_PROD_SYNTH_API_KEY", "").strip() or os.getenv("SYNTH_API_KEY", "").strip()
+        api_key = (
+            os.getenv("PROD_SYNTH_API_KEY", "").strip()
+            or os.getenv("TESTING_PROD_SYNTH_API_KEY", "").strip()
+            or os.getenv("SYNTH_API_KEY", "").strip()
+        )
         if not api_key:
             raise RuntimeError("Missing TESTING_PROD_SYNTH_API_KEY/SYNTH_API_KEY in environment/.env")
     return base_url.rstrip("/"), api_key
@@ -130,6 +137,8 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["prod", "dev", "local"], default=None,
                    help="Backend mode/environment (default: env override or prod)")
+    p.add_argument("--backend-url", type=str, default=None,
+                   help="Optional explicit backend base URL (overrides mode/env resolution)")
     # Default to 'local' for localhost development, or use TASK_APP_BASE_URL from env
     p.add_argument("--task-app-url", type=str, default=os.getenv("TASK_APP_BASE_URL", "local").strip())
     p.add_argument("--model", type=str, default=os.getenv("OPENAI_MODEL", "").strip() or "gpt-5-nano")
@@ -145,8 +154,10 @@ def _parse_args() -> argparse.Namespace:
 
 async def _main() -> int:
     args = _parse_args()
-    # Use mode-based resolution like synth_qwen_v1
+    # Use mode-based resolution like synth_qwen_v1; allow explicit override via --backend-url
     backend_url, api_key = _load_env(args.mode)
+    if args.backend_url:
+        backend_url = args.backend_url.strip().rstrip("/")
     task_app_url = args.task_app_url
     # Optional: source ENVIRONMENT_API_KEY from examples/rl/.env if not present (for diagnostics)
     env_key = os.getenv("ENVIRONMENT_API_KEY", "").strip()

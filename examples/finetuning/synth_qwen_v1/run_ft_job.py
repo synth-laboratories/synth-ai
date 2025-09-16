@@ -71,6 +71,14 @@ def ensure_training_jsonl(path: Path) -> Path:
 async def run(args: argparse.Namespace) -> None:
     # Resolve backend and key
     base_url, api_key = load_env(args.mode)
+    # Force canonical prod base when prod mode (or override) is selected
+    try:
+        if (args.mode == "prod") or (os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "").strip().lower() == "prod"):
+            base_url = "https://agent-learning.onrender.com/api"
+            # Also export for any downstream helpers that read env
+            os.environ["PROD_BACKEND_URL"] = base_url
+    except Exception:
+        pass
 
     # Ensure/validate training JSONL
     data_path = ensure_training_jsonl(Path(args.data))
