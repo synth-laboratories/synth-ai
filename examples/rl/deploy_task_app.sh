@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Deploy SDK RL Task App (Modal) and configure secrets
-# - App name: grpo-task-service-sdk
-# - Secret:   crafter-environment-sdk
+# - App name: grpo-task-service-sdk (or grpo-task-service-sdk-prod when prod)
+# - Secret:   crafter-environment-sdk (or crafter-environment-sdk-prod when prod)
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
@@ -34,7 +34,18 @@ if [ -n "${SYNTH_API_KEY:-}" ]; then
   SYNTH_ARG=(SYNTH_API_KEY="$SYNTH_API_KEY")
 fi
 
-echo "Creating/updating Modal secret: crafter-environment-sdk"
+# Determine prod vs non-prod for names (override with env vars)
+ENV_FLAG="${SYNTH_BACKEND_URL_OVERRIDE:-${ENVIRONMENT:-${APP_ENVIRONMENT:-}}}"
+ENV_FLAG=$(echo "$ENV_FLAG" | tr '[:upper:]' '[:lower:]')
+if [ "$ENV_FLAG" = "prod" ] || [ "$ENV_FLAG" = "production" ]; then
+  SECRET_NAME="${TASK_APP_SECRET_NAME:-crafter-environment-sdk-prod}"
+  APP_NAME="${TASK_APP_NAME:-grpo-task-service-sdk-prod}"
+else
+  SECRET_NAME="${TASK_APP_SECRET_NAME:-crafter-environment-sdk}"
+  APP_NAME="${TASK_APP_NAME:-grpo-task-service-sdk}"
+fi
+
+echo "Creating/updating Modal secret: $SECRET_NAME"
 
 # Build secret args dynamically to avoid sending empty vars
 SECRET_ARGS=("ENVIRONMENT_API_KEY=$ENVIRONMENT_API_KEY")
@@ -48,14 +59,14 @@ if [ -n "${SYNTH_API_KEY:-}" ]; then
 fi
 
 # Try create; if it exists, update via `secret create` (set command doesn't exist)
-if ! uv run modal secret create crafter-environment-sdk "${SECRET_ARGS[@]}"; then
+if ! uv run modal secret create "$SECRET_NAME" "${SECRET_ARGS[@]}"; then
   echo "Secret exists. Removing and recreating..."
-  uv run modal secret delete crafter-environment-sdk
-  uv run modal secret create crafter-environment-sdk "${SECRET_ARGS[@]}"
+  uv run modal secret delete "$SECRET_NAME"
+  uv run modal secret create "$SECRET_NAME" "${SECRET_ARGS[@]}"
 fi
 
-echo "Deploying app: grpo-task-service-sdk"
-uv run modal deploy "$HERE/task_app.py" | tee "$HERE/.last_deploy.log"
+echo "Deploying app: $APP_NAME"
+TASK_APP_NAME="$APP_NAME" TASK_APP_SECRET_NAME="$SECRET_NAME" uv run modal deploy "$HERE/task_app.py" | tee "$HERE/.last_deploy.log"
 
 # Extract deployed Task App URL and persist to .env for downstream scripts
 TASK_URL=$(grep -Eo 'https://[^ ]+\.modal\.run' "$HERE/.last_deploy.log" | tail -1 || true)

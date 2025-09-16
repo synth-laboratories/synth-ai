@@ -13,7 +13,8 @@ import asyncio
 import os
 from typing import Optional
 
-from synth_ai.learning import RlClient, backend_health, task_app_health
+from synth_ai.learning import RlClient, backend_health
+import httpx
 def _resolve_backend_url() -> str:
     override = os.getenv("BACKEND_OVERRIDE", "").strip()
     if override:
@@ -42,10 +43,31 @@ async def _backend_health(base_url: str, api_key: str) -> bool:
 
 
 async def _task_app_health(task_app_url: str) -> bool:
+    """Probe the task app /health endpoint directly.
+
+    Considers both {"ok": true} and {"healthy": true} as success, and treats
+    HTTP 200 as OK even if the body schema differs.
+    Optionally sends X-API-Key if ENVIRONMENT_API_KEY is set.
+    """
     try:
-        res = await task_app_health(task_app_url)
-        ok = bool(res.get("ok", False))
-        print("task_app.health:", "OK" if ok else "WARN", res.get("status"))
+        base = (task_app_url or "").rstrip("/")
+        url = f"{base}/health"
+        headers = {}
+        env_key = os.getenv("ENVIRONMENT_API_KEY", "").strip()
+        if env_key:
+            headers["X-API-Key"] = env_key
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(url, headers=headers)
+        ok = (r.status_code == 200)
+        status = None
+        try:
+            data = r.json()
+            status = data.get("status") or ("healthy" if data.get("healthy") else None)
+            if not ok:
+                ok = bool(data.get("ok") or data.get("healthy"))
+        except Exception:
+            pass
+        print("task_app.health:", "OK" if ok else "WARN", status)
         return ok
     except Exception as e:
         print(f"task_app.health: WARN ({type(e).__name__}: {e})")
