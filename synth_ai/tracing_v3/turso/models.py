@@ -408,3 +408,56 @@ analytics_views = {
         GROUP BY e.experiment_id
     """,
 }
+
+
+# Reward persistence tables
+
+
+class OutcomeReward(Base):
+    """Episode-level rewards/outcomes per session.
+
+    Stores per-episode summary including total_reward (e.g., unique achievements),
+    achievements_count, and total_steps. Used for filtering episodes by outcome.
+    """
+
+    __tablename__ = "outcome_rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(String, ForeignKey("session_traces.session_id"), nullable=False)
+    total_reward = Column(Integer, nullable=False)
+    achievements_count = Column(Integer, nullable=False, default=0)
+    total_steps = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+    __table_args__ = (
+        Index("idx_outcome_rewards_session", "session_id"),
+        Index("idx_outcome_rewards_total", "total_reward"),
+    )
+
+
+class EventReward(Base):
+    """First-class event-level rewards with annotations.
+
+    Links to an event and session. `message_id` is optional.
+    """
+
+    __tablename__ = "event_rewards"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    session_id = Column(String, ForeignKey("session_traces.session_id"), nullable=False)
+    message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
+    turn_number = Column(Integer, nullable=True)
+    reward_value = Column(Float, nullable=False, default=0.0)
+    reward_type = Column(String, nullable=True)  # shaped | sparse | achievement | penalty | evaluator | human
+    key = Column(String, nullable=True)  # e.g., achievement name
+    annotation = Column(JSONText)  # free-form JSON
+    source = Column(String, nullable=True)  # environment | runner | evaluator | human
+    created_at = Column(DateTime, default=func.current_timestamp(), nullable=False)
+
+    __table_args__ = (
+        Index("idx_event_rewards_session", "session_id"),
+        Index("idx_event_rewards_event", "event_id"),
+        Index("idx_event_rewards_type", "reward_type"),
+        Index("idx_event_rewards_key", "key"),
+    )

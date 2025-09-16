@@ -107,6 +107,10 @@ class SessionTracer:
             if self.auto_save and self.db is None:
                 await self.initialize()
 
+            # Ensure session row exists for incremental writes
+            if self.db:
+                await self.db.ensure_session(session_id, created_at=self._current_trace.created_at, metadata=metadata or {})
+
             # Trigger hooks
             await self.hooks.trigger(
                 "session_start", session_id=session_id, metadata=metadata or {}
@@ -152,6 +156,17 @@ class SessionTracer:
             "timestep_start", step=step, session_id=self._current_trace.session_id
         )
 
+        # Ensure timestep row exists in DB for incremental linkage
+        if self.db:
+            await self.db.ensure_timestep(
+                self._current_trace.session_id,
+                step_id=step.step_id,
+                step_index=step.step_index,
+                turn_number=turn_number,
+                started_at=step.timestamp,
+                metadata=metadata or {},
+            )
+
         return step
 
     async def end_timestep(self, step_id: str | None = None):
@@ -180,7 +195,7 @@ class SessionTracer:
         if step == self._current_step:
             self._current_step = None
 
-    async def record_event(self, event: BaseEvent):
+    async def record_event(self, event: BaseEvent) -> int | None:
         """Record an event.
 
         Args:
@@ -201,6 +216,46 @@ class SessionTracer:
         if self._current_step:
             self._current_step.events.append(event)
 
+        # Persist incrementally if DB is available; return DB event id
+        if self.db:
+            timestep_db_id = None
+            if self._current_step:
+                # ensure timestep exists and get id
+                timestep_db_id = await self.db.ensure_timestep(
+                    self._current_trace.session_id,
+                    step_id=self._current_step.step_id,
+                    step_index=self._current_step.step_index,
+                    turn_number=self._current_step.turn_number,
+                    started_at=self._current_step.timestamp,
+                    completed_at=self._current_step.completed_at,
+                    metadata=self._current_step.step_metadata,
+                )
+            event_id = await self.db.insert_event_row(
+                self._current_trace.session_id,
+                timestep_db_id=timestep_db_id,
+                event=event,
+            )
+            # Auto-insert an event reward if EnvironmentEvent carries reward
+            try:
+                from .abstractions import EnvironmentEvent  # local import to avoid cycles
+
+                if isinstance(event, EnvironmentEvent) and event.reward is not None:
+                    await self.record_event_reward(
+                        event_id=event_id,
+                        message_id=None,
+                        turn_number=self._current_step.turn_number if self._current_step else None,
+                        reward_value=float(event.reward),
+                        reward_type="sparse",
+                        key=None,
+                        annotation=getattr(event, "event_metadata", None),
+                        source="environment",
+                    )
+            except Exception:
+                # Do not fail tracing if reward recording fails
+                pass
+            return event_id
+        return None
+
     async def record_message(
         self,
         content: str,
@@ -208,7 +263,7 @@ class SessionTracer:
         event_time: float | None = None,
         message_time: int | None = None,
         metadata: dict[str, Any] | None = None,
-    ):
+    ) -> int | None:
         """Record a message.
 
         Args:
@@ -241,6 +296,31 @@ class SessionTracer:
         self._current_trace.markov_blanket_message_history.append(msg)
         if self._current_step:
             self._current_step.markov_blanket_messages.append(msg)
+
+        # Persist incrementally and return DB message id
+        if self.db:
+            timestep_db_id = None
+            if self._current_step:
+                timestep_db_id = await self.db.ensure_timestep(
+                    self._current_trace.session_id,
+                    step_id=self._current_step.step_id,
+                    step_index=self._current_step.step_index,
+                    turn_number=self._current_step.turn_number,
+                    started_at=self._current_step.timestamp,
+                    completed_at=self._current_step.completed_at,
+                    metadata=self._current_step.step_metadata,
+                )
+            message_id = await self.db.insert_message_row(
+                self._current_trace.session_id,
+                timestep_db_id=timestep_db_id,
+                message_type=message_type,
+                content=content,
+                event_time=msg.time_record.event_time,
+                message_time=msg.time_record.message_time,
+                metadata=msg.metadata,
+            )
+            return message_id
+        return None
 
     async def end_session(self, save: bool = None) -> SessionTrace:
         """End the current session.
@@ -341,3 +421,44 @@ class SessionTracer:
         if self.db:
             await self.db.close()
             self.db = None
+
+    # -------------------------------
+    # Reward recording helpers
+    # -------------------------------
+
+    async def record_outcome_reward(self, *, total_reward: int, achievements_count: int, total_steps: int) -> int | None:
+        """Record an episode-level outcome reward for the current session."""
+        if self._current_trace is None:
+            raise RuntimeError("No active session")
+        if self.db is None:
+            await self.initialize()
+        if self.db:
+            return await self.db.insert_outcome_reward(
+                self._current_trace.session_id,
+                total_reward=total_reward,
+                achievements_count=achievements_count,
+                total_steps=total_steps,
+            )
+        return None
+
+    # StepMetrics removed in favor of event_rewards; use record_event_reward for per-turn shaped values
+
+    async def record_event_reward(self, *, event_id: int, message_id: int | None = None, turn_number: int | None = None, reward_value: float = 0.0, reward_type: str | None = None, key: str | None = None, annotation: dict[str, Any] | None = None, source: str | None = None) -> int | None:
+        """Record a first-class event-level reward with optional annotations."""
+        if self._current_trace is None:
+            raise RuntimeError("No active session")
+        if self.db is None:
+            await self.initialize()
+        if self.db:
+            return await self.db.insert_event_reward(
+                self._current_trace.session_id,
+                event_id=event_id,
+                message_id=message_id,
+                turn_number=turn_number,
+                reward_value=reward_value,
+                reward_type=reward_type,
+                key=key,
+                annotation=annotation,
+                source=source,
+            )
+        return None

@@ -19,10 +19,10 @@ PROD_BACKEND_BASE = "https://agent-learning.onrender.com/api/v1"
 
 
 def _get_default_base_url() -> str:
-    # Prefer explicit backend variables that are NOT modal; else default to prod backend
+    # Prefer explicit backend variables; else default to prod backend
     for var in ("SYNTH_BACKEND_BASE_URL", "BACKEND_BASE_URL", "SYNTH_BASE_URL"):
         val = os.getenv(var)
-        if val and ("modal" not in val.lower() and "modal.run" not in val.lower()):
+        if val:
             return val
     return PROD_BACKEND_BASE
 
@@ -87,19 +87,7 @@ def register(cli):
 
         base = _ensure_api_v1_prefix(base_url)
 
-        # Hard guard: never hit Modal URLs for account balance
-        try:
-            parsed = urlparse(base)
-            host = (parsed.hostname or "").lower()
-        except Exception:
-            host = ""
-        if "modal" in host or "modal.run" in base.lower():
-            # Override to prod backend unconditionally
-            fallback = PROD_BACKEND_BASE
-            console.print(
-                f"[yellow]Detected remote Modal URL ({base}). Using backend instead:[/yellow] {fallback}"
-            )
-            base = fallback
+        # No special-casing for modal.run domains; honor the provided base URL
 
         try:
             resp: Response = requests.get(

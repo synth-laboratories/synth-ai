@@ -1,0 +1,39 @@
+# RL resources and trainer hints (illustrative; server resolves trainer placement)
+
+# [resources]
+# NOTE: GPU resource hints are resolved server-side by the trainer/backend.
+# These are commented out to avoid confusion; the SDK/examples do not schedule GPUs.
+# gpu_type = "H100"
+# total_gpus = 8
+# inference_gpus = 2
+# inference_tensor_parallel = true
+# training_gpus = 6
+
+# Optional: these map to server-side trainer configs; the SDK does not directly schedule GPUs
+[trainer]
+# Modest testing defaults
+batch_size = 2
+group_size = 4
+
+# Optional: identify the backend trainer service to use when creating jobs
+# If provided, scripts can omit --trainer-id
+# id = "trainer_crafter_qwen_dev"
+
+# Keep episodes short for quick verification
+[env]
+max_steps_per_episode = 3
+
+# Job-level defaults (used if CLI does not override)
+[job]
+model = "Qwen/Qwen3-0.6B"
+
+# Runner behaviors (used if CLI does not override)
+[runner]
+stream_seconds = 0
+empty_polls_threshold = 5
+startup_deadline_s = 45
+
+# Optional: service endpoints used by the job creation
+# If provided, scripts can omit --task-app-url
+[service]
+# task_app_url = "https://grpo-task-service-sdk.example.com"
