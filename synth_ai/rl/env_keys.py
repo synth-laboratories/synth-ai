@@ -6,11 +6,10 @@ import base64
 import binascii
 import json
 from typing import Any, Dict
+import os
 
 import requests
 from nacl.public import PublicKey, SealedBox
-
-from .secrets import mint_environment_api_key
 
 __all__ = ["encrypt_for_backend", "setup_environment_api_key", "MAX_ENVIRONMENT_API_KEY_BYTES"]
 
@@ -62,7 +61,10 @@ def setup_environment_api_key(
     if not synth_api_key:
         raise ValueError("synth_api_key must be provided")
 
-    plaintext = token if token is not None else mint_environment_api_key()
+    # Require caller-provided plaintext. If not provided, read from ENVIRONMENT_API_KEY.
+    plaintext = token if token is not None else os.getenv("ENVIRONMENT_API_KEY", "").strip()
+    if not plaintext:
+        raise ValueError("ENVIRONMENT_API_KEY must be set (or pass token=...) to upload")
     if not isinstance(plaintext, str):  # pragma: no cover - defensive guard
         raise TypeError("token must be a string")
 
@@ -112,7 +114,6 @@ def setup_environment_api_key(
 
     return {
         "stored": True,
-        "token": plaintext,
         "id": upload_doc.get("id"),
         "name": upload_doc.get("name"),
         "updated_at": upload_doc.get("updated_at"),
