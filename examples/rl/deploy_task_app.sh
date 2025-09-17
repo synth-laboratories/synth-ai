@@ -19,6 +19,11 @@ if [ -z "${ENVIRONMENT_API_KEY:-}" ]; then
   exit 1
 fi
 
+# Print masked diagnostics for the ENV key being deployed (never print full value)
+_env_len=${#ENVIRONMENT_API_KEY}
+_env_last5="${ENVIRONMENT_API_KEY:${#ENVIRONMENT_API_KEY}-5}"
+echo "ENVIRONMENT_API_KEY len=${_env_len} last5=${_env_last5}"
+
 # Use `uv run modal` directly; no global CLI install required
 export PATH="$HOME/.local/bin:$PATH"
 
