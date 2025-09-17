@@ -6,6 +6,8 @@
 ![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
 ![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen)
 
+Docs: [Synth‑AI Documentation](https://docs.usesynth.ai/synth-ai/introduction)
+
 Fast and effective reinforcement learning for agents, via an API
 
 # Highlights
