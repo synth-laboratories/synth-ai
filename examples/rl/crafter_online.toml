@@ -40,10 +40,10 @@ debug = "INFO"
 type = "single_node_split"
 gpu_type = "H100:8"
 use_rdma = true
-gpus_for_vllm = 2
-gpus_for_training = 5
+gpus_for_vllm = 6
+gpus_for_training = 2
 tensor_parallel = 2
-gpus_for_ref = 1
+gpus_for_ref = 0
 
 [vllm]
 tensor_parallel_size = 2
@@ -54,8 +54,7 @@ enforce_eager = true
 max_parallel_generations = 4
 
 [reference]
-placement = "dedicated"
-gpu_index = 1
+placement = "stacked"
 port = 8002
 tp = 1
 health_max_wait_s = 180

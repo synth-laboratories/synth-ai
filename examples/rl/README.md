@@ -1,24 +1,53 @@
 RL Example (provider-agnostic)
 
 Prereqs
-- Set PROD_BACKEND_URL and SYNTH_API_KEY (or pass via flags)
-- Deploy the task app (examples/rl/task_app.py) to your Modal account and set TASK_APP_BASE_URL
-  - SDK app name: grpo-task-service-sdk
-  - SDK secret name: crafter-environment-sdk
-- Obtain TRAINER_ID from your backend (no provider URL exposed)
-- Optionally edit examples/rl/config.toml for model/batch/group and runner defaults; scripts default to this path when --config-path is not provided
+- Set `PROD_BACKEND_URL` and `SYNTH_API_KEY` (or pass via flags)
+- Deploy the task app (`examples/rl/task_app.py`) to your Modal account and set `TASK_APP_BASE_URL`
+  - SDK app name: `grpo-task-service-sdk`
+  - SDK secret name: `crafter-environment-sdk`
+- Ensure your organization has an uploaded `ENVIRONMENT_API_KEY` (see below). The backend decrypts and injects it at trainer start.
+- Optionally edit `examples/rl/crafter_online.toml` for model/batch/group and runner defaults; scripts default to this path when `--config-path` is not provided
 
-Quickstart
+Working prod flow (tested)
 ```bash
-python examples/rl/run_rl_job.py \
-  --backend-url "$PROD_BACKEND_URL" \
+# 0) Load env and set prod URLs/keys
+set -a; source /Users/you/Documents/GitHub/synth-ai/.env; set +a
+export SYNTH_BACKEND_URL_OVERRIDE=prod && export PROD_BACKEND_URL=https://agent-learning.onrender.com/api
+export SYNTH_API_KEY="${PROD_SYNTH_API_KEY:-$SYNTH_API_KEY}"
+export ENVIRONMENT_API_KEY="${PROD_ENVIRONMENT_API_KEY:-$ENVIRONMENT_API_KEY}"
+export OPENAI_API_KEY="${PROD_OPENAI_API_KEY:-$OPENAI_API_KEY}"
+
+# 1) Upload org ENVIRONMENT_API_KEY to backend (sealed-box)
+uv run python -c "import os; from synth_ai.rl.env_keys import setup_environment_api_key as s; r=s('https://agent-learning.onrender.com', os.environ['SYNTH_API_KEY']); print('uploaded');"
+
+# 2) Deploy the Task App (Modal) that hosts the env rollout endpoints
+bash /Users/you/Documents/GitHub/synth-ai/examples/rl/deploy_task_app.sh
+
+# 3) Sanity check backend + task app health
+uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/check.py \
+  --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" \
+  --task-app-url "$TASK_APP_BASE_URL"
+
+# 4) Optional: OpenAI-direct rollout workflow (backend orchestrates task app → OpenAI)
+uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/openai_in_task_app.py \
+  --mode prod --backend-url https://agent-learning.onrender.com/api \
+  --task-app-url "$TASK_APP_BASE_URL" \
+  --model gpt-5-nano --num-rollouts 2 --max-steps-each 10 --timeout-seconds 200
+
+# 5) Start clustered RL job (Qwen baseline)
+uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/run_rl_job.py \
+  --backend-url https://agent-learning.onrender.com/api \
   --api-key "$SYNTH_API_KEY" \
   --task-app-url "$TASK_APP_BASE_URL" \
-  --trainer-id "$TRAINER_ID" \
   --model "Qwen/Qwen3-0.6B" \
-  --batch-size 2 \
-  --group-size 4 \
-  --stream-seconds 0
+  --batch-size 2 --group-size 4 \
+  --stream-seconds 10 --timeout 200
+
+# 6) Use the trained checkpoint for inference (replace RL_JOB_ID)
+export RL_JOB_ID='PASTE_JOB_ID_FROM_PREVIOUS_STEP'
+uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/hello_rl_completion.py \
+  --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" \
+  --model "rl:Qwen-Qwen3-0.6B:$RL_JOB_ID:checkpoint-epoch-1" --timeout 180
 ```
 
 Setting ENVIRONMENT_API_KEY (secure upload)
@@ -44,7 +73,7 @@ setup_environment_api_key(os.environ["DEV_BACKEND_URL"], os.environ["SYNTH_API_K
 PY
 ```
 Notes
-- Do not send ENVIRONMENT_API_KEY from public clients. The backend decrypts and injects it into trainer containers.
+- Do not send `ENVIRONMENT_API_KEY` from public clients. The backend decrypts and injects it into trainer containers.
 - Endpoints used: `GET /api/v1/crypto/public-key`, `POST /api/v1/env-keys`.
 - Details: see `examples/rl/env_api_key_crypto.txt` and `examples/rl/env_api_crypto_plan.txt`.
 
@@ -55,9 +84,9 @@ Notes
 - Task App auth uses ENVIRONMENT_API_KEY; pass it via Modal secret and use X-API-Key on /health/rollout.
 
 Resources
-- See `examples/rl/config.toml` for an example multi-GPU layout:
+- See `examples/rl/crafter_online.toml` for an example multi-GPU layout:
   - 8x H100 total
-  - 2 GPUs for inference (tensor-parallel) and 6 for training
+  - 6 GPUs for inference (tensor-parallel) and 2 for training
 - The SDK/examples don’t allocate GPUs directly; resource placement is resolved by the backend/trainer.
 
 Local config defaults and precedence
