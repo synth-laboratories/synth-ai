@@ -6,7 +6,7 @@ Modern Compound AI System Development
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-0.2.3.dev0-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.2.4.dev8-orange)](https://pypi.org/project/synth-ai/)
 ![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
 ![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen)
 
@@ -128,6 +128,12 @@ This lists all `run_demo.sh` scripts found in the repo (e.g., eval comparisons, 
 # Changelog
 
 All notable changes to this project are documented in this file.
+
+## [0.2.4.dev8] - 2025-09-17
+- Online RL support via SDK: run production Online RL against your deployed Task App with organization-scoped, sealed-box environment credentials (decrypted server-side only).
+- Single-node multi-GPU defaults in examples: 6 inference / 2 training, stacked reference model, configurable tensor parallelism for inference.
+- Improved docs and diagnostics: clearer production flow, early health checks, and masked environment API key logging for faster debugging.
+- Published on PyPI.
 
 ## [0.2.4.dev6] - 2025-08-18
 - Added: Wordle environment for simple RL testing, including engine, environment, taskset, and curated instances with helper generator script.
