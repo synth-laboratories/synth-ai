@@ -205,6 +205,7 @@ def fastapi_app():
     if "/opt/synth_ai" not in sys.path:
         sys.path.insert(0, "/opt/synth_ai")
     from crafter_task_app_helpers.env import EnvRegistry
+    from crafter_task_app_helpers.rewards import compute_decision_rewards
     from crafter_task_app_helpers.config import ACTION_SPACE, ENV_NAME
     from crafter_task_app_helpers.policy import CrafterPolicy
 
@@ -250,8 +251,10 @@ def fastapi_app():
         return {"healthy": True}
 
     @api.post(f"/env/{ENV_NAME}/initialize")
-    async def initialize(req: InitRequest):
-        env_id, obs = await _registry.initialize(req.env_config)
+    async def initialize(req: InitRequest, request: Request):
+        # Optionally tie the environment to a run_id header so we can guarantee isolation
+        run_id_hdr = request.headers.get("X-Run-Id") or request.headers.get("X-Run-ID")
+        env_id, obs = await _registry.initialize(req.env_config, run_id=run_id_hdr)
         return {"env_id": env_id, "observation": _to_jsonable(obs)}
 
     @api.post(f"/env/{ENV_NAME}/step")
@@ -357,13 +360,16 @@ def fastapi_app():
             flush=True,
         )
 
-        # Initialize env
+        # Initialize env (preemptively terminate any prior instance for this run to avoid sharing)
         cfg = dict(req.env.config or {})
         if req.env.seed is not None:
             cfg["seed"] = int(req.env.seed)
-        env_id, observation = await _registry.initialize(cfg)
+        env_id, observation = await _registry.initialize(cfg, run_id=req.run_id)
 
         trajectory_steps: list[RolloutStep] = []
+        # Track per-decision achievement flips for stepwise shaping
+        decision_summaries: list[dict[str, Any]] = []
+        prev_ach: dict[str, bool] | None = None
         total_reward = 0.0
         ops_executed = 0
         pending_tool_calls: list[dict[str, Any]] | None = None
@@ -442,9 +448,8 @@ def fastapi_app():
                         if ach:
                             all_achievements = list(ach.keys())
                             lines.append(f"achievements_available: {', '.join(all_achievements)}")
-                            if ach_on:
-                                lines.append(f"achievements_unlocked: {', '.join(ach_on)}")
-                                lines.append(f"achievements_progress: {len(ach_on)}/{len(all_achievements)}")
+                            lines.append(f"achievements_unlocked: {', '.join(ach_on)}" if ach_on else "achievements_unlocked: ")
+                            lines.append(f"achievements_progress: {len(ach_on)}/{len(all_achievements)}")
                         # Local surroundings (7x7) using semantic_map
                         smap = obs.get("semantic_map")
                         if smap is not None and pos is not None:
@@ -499,6 +504,32 @@ def fastapi_app():
                     obs_text = _format_obs(observation)
                     combined_text = f"Current observation:\n{obs_text}\n\n{context_text}"
                     payload = policy.build_inference_request(combined_text, history=[], turn=len(trajectory_steps))
+                    # Debug: print the full prompt content in a stable labeled block for grepability
+                    try:
+                        print("PROMPT_DUMP_BEGIN")
+                        print(combined_text)
+                        print("PROMPT_DUMP_END")
+                    except Exception:
+                        pass
+                    # Debug: print user prompt and achievements unlocked list
+                    try:
+                        _msgs = payload.get("messages", [])
+                        _last_user = None
+                        for _m in reversed(_msgs):
+                            if isinstance(_m, dict) and _m.get("role") == "user":
+                                _last_user = _m
+                                break
+                        if _last_user is not None:
+                            _content = _last_user.get("content")
+                            print("[task:crafter] user prompt:", _content, flush=True)
+                    except Exception:
+                        pass
+                    try:
+                        _ach = observation.get("achievements_status") if isinstance(observation, dict) else {}
+                        _ach_on = [k for k, v in (_ach or {}).items() if v]
+                        print(f"[task:crafter] achievements_unlocked: {_ach_on}", flush=True)
+                    except Exception:
+                        pass
                     # Prepare payload based on model family (OpenAI vs vLLM)
                     def _prepare_payload(p: dict, mdl: str | None) -> dict:
                         return prepare_inference_payload_for_model(mdl, p)
@@ -507,7 +538,7 @@ def fastapi_app():
                         "[task:crafter] inference payload: ",
                         {
                             "has_model": bool(payload.get("model") is not None),
-                            "messages": len(payload.get("messages", [])),
+                            "messages": payload.get("messages", []),
                             "tools": isinstance(payload.get("tools"), list),
                             "tool_choice": payload.get("tool_choice"),
                             "stop_after_tool_calls": payload.get("stop_after_tool_calls"),
@@ -567,6 +598,17 @@ def fastapi_app():
                             raise
                         _elapsed = time.time() - _t0
                         print(f"[task:crafter] inference status= {resp.status_code} elapsed={_elapsed:.2f}s", flush=True)
+                        # Emit a light-weight perf snapshot for visibility
+                        try:
+                            print(
+                                "[metric] perf ",
+                                "tok/s=n/a",
+                                f"decision p50=n/a p95=n/a",
+                                "roll n/a",
+                                flush=True,
+                            )
+                        except Exception:
+                            pass
                         # Debug: response status and body (on errors)
                         print("[task:crafter] inference status=", resp.status_code, flush=True)
                         if resp.status_code >= 400:
@@ -606,6 +648,9 @@ def fastapi_app():
                             print("[task:crafter] body(no_tools) preview:", preview[:800], flush=True)
                         except Exception:
                             pass
+                        # Early terminate the episode to avoid hanging on empty tool calls
+                        print("[task:crafter] NO_TOOL_CALLS: terminating episode early", flush=True)
+                        break
                     pending_tool_calls = parsed
                     ops_executed += 1
                 elif op == "env":
@@ -630,8 +675,21 @@ def fastapi_app():
                                 reasoning = "Parse error"
 
                             print(f"[task:crafter] env actions: {actions}", flush=True)
+                            # Print a compact echo of the current prompt + tool call for easier triage
+                            try:
+                                import json as _json
+                                print("TOOLCALL_CONFIG:", _json.dumps({
+                                    "policy": req.policy.policy_name,
+                                    "tools_present": True,
+                                    "tool_choice": "required",
+                                    "stop_after": 1,
+                                }))
+                            except Exception:
+                                pass
 
                             # Execute each action individually
+                            # Reset decision-level flip set for this decision
+                            decision_flips: set[str] = set()
                             for act in actions:
                                 observation, reward, done, _info = await _registry.step(env_id, act)
                                 total_reward += float(reward)
@@ -648,6 +706,20 @@ def fastapi_app():
                                 # Check for achievement-based termination
                                 if isinstance(observation, dict):
                                     current_achievements = observation.get("achievements_status", {})
+                                    # Track flips 0→1 within this decision
+                                    try:
+                                        if not isinstance(current_achievements, dict):
+                                            current_achievements = {}
+                                        if prev_ach is None:
+                                            prev_ach = {k: bool(v) for k, v in (current_achievements or {}).items()}
+                                        else:
+                                            for name, on in (current_achievements or {}).items():
+                                                if bool(on) and not bool(prev_ach.get(name, False)):
+                                                    decision_flips.add(str(name))
+                                            # Update prev_ach to latest snapshot
+                                            prev_ach = {k: bool(v) for k, v in (current_achievements or {}).items()}
+                                    except Exception:
+                                        pass
                                     achieved_count = sum(1 for v in current_achievements.values() if v)
                                     total_achievements = len(current_achievements)
 
@@ -670,7 +742,13 @@ def fastapi_app():
                             step = RolloutStep(obs=observation, tool_calls=pending_tool_calls, reward=None, done=False, truncated=False, info=info)
                             trajectory_steps.append(step)
                             ops_executed += 1
-                    pending_tool_calls = None
+                            # End of decision: record indicator_i for shaping
+                            try:
+                                indicator_i = 1 if decision_flips else 0
+                                decision_summaries.append({"indicator_i": indicator_i})
+                            except Exception:
+                                pass
+                            pending_tool_calls = None
                     if len(trajectory_steps) >= max_steps:
                         print(f"[task:crafter] max_steps_reached: steps={len(trajectory_steps)} total_reward={total_reward}", flush=True)
                         break
@@ -711,9 +789,78 @@ def fastapi_app():
             final_achievements = {}
         total_achievements = sum(1 for v in final_achievements.values() if v)
 
+        # Step-reward shaping: compute decision-level rewards if enabled
+        branches: dict[str, Any] = {}
+        try:
+            sr_cfg = (req.record.config or {}).get("step_rewards") if isinstance(req.record, RolloutRecordConfig) else None
+        except Exception:
+            sr_cfg = None
+        try:
+            enabled = False
+            mode = None
+            step_beta = 0.0
+            indicator_lambda = 0.0
+            if isinstance(sr_cfg, dict):
+                enabled = bool(sr_cfg.get("enabled", False))
+                mode = (sr_cfg.get("mode") or "off").strip().lower()
+                step_beta = float(sr_cfg.get("step_beta", 0.0))
+                indicator_lambda = float(sr_cfg.get("indicator_lambda", 0.0))
+            # Env overrides
+            import os as _os2
+            if _os2.getenv("STEP_BETA"):
+                step_beta = float(_os2.getenv("STEP_BETA"))
+            if _os2.getenv("STEP_LAMBDA"):
+                indicator_lambda = float(_os2.getenv("STEP_LAMBDA"))
+            if enabled and mode == "decision_stepwise" and decision_summaries:
+                dec_rewards = compute_decision_rewards(
+                    decision_summaries=decision_summaries,
+                    total_achievements=total_achievements,
+                    step_beta=step_beta,
+                    indicator_lambda=indicator_lambda,
+                )
+                branches["decision_rewards"] = dec_rewards
+                print(
+                    "[task:crafter] step_rewards: ",
+                    {
+                        "enabled": True,
+                        "mode": mode,
+                        "step_beta": step_beta,
+                        "indicator_lambda": indicator_lambda,
+                        "decisions": len(dec_rewards),
+                    },
+                    flush=True,
+                )
+        except Exception as _e_sr:
+            print(f"[task:crafter] step_rewards_error: {_e_sr}", flush=True)
+
+        # Optional tracing of episode/rewards (gated)
+        try:
+            import os as _os3
+            if _os3.getenv("TRACE_RL", "0") == "1":
+                from synth_ai.tracing_v3.session_tracer import SessionTracer  # type: ignore
+                tracer = SessionTracer()
+                await tracer.initialize()
+                meta = {
+                    "env": req.env.env_name,
+                    "policy": req.policy.policy_name,
+                    "step_rewards": {
+                        "enabled": bool(sr_cfg.get("enabled", False)) if isinstance(sr_cfg, dict) else False,
+                        "mode": (sr_cfg.get("mode") if isinstance(sr_cfg, dict) else None),
+                    },
+                }
+                async with tracer.session(metadata=meta):
+                    # Record episode outcome at end
+                    await tracer.record_outcome_reward(
+                        total_reward=int(total_reward),
+                        achievements_count=int(total_achievements),
+                        total_steps=int(len(trajectory_steps)),
+                    )
+        except Exception as _te:
+            print(f"[task:crafter] tracing_error: {_te}", flush=True)
+
         metrics = RolloutMetrics(
-            episode_returns=[total_reward],  # Keep original rewards for reference
-            mean_return=float(total_achievements),  # Use achievements as mean_return
+            episode_returns=[total_reward],
+            mean_return=float(total_achievements),
             num_steps=len(trajectory_steps),
             num_episodes=1,
         )
@@ -722,7 +869,7 @@ def fastapi_app():
         return RolloutResponse(
             run_id=req.run_id,
             trajectories=[trajectory],
-            branches={},
+            branches=branches,
             metrics=metrics,
             aborted=False,
             ops_executed=ops_executed,

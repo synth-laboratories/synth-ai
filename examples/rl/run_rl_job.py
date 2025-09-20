@@ -98,11 +98,7 @@ async def _main() -> int:
     if not base or not api_key:
         print("Missing --backend-url and/or --api-key (or environment)")
         return 2
-    if not args.job_id:
-        if not args.task_app_url:
-            print("Missing --task-app-url for job creation")
-            return 2
-        validate_task_app_url(args.task_app_url, name="TASK_APP_BASE_URL")
+    # Defer task app URL validation until after we apply config fallbacks
 
     # Health checks (best-effort)
     try:
@@ -141,7 +137,7 @@ async def _main() -> int:
         args.startup_deadline_s if args.startup_deadline_s is not None else int(cfg_runner.get("startup_deadline_s", 45))
     )
 
-    # Show effective configuration
+    # Apply config fallbacks for service URLs (task app, trainer start) before validation
     env_cfg = (inline_config or {}).get("env", {})
     svc_cfg = (inline_config or {}).get("services", {})
     # Prefer TOML services overrides if CLI/env not set
@@ -158,6 +154,14 @@ async def _main() -> int:
                 args.trainer_start_url = v2
     except Exception:
         pass
+    # Validate presence of task app URL for new jobs (not required when attaching to an existing job)
+    if not args.job_id:
+        if not args.task_app_url:
+            print("Missing --task-app-url for job creation")
+            return 2
+        validate_task_app_url(args.task_app_url, name="TASK_APP_BASE_URL")
+
+    # Show effective configuration
     env_max_steps = env_cfg.get("max_steps_per_episode")
     print(
         "Effective config:",
@@ -194,6 +198,10 @@ async def _main() -> int:
                     print(f"Failed to load config TOML: {e}")
                     return 2
             # Build body; mirror start_qwen_full_clustered.py
+            # Compute a sane default trainer start URL: POST to the task app base ("/")
+            default_trainer_start = (args.task_app_url or "").rstrip("/") + "/"
+            trainer_start_url = (args.trainer_start_url or default_trainer_start).rstrip("/") + "/"
+
             body: Dict[str, Any] = {
                 "job_type": "rl",
                 "data": {
@@ -202,6 +210,8 @@ async def _main() -> int:
                     **({"job_config_id": (args.job_config_id or None)} if args.job_config_id else {}),
                     **({"config": inline_config} if inline_config else {}),
                     "trainer": {"batch_size": batch_size, "group_size": group_size},
+                    # Force correct trainer start endpoint (prod): POST "/" on the task app base
+                    "training_start_url": trainer_start_url,
                 },
             }
             # POST to /api/rl/jobs (ensure /api suffix)
@@ -250,12 +260,16 @@ async def _main() -> int:
     # Terminal event fast-exit support
     TERMINAL_EVENTS = {
         "workflow.completed",
+        "workflow.failed",
+        "workflow.cancelled",
         "workflow.termination.signal",
         "rl.job.completed",
+        "rl.job.failed",
         "rl.finalization.done",
         "rl.finalization.signal",
         # Treat train-completed as terminal for client purposes
         "rl.train.completed",
+        "rl.train.failed",
     }
     terminal_flag: asyncio.Event = asyncio.Event()
     # Global watchdog to prevent indefinite stalls (env override RL_CLIENT_MAX_POLL_SECONDS)
@@ -276,7 +290,12 @@ async def _main() -> int:
                 terminal_flag.set()
         except Exception:
             pass
-    sse_seconds = max(int(stream_seconds or 0), 300)  # ensure some SSE time to catch terminal events
+    # Ensure SSE runs long enough to capture terminal events (overridable via env)
+    try:
+        _sse_floor = int(os.getenv("RL_CLIENT_SSE_SECONDS", "1800") or 1800)
+    except Exception:
+        _sse_floor = 1800
+    sse_seconds = max(int(stream_seconds or 0), _sse_floor)
     sse_task = asyncio.create_task(stream_job_events(base, api_key, job_id, seconds=sse_seconds, on_event=_on_sse))
 
     # Give SSE a brief head start to catch immediate terminal events
@@ -309,9 +328,14 @@ async def _main() -> int:
     # If created via RL jobs route, fall back to standard JobHandle polling (race with terminal SSE)
     if not args.trainer_id:
         handle = JobHandle(base, api_key, job_id, strict=False, timeout=args.timeout)
+        # Allow poll interval override via env for quicker detection
+        try:
+            _poll_iv = float(os.getenv("RL_CLIENT_POLL_INTERVAL", "1.0") or 1.0)
+        except Exception:
+            _poll_iv = 1.0
         poll_task = asyncio.create_task(
             handle.poll_until_terminal(
-                interval_seconds=2.0,
+                interval_seconds=_poll_iv,
                 max_seconds=None,
                 empty_polls_threshold=int(empty_polls),
                 startup_deadline_s=int(startup_deadline_s),
