@@ -17,10 +17,20 @@ from synth_ai.environments.environment.tools import EnvToolCall
 class EnvRegistry:
     def __init__(self) -> None:
         self._envs: Dict[str, CrafterClassicEnvironment] = {}
+        # Track run_id → env_id to ensure per-run isolation and allow preemptive cleanup
+        self._run_to_env: Dict[str, str] = {}
 
-    async def initialize(self, config: Dict[str, Any] | None) -> Tuple[str, Dict[str, Any]]:
+    async def initialize(self, config: Dict[str, Any] | None, run_id: str | None = None) -> Tuple[str, Dict[str, Any]]:
         cfg = dict(config or {})
         seed = int(cfg.get("seed", 0)) if cfg.get("seed") is not None else 0
+
+        # If this run_id already has a live environment, terminate it to avoid sharing across rollouts
+        if run_id:
+            try:
+                await self.terminate_for_run(run_id)
+            except Exception:
+                # Best-effort cleanup; continue
+                pass
 
         metadata = CrafterTaskInstanceMetadata(
             difficulty="normal",
@@ -40,6 +50,8 @@ class EnvRegistry:
         env = CrafterClassicEnvironment(task)
         env_id = f"env_{uuid.uuid4().hex[:8]}"
         self._envs[env_id] = env
+        if run_id:
+            self._run_to_env[run_id] = env_id
         obs = await env.initialize(seed=seed)
         return env_id, obs
 
@@ -68,6 +80,19 @@ class EnvRegistry:
                 await env.terminate()
             except Exception:
                 pass
+        # Remove any run_id mapping pointing at this env
+        try:
+            to_del = [r for r, e in self._run_to_env.items() if e == env_id]
+            for r in to_del:
+                self._run_to_env.pop(r, None)
+        except Exception:
+            pass
         return {"ok": True}
+
+    async def terminate_for_run(self, run_id: str) -> Dict[str, Any]:
+        env_id = self._run_to_env.pop(run_id, None)
+        if env_id:
+            return await self.terminate(env_id)
+        return {"ok": True, "noop": True}
 
 

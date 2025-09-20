@@ -118,3 +118,24 @@ python examples/rl/full_training.py --backend-url "$PROD_BACKEND_URL" --api-key 
 ```
  RL_WEIGHTS_PATH="models/Qwen-Qwen3-0.6B/rl-job_1993769d63c7506d485/checkpoint-epoch-1.tar.gz" uv run python examples/rl/hello_rl_completion.py --model "rl:Qwen-Qwen3-0 6B:job_1993769d63c7506d485:checkpoint-epoch-1"
 ```
+
+Decision-level shaping (optional)
+
+You can gate decision-level shaping via the `[step_rewards]` block in the training TOML:
+
+```
+[step_rewards]
+enabled = false
+mode = "off"            # set to "decision_stepwise" to enable
+step_beta = 0.0          # coefficient for (T - i) * achievements
+indicator_lambda = 0.0   # coefficient for achievement flip at i
+```
+
+When enabled and mode is `decision_stepwise`, the task app computes per-decision rewards:
+
+```
+r_i = (T - i) * step_beta * A_T + indicator_lambda * indicator_i
+```
+
+and returns a summary at `branches.decision_rewards` in the rollout response.
+Set `STEP_BETA`/`STEP_LAMBDA` env vars to override coefficients at runtime.

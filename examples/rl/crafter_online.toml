@@ -50,7 +50,7 @@ tensor_parallel_size = 2
 gpu_memory_utilization = 0.7
 max_model_len = 8192
 max_num_seqs = 32
-enforce_eager = true
+enforce_eager = false
 max_parallel_generations = 4
 
 [reference]
@@ -69,8 +69,12 @@ group_size = 8
 learning_rate = 5e-6
 max_grad_norm = 0.5
 log_interval = 1
-update_reference_interval = 1
+update_reference_interval = 0
 weight_sync_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
 
 [rollout]
 env_name = "Crafter"
@@ -106,6 +110,12 @@ group_normalization = true
 num_inner_steps = 1
 clip_epsilon = 0.2
 completion_only = false
+
+[step_rewards]
+enabled = false
+mode = "off"            # set to "decision_stepwise" to enable shaping
+step_beta = 0.0          # coefficient for (T - i) * achievements
+indicator_lambda = 0.0   # coefficient for achievement flip at i
 
 [trainer]
 allow_ref_fallback = false

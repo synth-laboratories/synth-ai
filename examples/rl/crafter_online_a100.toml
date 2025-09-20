@@ -42,7 +42,7 @@ gpu_type = "A100:4"
 use_rdma = true
 gpus_for_vllm = 2        # two GPUs for inference
 gpus_for_training = 1    # one GPU for trainer
-tensor_parallel = 1      # trainer TP on a single GPU
+tensor_parallel = 2      # trainer TP on a single GPU
 gpus_for_ref = 1         # one GPU for reference model
 # GPU index mapping:
 # 0 - inference (vLLM)
@@ -53,9 +53,9 @@ gpus_for_ref = 1         # one GPU for reference model
 [vllm]
 tensor_parallel_size = 2
 gpu_memory_utilization = 0.7
-max_model_len = 8192
+max_model_len = 4096
 max_num_seqs = 32
-enforce_eager = true
+enforce_eager = false
 max_parallel_generations = 4
 
 [reference]
@@ -68,26 +68,30 @@ health_interval_ms = 300
 # model_id = "Qwen/Qwen3-0.6B"
 
 [training]
-num_epochs = 1
+num_epochs = 100
 iterations_per_epoch = 1
-batch_size = 1
+batch_size = 4
 group_size = 8
 learning_rate = 5e-6
 max_grad_norm = 0.5
 log_interval = 1
-update_reference_interval = 1
+update_reference_interval = 0
 weight_sync_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
 
 [rollout]
 env_name = "Crafter"
 policy_name = "crafter-react"
 env_config = {}
-max_steps_per_episode = 7
+max_steps_per_episode = 6
 sampling_temperature = 0.3
 sampling_top_p = 0.95
 max_tokens = 1024
-max_concurrent_rollouts = 8
-ops_per_rollout = 14
+max_concurrent_rollouts = 24
+ops_per_rollout = 12
 on_done = "reset"
 thinking_mode = "think"
 thinking_budget = 512
@@ -97,9 +101,10 @@ config = {}
 
 [evaluation]
 seeds = [0, 1, 2, 3, 4, 5, 6, 7]
-rollouts_per_seed = 1
-max_concurrent_rollouts = 4
+rollouts_per_seed = 2
+max_concurrent_rollouts = 8
 thinking_mode = "think"
+every_n_iters = 5
 
 [hyperparams]
 epsilon_low = 0.1
@@ -112,6 +117,12 @@ group_normalization = true
 num_inner_steps = 1
 clip_epsilon = 0.2
 completion_only = false
+
+[step_rewards]
+enabled = false
+mode = "off"
+step_beta = 0.0
+indicator_lambda = 0.0
 
 [trainer]
 allow_ref_fallback = false
@@ -127,6 +138,6 @@ enabled = true
 [services]
 # For dev runs, set TASK_APP_BASE_URL in env to override.
 # This value is informational; clients use the CLI flag/env.
-task_url = "https://grpo-crafter-task-app.example.com"
+task_url = "https://synth-laboratories-dev--grpo-crafter-task-app-fastapi-app.modal.run"
 
 

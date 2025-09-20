@@ -28,22 +28,22 @@ class CrafterPolicy:
             {
                 "type": "function",
                 "function": {
-                    "name": "interact",
-                    "description": "Perform actions in the Crafter environment.",
+                    "name": "interact_many",
+                    "description": "Execute a short sequence of Crafter actions in order (1-8).",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "actions": {
                                 "type": "array",
                                 "items": {"type": "string", "enum": ACTIONS},
-                                "description": "List of actions to perform in sequence (e.g., ['move_right', 'move_right', 'do']). Available actions: " + ", ".join(ACTIONS),
+                                "description": "List of Crafter actions to execute sequentially.",
                             },
                             "reasoning": {
                                 "type": "string",
                                 "description": "Reasoning for these actions",
                             },
                         },
-                        "required": ["actions", "reasoning"],
+                        "required": ["actions"],
                     },
                 },
             },
@@ -70,7 +70,7 @@ class CrafterPolicy:
             "model": self.model,
             "messages": messages,
             "tools": tools,
-            "tool_choice": {"type": "function", "function": {"name": "interact"}},
+            "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
             "stop_after_tool_calls": 1,
             "temperature": 0.2,
             "max_tokens": 256,
@@ -131,7 +131,9 @@ class CrafterPolicy:
                     except json.JSONDecodeError as e:
                         raise ValueError(f"Tool call {i} arguments is not valid JSON: {e}")
 
-                    out.append({"tool_name": tool_name, "arguments": arguments})
+                    # Normalize tool name to interact for the env loop reader, but keep original
+                    norm_name = "interact" if tool_name in ("interact", "interact_many") else tool_name
+                    out.append({"tool_name": norm_name, "arguments": arguments})
 
                 return out
 
