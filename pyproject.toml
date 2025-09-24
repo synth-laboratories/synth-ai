@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.4.dev8"
+version = "0.2.4.dev9"
 description = "Software for aiding the best and multiplying the will - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -54,10 +54,12 @@ dependencies = [
     "aiohttp>=3.8.0", # For async HTTP requests in Harmony integration
     "datasets>=4.0.0",
     "transformers>=4.56.1",
+    "modal>=1.1.4",
 ]
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
+synth-ai-demo = "synth_ai.demos.core.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -107,7 +109,7 @@ exclude = [
 ]
 
 [tool.setuptools]
-include-package-data = false
+include-package-data = true
 
 [tool.setuptools.exclude-package-data]
 "synth_ai" = [
@@ -116,6 +118,12 @@ include-package-data = false
     "**/old/**",
     "**/tests/**",
     "**/units/**",
+]
+
+[tool.setuptools.package-data]
+"synth_ai" = [
+    "demos/demo_task_apps/math/config.toml",
+    "demos/demo_task_apps/math/deploy_task_app.sh",
 ]
 
 [tool.pytest.ini_options]
