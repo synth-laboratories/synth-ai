@@ -119,11 +119,20 @@ class CrafterInteractTool(AbstractTool):
 
 # Default observation callable (can be customized via __init__)
 class SynthCrafterObservationCallable(GetObservationCallable):
+    """Default observation: public state dict + per-step reward/flags.
+
+    Additionally computes a small local semantic patch centered on the player
+    to simplify visualization on the client. The patch is exposed under the
+    key `semantic_map_patch7` as a list-of-lists of ints (7x7 unless the
+    semantic map is smaller, in which case it is cropped at edges).
+    """
+
+    def __init__(self, view_size: int = 7) -> None:
+        self.view_size = max(1, int(view_size))
+
     async def get_observation(
         self, pub: CrafterPublicState, priv: CrafterPrivateState
     ) -> InternalObservation:
-        # Example: return a dictionary combining public and selected private info
-        # Actual observation structure depends on agent's needs.
         obs_dict: Dict[str, Any] = dataclasses.asdict(pub)  # type: ignore
         obs_dict["reward_last_step"] = priv.reward_last_step
         obs_dict["total_reward_episode"] = priv.total_reward_episode
@@ -131,6 +140,36 @@ class SynthCrafterObservationCallable(GetObservationCallable):
         obs_dict["truncated"] = priv.truncated
         if pub.error_info:
             obs_dict["tool_error"] = pub.error_info
+
+        # Derive a simple local semantic patch around the player for easy rendering
+        try:
+            sem = pub.semantic_map
+            if sem is not None:
+                rows = int(getattr(sem, "shape", [0, 0])[0])  # type: ignore
+                cols = int(getattr(sem, "shape", [0, 0])[1])  # type: ignore
+                if rows > 0 and cols > 0:
+                    px, py = int(pub.player_position[0]), int(pub.player_position[1])
+                    half = max(1, self.view_size // 2)
+                    x0, y0 = px - half, py - half
+                    x1, y1 = px + half, py + half
+                    patch: list[list[int]] = []
+                    for gy in range(y0, y1 + 1):
+                        row_vals: list[int] = []
+                        for gx in range(x0, x1 + 1):
+                            if 0 <= gy < rows and 0 <= gx < cols:
+                                try:
+                                    val = int(sem[gy, gx])  # type: ignore[index]
+                                except Exception:
+                                    val = 0
+                            else:
+                                val = 0
+                            row_vals.append(val)
+                        patch.append(row_vals)
+                    obs_dict["semantic_map_patch7"] = patch
+        except Exception:
+            # Best-effort; omit patch on error
+            pass
+
         return obs_dict
 
 

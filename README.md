@@ -16,3 +16,16 @@ Fast and effective reinforcement learning for agents, via an API
 - Requires only a thin fastapi wrapper to integrate with existing agent software.
 - Supports the best OSS models like Qwen3. (gpt-oss available upon request, GA soon)
 - Own your trained models
+
+
+# Getting Started
+
+synth-ai comes with a built-in RL example tailored for training Qwen/Qwen3-0.6B to succeed at [Math](https://huggingface.co/datasets/EleutherAI/hendrycks_math)
+
+Please create an account at [Synth](https://www.usesynth.ai) and [Modal](https://modal.com) for the Math hello-world test run. Then, run
+uvx synth-ai rl_demo check
+uvx synth-ai rl_demo deploy
+uvx synth-ai rl_demo configure
+uvx synth-ai rl_demo run 
+
+To walk through kicking off your first RL run.

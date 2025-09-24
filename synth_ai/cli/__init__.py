@@ -69,3 +69,9 @@ try:
     _demo.register(cli)
 except Exception:
     pass
+try:
+    from . import rl_demo as _rl_demo
+
+    _rl_demo.register(cli)
+except Exception:
+    pass

@@ -55,6 +55,7 @@ class TestAllEnvironmentsAPI:
             "NetHack": {"tool_calls": [{"tool": "move", "args": {"direction": "north"}}]},
             "MiniGrid": {"tool_calls": [{"tool": "move", "args": {"action": 2}}]},
             "Enron": {"tool_calls": [{"tool": "search", "args": {"query": "test"}}]},
+            "Bandit": {"tool_calls": [{"tool": "pull_arm", "args": {"arm": 0}}]},
         }
 
         return action_map.get(env_name, {"tool_calls": [{"tool": "noop", "args": {}}]})
