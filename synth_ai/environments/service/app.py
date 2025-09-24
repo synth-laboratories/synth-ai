@@ -47,6 +47,14 @@ except Exception as _e:
     # Keep service robust even if example env import fails
     logging.getLogger(__name__).warning(f"Wordle env not registered: {_e}")
 
+# Register Bandit example environment
+try:
+    import synth_ai.environments.examples.bandit.environment as bandit_mod
+
+    register_environment("Bandit", bandit_mod.BanditEnvironment)
+except Exception as _e:
+    logging.getLogger(__name__).warning(f"Bandit env not registered: {_e}")
+
 app = FastAPI(title="Environment Service")
 
 

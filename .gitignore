@@ -86,6 +86,8 @@ htmlcov/
 synth_ai/environments/examples/*
 
 # --- Force-include Wordle fixed instances file regardless of ignore rules ---
+!synth_ai/environments/examples/bandit/
+!synth_ai/environments/examples/bandit/**
 !synth_ai/environments/examples/wordle/
 !synth_ai/environments/examples/wordle/instances.json
 
@@ -125,3 +127,7 @@ examples/finetuning/_backup_synth_qwen/
 **/*.md
 !README.md
 !**/README.md
+
+# Re-ignore Python caches and bytecode even under bandit force-include
+synth_ai/environments/examples/bandit/**/__pycache__/
+synth_ai/environments/examples/bandit/**/*.pyc
