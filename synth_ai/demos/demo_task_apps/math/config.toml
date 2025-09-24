@@ -1,0 +1,44 @@
+[model]
+name = "Qwen/Qwen3-0.6B"
+dtype = "bfloat16"
+seed = 42
+
+[reference]
+placement = "dedicated"
+port = 8002
+
+[topology]
+type = "single_node_split"
+gpus_for_vllm = 1
+gpus_for_training = 1
+gpus_for_ref = 1
+
+[training]
+num_epochs = 5
+iterations_per_epoch = 1
+batch_size = 4
+group_size = 16
+learning_rate = 5e-6
+max_grad_norm = 0.5
+log_interval = 1
+update_reference_interval = 0
+weight_sync_interval = 1
+
+[evaluation]
+seeds = [0, 1, 2, 3]
+rollouts_per_seed = 1
+instances = 1
+max_concurrent_rollouts = 4
+thinking_mode = "none"
+every_n_iters = 2
+
+[rollout]
+env_name = "math"
+policy_name = "math-react"
+max_steps_per_episode = 1
+sampling_temperature = 0.3
+sampling_top_p = 0.95
+max_tokens = 256
+max_concurrent_rollouts = 8
+ops_per_rollout = 2
+on_done = "reset"
