@@ -24,9 +24,31 @@ synth-ai comes with a built-in RL example tailored for training Qwen/Qwen3-0.6B 
 Please create an account at [Synth](https://usesynth.ai) and [Modal](https://modal.com) for the Math hello‑world test run. Then run:
 
 ```bash
-uvx synth-ai rl_demo check
+uvx synth-ai rl_demo setup
 uvx synth-ai rl_demo deploy
 uvx synth-ai run
 ```
 
 To walk through kicking off your first RL run, see the [Synth‑AI Documentation](https://docs.usesynth.ai/synth-ai/introduction).
+
+### What `rl_demo setup` does now
+
+When you run `uvx synth-ai rl_demo setup`, the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
+
+- Detect your current user and organization
+- Ensure both API keys exist for that user+org
+- Write the keys to your project’s `.env` file as `SYNTH_API_KEY` and `ENVIRONMENT_API_KEY`
+
+No keys are printed or requested interactively. You’ll see a confirmation like:
+
+```
+Connecting SDK to your browser session…
+Connected to Acme Labs via browser.
+```
+
+If your browser isn’t already signed in, sign in when prompted and the pairing completes automatically. The dashboard’s welcome modal will reflect a successful pairing.
+
+Environment variables:
+
+- `SYNTH_CANONICAL_ORIGIN` (optional): override the dashboard base URL the SDK uses for the handshake (defaults to `http://localhost:3000`).
+- Keys are stored only in your project’s `.env` file, not exported to your shell.
