@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Async SQLAlchemy-based trace manager for Turso/sqld.
 
 This module provides the database interface for the tracing system using
@@ -703,13 +704,14 @@ class AsyncSQLTraceManager:
     # Reward helpers
     # -------------------------------
 
-    async def insert_outcome_reward(self, session_id: str, *, total_reward: int, achievements_count: int, total_steps: int) -> int:
+    async def insert_outcome_reward(self, session_id: str, *, total_reward: int, achievements_count: int, total_steps: int, reward_metadata: dict | None = None) -> int:
         async with self.session() as sess:
             row = DBOutcomeReward(
                 session_id=session_id,
                 total_reward=total_reward,
                 achievements_count=achievements_count,
                 total_steps=total_steps,
+                reward_metadata=reward_metadata or {},
             )
             sess.add(row)
             await sess.flush()

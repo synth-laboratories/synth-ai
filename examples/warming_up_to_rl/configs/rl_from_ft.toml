@@ -1,0 +1,39 @@
+# RL training starting from a finetuned model id (TOML-only model selection)
+
+[services]
+# Task app base URL used by the RL job for rollouts
+# task_url = "https://YOUR-TASK-APP.modal.run"
+
+[compute]
+# Cluster shape for RL pipeline
+gpu_type = "H100"
+gpu_count = 8
+
+[topology]
+# Split GPUs across vLLM, training, and reference
+# Must sum to compute.gpu_count
+#gpus_for_vllm = 4
+#gpus_for_training = 3
+#gpus_for_ref = 1
+
+[vllm]
+# Serving tensor parallel size
+# tensor_parallel_size = 4
+
+[model]
+# Finetuned model id to continue training from (required for this config)
+# source = "ft:YOUR_FT_MODEL_ID"
+label = "crafter-rl-from-ft"
+
+[rollout]
+max_turns = 10
+episodes_per_batch = 64
+
+[training]
+log_interval = 1
+# Additional RL hyperparameters can go here
+
+[training.weight_sync]
+enable  = true
+targets = ["policy"]
+weight_sync_interval = 1

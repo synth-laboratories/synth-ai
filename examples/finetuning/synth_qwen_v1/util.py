@@ -6,6 +6,8 @@ import argparse
 from pathlib import Path
 from typing import Any, Dict
 
+from synth_ai.config.base_url import get_backend_from_env
+
 try:
     from dotenv import load_dotenv  # type: ignore[reportMissingImports]
 except Exception:  # pragma: no cover
@@ -14,6 +16,12 @@ except Exception:  # pragma: no cover
 
 
 STATE_PATH = Path(__file__).parent / "state.json"
+
+
+def _default_backend_url() -> str:
+    base, _ = get_backend_from_env()
+    base = base.rstrip("/")
+    return base if base.endswith("/api") else f"{base}/api"
 
 
 def load_env(mode: str | None = None) -> tuple[str, str]:
@@ -26,8 +34,6 @@ def load_env(mode: str | None = None) -> tuple[str, str]:
     """
     load_dotenv()
     # Prefer global override if present
-    from synth_ai.config.base_url import get_backend_from_env
-
     override = (os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "") or "").strip().lower()
     if override in {"local", "dev", "prod"}:
         base, key = get_backend_from_env()
@@ -72,7 +78,7 @@ def load_env(mode: str | None = None) -> tuple[str, str]:
         if not base_url or not api_key:
             raise RuntimeError("Missing DEV_BACKEND_URL or DEV_SYNTH_API_KEY in environment/.env")
     else:  # prod
-        base_url = os.getenv("PROD_BACKEND_URL", "https://agent-learning.onrender.com").strip()
+        base_url = os.getenv("PROD_BACKEND_URL", "").strip() or _default_backend_url()
         api_key = (
             os.getenv("PROD_SYNTH_API_KEY", "").strip()
             or os.getenv("TESTING_PROD_SYNTH_API_KEY", "").strip()

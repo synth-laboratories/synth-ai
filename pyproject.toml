@@ -1,7 +1,7 @@
 [project]
 name = "synth-ai"
-version = "0.2.4.dev9"
-description = "Software for aiding the best and multiplying the will - Core AI functionality and tracing"
+version = "0.2.6.dev6"
+description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 readme = "README.md"
@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "urllib3>=2.3.0",
+    "certifi>=2024.8.30",
     "tqdm>=4.66.4",
     "jsonschema>=4.23.0",
     "backoff>=2.0.0",

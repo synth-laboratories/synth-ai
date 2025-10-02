@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import urllib.request
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
 
 @dataclass
 class DemoEnv:
@@ -169,7 +171,7 @@ def load_env() -> DemoEnv:
     Backend URL:
       - Use BACKEND_OVERRIDE (any) from CWD .env if set
       - Else use DEV_BACKEND_URL from CWD .env ONLY if it's localhost/127.0.0.1 or :8000
-      - Else default to prod https://agent-learning.onrender.com/api
+      - Else default to production backend (PROD_BASE_URL_DEFAULT)
 
     API keys:
       - SYNTH_API_KEY from OS -> CWD .env -> repo .env -> pkg demo .env -> state
@@ -194,9 +196,25 @@ def load_env() -> DemoEnv:
 
     state = _read_state()
 
+    default_root = PROD_BASE_URL_DEFAULT.rstrip("/")
+    prod_default = f"{default_root}/api"
+
     # Backend URL resolution
-    backend_override = (cwd_env.get("BACKEND_OVERRIDE") or "").strip()
-    dev_env = (cwd_env.get("DEV_BACKEND_URL") or "").strip()
+    backend_override = (
+        os_env.get("BACKEND_OVERRIDE")
+        or cwd_env.get("BACKEND_OVERRIDE")
+        or repo_env.get("BACKEND_OVERRIDE")
+        or pkg_env.get("BACKEND_OVERRIDE")
+        or examples_env.get("BACKEND_OVERRIDE")
+        or ""
+    ).strip()
+    dev_env = (
+        os_env.get("DEV_BACKEND_URL")
+        or cwd_env.get("DEV_BACKEND_URL")
+        or repo_env.get("DEV_BACKEND_URL")
+        or pkg_env.get("DEV_BACKEND_URL")
+        or ""
+    ).strip()
     use_dev = False
     if backend_override:
         dev_url = backend_override
@@ -207,9 +225,9 @@ def load_env() -> DemoEnv:
             dev_url = dev_env
             use_dev = True
         else:
-            dev_url = "https://agent-learning.onrender.com/api"
+            dev_url = prod_default
     else:
-        dev_url = "https://agent-learning.onrender.com/api"
+        dev_url = prod_default
     if not dev_url.endswith("/api"):
         dev_url = dev_url.rstrip("/") + "/api"
 
@@ -222,7 +240,7 @@ def load_env() -> DemoEnv:
         or str(state.get("SYNTH_API_KEY") or "")
     )
     if not synth_api_key:
-        mode = "prod" if "agent-learning.onrender.com" in dev_url else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
+        mode = "prod" if default_root in dev_url else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
         if mode == "prod":
             synth_api_key = (
                 os_env.get("PROD_SYNTH_API_KEY")

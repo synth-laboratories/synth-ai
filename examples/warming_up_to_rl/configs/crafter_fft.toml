@@ -1,0 +1,48 @@
+# Crafter Full Finetune (FFT) example on H100
+# Adjust paths and hyperparameters to your environment before running.
+
+[job]
+model = "Qwen/Qwen3-4B"               # base model to finetune
+# Path to your SFT JSONL dataset
+# You can point this to an absolute path or keep relative to this TOML
+# data = "../data/crafter_sft.jsonl"
+
+# Optional: how long to poll the job (seconds)
+poll_seconds = 1800
+
+[compute]
+# Cluster shape
+gpu_type = "H100"
+gpu_count = 4
+nodes = 1
+
+[data.topology]
+# world_size / container count (optional; inferred when omitted)
+container_count = 4
+
+[training]
+mode = "full_finetune"    # for documentation; backend decides based on metadata
+use_qlora = false
+
+[hyperparameters]
+# epochs
+n_epochs = 2
+
+# global batch shape (examples; adjust to your budget)
+world_size = 4
+sequence_length = 2048
+# provide either global_batch OR (per_device_batch×grad_accum×world_size)
+# global_batch = 512
+per_device_batch = 2
+gradient_accumulation_steps = 64
+
+# optimizer/schedule
+learning_rate = 8e-6
+warmup_ratio = 0.03
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 3
+fsdp = false
+bf16 = true
+fp16 = false

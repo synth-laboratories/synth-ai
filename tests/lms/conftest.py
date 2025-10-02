@@ -1,6 +1,8 @@
 import os
 import pytest
 
+from synth_ai.config.base_url import get_backend_from_env
+
 
 def pytest_addoption(parser):
     """Add command line options for test configuration."""
@@ -35,6 +37,10 @@ def _choose_backend_and_key(target: str) -> tuple[str, str]:
         key = os.getenv("SYNTH_API_KEY")
 
     if not base or not key:
+        env_base, env_key = get_backend_from_env()
+        base = base or env_base
+        key = key or env_key
+    if not base or not key:
         pytest.skip("Missing backend URL or API key in environment; see tests/lms/qwen3.txt")
     return base.rstrip("/"), key
 
@@ -65,5 +71,3 @@ def synth_api_key(test_target: str) -> str:
 @pytest.fixture(scope="session")
 def auth_headers(synth_api_key: str) -> dict:
     return {"Authorization": f"Bearer {synth_api_key}"}
-
-

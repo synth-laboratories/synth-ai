@@ -15,6 +15,7 @@ import pydantic_core
 # from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 from synth_ai.lm.caching.initialize import get_cache_handler
 from synth_ai.lm.constants import OPENAI_REASONING_MODELS, SPECIAL_BASE_TEMPS
 from synth_ai.lm.tools.base import BaseTool
@@ -45,9 +46,13 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
     def __init__(self, synth_logging: bool = True):
         # Check if we should use Synth clients instead of OpenAI
         openai_base = os.getenv("OPENAI_API_BASE", "")
-        use_synth = (openai_base.startswith("https://synth") or
-                    openai_base.startswith("https://agent-learning") or
-                    os.getenv("SYNTH_BASE_URL") or os.getenv("MODAL_BASE_URL"))
+        prod_prefix = PROD_BASE_URL_DEFAULT.rstrip("/")
+        use_synth = (
+            openai_base.startswith("https://synth")
+            or (prod_prefix and openai_base.startswith(prod_prefix))
+            or os.getenv("SYNTH_BASE_URL")
+            or os.getenv("MODAL_BASE_URL")
+        )
 
         if use_synth:
             # Use Synth clients for Synth endpoints
