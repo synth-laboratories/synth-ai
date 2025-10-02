@@ -16,6 +16,15 @@ from typing import Any, Dict, Optional
 from synth_ai.learning import RlClient, JobHandle, stream_job_events
 from synth_ai.config.base_url import get_backend_from_env
 
+try:  # allow running without package context
+    from examples.common.backend import resolve_backend_url as _resolve_backend_default  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct execution
+
+    def _resolve_backend_default() -> str:
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
+
 
 def _load_rl_env() -> None:
     """Load env from project .env, examples/rl/.env, and monorepo backend/.env.dev (best-effort)."""
@@ -71,7 +80,7 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
             from common.backend import resolve_backend_url as _rb  # type: ignore
             base = _rb()
         except Exception:
-            base = "https://agent-learning.onrender.com/api"
+            base = _resolve_backend_default()
         api_key = os.getenv("SYNTH_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("Missing SYNTH_API_KEY in environment/.env")
@@ -97,7 +106,7 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
             from common.backend import resolve_backend_url as _rb  # type: ignore
             base_url = _rb()
         except Exception:
-            base_url = "https://agent-learning.onrender.com/api"
+            base_url = _resolve_backend_default()
         api_key = os.getenv("SYNTH_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("Missing SYNTH_API_KEY in environment/.env")
@@ -134,6 +143,11 @@ async def _main() -> int:
     except Exception:
         # Fallback to prior behavior
         backend_url = args.backend_url or os.getenv("DEV_BACKEND_URL", "").strip() or os.getenv("PROD_BACKEND_URL", "").strip()
+        if not backend_url:
+            backend_url = _resolve_backend_default()
+        backend_url = backend_url.rstrip("/")
+        if not backend_url.endswith("/api"):
+            backend_url = f"{backend_url}/api"
         api_key = args.api_key or os.getenv("SYNTH_API_KEY", "").strip() or os.getenv("BACKEND_API_KEY", "").strip()
     # Resolve Task App URL and Trainer ID like other scripts (may be overridden by TOML)
     task_app_url = (args.task_app_url or os.getenv("TASK_APP_BASE_URL", "").strip())

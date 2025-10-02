@@ -17,6 +17,7 @@ import sys
 from typing import Any
 
 import httpx
+from synth_ai.config.base_url import get_backend_from_env
 
 
 def _load_env_files() -> None:
@@ -41,9 +42,9 @@ def _resolve_backend_url() -> str:
         from examples.common.backend import resolve_backend_url as _rb  # type: ignore
         return _rb()
     except Exception:
-        raw = (os.getenv("PROD_BACKEND_URL") or os.getenv("BACKEND_URL") or "https://agent-learning.onrender.com/api").strip()
-        raw = raw.rstrip("/")
-        return raw if raw.endswith("/api") else f"{raw}/api"
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
 
 
 def _api_base(b: str) -> str:
@@ -119,5 +120,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
 

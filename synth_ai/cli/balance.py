@@ -15,7 +15,9 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-PROD_BACKEND_BASE = "https://agent-learning.onrender.com/api/v1"
+from synth_ai.config.base_url import get_backend_from_env, PROD_BASE_URL_DEFAULT
+
+PROD_BACKEND_BASE = f"{PROD_BASE_URL_DEFAULT.rstrip('/')}/api/v1"
 
 
 def _get_default_base_url() -> str:
@@ -24,7 +26,11 @@ def _get_default_base_url() -> str:
         val = os.getenv(var)
         if val:
             return val
-    return PROD_BACKEND_BASE
+    base, _ = get_backend_from_env()
+    base = base.rstrip("/")
+    if base.endswith("/api"):
+        base = base[:-len("/api")]
+    return f"{base}/api/v1"
 
 
 def _ensure_api_v1_prefix(base_url: str) -> str:

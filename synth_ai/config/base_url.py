@@ -66,6 +66,7 @@ def get_backend_from_env() -> tuple[str, str]:
     """Resolve (base_url, api_key) using a simple LOCAL/DEV/PROD override scheme.
 
     Env vars consulted:
+    - BACKEND_OVERRIDE = full URL (with or without /api)
     - SYNTH_BACKEND_URL_OVERRIDE = local|dev|prod (case-insensitive)
     - LOCAL_BACKEND_URL, TESTING_LOCAL_SYNTH_API_KEY
     - DEV_BACKEND_URL, DEV_SYNTH_API_KEY
@@ -74,6 +75,14 @@ def get_backend_from_env() -> tuple[str, str]:
     Base URL is normalized to end with '/api'.
     Defaults: prod base URL → https://agent-learning.onrender.com/api
     """
+    direct_override = (os.getenv("BACKEND_OVERRIDE") or "").strip()
+    if direct_override:
+        base = direct_override.rstrip("/")
+        if base.endswith("/api"):
+            base = base[: -len("/api")]
+        api_key = os.getenv("SYNTH_API_KEY", "").strip()
+        return base, api_key
+
     mode = _resolve_override_mode()
     if mode == "local":
         base = os.getenv("LOCAL_BACKEND_URL", "http://localhost:8000")

@@ -118,6 +118,12 @@ def configure():
 
 
 @demo.command()
+def setup():
+    """Perform SDK handshake and write keys to .env."""
+    _forward_to_demo(["rl_demo.setup"])
+
+
+@demo.command()
 @click.option("--batch-size", type=int, default=None)
 @click.option("--group-size", type=int, default=None)
 @click.option("--model", type=str, default=None)

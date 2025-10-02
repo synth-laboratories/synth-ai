@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Utility functions for tracing v3."""
 
 import hashlib

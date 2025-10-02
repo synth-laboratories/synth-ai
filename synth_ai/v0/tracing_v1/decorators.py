@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar, Union
 if TYPE_CHECKING:
     from .trackers import SynthTrackerAsync, SynthTrackerSync
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
 from .abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
@@ -78,7 +80,7 @@ def get_tracing_config() -> TracingConfig:
         if os.getenv("SYNTH_LOGGING_MODE") == "instant"
         else LoggingMode.DEFERRED,
         api_key=os.getenv("SYNTH_API_KEY", ""),
-        base_url=os.getenv("SYNTH_ENDPOINT_OVERRIDE", "https://agent-learning.onrender.com"),
+        base_url=os.getenv("SYNTH_ENDPOINT_OVERRIDE", PROD_BASE_URL_DEFAULT),
     )
     # Initialize retry queue with config if needed
     initialize_retry_queue(config)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Main SessionTracer class for tracing v3."""
 
 import asyncio
@@ -426,19 +427,29 @@ class SessionTracer:
     # Reward recording helpers
     # -------------------------------
 
-    async def record_outcome_reward(self, *, total_reward: int, achievements_count: int, total_steps: int) -> int | None:
+    async def record_outcome_reward(self, *, total_reward: int, achievements_count: int, total_steps: int, reward_metadata: dict[str, Any] | None = None) -> int | None:
         """Record an episode-level outcome reward for the current session."""
         if self._current_trace is None:
             raise RuntimeError("No active session")
         if self.db is None:
             await self.initialize()
         if self.db:
-            return await self.db.insert_outcome_reward(
-                self._current_trace.session_id,
-                total_reward=total_reward,
-                achievements_count=achievements_count,
-                total_steps=total_steps,
-            )
+            try:
+                return await self.db.insert_outcome_reward(
+                    self._current_trace.session_id,
+                    total_reward=total_reward,
+                    achievements_count=achievements_count,
+                    total_steps=total_steps,
+                    reward_metadata=reward_metadata or {},
+                )
+            except TypeError:
+                # Backward-compat: older manager without reward_metadata param
+                return await self.db.insert_outcome_reward(
+                    self._current_trace.session_id,
+                    total_reward=total_reward,
+                    achievements_count=achievements_count,
+                    total_steps=total_steps,
+                )
         return None
 
     # StepMetrics removed in favor of event_rewards; use record_event_reward for per-turn shaped values
