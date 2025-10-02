@@ -667,6 +667,13 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
 
     rollout_url = task_url.rstrip("/") + "/health/rollout"
     print(f"[{label}] Verifying rollout health:")
+    try:
+        ek = (env_key or "").strip()
+        ek_len = len(ek)
+        ek_tail = ek[-5:] if ek_len >= 5 else ek
+        print(f"[{label}] Using ENVIRONMENT_API_KEY len={ek_len} last5={ek_tail}")
+    except Exception:
+        pass
     health_base = task_url.rstrip("/")
     health_urls = [f"{health_base}/health/rollout", f"{health_base}/health"]
     rc = 0
@@ -839,7 +846,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
 
                 openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
                 if not openai_key:
-                    openai_key = input("Enter OPENAI_API_KEY for Modal secret (required): ").strip()
+                    openai_key = input(
+                        "Enter your OpenAI API key, found at https://platform.openai.com/api-keys\n> "
+                    ).strip()
                     if not openai_key:
                         print("OPENAI_API_KEY is required to create the Modal secret.")
                         return 1
@@ -1082,13 +1091,18 @@ fi
 
 
 def _http(method: str, url: str, headers: Dict[str, str] | None = None, body: Dict[str, Any] | None = None) -> tuple[int, Dict[str, Any] | str]:
-    import urllib.request, urllib.error, json as _json
+    import urllib.request, urllib.error, json as _json, ssl
     data = None
     if body is not None:
         data = _json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, method=method, headers=headers or {}, data=data)
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        # Default: disable SSL verification for local/dev convenience.
+        # Set SYNTH_SSL_VERIFY=1 to enable verification.
+        ctx = ssl._create_unverified_context()  # nosec: disabled by default for dev
+        if os.getenv("SYNTH_SSL_VERIFY", "0") == "1":
+            ctx = None
+        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
             code = getattr(resp, "status", 200)
             txt = resp.read().decode("utf-8", errors="ignore")
             try:
@@ -1204,6 +1218,15 @@ def cmd_run(args: argparse.Namespace) -> int:
         inline_cfg.setdefault("training", {})["group_size"] = int(args.group_size)
     model_name = args.model or (inline_cfg.get("model", {}) or {}).get("name", "Qwen/Qwen3-0.6B")
     api = env.dev_backend_url.rstrip("/") + ("" if env.dev_backend_url.endswith("/api") else "/api")
+    # Print backend and key preview before request for clearer diagnostics
+    try:
+        sk = (env.synth_api_key or "").strip()
+        sk_len = len(sk)
+        sk_tail = sk[-5:] if sk_len >= 5 else sk
+        print(f"[run] Backend API: {api}")
+        print(f"[run] Using SYNTH_API_KEY len={sk_len} last5={sk_tail}")
+    except Exception:
+        pass
     data_fragment: Dict[str, Any] = {
         "model": model_name,
         "endpoint_base_url": env.task_app_base_url,
@@ -1241,6 +1264,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     }, body=body)
     if code not in (200, 201) or not isinstance(js, dict):
         print("Job create failed:", code)
+        print(f"Backend: {api}")
         try:
             if isinstance(js, dict):
                 print(json.dumps(js, indent=2))
@@ -1267,7 +1291,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("Request body was:\n" + json.dumps(body, indent=2))
         return 2
     print("JOB_ID:", job_id)
-    _http("POST", api + f"/rl/jobs/{job_id}/start", headers={"Authorization": f"Bearer {env.synth_api_key}"})
+    # Original behavior: start job and stream status/events until terminal
+    _http(
+        "POST",
+        api + f"/rl/jobs/{job_id}/start",
+        headers={"Authorization": f"Bearer {env.synth_api_key}"},
+    )
+    # Inform the user immediately that the job has started and where to track it
+    print("Your job is running. Visit usesynth.ai to view its progress")
     since = 0
     terminal = {"succeeded", "failed", "cancelled", "error", "completed"}
     last_status = ""
@@ -1281,7 +1312,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         if status and status.lower() in terminal:
             print("FINAL:", status)
             break
-        ec, ej = _http("GET", api + f"/orchestration/jobs/{job_id}/events?since_seq={since}&limit=200")
+        ec, ej = _http(
+            "GET",
+            api + f"/orchestration/jobs/{job_id}/events?since_seq={since}&limit=200",
+        )
         if ec == 200 and isinstance(ej, dict):
             events = ej.get("events") or ej.get("data") or []
             for e in events:
@@ -1291,9 +1325,17 @@ def cmd_run(args: argparse.Namespace) -> int:
                 since = seq
                 typ = str(e.get("type") or e.get("event_type") or "").lower()
                 msg = e.get("message") or e.get("msg") or ""
-                if typ in ("rl.eval.started", "rl.eval.summary", "rl.train.step", "rl.metrics", "rl.performance.metrics"):
+                if typ in (
+                    "rl.eval.started",
+                    "rl.eval.summary",
+                    "rl.train.step",
+                    "rl.metrics",
+                    "rl.performance.metrics",
+                ):
                     print(f"[{seq}] {typ}: {msg}")
-        mc, mj = _http("GET", api + f"/learning/jobs/{job_id}/metrics?after_step=-1&limit=50")
+        mc, mj = _http(
+            "GET", api + f"/learning/jobs/{job_id}/metrics?after_step=-1&limit=50"
+        )
         if mc == 200 and isinstance(mj, dict):
             pts = mj.get("points") or []
             for p in pts:
