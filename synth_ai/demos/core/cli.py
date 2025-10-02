@@ -66,15 +66,6 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         env = demo_core.load_env()
         local_env = demo_core.load_dotenv_file(cwd_env_path)
 
-    def _is_modal_public_url(u: str) -> bool:
-        try:
-            s = (u or "").strip().lower()
-            if not (s.startswith("http://") or s.startswith("https://")):
-                return False
-            return (".modal.run" in s) and ("modal.local" not in s) and ("pypi-mirror" not in s)
-        except Exception:
-            return False
-
     def _maybe_fix_task_url() -> None:
         if not env.task_app_name:
             return
