@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
+from synth_ai.config.base_url import get_backend_from_env
+
 # Ensure repository root on sys.path for namespace imports under examples/
 ROOT = Path(__file__).parents[2]
 if str(ROOT) not in sys.path:
@@ -35,6 +37,15 @@ if str(ROOT) not in sys.path:
 from examples.finetuning.synth_qwen_v1.util import load_env  # type: ignore
 from synth_ai.inference import InferenceClient  # type: ignore
 import httpx
+
+try:
+    from examples.common.backend import resolve_backend_url as _resolve_backend_default  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct execution
+
+    def _resolve_backend_default() -> str:
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
 
 
 def _load_rl_env() -> None:
@@ -116,7 +127,8 @@ async def _amain() -> int:
                 if not base_url or not api_key:
                     raise RuntimeError("DEV_BACKEND_URL and SYNTH_API_KEY/DEV_SYNTH_API_KEY required for dev override")
             else:  # prod
-                base_url = (os.getenv("PROD_BACKEND_URL", "https://agent-learning.onrender.com") or "").rstrip("/")
+                fallback_prod = _resolve_backend_default()
+                base_url = (os.getenv("PROD_BACKEND_URL", "") or fallback_prod).rstrip("/")
                 api_key = os.getenv("SYNTH_API_KEY", "").strip() or os.getenv("TESTING_PROD_SYNTH_API_KEY", "").strip()
                 if not api_key:
                     raise RuntimeError("SYNTH_API_KEY or TESTING_PROD_SYNTH_API_KEY required for prod override")
@@ -402,5 +414,3 @@ async def _amain() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(_amain()))
-
-

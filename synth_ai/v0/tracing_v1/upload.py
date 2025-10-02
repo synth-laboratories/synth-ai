@@ -13,6 +13,8 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
 from .abstractions import Dataset, SystemTrace
 from .events.store import event_store
 
@@ -388,7 +390,7 @@ def upload_helper(
     api_key = os.getenv("SYNTH_API_KEY")
     if not api_key:
         raise ValueError("SYNTH_API_KEY environment variable not set")
-    base_url = os.getenv("SYNTH_ENDPOINT_OVERRIDE", "https://agent-learning.onrender.com")
+    base_url = os.getenv("SYNTH_ENDPOINT_OVERRIDE", PROD_BASE_URL_DEFAULT)
 
     from .decorators import _local, active_events_var
     from .trackers import synth_tracker_async

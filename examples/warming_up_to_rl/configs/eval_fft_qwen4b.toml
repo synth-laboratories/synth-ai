@@ -1,0 +1,20 @@
+# Eval config for finetuned Qwen/Qwen3-4B (FFT) via task app rollout
+
+# Required
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
+# Replace with your finished job id if different
+model = "fft:Qwen/Qwen3-4B:job_a53914f51dc146b5"
+policy_name = "crafter"
+# Backend inference proxy base (no /v1); server will append /v1/chat/completions
+inference_url = "https://synth-backend-dev-docker.onrender.com/api/inference"
+
+# Optional
+num_episodes = 10
+max_turns = 10
+concurrency = 10
+# difficulty = "easy"
+
+# Thinking params (optional; align with your service expectations)
+thinking_mode = "think"
+thinking_budget = 1024
+max_tokens = 1024

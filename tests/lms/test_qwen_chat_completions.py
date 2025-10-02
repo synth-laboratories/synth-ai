@@ -5,6 +5,8 @@ from typing import Dict, Any, cast
 import httpx
 import pytest
 
+from synth_ai.config.base_url import get_backend_from_env
+
 
 def _resolve_endpoint(base: str, path: str) -> str:
     base = base.rstrip("/")
@@ -70,18 +72,25 @@ def test_chat_completions_dev(backend_base_url: str, auth_headers: Dict[str, str
 @pytest.mark.prod
 @pytest.mark.parametrize("model", ["Qwen/Qwen3-0.6B"])  # test Qwen/Qwen3-0.6B only
 def test_chat_completions_prod(auth_headers: Dict[str, str], model: str):
-    base = cast(
-        str,
+    base_env = (
         os.getenv("PROD_BACKEND_URL")
         or os.getenv("BACKEND_URL")
         or os.getenv("LEARNING_V2_BASE_URL")
         or os.getenv("PROD_API_URL")
         or os.getenv("API_URL")
-    )
+        or ""
+    ).strip()
+    base = base_env.rstrip("/")
     api_key = os.getenv("PROD_SYNTH_API_KEY") or os.getenv("SYNTH_API_KEY")
+    if not base:
+        base, _ = get_backend_from_env()
+    if not api_key:
+        _, key = get_backend_from_env()
+        api_key = key
     if not base or not api_key:
         pytest.skip("Missing PROD backend URL or API key; set PROD_BACKEND_URL and PROD_SYNTH_API_KEY")
 
+    base = base.rstrip("/")
     url = _resolve_endpoint(base, "/chat/completions")
     payload: Dict[str, Any] = {
         "model": model,
@@ -100,5 +109,4 @@ def test_chat_completions_prod(auth_headers: Dict[str, str], model: str):
     data = resp.json()
     assert "choices" in data and isinstance(data["choices"], list)
     assert latency < timeout
-
 

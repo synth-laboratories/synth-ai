@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover
 
 from synth_ai.learning.client import LearningClient
 from synth_ai.inference.client import InferenceClient
+from synth_ai.config.base_url import get_backend_from_env
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.public]
@@ -25,7 +26,10 @@ load_dotenv()
 def _prod_backend_url() -> str:
     url = os.getenv("PROD_BACKEND_URL", "").strip()
     if not url:
-        pytest.skip("PROD_BACKEND_URL not set in environment/.env for public integration tests")
+        base, _ = get_backend_from_env()
+        url = base.rstrip("/")
+        if not url:
+            pytest.skip("PROD_BACKEND_URL not set and no backend override available")
     return url.rstrip("/")
 
 
@@ -101,5 +105,4 @@ async def test_learning_minimal_flow_smoke_prod() -> None:
         tmp.unlink(missing_ok=True)
     except Exception:
         pass
-
 

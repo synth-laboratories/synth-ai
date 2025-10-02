@@ -30,6 +30,14 @@ import yaml
 from httpx import AsyncClient
 from tqdm import tqdm
 
+from synth_ai.config.base_url import get_backend_from_env
+
+
+def _resolve_backend_default() -> str:
+    base, _ = get_backend_from_env()
+    base = base.rstrip("/")
+    return base if base.endswith("/api") else f"{base}/api"
+
 # Disable httpx logging immediately
 logging.getLogger("httpx").setLevel(logging.ERROR)
 logging.getLogger("httpcore").setLevel(logging.ERROR)
@@ -186,7 +194,7 @@ def setup_synth_environment():
     Resolution order for the base URL:
     1. Explicit environment variables (SYNTH_BASE_URL or MODAL_BASE_URL)
     2. PROD_API_URL env var used in production integration tests
-    3. Hard-coded production constant (https://agent-learning.onrender.com)
+    3. Synth production default (PROD_BASE_URL_DEFAULT)
 
     The API key is resolved from the matching *_API_KEY env vars or, if not
     present, from the shared testing_info.yaml used by the prod tests.
@@ -199,7 +207,7 @@ def setup_synth_environment():
         or os.getenv("MODAL_BASE_URL")
         or os.getenv("PROD_API_URL")
         or env_vars.get("SYNTH_BASE_URL_PROD")  # Use production URL from .env.local
-        or "https://agent-learning.onrender.com/api"
+        or _resolve_backend_default()
     )
 
     synth_api_key = os.getenv("SYNTH_API_KEY") or _load_testing_yaml_api_key()
