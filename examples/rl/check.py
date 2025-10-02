@@ -13,17 +13,18 @@ import asyncio
 import os
 from typing import Optional
 
+from synth_ai.config.base_url import get_backend_from_env
 from synth_ai.learning import RlClient, backend_health
 import httpx
-def _resolve_backend_url() -> str:
-    override = os.getenv("BACKEND_OVERRIDE", "").strip()
-    if override:
-        base = override
-    else:
-        raw = os.getenv("PROD_BACKEND_URL", "").strip()
-        base = raw or "https://agent-learning.onrender.com/api"
-    base = base.rstrip("/")
-    return base if base.endswith("/api") else f"{base}/api"
+
+try:  # Allow running as script without package install
+    from examples.common.backend import resolve_backend_url  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct execution
+
+    def resolve_backend_url() -> str:
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
 
 
 def _api_base(b: str) -> str:
@@ -79,8 +80,14 @@ async def _task_app_health(task_app_url: str) -> bool:
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
-    p.add_argument("--backend-url", type=str, default=_resolve_backend_url())
-    p.add_argument("--api-key", type=str, default=os.getenv("SYNTH_API_KEY", "").strip())
+    base_default = resolve_backend_url()
+    _, key_default = get_backend_from_env()
+    p.add_argument("--backend-url", type=str, default=base_default)
+    p.add_argument(
+        "--api-key",
+        type=str,
+        default=(os.getenv("SYNTH_API_KEY", "").strip() or key_default),
+    )
     p.add_argument("--task-app-url", type=str, default=os.getenv("TASK_APP_BASE_URL", "").strip())
     return p.parse_args()
 
@@ -97,5 +104,3 @@ async def _main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(_main()))
-
-

@@ -29,7 +29,7 @@ QWEN3_MODELS: List[str] = [
     "Qwen/Qwen3-32B",
 
     # Qwen3 specialized variants
-    "Qwen/Qwen3-4B-Instruct-2507",
+    "Qwen/Qwen3-4B-2507",
     "Qwen/Qwen3-4B-Thinking-2507",
 ]
 
@@ -38,7 +38,7 @@ QWEN3_MODELS: List[str] = [
 FINE_TUNED_MODELS: List[str] = [
     # Add specific fine-tuned models that are known to work with Synth
     # Examples:
-    # "ft:Qwen/Qwen3-4B-Instruct-2507:ftjob-22",
+    # "ft:Qwen/Qwen3-4B-2507:ftjob-22",
 ]
 
 # Combine all Synth-supported models

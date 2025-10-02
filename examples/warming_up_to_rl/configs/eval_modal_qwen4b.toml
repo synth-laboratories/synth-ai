@@ -1,0 +1,23 @@
+# Eval config for Synth Modal inference Qwen/Qwen3-4B via task app rollout
+
+# Required
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
+model = "Qwen/Qwen3-4B"
+policy_name = "crafter"
+inference_url = "https://synth-backend-dev-docker.onrender.com/api/inference"  # Modal inference base (no /v1)
+max_tokens = 1024
+thinking_mode = "think"
+thinking_budget = 1024
+
+# Optional
+num_episodes = 20
+max_turns = 10
+concurrency = 10
+# difficulty = "easy"
+
+# Notes:
+# - run_eval.py --use-rollout will detect provider=vllm for this model and
+#   fetch the vLLM base from the task app /info to use as inference_url.
+# - Ensure the task app mounts the openai-api-key secret if your vLLM gateway
+#   requires a bearer token (OPENAI_API_KEY). Otherwise it will call unauthenticated.
+

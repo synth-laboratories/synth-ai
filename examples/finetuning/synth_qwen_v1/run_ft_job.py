@@ -34,9 +34,19 @@ from typing import Any
 # Make repo root importable when running directly
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
+from synth_ai.config.base_url import get_backend_from_env
 from synth_ai.learning import FtClient, JobHandle, validate_training_jsonl  # type: ignore
 from synth_ai.inference import InferenceClient  # type: ignore
 from examples.finetuning.synth_qwen_v1.util import load_env, load_state, save_state  # type: ignore
+
+try:
+    from examples.common.backend import resolve_backend_url as _resolve_backend_default  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct execution
+
+    def _resolve_backend_default() -> str:
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
 
 
 def parse_args() -> argparse.Namespace:
@@ -74,7 +84,7 @@ async def run(args: argparse.Namespace) -> None:
     # Force canonical prod base when prod mode (or override) is selected
     try:
         if (args.mode == "prod") or (os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "").strip().lower() == "prod"):
-            base_url = "https://agent-learning.onrender.com/api"
+            base_url = _resolve_backend_default()
             # Also export for any downstream helpers that read env
             os.environ["PROD_BACKEND_URL"] = base_url
     except Exception:
@@ -220,5 +230,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

@@ -67,8 +67,13 @@ def _load_rl_env() -> None:
 def _parse_args() -> argparse.Namespace:
     _load_rl_env()
     p = argparse.ArgumentParser()
-    p.add_argument("--backend-url", type=str, default=os.getenv("PROD_BACKEND_URL", "").strip())
-    p.add_argument("--api-key", type=str, default=os.getenv("SYNTH_API_KEY", "").strip())
+    default_base, default_key = get_backend_from_env()
+    p.add_argument("--backend-url", type=str, default=default_base.rstrip("/"))
+    p.add_argument(
+        "--api-key",
+        type=str,
+        default=(os.getenv("SYNTH_API_KEY", "").strip() or default_key),
+    )
     p.add_argument("--task-app-url", type=str, default=os.getenv("TASK_APP_BASE_URL", "").strip())
     p.add_argument("--trainer-id", type=str, default=os.getenv("TRAINER_ID", "").strip())
     p.add_argument("--model", type=str, default=os.getenv("QWEN_MODEL", "").strip() or None)
@@ -98,6 +103,9 @@ async def _main() -> int:
     if not base or not api_key:
         print("Missing --backend-url and/or --api-key (or environment)")
         return 2
+    base = base.rstrip("/")
+    if not base.endswith("/api"):
+        base = f"{base}/api"
     # Defer task app URL validation until after we apply config fallbacks
 
     # Health checks (best-effort)

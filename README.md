@@ -26,8 +26,7 @@ Please create an account at [Synth](https://usesynth.ai) and [Modal](https://mod
 ```bash
 uvx synth-ai rl_demo setup
 uvx synth-ai rl_demo deploy
-uvx synth-ai rl_demo configure
-uvx synth-ai rl_demo run
+uvx synth-ai run
 ```
 
 To walk through kicking off your first RL run, see the [Synth‑AI Documentation](https://docs.usesynth.ai/synth-ai/introduction).

@@ -1,12 +1,19 @@
 import os  # Added to ensure os is available before use
 import sys
 
-# Ensure local 'src' directory is on PYTHONPATH for dev installs
-# Current file: <repo>/src/synth_env/service/app.py
-# We want to add <repo>/src to sys.path (two levels up)
-_src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _src_dir not in sys.path:
-    sys.path.insert(0, _src_dir)
+# Ensure repository root is on PYTHONPATH for dev installs
+# Current file path: <repo>/synth_ai/environments/service/app.py
+# We want sys.path to include <repo>, NOT <repo>/synth_ai to avoid shadowing stdlib 'http'
+_pkg_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_repo_root = os.path.abspath(os.path.join(_pkg_dir, ".."))
+# If the package directory was previously added, remove it to prevent top-level shadowing
+try:
+    while _pkg_dir in sys.path:
+        sys.path.remove(_pkg_dir)
+except Exception:
+    pass
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 print(f"SYS.PATH IN APP.PY: {sys.path}")
 import logging

@@ -240,6 +240,15 @@ def fastapi_app():
 
     api = FastAPI(debug=True)
 
+    # Basic root endpoints so HEAD/GET / succeeds for preflight checks
+    @api.head("/")
+    def head_root():  # type: ignore[empty-body]
+        return JSONResponse(status_code=status.HTTP_200_OK, content=None)
+
+    @api.get("/")
+    def get_root():
+        return {"ok": True, "service": "synth-ai task app"}
+
     @api.get("/health")
     def health(request: Request):
         env_key = os.environ.get("ENVIRONMENT_API_KEY")
@@ -249,6 +258,16 @@ def fastapi_app():
         if header_key is not None and header_key != env_key:
             raise HTTPException(status_code=401, detail="Invalid API key for health check")
         return {"healthy": True}
+
+    # Rollout health endpoint used by CLI configure flow
+    @api.get("/health/rollout")
+    def health_rollout(x_api_key: str | None = Header(default=None, alias="X-API-Key")):
+        expected = os.environ.get("ENVIRONMENT_API_KEY")
+        if not expected:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Missing ENVIRONMENT_API_KEY in service env")
+        if not x_api_key or x_api_key != expected:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+        return {"ok": True}
 
     @api.post(f"/env/{ENV_NAME}/initialize")
     async def initialize(req: InitRequest, request: Request):
@@ -551,7 +570,7 @@ def fastapi_app():
                     _timeouts = httpx.Timeout(connect=10.0, read=180.0, write=60.0, pool=60.0)
                     with httpx.Client(timeout=_timeouts) as client:
                         # Decide endpoint: avoid calling our own /proxy inside the same request
-                        _direct = ("api.openai.com" in inference_url) or inference_url.rstrip("/").endswith("/proxy")
+                        _direct = ("api.openai.com" in inference_url)
                         if _direct:
                             # Call OpenAI directly
                             if _okey:
@@ -562,6 +581,11 @@ def fastapi_app():
                             # Non-OpenAI inference endpoint
                             to_send = payload
                             endpoint_base = inference_url
+                            # If targeting Synth proxy, attach backend auth
+                            if "/proxy" in endpoint_base:
+                                _skey = os.environ.get("SYNTH_API_KEY")
+                                if _skey:
+                                    headers["Authorization"] = f"Bearer {_skey}"
 
                         # Debug: outbound request diagnostics
                         try:
