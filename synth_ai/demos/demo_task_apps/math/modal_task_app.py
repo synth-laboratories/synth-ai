@@ -411,5 +411,3 @@ def fastapi_app():
         }
 
     return api
-
-

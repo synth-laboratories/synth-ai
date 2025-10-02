@@ -18,9 +18,9 @@ if "/opt" not in _sys.path:
 _env_flag = (_os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "") or _os.getenv("ENVIRONMENT", "") or _os.getenv("APP_ENVIRONMENT", "")).strip().lower()
 _is_prod = _env_flag in ("prod", "production")
 
-# Secret name (overridable via TASK_APP_SECRET_NAME)
-_default_secret = "crafter-environment-sdk-prod" if _is_prod else "crafter-environment-sdk"
-MODAL_SECRET_NAME = _os.getenv("TASK_APP_SECRET_NAME", _default_secret)
+# Secret name must be provided explicitly via TASK_APP_SECRET_NAME
+MODAL_SECRET_NAME = _os.getenv("TASK_APP_SECRET_NAME")
+assert MODAL_SECRET_NAME, "TASK_APP_SECRET_NAME must be set before launching the task app"
 
 
 # Modal app name (overridable via TASK_APP_NAME)
@@ -910,4 +910,3 @@ def fastapi_app():
         return {"ok": True}
 
     return api
-
