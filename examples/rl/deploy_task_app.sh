@@ -39,16 +39,30 @@ if [ -n "${SYNTH_API_KEY:-}" ]; then
   SYNTH_ARG=(SYNTH_API_KEY="$SYNTH_API_KEY")
 fi
 
-# Determine prod vs non-prod for names (override with env vars)
+# Require an explicit secret name; environment must supply TASK_APP_SECRET_NAME
+if [ -z "${TASK_APP_SECRET_NAME:-}" ]; then
+  echo "TASK_APP_SECRET_NAME must be set before deploying the task app." >&2
+  exit 1
+fi
+
+export TASK_APP_SECRET_NAME
+SECRET_NAME="$TASK_APP_SECRET_NAME"
+
+# Allow TASK_APP_NAME to retain existing defaults
 ENV_FLAG="${SYNTH_BACKEND_URL_OVERRIDE:-${ENVIRONMENT:-${APP_ENVIRONMENT:-}}}"
 ENV_FLAG=$(echo "$ENV_FLAG" | tr '[:upper:]' '[:lower:]')
 if [ "$ENV_FLAG" = "prod" ] || [ "$ENV_FLAG" = "production" ]; then
-  SECRET_NAME="${TASK_APP_SECRET_NAME:-crafter-environment-sdk-prod}"
   APP_NAME="${TASK_APP_NAME:-grpo-task-service-sdk-prod}"
 else
-  SECRET_NAME="${TASK_APP_SECRET_NAME:-crafter-environment-sdk}"
   APP_NAME="${TASK_APP_NAME:-grpo-task-service-sdk}"
 fi
+
+# Ensure math task app picks up the same secret name when deployed
+if [ -n "${MATH_TASK_APP_SECRET:-}" ] && [ "$MATH_TASK_APP_SECRET" != "$SECRET_NAME" ]; then
+  echo "MATH_TASK_APP_SECRET must match TASK_APP_SECRET_NAME when set." >&2
+  exit 1
+fi
+export MATH_TASK_APP_SECRET="$SECRET_NAME"
 
 echo "Creating/updating Modal secret: $SECRET_NAME"
 
