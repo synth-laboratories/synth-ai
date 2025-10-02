@@ -143,6 +143,12 @@ def run(batch_size: int | None, group_size: int | None, model: str | None, timeo
 
 
 @cli.command()
+def setup():
+    """Perform SDK handshake and write keys to .env."""
+    _forward_to_demo(["rl_demo.setup"])
+
+
+@cli.command()
 @click.option("--db-file", default="traces/v3/synth_ai.db", help="Database file path")
 @click.option("--sqld-port", default=8080, type=int, help="Port for sqld HTTP interface")
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
