@@ -24,6 +24,7 @@ synth-ai comes with a built-in RL example tailored for training Qwen/Qwen3-0.6B 
 Please create an account at [Synth](https://usesynth.ai) and [Modal](https://modal.com) for the Math hello‑world test run. Then run:
 
 ```bash
+uvx synth-ai demo
 uvx synth-ai setup
 uvx synth-ai deploy
 uvx synth-ai run
