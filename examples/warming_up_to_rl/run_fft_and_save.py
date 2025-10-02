@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple, List
 
 import tomllib
+import re
 import requests
 
 
@@ -92,6 +93,7 @@ def main() -> None:
     parser.add_argument("--toml", required=True, help="Path to FFT TOML config")
     parser.add_argument("--data", default="", help="Override dataset JSONL path")
     parser.add_argument("--poll-seconds", type=int, default=1800)
+    parser.add_argument("--env-file", default="", help="Optional path to .env file with SYNTH_API_KEY")
     args = parser.parse_args()
 
     config_path = Path(args.toml).expanduser().resolve()
@@ -103,7 +105,9 @@ def main() -> None:
 
     job_cfg = cfg.get("job", {}) if isinstance(cfg.get("job"), dict) else {}
     compute_cfg = cfg.get("compute", {}) if isinstance(cfg.get("compute"), dict) else {}
-    topo_cfg = (cfg.get("data", {}) or {}).get("topology", {}) if isinstance(cfg.get("data"), dict) else {}
+    data_cfg_full = cfg.get("data", {}) if isinstance(cfg.get("data"), dict) else {}
+    topo_cfg = (data_cfg_full or {}).get("topology", {}) if isinstance(data_cfg_full, dict) else {}
+    validation_local_path = (data_cfg_full or {}).get("validation_path") if isinstance(data_cfg_full, dict) else None
     train_cfg = cfg.get("training", {}) if isinstance(cfg.get("training"), dict) else {}
     hp_cfg = cfg.get("hyperparameters", {}) if isinstance(cfg.get("hyperparameters"), dict) else {}
 
@@ -125,12 +129,43 @@ def main() -> None:
         sys.exit(2)
 
     synth_key = (os.getenv("SYNTH_API_KEY") or "").strip()
+    # Fallback: try to load from .env if not present in environment
     if not synth_key:
-        print("Missing SYNTH_API_KEY", file=sys.stderr)
+        candidate_env: Path | None = None
+        if isinstance(args.env_file, str) and args.env_file.strip():
+            candidate_env = Path(args.env_file).expanduser().resolve()
+        else:
+            # Prefer .env next to the TOML config
+            candidate_env = (config_path.parent / ".env").resolve()
+        if candidate_env and candidate_env.exists():
+            try:
+                env_text = candidate_env.read_text(encoding="utf-8", errors="ignore")
+                # Match lines like: SYNTH_API_KEY=..., or export SYNTH_API_KEY=...
+                key_val: str | None = None
+                for line in env_text.splitlines():
+                    m = re.match(r"^\s*(?:export\s+)?SYNTH_API_KEY\s*=\s*(.*)$", line)
+                    if m:
+                        raw = m.group(1).strip()
+                        # Trim surrounding quotes if present
+                        if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
+                            raw = raw[1:-1]
+                        key_val = raw.strip()
+                        break
+                if key_val:
+                    synth_key = key_val
+                    os.environ["SYNTH_API_KEY"] = synth_key
+                    print(f"[INFO] Loaded SYNTH_API_KEY from {candidate_env}")
+            except Exception as _e:
+                # Ignore and fall through to error below
+                pass
+    if not synth_key:
+        print("Missing SYNTH_API_KEY (set in env or provide --env-file pointing to .env)", file=sys.stderr)
         sys.exit(2)
 
     backend = args.backend.rstrip("/")
     print(f"[INFO] Using backend={backend} key_fp={mask(synth_key)} data={data_file}")
+    if isinstance(validation_local_path, str) and validation_local_path.strip():
+        print(f"[INFO] Using validation path={validation_local_path}")
 
     # 1) Upload training file
     print("[INFO] Uploading training file…")
@@ -147,6 +182,28 @@ def main() -> None:
         err_ep = (upf or {}).get("endpoint")
         print(f"Upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:200]}", file=sys.stderr)
         sys.exit(4)
+
+    # Optionally upload validation file
+    val_file_id: str | None = None
+    if isinstance(validation_local_path, str) and validation_local_path.strip():
+        vpath = Path(validation_local_path).expanduser()
+        if not vpath.is_absolute():
+            vpath = (config_path.parent / vpath).resolve()
+        if not vpath.exists():
+            print(f"[WARN] Validation file not found: {vpath} (skipping validation)")
+        else:
+            print("[INFO] Uploading validation file…")
+            upv = post_multipart(backend, synth_key, "/learning/files", "file", vpath)
+            try:
+                print(f"[INFO] Validation upload response: {json.dumps(upv, indent=2)[:300]}")
+            except Exception:
+                print(f"[INFO] Validation upload response (raw): {str(upv)[:300]}")
+            val_file_id = str((upv or {}).get("id") or "").strip() or None
+            if not val_file_id:
+                err_status = (upv or {}).get("status")
+                err_body = (upv or {}).get("body") or (upv or {}).get("text")
+                err_ep = (upv or {}).get("endpoint")
+                print(f"[WARN] Validation upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:180]} — continuing without validation")
 
     # 2) Build job payload
     hp_block: Dict[str, Any] = {
@@ -180,6 +237,19 @@ def main() -> None:
         "data": {"topology": topo_cfg or {}},
         "training": {k: v for k, v in train_cfg.items() if k in ("mode", "use_qlora")},
     }
+    # If TOML includes a [training.validation] block, forward relevant knobs into hyperparameters
+    validation_cfg = train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
+    if isinstance(validation_cfg, dict):
+        # Enable evaluation and map keys as-is; backend trainer maps metric_for_best_model 'val.loss'→'eval_loss'
+        hp_block.update({
+            "evaluation_strategy": validation_cfg.get("evaluation_strategy", "steps"),
+            "eval_steps": int(validation_cfg.get("eval_steps", 0) or 0),
+            "save_best_model_at_end": bool(validation_cfg.get("save_best_model_at_end", True)),
+            "metric_for_best_model": validation_cfg.get("metric_for_best_model", "val.loss"),
+            "greater_is_better": bool(validation_cfg.get("greater_is_better", False)),
+        })
+        # Also surface validation enable flag into effective_config for visibility (optional)
+        effective.setdefault("training", {})["validation"] = {"enabled": bool(validation_cfg.get("enabled", True))}
 
     body = {
         "model": model,
@@ -188,6 +258,10 @@ def main() -> None:
         "hyperparameters": hp_block,
         "metadata": {"effective_config": effective},
     }
+    if val_file_id:
+        # Shared API expects top-level validation_file? Tests mention legacy; prefer placing into metadata.effective_config.data
+        # Put into effective_config.data so downstream loader can read it; keep top-level off unless required.
+        effective.setdefault("data", {})["validation_files"] = [val_file_id]
 
     # 3) Create and start job
     print("[INFO] Creating FFT job…")
