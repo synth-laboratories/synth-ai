@@ -43,7 +43,14 @@ if _SYNTH_HOSTED is not None:
 # No extra local dirs required; app is self-contained
 
 app = App("hendrycks-math-task-app")
-_SECRET_NAME = os.getenv("MATH_TASK_APP_SECRET", "crafter-environment-sdk")
+_SECRET_NAME = next(
+    (value for value in (
+        os.getenv("MATH_TASK_APP_SECRET"),
+        os.getenv("TASK_APP_SECRET_NAME"),
+    ) if value),
+    None,
+)
+assert _SECRET_NAME, "Set MATH_TASK_APP_SECRET or TASK_APP_SECRET_NAME before deploying the math task app"
 
 
 @app.function(
@@ -411,5 +418,3 @@ def fastapi_app():
         }
 
     return api
-
-
