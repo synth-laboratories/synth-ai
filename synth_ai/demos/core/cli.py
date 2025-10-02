@@ -30,7 +30,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             "ENVIRONMENT_API_KEY": rl_env_key,
         })
         org_name = (org.get("name") or "this organization")
-        print(f"✅ Connected to {org_name} via browser.")
+        print(f"✅ Connected to {org_name}!")
     except HandshakeError as e:
         print(f"Handshake failed: {e}")
         return 1
