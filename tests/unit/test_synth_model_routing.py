@@ -21,7 +21,7 @@ class TestSynthModelRegistry:
             "Qwen/Qwen3-8B",
             "Qwen/Qwen3-14B",
             "Qwen/Qwen3-32B",
-            "Qwen/Qwen3-4B-Instruct-2507",
+            "Qwen/Qwen3-4B-2507",
             "Qwen/Qwen3-4B-Thinking-2507",
         ]
 
@@ -32,7 +32,7 @@ class TestSynthModelRegistry:
     def test_fine_tuned_models_pattern(self):
         """Test that fine-tuned model pattern is detected correctly."""
         ft_models = [
-            "ft:Qwen/Qwen3-4B-Instruct-2507:ftjob-22",
+            "ft:Qwen/Qwen3-4B-2507:ftjob-22",
             "ft:Qwen/Qwen3-0.6B:custom-job-123",
             "ft:gpt-4:some-job",
         ]
@@ -48,7 +48,7 @@ class TestSynthModelRegistry:
         # Should match
         matching_models = [
             "Qwen/Qwen3-0.6B",
-            "Qwen/Qwen3-4B-Instruct-2507",
+            "Qwen/Qwen3-4B-2507",
             "Qwen/Qwen3-32B-large",
         ]
 

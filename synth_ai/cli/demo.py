@@ -92,7 +92,11 @@ def register(cli):
 
     # (prepare command removed; configure now prepares baseline TOML)
 
-    @demo.command("deploy")
+    # Help pyright understand dynamic Click group attributes
+    from typing import Any, cast as _cast
+    _dg = _cast(Any, demo)
+
+    @_dg.command("deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
     @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
@@ -109,11 +113,15 @@ def register(cli):
             args.extend(["--script", script])
         _forward_to_new(args)
 
-    @demo.command("configure")
+    @_dg.command("configure")
     def demo_configure():
         _forward_to_new(["rl_demo.configure"]) 
 
-    @demo.command("run")
+    @_dg.command("setup")
+    def demo_setup():
+        _forward_to_new(["rl_demo.setup"]) 
+
+    @_dg.command("run")
     @click.option("--batch-size", type=int, default=None)
     @click.option("--group-size", type=int, default=None)
     @click.option("--model", type=str, default=None)

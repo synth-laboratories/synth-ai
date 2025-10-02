@@ -13,8 +13,8 @@ SYNTH_BACKEND_URL = ""
 
 # Learning V2 Modal Service URLs
 LEARNING_V2_URLS = {
-    "dev": "https://synth-laboratories-dev--learning-v2-service-dev-fastapi-app.modal.run",
-    "prod": "https://synth-laboratories-prod--learning-v2-service-prod-fastapi-app.modal.run", 
+    "dev": "https://synth-laboratories-dev--learning-v2-service-fastapi-app.modal.run",
+    "prod": "https://synth-laboratories-prod--learning-v2-service-fastapi-app.modal.run", 
     "main": "https://synth-laboratories--learning-v2-service-fastapi-app.modal.run"
 }
 

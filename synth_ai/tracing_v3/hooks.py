@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Hook system for extending tracing functionality.
 
 The hook system provides a flexible way to extend the tracing system without

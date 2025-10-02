@@ -2929,7 +2929,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.4.dev9"
+version = "0.2.6.dev6"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -2937,6 +2937,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "asyncpg" },
     { name = "backoff" },
+    { name = "certifi" },
     { name = "click" },
     { name = "crafter" },
     { name = "datasets" },
@@ -3016,6 +3017,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "backoff", specifier = ">=2.0.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
+    { name = "certifi", specifier = ">=2024.8.30" },
     { name = "click", specifier = ">=8.1.0" },
     { name = "coverage", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "crafter", specifier = ">=1.8.3" },

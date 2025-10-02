@@ -12,6 +12,8 @@ from opentelemetry.sdk.trace.export import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
 
 class InMemoryExporter(SpanExporter):
     def __init__(self):
@@ -101,7 +103,7 @@ class EventManagement(str, Enum):
 class TracingConfig(BaseModel):
     mode: LoggingMode = Field(default=LoggingMode.DEFERRED)
     api_key: str
-    base_url: str = Field(default="https://agent-learning.onrender.com")
+    base_url: str = Field(default=PROD_BASE_URL_DEFAULT)
     max_retries: int = Field(default=3)
     retry_backoff: float = Field(default=1.5)  # exponential backoff multiplier
     batch_size: int = Field(default=1)  # for future batching support

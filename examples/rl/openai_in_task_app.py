@@ -14,6 +14,16 @@ from typing import Any, Dict, Optional
 
 import json
 import httpx
+from synth_ai.config.base_url import get_backend_from_env
+
+try:
+    from examples.common.backend import resolve_backend_url as _resolve_backend_default  # type: ignore
+except Exception:  # pragma: no cover - fallback for direct execution
+
+    def _resolve_backend_default() -> str:
+        base, _ = get_backend_from_env()
+        base = base.rstrip("/")
+        return base if base.endswith("/api") else f"{base}/api"
 
 
 def _load_rl_env() -> None:
@@ -81,8 +91,7 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
             from common.backend import resolve_backend_url as _rb
             base = _rb()
         except ImportError:
-            # Fallback to hardcoded prod URL
-            base = "https://agent-learning.onrender.com/api"
+            base = _resolve_backend_default()
         api_key = (
             os.getenv("PROD_SYNTH_API_KEY", "").strip()
             or os.getenv("SYNTH_API_KEY", "").strip()
@@ -113,8 +122,7 @@ def _load_env(mode: str | None = None) -> tuple[str, str]:
             from common.backend import resolve_backend_url as _rb
             base_url = _rb()
         except ImportError:
-            # Fallback to hardcoded prod URL
-            base_url = "https://agent-learning.onrender.com/api"
+            base_url = _resolve_backend_default()
         api_key = (
             os.getenv("PROD_SYNTH_API_KEY", "").strip()
             or os.getenv("TESTING_PROD_SYNTH_API_KEY", "").strip()

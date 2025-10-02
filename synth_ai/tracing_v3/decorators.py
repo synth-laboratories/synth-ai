@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Async-aware decorators for tracing v3.
 
 This module provides decorators and context management utilities for the tracing
