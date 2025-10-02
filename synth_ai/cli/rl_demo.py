@@ -39,9 +39,9 @@ def register(cli):
     from typing import Any, cast as _cast
     _rlg = _cast(Any, rl_demo)
 
-    @_rlg.command("check")
-    def rl_check():
-        _forward(["rl_demo.check"])  # reuse same implementation
+    @_rlg.command("setup")
+    def rl_setup():
+        _forward(["rl_demo.setup"])  # primary setup command
 
     # (prepare command removed; consolidated into configure)
 
@@ -97,10 +97,14 @@ def register(cli):
             args.append("--dry-run")
         _forward(args)
 
-    # Dotted aliases (top-level) for convenience: rl_demo.check etc.
+    # Dotted aliases (top-level): legacy check → setup
     @cli.command("rl_demo.check")
     def rl_check_alias():
-        _forward(["rl_demo.check"]) 
+        _forward(["rl_demo.setup"]) 
+
+    @cli.command("rl_demo.setup")
+    def rl_setup_alias():
+        _forward(["rl_demo.setup"]) 
 
     # (prepare alias removed)
 

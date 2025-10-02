@@ -23,7 +23,7 @@ use_qlora = false
 # Minimal safe defaults; backend can override
 n_epochs = 1
 batch_size = 1
-gradient_accumulation_steps = 16
+gradient_accumulation_steps = 64
 sequence_length = 2048*2
 learning_rate = 5e-6
 warmup_ratio = 0.03
