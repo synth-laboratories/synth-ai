@@ -294,22 +294,32 @@ def load_env() -> DemoEnv:
     env.task_app_name = task_app_name
     env.task_app_secret_name = task_app_secret_name
 
-    print("ENV:")
-    print(f"  DEV_BACKEND_URL={env.dev_backend_url}")
-    print(f"  SYNTH_API_KEY={_mask(env.synth_api_key)}")
-    print(f"  ENVIRONMENT_API_KEY={_mask(env.env_api_key)}")
-    print(f"  TASK_APP_BASE_URL={env.task_app_base_url}")
-    if task_app_name:
-        print(f"  TASK_APP_NAME={task_app_name}")
-    if task_app_secret_name:
-        print(f"  TASK_APP_SECRET_NAME={task_app_secret_name}")
+    # Suppress environment echo by default for cleaner CLI output.
+    # If needed for debugging, set SYNTH_CLI_VERBOSE=1 to print resolved values.
+    if os.getenv("SYNTH_CLI_VERBOSE", "0") == "1":
+        print("ENV:")
+        print(f"  DEV_BACKEND_URL={env.dev_backend_url}")
+        print(f"  SYNTH_API_KEY={_mask(env.synth_api_key)}")
+        print(f"  ENVIRONMENT_API_KEY={_mask(env.env_api_key)}")
+        print(f"  TASK_APP_BASE_URL={env.task_app_base_url}")
+        if task_app_name:
+            print(f"  TASK_APP_NAME={task_app_name}")
+        if task_app_secret_name:
+            print(f"  TASK_APP_SECRET_NAME={task_app_secret_name}")
     return env
 
 
 def assert_http_ok(url: str, method: str = "GET", allow_redirects: bool = True, timeout: float = 10.0) -> bool:
     try:
+        import ssl
+
         req = urllib.request.Request(url, method=method)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec - controlled URL
+        # Default: disable SSL verification for local/dev convenience.
+        # Set SYNTH_SSL_VERIFY=1 to enable verification.
+        ctx = ssl._create_unverified_context()  # nosec: disabled by default for dev
+        if os.getenv("SYNTH_SSL_VERIFY", "0") == "1":
+            ctx = None
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosec - controlled URL
             code = getattr(resp, "status", 200)
             return 200 <= int(code) < 400
     except Exception:
