@@ -161,10 +161,6 @@ def register(cli):
         _forward(args)
 
     # Top-level convenience alias: `synth-ai deploy`
-    @cli.command("setup")
-    def setup_top():
-        _forward(["rl_demo.setup"])
-
     @cli.command("deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
     @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
