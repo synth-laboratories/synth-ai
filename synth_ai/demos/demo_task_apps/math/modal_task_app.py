@@ -43,7 +43,7 @@ if _SYNTH_HOSTED is not None:
 # No extra local dirs required; app is self-contained
 
 app = App("hendrycks-math-task-app")
-_SECRET_NAME = os.getenv("MATH_TASK_APP_SECRET", "crafter-environment-sdk")
+_SECRET_NAME = "synth-math-demo-secret"
 
 
 @app.function(
