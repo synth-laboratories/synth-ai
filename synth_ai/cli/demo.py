@@ -35,60 +35,65 @@ def _forward_to_new(args: list[str]) -> None:
 
 def register(cli):
     @cli.group("demo", invoke_without_command=True)
+    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD when initializing demo")
     @click.option("--list", "list_only", is_flag=True, help="List available legacy demos and exit")
     @click.option("-f", "filter_term", default="", help="Filter legacy demos by substring")
     @click.pass_context
-    def demo(ctx: click.Context, list_only: bool, filter_term: str):
+    def demo(ctx: click.Context, force: bool, list_only: bool, filter_term: str):
         """Demo helpers.
 
-        - Legacy mode (no subcommand): find and run examples/*/run_demo.sh
+        - Default (no subcommand): initialize RL demo files into ./synth_demo/ (alias of rl_demo init)
+        - Legacy mode: with --list, find and run examples/*/run_demo.sh
         - New RL demo subcommands: deploy, configure, run
         """
         if ctx.invoked_subcommand is not None:
             return
-        # Legacy behavior: interactive examples runner
-        repo_root = Path(os.getcwd())
-        examples_dir = repo_root / "examples"
-        demos = _find_demo_scripts(examples_dir)
-        if filter_term:
-            demos = [p for p in demos if filter_term.lower() in str(p).lower()]
 
-        if not demos:
-            click.echo("No run_demo.sh scripts found under examples/.")
-            return
-
+        # If explicitly asked to list legacy demos, show interactive picker
         if list_only:
+            repo_root = Path(os.getcwd())
+            examples_dir = repo_root / "examples"
+            demos = _find_demo_scripts(examples_dir)
+            if filter_term:
+                demos = [p for p in demos if filter_term.lower() in str(p).lower()]
+
+            if not demos:
+                click.echo("No run_demo.sh scripts found under examples/.")
+                return
+
             click.echo("Available demos:")
-            for p in demos:
-                click.echo(f" - {p.relative_to(repo_root)}")
+            for idx, p in enumerate(demos, start=1):
+                click.echo(f" {idx}. {p.relative_to(repo_root)}")
+            click.echo("")
+
+            def _validate_choice(val: str) -> int:
+                try:
+                    i = int(val)
+                except Exception as err:
+                    raise click.BadParameter("Enter a number from the list") from err
+                if i < 1 or i > len(demos):
+                    raise click.BadParameter(f"Choose a number between 1 and {len(demos)}")
+                return i
+
+            choice = click.prompt("Select a demo to run", value_proc=_validate_choice)
+            script = demos[choice - 1]
+
+            click.echo("")
+            click.echo(f"🚀 Running {script.relative_to(repo_root)}\n")
+
+            try:
+                subprocess.run(["bash", str(script)], check=True)
+            except subprocess.CalledProcessError as e:
+                click.echo(f"❌ Demo exited with non-zero status: {e.returncode}")
+            except KeyboardInterrupt:
+                click.echo("\n🛑 Demo interrupted by user")
             return
 
-        click.echo("Available demos:")
-        for idx, p in enumerate(demos, start=1):
-            click.echo(f" {idx}. {p.relative_to(repo_root)}")
-        click.echo("")
-
-        def _validate_choice(val: str) -> int:
-            try:
-                i = int(val)
-            except Exception as err:
-                raise click.BadParameter("Enter a number from the list") from err
-            if i < 1 or i > len(demos):
-                raise click.BadParameter(f"Choose a number between 1 and {len(demos)}")
-            return i
-
-        choice = click.prompt("Select a demo to run", value_proc=_validate_choice)
-        script = demos[choice - 1]
-
-        click.echo("")
-        click.echo(f"🚀 Running {script.relative_to(repo_root)}\n")
-
-        try:
-            subprocess.run(["bash", str(script)], check=True)
-        except subprocess.CalledProcessError as e:
-            click.echo(f"❌ Demo exited with non-zero status: {e.returncode}")
-        except KeyboardInterrupt:
-            click.echo("\n🛑 Demo interrupted by user")
+        # Default: forward to RL demo init behavior, optionally with --force
+        args: list[str] = ["rl_demo.init"]
+        if force:
+            args.append("--force")
+        _forward_to_new(args)
 
     # (prepare command removed; configure now prepares baseline TOML)
 
