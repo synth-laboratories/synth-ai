@@ -44,7 +44,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             "ENVIRONMENT_API_KEY": rl_env_key,
         })
         org_name = (org.get("name") or "this organization")
-        print(f"✅ Connected to {org_name}!")
+        print(f"✅ Connected to {org_name} via browser.")
     except HandshakeError as e:
         print(f"Handshake failed: {e}")
         return 1
@@ -65,15 +65,6 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         nonlocal env, local_env
         env = demo_core.load_env()
         local_env = demo_core.load_dotenv_file(cwd_env_path)
-
-    def _is_modal_public_url(u: str) -> bool:
-        try:
-            s = (u or "").strip().lower()
-            if not (s.startswith("http://") or s.startswith("https://")):
-                return False
-            return (".modal.run" in s) and ("modal.local" not in s) and ("pypi-mirror" not in s)
-        except Exception:
-            return False
 
     def _maybe_fix_task_url() -> None:
         if not env.task_app_name:
