@@ -279,6 +279,37 @@ def _fmt_float(value: float) -> str:
     return f"{value:.10g}"
 
 
+def _find_asgi_apps(root: Path) -> list[Path]:
+    """Recursively search for Python files that declare a Modal ASGI app.
+
+    A file is considered a Modal task app candidate if it contains one of:
+      - "@asgi_app()"
+      - "@modal.asgi_app()"
+    """
+    results: list[Path] = []
+    skip_dirs = {".git", ".hg", ".svn", "node_modules", "dist", "build", "__pycache__", ".ruff_cache", ".mypy_cache", "venv", ".venv"}
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs]
+        for name in filenames:
+            if not name.endswith(".py"):
+                continue
+            path = Path(dirpath) / name
+            try:
+                with path.open("r", encoding="utf-8", errors="ignore") as fh:
+                    txt = fh.read()
+                if ("@asgi_app()" in txt) or ("@modal.asgi_app()" in txt):
+                    results.append(path)
+            except Exception:
+                continue
+    # Stable order: prioritize files under synth_demo/ first, then alphabetical
+    def _priority(p: Path) -> tuple[int, str]:
+        rel = str(p.resolve())
+        in_demo = "/synth_demo/" in rel or rel.endswith("/synth_demo/task_app.py")
+        return (0 if in_demo else 1, rel)
+    results.sort(key=_priority)
+    return results
+
+
 def _prompt_value(label: str, default: str | int | float, cast: Callable[[str], Any] | None = None) -> Any:
     prompt = f"{label} [{default}]: "
     try:
@@ -684,10 +715,10 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     break
                 time.sleep(1)
         else:
-            # Auto-detect app path if not supplied; prompt for name and confirmation.
+            # Auto-detect app path if not supplied; prompt interactively from discovered ASGI apps
             app_path = os.path.abspath(args.app) if args.app else None
             if not app_path or not os.path.isfile(app_path):
-                # Prefer the synth_demo/ app seeded by `rl_demo init` over any root-level files
+                # First pass: look for known common filenames
                 candidates = [
                     os.path.abspath(os.path.join(os.getcwd(), "synth_demo", "task_app.py")),
                     os.path.abspath(os.path.join(os.getcwd(), "task_app.py")),
@@ -695,6 +726,24 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     os.path.abspath(os.path.join(os.getcwd(), "math_task_app.py")),
                 ]
                 app_path = next((p for p in candidates if os.path.isfile(p)), None)
+                # If still not found, scan for any file containing @asgi_app()
+                if not app_path:
+                    found = _find_asgi_apps(Path(os.getcwd()))
+                    if found:
+                        print("Select a Modal ASGI app to deploy:")
+                        for idx, pth in enumerate(found, 1):
+                            rel = os.path.relpath(str(pth), os.getcwd())
+                            print(f"  [{idx}] {rel}")
+                        try:
+                            sel = input(f"Enter choice [1-{len(found)}] (default 1): ").strip() or "1"
+                        except Exception:
+                            sel = "1"
+                        try:
+                            choice = int(sel)
+                        except Exception:
+                            choice = 1
+                        choice = max(1, min(choice, len(found)))
+                        app_path = str(found[choice - 1].resolve())
             if not app_path and args.script:
                 # Legacy script fallback if user supplied --script explicitly
                 from synth_ai.demos.demo_task_apps.math.deploy_modal import deploy as modal_deploy
