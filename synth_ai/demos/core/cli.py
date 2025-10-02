@@ -8,11 +8,42 @@ import time
 from typing import Any, Dict, Callable
 
 from synth_ai.demos.demo_task_apps import core as demo_core
+from synth_ai.handshake import run_handshake, HandshakeError
 from synth_ai.demos.demo_task_apps.core import DemoEnv
 
 
-def cmd_check(_args: argparse.Namespace) -> int:
-    env = demo_core.load_env()
+def cmd_setup(_args: argparse.Namespace) -> int:
+    # 1) Always perform SDK handshake and overwrite .env with returned keys
+    try:
+        print("\n⏳ Connecting SDK to your browser session…")
+        res = run_handshake()
+        user = res.get("user") or {}
+        org = res.get("org") or {}
+        keys = res.get("keys") or {}
+        synth_key = str(keys.get("synth") or "").strip()
+        rl_env_key = str(keys.get("rl_env") or "").strip()
+        if not synth_key or not rl_env_key:
+            raise HandshakeError("handshake returned missing keys")
+        # Overwrite .env with the latest values from the account/org
+        demo_core.persist_dotenv_values({
+            "SYNTH_API_KEY": synth_key,
+            "ENVIRONMENT_API_KEY": rl_env_key,
+        })
+        org_name = (org.get("name") or "this organization")
+        print(f"✅ Connected to {org_name} via browser.")
+    except HandshakeError as e:
+        print(f"Handshake failed: {e}")
+        return 1
+    except Exception as e:
+        print(f"Unexpected handshake error: {e}")
+        return 1
+
+    # 2) Reload env after handshake to pick up values from .env (suppress env prints)
+    import io
+    import contextlib
+    _buf = io.StringIO()
+    with contextlib.redirect_stdout(_buf):
+        env = demo_core.load_env()
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)
 
@@ -63,26 +94,14 @@ def cmd_check(_args: argparse.Namespace) -> int:
             os.environ["TASK_APP_BASE_URL"] = new_url
             _refresh_env()
 
+    # Keys have been written already via handshake; avoid any interactive prompts
     synth_key = env.synth_api_key.strip()
-    if not synth_key:
-        print("SYNTH_API_KEY missing from environment/.env.")
-        entered = input("Enter SYNTH_API_KEY (required): ").strip()
-        if not entered:
-            print("SYNTH_API_KEY is required.")
-            return 1
-        os.environ["SYNTH_API_KEY"] = entered
-        demo_core.persist_api_key(entered)
-        path = demo_core.persist_dotenv_values({"SYNTH_API_KEY": entered})
-        print(f"Stored SYNTH_API_KEY in {path}")
-        _refresh_env()
-        synth_key = entered
-    elif not local_env.get("SYNTH_API_KEY"):
-        path = demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
-        print(f"Stored SYNTH_API_KEY in {path}")
+    if not local_env.get("SYNTH_API_KEY") and synth_key:
+        demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
         _refresh_env()
 
+    # Check Modal auth silently to avoid noisy output
     modal_ok, modal_msg = demo_core.modal_auth_status()
-    print(f"Modal auth: {'OK' if modal_ok else 'MISSING'} ({modal_msg})")
 
     _maybe_fix_task_url()
 
@@ -91,32 +110,18 @@ def cmd_check(_args: argparse.Namespace) -> int:
     if env.dev_backend_url:
         api = env.dev_backend_url.rstrip("/") + ("" if env.dev_backend_url.endswith("/api") else "/api")
         ok_backend = demo_core.assert_http_ok(api + "/health", method="GET")
-        print(f"Backend health: {'OK' if ok_backend else 'FAIL'} ({api}/health)")
-    else:
-        print("Backend URL missing; set DEV_BACKEND_URL.")
+        # Intentionally suppress backend health print for concise output
     if env.task_app_base_url:
         ok_task = demo_core.assert_http_ok(env.task_app_base_url.rstrip("/") + "/health", method="GET") or \
                   demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
-        print(f"Task app: {'OK' if ok_task else 'UNREACHABLE'} ({env.task_app_base_url})")
+        # Intentionally suppress task app health print
     else:
-        print("Task app URL not set; run: uvx synth-ai rl_demo deploy")
+        print("\nSet your task app URL by running:\nuvx synth-ai rl_demo deploy\n")
 
-    print("uv: ", end="")
-    try:
-        import subprocess
+    # Omit uv version print to keep output concise
 
-        subprocess.check_call(["uv", "--version"])
-    except Exception:
-        print("(uv not found; install with `pip install uv`)\n", flush=True)
-
-    status = 0
-    if not ok_backend:
-        status = 1
-    if not modal_ok:
-        status = 1
-    if not env.synth_api_key:
-        status = 1
-    return status
+    # Keep exit code neutral; not all checks are critical for pairing
+    return 0
 
 
 def _popen_capture(cmd: list[str], cwd: str | None = None, env: dict | None = None) -> tuple[int, str]:
@@ -648,7 +653,7 @@ def main(argv: list[str] | None = None) -> int:
             parser = sub.add_parser(name)
             configure(parser)
 
-    _add_parser(["rl_demo.check", "demo.check"], configure=lambda parser: parser.set_defaults(func=cmd_check))
+    _add_parser(["rl_demo.setup", "demo.setup"], configure=lambda parser: parser.set_defaults(func=cmd_setup))
 
     # (prepare command removed)
 
