@@ -23,6 +23,7 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).parent.resolve()
+REPO_ROOT = BASE_DIR.parent.parent.parent.resolve()
 # Use local copy of synth_envs_hosted within this task_app folder
 TASK_SRC = (BASE_DIR / "./synth_envs_hosted").resolve()
 
@@ -42,6 +43,8 @@ image = (
         "httpx>=0.24.0",
     )
     .add_local_dir(str(TASK_SRC), "/app/synth_envs_hosted")
+    .add_local_dir(str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai")
+    .add_local_dir(str(BASE_DIR), "/app/grpo_crafter")
 )
 
 
@@ -65,108 +68,387 @@ app = App("grpo-crafter-task-app-final_warming_up_ex")
 def fastapi_app():
     import os
     import sys
-    import httpx
-    from typing import Any
-    from fastapi import FastAPI, HTTPException, status, Body
 
-    # Ensure imports resolve
+    # Ensure packaged modules resolve when running under Modal before any imports that rely on them
+    sys.path.insert(0, "/opt/synth_ai_repo")
     sys.path.insert(0, "/app")
+    sys.path.insert(0, "/app/grpo_crafter")
+    sys.path.insert(0, "/app/synth_envs_hosted")
+    sys.path.insert(0, str(BASE_DIR))
 
-    # Normalize ENVIRONMENT_API_KEY from fallback
-    env_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get(
-        "dev_environment_api_key"
-    )
-    if env_key:
-        os.environ["ENVIRONMENT_API_KEY"] = env_key
-        print(
-            f"[task:crafter] ENVIRONMENT_API_KEY present (prefix={env_key[:6] + '…' if len(env_key)>=6 else 'set'})",
-            flush=True,
-        )
-    else:
-        raise RuntimeError(
-            "Auth not configured: missing ENVIRONMENT_API_KEY in task service environment"
-        )
+    import json
+    from typing import Any, Dict, List, Optional
 
-    # Normalize OPENAI_API_KEY and GROQ_API_KEY from common local fallbacks to simplify .env usage
-    try:
-        oa = os.environ.get("OPENAI_API_KEY") or os.environ.get("dev_openai_api_key")
-        if oa:
-            os.environ["OPENAI_API_KEY"] = oa
-            print(f"[task:crafter] OPENAI_API_KEY present (prefix={oa[:6] + '…' if len(oa)>=6 else 'set'})", flush=True)
-        gr = os.environ.get("GROQ_API_KEY") or os.environ.get("dev_groq_api_key")
-        if gr:
-            os.environ["GROQ_API_KEY"] = gr
-            print(f"[task:crafter] GROQ_API_KEY present (prefix={gr[:6] + '…' if len(gr)>=6 else 'set'})", flush=True)
-    except Exception:
-        pass
+    import crafter
+    import crafter.constants as C
+    import httpx
+    from fastapi import Body, Depends, FastAPI, Header, Query, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
 
-    # Construct hosted service (Crafter-only)
     from synth_envs_hosted.hosted_app import create_app as _create_app
+
+    from synth_ai.task import (
+        INTERACT_TOOL_SCHEMA,
+        TaskDatasetRegistry,
+        TaskDatasetSpec,
+        TaskInfo,
+        extract_message_text,
+        get_openai_key_or_503,
+        get_groq_key_or_503,
+        inject_system_hint,
+        is_api_key_header_authorized,
+        load_rubric,
+        normalize_environment_api_key,
+        normalize_vendor_keys,
+        parse_tool_call_from_text,
+        prepare_for_groq,
+        prepare_for_openai,
+        require_api_key_dependency,
+        synthesize_tool_call_if_missing,
+        to_jsonable,
+    )
+    from synth_ai.task.errors import http_exception
+    from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS, world_traits
+
+    normalize_environment_api_key()
+    normalize_vendor_keys()
+
+    if not os.getenv("ENVIRONMENT_API_KEY"):
+        raise RuntimeError("ENVIRONMENT_API_KEY missing in task app environment")
 
     api = _create_app(allowed_environments=["crafter"])
 
-    # --- OpenAI proxy (optional convenience) ---
-    OPENAI_REMOVE_FIELDS = (
-        "stop_after_tool_calls",
-        "thinking_mode",
-        "thinking_budget",
-        "reasoning",
+    # Remove legacy /health and /info to replace with standardized endpoints
+    api.router.routes = [
+        route
+        for route in api.router.routes
+        if getattr(route, "path", None) not in {"/health", "/info", "/rollout"}
+    ]
+
+    # Dataset configuration — procedural seeds controlling Crafter world generation
+    DATASET_SPEC = TaskDatasetSpec(
+        id="crafter_classic_procedural",
+        name="Crafter Classic Procedural Seeds",
+        version="1.0.0",
+        splits=["train"],
+        default_split="train",
+        description="Procedural Crafter Classic seeds with reproducible world traits.",
     )
-    OPENAI_REMOVE_SAMPLING_FIELDS = ("temperature", "top_p")
-    # Match eval_rollout_table_groq.py: single function tool named "interact"
-    OPENAI_TOOL_CHOICE_FORCED = {"type": "function", "function": {"name": "interact"}}
-    OPENAI_MAX_COMPLETION_TOKENS_MIN = 16000
 
-    def _interact_tool_schema() -> list[dict[str, Any]]:
-        return [{
-            "type": "function",
-            "function": {
-                "name": "interact",
-                "description": "Perform actions in the Crafter environment.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "List of actions to perform in sequence (2-5)",
-                        },
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Reasoning for these actions",
-                        },
-                    },
-                    "required": ["actions", "reasoning"],
-                }
+    class CrafterDataset:
+        def __init__(self, spec: TaskDatasetSpec) -> None:
+            self.spec = spec
+            self.default_seed = int(os.getenv("CRAFTER_DEFAULT_SEED", "42"))
+            self.seed_min = 0
+            self.seed_max = int(os.getenv("CRAFTER_MAX_SEED", str(2**31 - 1)))
+            self.area = tuple(int(x) for x in os.getenv("CRAFTER_AREA", "64,64").split(","))
+            self.length = int(os.getenv("CRAFTER_EPISODE_LENGTH", "10000"))
+            self._cache: Dict[int, Dict[str, Any]] = {}
+
+        def config_for_seed(self, seed: int) -> Dict[str, Any]:
+            return {
+                "seed": int(seed),
+                "area": list(self.area),
+                "length": self.length,
             }
-        }]
 
-    def _prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, Any]:
-        if model and "gpt-5" in model:
-            out = dict(payload)
-            for k in OPENAI_REMOVE_FIELDS:
-                out.pop(k, None)
-            if "max_completion_tokens" not in out and "max_tokens" in out:
-                out["max_completion_tokens"] = out.pop("max_tokens")
-            out.pop("max_tokens", None)
-            for k in OPENAI_REMOVE_SAMPLING_FIELDS:
-                out.pop(k, None)
-            mct = out.get("max_completion_tokens")
-            if not isinstance(mct, int) or mct < OPENAI_MAX_COMPLETION_TOKENS_MIN:
-                out["max_completion_tokens"] = OPENAI_MAX_COMPLETION_TOKENS_MIN
-            out["tool_choice"] = OPENAI_TOOL_CHOICE_FORCED
-            out["parallel_tool_calls"] = False
-            # Ensure tool schema exists and matches eval_rollout_table_groq
-            if not out.get("tools"):
-                out["tools"] = _interact_tool_schema()
-            return out
-        # Non-gpt-5 paths: ensure tools present if missing
-        if not payload.get("tools"):
-            payload = dict(payload)
-            payload["tools"] = _interact_tool_schema()
-        return payload
+        def describe_seed(self, seed: int) -> Dict[str, Any]:
+            seed = int(seed)
+            if seed in self._cache:
+                return self._cache[seed]
+            env = crafter.Env(area=self.area, length=self.length, seed=seed)
+            env.reset()
+            traits = world_traits(env)
+            player = getattr(env, "_player", None)
+            inventory = dict(getattr(player, "inventory", {})) if player else {}
+            position = getattr(player, "pos", None)
+            env.close()
+            summary = {
+                "seed": seed,
+                "difficulty": self._difficulty(traits),
+                "traits": traits,
+                "inventory": inventory,
+                "player_position": list(position) if position is not None else None,
+                "config": self.config_for_seed(seed),
+            }
+            self._cache[seed] = summary
+            return summary
 
-    # --- Crafter crafting rules system hint ---
+        def _difficulty(self, traits: Dict[str, int]) -> str:
+            for difficulty, bounds in TRAIT_BOUNDS.items():
+                if (
+                    traits.get("trees", 0) >= bounds.get("min_trees", 0)
+                    and traits.get("hostiles", 0) <= bounds.get("max_hostiles", 0)
+                ):
+                    return difficulty
+            return "custom"
+
+        @property
+        def seed_range(self) -> List[int]:
+            return [self.seed_min, self.seed_max]
+
+    dataset_registry = TaskDatasetRegistry()
+    crafter_dataset = CrafterDataset(DATASET_SPEC)
+    dataset_registry.register(DATASET_SPEC, lambda spec: crafter_dataset, cache=True)
+
+    OUTCOME_RUBRIC = load_rubric(
+        {
+            "version": "1",
+            "goal_text": "Reward unlocking Crafter achievements and survival.",
+            "aggregation": "weighted_sum",
+            "criteria": [
+                {
+                    "id": "achievements",
+                    "description": "Unlock achievements or crafting milestones.",
+                    "weight": 1.0,
+                },
+                {
+                    "id": "survival",
+                    "description": "Maintain health, food, and drink levels.",
+                    "weight": 1.0,
+                },
+            ],
+        }
+    )
+    EVENTS_RUBRIC = load_rubric(
+        {
+            "version": "1",
+            "goal_text": "Encourage purposeful step-wise exploration and crafting.",
+            "aggregation": "weighted_sum",
+            "criteria": [
+                {
+                    "id": "progress_steps",
+                    "description": "Actions progress quests, crafting, or exploration.",
+                    "weight": 1.0,
+                }
+            ],
+        }
+    )
+
+    def _base_task_info() -> TaskInfo:
+        return TaskInfo(
+            task={"id": "crafter_classic", "name": "Crafter Classic", "version": "1.0.0"},
+            environments=["crafter"],
+            action_space={
+                "type": "discrete",
+                "size": len(C.actions),
+                "actions": list(C.actions),
+            },
+            observation={
+                "summary": "RGB frame plus inventory, achievements, and semantic map patches.",
+                "keys": ["image", "inventory", "achievements", "semantic_map_patch7"],
+                "image_shape": [64, 64, 3],
+            },
+            dataset={
+                **DATASET_SPEC.model_dump(),
+                "seed_range": crafter_dataset.seed_range,
+                "default_seed": crafter_dataset.default_seed,
+            },
+            rubric={
+                "version": OUTCOME_RUBRIC.version if OUTCOME_RUBRIC else "unknown",
+                "criteria_count": len(OUTCOME_RUBRIC.criteria) if OUTCOME_RUBRIC else 0,
+                "source": "inline",
+                "aggregation": OUTCOME_RUBRIC.aggregation if OUTCOME_RUBRIC else "weighted_sum",
+            },
+            inference={
+                "supports_proxy": True,
+                "endpoints": {
+                    "openai": "/proxy/v1/chat/completions",
+                    "groq": "/proxy/groq/v1/chat/completions",
+                },
+                "tool": {"name": "interact", "parallel_tool_calls": False},
+            },
+            capabilities={
+                "supports_rollout": True,
+                "supports_env_lifecycle": True,
+                "requires_api_key_header": True,
+            },
+            limits={"max_ops": 100000, "max_time_s": 3600},
+        )
+
+    BASE_TASK_INFO = _base_task_info()
+
+    def _auth_dependency(
+        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_keys: Optional[str] = Header(default=None, alias="X-API-Keys"),
+    ) -> None:
+        expected = normalize_environment_api_key()
+        if not expected:
+            raise http_exception(503, "missing_environment_api_key", "ENVIRONMENT_API_KEY is not configured")
+        provided: List[str] = []
+        if x_api_key:
+            provided.append(x_api_key)
+        if x_api_keys:
+            provided.extend([part.strip() for part in x_api_keys.split(",") if part.strip()])
+        if provided and expected not in provided:
+            raise http_exception(401, "unauthorized", "Invalid API key")
+
+    @api.get("/")
+    async def root() -> Dict[str, Any]:
+        return to_jsonable({"status": "ok", "service": "crafter-task-app"})
+
+    @api.head("/")
+    async def root_head() -> Dict[str, Any]:
+        return to_jsonable({"status": "ok"})
+
+    @api.get("/health")
+    async def health(
+        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+        x_api_keys: Optional[str] = Header(default=None, alias="X-API-Keys"),
+    ) -> Dict[str, Any]:
+        expected = normalize_environment_api_key()
+        if not expected:
+            raise http_exception(503, "missing_environment_api_key", "ENVIRONMENT_API_KEY is not configured")
+
+        provided: List[str] = []
+        if x_api_key:
+            provided.append(x_api_key)
+        if x_api_keys:
+            provided.extend([part.strip() for part in x_api_keys.split(",") if part.strip()])
+
+        if provided and expected not in provided:
+            raise http_exception(401, "unauthorized", "Invalid API key")
+
+        return to_jsonable({"healthy": True})
+
+    @api.get("/info", dependencies=[Depends(_auth_dependency)])
+    async def info() -> Dict[str, Any]:
+        dataset_meta = {
+            **DATASET_SPEC.model_dump(),
+            "seed_range": crafter_dataset.seed_range,
+            "default_seed": crafter_dataset.default_seed,
+        }
+        return to_jsonable(
+            {
+                "service": {"task": BASE_TASK_INFO.task, "version": BASE_TASK_INFO.task.get("version")},
+                "dataset": dataset_meta,
+                "rubrics": {
+                    "outcome": OUTCOME_RUBRIC.model_dump() if OUTCOME_RUBRIC else None,
+                    "events": EVENTS_RUBRIC.model_dump() if EVENTS_RUBRIC else None,
+                },
+                "inference": BASE_TASK_INFO.inference,
+            }
+        )
+
+    @api.get("/task_info", dependencies=[Depends(_auth_dependency)])
+    async def task_info(
+        request: Request,
+        seed: Optional[List[int]] = Query(default=None),
+        seeds: Optional[List[int]] = Query(default=None),
+    ) -> Any:
+        all_seeds: List[int] = []
+        if seed:
+            all_seeds.extend(int(s) for s in seed)
+        if seeds:
+            all_seeds.extend(int(s) for s in seeds)
+
+        if not all_seeds:
+            descriptor = {
+                **DATASET_SPEC.model_dump(),
+                "seed_range": crafter_dataset.seed_range,
+                "default_seed": crafter_dataset.default_seed,
+                "config": {
+                    "area": list(crafter_dataset.area),
+                    "length": crafter_dataset.length,
+                },
+            }
+            return to_jsonable({"taskset": descriptor})
+
+        infos: List[TaskInfo] = []
+        for seed_value in all_seeds:
+            summary = crafter_dataset.describe_seed(seed_value)
+            infos.append(
+                TaskInfo(
+                    task=BASE_TASK_INFO.task,
+                    environments=BASE_TASK_INFO.environments,
+                    action_space=BASE_TASK_INFO.action_space,
+                    observation={
+                        **BASE_TASK_INFO.observation,
+                        "seed": seed_value,
+                        "traits": summary["traits"],
+                        "inventory": summary["inventory"],
+                        "player_position": summary["player_position"],
+                    },
+                    dataset={
+                        **BASE_TASK_INFO.dataset,
+                        "seed": seed_value,
+                        "difficulty": summary["difficulty"],
+                        "config": summary["config"],
+                    },
+                    rubric=BASE_TASK_INFO.rubric,
+                    inference=BASE_TASK_INFO.inference,
+                    capabilities=BASE_TASK_INFO.capabilities,
+                    limits=BASE_TASK_INFO.limits,
+                )
+            )
+
+        payload = [to_jsonable(info.model_dump()) for info in infos]
+        return payload if len(payload) > 1 else payload[0]
+
+    def _normalise_op(op_value: Any, index: int) -> str:
+        if isinstance(op_value, str):
+            candidate = op_value
+        elif isinstance(op_value, dict):
+            candidate = op_value.get("type") or op_value.get("op")
+        else:
+            candidate = None
+        if not candidate:
+            raise http_exception(400, "invalid_op", f"Missing op type at index {index}")
+        lowered = str(candidate).strip().lower()
+        if lowered in {"policy", "agent", "model"}:
+            return "agent"
+        if lowered in {"env", "environment", "step"}:
+            return "env"
+        raise http_exception(400, "invalid_op", f"Unsupported op type '{candidate}' at index {index}")
+
+    @api.post("/rollout", dependencies=[Depends(_auth_dependency)])
+    async def rollout_endpoint(rollout_request: RolloutRequest, request: Request) -> Dict[str, Any]:
+        from synth_envs_hosted.rollout import (
+            RolloutRequest as LegacyRolloutRequest,
+            RolloutEnvSpec as LegacyRolloutEnvSpec,
+            RolloutPolicySpec as LegacyRolloutPolicySpec,
+            RolloutRecordConfig as LegacyRolloutRecordConfig,
+            RolloutSafetyConfig as LegacyRolloutSafetyConfig,
+            execute_rollout as legacy_execute_rollout,
+        )
+
+        converted_ops: List[str] = []
+        for idx, op in enumerate(rollout_request.ops):
+            converted_ops.append(_normalise_op(op, idx))
+
+        legacy_request = LegacyRolloutRequest(
+            run_id=rollout_request.run_id,
+            env=LegacyRolloutEnvSpec(
+                env_id=rollout_request.env.env_id,
+                env_name=rollout_request.env.env_name,
+                config=rollout_request.env.config or {},
+                seed=rollout_request.env.seed,
+            ),
+            policy=LegacyRolloutPolicySpec(
+                policy_id=rollout_request.policy.policy_id,
+                policy_name=rollout_request.policy.policy_name,
+                config=rollout_request.policy.config or {},
+            ),
+            ops=converted_ops,
+            record=LegacyRolloutRecordConfig(**rollout_request.record.model_dump()),
+            on_done=rollout_request.on_done,
+            branch=None,
+            safety=LegacyRolloutSafetyConfig(**rollout_request.safety.model_dump()),
+            training_session_id=rollout_request.training_session_id,
+            synth_base_url=rollout_request.synth_base_url,
+        )
+
+        legacy_response = await legacy_execute_rollout(legacy_request, request)
+        data = legacy_response.model_dump()
+        metrics = data.get("metrics", {}) or {}
+        metrics.setdefault("outcome_score", None)
+        metrics.setdefault("events_score", None)
+        metrics.setdefault("details", {})
+        data["metrics"] = metrics
+        shared_response = RolloutResponse.model_validate(data)
+        return to_jsonable(shared_response.model_dump())
+
     CRAFTING_RULES_SYSTEM_HINT = (
         "Crafter crafting rules (from the paper):\n"
         "- Make Wood Pickaxe: Nearby a table; have wood in inventory.\n"
@@ -177,218 +459,88 @@ def fastapi_app():
         "- Make Iron Sword: Nearby a table; furnace exists; have wood, coal, and iron in inventory."
     )
 
-    def _inject_crafting_rules(payload: dict[str, Any]) -> dict[str, Any]:
+    async def _call_vendor(url: str, payload: dict[str, Any], headers: Dict[str, str]) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
+            return await client.post(url, json=payload, headers=headers)
+
+    def _log_proxy_request(route: str, payload: dict[str, Any]) -> None:
         try:
-            if not isinstance(payload, dict):
-                return payload
-            msgs = payload.get("messages")
-            if not isinstance(msgs, list):
-                return payload
-            # If first message is a system prompt, append rules; otherwise, insert a new system message
-            if msgs and isinstance(msgs[0], dict) and msgs[0].get("role") == "system":
-                existing = msgs[0].get("content")
-                if isinstance(existing, str) and CRAFTING_RULES_SYSTEM_HINT not in existing:
-                    msgs[0]["content"] = (existing.rstrip() + "\n\n" + CRAFTING_RULES_SYSTEM_HINT)
-            else:
-                msgs.insert(0, {"role": "system", "content": CRAFTING_RULES_SYSTEM_HINT})
-            payload["messages"] = msgs
+            messages = payload.get("messages") if isinstance(payload, dict) else None
+            msg_count = len(messages) if isinstance(messages, list) else 0
+            tool_count = len(payload.get("tools") or []) if isinstance(payload, dict) else 0
+            model = payload.get("model") if isinstance(payload, dict) else None
+            print(f"[proxy:{route}] model={model} messages={msg_count} tools={tool_count}", flush=True)
         except Exception:
             pass
-        return payload
 
-    def _prepare_for_groq(model: str | None, payload: dict[str, Any]) -> dict[str, Any]:
-        # Groq follows OpenAI schema; keep 'reasoning' if caller provides it (eval script may set it)
-        out = dict(payload)
-        # Drop thinking-only fields our eval scripts sometimes include
-        for k in ("thinking_mode", "thinking_budget", "stop_after_tool_calls"):
-            out.pop(k, None)
-        # Ensure tools exist (single function tool)
-        if not out.get("tools"):
-            out["tools"] = _interact_tool_schema()
-        return out
-
-    # ——— Helpers to normalize assistant tool calls (mirror eval_rollout_table_groq parsing) ———
-    import json as _json
-    import re as _re
-
-    _THINK_TAG_PATTERN = _re.compile(r"<think>(.*?)</think>", _re.IGNORECASE | _re.DOTALL)
-
-    def _extract_message_text(message: Any) -> str:
-        if not isinstance(message, dict):
-            return ""
-        texts: list[str] = []
-        content = message.get("content")
-        if isinstance(content, str):
-            texts.append(content)
-        elif isinstance(content, list):
-            for part in content:
-                if isinstance(part, dict) and part.get("text"):
-                    texts.append(str(part["text"]))
-        elif content not in (None, ""):
-            try:
-                texts.append(_json.dumps(content, ensure_ascii=False))
-            except Exception:
-                texts.append(str(content))
-        return "\n".join(t for t in texts if t)
-
-    def _parse_tool_call_from_text(text: str) -> tuple[list[str], str]:
-        actions: list[str] = []
-        reasoning = ""
-        if not isinstance(text, str) or not text:
-            return actions, reasoning
-        candidates = _re.findall(r"\{[\s\S]*\}", text)
-        for raw in reversed(candidates):
-            try:
-                obj = _json.loads(raw)
-            except Exception:
-                continue
-            if isinstance(obj, dict):
-                tool = obj.get("tool") or obj.get("name")
-                args = obj.get("args") or obj.get("arguments") or {}
-                if isinstance(tool, str) and tool.lower() == "interact" and isinstance(args, dict):
-                    cand_actions = args.get("actions")
-                    cand_reason = args.get("reasoning")
-                    if isinstance(cand_actions, list):
-                        actions = [str(a) for a in cand_actions]
-                    if isinstance(cand_reason, str):
-                        reasoning = cand_reason
-                    break
-        return actions, reasoning
-
-    # Debug endpoint to verify secrets/keys are present in runtime
-    @api.get("/debug/env")
-    def debug_env():
-        gr = os.environ.get("GROQ_API_KEY", "")
-        oa = os.environ.get("OPENAI_API_KEY", "")
-        return {
-            "has_GROQ_API_KEY": bool(gr),
-            "GROQ_API_KEY_prefix": (gr[:6] + "…") if len(gr) >= 6 else ("set" if gr else ""),
-            "has_OPENAI_API_KEY": bool(oa),
-            "OPENAI_API_KEY_prefix": (oa[:6] + "…") if len(oa) >= 6 else ("set" if oa else ""),
-        }
-
-    @api.post("/proxy/v1/chat/completions")
-    def proxy_chat_completions(req: dict[str, Any] = Body(...)):
-        key = os.environ.get("OPENAI_API_KEY")
-        if not key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Missing OPENAI_API_KEY in task service environment",
+    @api.post("/proxy/v1/chat/completions", dependencies=[Depends(_auth_dependency)])
+    async def proxy_openai(body: dict[str, Any] = Body(...)) -> Dict[str, Any]:
+        key = get_openai_key_or_503()
+        model = body.get("model") if isinstance(body.get("model"), str) else None
+        prepared = prepare_for_openai(model, body)
+        prepared = inject_system_hint(prepared, CRAFTING_RULES_SYSTEM_HINT)
+        _log_proxy_request("openai", prepared)
+        response = await _call_vendor(
+            "https://api.openai.com/v1/chat/completions",
+            prepared,
+            {"Authorization": f"Bearer {key}"},
+        )
+        data = (
+            response.json()
+            if response.headers.get("content-type", "").startswith("application/json")
+            else {"raw": response.text}
+        )
+        if response.status_code >= 400:
+            raise http_exception(
+                response.status_code,
+                "openai_error",
+                "OpenAI proxy error",
+                extra={"status": response.status_code, "body": data},
             )
-        model = req.get("model")
-        payload = _prepare_for_openai(model, req)
-        payload = _inject_crafting_rules(payload)
-        headers = {"Authorization": f"Bearer {key}"}
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.post(
-                "https://api.openai.com/v1/chat/completions",
-                json=payload,
-                headers=headers,
-            )
-            try:
-                data = resp.json()
-            except Exception:
-                data = {"error": "invalid_json", "raw": resp.text[:800]}
-            if resp.status_code >= 400:
-                from fastapi.responses import JSONResponse
+        sanitized = synthesize_tool_call_if_missing(data)
+        return to_jsonable(sanitized)
 
-                return JSONResponse(status_code=resp.status_code, content=data)
-            # Post-process: if no tool_calls are present, try to synthesize from assistant text (parity with groq eval)
-            try:
-                if isinstance(data, dict):
-                    choices = data.get("choices")
-                    if isinstance(choices, list) and choices:
-                        msg = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
-                        has_tools = isinstance(msg, dict) and isinstance(msg.get("tool_calls"), list) and msg.get("tool_calls")
-                        if not has_tools:
-                            assistant_text = _extract_message_text(msg)
-                            acts, reason = _parse_tool_call_from_text(assistant_text)
-                            if acts:
-                                tool_call = {
-                                    "id": "toolcall_1",
-                                    "type": "function",
-                                    "function": {
-                                        "name": "interact",
-                                        "arguments": _json.dumps({"actions": acts, "reasoning": reason or ""}, ensure_ascii=False),
-                                    },
-                                }
-                                # ensure list
-                                if isinstance(msg, dict):
-                                    msg["tool_calls"] = [tool_call]
-                                    # write back
-                                    choices[0]["message"] = msg
-                                data["choices"] = choices
-            except Exception:
-                pass
-            return data
+    @api.post("/proxy/groq/v1/chat/completions", dependencies=[Depends(_auth_dependency)])
+    async def proxy_groq(body: dict[str, Any] = Body(...)) -> Dict[str, Any]:
+        key = get_groq_key_or_503()
+        model = body.get("model") if isinstance(body.get("model"), str) else None
+        prepared = prepare_for_groq(model, body)
+        prepared = inject_system_hint(prepared, CRAFTING_RULES_SYSTEM_HINT)
+        _log_proxy_request("groq", prepared)
+        response = await _call_vendor(
+            os.getenv("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions").rstrip("/"),
+            prepared,
+            {"Authorization": f"Bearer {key}"},
+        )
+        data = (
+            response.json()
+            if response.headers.get("content-type", "").startswith("application/json")
+            else {"raw": response.text}
+        )
+        if response.status_code >= 400:
+            raise http_exception(
+                response.status_code,
+                "groq_error",
+                "Groq proxy error",
+                extra={"status": response.status_code, "body": data},
+            )
+        sanitized = synthesize_tool_call_if_missing(data)
+        return to_jsonable(sanitized)
 
-    @api.post("/proxy/groq/v1/chat/completions")
-    def proxy_groq_chat_completions(req: dict[str, Any] = Body(...)):
-        key = os.environ.get("GROQ_API_KEY")
-        if not key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Missing GROQ_API_KEY in task service environment",
-            )
-        model = req.get("model")
-        payload = _prepare_for_groq(model, req)
-        payload = _inject_crafting_rules(payload)
-        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        url = os.environ.get("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions").rstrip("/")
-        # --- verbose, sanitized request logging ---
-        try:
-            _msgs = payload.get("messages") or []
-            msg_count = len(_msgs) if isinstance(_msgs, list) else 0
-            tool_count = len(payload.get("tools") or [])
-            tool_choice = payload.get("tool_choice")
-            max_tokens = payload.get("max_tokens") or payload.get("max_completion_tokens")
-            temperature = payload.get("temperature")
-            print(
-                f"[proxy:groq] sending model={model} messages={msg_count} tools={tool_count} tool_choice={bool(tool_choice)} max_tokens={max_tokens} temperature={temperature}",
-                flush=True,
-            )
-        except Exception:
-            pass
-        with httpx.Client(timeout=30.0) as client:
-            resp = client.post(url, json=payload, headers=headers)
-            req_id = resp.headers.get("x-request-id") or resp.headers.get("request-id")
-            try:
-                print(f"[proxy:groq] response status={resp.status_code} req_id={req_id} body_snippet={resp.text[:400]}", flush=True)
-            except Exception:
-                pass
-            try:
-                data = resp.json()
-            except Exception:
-                data = {"error": "invalid_json", "raw": resp.text[:800]}
-            if resp.status_code >= 400:
-                from fastapi.responses import JSONResponse
-                return JSONResponse(status_code=resp.status_code, content=data)
-            # Best-effort synthesis of tool_calls if absent (parity with Groq eval script behavior)
-            try:
-                if isinstance(data, dict):
-                    choices = data.get("choices")
-                    if isinstance(choices, list) and choices:
-                        msg = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
-                        has_tools = isinstance(msg, dict) and isinstance(msg.get("tool_calls"), list) and msg.get("tool_calls")
-                        if not has_tools:
-                            assistant_text = _extract_message_text(msg)
-                            acts, reason = _parse_tool_call_from_text(assistant_text)
-                            if acts:
-                                tool_call = {
-                                    "id": "toolcall_1",
-                                    "type": "function",
-                                    "function": {
-                                        "name": "interact",
-                                        "arguments": _json.dumps({"actions": acts, "reasoning": reason or ""}, ensure_ascii=False),
-                                    },
-                                }
-                                if isinstance(msg, dict):
-                                    msg["tool_calls"] = [tool_call]
-                                    choices[0]["message"] = msg
-                                data["choices"] = choices
-            except Exception:
-                pass
-            return data
+    @api.get("/debug/env", dependencies=[Depends(_auth_dependency)])
+    async def debug_env() -> Dict[str, Any]:
+        def _mask(value: Optional[str]) -> str:
+            if not value:
+                return ""
+            return f"{value[:6]}…" if len(value) > 6 else value
+
+        return to_jsonable(
+            {
+                "has_ENVIRONMENT_API_KEY": bool(os.getenv("ENVIRONMENT_API_KEY")),
+                "OPENAI_API_KEY_prefix": _mask(os.getenv("OPENAI_API_KEY")),
+                "GROQ_API_KEY_prefix": _mask(os.getenv("GROQ_API_KEY")),
+            }
+        )
 
     return api
 
@@ -437,5 +589,3 @@ if __name__ == "__main__":
         uvicorn.run(app, host=args.host, port=args.port, reload=True)
     else:
         print("Use --local to run locally, or deploy to Modal")
-
-
