@@ -1,10 +1,9 @@
 from __future__ import annotations
-
-import json
 import os
 import time
 import webbrowser
 from typing import Any, Dict, Tuple
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import requests
 
@@ -13,18 +12,57 @@ class HandshakeError(Exception):
     pass
 
 
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
 def _origin() -> str:
-    # Prefer explicit env; fallback to localhost dashboard
-    return (os.getenv("SYNTH_CANONICAL_ORIGIN", "") or "http://localhost:3000").rstrip("/")
+    """Resolve the dashboard origin for the browser handshake.
+
+    Priority order:
+      1. Explicit ``SYNTH_CANONICAL_ORIGIN`` override.
+      2. Development flag ``SYNTH_CANONICAL_DEV`` (case-insensitive truthy) → localhost.
+      3. Production dashboard at ``https://www.usesynth.ai/dashboard``.
+    """
+
+    override = (os.getenv("SYNTH_CANONICAL_ORIGIN") or "").strip()
+    if override:
+        return override.rstrip("/")
+
+    dev_flag = (os.getenv("SYNTH_CANONICAL_DEV") or "").strip().lower()
+    if dev_flag in _TRUTHY:
+        return "http://localhost:3000"
+
+    return "https://www.usesynth.ai/dashboard"
+
+
+def _split_origin(origin: str) -> tuple[str, str]:
+    parsed = urlsplit(origin)
+    bare = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    path = parsed.path.rstrip("/")
+    return bare, path
+
+
+def _ensure_verification_uri(data: Dict[str, Any], base_with_path: str) -> None:
+    uri = data.get("verification_uri")
+    if not isinstance(uri, str) or not uri:
+        return
+    if uri.startswith("http://") or uri.startswith("https://"):
+        return
+    data["verification_uri"] = urljoin(base_with_path.rstrip("/") + "/", uri.lstrip("/"))
 
 
 def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, int]:
     base = (origin or _origin()).rstrip("/")
-    url = f"{base}/api/sdk/handshake/init"
+    api_origin, _ = _split_origin(base)
+    url = urljoin(api_origin.rstrip("/") + "/", "api/sdk/handshake/init")
     r = requests.post(url, timeout=10)
     if r.status_code != 200:
         raise HandshakeError(f"init failed: {r.status_code} {r.text}")
-    data = r.json()
+    try:
+        data = r.json()
+    except ValueError as exc:  # pragma: no cover - network dependent
+        raise HandshakeError(f"init returned malformed JSON: {exc}") from exc
+    _ensure_verification_uri(data, base)
     return (
         str(data.get("device_code")),
         str(data.get("verification_uri")),
@@ -35,7 +73,8 @@ def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, i
 
 def poll_handshake_token(device_code: str, origin: str | None = None, *, timeout_s: int | None = None) -> Dict[str, Any]:
     base = (origin or _origin()).rstrip("/")
-    url = f"{base}/api/sdk/handshake/token"
+    api_origin, _ = _split_origin(base)
+    url = urljoin(api_origin.rstrip("/") + "/", "api/sdk/handshake/token")
     deadline = time.time() + (timeout_s or 600)
     while True:
         if time.time() > deadline:
@@ -46,7 +85,12 @@ def poll_handshake_token(device_code: str, origin: str | None = None, *, timeout
             time.sleep(2)
             continue
         if r.status_code == 200:
-            return r.json()
+            try:
+                data = r.json()
+            except ValueError as exc:  # pragma: no cover - network dependent
+                raise HandshakeError(f"token returned malformed JSON: {exc}") from exc
+            _ensure_verification_uri(data, base)
+            return data
         elif r.status_code in (404, 410):
             raise HandshakeError(f"handshake failed: {r.status_code}")
         # 428 authorization_pending or others → wait and retry
@@ -60,4 +104,3 @@ def run_handshake(origin: str | None = None) -> Dict[str, Any]:
     except Exception:
         pass
     return poll_handshake_token(device_code, origin, timeout_s=expires_in)
-
