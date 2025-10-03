@@ -763,7 +763,10 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     raise FileNotFoundError(f"App file not found: {app_path}")
                 # Surface the app path before asking for the name
                 print(f"Using task app: {app_path}")
-                suggested_name = args.name or f"synth-{os.path.splitext(os.path.basename(app_path))[0]}"
+                existing_name = (args.name or env.task_app_name or "").strip()
+                if not existing_name:
+                    existing_name = f"synth-{os.path.splitext(os.path.basename(app_path))[0]}"
+                suggested_name = existing_name
                 name_in = input(f"Modal app name [{suggested_name}]: ").strip() or suggested_name
                 app_name = name_in
                 print("\nAbout to deploy with:")
@@ -774,7 +777,11 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     print("Aborted by user.")
                     return 1
 
-                secret_name = (env.task_app_secret_name or "").strip() or f"{name_in}-secret"
+                prev_secret = (env.task_app_secret_name or "").strip()
+                default_secret = f"{name_in}-secret"
+                secret_name = default_secret if not prev_secret else prev_secret
+                if prev_secret and prev_secret != default_secret:
+                    secret_name = default_secret
                 existing_env_key = (env.env_api_key or "").strip()
                 env_key: str | None = existing_env_key or None
                 if existing_env_key:
@@ -917,7 +924,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
             print(f"  export TASK_APP_NAME={app_name}")
             print(f"  export TASK_APP_SECRET_NAME={app_name}-secret")
         print(f"Persisted to {dotenv_path}")
-        print("Next: uvx synth-ai run")
+        print("\nNext step:\n$ uvx synth-ai run")
         return 0
     except Exception as e:
         print(f"Deploy error: {e}")
@@ -1070,11 +1077,7 @@ fi
         if os.path.exists(dst_cfg):
             print(f"  - {dst_cfg} (seeded)")
         print("")
-        print("Next steps:")
-        print("  1) cd synth_demo && put your ENVIRONMENT_API_KEY in ./.env")
-        print("  2) Deploy to Modal:")
-        print("     uvx bash ./deploy_task_app.sh")
-        print("  3) From project root, run: uvx synth-ai run")
+        print("\nNext step:\n$ uvx synth-ai setup")
         return 0
     except Exception as e:
         print(f"Init error: {e}")
@@ -1363,7 +1366,7 @@ def main(argv: list[str] | None = None) -> int:
     def _deploy_opts(parser):
         parser.add_argument("--local", action="store_true", help="Run local FastAPI instead of Modal deploy")
         parser.add_argument("--app", type=str, default=None, help="Path to Modal app.py for uv run modal deploy")
-        parser.add_argument("--name", type=str, default="synth-math-demo", help="Modal app name")
+        parser.add_argument("--name", type=str, default=None, help="Modal app name")
         parser.add_argument("--script", type=str, default=None, help="Path to deploy_task_app.sh (optional legacy)")
         parser.set_defaults(func=cmd_deploy)
 

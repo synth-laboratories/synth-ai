@@ -51,5 +51,6 @@ If your browser isn’t already signed in, sign in when prompted and the pairing
 
 Environment variables:
 
-- `SYNTH_CANONICAL_ORIGIN` (optional): override the dashboard base URL the SDK uses for the handshake (defaults to `http://localhost:3000`).
+- `SYNTH_CANONICAL_ORIGIN` (optional): override the dashboard base URL the SDK uses for the handshake (defaults to `https://www.usesynth.ai/dashboard`).
+- `SYNTH_CANONICAL_DEV` (optional): set to `1`, `true`, `yes`, or `on` to target the local dashboard at `http://localhost:3000`.
 - Keys are stored only in your project’s `.env` file, not exported to your shell.
