@@ -799,24 +799,24 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     print("[deploy] Minted new ENVIRONMENT_API_KEY")
                 
                 # Optionally upload the new key to the backend using sealed box helper
-                backend_base = env.dev_backend_url or ""
+                backend_base = (env.dev_backend_url or "").rstrip("/")
                 synth_key = (env.synth_api_key or os.environ.get("SYNTH_API_KEY") or local_env.get("SYNTH_API_KEY") or "").strip()
                 if backend_base and synth_key:
-                        backend_base = backend_base.rstrip("/")
-                        if not backend_base.endswith("/api"):
-                            backend_base = f"{backend_base}/api"
+                        # Pass a base WITHOUT trailing /api to setup_environment_api_key,
+                        # since it appends /api/v1/... internally.
+                        non_api_base = backend_base[:-4] if backend_base.endswith("/api") else backend_base
                         try:
                             choice = input(
-                                f"Upload ENVIRONMENT_API_KEY to backend {backend_base}? [Y/n]: "
+                                f"Upload ENVIRONMENT_API_KEY to backend {non_api_base}? [Y/n]: "
                             ).strip().lower() or "y"
                         except Exception:
                             choice = "y"
                         if choice.startswith("y"):
                             try:
-                                print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {backend_base} …")
+                                print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {non_api_base} …")
                                 from synth_ai.rl.env_keys import setup_environment_api_key
 
-                                setup_environment_api_key(backend_base.rstrip("/"), synth_key, token=env_key)
+                                setup_environment_api_key(non_api_base, synth_key, token=env_key)
                                 print("[deploy] Backend sealed-box upload complete.")
                             except Exception as upload_err:
                                 print(f"[deploy] Failed to upload ENVIRONMENT_API_KEY: {upload_err}")

@@ -2929,7 +2929,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.8.dev3"
+version = "0.2.8.dev5"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3039,7 +3039,7 @@ requires-dist = [
     { name = "langfuse", specifier = ">=2.53.9,<3.0.0" },
     { name = "libsql", specifier = ">=0.1.8" },
     { name = "mistralai", specifier = ">=1.9.2" },
-    { name = "modal", specifier = ">=1.1.4" },
+    { name = "modal", specifier = ">=1.1.0" },
     { name = "networkx", specifier = ">=3.4.2" },
     { name = "numpy", specifier = ">=2.2.3" },
     { name = "openai", specifier = ">=1.99.0" },
