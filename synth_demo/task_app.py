@@ -43,7 +43,15 @@ if _SYNTH_HOSTED is not None:
 # No extra local dirs required; app is self-contained
 
 app = App("hendrycks-math-task-app")
-_SECRET_NAME = "synth-math-demo-secret"
+_SECRET_NAME = (
+    os.getenv("TASK_APP_SECRET_NAME")
+    or os.getenv("MATH_TASK_APP_SECRET")
+    or os.getenv("TASK_APP_NAME", "").strip()
+)
+if not _SECRET_NAME:
+    _SECRET_NAME = "synth-math-demo-secret"
+elif not _SECRET_NAME.endswith("-secret"):
+    _SECRET_NAME = f"{_SECRET_NAME}-secret"
 
 
 @app.function(
