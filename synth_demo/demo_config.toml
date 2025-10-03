@@ -1,0 +1,129 @@
+[model]
+name = "Qwen/Qwen3-0.6B"
+dtype = "bfloat16"
+seed = 42
+trainer_mode = "full"
+
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = [
+  "q_proj", "k_proj", "v_proj", "o_proj",
+  "gate_proj", "up_proj", "down_proj",
+]
+
+[rdma]
+enabled = false
+ifname = "eth0"
+ip_type = "ipv4"
+p2p_disable = 0
+shm_disable = 0
+fast_nccl = false
+
+gid_index = 3
+cross_nic = 0
+collnet_enable = 0
+net_gdr_level = 2
+
+nsocks_perthread = 4
+socket_nthreads = 2
+
+algo = "Ring"
+proto = "Simple"
+p2p_level = "SYS"
+debug = "INFO"
+
+[reference]
+placement = "dedicated"
+gpu_index = 1
+port = 8002
+tp = 1
+health_max_wait_s = 180
+health_interval_ms = 300
+
+[topology]
+type = "single_node_split"
+gpu_type = "H100:4"
+use_rdma = false
+gpus_for_vllm = 2
+gpus_for_training = 1
+gpus_for_ref = 1
+tensor_parallel = 2
+
+[training]
+num_epochs = 1
+iterations_per_epoch = 2
+batch_size = 1
+group_size = 8
+learning_rate = 5e-6
+max_grad_norm = 0.5
+log_interval = 1
+update_reference_interval = 0
+weight_sync_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+
+[vllm]
+tensor_parallel_size = 2
+gpu_memory_utilization = 0.9
+max_model_len = 8192
+max_num_seqs = 32
+enforce_eager = false
+max_parallel_generations = 4
+
+[evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7]
+rollouts_per_seed = 1
+instances = 0
+max_concurrent_rollouts = 4
+thinking_mode = "think"
+every_n_iters = 5
+
+[rollout]
+env_name = "math"
+policy_name = "math-react"
+env_config = {}
+max_steps_per_episode = 5
+sampling_temperature = 0.3
+sampling_top_p = 0.95
+max_tokens = 1024
+max_concurrent_rollouts = 4
+ops_per_rollout = 14
+on_done = "reset"
+thinking_mode = "think"
+thinking_budget = 512
+
+[policy]
+config = {}
+
+[hyperparams]
+epsilon_low = 0.1
+epsilon_high = 0.3
+delta = 5.0
+beta = 0.01
+kl_penalty = 0.01
+advantage_normalization = true
+group_normalization = true
+num_inner_steps = 1
+clip_epsilon = 0.2
+completion_only = false
+
+[step_rewards]
+enabled = false
+mode = "off"
+step_beta = 0.0
+indicator_lambda = 0.0
+
+[trainer]
+allow_ref_fallback = false
+
+[checkpoint]
+interval = 10
+directory = "/checkpoints"
+keep_last_n = 3
+save_optimizer = true
+save_scheduler = true
+enabled = true
