@@ -102,12 +102,22 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
 
     # Mount routers
     from .environment_routes import router as env_router
-    from .policy_routes import router as policy_router
     from .rollout import router as rollout_router
     from .branching import router as branching_router
 
     app.include_router(env_router, prefix="/env", tags=["environment"])
-    app.include_router(policy_router, prefix="/policy", tags=["policy"])
+
+    # Policy routes are optional; skip if optional envs are missing in this build
+    try:
+        from .policy_routes import router as policy_router
+        app.include_router(policy_router, prefix="/policy", tags=["policy"])
+    except Exception as _e:
+        # Log lightweight message; policy endpoints will be unavailable
+        try:
+            print(f"[hosted_app] Skipping policy routes: {_e}", flush=True)
+        except Exception:
+            pass
+
     app.include_router(rollout_router, tags=["rollout"])
     app.include_router(branching_router, tags=["branching"])
 

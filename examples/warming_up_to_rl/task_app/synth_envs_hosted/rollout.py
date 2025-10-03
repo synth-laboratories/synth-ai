@@ -195,6 +195,50 @@ class RolloutResponse(BaseModel):
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
+def _summarize_observation_for_storage(env_handle: Any, observation: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a compact dict for trajectory storage instead of the raw observation.
+
+    - For Crafter, use the same summary used for the policy user prompt
+    - For others, keep a minimal subset or plain text preview
+    """
+    # Try Crafter-specific formatter
+    try:
+        from .envs.crafter.environment import CrafterEnvironmentWrapper as _CrafterWrapper  # type: ignore
+    except Exception:
+        _CrafterWrapper = None  # type: ignore
+
+    if _CrafterWrapper is not None and isinstance(getattr(env_handle, "env", None), _CrafterWrapper):
+        try:
+            from .envs.crafter.shared import format_observation as _fmt  # type: ignore
+            text = _fmt(observation or {})
+            return {"text": text}
+        except Exception:
+            pass
+
+    # Generic fallback: extract a few small fields if present; avoid huge arrays
+    try:
+        inv = observation.get("inventory") if isinstance(observation, dict) else None
+        ach = observation.get("achievements_status") if isinstance(observation, dict) else None
+        pos = observation.get("player_position") if isinstance(observation, dict) else None
+        health = None
+        if isinstance(inv, dict):
+            health = inv.get("health")
+        summary = {
+            "position": pos,
+            "health": health,
+            "inventory_keys": sorted([k for k, v in (inv or {}).items() if v])[:10] if isinstance(inv, dict) else None,
+            "achievements_unlocked": sorted([k for k, v in (ach or {}).items() if v])[:10] if isinstance(ach, dict) else None,
+        }
+        return {"text": json.dumps(summary, ensure_ascii=False)}
+    except Exception:
+        pass
+
+    # Last resort: plain string preview
+    try:
+        return {"text": str(observation)[:10000]}
+    except Exception:
+        return {"text": ""}
+
 
 
 class RunAbortRequest(BaseModel):
@@ -901,7 +945,7 @@ async def execute_rollout(
                 prev_achievements = new_achievement_state
 
                 step = RolloutStep(
-                    obs=current_obs,
+                    obs=_summarize_observation_for_storage(env_handle, current_obs),
                     tool_calls=pending_tool_calls,
                     reward=env_response.reward,
                     done=env_response.done,
@@ -969,7 +1013,7 @@ async def execute_rollout(
             env_id=env_id,
             policy_id=policy_id,
             steps=trajectory_steps,
-            final={"observation": current_obs},
+            final={"observation": _summarize_observation_for_storage(env_handle, current_obs)},
             length=len(trajectory_steps),
             decision_samples=decision_samples if step_rewards_active else None,
         )
@@ -984,24 +1028,30 @@ async def execute_rollout(
 
         # Environment-specific: Log summary if available
         try:
-            # Check if this is a Wordle environment and use Wordle helpers
-            from .envs.wordle.environment import WordleEnvironmentWrapper
-            from .envs.wordle.helpers import (
-                get_wordle_rollout_summary,
-                log_wordle_rollout_summary,
-            )
+            # Check if this is a Wordle environment and use Wordle helpers (lazy import)
+            try:
+                from .envs.wordle.environment import WordleEnvironmentWrapper as _WordleWrapper
+                from .envs.wordle.helpers import (
+                    get_wordle_rollout_summary,
+                    log_wordle_rollout_summary,
+                )
+            except Exception:
+                _WordleWrapper = None  # type: ignore
+                get_wordle_rollout_summary = None  # type: ignore
+                log_wordle_rollout_summary = None  # type: ignore
 
-            is_wordle = isinstance(env_handle.env, WordleEnvironmentWrapper)
+            is_wordle = _WordleWrapper is not None and isinstance(env_handle.env, _WordleWrapper)
             if is_wordle:
                 # Convert trajectory steps to expected format
                 formatted_steps = []
                 for step in trajectory_steps:
                     formatted_steps.append({"tool_calls": step.tool_calls or []})
 
-                summary = get_wordle_rollout_summary(
-                    formatted_steps, current_obs, env_handle
-                )
-                log_wordle_rollout_summary(request.run_id, summary)
+                if get_wordle_rollout_summary is not None and log_wordle_rollout_summary is not None:
+                    summary = get_wordle_rollout_summary(
+                        formatted_steps, current_obs, env_handle
+                    )
+                    log_wordle_rollout_summary(request.run_id, summary)
         except ImportError:
             # Wordle helpers not available, skip Wordle-specific logging
             pass

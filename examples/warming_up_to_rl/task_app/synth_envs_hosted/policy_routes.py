@@ -7,9 +7,6 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from .envs.crafter.policy import CrafterPolicy
-from .envs.math.policy import MathPolicy
-from .envs.wordle.policy import WordlePolicy
-from .envs.sokoban.policy import SokobanPolicy
 from .inference.openai_client import create_inference_client
 from .registry import registry
 from .storage.volume import storage
@@ -111,7 +108,12 @@ async def create_policy(
             )
             await policy.initialize(config)
         elif pname in ["wordle-react", "wordle"]:
-            policy = WordlePolicy(
+            try:
+                from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}")
+
+            policy = _WordlePolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
                 word_length=int(config["word_length"]),
@@ -119,13 +121,23 @@ async def create_policy(
             )
             await policy.initialize(config)
         elif pname in ["sokoban-react", "sokoban"]:
-            policy = SokobanPolicy(
+            try:
+                from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}")
+
+            policy = _SokobanPolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
             )
             await policy.initialize(config)
         elif pname in ["math-react", "math"]:
-            policy = MathPolicy(
+            try:
+                from .envs.math.policy import MathPolicy as _MathPolicy
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Math policy unavailable: {e}")
+
+            policy = _MathPolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
             )
@@ -172,8 +184,14 @@ async def step_policy(
                 from .envs.crafter.shared import format_observation as format_crafter
 
                 obs_text = format_crafter(request.observation)
-            elif isinstance(policy, WordlePolicy):
-                from .envs.wordle.shared import format_observation_wordle
+            elif True:
+                try:
+                    from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+                except Exception:
+                    _WordlePolicy = None  # type: ignore
+
+                if _WordlePolicy is not None and isinstance(policy, _WordlePolicy):
+                    from .envs.wordle.shared import format_observation_wordle
 
                 # ASSERTION: Validate observation structure
                 assert request.observation is not None, (
@@ -253,16 +271,27 @@ async def step_policy(
                 print(
                     f"DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: {obs_text[:200]}"
                 )
-            elif isinstance(policy, SokobanPolicy):
-                from .envs.sokoban.shared import format_observation_sokoban
-
-                obs_text = format_observation_sokoban(request.observation)
-            elif isinstance(policy, MathPolicy):
-                # Simple extraction of problem text
+            elif True:
                 try:
-                    obs_text = str(request.observation.get("problem_text") or request.observation)
+                    from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
                 except Exception:
-                    obs_text = str(request.observation)
+                    _SokobanPolicy = None  # type: ignore
+                
+                if _SokobanPolicy is not None and isinstance(policy, _SokobanPolicy):
+                    from .envs.sokoban.shared import format_observation_sokoban
+ 
+                    obs_text = format_observation_sokoban(request.observation)
+            elif True:
+                try:
+                    from .envs.math.policy import MathPolicy as _MathPolicy
+                except Exception:
+                    _MathPolicy = None  # type: ignore
+                if _MathPolicy is not None and isinstance(policy, _MathPolicy):
+                    # Simple extraction of problem text
+                    try:
+                        obs_text = str(request.observation.get("problem_text") or request.observation)
+                    except Exception:
+                        obs_text = str(request.observation)
             else:
                 obs_text = str(request.observation)
         else:
@@ -287,9 +316,7 @@ async def step_policy(
                 )
 
                 # Assert environment-specific prompts match the policy
-                if policy_name in ("wordle-react", "wordle") or isinstance(
-                    policy, WordlePolicy
-                ):
+                if policy_name in ("wordle-react", "wordle"):
                     if "Wordle" not in sys_text:
                         raise ValueError(
                             f"PROMPT MISMATCH: Wordle policy {policy_name} received system prompt without 'Wordle' keyword: {sys_text[:200]}..."
@@ -311,9 +338,7 @@ async def step_policy(
                             f"PROMPT MISMATCH: Crafter policy {policy_name} received Wordle system prompt: {sys_text[:200]}..."
                         )
 
-                elif policy_name in ("sokoban-react", "sokoban") or isinstance(
-                    policy, SokobanPolicy
-                ):
+                elif policy_name in ("sokoban-react", "sokoban"):
                     if "Sokoban" not in sys_text:
                         raise ValueError(
                             f"PROMPT MISMATCH: Sokoban policy {policy_name} received system prompt without 'Sokoban' keyword: {sys_text[:200]}..."
@@ -853,9 +878,17 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
         if low in ["crafter-react", "crafter"]:
             policy = await CrafterPolicy.deserialize(state_dict)
         elif low in ["wordle-react", "wordle"]:
-            policy = await WordlePolicy.deserialize(state_dict)
+            try:
+                from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}")
+            policy = await _WordlePolicy.deserialize(state_dict)
         elif low in ["sokoban-react", "sokoban"]:
-            policy = await SokobanPolicy.deserialize(state_dict)
+            try:
+                from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}")
+            policy = await _SokobanPolicy.deserialize(state_dict)
         else:
             raise HTTPException(
                 status_code=422,

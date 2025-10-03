@@ -143,6 +143,46 @@ class OpenAIClient:
                 if "stop_after_tool_calls" in processed_request:
                     processed_request.pop("stop_after_tool_calls", None)
                     logger.info("Removed stop_after_tool_calls for OpenAI request")
+            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
+            low_url = url.lower()
+            if ("groq.com" in low_url or "/openai" in low_url) and isinstance(processed_request, dict):
+                rf = processed_request.get("response_format")
+                rf_type = None
+                if isinstance(rf, dict):
+                    rf_type = str(rf.get("type") or "").lower()
+                if rf_type in {"json_object", "json_schema"}:
+                    msgs = processed_request.get("messages")
+                    has_json_word = False
+                    if isinstance(msgs, list):
+                        for m in msgs:
+                            try:
+                                content = m.get("content") if isinstance(m, dict) else None
+                                text = None
+                                if isinstance(content, str):
+                                    text = content
+                                elif isinstance(content, list):
+                                    # Join any text segments
+                                    parts = []
+                                    for seg in content:
+                                        if isinstance(seg, dict) and isinstance(seg.get("text"), str):
+                                            parts.append(seg["text"])
+                                    text = "\n".join(parts)
+                                if isinstance(text, str) and ("json" in text.lower()):
+                                    has_json_word = True
+                                    break
+                            except Exception:
+                                continue
+                    if not has_json_word:
+                        try:
+                            instruction = "Respond in strict JSON only. Output a single valid JSON object."
+                            if not isinstance(msgs, list):
+                                msgs = []
+                            # Prepend a system message to satisfy Groq requirement without changing user intent
+                            prepend = {"role": "system", "content": instruction}
+                            processed_request["messages"] = [prepend] + list(msgs)
+                            logger.info("Injected JSON-mode system instruction for Groq response_format compliance")
+                        except Exception:
+                            pass
         except Exception:
             pass
 
@@ -185,6 +225,20 @@ class OpenAIClient:
                     })
                 except Exception:
                     logger.error(f"HTTP error from {url}: {status} - {text}")
+                # For 4xx/5xx, print full sanitized request to aid debugging (especially Groq 400s)
+                try:
+                    redacted_headers = dict(headers)
+                    if "Authorization" in redacted_headers:
+                        redacted_headers["Authorization"] = "***REDACTED***"
+                    logger.error({
+                        "request_debug": True,
+                        "status": status,
+                        "target": url,
+                        "headers": redacted_headers,
+                        "payload": processed_request,
+                    })
+                except Exception:
+                    pass
                 # Special case: token budget exceeded (OpenAI-compatible error schema)
                 try:
                     if status == 400 and e.response is not None:
@@ -366,9 +420,34 @@ class OpenAIClient:
                             logger.warning(f"Inference service overloaded (400). {response_data} Retrying after {wait_time}s...")
                         else:
                             # This is a different type of 400 error, don't retry
+                            try:
+                                redacted_headers = {}
+                                try:
+                                    redacted_headers = dict(self.headers)
+                                    if "Authorization" in redacted_headers:
+                                        redacted_headers["Authorization"] = "***REDACTED***"
+                                except Exception:
+                                    redacted_headers = {}
+                                logger.error({
+                                    "non_overload_400": True,
+                                    "target": (base_url or self.base_url),
+                                    "payload": processed_request,
+                                    "headers": redacted_headers,
+                                    "body": e.response.text if e.response is not None else None,
+                                })
+                            except Exception:
+                                pass
                             raise
                     except Exception:
                         # If we can't parse the response, don't retry 400 errors
+                        try:
+                            logger.error({
+                                "non_overload_400_unparsed": True,
+                                "target": (base_url or self.base_url),
+                                "payload": processed_request,
+                            })
+                        except Exception:
+                            pass
                         raise
                 elif e.response.status_code == 503:
                     # Avoid referencing undefined response_data
