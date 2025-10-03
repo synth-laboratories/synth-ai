@@ -30,6 +30,7 @@ def _origin() -> str:
 
     dev_flag = (os.getenv("SYNTH_CANONICAL_DEV") or "").strip().lower()
     if dev_flag in _TRUTHY:
+        print("USING DEV ORIGIN")
         return "http://localhost:3000"
 
     return "https://www.usesynth.ai/dashboard"
