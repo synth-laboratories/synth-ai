@@ -165,11 +165,19 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         if header_key:
             keys_to_check.insert(0, header_key)
         if keys_to_check and env_key not in keys_to_check:
-            exp_prefix = (env_key[:7] + "…") if len(env_key) >= 7 else "set"
-            # For debugging include the first provided key fully and count of additional keys
+            def _mask(v: str) -> dict:
+                return {
+                    "prefix": (v[:6] + "…") if len(v) >= 6 else v,
+                    "suffix": ("…" if len(v) > 4 else "") + v[-4:],
+                    "len": len(v),
+                }
+            got = {"first": _mask(keys_to_check[0]), "others": max(0, len(keys_to_check) - 1)}
+            expected = {"prefix": (env_key[:7] + "…") if len(env_key) >= 7 else env_key, "len": len(env_key)}
             detail = {
                 "status": "unauthorized",
-                "detail": f"Invalid API key(s) for health check (first={keys_to_check[0]}, others={max(0, len(keys_to_check)-1)}, expected_prefix={exp_prefix})",
+                "detail": "Invalid API key(s) for health check",
+                "got": got,
+                "expected": expected,
             }
             return JSONResponse(status_code=401, content=detail)
         return {

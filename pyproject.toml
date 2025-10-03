@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.8.dev4"
+version = "0.2.8.dev5"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -55,7 +55,7 @@ dependencies = [
     "aiohttp>=3.8.0", # For async HTTP requests in Harmony integration
     "datasets>=4.0.0",
     "transformers>=4.56.1",
-    "modal>=1.1.4",
+    "modal>=1.1.0",
 ]
 
 [project.scripts]
