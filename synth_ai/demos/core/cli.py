@@ -133,6 +133,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     # Omit uv version print to keep output concise
 
     # Keep exit code neutral; not all checks are critical for pairing
+    print("\nNext step:\n$ uvx synth-ai deploy")
     return 0
 
 
@@ -924,7 +925,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
             print(f"  export TASK_APP_NAME={app_name}")
             print(f"  export TASK_APP_SECRET_NAME={app_name}-secret")
         print(f"Persisted to {dotenv_path}")
-        print("\nNext step:\n$ uvx synth-ai run")
+        print("\nNext step:\n$ uvx synth-ai run\n")
         return 0
     except Exception as e:
         print(f"Deploy error: {e}")
@@ -1077,7 +1078,7 @@ fi
         if os.path.exists(dst_cfg):
             print(f"  - {dst_cfg} (seeded)")
         print("")
-        print("\nNext step:\n$ uvx synth-ai setup")
+        print("\nNext step:\n$ uvx synth-ai setup\n")
         return 0
     except Exception as e:
         print(f"Init error: {e}")
