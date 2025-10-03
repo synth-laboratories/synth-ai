@@ -1070,11 +1070,8 @@ fi
         if os.path.exists(dst_cfg):
             print(f"  - {dst_cfg} (seeded)")
         print("")
-        print("Next steps:")
-        print("  1) cd synth_demo && put your ENVIRONMENT_API_KEY in ./.env")
-        print("  2) Deploy to Modal:")
-        print("     uvx bash ./deploy_task_app.sh")
-        print("  3) From project root, run: uvx synth-ai run")
+        print("Next step:")
+        print("$ uvx synth-ai setup")
         return 0
     except Exception as e:
         print(f"Init error: {e}")
