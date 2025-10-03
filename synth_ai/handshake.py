@@ -15,7 +15,7 @@ class HandshakeError(Exception):
 
 def _origin() -> str:
     # Prefer explicit env; fallback to localhost dashboard
-    return (os.getenv("SYNTH_CANONICAL_ORIGIN", "") or "http://localhost:3000").rstrip("/")
+    return (os.getenv("SYNTH_CANONICAL_ORIGIN", "") or "https://usesynth.ai").rstrip("/")
 
 
 def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, int]:
