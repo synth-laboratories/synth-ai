@@ -118,5 +118,17 @@ uvx synth-ai demo run --batch-size 4 --group-size 16 --model Qwen/Qwen3-0.6B
 # Alternate entry: top-level run alias
 uvx synth-ai run --config demo_config.toml
 ```
+# Bootstrap a demo template (math modal or crafter local)
+uvx synth-ai demo init
+
+# Deploy the math task app to Modal
+uvx synth-ai demo deploy --name synth-math-demo
+
+# Kick off the curated RL job
+uvx synth-ai demo run --batch-size 4 --group-size 16 --model Qwen/Qwen3-0.6B
+
+# Alternate entry: top-level run alias
+uvx synth-ai run --config demo_config.toml
+```
 
 The demo commands proxy into `synth_ai.demos.core.cli`, which prints the next recommended step after each action (e.g., `uvx synth-ai run` once deployment is complete).

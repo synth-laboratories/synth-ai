@@ -67,9 +67,15 @@ def register(cli):
         _forward(["rl_demo.configure"]) 
 
     @_rlg.command("init")
-    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD")
-    def rl_init(force: bool):
+    @click.option("--template", type=str, default=None, help="Template id to instantiate")
+    @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
+    @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
+    def rl_init(template: str | None, dest: str | None, force: bool):
         args = ["rl_demo.init"]
+        if template:
+            args.extend(["--template", template])
+        if dest:
+            args.extend(["--dest", dest])
         if force:
             args.append("--force")
         _forward(args)
@@ -130,9 +136,15 @@ def register(cli):
         _forward(["rl_demo.configure"]) 
 
     @cli.command("rl_demo.init")
-    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD")
-    def rl_init_alias(force: bool):
+    @click.option("--template", type=str, default=None, help="Template id to instantiate")
+    @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
+    @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
+    def rl_init_alias(template: str | None, dest: str | None, force: bool):
         args = ["rl_demo.init"]
+        if template:
+            args.extend(["--template", template])
+        if dest:
+            args.extend(["--dest", dest])
         if force:
             args.append("--force")
         _forward(args)

@@ -12,8 +12,14 @@ import stat
 import textwrap
 
 from synth_ai.demos.demo_task_apps import core as demo_core
-from synth_ai.handshake import run_handshake, HandshakeError
 from synth_ai.demos.demo_task_apps.core import DemoEnv, DEFAULT_TASK_APP_SECRET_NAME
+from synth_ai.demo_registry import (
+    CopySpec,
+    DemoTemplate,
+    get_demo_template,
+    list_demo_templates,
+)
+from synth_ai.handshake import run_handshake, HandshakeError
 
 
 def _key_preview(value: str, label: str) -> str:
@@ -912,125 +918,146 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize a Modal-ready Math Task App in the current directory.
+def _ensure_modal_installed() -> None:
+    """Install the modal package if it is not already available."""
 
-    Copies `examples/rl/task_app.py` and `examples/rl/deploy_task_app.sh` into CWD.
-    Creates a `.env` with placeholders if it does not exist.
-    """
     try:
-        # Ensure `modal` is installed for deployment flows
-        def _has_modal() -> bool:
-            try:
-                import importlib.util as _iu
-                return _iu.find_spec("modal") is not None
-            except Exception:
-                return False
+        import importlib.util as _iu
 
-        if not _has_modal():
-            print("modal not found; installing…")
-            # Prefer uv if available; otherwise fallback to pip
-            try:
-                if shutil.which("uv"):
-                    code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
-                else:
-                    code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
-                if code != 0:
-                    print(out)
-                    print("Failed to install modal; continuing may fail.")
-                else:
-                    print("modal installed successfully.")
-            except Exception as e:
-                print(f"modal install error: {e}")
-            # Re-check
-            if not _has_modal():
-                print("Warning: modal is still not importable after install attempt.")
+        if _iu.find_spec("modal") is not None:
+            print("modal package found")
+            return
+    except Exception:
+        pass
+
+    print("modal not found; installing…")
+    try:
+        if shutil.which("uv"):
+            code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
         else:
-            print("modal found")
+            code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
+        if code != 0:
+            print(out)
+            print("Failed to install modal; continuing may fail.")
+        else:
+            print("modal installed successfully.")
+    except Exception as exc:
+        print(f"modal install error: {exc}")
 
-        here = os.getcwd()
-        demo_dir = os.path.join(here, "synth_demo")
-        os.makedirs(demo_dir, exist_ok=True)
-        # Paths inside synth_demo/
-        dst_task_py = os.path.join(demo_dir, "task_app.py")
-        dst_deploy = os.path.join(demo_dir, "deploy_task_app.sh")
-        env_path = os.path.join(demo_dir, ".env")
-        dst_cfg = os.path.join(demo_dir, "demo_config.toml")
+    try:
+        import importlib.util as _iu
 
-        # Copy packaged math modal task app into synth_demo/task_app.py
-        src_modal = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "modal_task_app.py"))
-        if not os.path.isfile(src_modal):
-            print("Init failed: packaged math modal task app not found.")
-            print(f"Looked for: {src_modal}")
+        if _iu.find_spec("modal") is None:
+            print("Warning: modal is still not importable after install attempt.")
+        else:
+            print("modal package ready")
+    except Exception:
+        print("Warning: unable to verify modal installation.")
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Materialise a demo task app template into the current directory."""
+
+    templates = list(list_demo_templates())
+    if not templates:
+        print("No demo templates registered. Update synth_ai/demo_registry.py to add entries.")
+        return 1
+
+    selected: DemoTemplate | None = None
+    if args.template:
+        selected = get_demo_template(args.template)
+        if selected is None:
+            available = ", ".join(t.template_id for t in templates)
+            print(f"Unknown template '{args.template}'. Available: {available}")
             return 1
-        if os.path.exists(dst_task_py) and not getattr(args, "force", False):
-            print(f"Refusing to overwrite existing file: {dst_task_py} (use --force)")
+    else:
+        print("Select a demo template:" + "\n")
+        for idx, template in enumerate(templates, start=1):
+            print(f"  [{idx}] {template.name} ({template.template_id})")
+            print(f"      {template.description}")
+        try:
+            choice_raw = input(f"Enter choice [1-{len(templates)}] (default 1): ").strip() or "1"
+        except Exception:
+            choice_raw = "1"
+        if not choice_raw.isdigit():
+            print("Selection must be a number.")
             return 1
-        shutil.copy2(src_modal, dst_task_py)
+        choice_idx = int(choice_raw)
+        if not 1 <= choice_idx <= len(templates):
+            print("Selection out of range.")
+            return 1
+        selected = templates[choice_idx - 1]
 
-        # Create deploy script in synth_demo/
-        deploy_text = r"""#!/usr/bin/env bash
-set -euo pipefail
+    assert selected is not None
 
-HERE=$(cd "$(dirname "$0")" && pwd)
-APP="$HERE/task_app.py"
-if [ -f "$HERE/.env" ]; then
-  # shellcheck disable=SC2046
-  export $(grep -v '^#' "$HERE/.env" | xargs -I{} echo {})
-fi
-uv run modal deploy "$APP" | tee "$HERE/.last_deploy.log"
-URL=$(grep -Eo 'https://[^ ]+\.modal\.run' "$HERE/.last_deploy.log" | tail -1 || true)
-if [ -n "$URL" ]; then
-  if grep -q '^TASK_APP_BASE_URL=' "$HERE/.env" 2>/dev/null; then
-    sed -i.bak "s#^TASK_APP_BASE_URL=.*#TASK_APP_BASE_URL=$URL#" "$HERE/.env" || true
-  else
-    echo "TASK_APP_BASE_URL=$URL" >> "$HERE/.env"
-  fi
-  echo "Saved TASK_APP_BASE_URL to $HERE/.env"
-fi
-"""
-        _write_text(dst_deploy, deploy_text)
-        try:
-            st = os.stat(dst_deploy)
-            os.chmod(dst_deploy, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        except Exception:
-            pass
+    default_subdir = selected.default_subdir or selected.template_id
+    default_dest = Path(args.dest).expanduser().resolve() if args.dest else (Path.cwd() / default_subdir).resolve()
+    try:
+        dest_input = input(f"Destination directory [{default_dest}]: ").strip()
+    except Exception:
+        dest_input = ""
+    destination = Path(dest_input).expanduser().resolve() if dest_input else default_dest
 
-        # Seed .env if not present
-        if not os.path.exists(env_path):
-            _write_text(env_path, "\n".join([
-                "# Required for task app auth to environment service",
-                "ENVIRONMENT_API_KEY=",
-                "",
-                "# Optional: for CLI job submission and proxying OpenAI models",
-                "SYNTH_API_KEY=",
-                "OPENAI_API_KEY=",
-                "",
-                "# Optional: set to 'prod' to use production names",
-                "ENVIRONMENT=",
-            ]) + "\n")
+    if destination.exists():
+        if destination.is_file():
+            print(f"Destination {destination} is a file. Provide a directory path.")
+            return 1
+        if not args.force and any(destination.iterdir()):
+            print(f"Destination {destination} is not empty. Use --force or choose another directory.")
+            return 1
+    else:
+        destination.mkdir(parents=True, exist_ok=True)
 
-        # Seed demo_config.toml from packaged default if not present (or overwrite with --force)
-        packaged_cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "config.toml"))
-        try:
-            if os.path.isfile(packaged_cfg):
-                if not os.path.exists(dst_cfg) or getattr(args, "force", False):
-                    shutil.copy2(packaged_cfg, dst_cfg)
-        except Exception:
-            pass
+    if selected.requires_modal:
+        _ensure_modal_installed()
 
-        print("Initialized Math Task App in synth_demo/:")
-        print(f"  - {dst_task_py}")
-        print(f"  - {dst_deploy}")
-        print(f"  - {env_path} (created if missing)")
-        if os.path.exists(dst_cfg):
-            print(f"  - {dst_cfg} (seeded)")
-        print("")
-        print("\nNext step:\n$ uvx synth-ai setup")
+    try:
+        for spec in selected.iter_copy_specs():
+            src_path = spec.absolute_source()
+            if not src_path.exists():
+                print(f"Template source missing: {src_path}")
+                return 1
+            dest_path = (destination / spec.destination).resolve()
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            if dest_path.exists() and not args.force:
+                print(f"Refusing to overwrite existing file: {dest_path} (use --force)")
+                return 1
+            shutil.copy2(src_path, dest_path)
+            if spec.make_executable:
+                try:
+                    st = os.stat(dest_path)
+                    os.chmod(dest_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                except Exception:
+                    pass
+
+        if selected.env_lines:
+            env_path = destination / ".env"
+            if not env_path.exists() or args.force:
+                _write_text(env_path, "\n".join(selected.env_lines) + "\n")
+
+        config_src = selected.config_source_path()
+        if config_src and config_src.exists():
+            cfg_dst = (destination / selected.config_destination).resolve()
+            if not cfg_dst.exists() or args.force:
+                cfg_dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(config_src, cfg_dst)
+
+        print(f"Demo template '{selected.name}' materialised at {destination}.")
+        print("Files created:")
+        for spec in selected.iter_copy_specs():
+            print(f"  - {spec.destination}")
+        if selected.env_lines:
+            print("  - .env")
+        if selected.config_source_path():
+            print(f"  - {selected.config_destination}")
+        print("Review the files, edit .env, and run any provided deploy scripts when ready.")
         return 0
-    except Exception as e:
-        print(f"Init error: {e}")
-        return 2
+    except KeyboardInterrupt:
+        print("Aborted")
+        return 1
+    except Exception as exc:
+        print(f"Init failed: {exc}")
+        return 1
 
 
 def _http(method: str, url: str, headers: Dict[str, str] | None = None, body: Dict[str, Any] | None = None) -> tuple[int, Dict[str, Any] | str]:
@@ -1358,7 +1385,9 @@ def main(argv: list[str] | None = None) -> int:
     _add_parser(["rl_demo.setup", "demo.setup"], configure=lambda parser: parser.set_defaults(func=cmd_setup))
 
     def _init_opts(parser):
-        parser.add_argument("--force", action="store_true", help="Overwrite existing files in CWD")
+        parser.add_argument("--template", type=str, default=None, help="Template id to instantiate")
+        parser.add_argument("--dest", type=str, default=None, help="Destination directory for files")
+        parser.add_argument("--force", action="store_true", help="Overwrite existing files in destination")
         parser.set_defaults(func=cmd_init)
 
     _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)
