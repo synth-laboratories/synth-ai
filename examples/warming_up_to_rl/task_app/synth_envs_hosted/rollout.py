@@ -3,12 +3,18 @@ from __future__ import annotations
 import logging
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Request, status
 import os
 import time as _time
 from pydantic import BaseModel
+from synth_ai.lm.vendors.base import BaseLMResponse
+from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
+from synth_ai.tracing_v3.llm_call_record_helpers import create_llm_call_record_from_response
+from synth_ai.task.tracing_utils import unique_sft_path
 
 from .registry import registry
 
@@ -100,6 +106,8 @@ class RolloutRecordConfig(BaseModel):
     trajectories: bool = True
     logprobs: bool = False
     value: bool = False
+    return_trace: bool = False
+    trace_format: str = "compact"
 
 
 class RolloutSafetyConfig(BaseModel):
@@ -195,6 +203,487 @@ class RolloutResponse(BaseModel):
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
+    trace: Dict[str, Any] | None = None
+
+
+class RolloutTracingContext:
+    """Helper managing tracing_v3 recording and optional SFT dumps for a rollout."""
+
+    def __init__(
+        self,
+        tracer: SessionTracer | None,
+        request: RolloutRequest,
+        fastapi_request: Request,
+    ) -> None:
+        self.tracer = tracer
+        self.enabled = tracer is not None
+        self.request = request
+        self.fastapi_request = fastapi_request
+        self.run_id = request.run_id
+        self.current_step_id: str | None = None
+        self.current_turn: int | None = None
+        self.lm_calls_summary: list[dict[str, Any]] = []
+        self.decision_rewards: list[dict[str, Any]] = []
+        self.sft_records: list[dict[str, Any]] = []
+        self.latest_system_messages: list[str] = []
+        self.latest_user_messages: list[str] = []
+        self.trace_format = (getattr(request.record, "trace_format", "compact") or "compact").lower()
+        self.return_trace = bool(getattr(request.record, "return_trace", False))
+        self.sft_output_dir = getattr(fastapi_request.app.state, "sft_output_dir", None)
+        self.session_trace = None
+        self.metadata_updates: dict[str, Any] = {}
+        self.policy_name = request.policy.policy_name or ""
+        self.env_name = request.env.env_name or ""
+        self.metadata_base: dict[str, Any] = {
+            "run_id": self.run_id,
+            "policy_name": self.policy_name,
+            "policy_id": request.policy.policy_id,
+            "env_name": self.env_name,
+            "env_id": request.env.env_id,
+            "seed": request.env.seed,
+            "training_session_id": request.training_session_id,
+            "synth_base_url": request.synth_base_url,
+        }
+
+        # Expose context for downstream calls inside this request lifecycle
+        fastapi_request.state.rollout_tracing = self
+        fastapi_request.state.rollout_run_id = self.run_id
+
+    async def start_session(self) -> None:
+        if not self.enabled or self.tracer is None:
+            return
+        try:
+            await self.tracer.initialize()
+        except Exception as exc:
+            logger.debug("TRACING_INIT_FAIL: %s", exc)
+        try:
+            await self.tracer.start_session(session_id=self.run_id, metadata=dict(self.metadata_base))
+        except Exception as exc:
+            logger.warning("TRACING_START_FAIL: %s", exc)
+            self.enabled = False
+            self.tracer = None
+
+    async def start_decision(self, turn_number: int) -> None:
+        self.current_turn = turn_number
+        self.current_step_id = f"decision_{turn_number}"
+        if not self.enabled or self.tracer is None:
+            return
+        try:
+            await self.tracer.start_timestep(step_id=self.current_step_id, turn_number=turn_number)
+        except Exception as exc:
+            logger.debug("TRACING_STEP_START_FAIL: %s", exc)
+
+    async def end_decision(self) -> None:
+        if not self.enabled or self.tracer is None:
+            return
+        try:
+            await self.tracer.end_timestep(step_id=self.current_step_id)
+        except Exception as exc:
+            logger.debug("TRACING_STEP_END_FAIL: %s", exc)
+        finally:
+            self.current_step_id = None
+
+    def _message_metadata(self) -> dict[str, Any]:
+        return {
+            "turn": self.current_turn,
+            "step_id": self.current_step_id,
+        }
+
+    async def record_policy_prompts(
+        self,
+        system_messages: list[str],
+        user_messages: list[str],
+    ) -> None:
+        self.latest_system_messages = list(system_messages)
+        self.latest_user_messages = list(user_messages)
+        if not self.enabled or self.tracer is None:
+            return
+        for msg in system_messages:
+            try:
+                await self.tracer.record_message(
+                    content=msg,
+                    message_type="policy_system_prompt",
+                    metadata=self._message_metadata(),
+                )
+            except Exception as exc:
+                logger.debug("TRACING_SYSTEM_MSG_FAIL: %s", exc)
+        for msg in user_messages:
+            try:
+                await self.tracer.record_message(
+                    content=msg,
+                    message_type="policy_user_prompt",
+                    metadata=self._message_metadata(),
+                )
+            except Exception as exc:
+                logger.debug("TRACING_USER_MSG_FAIL: %s", exc)
+
+    def _content_to_text(self, content: Any) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for seg in content:
+                if isinstance(seg, dict):
+                    text_val = seg.get("text") or seg.get("content")
+                    if isinstance(text_val, str):
+                        parts.append(text_val)
+            return "".join(parts)
+        if content is None:
+            return ""
+        return str(content)
+
+    def _safe_json(self, payload: Any, limit: int = 4000) -> str:
+        try:
+            text = json.dumps(payload, ensure_ascii=False)
+        except Exception:
+            text = str(payload)
+        if len(text) > limit:
+            return text[:limit] + "…"
+        return text
+
+    async def record_tool_invocation(self, tool_calls: list[dict[str, Any]] | None) -> None:
+        if tool_calls is None:
+            return
+        if self.enabled and self.tracer is not None:
+            try:
+                await self.tracer.record_message(
+                    content=self._safe_json(tool_calls),
+                    message_type="policy_tool_call",
+                    metadata=self._message_metadata(),
+                )
+            except Exception as exc:
+                logger.debug("TRACING_TOOL_MSG_FAIL: %s", exc)
+
+    async def _record_event(self, event: Any) -> int | None:
+        if not self.enabled or self.tracer is None:
+            return None
+        try:
+            return await self.tracer.record_event(event)
+        except Exception as exc:
+            logger.debug("TRACING_EVENT_FAIL: %s", exc)
+            return None
+
+    async def record_llm_call(
+        self,
+        *,
+        inference_request: dict[str, Any],
+        inference_response: dict[str, Any],
+        tool_calls: list[dict[str, Any]] | None,
+        provider: str,
+        model_name: str,
+        started_at: datetime,
+        completed_at: datetime,
+        latency_ms: int | None,
+    ) -> None:
+        usage = inference_response.get("usage") or {}
+        input_tokens = usage.get("input_tokens") or usage.get("prompt_tokens")
+        output_tokens = usage.get("output_tokens") or usage.get("completion_tokens")
+        total_tokens = usage.get("total_tokens")
+        cost_usd = (
+            usage.get("cost_usd")
+            or usage.get("cost")
+            or usage.get("total_cost")
+        )
+
+        assistant_message = None
+        choices = inference_response.get("choices") or []
+        if choices:
+            assistant_message = choices[0].get("message") or {}
+        assistant_content = assistant_message.get("content") if isinstance(assistant_message, dict) else None
+
+        raw_response = self._content_to_text(assistant_content)
+        if not raw_response:
+            raw_response = self._safe_json(inference_response, limit=2000)
+
+        base_response = BaseLMResponse(
+            raw_response=raw_response,
+            tool_calls=assistant_message.get("tool_calls") if isinstance(assistant_message, dict) else None,
+            usage=usage or None,
+            api_type="chat_completions",
+        )
+
+        request_messages = inference_request.get("messages") or []
+        try:
+            temperature = float(inference_request.get("temperature"))
+        except Exception:
+            temperature = 0.0
+
+        call_record = create_llm_call_record_from_response(
+            response=base_response,
+            model_name=model_name,
+            provider=provider,
+            messages=request_messages,
+            temperature=temperature,
+            request_params=inference_request,
+            tools=inference_request.get("tools"),
+            started_at=started_at,
+            completed_at=completed_at,
+            latency_ms=latency_ms,
+        )
+
+        event_metadata = {
+            "policy_id": self.request.policy.policy_id,
+            "turn": self.current_turn,
+            "run_id": self.run_id,
+        }
+
+        event = LMCAISEvent(
+            system_instance_id=f"policy:{self.policy_name or 'unknown'}",
+            time_record=TimeRecord(event_time=completed_at.timestamp()),
+            model_name=model_name,
+            provider=provider,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            cost_usd=cost_usd,
+            latency_ms=latency_ms,
+            call_records=[call_record],
+            metadata=event_metadata,
+        )
+
+        await self._record_event(event)
+
+        self.lm_calls_summary.append(
+            {
+                "turn": self.current_turn,
+                "model": model_name,
+                "provider": provider,
+                "total_tokens": total_tokens,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "latency_ms": latency_ms,
+                "tool_calls": len(tool_calls or []),
+            }
+        )
+
+        if self.sft_output_dir is not None:
+            assistant_text = self._content_to_text(assistant_content)
+            record = {
+                "run_id": self.run_id,
+                "turn": self.current_turn,
+                "model": model_name,
+                "provider": provider,
+                "dialogue": (
+                    [{"role": "system", "content": s} for s in self.latest_system_messages]
+                    + [{"role": "user", "content": u} for u in self.latest_user_messages]
+                ),
+                "assistant": {
+                    "content": assistant_text,
+                    "tool_calls": assistant_message.get("tool_calls") if isinstance(assistant_message, dict) else [],
+                },
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            self.sft_records.append(record)
+
+    async def record_environment_event(
+        self,
+        *,
+        env_handle: Any,
+        prev_obs: Dict[str, Any] | None,
+        env_response: Any,
+        next_obs: Dict[str, Any] | None,
+        metadata: Dict[str, Any] | None = None,
+    ) -> int | None:
+        if not self.enabled or self.tracer is None:
+            return None
+
+        try:
+            prev_summary = _summarize_observation_for_storage(env_handle, prev_obs or {}) if prev_obs is not None else None
+        except Exception:
+            prev_summary = None
+        try:
+            next_summary = _summarize_observation_for_storage(env_handle, next_obs or {}) if next_obs is not None else None
+        except Exception:
+            next_summary = None
+
+        reward_val = getattr(env_response, "reward", None)
+        try:
+            reward_float = float(reward_val) if reward_val is not None else 0.0
+        except Exception:
+            reward_float = 0.0
+
+        event = EnvironmentEvent(
+            system_instance_id=f"environment:{self.env_name or 'unknown'}",
+            time_record=TimeRecord(event_time=datetime.utcnow().timestamp()),
+            reward=reward_float,
+            terminated=bool(getattr(env_response, "done", False)),
+            truncated=bool(getattr(env_response, "truncated", False)),
+            system_state_before=prev_summary,
+            system_state_after=next_summary,
+            metadata={
+                "turn": self.current_turn,
+                "run_id": self.run_id,
+                **(metadata or {}),
+            },
+        )
+
+        return await self._record_event(event)
+
+    async def record_decision_reward(
+        self,
+        *,
+        event_id: int | None,
+        decision_meta: Dict[str, Any] | None,
+    ) -> None:
+        decision_meta = decision_meta or {}
+        ach_delta = int(decision_meta.get("ach_delta", 0))
+        unique_delta = int(decision_meta.get("unique_delta", 0))
+        all_ach = list(decision_meta.get("all") or [])
+        unique_ach = list(decision_meta.get("unique") or [])
+
+        self.decision_rewards.append(
+            {
+                "turn": self.current_turn,
+                "ach_delta": ach_delta,
+                "unique_delta": unique_delta,
+                "achievements": all_ach,
+                "unique_achievements": unique_ach,
+            }
+        )
+
+        if not self.enabled or self.tracer is None or event_id is None:
+            return
+        try:
+            await self.tracer.record_event_reward(
+                event_id=event_id,
+                turn_number=self.current_turn,
+                reward_value=float(ach_delta),
+                reward_type="achievement_delta",
+                annotation={"achievements": all_ach},
+                source="environment",
+            )
+            if unique_delta:
+                await self.tracer.record_event_reward(
+                    event_id=event_id,
+                    turn_number=self.current_turn,
+                    reward_value=float(unique_delta),
+                    reward_type="unique_achievement_delta",
+                    annotation={"achievements": unique_ach},
+                    source="environment",
+                )
+        except Exception as exc:
+            logger.debug("TRACING_REWARD_FAIL: %s", exc)
+
+    def update_metadata(self, **kwargs: Any) -> None:
+        self.metadata_updates.update({k: v for k, v in kwargs.items() if v is not None})
+
+    async def finalize(
+        self,
+        *,
+        total_reward: float,
+        achievement_state: Dict[str, bool] | None,
+        total_steps: int,
+    ) -> Any:
+        final_achievements = [key for key, val in (achievement_state or {}).items() if val]
+        self.metadata_updates.setdefault("final_achievements", final_achievements)
+        if self.enabled and self.tracer is not None:
+            try:
+                await self.tracer.record_outcome_reward(
+                    total_reward=int(total_reward),
+                    achievements_count=len(final_achievements),
+                    total_steps=int(total_steps),
+                    reward_metadata=dict(self.metadata_updates),
+                )
+            except Exception as exc:
+                logger.debug("TRACING_OUTCOME_FAIL: %s", exc)
+            try:
+                self.session_trace = await self.tracer.end_session()
+                if self.session_trace is not None:
+                    self.session_trace.metadata.update(self.metadata_updates)
+            except Exception as exc:
+                logger.debug("TRACING_END_SESSION_FAIL: %s", exc)
+                self.session_trace = None
+            try:
+                await self.tracer.close()
+            except Exception:
+                pass
+
+        if self.sft_records and self.sft_output_dir:
+            self.write_sft_records()
+
+        # Clear context from request state to avoid leaks
+        self.fastapi_request.state.rollout_tracing = None
+
+        return self.session_trace
+
+    def write_sft_records(self) -> None:
+        if not self.sft_output_dir or not self.sft_records:
+            return
+        try:
+            path = unique_sft_path(self.sft_output_dir, run_id=self.run_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("w", encoding="utf-8") as fh:
+                for record in self.sft_records:
+                    json.dump(record, fh, ensure_ascii=False)
+                    fh.write("\n")
+            logger.info(f"SFT_WRITTEN: {path}")
+        except Exception as exc:
+            logger.warning(f"SFT_WRITE_FAIL: {exc}")
+        finally:
+            self.sft_records.clear()
+
+    def build_trace_payload(self, session_trace: Any) -> Dict[str, Any] | None:
+        if not self.return_trace or session_trace is None:
+            return None
+        if self.trace_format == "full":
+            payload = session_trace.to_dict()
+            payload.setdefault("metadata", {}).update(self.metadata_updates)
+            return payload
+        metadata = dict(session_trace.metadata)
+        metadata.update(self.metadata_updates)
+        return {
+            "session_id": session_trace.session_id,
+            "created_at": session_trace.created_at.isoformat(),
+            "metadata": metadata,
+            "events_count": len(session_trace.event_history),
+            "messages_count": len(session_trace.markov_blanket_message_history),
+            "lm_calls": self.lm_calls_summary,
+            "decision_rewards": self.decision_rewards,
+        }
+def _summarize_observation_for_storage(env_handle: Any, observation: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a compact dict for trajectory storage instead of the raw observation.
+
+    - For Crafter, use the same summary used for the policy user prompt
+    - For others, keep a minimal subset or plain text preview
+    """
+    # Try Crafter-specific formatter
+    try:
+        from .envs.crafter.environment import CrafterEnvironmentWrapper as _CrafterWrapper  # type: ignore
+    except Exception:
+        _CrafterWrapper = None  # type: ignore
+
+    if _CrafterWrapper is not None and isinstance(getattr(env_handle, "env", None), _CrafterWrapper):
+        try:
+            from .envs.crafter.shared import format_observation as _fmt  # type: ignore
+            text = _fmt(observation or {})
+            return {"text": text}
+        except Exception:
+            pass
+
+    # Generic fallback: extract a few small fields if present; avoid huge arrays
+    try:
+        inv = observation.get("inventory") if isinstance(observation, dict) else None
+        ach = observation.get("achievements_status") if isinstance(observation, dict) else None
+        pos = observation.get("player_position") if isinstance(observation, dict) else None
+        health = None
+        if isinstance(inv, dict):
+            health = inv.get("health")
+        summary = {
+            "position": pos,
+            "health": health,
+            "inventory_keys": sorted([k for k, v in (inv or {}).items() if v])[:10] if isinstance(inv, dict) else None,
+            "achievements_unlocked": sorted([k for k, v in (ach or {}).items() if v])[:10] if isinstance(ach, dict) else None,
+        }
+        return {"text": json.dumps(summary, ensure_ascii=False)}
+    except Exception:
+        pass
+
+    # Last resort: plain string preview
+    try:
+        return {"text": str(observation)[:10000]}
+    except Exception:
+        return {"text": ""}
+
 
 
 class RunAbortRequest(BaseModel):
@@ -219,6 +708,34 @@ async def execute_rollout(
     req: Request,
 ) -> RolloutResponse:
     """Execute a rollout with coordinated environment and policy steps."""
+    # Enforce per-episode step cap via env-specific parameters; default to 20 if omitted
+    try:
+        _env_params = {}
+        if isinstance(request.env, RolloutEnvSpec) and isinstance(request.env.config, dict):
+            _env_params = dict(request.env.config.get("env_params") or {})
+        max_steps_per_episode = int(_env_params.get("max_steps_per_episode") or 20)
+        assert max_steps_per_episode > 0, "max_steps_per_episode must be a positive integer"
+    except Exception as _mse:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "invalid_env_params",
+                "message": f"Invalid or missing env_params.max_steps_per_episode: {_mse}",
+            },
+        )
+    # Truncate incoming ops to the enforced cap (each step is [agent, env])
+    ops_seq: List[str] = list(request.ops or [])
+    allowed_ops = max(0, int(max_steps_per_episode) * 2)
+    if len(ops_seq) > allowed_ops:
+        try:
+            logger.info(
+                "ROLL_OUT: truncating ops to cap: requested_ops=%s allowed_ops=%s",
+                str(len(ops_seq)),
+                str(allowed_ops),
+            )
+        except Exception:
+            pass
+        ops_seq = ops_seq[:allowed_ops]
     # Simple API key auth for inbound rollout
     header_key = req.headers.get("x-api-key")
     env_key = os.getenv("ENVIRONMENT_API_KEY")
@@ -273,6 +790,16 @@ async def execute_rollout(
             setattr(task_app, "synth_base_url", request.synth_base_url)
     except Exception:
         pass
+
+    tracer_factory = getattr(req.app.state, "session_tracer_factory", None)
+    tracer_instance = None
+    if callable(tracer_factory):
+        try:
+            tracer_instance = tracer_factory()
+        except Exception as exc:
+            logger.debug(f"TRACER_FACTORY_FAIL: {exc}")
+    tracing_context = RolloutTracingContext(tracer_instance, request, req)
+    await tracing_context.start_session()
 
     # Register run
     registry.register_run(request.run_id)
@@ -345,6 +872,8 @@ async def execute_rollout(
             env_handle = registry.get_env(env_id)
             created_env_id = env_id
 
+        tracing_context.update_metadata(env_id=env_id)
+
         # Resolve or create policy
         if request.policy.policy_id:
             policy_handle = registry.get_policy(request.policy.policy_id)
@@ -382,6 +911,8 @@ async def execute_rollout(
             policy_handle = registry.get_policy(policy_id)
             created_policy_id = policy_id
 
+        tracing_context.update_metadata(policy_id=policy_id)
+
         # Bind policy to environment if not already bound
         if policy_handle and not policy_handle.bound_env_id:
             policy_handle.bound_env_id = env_id
@@ -391,6 +922,7 @@ async def execute_rollout(
             env_seed_used = int(getattr(env_handle, "seed", 0) or 0)
         except Exception:
             env_seed_used = None
+        tracing_context.update_metadata(env_seed=env_seed_used)
 
         # Initialize trajectory
         trajectory_steps = []
@@ -471,6 +1003,9 @@ async def execute_rollout(
 
         decision_samples: List[Dict[str, Any]] = []
         decision_index = 0
+        decision_open = False
+        session_trace = None
+        finalized = False
         prev_achievements = _extract_achievements(current_obs)
         # Track episode-level achievements that have been seen as true at any point so far
         episode_seen_achievements: set[str] = set(
@@ -481,8 +1016,8 @@ async def execute_rollout(
         stepwise_new_achievements_total = 0
         final_achievement_count = sum(1 for v in prev_achievements.values() if v)
 
-        # Execute ops sequence
-        for op_idx, op in enumerate(request.ops):
+        # Execute ops sequence (capped by env_params.max_steps_per_episode)
+        for op_idx, op in enumerate(ops_seq):
             # Check for abort
             if registry.is_run_aborted(request.run_id):
                 logger.info(f"Run {request.run_id} aborted at op {op_idx}")
@@ -496,6 +1031,10 @@ async def execute_rollout(
             if op == "agent":
                 # Policy step
                 from .policy_routes import step_policy, PolicyStepRequest
+
+                if not decision_open:
+                    await tracing_context.start_decision(decision_index)
+                    decision_open = True
 
                 agent_request_start = _time.perf_counter()
                 if last_agent_response_ts is not None and last_policy_meta is not None:
@@ -636,6 +1175,17 @@ async def execute_rollout(
                     aborted = registry.is_run_aborted(request.run_id)
                     if not aborted:
                         registry.complete_run(request.run_id)
+                    if decision_open:
+                        await tracing_context.end_decision()
+                        decision_open = False
+                    if not finalized:
+                        session_trace = await tracing_context.finalize(
+                            total_reward=total_reward,
+                            achievement_state=prev_achievements,
+                            total_steps=len(trajectory_steps),
+                        )
+                        finalized = True
+                    trace_payload = tracing_context.build_trace_payload(session_trace)
                     return RolloutResponse(
                         run_id=request.run_id,
                         trajectories=[trajectory],
@@ -643,6 +1193,7 @@ async def execute_rollout(
                         metrics=metrics,
                         aborted=aborted,
                         ops_executed=ops_executed,
+                        trace=trace_payload,
                     )
 
                 agent_response_ts = _time.perf_counter()
@@ -671,6 +1222,7 @@ async def execute_rollout(
                 last_agent_response_ts = agent_response_ts
 
                 pending_tool_calls = policy_response.tool_calls
+                await tracing_context.record_tool_invocation(pending_tool_calls)
                 ops_executed += 1
 
             elif op == "env":
@@ -717,6 +1269,17 @@ async def execute_rollout(
                     aborted = registry.is_run_aborted(request.run_id)
                     if not aborted:
                         registry.complete_run(request.run_id)
+                    if decision_open:
+                        await tracing_context.end_decision()
+                        decision_open = False
+                    if not finalized:
+                        session_trace = await tracing_context.finalize(
+                            total_reward=total_reward,
+                            achievement_state=prev_achievements,
+                            total_steps=len(trajectory_steps),
+                        )
+                        finalized = True
+                    trace_payload = tracing_context.build_trace_payload(session_trace)
                     return RolloutResponse(
                         run_id=request.run_id,
                         trajectories=[trajectory],
@@ -724,6 +1287,7 @@ async def execute_rollout(
                         metrics=metrics,
                         aborted=aborted,
                         ops_executed=ops_executed,
+                        trace=trace_payload,
                     )
 
                 # Environment step
@@ -816,6 +1380,17 @@ async def execute_rollout(
                             timing_last.setdefault("overhead_ms", max(0.0, decision_ms - env_step_duration_ms))
                         except Exception:
                             pass
+                    if decision_open:
+                        await tracing_context.end_decision()
+                        decision_open = False
+                    if not finalized:
+                        session_trace = await tracing_context.finalize(
+                            total_reward=total_reward,
+                            achievement_state=prev_achievements,
+                            total_steps=len(trajectory_steps),
+                        )
+                        finalized = True
+                    trace_payload = tracing_context.build_trace_payload(session_trace)
                     return RolloutResponse(
                         run_id=request.run_id,
                         trajectories=[trajectory],
@@ -823,6 +1398,7 @@ async def execute_rollout(
                         metrics=metrics,
                         aborted=aborted,
                         ops_executed=ops_executed,
+                        trace=trace_payload,
                     )
 
                 # Reaching here means env step succeeded
@@ -843,6 +1419,17 @@ async def execute_rollout(
                 except Exception:
                     pass
 
+                event_metadata = {
+                    "op_index": op_idx,
+                }
+                event_id = await tracing_context.record_environment_event(
+                    env_handle=env_handle,
+                    prev_obs=current_obs,
+                    env_response=env_response,
+                    next_obs=getattr(env_response, "observation", None),
+                    metadata=event_metadata,
+                )
+
                 decision_index += 1
                 next_obs = env_response.observation
                 new_achievement_state = _extract_achievements(next_obs)
@@ -851,6 +1438,7 @@ async def execute_rollout(
                 )
                 indicator_val = 0
                 reward_stepwise = 0.0
+                decision_rewards_meta: Dict[str, Any] | None = None
                 if step_rewards_active:
                     decision_actions = _summarize_tool_calls(pending_tool_calls)
                     stepwise_info, decision_record, stats = compute_stepwise_reward(
@@ -890,6 +1478,7 @@ async def execute_rollout(
                             "all": all_list,
                             "unique": new_unique,
                         }
+                        decision_rewards_meta = decision_rewards
                         meta_block["decision_rewards"] = decision_rewards
                         _info["meta"] = meta_block
                         # Update episode-level seen set after attributing uniqueness to this decision
@@ -900,8 +1489,13 @@ async def execute_rollout(
                     decision_samples.append(decision_record)
                 prev_achievements = new_achievement_state
 
+                await tracing_context.record_decision_reward(
+                    event_id=event_id,
+                    decision_meta=decision_rewards_meta,
+                )
+
                 step = RolloutStep(
-                    obs=current_obs,
+                    obs=_summarize_observation_for_storage(env_handle, current_obs),
                     tool_calls=pending_tool_calls,
                     reward=env_response.reward,
                     done=env_response.done,
@@ -933,6 +1527,10 @@ async def execute_rollout(
                         current_obs = reset_response.observation
                     elif request.on_done == "terminate":
                         break
+
+                if decision_open:
+                    await tracing_context.end_decision()
+                    decision_open = False
 
             else:
                 logger.warning(f"Unknown op: {op}")
@@ -969,7 +1567,7 @@ async def execute_rollout(
             env_id=env_id,
             policy_id=policy_id,
             steps=trajectory_steps,
-            final={"observation": current_obs},
+            final={"observation": _summarize_observation_for_storage(env_handle, current_obs)},
             length=len(trajectory_steps),
             decision_samples=decision_samples if step_rewards_active else None,
         )
@@ -984,24 +1582,30 @@ async def execute_rollout(
 
         # Environment-specific: Log summary if available
         try:
-            # Check if this is a Wordle environment and use Wordle helpers
-            from .envs.wordle.environment import WordleEnvironmentWrapper
-            from .envs.wordle.helpers import (
-                get_wordle_rollout_summary,
-                log_wordle_rollout_summary,
-            )
+            # Check if this is a Wordle environment and use Wordle helpers (lazy import)
+            try:
+                from .envs.wordle.environment import WordleEnvironmentWrapper as _WordleWrapper
+                from .envs.wordle.helpers import (
+                    get_wordle_rollout_summary,
+                    log_wordle_rollout_summary,
+                )
+            except Exception:
+                _WordleWrapper = None  # type: ignore
+                get_wordle_rollout_summary = None  # type: ignore
+                log_wordle_rollout_summary = None  # type: ignore
 
-            is_wordle = isinstance(env_handle.env, WordleEnvironmentWrapper)
+            is_wordle = _WordleWrapper is not None and isinstance(env_handle.env, _WordleWrapper)
             if is_wordle:
                 # Convert trajectory steps to expected format
                 formatted_steps = []
                 for step in trajectory_steps:
                     formatted_steps.append({"tool_calls": step.tool_calls or []})
 
-                summary = get_wordle_rollout_summary(
-                    formatted_steps, current_obs, env_handle
-                )
-                log_wordle_rollout_summary(request.run_id, summary)
+                if get_wordle_rollout_summary is not None and log_wordle_rollout_summary is not None:
+                    summary = get_wordle_rollout_summary(
+                        formatted_steps, current_obs, env_handle
+                    )
+                    log_wordle_rollout_summary(request.run_id, summary)
         except ImportError:
             # Wordle helpers not available, skip Wordle-specific logging
             pass
@@ -1012,6 +1616,17 @@ async def execute_rollout(
         aborted = registry.is_run_aborted(request.run_id)
         if not aborted:
             registry.complete_run(request.run_id)
+        if decision_open:
+            await tracing_context.end_decision()
+            decision_open = False
+        if not finalized:
+            session_trace = await tracing_context.finalize(
+                total_reward=total_reward,
+                achievement_state=prev_achievements,
+                total_steps=len(trajectory_steps),
+            )
+            finalized = True
+        trace_payload = tracing_context.build_trace_payload(session_trace)
 
         return RolloutResponse(
             run_id=request.run_id,
@@ -1020,11 +1635,28 @@ async def execute_rollout(
             metrics=metrics,
             aborted=aborted,
             ops_executed=ops_executed,
+            trace=trace_payload,
         )
 
     except Exception as e:
         logger.error(f"Rollout failed for run {request.run_id}: {e}")
         registry.abort_run(request.run_id)
+        if decision_open:
+            try:
+                await tracing_context.end_decision()
+            except Exception:
+                pass
+            decision_open = False
+        if not finalized:
+            try:
+                session_trace = await tracing_context.finalize(
+                    total_reward=total_reward,
+                    achievement_state=prev_achievements,
+                    total_steps=len(trajectory_steps),
+                )
+            except Exception:
+                session_trace = None
+            finalized = True
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Ensure any environment created for this rollout is terminated (no reuse across rollouts)
@@ -1062,6 +1694,17 @@ async def execute_rollout(
                 logger.info("ROLL_OUT: terminated policy policy_id=%s", str(created_policy_id))
         except Exception:
             pass
+
+        if not finalized:
+            try:
+                session_trace = await tracing_context.finalize(
+                    total_reward=total_reward,
+                    achievement_state=prev_achievements,
+                    total_steps=len(trajectory_steps),
+                )
+            except Exception:
+                session_trace = None
+            finalized = True
 
         try:
             _clear_seed_side_effects()

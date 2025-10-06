@@ -1,5 +1,11 @@
 # RL training starting from base Qwen/Qwen3-4B (TOML-only model selection)
 
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+
 [services]
 task_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
 
@@ -39,6 +45,14 @@ label = "crafter-rl-from-base"
 max_turns = 10
 episodes_per_batch = 64
 policy_name = "crafter"
+
+[evaluation]
+# Run baseline evaluation over the first 100 seeds every 20 training iterations
+instances = 10
+every_n_iters = 10
+seeds = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+]
 
 [training]
 log_interval = 1

@@ -72,6 +72,12 @@ class CrafterPolicy(Policy):
             self.thinking_mode = str(config["thinking_mode"])  # expect "think" or "no_think"
         if "thinking_budget" in config and config["thinking_budget"] is not None:
             self.thinking_budget = int(config["thinking_budget"])  # number of tokens inside <think>
+        if self.thinking_budget is None:
+            try:
+                if "openai.com" not in (self.inference_url or "").lower():
+                    self.thinking_budget = 1028
+            except Exception:
+                self.thinking_budget = 1028
         # Reset state on (re)initialize
         self.history_messages = []
         self.turn_index = 0
@@ -113,8 +119,12 @@ class CrafterPolicy(Policy):
         if self.model is not None:
             payload["model"] = self.model
         # Thinking controls
+        if self.thinking_mode is None and "openai.com" not in (self.inference_url or "").lower():
+            self.thinking_mode = "think"
         if self.thinking_mode is not None:
             payload["thinking_mode"] = self.thinking_mode
+        if self.thinking_budget is None and "openai.com" not in (self.inference_url or "").lower():
+            self.thinking_budget = 1028
         if self.thinking_budget is not None:
             payload["thinking_budget"] = self.thinking_budget
         # Inject sampling parameters if set via initialize(config)

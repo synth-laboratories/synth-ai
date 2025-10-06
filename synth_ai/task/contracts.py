@@ -1,31 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Any, Dict, List
-from pydantic import BaseModel
+from typing import Optional, Any, Dict, List, Literal
+from pydantic import BaseModel, Field
 
 
 @dataclass(frozen=True)
 class TaskAppEndpoints:
     """Canonical Task App endpoint shapes used by RL trainers.
 
-    The Task App is an HTTP service (often deployed on Modal) that exposes:
-    - Health: GET /health
-      • Requires header X-API-Key (when ENVIRONMENT_API_KEY is configured)
-      • Returns { healthy: true }
-    - Environment lifecycle:
-      • POST /env/{env_name}/initialize → { env_id, observation }
-      • POST /env/{env_name}/step      → { observation, reward, done, info }
-      • POST /env/{env_name}/terminate → { ok: true }
-    - Rollout (optional, unified schema):
-      • POST /rollout → { run_id, trajectories[], metrics, ... }
-    - Proxy (optional):
-      • POST /proxy/v1/chat/completions (for direct OpenAI calls from Task App)
+    Task Apps run as lightweight HTTP services (often on Modal) that expose a
+    consistent set of endpoints for health, metadata, environment lifecycle,
+    rollouts, and optional proxy access to vendor models. The endpoint strings
+    defined here act as defaults and documentation for clients.
     """
 
+    root: str = "/"
     health: str = "/health"
+    info: str = "/info"
+    task_info: str = "/task_info"
     rollout: str = "/rollout"
     proxy_chat_completions: str = "/proxy/v1/chat/completions"
+    proxy_groq_chat_completions: str = "/proxy/groq/v1/chat/completions"
     env_initialize: str = "/env/{env_name}/initialize"
     env_step: str = "/env/{env_name}/step"
     env_terminate: str = "/env/{env_name}/terminate"
@@ -67,6 +63,8 @@ class RolloutRecordConfig(BaseModel):
     trajectories: bool = True
     logprobs: bool = False
     value: bool = False
+    return_trace: bool = False
+    trace_format: Literal["compact", "full"] = "compact"
 
 
 class RolloutSafetyConfig(BaseModel):
@@ -108,6 +106,9 @@ class RolloutMetrics(BaseModel):
     mean_return: float
     num_steps: int
     num_episodes: int = 0
+    outcome_score: Optional[float] = None
+    events_score: Optional[float] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
 
 
 class RolloutResponse(BaseModel):
@@ -117,4 +118,18 @@ class RolloutResponse(BaseModel):
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
+    trace: Dict[str, Any] | None = None
 
+
+class TaskInfo(BaseModel):
+    """Static metadata describing the capabilities of a Task App task."""
+
+    task: Dict[str, Any]
+    environments: List[str]
+    action_space: Dict[str, Any]
+    observation: Dict[str, Any]
+    dataset: Dict[str, Any]
+    rubric: Dict[str, Any]
+    inference: Dict[str, Any]
+    capabilities: Dict[str, Any]
+    limits: Dict[str, Any]
