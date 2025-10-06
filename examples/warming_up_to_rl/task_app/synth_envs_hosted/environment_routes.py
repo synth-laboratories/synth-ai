@@ -20,9 +20,6 @@ from synth_ai.environments.examples.crafter_classic.taskset import (
 from synth_ai.environments.tasks.core import Impetus, Intent
 
 from .envs.crafter.environment import CrafterEnvironmentWrapper
-from .envs.math.environment import MathEnvironmentWrapper
-from .envs.wordle.environment import WordleEnvironmentWrapper
-from .envs.sokoban.environment import SokobanEnvironmentWrapper
 from .registry import registry
 from .storage.volume import storage
 
@@ -285,6 +282,16 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     status_code=500, detail=f"Wordle modules unavailable: {e}"
                 )
 
+            # Lazy import of wrapper within branch
+            try:
+                from .envs.wordle.environment import (
+                    WordleEnvironmentWrapper as _WordleWrapper,
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
+                )
+
             cfg = request.config or {}
             word_length = int(cfg.get("word_length", 5))
             max_guesses = int(cfg.get("max_guesses", 6))
@@ -315,7 +322,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             # Try to preserve the exact puzzle snapshot for reproducibility
             init_snap = getattr(instance, "initial_engine_snapshot", None)
 
-            wrapper = WordleEnvironmentWrapper(
+            wrapper = _WordleWrapper(
                 env=base_env,
                 seed=request.seed,
                 word_length=word_length,
@@ -372,17 +379,15 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                 raise HTTPException(
                     status_code=500, detail=f"Sokoban modules unavailable: {e}"
                 )
+
+            # Lazy import of wrapper within branch
             try:
-                from synth_ai.environments.examples.sokoban.taskset import (
-                    SokobanTaskInstance,
-                    SokobanTaskInstanceMetadata,
-                )
-                from synth_ai.environments.examples.sokoban.environment import (
-                    SokobanEnvironment,
+                from .envs.sokoban.environment import (
+                    SokobanEnvironmentWrapper as _SokobanWrapper,
                 )
             except Exception as e:
                 raise HTTPException(
-                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
                 )
 
             cfg = request.config or {}
@@ -406,7 +411,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             )
             base_env = SokobanEnvironment(task_instance=instance)
 
-            wrapper = SokobanEnvironmentWrapper(
+            wrapper = _SokobanWrapper(
                 env=base_env, seed=request.seed, config=cfg
             )
             result = await wrapper.initialize()
@@ -442,7 +447,17 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
         elif env_name_lower == "math":
             # Single-step math env (GSM8K-style)
             cfg = request.config or {}
-            wrapper = MathEnvironmentWrapper(
+            # Lazy import of wrapper within branch
+            try:
+                from .envs.math.environment import (
+                    MathEnvironmentWrapper as _MathWrapper,
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Math wrapper unavailable: {e}"
+                )
+
+            wrapper = _MathWrapper(
                 seed=request.seed,
                 problem_id=cfg.get("problem_id"),
                 problem_text=cfg.get("problem_text"),
@@ -569,7 +584,65 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                     wrapper.seed = request.seed
                     handle.seed = request.seed
 
-        elif isinstance(wrapper, WordleEnvironmentWrapper):
+        elif True:
+            # Try to dynamically import Wordle wrapper and check instance safely
+            try:
+                from .envs.wordle.environment import (
+                    WordleEnvironmentWrapper as _WordleWrapper,
+                )
+            except Exception:
+                _WordleWrapper = None  # type: ignore
+
+            if _WordleWrapper is not None and isinstance(wrapper, _WordleWrapper):
+                # Rebuild Wordle env with the same configuration; if we have a preserved
+                # initial_engine_snapshot, prefer constructing the instance directly.
+                try:
+                    from synth_ai.environments.examples.wordle.taskset import (
+                        create_wordle_taskset,
+                        WordleTaskInstance,
+                        WordleTaskInstanceMetadata,
+                    )
+                    from synth_ai.environments.examples.wordle.environment import (
+                        WordleEnvironment,
+                    )
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500, detail=f"Wordle modules unavailable: {e}"
+                    )
+
+                init_snap = getattr(wrapper, "initial_engine_snapshot", None)
+                if init_snap is not None:
+                    metadata = WordleTaskInstanceMetadata(
+                        word_length=int(wrapper.word_length),
+                        max_guesses=int(wrapper.max_guesses),
+                    )
+                    instance = WordleTaskInstance(
+                        id=uuid4(),
+                        impetus=Impetus(instructions="Reset"),
+                        intent=Intent(
+                            rubric={"goal": "Reset"},
+                            gold_trajectories=None,
+                            gold_state_diff={},
+                        ),
+                        metadata=metadata,
+                        is_reproducible=True,
+                        initial_engine_snapshot=init_snap,
+                    )
+                    new_base_env = WordleEnvironment(task_instance=instance)
+                else:
+                    ts = await create_wordle_taskset(
+                        sample_size=1,
+                        word_length=int(wrapper.word_length),
+                        max_guesses=int(wrapper.max_guesses),
+                    )
+                    instance = ts.instances[0]
+                    new_base_env = WordleEnvironment(task_instance=instance)
+                wrapper.env = new_base_env
+                if request.seed is not None:
+                    wrapper.seed = int(request.seed)
+                    handle.seed = int(request.seed)
+            else:
+                pass
             # Rebuild Wordle env with the same configuration; if we have a preserved
             # initial_engine_snapshot, prefer constructing the instance directly.
             try:
@@ -618,7 +691,51 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                 wrapper.seed = int(request.seed)
                 handle.seed = int(request.seed)
 
-        elif isinstance(wrapper, SokobanEnvironmentWrapper):
+        elif True:
+            # Try to dynamically import Sokoban wrapper and check instance safely
+            try:
+                from .envs.sokoban.environment import (
+                    SokobanEnvironmentWrapper as _SokobanWrapper,
+                )
+            except Exception:
+                _SokobanWrapper = None  # type: ignore
+
+            if _SokobanWrapper is not None and isinstance(wrapper, _SokobanWrapper):
+                # Rebuild Sokoban env using stored config snapshot
+                try:
+                    from synth_ai.environments.examples.sokoban.taskset import (
+                        SokobanTaskInstance,
+                        SokobanTaskInstanceMetadata,
+                    )
+                    from synth_ai.environments.examples.sokoban.environment import (
+                        SokobanEnvironment,
+                    )
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                    )
+
+                cfg = dict(wrapper.config or {})
+                metadata = SokobanTaskInstanceMetadata(
+                    difficulty=cfg.get("difficulty", "easy"),
+                )
+                instance = SokobanTaskInstance(
+                    id=uuid4(),
+                    impetus=Impetus(instructions="Reset"),
+                    intent=Intent(
+                        rubric={"goal": "Reset"}, gold_trajectories=None, gold_state_diff={}
+                    ),
+                    metadata=metadata,
+                    is_reproducible=True,
+                    initial_engine_snapshot=cfg.get("initial_state"),
+                )
+                new_base_env = SokobanEnvironment(task_instance=instance)
+                wrapper.env = new_base_env
+                if request.seed is not None:
+                    wrapper.seed = int(request.seed)
+                    handle.seed = int(request.seed)
+            else:
+                pass
             # Rebuild Sokoban env using stored config snapshot
             try:
                 from synth_ai.environments.examples.sokoban.taskset import (
@@ -1027,7 +1144,16 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                 )
                 instance = ts.instances[0]
                 base_env = WordleEnvironment(task_instance=instance)
-            wrapper = await WordleEnvironmentWrapper.deserialize(
+            # Lazy import of wrapper only when needed
+            try:
+                from .envs.wordle.environment import (
+                    WordleEnvironmentWrapper as _WordleWrapper,
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
+                )
+            wrapper = await _WordleWrapper.deserialize(
                 payload=state_dict, env=base_env
             )
 
@@ -1079,7 +1205,16 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                 initial_engine_snapshot=cfg.get("initial_state"),
             )
             base_env = SokobanEnvironment(task_instance=instance)
-            wrapper = await SokobanEnvironmentWrapper.deserialize(
+            # Lazy import of wrapper only when needed
+            try:
+                from .envs.sokoban.environment import (
+                    SokobanEnvironmentWrapper as _SokobanWrapper,
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
+                )
+            wrapper = await _SokobanWrapper.deserialize(
                 payload=state_dict, env=base_env
             )
 

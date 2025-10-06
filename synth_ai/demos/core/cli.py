@@ -12,8 +12,26 @@ import stat
 import textwrap
 
 from synth_ai.demos.demo_task_apps import core as demo_core
+from synth_ai.demos.demo_task_apps.core import DemoEnv, DEFAULT_TASK_APP_SECRET_NAME
+from synth_ai.demo_registry import (
+    CopySpec,
+    DemoTemplate,
+    get_demo_template,
+    list_demo_templates,
+)
 from synth_ai.handshake import run_handshake, HandshakeError
-from synth_ai.demos.demo_task_apps.core import DemoEnv
+
+
+def _key_preview(value: str, label: str) -> str:
+    """Return a short descriptor for a secret without leaking the full value."""
+    try:
+        text = value or ""
+        length = len(text)
+        prefix = text[:6] if length >= 6 else text
+        suffix = text[-5:] if length >= 5 else text
+        return f"{label} len={length} prefix={prefix} last5={suffix}"
+    except Exception:
+        return f"{label} len=0"
 
 
 def _is_modal_public_url(u: str) -> bool:
@@ -100,7 +118,6 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             dotenv_values = {
                 "TASK_APP_BASE_URL": new_url,
                 "TASK_APP_NAME": env.task_app_name,
-                "TASK_APP_SECRET_NAME": env.task_app_secret_name or f"{env.task_app_name}-secret",
             }
             demo_core.persist_dotenv_values(dotenv_values)
             os.environ["TASK_APP_BASE_URL"] = new_url
@@ -220,55 +237,6 @@ def _popen_stream_capture(cmd: list[str], cwd: str | None = None, env: dict | No
     else:
         proc.wait()
     return int(proc.returncode or 0), "\n".join(buf_lines)
-
-
-def _mask_secret_args(args: list[str]) -> list[str]:
-    masked: list[str] = []
-    for a in args:
-        if "=" in a and any(a.startswith(prefix) for prefix in ("ENVIRONMENT_API_KEY=", "OPENAI_API_KEY=", "SYNTH_API_KEY=")):
-            try:
-                key, value = a.split("=", 1)
-                tail = value[-5:] if len(value) >= 5 else value
-                masked.append(f"{key}=***{tail}")
-            except Exception:
-                masked.append("<masked>")
-        else:
-            masked.append(a)
-    return masked
-
-
-def _ensure_modal_secret(
-    secret_name: str,
-    *,
-    values: dict[str, str],
-    label: str = "deploy",
-    replace: bool = False,
-) -> bool:
-    prefix = f"[{label}]"
-    if not secret_name.strip():
-        raise RuntimeError("Secret name is required")
-
-    if not values:
-        raise RuntimeError("No values provided to create Modal secret")
-
-    create_args = [f"{k}={v}" for k, v in values.items()]
-    create_cmd = ["uv", "run", "modal", "secret", "create", secret_name, *create_args]
-
-    if replace:
-        print(f"{prefix} Removing Modal secret '{secret_name}' (if present)…")
-        delete_cmd = ["bash", "-lc", f"printf 'y\\n' | uv run modal secret delete {secret_name}"]
-        print(f"{prefix} Command:", " ".join(delete_cmd))
-        delete_code = _popen_stream(delete_cmd)
-        if delete_code != 0:
-            print(f"{prefix} Warning: delete command exited with {delete_code}; continuing to create")
-
-    print(f"\n{prefix} Creating Modal secret '{secret_name}'…")
-    print(f"{prefix} Command:", " ".join(_mask_secret_args(create_cmd)))
-    code = _popen_stream(create_cmd)
-    if code != 0:
-        raise RuntimeError("Failed to provision Modal secret (see logs above)")
-
-    return True
 
 
 def _fmt_float(value: float) -> str:
@@ -639,30 +607,25 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         app_name = fallback
         demo_core.persist_task_url(task_url, name=app_name)
 
-    secret_name = env.task_app_secret_name.strip() or f"{app_name}-secret"
     demo_core.persist_task_url(task_url, name=app_name)
     demo_core.persist_dotenv_values({
         "TASK_APP_BASE_URL": task_url,
         "TASK_APP_NAME": app_name,
-        "TASK_APP_SECRET_NAME": secret_name,
+        "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
     })
 
-    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
-    secret_values: dict[str, str] = {"ENVIRONMENT_API_KEY": env_key}
-    if openai_key:
-        secret_values["OPENAI_API_KEY"] = openai_key
     if synth_key:
-        secret_values["SYNTH_API_KEY"] = synth_key
+        os.environ["SYNTH_API_KEY"] = synth_key
 
-    _ensure_modal_secret(secret_name, values=secret_values, label=label, replace=True)
+    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
+    if openai_key:
+        os.environ["OPENAI_API_KEY"] = openai_key
 
     rollout_url = task_url.rstrip("/") + "/health/rollout"
     print(f"[{label}] Verifying rollout health:")
     try:
         ek = (env_key or "").strip()
-        ek_len = len(ek)
-        ek_tail = ek[-5:] if ek_len >= 5 else ek
-        print(f"[{label}] Using ENVIRONMENT_API_KEY len={ek_len} last5={ek_tail}")
+        print(f"[{label}] {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
     except Exception:
         pass
     health_base = task_url.rstrip("/")
@@ -685,21 +648,27 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     print(f"[{label}] body:", preview)
     if rc != 200:
         print(f"[{label}] Warning: rollout health check failed ({rc}). Response: {body}")
+        try:
+            print(f"[{label}] Sent header X-API-Key → {_key_preview(env_key, 'X-API-Key')}")
+        except Exception:
+            pass
     else:
         print(f"[{label}] Task app rollout health check OK.")
 
     os.environ["TASK_APP_BASE_URL"] = task_url
     os.environ["ENVIRONMENT_API_KEY"] = env_key
+    os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     updated_env = demo_core.load_env()
     updated_env.env_api_key = env_key
     updated_env.task_app_base_url = task_url
     updated_env.task_app_name = app_name
-    updated_env.task_app_secret_name = secret_name
+    updated_env.task_app_secret_name = DEFAULT_TASK_APP_SECRET_NAME
     return updated_env
 
 
 def cmd_deploy(args: argparse.Namespace) -> int:
     env = demo_core.load_env()
+    os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)
     url = ""
@@ -777,11 +746,6 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     print("Aborted by user.")
                     return 1
 
-                prev_secret = (env.task_app_secret_name or "").strip()
-                default_secret = f"{name_in}-secret"
-                secret_name = default_secret if not prev_secret else prev_secret
-                if prev_secret and prev_secret != default_secret:
-                    secret_name = default_secret
                 existing_env_key = (env.env_api_key or "").strip()
                 env_key: str | None = existing_env_key or None
                 if existing_env_key:
@@ -804,6 +768,8 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     env.env_api_key = env_key
                     local_env["ENVIRONMENT_API_KEY"] = env_key
                     print("[deploy] Minted new ENVIRONMENT_API_KEY")
+                elif env_key:
+                    os.environ["ENVIRONMENT_API_KEY"] = env_key
                 
                 # Optionally upload the new key to the backend using sealed box helper
                 backend_base = (env.dev_backend_url or "").rstrip("/")
@@ -834,13 +800,14 @@ def cmd_deploy(args: argparse.Namespace) -> int:
 
                 synth_key = (env.synth_api_key or os.environ.get("SYNTH_API_KEY") or local_env.get("SYNTH_API_KEY") or "").strip()
                 if not synth_key:
-                    synth_key = input("Enter SYNTH_API_KEY for Modal secret (required): ").strip()
+                    synth_key = input("Enter SYNTH_API_KEY for deployment (required): ").strip()
                     if not synth_key:
-                        print("SYNTH_API_KEY is required to create the Modal secret.")
+                        print("SYNTH_API_KEY is required for deployment.")
                         return 1
                     demo_core.persist_api_key(synth_key)
                     demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
                     env.synth_api_key = synth_key
+                os.environ["SYNTH_API_KEY"] = synth_key
 
                 openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
                 if not openai_key:
@@ -848,22 +815,11 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                         "Enter your OpenAI API key, found at https://platform.openai.com/api-keys\n> "
                     ).strip()
                     if not openai_key:
-                        print("OPENAI_API_KEY is required to create the Modal secret.")
+                        print("OPENAI_API_KEY is required for deployment.")
                         return 1
                     demo_core.persist_dotenv_values({"OPENAI_API_KEY": openai_key})
                     local_env["OPENAI_API_KEY"] = openai_key
-
-                values = {"SYNTH_API_KEY": synth_key, "OPENAI_API_KEY": openai_key}
-                if env_key:
-                    values["ENVIRONMENT_API_KEY"] = env_key
-
-                try:
-                    created = _ensure_modal_secret(secret_name, values=values, label="deploy", replace=True)
-                except RuntimeError as secret_err:
-                    print(f"Failed to prepare Modal secret '{secret_name}': {secret_err}")
-                    return 2
-                if created:
-                    print(f"[deploy] Modal secret '{secret_name}' provisioned.")
+                os.environ["OPENAI_API_KEY"] = openai_key
 
                 deploy_cmd = ["uv", "run", "python", "-m", "modal", "deploy", "--name", name_in, app_path]
                 print("\nStreaming Modal build/deploy logs (this can take several minutes on first run)…\n")
@@ -913,7 +869,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         dotenv_values = {"TASK_APP_BASE_URL": url}
         if app_name:
             dotenv_values["TASK_APP_NAME"] = app_name
-            dotenv_values["TASK_APP_SECRET_NAME"] = f"{app_name}-secret"
+        dotenv_values["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
         dotenv_path = demo_core.persist_dotenv_values(dotenv_values)
         print(f"TASK_APP_BASE_URL={url}")
         if app_name:
@@ -922,7 +878,6 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         print(f"  export TASK_APP_BASE_URL={url}")
         if app_name:
             print(f"  export TASK_APP_NAME={app_name}")
-            print(f"  export TASK_APP_SECRET_NAME={app_name}-secret")
         print(f"Persisted to {dotenv_path}")
         print("\nNext step:\n$ uvx synth-ai run")
         return 0
@@ -963,125 +918,153 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize a Modal-ready Math Task App in the current directory.
+def _ensure_modal_installed() -> None:
+    """Install the modal package if it is not already available."""
 
-    Copies `examples/rl/task_app.py` and `examples/rl/deploy_task_app.sh` into CWD.
-    Creates a `.env` with placeholders if it does not exist.
-    """
     try:
-        # Ensure `modal` is installed for deployment flows
-        def _has_modal() -> bool:
-            try:
-                import importlib.util as _iu
-                return _iu.find_spec("modal") is not None
-            except Exception:
-                return False
+        import importlib.util as _iu
 
-        if not _has_modal():
-            print("modal not found; installing…")
-            # Prefer uv if available; otherwise fallback to pip
-            try:
-                if shutil.which("uv"):
-                    code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
-                else:
-                    code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
-                if code != 0:
-                    print(out)
-                    print("Failed to install modal; continuing may fail.")
-                else:
-                    print("modal installed successfully.")
-            except Exception as e:
-                print(f"modal install error: {e}")
-            # Re-check
-            if not _has_modal():
-                print("Warning: modal is still not importable after install attempt.")
+        if _iu.find_spec("modal") is not None:
+            print("modal package found")
+            return
+    except Exception:
+        pass
+
+    print("modal not found; installing…")
+    try:
+        if shutil.which("uv"):
+            code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
         else:
-            print("modal found")
+            code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
+        if code != 0:
+            print(out)
+            print("Failed to install modal; continuing may fail.")
+        else:
+            print("modal installed successfully.")
+    except Exception as exc:
+        print(f"modal install error: {exc}")
 
-        here = os.getcwd()
-        demo_dir = os.path.join(here, "synth_demo")
-        os.makedirs(demo_dir, exist_ok=True)
-        # Paths inside synth_demo/
-        dst_task_py = os.path.join(demo_dir, "task_app.py")
-        dst_deploy = os.path.join(demo_dir, "deploy_task_app.sh")
-        env_path = os.path.join(demo_dir, ".env")
-        dst_cfg = os.path.join(demo_dir, "demo_config.toml")
+    try:
+        import importlib.util as _iu
 
-        # Copy packaged math modal task app into synth_demo/task_app.py
-        src_modal = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "modal_task_app.py"))
-        if not os.path.isfile(src_modal):
-            print("Init failed: packaged math modal task app not found.")
-            print(f"Looked for: {src_modal}")
+        if _iu.find_spec("modal") is None:
+            print("Warning: modal is still not importable after install attempt.")
+        else:
+            print("modal package ready")
+    except Exception:
+        print("Warning: unable to verify modal installation.")
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Materialise a demo task app template into the current directory."""
+
+    templates = list(list_demo_templates())
+    if not templates:
+        print("No demo templates registered. Update synth_ai/demo_registry.py to add entries.")
+        return 1
+
+    selected: DemoTemplate | None = None
+    if args.template:
+        selected = get_demo_template(args.template)
+        if selected is None:
+            available = ", ".join(t.template_id for t in templates)
+            print(f"Unknown template '{args.template}'. Available: {available}")
             return 1
-        if os.path.exists(dst_task_py) and not getattr(args, "force", False):
-            print(f"Refusing to overwrite existing file: {dst_task_py} (use --force)")
+    else:
+        print("Select a demo template:" + "\n")
+        for idx, template in enumerate(templates, start=1):
+            print(f"  [{idx}] {template.name} ({template.template_id})")
+            print(f"      {template.description}")
+        try:
+            choice_raw = input(f"Enter choice [1-{len(templates)}] (default 1): ").strip() or "1"
+        except Exception:
+            choice_raw = "1"
+        if not choice_raw.isdigit():
+            print("Selection must be a number.")
             return 1
-        shutil.copy2(src_modal, dst_task_py)
+        choice_idx = int(choice_raw)
+        if not 1 <= choice_idx <= len(templates):
+            print("Selection out of range.")
+            return 1
+        selected = templates[choice_idx - 1]
 
-        # Create deploy script in synth_demo/
-        deploy_text = r"""#!/usr/bin/env bash
-set -euo pipefail
+    assert selected is not None
 
-HERE=$(cd "$(dirname "$0")" && pwd)
-APP="$HERE/task_app.py"
-if [ -f "$HERE/.env" ]; then
-  # shellcheck disable=SC2046
-  export $(grep -v '^#' "$HERE/.env" | xargs -I{} echo {})
-fi
-uv run modal deploy "$APP" | tee "$HERE/.last_deploy.log"
-URL=$(grep -Eo 'https://[^ ]+\.modal\.run' "$HERE/.last_deploy.log" | tail -1 || true)
-if [ -n "$URL" ]; then
-  if grep -q '^TASK_APP_BASE_URL=' "$HERE/.env" 2>/dev/null; then
-    sed -i.bak "s#^TASK_APP_BASE_URL=.*#TASK_APP_BASE_URL=$URL#" "$HERE/.env" || true
-  else
-    echo "TASK_APP_BASE_URL=$URL" >> "$HERE/.env"
-  fi
-  echo "Saved TASK_APP_BASE_URL to $HERE/.env"
-fi
-"""
-        _write_text(dst_deploy, deploy_text)
-        try:
-            st = os.stat(dst_deploy)
-            os.chmod(dst_deploy, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-        except Exception:
-            pass
+    default_subdir = selected.default_subdir or selected.template_id
+    default_dest = Path(args.dest).expanduser().resolve() if args.dest else (Path.cwd() / default_subdir).resolve()
+    try:
+        dest_input = input(f"Destination directory [{default_dest}]: ").strip()
+    except Exception:
+        dest_input = ""
+    destination = Path(dest_input).expanduser().resolve() if dest_input else default_dest
 
-        # Seed .env if not present
-        if not os.path.exists(env_path):
-            _write_text(env_path, "\n".join([
-                "# Required for task app auth to environment service",
-                "ENVIRONMENT_API_KEY=",
-                "",
-                "# Optional: for CLI job submission and proxying OpenAI models",
-                "SYNTH_API_KEY=",
-                "OPENAI_API_KEY=",
-                "",
-                "# Optional: set to 'prod' to use production names",
-                "ENVIRONMENT=",
-            ]) + "\n")
+    if destination.exists():
+        if destination.is_file():
+            print(f"Destination {destination} is a file. Provide a directory path.")
+            return 1
+        if not args.force and any(destination.iterdir()):
+            print(f"Destination {destination} is not empty. Use --force or choose another directory.")
+            return 1
+    else:
+        destination.mkdir(parents=True, exist_ok=True)
 
-        # Seed demo_config.toml from packaged default if not present (or overwrite with --force)
-        packaged_cfg = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "config.toml"))
-        try:
-            if os.path.isfile(packaged_cfg):
-                if not os.path.exists(dst_cfg) or getattr(args, "force", False):
-                    shutil.copy2(packaged_cfg, dst_cfg)
-        except Exception:
-            pass
+    if selected.requires_modal:
+        _ensure_modal_installed()
 
-        print("Initialized Math Task App in synth_demo/:")
-        print(f"  - {dst_task_py}")
-        print(f"  - {dst_deploy}")
-        print(f"  - {env_path} (created if missing)")
-        if os.path.exists(dst_cfg):
-            print(f"  - {dst_cfg} (seeded)")
-        print("")
-        print("\nNext step:\n$ uvx synth-ai setup")
+    try:
+        for spec in selected.iter_copy_specs():
+            src_path = spec.absolute_source()
+            if not src_path.exists():
+                print(f"Template source missing: {src_path}")
+                return 1
+            dest_path = (destination / spec.destination).resolve()
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            if dest_path.exists() and not args.force:
+                print(f"Refusing to overwrite existing file: {dest_path} (use --force)")
+                return 1
+            shutil.copy2(src_path, dest_path)
+            if spec.make_executable:
+                try:
+                    st = os.stat(dest_path)
+                    os.chmod(dest_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                except Exception:
+                    pass
+
+        if selected.env_lines:
+            env_path = destination / ".env"
+            if not env_path.exists() or args.force:
+                _write_text(env_path, "\n".join(selected.env_lines) + "\n")
+
+        config_src = selected.config_source_path()
+        if config_src and config_src.exists():
+            cfg_dst = (destination / selected.config_destination).resolve()
+            if not cfg_dst.exists() or args.force:
+                cfg_dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(config_src, cfg_dst)
+
+        if selected.post_copy is not None:
+            try:
+                selected.post_copy(destination)
+            except Exception as post_exc:
+                print(f"Post-processing failed: {post_exc}")
+                return 1
+
+        print(f"Demo template '{selected.name}' materialised at {destination}.")
+        print("Files created:")
+        for spec in selected.iter_copy_specs():
+            print(f"  - {spec.destination}")
+        if selected.env_lines:
+            print("  - .env")
+        if selected.config_source_path():
+            print(f"  - {selected.config_destination}")
+        print("Review the files, edit .env, and run any provided deploy scripts when ready.")
         return 0
-    except Exception as e:
-        print(f"Init error: {e}")
-        return 2
+    except KeyboardInterrupt:
+        print("Aborted")
+        return 1
+    except Exception as exc:
+        print(f"Init failed: {exc}")
+        return 1
 
 
 def _http(method: str, url: str, headers: Dict[str, str] | None = None, body: Dict[str, Any] | None = None) -> tuple[int, Dict[str, Any] | str]:
@@ -1195,10 +1178,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             ek = (env.env_api_key or "").strip()
             print("Hint: If backend responded 401, verify SYNTH_API_KEY for:", base_url)
             if sk:
-                print(f"  SYNTH_API_KEY len={len(sk)} last5={sk[-5:]}")
+                print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
             if ek:
-                print(f"  ENVIRONMENT_API_KEY len={len(ek)} last5={ek[-5:]}")
-            print("Also ensure your Modal secret contains ENVIRONMENT_API_KEY and matches the task app.")
+                print(f"  {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
+            print("Ensure the ENVIRONMENT_API_KEY you deployed with matches the task app and remains exported.")
         return code
 
     # Fallback: legacy jobs API flow
@@ -1218,7 +1201,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         sk_len = len(sk)
         sk_tail = sk[-5:] if sk_len >= 5 else sk
         print(f"[run] Backend API: {api}")
-        print(f"[run] Using SYNTH_API_KEY len={sk_len} last5={sk_tail}")
+        print(f"[run] {_key_preview(sk, 'SYNTH_API_KEY')}")
     except Exception:
         pass
     data_fragment: Dict[str, Any] = {
@@ -1267,6 +1250,59 @@ def cmd_run(args: argparse.Namespace) -> int:
         except Exception:
             print(str(js))
         print("Request body was:\n" + json.dumps(body, indent=2))
+        try:
+            auth_preview = _key_preview(env.synth_api_key or "", "SYNTH_API_KEY (auth)")
+            print(f"[run] {auth_preview}")
+        except Exception:
+            pass
+        try:
+            data_block = body.get("data") if isinstance(body, dict) else None
+            env_key_body = ""
+            if isinstance(data_block, dict):
+                env_key_body = str(data_block.get("environment_api_key") or "")
+            if env_key_body:
+                print(f"[run] {_key_preview(env_key_body, 'environment_api_key (body)')}")
+        except Exception:
+            pass
+        try:
+            current_env_key = env.env_api_key or ""
+            if current_env_key:
+                print(f"[run] {_key_preview(current_env_key, 'ENVIRONMENT_API_KEY (current)')}")
+        except Exception:
+            pass
+        if isinstance(js, dict):
+            detail = js.get("detail")
+            if isinstance(detail, dict):
+                try:
+                    sent_key = detail.get("sent_key")
+                    if isinstance(sent_key, str):
+                        print(f"[run] Backend detail.sent_key {_key_preview(sent_key, 'detail.sent_key')}")
+                except Exception:
+                    pass
+                try:
+                    sent_keys = detail.get("sent_keys")
+                    if isinstance(sent_keys, (list, tuple)):
+                        previews = []
+                        for idx, val in enumerate(sent_keys):
+                            if isinstance(val, str):
+                                previews.append(_key_preview(val, f"detail.sent_keys[{idx}]"))
+                        if previews:
+                            joined = "; ".join(previews)
+                            print(f"[run] Backend detail.sent_keys previews: {joined}")
+                except Exception:
+                    pass
+                try:
+                    key_prefix = detail.get("sent_key_prefix")
+                    if isinstance(key_prefix, str):
+                        print(f"[run] Backend detail.sent_key_prefix={key_prefix}")
+                except Exception:
+                    pass
+                try:
+                    health_url = detail.get("health_url")
+                    if isinstance(health_url, str):
+                        print(f"[run] Backend detail.health_url={health_url}")
+                except Exception:
+                    pass
         # Extra hints for auth failures
         try:
             sk = (env.synth_api_key or "").strip()
@@ -1274,8 +1310,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 base_url = env.dev_backend_url
                 print("Hint: HTTP 401 Unauthorized from backend. Verify SYNTH_API_KEY for:", base_url)
                 if sk:
-                    print(f"  SYNTH_API_KEY len={len(sk)} last5={sk[-5:]}")
-                print("Also ensure your Modal secret contains a valid ENVIRONMENT_API_KEY.")
+                    print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
+                print("Ensure the ENVIRONMENT_API_KEY and OPENAI_API_KEY used for deployment remain valid.")
         except Exception:
             pass
         return 2
@@ -1356,7 +1392,9 @@ def main(argv: list[str] | None = None) -> int:
     _add_parser(["rl_demo.setup", "demo.setup"], configure=lambda parser: parser.set_defaults(func=cmd_setup))
 
     def _init_opts(parser):
-        parser.add_argument("--force", action="store_true", help="Overwrite existing files in CWD")
+        parser.add_argument("--template", type=str, default=None, help="Template id to instantiate")
+        parser.add_argument("--dest", type=str, default=None, help="Destination directory for files")
+        parser.add_argument("--force", action="store_true", help="Overwrite existing files in destination")
         parser.set_defaults(func=cmd_init)
 
     _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)

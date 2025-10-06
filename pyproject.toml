@@ -37,7 +37,6 @@ dependencies = [
     "networkx>=3.4.2",
     "redis>=6.2.0",
     "duckdb>=1.0.0",
-    "pandas>=2.2.3",
     "ty>=0.0.1a5", # Type annotations helper
     "toml>=0.10.2",
     "sqlalchemy>=2.0.42",
@@ -83,6 +82,9 @@ all = [
     # Include research dependencies in all
     "crafter>=1.8.3",
     "datasets>=4.0.0",
+]
+analytics = [
+    "pandas>=2.2.3",
 ]
 
 [project.urls]

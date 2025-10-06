@@ -4,13 +4,15 @@ import json
 import os
 import subprocess
 import sys
-import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
 import urllib.request
 
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
+
+DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
 
 
 @dataclass
@@ -20,8 +22,7 @@ class DemoEnv:
     env_api_key: str = ""
     task_app_base_url: str = ""
     task_app_name: str = ""
-    task_app_secret_name: str = ""
-
+    task_app_secret_name: str = DEFAULT_TASK_APP_SECRET_NAME
 
 def _mask(value: str, keep: int = 4) -> str:
     if not value:
@@ -285,7 +286,7 @@ def load_env() -> DemoEnv:
     )
 
     task_app_name = str(state.get("TASK_APP_NAME") or "")
-    task_app_secret_name = str(state.get("TASK_APP_SECRET_NAME") or "")
+    task_app_secret_name = str(state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
 
     env.dev_backend_url = dev_url.rstrip("/")
     env.synth_api_key = synth_api_key
@@ -367,16 +368,17 @@ def persist_task_url(url: str, *, name: str | None = None) -> None:
         if data.get("TASK_APP_NAME") != name:
             data["TASK_APP_NAME"] = name
             changed.append("TASK_APP_NAME")
-        secret_name = f"{name}-secret"
-        if data.get("TASK_APP_SECRET_NAME") != secret_name:
-            data["TASK_APP_SECRET_NAME"] = secret_name
-            if "TASK_APP_NAME" not in changed:
-                changed.append("TASK_APP_SECRET_NAME")
+        if data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
+            data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
+            changed.append("TASK_APP_SECRET_NAME")
+    elif data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
+        data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
+        changed.append("TASK_APP_SECRET_NAME")
     _write_state(data)
     if changed:
         print(f"Saved {', '.join(changed)} to {_state_path()}")
-        if "TASK_APP_NAME" in changed or "TASK_APP_SECRET_NAME" in changed:
-            print(f"TASK_APP_SECRET_NAME={data.get('TASK_APP_SECRET_NAME', '')}")
+        if "TASK_APP_SECRET_NAME" in changed:
+            print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
 
 
 def persist_api_key(key: str) -> None:
