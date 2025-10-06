@@ -164,7 +164,7 @@ def setup():
     default=True,
     help="Kill any process already bound to --env-port without prompting",
 )
-def serve(
+def serve_deprecated(
     db_file: str,
     sqld_port: int,
     env_port: int,
@@ -174,6 +174,7 @@ def serve(
     force: bool,
 ):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    click.echo("⚠️  'synth-ai serve' now targets task apps; use 'synth-ai serve' for task apps or 'synth-ai serve-deprecated' for this legacy service.", err=True)
     processes = []
 
     def signal_handler(sig, frame):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Any, Dict, List
+from typing import Optional, Any, Dict, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -63,6 +63,8 @@ class RolloutRecordConfig(BaseModel):
     trajectories: bool = True
     logprobs: bool = False
     value: bool = False
+    return_trace: bool = False
+    trace_format: Literal["compact", "full"] = "compact"
 
 
 class RolloutSafetyConfig(BaseModel):
@@ -116,6 +118,7 @@ class RolloutResponse(BaseModel):
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
+    trace: Dict[str, Any] | None = None
 
 
 class TaskInfo(BaseModel):

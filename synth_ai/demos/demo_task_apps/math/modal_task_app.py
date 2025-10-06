@@ -8,6 +8,11 @@ from pathlib import Path
 from modal import App, Image, Secret, asgi_app
 from functools import lru_cache
 
+try:  # Backward compatibility with older installed SDKs
+    from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME
+except Exception:  # pragma: no cover - occurs on older deployments
+    DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
+
 # Self-contained: no external problem bank installer required
 
 
@@ -42,16 +47,40 @@ if _SYNTH_HOSTED is not None:
 
 # No extra local dirs required; app is self-contained
 
+
+def _build_inline_secret() -> Secret:
+    required = ("ENVIRONMENT_API_KEY",)
+    optional = ("SYNTH_API_KEY", "OPENAI_API_KEY")
+    payload: dict[str, str] = {}
+    missing: list[str] = []
+
+    for key in required:
+        value = (os.environ.get(key) or "").strip()
+        if not value:
+            missing.append(key)
+        else:
+            payload[key] = value
+
+    for key in optional:
+        value = (os.environ.get(key) or "").strip()
+        if value:
+            payload[key] = value
+
+    if missing:
+        raise RuntimeError(
+            "Missing required environment values for inline secret: " + ", ".join(missing)
+        )
+
+    previews = ", ".join(f"{k}:len={len(v)}" for k, v in payload.items())
+    print(f"[startup] TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
+    print(f"[startup] inline secret prepared ({previews})")
+
+    return Secret.from_dict(payload)
+
+
+INLINE_SECRET = _build_inline_secret()
+
 app = App("hendrycks-math-task-app")
-_SECRET_NAME = (
-    os.getenv("TASK_APP_SECRET_NAME")
-    or os.getenv("MATH_TASK_APP_SECRET")
-    or os.getenv("TASK_APP_NAME", "").strip()
-)
-if not _SECRET_NAME:
-    _SECRET_NAME = "synth-math-demo-secret"
-elif not _SECRET_NAME.endswith("-secret"):
-    _SECRET_NAME = f"{_SECRET_NAME}-secret"
 
 
 @app.function(
@@ -60,7 +89,7 @@ elif not _SECRET_NAME.endswith("-secret"):
     memory=16384,
     cpu=4,
     min_containers=1,
-    secrets=[Secret.from_name(_SECRET_NAME)],
+    secrets=[INLINE_SECRET],
 )
 @asgi_app()
 def fastapi_app():
@@ -112,6 +141,23 @@ def fastapi_app():
             allow_headers=["*"],
         )
 
+        import logging
+
+        logger = logging.getLogger("hendrycks_math_task_app")
+        if not logger.handlers:
+            logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
+
+        def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
+            if not env_key:
+                return None
+            half = max(1, len(env_key) // 2)
+            prefix = env_key[:half]
+            msg = f"[{source}] expected ENVIRONMENT_API_KEY prefix: {prefix}"
+            print(msg)
+            logger.info(msg)
+            return prefix
+
         @app.get("/info")
         async def info():
             return {
@@ -125,7 +171,14 @@ def fastapi_app():
             if not env_key:
                 return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
             if x_api_key is not None and x_api_key != env_key:
-                return JSONResponse(status_code=401, content={"status": "unauthorized", "detail": "Invalid API key"})
+                prefix = _log_env_key_prefix("health", env_key)
+                content = {"status": "unauthorized", "detail": "Invalid API key"}
+                headers = None
+                if prefix:
+                    content["detail"] = f"Invalid API key (expected prefix: {prefix})"
+                    content["expected_api_key_prefix"] = prefix
+                    headers = {"X-Expected-API-Key-Prefix": prefix}
+                return JSONResponse(status_code=401, content=content, headers=headers)
             return {"status": "healthy"}
 
         # Optional rollout-specific health for CLI compatibility
@@ -135,7 +188,14 @@ def fastapi_app():
             if not env_key:
                 return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
             if not x_api_key or x_api_key != env_key:
-                return JSONResponse(status_code=401, content={"status": "unauthorized", "detail": "Invalid or missing API key"})
+                prefix = _log_env_key_prefix("health/rollout", env_key)
+                content = {"status": "unauthorized", "detail": "Invalid or missing API key"}
+                headers = None
+                if prefix:
+                    content["detail"] = f"Invalid or missing API key (expected prefix: {prefix})"
+                    content["expected_api_key_prefix"] = prefix
+                    headers = {"X-Expected-API-Key-Prefix": prefix}
+                return JSONResponse(status_code=401, content=content, headers=headers)
             return {"ok": True}
 
         # _load_hendrycks_problem is defined at fastapi_app scope
@@ -145,12 +205,14 @@ def fastapi_app():
             """Return Hendrycks MATH problem/answer and tool schema for a seed."""
             q, a = _load_hendrycks_problem(int(seed), subject=subject)
             tools = [{
-                "name": "interact",
-                "description": "Submit one or more actions to the math environment.",
+                "name": "submit_answer",
+                "description": "Provide the final numerical or algebraic answer for the current math problem.",
                 "parameters": {
                     "type": "object",
-                    "properties": {"actions": {"type": "array", "items": {"type": "string"}}},
-                    "required": ["actions"],
+                    "properties": {
+                        "answer": {"type": "string", "description": "The proposed final answer"},
+                    },
+                    "required": ["answer"],
                 },
             }]
             return {
@@ -185,7 +247,7 @@ def fastapi_app():
 
     OPENAI_REMOVE_FIELDS = ("stop_after_tool_calls", "thinking_mode", "thinking_budget", "reasoning")
     OPENAI_REMOVE_SAMPLING_FIELDS = ("temperature", "top_p")
-    TOOL_CHOICE_FORCE = {"type": "function", "function": {"name": "interact_many"}}
+    TOOL_CHOICE_FORCE = {"type": "function", "function": {"name": "submit_answer"}}
 
     def _prepare_openai_payload(model: str | None, payload: dict[str, object]) -> dict[str, object]:
         sanitized = dict(payload)
@@ -198,9 +260,9 @@ def fastapi_app():
                 sanitized.pop("max_tokens", None)
             for field in OPENAI_REMOVE_SAMPLING_FIELDS:
                 sanitized.pop(field, None)
-            sanitized["tool_choice"] = TOOL_CHOICE_FORCE
-            sanitized["parallel_tool_calls"] = False
-        return sanitized
+                sanitized["tool_choice"] = TOOL_CHOICE_FORCE
+                sanitized["parallel_tool_calls"] = False
+            return sanitized
 
     @api.post("/proxy/v1/chat/completions")
     def proxy_chat_completions(request: dict[str, object] = Body(...)):
@@ -270,11 +332,11 @@ def fastapi_app():
                     sanitized.pop("max_tokens", None)
                 for field in ("temperature", "top_p"):
                     sanitized.pop(field, None)
-                sanitized["tool_choice"] = {"type": "function", "function": {"name": "interact"}}
+                sanitized["tool_choice"] = {"type": "function", "function": {"name": "submit_answer"}}
                 sanitized["parallel_tool_calls"] = False
             return sanitized
 
-        def _parse_tool_actions(resp: dict[str, Any]) -> list[str]:
+        def _parse_tool_answer(resp: dict[str, Any]) -> str:
             try:
                 choices = resp.get("choices")
                 if isinstance(choices, list) and choices:
@@ -283,7 +345,7 @@ def fastapi_app():
                     if isinstance(tcs, list) and tcs:
                         fn = tcs[0].get("function", {}) if isinstance(tcs[0], dict) else {}
                         args = fn.get("arguments")
-                        obj = {}
+                        obj: dict[str, Any] = {}
                         if isinstance(args, str):
                             try:
                                 obj = _json.loads(args)
@@ -291,129 +353,148 @@ def fastapi_app():
                                 obj = {}
                         elif isinstance(args, dict):
                             obj = args
-                        acts = obj.get("actions")
-                        if isinstance(acts, list):
-                            return [str(a) for a in acts][:5]
+                        ans = obj.get("answer")
+                        if isinstance(ans, str):
+                            return ans.strip()
             except Exception:
                 pass
-            return []
+            return ""
 
-        # Build minimal context and execute ops
+        # Single-step rollout: one agent call followed by evaluation of the returned tool answer
         history: list[dict[str, Any]] = []
         steps: list[dict[str, Any]] = []
         total_reward = 0.0
-        last_llm_text: str | None = None
-        last_actions: list[str] = []
-        for op in ops or []:
-            if op == "agent":
-                user_prompt = (
-                    str(question)
-                    if isinstance(question, (str, int, float)) and str(question).strip()
-                    else "Solve the problem. Provide answer steps succinctly."
-                )
-                payload = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": user_prompt}],
-                    "tools": [{
-                        "type": "function",
-                        "function": {"name": "interact", "parameters": {"type": "object", "properties": {"actions": {"type": "array", "items": {"type": "string"}}}, "required": ["actions"]}},
-                    }],
-                    "max_tokens": 256,
-                    "temperature": 0.2,
-                }
-                to_send = _prepare_payload(model if isinstance(model, str) else None, payload)
-                # Print prompts and tools exposed to the model
-                try:
-                    tool_names = []
-                    for t in (payload.get("tools") or []):
-                        if isinstance(t, dict):
-                            fn = (t.get("function") or {}) if isinstance(t.get("function"), dict) else {}
-                            name = fn.get("name")
-                            if isinstance(name, str):
-                                tool_names.append(name)
-                    print(f"[math] system: <none>", flush=True)
-                    print(f"[math] user: {user_prompt}", flush=True)
-                    print(f"[math] tools: {tool_names}", flush=True)
-                except Exception:
-                    pass
-                headers = {}
-                if "/proxy" in inference_url:
-                    sk = os.environ.get("SYNTH_API_KEY")
-                    if sk:
-                        headers["Authorization"] = f"Bearer {sk}"
-                with httpx.Client(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
-                    resp = client.post(f"{inference_url}/v1/chat/completions", json=to_send, headers=headers)
-                    try:
-                        data = resp.json()
-                    except Exception:
-                        data = {"error": "invalid_json", "raw": resp.text[:400]}
 
-                # Extract assistant text for visibility/correctness
-                llm_text = None
-                try:
-                    _choices = data.get("choices") if isinstance(data, dict) else None
-                    if isinstance(_choices, list) and _choices:
-                        _msg = _choices[0].get("message", {}) if isinstance(_choices[0], dict) else {}
-                        if isinstance(_msg, dict):
-                            _content = _msg.get("content")
-                            if isinstance(_content, str) and _content.strip():
-                                llm_text = _content
-                except Exception:
-                    llm_text = None
+        user_prompt = (
+            str(question)
+            if isinstance(question, (str, int, float)) and str(question).strip()
+            else "Solve the problem. Provide answer steps succinctly."
+        )
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": user_prompt}],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "submit_answer",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "answer": {"type": "string"},
+                        },
+                        "required": ["answer"],
+                    },
+                },
+            }],
+            "max_tokens": 256,
+            "temperature": 0.2,
+        }
+        to_send = _prepare_payload(model if isinstance(model, str) else None, payload)
 
-                # Print question, model output, and correctness if we have an expected answer
-                try:
-                    if question is not None:
-                        print(f"[math] question: {question}", flush=True)
-                    if llm_text is not None:
-                        print(f"[math] llm: {llm_text}", flush=True)
-                    if expected_answer is not None and llm_text is not None:
-                        exp = str(expected_answer).strip()
-                        got = llm_text.strip()
-                        is_correct = exp and (exp in got)
-                        print(f"[math] correct: {bool(is_correct)} (expected fragment: {exp})", flush=True)
-                except Exception:
-                    pass
-                last_llm_text = llm_text
-                acts = _parse_tool_actions(data) or []
-                last_actions = acts if isinstance(acts, list) else []
-                steps.append({"obs": {}, "tool_calls": [{"tool_name": "interact", "arguments": _json.dumps({"actions": acts})}], "reward": None, "done": False, "truncated": False, "info": None})
-                history.append({"actions": acts})
-            elif op == "env":
-                # Compute a simple correctness-based reward if expected answer available
-                reward_val = 0.0
-                try:
-                    if expected_answer is not None:
-                        # Prefer explicit tool-call answer from last_actions
-                        candidate = ""
-                        if isinstance(last_actions, list) and last_actions:
-                            # Take the last non-empty action as the final answer
-                            for s in reversed(last_actions):
-                                if isinstance(s, str) and s.strip():
-                                    candidate = s.strip()
-                                    break
-                        # Fallback to parse from llm_text if tool actions absent
-                        if not candidate and last_llm_text is not None:
-                            candidate = _extract_boxed(last_llm_text) or last_llm_text
-                        exp_raw = _extract_boxed(str(expected_answer)) or str(expected_answer)
-                        got_raw = candidate
-                        exp_n = _normalize_answer_text(exp_raw)
-                        got_n = _normalize_answer_text(got_raw)
-                        if exp_n and exp_n in got_n:
-                            reward_val = 1.0
-                except Exception:
-                    reward_val = 0.0
-                steps.append({"obs": {}, "tool_calls": [], "reward": reward_val, "done": False, "truncated": False, "info": None})
-                total_reward += float(reward_val)
-            else:
-                continue
+        try:
+            tool_names = []
+            for t in (payload.get("tools") or []):
+                if isinstance(t, dict):
+                    fn = (t.get("function") or {}) if isinstance(t.get("function"), dict) else {}
+                    name = fn.get("name")
+                    if isinstance(name, str):
+                        tool_names.append(name)
+            print(f"[math] system: <none>", flush=True)
+            print(f"[math] user: {user_prompt}", flush=True)
+            print(f"[math] tools: {tool_names}", flush=True)
+        except Exception:
+            pass
 
-        # Compose response similar to SDK contract (simplified)
+        headers = {}
+        if "/proxy" in inference_url:
+            sk = os.environ.get("SYNTH_API_KEY")
+            if sk:
+                headers["Authorization"] = f"Bearer {sk}"
+        with httpx.Client(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
+            resp = client.post(f"{inference_url}/v1/chat/completions", json=to_send, headers=headers)
+            try:
+                data = resp.json()
+            except Exception:
+                data = {"error": "invalid_json", "raw": resp.text[:400]}
+
+        llm_text = None
+        try:
+            _choices = data.get("choices") if isinstance(data, dict) else None
+            if isinstance(_choices, list) and _choices:
+                _msg = _choices[0].get("message", {}) if isinstance(_choices[0], dict) else {}
+                if isinstance(_msg, dict):
+                    _content = _msg.get("content")
+                    if isinstance(_content, str) and _content.strip():
+                        llm_text = _content
+        except Exception:
+            llm_text = None
+
+        try:
+            if question is not None:
+                print(f"[math] question: {question}", flush=True)
+            if llm_text is not None:
+                print(f"[math] llm: {llm_text}", flush=True)
+            if expected_answer is not None and llm_text is not None:
+                exp = str(expected_answer).strip()
+                got = llm_text.strip()
+                is_correct = exp and (exp in got)
+                print(f"[math] correct: {bool(is_correct)} (expected fragment: {exp})", flush=True)
+        except Exception:
+            pass
+
+        tool_answer = _parse_tool_answer(data)
+        history.append({"answer": tool_answer})
+        steps.append({
+            "obs": {},
+            "tool_calls": [{"tool_name": "submit_answer", "arguments": _json.dumps({"answer": tool_answer})}],
+            "reward": None,
+            "done": False,
+            "truncated": False,
+            "info": None,
+        })
+
+        # Evaluate answer correctness using tool output (or fall back to assistant text)
+        reward_val = 0.0
+        candidate = tool_answer or ""
+        try:
+            if not candidate and llm_text is not None:
+                candidate = _extract_boxed(llm_text) or llm_text
+            if expected_answer is not None:
+                exp_raw = _extract_boxed(str(expected_answer)) or str(expected_answer)
+                got_raw = candidate
+                exp_n = _normalize_answer_text(exp_raw)
+                got_n = _normalize_answer_text(got_raw)
+                if exp_n and exp_n in got_n:
+                    reward_val = 1.0
+        except Exception:
+            reward_val = 0.0
+
+        total_reward += float(reward_val)
+        steps.append({
+            "obs": {},
+            "tool_calls": [],
+            "reward": reward_val,
+            "done": True,
+            "truncated": False,
+            "info": None,
+        })
+
         return {
             "run_id": run_id,
-            "trajectories": [{"env_id": env_name, "policy_id": (policy or {}).get("policy_name") or "math-react", "steps": steps, "final": {"observation": {}}, "length": len(steps)}],
+            "trajectories": [{
+                "env_id": env_name,
+                "policy_id": (policy or {}).get("policy_name") or "math-react",
+                "steps": steps,
+                "final": {"observation": {}},
+                "length": len(steps),
+            }],
             "branches": {},
-            "metrics": {"episode_returns": [total_reward], "mean_return": float(total_reward), "num_steps": len(steps), "num_episodes": 1},
+            "metrics": {
+                "episode_returns": [total_reward],
+                "mean_return": float(total_reward),
+                "num_steps": len(steps),
+                "num_episodes": 1,
+            },
             "aborted": False,
             "ops_executed": len(steps),
         }

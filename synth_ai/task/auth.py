@@ -11,6 +11,7 @@ _API_KEY_ENV = "ENVIRONMENT_API_KEY"
 _DEV_API_KEY_ENVS = ("dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY")
 _API_KEY_HEADER = "x-api-key"
 _API_KEYS_HEADER = "x-api-keys"
+_AUTH_HEADER = "authorization"
 
 
 def _mask(value: str, *, prefix: int = 4) -> str:
@@ -84,7 +85,12 @@ def is_api_key_header_authorized(request: Any) -> bool:
         return False
     single = list(_header_values(request, _API_KEY_HEADER))
     multi = list(_header_values(request, _API_KEYS_HEADER))
-    candidates = _split_csv(single + multi)
+    auths = list(_header_values(request, _AUTH_HEADER))
+    bearer: list[str] = []
+    for a in auths:
+        if isinstance(a, str) and a.lower().startswith("bearer "):
+            bearer.append(a.split(" ", 1)[1].strip())
+    candidates = _split_csv(single + multi + bearer)
     return any(candidate == expected for candidate in candidates)
 
 
@@ -94,5 +100,33 @@ def require_api_key_dependency(request: Any) -> None:
     expected = normalize_environment_api_key()
     if not expected:
         raise http_exception(503, "missing_environment_api_key", "ENVIRONMENT_API_KEY is not configured")
-    if not is_api_key_header_authorized(request):
-        raise http_exception(401, "unauthorised", "API key missing or invalid")
+    # Build candidate list for verbose diagnostics
+    single = list(_header_values(request, _API_KEY_HEADER))
+    multi = list(_header_values(request, _API_KEYS_HEADER))
+    auths = list(_header_values(request, _AUTH_HEADER))
+    bearer: list[str] = []
+    for a in auths:
+        if isinstance(a, str) and a.lower().startswith("bearer "):
+            bearer.append(a.split(" ", 1)[1].strip())
+    candidates = _split_csv(single + multi + bearer)
+    if expected not in candidates:
+        try:
+            print({
+                "task_auth_failed": True,
+                "expected_first15": expected[:15],
+                "expected_len": len(expected),
+                "got_first15": [c[:15] for c in candidates],
+                "got_lens": [len(c) for c in candidates],
+                "have_x_api_key": bool(single),
+                "have_x_api_keys": bool(multi),
+                "have_authorization": bool(auths),
+            }, flush=True)
+        except Exception:
+            pass
+        # Use 400 to make failures unmistakable during preflight
+        raise http_exception(400, "unauthorised", "API key missing or invalid", extra={
+            "expected_first15": expected[:15],
+            "expected_len": len(expected),
+            "got_first15": [c[:15] for c in candidates],
+            "got_lens": [len(c) for c in candidates],
+        })

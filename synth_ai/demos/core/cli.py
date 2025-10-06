@@ -13,7 +13,19 @@ import textwrap
 
 from synth_ai.demos.demo_task_apps import core as demo_core
 from synth_ai.handshake import run_handshake, HandshakeError
-from synth_ai.demos.demo_task_apps.core import DemoEnv
+from synth_ai.demos.demo_task_apps.core import DemoEnv, DEFAULT_TASK_APP_SECRET_NAME
+
+
+def _key_preview(value: str, label: str) -> str:
+    """Return a short descriptor for a secret without leaking the full value."""
+    try:
+        text = value or ""
+        length = len(text)
+        prefix = text[:6] if length >= 6 else text
+        suffix = text[-5:] if length >= 5 else text
+        return f"{label} len={length} prefix={prefix} last5={suffix}"
+    except Exception:
+        return f"{label} len=0"
 
 
 def _is_modal_public_url(u: str) -> bool:
@@ -100,7 +112,6 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             dotenv_values = {
                 "TASK_APP_BASE_URL": new_url,
                 "TASK_APP_NAME": env.task_app_name,
-                "TASK_APP_SECRET_NAME": env.task_app_secret_name or f"{env.task_app_name}-secret",
             }
             demo_core.persist_dotenv_values(dotenv_values)
             os.environ["TASK_APP_BASE_URL"] = new_url
@@ -220,55 +231,6 @@ def _popen_stream_capture(cmd: list[str], cwd: str | None = None, env: dict | No
     else:
         proc.wait()
     return int(proc.returncode or 0), "\n".join(buf_lines)
-
-
-def _mask_secret_args(args: list[str]) -> list[str]:
-    masked: list[str] = []
-    for a in args:
-        if "=" in a and any(a.startswith(prefix) for prefix in ("ENVIRONMENT_API_KEY=", "OPENAI_API_KEY=", "SYNTH_API_KEY=")):
-            try:
-                key, value = a.split("=", 1)
-                tail = value[-5:] if len(value) >= 5 else value
-                masked.append(f"{key}=***{tail}")
-            except Exception:
-                masked.append("<masked>")
-        else:
-            masked.append(a)
-    return masked
-
-
-def _ensure_modal_secret(
-    secret_name: str,
-    *,
-    values: dict[str, str],
-    label: str = "deploy",
-    replace: bool = False,
-) -> bool:
-    prefix = f"[{label}]"
-    if not secret_name.strip():
-        raise RuntimeError("Secret name is required")
-
-    if not values:
-        raise RuntimeError("No values provided to create Modal secret")
-
-    create_args = [f"{k}={v}" for k, v in values.items()]
-    create_cmd = ["uv", "run", "modal", "secret", "create", secret_name, *create_args]
-
-    if replace:
-        print(f"{prefix} Removing Modal secret '{secret_name}' (if present)…")
-        delete_cmd = ["bash", "-lc", f"printf 'y\\n' | uv run modal secret delete {secret_name}"]
-        print(f"{prefix} Command:", " ".join(delete_cmd))
-        delete_code = _popen_stream(delete_cmd)
-        if delete_code != 0:
-            print(f"{prefix} Warning: delete command exited with {delete_code}; continuing to create")
-
-    print(f"\n{prefix} Creating Modal secret '{secret_name}'…")
-    print(f"{prefix} Command:", " ".join(_mask_secret_args(create_cmd)))
-    code = _popen_stream(create_cmd)
-    if code != 0:
-        raise RuntimeError("Failed to provision Modal secret (see logs above)")
-
-    return True
 
 
 def _fmt_float(value: float) -> str:
@@ -639,30 +601,25 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         app_name = fallback
         demo_core.persist_task_url(task_url, name=app_name)
 
-    secret_name = env.task_app_secret_name.strip() or f"{app_name}-secret"
     demo_core.persist_task_url(task_url, name=app_name)
     demo_core.persist_dotenv_values({
         "TASK_APP_BASE_URL": task_url,
         "TASK_APP_NAME": app_name,
-        "TASK_APP_SECRET_NAME": secret_name,
+        "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
     })
 
-    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
-    secret_values: dict[str, str] = {"ENVIRONMENT_API_KEY": env_key}
-    if openai_key:
-        secret_values["OPENAI_API_KEY"] = openai_key
     if synth_key:
-        secret_values["SYNTH_API_KEY"] = synth_key
+        os.environ["SYNTH_API_KEY"] = synth_key
 
-    _ensure_modal_secret(secret_name, values=secret_values, label=label, replace=True)
+    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
+    if openai_key:
+        os.environ["OPENAI_API_KEY"] = openai_key
 
     rollout_url = task_url.rstrip("/") + "/health/rollout"
     print(f"[{label}] Verifying rollout health:")
     try:
         ek = (env_key or "").strip()
-        ek_len = len(ek)
-        ek_tail = ek[-5:] if ek_len >= 5 else ek
-        print(f"[{label}] Using ENVIRONMENT_API_KEY len={ek_len} last5={ek_tail}")
+        print(f"[{label}] {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
     except Exception:
         pass
     health_base = task_url.rstrip("/")
@@ -685,21 +642,27 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     print(f"[{label}] body:", preview)
     if rc != 200:
         print(f"[{label}] Warning: rollout health check failed ({rc}). Response: {body}")
+        try:
+            print(f"[{label}] Sent header X-API-Key → {_key_preview(env_key, 'X-API-Key')}")
+        except Exception:
+            pass
     else:
         print(f"[{label}] Task app rollout health check OK.")
 
     os.environ["TASK_APP_BASE_URL"] = task_url
     os.environ["ENVIRONMENT_API_KEY"] = env_key
+    os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     updated_env = demo_core.load_env()
     updated_env.env_api_key = env_key
     updated_env.task_app_base_url = task_url
     updated_env.task_app_name = app_name
-    updated_env.task_app_secret_name = secret_name
+    updated_env.task_app_secret_name = DEFAULT_TASK_APP_SECRET_NAME
     return updated_env
 
 
 def cmd_deploy(args: argparse.Namespace) -> int:
     env = demo_core.load_env()
+    os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)
     url = ""
@@ -777,11 +740,6 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     print("Aborted by user.")
                     return 1
 
-                prev_secret = (env.task_app_secret_name or "").strip()
-                default_secret = f"{name_in}-secret"
-                secret_name = default_secret if not prev_secret else prev_secret
-                if prev_secret and prev_secret != default_secret:
-                    secret_name = default_secret
                 existing_env_key = (env.env_api_key or "").strip()
                 env_key: str | None = existing_env_key or None
                 if existing_env_key:
@@ -804,6 +762,8 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     env.env_api_key = env_key
                     local_env["ENVIRONMENT_API_KEY"] = env_key
                     print("[deploy] Minted new ENVIRONMENT_API_KEY")
+                elif env_key:
+                    os.environ["ENVIRONMENT_API_KEY"] = env_key
                 
                 # Optionally upload the new key to the backend using sealed box helper
                 backend_base = (env.dev_backend_url or "").rstrip("/")
@@ -834,13 +794,14 @@ def cmd_deploy(args: argparse.Namespace) -> int:
 
                 synth_key = (env.synth_api_key or os.environ.get("SYNTH_API_KEY") or local_env.get("SYNTH_API_KEY") or "").strip()
                 if not synth_key:
-                    synth_key = input("Enter SYNTH_API_KEY for Modal secret (required): ").strip()
+                    synth_key = input("Enter SYNTH_API_KEY for deployment (required): ").strip()
                     if not synth_key:
-                        print("SYNTH_API_KEY is required to create the Modal secret.")
+                        print("SYNTH_API_KEY is required for deployment.")
                         return 1
                     demo_core.persist_api_key(synth_key)
                     demo_core.persist_dotenv_values({"SYNTH_API_KEY": synth_key})
                     env.synth_api_key = synth_key
+                os.environ["SYNTH_API_KEY"] = synth_key
 
                 openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
                 if not openai_key:
@@ -848,22 +809,11 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                         "Enter your OpenAI API key, found at https://platform.openai.com/api-keys\n> "
                     ).strip()
                     if not openai_key:
-                        print("OPENAI_API_KEY is required to create the Modal secret.")
+                        print("OPENAI_API_KEY is required for deployment.")
                         return 1
                     demo_core.persist_dotenv_values({"OPENAI_API_KEY": openai_key})
                     local_env["OPENAI_API_KEY"] = openai_key
-
-                values = {"SYNTH_API_KEY": synth_key, "OPENAI_API_KEY": openai_key}
-                if env_key:
-                    values["ENVIRONMENT_API_KEY"] = env_key
-
-                try:
-                    created = _ensure_modal_secret(secret_name, values=values, label="deploy", replace=True)
-                except RuntimeError as secret_err:
-                    print(f"Failed to prepare Modal secret '{secret_name}': {secret_err}")
-                    return 2
-                if created:
-                    print(f"[deploy] Modal secret '{secret_name}' provisioned.")
+                os.environ["OPENAI_API_KEY"] = openai_key
 
                 deploy_cmd = ["uv", "run", "python", "-m", "modal", "deploy", "--name", name_in, app_path]
                 print("\nStreaming Modal build/deploy logs (this can take several minutes on first run)…\n")
@@ -913,7 +863,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         dotenv_values = {"TASK_APP_BASE_URL": url}
         if app_name:
             dotenv_values["TASK_APP_NAME"] = app_name
-            dotenv_values["TASK_APP_SECRET_NAME"] = f"{app_name}-secret"
+        dotenv_values["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
         dotenv_path = demo_core.persist_dotenv_values(dotenv_values)
         print(f"TASK_APP_BASE_URL={url}")
         if app_name:
@@ -922,7 +872,6 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         print(f"  export TASK_APP_BASE_URL={url}")
         if app_name:
             print(f"  export TASK_APP_NAME={app_name}")
-            print(f"  export TASK_APP_SECRET_NAME={app_name}-secret")
         print(f"Persisted to {dotenv_path}")
         print("\nNext step:\n$ uvx synth-ai run")
         return 0
@@ -1195,10 +1144,10 @@ def cmd_run(args: argparse.Namespace) -> int:
             ek = (env.env_api_key or "").strip()
             print("Hint: If backend responded 401, verify SYNTH_API_KEY for:", base_url)
             if sk:
-                print(f"  SYNTH_API_KEY len={len(sk)} last5={sk[-5:]}")
+                print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
             if ek:
-                print(f"  ENVIRONMENT_API_KEY len={len(ek)} last5={ek[-5:]}")
-            print("Also ensure your Modal secret contains ENVIRONMENT_API_KEY and matches the task app.")
+                print(f"  {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
+            print("Ensure the ENVIRONMENT_API_KEY you deployed with matches the task app and remains exported.")
         return code
 
     # Fallback: legacy jobs API flow
@@ -1218,7 +1167,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         sk_len = len(sk)
         sk_tail = sk[-5:] if sk_len >= 5 else sk
         print(f"[run] Backend API: {api}")
-        print(f"[run] Using SYNTH_API_KEY len={sk_len} last5={sk_tail}")
+        print(f"[run] {_key_preview(sk, 'SYNTH_API_KEY')}")
     except Exception:
         pass
     data_fragment: Dict[str, Any] = {
@@ -1267,6 +1216,59 @@ def cmd_run(args: argparse.Namespace) -> int:
         except Exception:
             print(str(js))
         print("Request body was:\n" + json.dumps(body, indent=2))
+        try:
+            auth_preview = _key_preview(env.synth_api_key or "", "SYNTH_API_KEY (auth)")
+            print(f"[run] {auth_preview}")
+        except Exception:
+            pass
+        try:
+            data_block = body.get("data") if isinstance(body, dict) else None
+            env_key_body = ""
+            if isinstance(data_block, dict):
+                env_key_body = str(data_block.get("environment_api_key") or "")
+            if env_key_body:
+                print(f"[run] {_key_preview(env_key_body, 'environment_api_key (body)')}")
+        except Exception:
+            pass
+        try:
+            current_env_key = env.env_api_key or ""
+            if current_env_key:
+                print(f"[run] {_key_preview(current_env_key, 'ENVIRONMENT_API_KEY (current)')}")
+        except Exception:
+            pass
+        if isinstance(js, dict):
+            detail = js.get("detail")
+            if isinstance(detail, dict):
+                try:
+                    sent_key = detail.get("sent_key")
+                    if isinstance(sent_key, str):
+                        print(f"[run] Backend detail.sent_key {_key_preview(sent_key, 'detail.sent_key')}")
+                except Exception:
+                    pass
+                try:
+                    sent_keys = detail.get("sent_keys")
+                    if isinstance(sent_keys, (list, tuple)):
+                        previews = []
+                        for idx, val in enumerate(sent_keys):
+                            if isinstance(val, str):
+                                previews.append(_key_preview(val, f"detail.sent_keys[{idx}]"))
+                        if previews:
+                            joined = "; ".join(previews)
+                            print(f"[run] Backend detail.sent_keys previews: {joined}")
+                except Exception:
+                    pass
+                try:
+                    key_prefix = detail.get("sent_key_prefix")
+                    if isinstance(key_prefix, str):
+                        print(f"[run] Backend detail.sent_key_prefix={key_prefix}")
+                except Exception:
+                    pass
+                try:
+                    health_url = detail.get("health_url")
+                    if isinstance(health_url, str):
+                        print(f"[run] Backend detail.health_url={health_url}")
+                except Exception:
+                    pass
         # Extra hints for auth failures
         try:
             sk = (env.synth_api_key or "").strip()
@@ -1274,8 +1276,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 base_url = env.dev_backend_url
                 print("Hint: HTTP 401 Unauthorized from backend. Verify SYNTH_API_KEY for:", base_url)
                 if sk:
-                    print(f"  SYNTH_API_KEY len={len(sk)} last5={sk[-5:]}")
-                print("Also ensure your Modal secret contains a valid ENVIRONMENT_API_KEY.")
+                    print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
+                print("Ensure the ENVIRONMENT_API_KEY and OPENAI_API_KEY used for deployment remain valid.")
         except Exception:
             pass
         return 2

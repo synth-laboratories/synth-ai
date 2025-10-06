@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -177,6 +178,7 @@ async def step_policy(
     try:
         task_app = req.app.state.task_app
         policy = handle.policy
+        tracing_context = getattr(req.state, "rollout_tracing", None)
 
         # Format observation text conditionally for each env
         if isinstance(request.observation, dict):
@@ -309,6 +311,9 @@ async def step_policy(
             # CRITICAL: Validate that the inference request contains the correct prompts for the policy
             inf_req = meta["inference_request"]
             msgs = inf_req["messages"]
+            model_name = inf_req.get("model") or getattr(policy, "model", None) or ""
+            system_messages: List[str] = []
+            user_messages: List[str] = []
             if msgs and len(msgs) > 0 and msgs[0]["role"] == "system":
                 sys_text = msgs[0]["content"]
                 policy_name = (
@@ -406,6 +411,12 @@ async def step_policy(
             except Exception as e:
                 logger.warning(f"PROMPT_DUMP_FAILED: {e}")
 
+            if tracing_context is not None:
+                try:
+                    await tracing_context.record_policy_prompts(system_messages, user_messages)
+                except Exception as exc:
+                    logger.debug(f"TRACING_PROMPTS_FAIL: {exc}")
+
             # Create inference client (choose API key by target provider)
             # Require inference_url to be set explicitly by the rollout policy config.
             target_url = (
@@ -424,12 +435,27 @@ async def step_policy(
             api_key_override = None
             try:
                 import os as _os
-                if isinstance(target_url, str) and "groq.com" in target_url.lower():
-                    api_key_override = _os.getenv("GROQ_API_KEY")
+                if isinstance(target_url, str):
+                    low_url = target_url.lower()
+                    if "openai.com" in low_url:
+                        api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
+                    elif "groq.com" in low_url:
+                        api_key_override = _os.getenv("GROQ_API_KEY")
+                    else:
+                        api_key_override = _os.getenv("SYNTH_API_KEY") or _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
                 else:
-                    api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
+                    api_key_override = _os.getenv("SYNTH_API_KEY") or _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
             except Exception:
                 api_key_override = None
+
+            if api_key_override:
+                try:
+                    masked = f"{api_key_override[:6]}…{api_key_override[-4:]}"
+                except Exception:
+                    masked = "<masked>"
+                logger.debug(f"INFERENCE_AUTH: Using bearer key {masked}")
+            else:
+                logger.warning("INFERENCE_AUTH: No API key resolved for inference request; downstream may 401")
 
             client = create_inference_client(task_app, api_key=api_key_override)
 
@@ -737,6 +763,7 @@ async def step_policy(
                 pass
 
             _t_start = _t.time()
+            call_started_at = datetime.utcnow()
             inference_response = await client.generate_with_retries(
                 request=meta["inference_request"],
                 base_url=meta["inference_url"],
@@ -745,6 +772,16 @@ async def step_policy(
                 extra_headers=extra_headers,
             )
             meta["inference_ms"] = int((_t.time() - _t_start) * 1000)
+            call_completed_at = datetime.utcnow()
+
+            provider_url = str(meta.get("inference_url") or "")
+            low_url = provider_url.lower()
+            if "groq" in low_url:
+                provider_name = "groq"
+            elif "openai" in low_url:
+                provider_name = "openai"
+            else:
+                provider_name = "custom"
 
             # Parse response to tool calls
             tool_calls = policy.parse_response_to_tool_calls(
@@ -798,6 +835,21 @@ async def step_policy(
             meta["raw_response"] = inference_response
             if "usage" in inference_response:
                 meta["usage"] = inference_response["usage"]
+
+            if tracing_context is not None:
+                try:
+                    await tracing_context.record_llm_call(
+                        inference_request=meta["inference_request"],
+                        inference_response=inference_response,
+                        tool_calls=tool_calls,
+                        provider=provider_name,
+                        model_name=model_name,
+                        started_at=call_started_at,
+                        completed_at=call_completed_at,
+                        latency_ms=meta.get("inference_ms"),
+                    )
+                except Exception as exc:
+                    logger.debug(f"TRACING_LLM_FAIL: {exc}")
 
         return PolicyStepResponse(
             tool_calls=tool_calls,

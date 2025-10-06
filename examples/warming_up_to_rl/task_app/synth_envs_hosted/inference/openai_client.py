@@ -437,7 +437,9 @@ class OpenAIClient:
                                 })
                             except Exception:
                                 pass
-                            raise
+                            raise RuntimeError(
+                                f"Inference 400 response: {e.response.text if e.response is not None else 'Bad Request'}"
+                            ) from e
                     except Exception:
                         # If we can't parse the response, don't retry 400 errors
                         try:
@@ -448,7 +450,9 @@ class OpenAIClient:
                             })
                         except Exception:
                             pass
-                        raise
+                        raise RuntimeError(
+                            f"Inference 400 response (unparsed): {e.response.text if e.response is not None else 'Bad Request'}"
+                        ) from e
                 elif e.response.status_code == 503:
                     # Avoid referencing undefined response_data
                     try:

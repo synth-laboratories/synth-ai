@@ -1,90 +1,172 @@
-# Warming Up to RL - Examples
+# Warming Up to RL (Crafter)
 
-This folder contains a minimal Crafter-like task app and scripts for baseline evals, finetuning, RL submission, and evaluations.
+The Crafter example demonstrates the full Synth AI workflow: task app serving, Groq rollouts, tracing, SFT dataset export, FFT training, evaluation of fine-tuned models, and RL training.
 
-## Prereqs
+## Quick Reference Commands
+
+- Serve task app locally with tracing:
+  ```bash
+  uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3
+  ```
+- Deploy to Modal:
+  ```bash
+  uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
+  ```
+- Groq rollout (server-side):
+  ```bash
+  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_groq_qwen32b.toml --use-rollout
+  ```
+- Export SFT data from traced runs:
+  ```bash
+  python examples/warming_up_to_rl/export_trace_sft.py --db traces/v3/synth_ai.db --output ft_data/crafter_traces.jsonl
+  ```
+- FFT via CLI:
+  ```bash
+  uvx synth-ai train --type sft --config examples/warming_up_to_rl/configs/crafter_fft.toml --dataset /absolute/path/to/data.jsonl
+  ```
+- Evaluate FFT checkpoint:
+  ```bash
+  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_fft_qwen4b.toml --use-rollout
+  ```
+- RL via CLI (FFT-first):
+  ```bash
+  uvx synth-ai train --type rl --config examples/warming_up_to_rl/configs/rl_from_ft.toml
+  ```
+
+---
+
+## 1. Prerequisites
+
 - Python 3.11+
-- `.env` populated at `examples/warming_up_to_rl/.env` (copy from your research repo)
-- Modal CLI configured if deploying the task app
+- `uv`/`uvx` available (or install Synth in a virtualenv)
+- Modal CLI (`modal token new`) if you plan to deploy the task app
+- `.env` in this directory with at least:
+  - `SYNTH_API_KEY`
+  - `ENVIRONMENT_API_KEY`
+  - `TASK_APP_URL` (when running against a hosted task app)
+  - Optional: `GROQ_API_KEY`, `OPENAI_API_KEY` for proxy endpoints
 
-## Deploy the task app to Modal
+`uvx synth-ai setup` can populate the `.env` by guiding you through the dashboard handshake.
 
-```
-cd examples/warming_up_to_rl/task_app
-modal deploy grpo_crafter_task_app.py
-```
+> All commands below assume you are running from the repository root unless noted.
 
-App name uses suffix `_warming_up_ex`. Ensure your Modal secret(s) include:
-- `ENVIRONMENT_API_KEY` (required)
-- `OPENAI_API_KEY` (optional; for OpenAI proxy)
-- `GROQ_API_KEY` (optional; for Groq proxy)
+## 2. Task App Operations
 
-## Baseline evaluations (TOML-driven)
+### Local development
 
-- Groq Qwen3-32B (server-side rollout):
-```
-TASK_APP_URL=https://your-app.modal.run \
-uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_groq_qwen32b.toml --use-rollout
+```bash
+uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3 --trace-db traces/v3/synth_ai.db
 ```
 
-- Synth vLLM Qwen/Qwen3-4B (server-side rollout; explicit inference_url in TOML):
-```
-TASK_APP_URL=https://your-app.modal.run \
-uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_modal_qwen4b.toml --use-rollout
+- `--trace` and `--trace-db` enable tracing v3 and SFT JSONL dumps.
+- Add `--reload` for uvicorn auto-reload while editing code.
+
+### Modal deploy / serve
+
+```bash
+uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app --env-file examples/warming_up_to_rl/.env
+uvx synth-ai modal-serve grpo-crafter --name grpo-crafter-task-app --env-file examples/warming_up_to_rl/.env
 ```
 
-- Finetuned Qwen/Qwen3-4B (FFT) via Modal Learning v2 (server-side rollout):
+Both commands preflight the environment key with the backend when `SYNTH_API_KEY` is present.
+
+## 3. Baseline Evaluations (Groq and Synth vLLM)
+
+Evaluation scripts auto-load `.env` values. Update TOMLs under `configs/` with the correct `task_app_url` and provider-specific model names.
+
+- Groq Qwen3-32B:
+  ```bash
+  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_groq_qwen32b.toml --use-rollout
+  ```
+- Synth vLLM Qwen3-4B (Modal-hosted inference URL specified in TOML):
+  ```bash
+  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_modal_qwen4b.toml --use-rollout
+  ```
+
+`--use-rollout` drives the task app’s `/rollout` endpoint so achievements and metrics are captured. Without it the script issues per-step `initialize/step/terminate` calls.
+
+## 4. Tracing and SFT Dataset Export
+
+1. Serve the task app with tracing enabled (see Section 2) or run the traced rollout helper:
+   ```bash
+   uv run python examples/warming_up_to_rl/run_local_rollout_traced.py --episodes 10 --difficulty easy
+   ```
+2. Inspect local trace databases:
+   ```bash
+   uvx synth-ai traces --limit 10
+   ```
+3. Export JSONL suitable for SFT:
+   ```bash
+   python examples/warming_up_to_rl/export_trace_sft.py \
+     --db traces/v3/synth_ai.db \
+     --min-achievements 3 \
+     --output ft_data/crafter_traces.jsonl
+   ```
+
+The exporter enriches each example with achievements unlocked, model metadata, and reward summaries.
+
+## 5. SFT / FFT Training
+
+### Preferred: `uvx synth-ai train`
+
+```bash
+uvx synth-ai train \
+  --type sft \
+  --config examples/warming_up_to_rl/configs/crafter_fft.toml \
+  --dataset /absolute/path/to/crafter_traces.jsonl
 ```
-TASK_APP_URL=https://your-app.modal.run \
+
+The CLI will:
+- Prompt for `.env` selection (or use `--env-file`).
+- Upload training (and optional validation) data to `/learning/files`.
+- Submit the job and poll until completion unless `--no-poll` is set.
+
+### Legacy script
+
+```bash
+uv run python examples/warming_up_to_rl/run_fft_and_save.py \
+  --toml examples/warming_up_to_rl/configs/crafter_fft.toml \
+  --data /absolute/path/to/crafter_traces.jsonl \
+  --poll-seconds 1800
+```
+
+The script writes the resulting model ID to `ft_model_id.txt`. Use that ID in evaluation and RL configs (e.g., `model = "ft:abc123"`).
+
+## 6. Evaluate the Fine-tuned Model
+
+After FFT completes, update `configs/eval_fft_qwen4b.toml` so `model = "ft:<model_id>"`, then rerun the evaluation:
+
+```bash
 uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_fft_qwen4b.toml --use-rollout
 ```
 
-The TOML controls:
-- `task_app_url`, `model`
-- `inference_url`, `max_tokens`, `thinking_mode`, `thinking_budget`
-- `num_episodes`, `max_turns`, `concurrency`, and optional `difficulty`
+This reuses the same Groq/vLLM pipeline but exercises the finetuned checkpoint.
 
-## Finetuning (FFT)
+## 7. RL Training
 
-Submit full finetune job (saves model id to `ft_model_id.txt`):
-```
-export BACKEND_BASE_URL=... SYNTH_API_KEY=...
-python examples/warming_up_to_rl/run_fft_and_save.py \
-  --toml examples/warming_up_to_rl/configs/crafter_fft.toml \
-  --data /absolute/path/to/your_sft.jsonl
-```
+### Preferred: `uvx synth-ai train --type rl`
 
-## RL (TOML-only model selection)
-
-- RL from finetuned model id (set `[model].source = "ft:..."` in TOML):
-```
-export BACKEND_BASE_URL=... SYNTH_API_KEY=... TASK_APP_URL=https://your-app.modal.run
-python examples/warming_up_to_rl/run_rl_and_save.py \
-  --config examples/warming_up_to_rl/configs/rl_from_ft.toml
-```
-
-- RL from base Qwen/Qwen3-4B (set `[model].base = "Qwen/Qwen3-4B"` in TOML):
-```
-export BACKEND_BASE_URL=... SYNTH_API_KEY=... TASK_APP_URL=https://your-app.modal.run
-python examples/warming_up_to_rl/run_rl_and_save.py \
+```bash
+uvx synth-ai train \
+  --type rl \
   --config examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml
 ```
 
-See `experiment_plan.txt` for detailed specs and acceptance criteria.
+During the interactive setup the CLI ensures `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, and `TASK_APP_URL` are present, health-checks the task app, and submits the RL job to `/rl/jobs`.
 
+### Legacy script
 
+```bash
+uv run python examples/warming_up_to_rl/run_rl_and_save.py \
+  --config examples/warming_up_to_rl/configs/rl_from_ft.toml
+```
 
+To start directly from a base model, switch the config to `rl_from_base_qwen4b.toml` and ensure `[model].base` is populated.
 
+## 8. Additional Utilities
 
-uv run /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/run_rl_and_save.py \
-  --config /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml
+- `manage_secrets.py` – convenience helpers for Modal secret management.
+- `run_local_rollout.py`, `run_local_rollout_parallel.py`, `run_rollout_remote.py` – alternative rollout launchers for benchmarking.
+- `analyze_trace_db.py` – inspect trace quality/achievements before exporting.
 
-
-BACKEND_BASE_URL=https://synth-backend-dev-docker.onrender.com/api SYNTH_API_KEY=$(grep -E "^SYNTH_API_KEY=" /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/.env | head -n1 | cut -d= -f2- | tr -d '"') uv run python examples/warming_up_to_rl/run_fft_and_save.py --toml examples/warming_up_to_rl/configs/crafter_fft_4b.toml --data /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/ft_data/qwen3_32b_ach_ge3_raw_filtered.tokens_1000000_seed_123.jsonl --poll-seconds 3600
-
-BACKEND_BASE_URL=http://localhost:8000/api \
-SYNTH_API_KEY=$(grep -E "^SYNTH_API_KEY=" /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/.env | head -n1 | cut -d= -f2- | tr -d '"') \
-uv run python /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/run_fft_and_save.py \
-  --toml /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/configs/crafter_fft_4b.toml \
-  --data /Users/joshpurtell/Documents/GitHub/synth-ai/examples/warming_up_to_rl/ft_data/qwen3_32b_ach_ge3_raw_filtered.tokens_1000000_seed_123.jsonl \
-  --poll-seconds 3600
+Refer to `docs/workflows/` for end-to-end guidance that mirrors these commands.

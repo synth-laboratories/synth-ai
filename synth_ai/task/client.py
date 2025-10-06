@@ -26,7 +26,7 @@ class TaskAppClient:
         base_url: str,
         api_key: str | None = None,
         *,
-        timeout: float = 30.0,
+        timeout: float = 600.0,
         retries: int = 3,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -146,4 +146,3 @@ class _TaskAppEnvironmentClient:
             "POST", f"/env/{env_name}/terminate", json_payload=payload or {}
         )
         return response.json()
-

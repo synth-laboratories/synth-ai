@@ -46,6 +46,14 @@ from .rubrics import (
 from .client import TaskAppClient
 from .errors import error_payload, http_exception, json_error_response
 
+
+from .server import (
+    TaskAppConfig,
+    ProxyConfig,
+    RubricBundle,
+    create_task_app,
+    run_task_app,
+)
 __all__ = [
     "validate_task_app_url",
     "task_app_health",
@@ -87,4 +95,9 @@ __all__ = [
     "error_payload",
     "http_exception",
     "json_error_response",
+    "run_task_app",
+    "create_task_app",
+    "RubricBundle",
+    "ProxyConfig",
+    "TaskAppConfig",
 ]

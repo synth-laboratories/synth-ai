@@ -1,0 +1,35 @@
+[services]
+task_url = "https://your-math-task.modal.run"
+
+[model]
+base = "Qwen/Qwen3-4B"
+
+[policy]
+model = "Qwen/Qwen3-4B"
+inference_url = "https://your-inference-host"
+max_tokens = 128
+temperature = 0.0
+
+[data]
+split = "train"
+seed_start = 0
+episodes_per_iteration = 2048
+evaluation_split = "validation"
+evaluation_episodes = 256
+
+[training]
+max_turns = 1
+ops = ["agent", "env"]
+batch_size = 128
+group_size = 1024
+reward_positive = 1.0
+reward_negative_no_tool = -1.0
+reward_negative_no_answer = -0.5
+learning_rate = 5e-6
+
+[compute]
+gpu_type = "A10G"
+gpu_count = 4
+
+[tags]
+experiment = "math_single_step"

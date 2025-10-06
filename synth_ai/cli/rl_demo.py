@@ -161,12 +161,12 @@ def register(cli):
         _forward(args)
 
     # Top-level convenience alias: `synth-ai deploy`
-    @cli.command("deploy")
+    @cli.command("demo-deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
     @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
     @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
-    def deploy_top(local: bool, app: str | None, name: str, script: str | None):
+    def deploy_demo(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
             args.append("--local")
