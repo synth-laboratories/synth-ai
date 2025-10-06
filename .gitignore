@@ -127,6 +127,8 @@ examples/finetuning/_backup_synth_qwen/
 **/*.md
 !README.md
 !**/README.md
+!docs/*.md
+!docs/**/*.md
 
 # Re-ignore Python caches and bytecode even under bandit force-include
 synth_ai/environments/examples/bandit/**/__pycache__/
