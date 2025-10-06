@@ -1042,6 +1042,13 @@ def cmd_init(args: argparse.Namespace) -> int:
                 cfg_dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(config_src, cfg_dst)
 
+        if selected.post_copy is not None:
+            try:
+                selected.post_copy(destination)
+            except Exception as post_exc:
+                print(f"Post-processing failed: {post_exc}")
+                return 1
+
         print(f"Demo template '{selected.name}' materialised at {destination}.")
         print("Files created:")
         for spec in selected.iter_copy_specs():

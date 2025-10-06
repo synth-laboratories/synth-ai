@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,6 +34,7 @@ class DemoTemplate:
     config_source: str | None = None
     config_destination: str = "demo_config.toml"
     requires_modal: bool = False
+    post_copy: Callable[[Path], None] | None = None
 
     def iter_copy_specs(self) -> Iterable[CopySpec]:
         return self.copy_specs
@@ -74,6 +75,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
         ),
         config_source="synth_ai/demos/demo_task_apps/math/config.toml",
         requires_modal=True,
+        post_copy=lambda root: _postprocess_math_modal(root),
     ),
     DemoTemplate(
         template_id="crafter-local",
@@ -100,6 +102,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
         config_source="examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml",
         config_destination="demo_config.toml",
         requires_modal=False,
+        post_copy=lambda root: _postprocess_crafter_local(root),
     ),
 )
 
@@ -114,3 +117,24 @@ def get_demo_template(template_id: str) -> DemoTemplate | None:
 def list_demo_templates() -> tuple[DemoTemplate, ...]:
     return DEMO_TEMPLATES
 
+
+def _postprocess_math_modal(root: Path) -> None:
+    task_path = (root / "task_app.py").resolve()
+    if not task_path.exists():
+        return
+    text = task_path.read_text(encoding="utf-8")
+    text = text.replace('App("hendrycks-math-task-app")', 'App("hendrycks-math-task-app-demo")')
+    text = text.replace('DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"', 'DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"')
+    task_path.write_text(text, encoding="utf-8")
+
+
+def _postprocess_crafter_local(root: Path) -> None:
+    task_path = (root / "task_app.py").resolve()
+    if not task_path.exists():
+        return
+    text = task_path.read_text(encoding="utf-8")
+    sentinel = "return create_task_app(build_config())"
+    replacement = "    config = build_config()\n    try:\n        config.app_id = f\"{config.app_id}-demo\"\n    except AttributeError:\n        pass\n    return create_task_app(config)"
+    if sentinel in text:
+        text = text.replace(sentinel, replacement)
+    task_path.write_text(text, encoding="utf-8")
