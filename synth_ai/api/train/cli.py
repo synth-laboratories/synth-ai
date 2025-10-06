@@ -161,6 +161,27 @@ def train_command(
         explicit_env_paths=env_files,
         required_keys=required_keys,
     )
+
+    missing_keys = [
+        spec.key
+        for spec in required_keys
+        if spec.key and not (env_values.get(spec.key) or os.environ.get(spec.key))
+    ]
+    if missing_keys:
+        try:
+            from synth_ai.cli.task_apps import _interactive_fill_env
+        except Exception as exc:  # pragma: no cover - protective fallback
+            raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
+
+        target_dir = cfg_path.parent
+        generated = _interactive_fill_env(target_dir / ".env")
+        if generated is None:
+            raise click.ClickException("Required environment values missing; aborting.")
+        env_path, env_values = resolve_env(
+            config_path=cfg_path,
+            explicit_env_paths=(str(generated),),
+            required_keys=required_keys,
+        )
     click.echo(f"Using env file: {env_path}")
 
     synth_key = env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")

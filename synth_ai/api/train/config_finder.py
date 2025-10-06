@@ -37,6 +37,22 @@ def _iter_candidate_paths() -> Iterable[Path]:
             seen.add(resolved)
             yield resolved
 
+    # Additionally, discover configs anywhere under the current working directory
+    # so users can run `uvx synth-ai train` from project roots without passing --config.
+    try:
+        cwd = Path.cwd().resolve()
+    except Exception:
+        cwd = None
+    if cwd and cwd.exists():
+        for path in cwd.rglob("*.toml"):
+            if any(part in _SKIP_DIRS for part in path.parts):
+                continue
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            yield resolved
+
 
 def _infer_config_type(data: dict) -> str:
     if isinstance(data.get("training"), dict) or isinstance(data.get("hyperparameters"), dict):

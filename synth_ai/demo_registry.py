@@ -60,6 +60,11 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
                 "deploy_task_app.sh",
                 make_executable=True,
             ),
+            # Provide ready-to-run RL config for math
+            CopySpec(
+                "examples/rl/configs/rl_from_base_qwen17.toml",
+                "configs/rl_from_base_qwen17.toml",
+            ),
         ),
         default_subdir="math_demo",
         env_lines=(
@@ -89,6 +94,15 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
             CopySpec(
                 "examples/warming_up_to_rl/task_app/README.md",
                 "README.md",
+            ),
+            # Provide both RL and SFT training configs for Crafter
+            CopySpec(
+                "examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml",
+                "configs/rl_from_base_qwen4b.toml",
+            ),
+            CopySpec(
+                "examples/warming_up_to_rl/configs/crafter_fft_4b.toml",
+                "configs/crafter_fft_4b.toml",
             ),
         ),
         default_subdir="crafter_demo",

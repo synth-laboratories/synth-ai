@@ -495,7 +495,7 @@ def _load_entry_from_path(path: Path, app_id: str) -> TaskAppEntry:
     return entry
 
 
-def _resolve_env_paths_for_script(explicit: Sequence[str]) -> list[Path]:
+def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) -> list[Path]:
     if explicit:
         resolved: list[Path] = []
         for candidate in explicit:
@@ -505,7 +505,9 @@ def _resolve_env_paths_for_script(explicit: Sequence[str]) -> list[Path]:
             resolved.append(p)
         return resolved
 
+    script_dir = script_path.parent.resolve()
     fallback_order = [
+        script_dir / ".env",
         REPO_ROOT / "examples" / "rl" / ".env",
         REPO_ROOT / "examples" / "warming_up_to_rl" / ".env",
         REPO_ROOT / ".env",
@@ -513,7 +515,10 @@ def _resolve_env_paths_for_script(explicit: Sequence[str]) -> list[Path]:
     resolved = [p for p in fallback_order if p.exists()]
     if resolved:
         return resolved
-    raise click.ClickException("Env file required (--env-file) for this task app")
+    created = _interactive_create_env(script_dir)
+    if created is None:
+        raise click.ClickException("Env file required (--env-file) for this task app")
+    return [created]
 
 
 def _run_modal_script(
@@ -529,8 +534,11 @@ def _run_modal_script(
     if modal_path is None:
         raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
 
-    path_strings = [str(p) for p in env_paths]
+    env_paths_list = [Path(p).resolve() for p in env_paths]
+    path_strings = [str(p) for p in env_paths_list]
     _load_env_files_into_process(path_strings)
+    _ensure_env_values(env_paths_list, script_path.parent)
+    _load_env_values(env_paths_list)
 
     cmd = [modal_path, command, str(script_path)]
     if modal_name:
@@ -604,8 +612,12 @@ def _run_modal_with_entry(
     if modal_path is None:
         raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
 
-    dotenv_paths = [str(p) for p in env_paths]
+    env_paths_list = [Path(p).resolve() for p in env_paths]
+    dotenv_paths = [str(p) for p in env_paths_list]
     _load_env_files_into_process(dotenv_paths)
+    fallback_dir = env_paths_list[0].parent if env_paths_list else Path.cwd()
+    _ensure_env_values(env_paths_list, fallback_dir)
+    _load_env_values(env_paths_list)
     _preflight_env_key()
 
     script_path = _write_modal_entrypoint(
@@ -627,6 +639,98 @@ def _run_modal_with_entry(
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
     finally:
         script_path.unlink(missing_ok=True)
+
+
+
+
+def _load_env_values(paths: list[Path], *, allow_empty: bool = False) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for p in paths:
+        try:
+            content = p.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        for line in content.splitlines():
+            if not line or line.lstrip().startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            if key and key not in values:
+                values[key.strip()] = value.strip()
+    if not allow_empty and not values:
+        raise click.ClickException("No environment values found")
+    os.environ.update({k: v for k, v in values.items() if k and v})
+    return values
+def _interactive_create_env(target_dir: Path) -> Path | None:
+    env_path = (target_dir / ".env").resolve()
+    if env_path.exists():
+        existing = _parse_env_file(env_path)
+        env_api = (existing.get("ENVIRONMENT_API_KEY") or "").strip()
+        if env_api:
+            return env_path
+        click.echo(f"Existing {env_path} is missing ENVIRONMENT_API_KEY. Let's update it.")
+        return _interactive_fill_env(env_path)
+
+    click.echo("No .env found for this task app. Let's create one.")
+    return _interactive_fill_env(env_path)
+
+
+def _parse_env_file(path: Path) -> dict[str, str]:
+    data: dict[str, str] = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line or line.lstrip().startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            data[key.strip()] = value.strip()
+    except FileNotFoundError:
+        pass
+    return data
+
+
+def _interactive_fill_env(env_path: Path) -> Path | None:
+    existing = _parse_env_file(env_path) if env_path.exists() else {}
+
+    def _prompt(label: str, *, default: str = "", required: bool) -> str | None:
+        while True:
+            try:
+                value = click.prompt(label, default=default, show_default=bool(default) or not required).strip()
+            except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
+                click.echo("Aborted env creation.")
+                return None
+            if value or not required:
+                return value
+            click.echo("This field is required.")
+
+    env_default = existing.get("ENVIRONMENT_API_KEY", "").strip()
+    env_api_key = _prompt("ENVIRONMENT_API_KEY", default=env_default, required=True)
+    if env_api_key is None:
+        return None
+    synth_default = existing.get("SYNTH_API_KEY", "").strip()
+    openai_default = existing.get("OPENAI_API_KEY", "").strip()
+    synth_key = _prompt("SYNTH_API_KEY (optional)", default=synth_default, required=False) or ""
+    openai_key = _prompt("OPENAI_API_KEY (optional)", default=openai_default, required=False) or ""
+
+    lines = [
+        f"ENVIRONMENT_API_KEY={env_api_key}",
+        f"SYNTH_API_KEY={synth_key}",
+        f"OPENAI_API_KEY={openai_key}",
+    ]
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    click.echo(f"Wrote credentials to {env_path}")
+    return env_path
+
+
+def _ensure_env_values(env_paths: list[Path], fallback_dir: Path) -> None:
+    if (os.environ.get("ENVIRONMENT_API_KEY") or "").strip():
+        return
+    target = env_paths[0] if env_paths else (fallback_dir / ".env").resolve()
+    result = _interactive_fill_env(target)
+    if result is None:
+        raise click.ClickException("ENVIRONMENT_API_KEY required to continue")
+    _load_env_files_into_process([str(result)])
+    if not (os.environ.get("ENVIRONMENT_API_KEY") or "").strip():
+        raise click.ClickException("Failed to load ENVIRONMENT_API_KEY from generated .env")
 
 
 def _deploy_entry(
@@ -879,7 +983,7 @@ def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_
     choice = _select_app_choice(app_id, purpose="deploy")
 
     if choice.modal_script:
-        env_paths = _resolve_env_paths_for_script(env_file)
+        env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
         click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
         _run_modal_script(choice.modal_script, modal_cli, "deploy", env_paths, modal_name=modal_name, dry_run=dry_run)
         return
@@ -896,7 +1000,7 @@ def modal_serve_app(app_id: str | None, modal_cli: str, modal_name: str | None, 
     choice = _select_app_choice(app_id, purpose="modal-serve")
 
     if choice.modal_script:
-        env_paths = _resolve_env_paths_for_script(env_file)
+        env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
         click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
         _run_modal_script(choice.modal_script, modal_cli, "serve", env_paths, modal_name=modal_name)
         return
