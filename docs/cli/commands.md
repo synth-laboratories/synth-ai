@@ -12,14 +12,18 @@ Most commands honour the following environment helpers:
 
 ## `uvx synth-ai serve`
 
-Start a registered task app locally:
+Start a task app locally. If you omit `APP_ID`, the CLI scans the repo (including `synth_ai/task/apps`, `examples/`, and `synth_ai/demos/`) and prompts you to pick one:
 
 ```bash
+# Interactive selection
+uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env
+
+# Explicit app id (legacy behaviour)
 uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --reload
 ```
 
 Options (`synth_ai/cli/task_apps.py:55`):
-- `app_id` (required) – registered task app name (e.g., `grpo-crafter`).
+- `app_id` (optional) – skip discovery and use a specific app (e.g., `grpo-crafter`).
 - `--host` (default `0.0.0.0`).
 - `--port` (default `8001`).
 - `--env-file PATH` (repeatable) – additional env files to load.
@@ -30,10 +34,10 @@ Options (`synth_ai/cli/task_apps.py:55`):
 
 ## `uvx synth-ai modal-serve`
 
-Launch a task app inside Modal for interactive testing without a full deploy (`synth_ai/cli/task_apps.py:347`):
+Launch a task app inside Modal for interactive testing without a full deploy (`synth_ai/cli/task_apps.py:347`). As with `serve`, leaving off `APP_ID` triggers discovery and an interactive picker:
 
 ```bash
-uvx synth-ai modal-serve grpo-crafter --env-file examples/warming_up_to_rl/.env
+uvx synth-ai modal-serve --env-file examples/warming_up_to_rl/.env
 ```
 
 Options mirror `serve` plus Modal-specific flags:
@@ -43,10 +47,10 @@ Options mirror `serve` plus Modal-specific flags:
 
 ## `uvx synth-ai deploy`
 
-Package and deploy a task app to Modal (`synth_ai/cli/task_apps.py:270`).
+Package and deploy a task app to Modal (`synth_ai/cli/task_apps.py:270`). Omit `APP_ID` to pick from discovered apps (registered entries, demos, or downstream configs containing `TaskAppConfig`).
 
 ```bash
-uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
+uvx synth-ai deploy --name grpo-crafter-task-app
 ```
 
 Key options:
@@ -116,4 +120,3 @@ uvx synth-ai run --config demo_config.toml
 ```
 
 The demo commands proxy into `synth_ai.demos.core.cli`, which prints the next recommended step after each action (e.g., `uvx synth-ai run` once deployment is complete).
-

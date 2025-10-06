@@ -6,7 +6,7 @@ The Crafter example demonstrates the full Synth AI workflow: task app serving, G
 
 - Serve task app locally with tracing:
   ```bash
-  uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3
+  uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3
   ```
 - Deploy to Modal:
   ```bash
@@ -55,7 +55,7 @@ The Crafter example demonstrates the full Synth AI workflow: task app serving, G
 ### Local development
 
 ```bash
-uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3 --trace-db traces/v3/synth_ai.db
+uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3 --trace-db traces/v3/synth_ai.db
 ```
 
 - `--trace` and `--trace-db` enable tracing v3 and SFT JSONL dumps.

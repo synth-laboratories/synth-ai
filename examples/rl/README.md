@@ -9,7 +9,7 @@ This example trains a reinforcement learning policy on single-step math problems
 uvx synth-ai serve math-single-step --port 8101 --env-file examples/rl/.env --trace traces/math
 
 # Modal deployment
-uvx synth-ai deploy math-single-step --name synth-math-single-step --env-file examples/rl/.env
+uvx synth-ai deploy --name synth-math-single-step --env-file examples/rl/.env
 
 # Evaluate base Qwen policy (validation split)
 uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_base_qwen.toml

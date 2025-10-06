@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import contextlib
 import functools
 import hashlib
 import importlib
@@ -15,6 +16,10 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
+
+import click
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
+from synth_ai.task.server import run_task_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -184,6 +189,8 @@ def _extract_modal_app_name(node: ast.Call) -> str | None:
 @functools.lru_cache(maxsize=1)
 def _collect_task_app_choices() -> list[AppChoice]:
     choices: list[AppChoice] = []
+    with contextlib.suppress(Exception):
+        import synth_ai.demos.demo_task_apps  # noqa: F401
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
@@ -652,12 +659,6 @@ def _modal_serve_entry(
     click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
     _run_modal_with_entry(entry, modal_cfg, modal_cli, modal_name, env_paths, command="serve")
 
-import click
-
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
-from synth_ai.task.server import run_task_app
-
-
 @click.group(
     name='task-app',
     help='Utilities for serving and deploying Synth task apps.'
@@ -867,81 +868,24 @@ def _serve_entry(
 
 
 @task_app_group.command('deploy')
-@click.argument("app_id", type=str)
+@click.argument("app_id", type=str, required=False)
 @click.option("--name", "modal_name", default=None, help="Override Modal app name")
 @click.option("--dry-run", is_flag=True, help="Print modal deploy command without executing")
 @click.option("--modal-cli", default="modal", help="Path to modal CLI executable")
 @click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
-def deploy_app(app_id: str, modal_name: str | None, dry_run: bool, modal_cli: str, env_file: Sequence[str]) -> None:
+def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_cli: str, env_file: Sequence[str]) -> None:
     """Deploy a task app to Modal."""
 
-    try:
-        entry = registry.get(app_id)
-    except KeyError as exc:  # pragma: no cover - CLI input validation
-        raise click.ClickException(str(exc)) from exc
+    choice = _select_app_choice(app_id, purpose="deploy")
 
-    modal_cfg = entry.modal
-    if modal_cfg is None:
-        raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
-
-    env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
-
-    modal_path = shutil.which(modal_cli)
-    if modal_path is None:
-        raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
-
-    # Preflight: upsert and verify ENVIRONMENT_API_KEY with backend before deploy
-    try:
-        raw_backend = os.environ.get("BACKEND_BASE_URL") or os.environ.get("SYNTH_BASE_URL") or "http://localhost:8000/api"
-        backend_base = raw_backend.rstrip("/")
-        if not backend_base.endswith("/api"):
-            backend_base = backend_base + "/api"
-        synth_key = os.environ.get("SYNTH_API_KEY") or ""
-        env_api_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get("dev_environment_api_key") or os.environ.get("DEV_ENVIRONMENT_API_KEY") or ""
-        if synth_key and env_api_key:
-            import base64, httpx
-            click.echo(f"[preflight] backend={backend_base}")
-            with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}"}) as c:
-                click.echo("[preflight] fetching public key…")
-                rpk = c.get(f"{backend_base.rstrip('/')}/v1/crypto/public-key")
-                pk = (rpk.json() or {}).get("public_key") if rpk.status_code == 200 else None
-            if pk:
-                try:
-                    from nacl.public import SealedBox, PublicKey
-                    pub = PublicKey(base64.b64decode(pk, validate=True))
-                    sb = SealedBox(pub)
-                    ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode("utf-8"))).decode()
-                    payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
-                    with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}) as c:
-                        click.echo("[preflight] upserting env key…")
-                        up = c.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
-                        click.echo(f"[preflight] upsert status={up.status_code}")
-                        ver = c.get(f"{backend_base.rstrip('/')}/v1/env-keys/verify")
-                        if ver.status_code == 200 and (ver.json() or {}).get("present"):
-                            click.echo("✅ ENVIRONMENT_API_KEY upserted and verified in backend")
-                        else:
-                            click.echo("[WARN] ENVIRONMENT_API_KEY verification failed; proceeding anyway")
-                except Exception:
-                    click.echo("[WARN] Failed to encrypt/upload ENVIRONMENT_API_KEY; proceeding anyway")
-    except Exception:
-        click.echo("[WARN] Backend preflight for ENVIRONMENT_API_KEY failed; proceeding anyway")
-
-    script_path = _write_modal_entrypoint(
-        entry,
-        modal_cfg,
-        modal_name,
-        dotenv_paths=[str(path) for path in env_paths],
-    )
-    cmd = [modal_path, "deploy", str(script_path)]
-    if dry_run:
-        click.echo("Dry run: " + " ".join(cmd))
-        script_path.unlink(missing_ok=True)
+    if choice.modal_script:
+        env_paths = _resolve_env_paths_for_script(env_file)
+        click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+        _run_modal_script(choice.modal_script, modal_cli, "deploy", env_paths, modal_name=modal_name, dry_run=dry_run)
         return
-    try:
-        subprocess.run(cmd, check=True)
-    finally:
-        script_path.unlink(missing_ok=True)
+
+    entry = choice.ensure_entry()
+    _deploy_entry(entry, modal_name, dry_run, modal_cli, env_file)
 
 @task_app_group.command('modal-serve')
 @click.argument('app_id', type=str, required=False)
@@ -949,82 +893,16 @@ def deploy_app(app_id: str, modal_name: str | None, dry_run: bool, modal_cli: st
 @click.option('--name', 'modal_name', default=None, help='Override Modal app name (optional)')
 @click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
 def modal_serve_app(app_id: str | None, modal_cli: str, modal_name: str | None, env_file: Sequence[str]) -> None:
-    entries = registry.list()
-    if app_id is None:
-        if len(entries) == 1:
-            entry = entries[0]
-        else:
-            available = ', '.join(e.app_id for e in entries) or 'none'
-            raise click.ClickException(f"APP_ID required (available: {available})")
-    else:
-        try:
-            entry = registry.get(app_id)
-        except KeyError as exc:
-            raise click.ClickException(str(exc)) from exc
+    choice = _select_app_choice(app_id, purpose="modal-serve")
 
-    modal_cfg = entry.modal
-    if modal_cfg is None:
-        raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
+    if choice.modal_script:
+        env_paths = _resolve_env_paths_for_script(env_file)
+        click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+        _run_modal_script(choice.modal_script, modal_cli, "serve", env_paths, modal_name=modal_name)
+        return
 
-    env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
-    # Make values available for preflight
-    _load_env_files_into_process([str(p) for p in env_paths])
-
-    modal_path = shutil.which(modal_cli)
-    if modal_path is None:
-        raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
-
-    # Preflight: upsert and verify ENVIRONMENT_API_KEY with backend before serve
-    try:
-        raw_backend = os.environ.get("BACKEND_BASE_URL") or os.environ.get("SYNTH_BASE_URL") or "http://localhost:8000/api"
-        backend_base = raw_backend.rstrip('/')
-        if not backend_base.endswith('/api'):
-            backend_base = backend_base + '/api'
-        synth_key = os.environ.get("SYNTH_API_KEY") or ""
-        env_api_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get("dev_environment_api_key") or os.environ.get("DEV_ENVIRONMENT_API_KEY") or ""
-        if synth_key and env_api_key:
-            import base64, httpx
-            click.echo(f"[preflight] backend={backend_base}")
-            with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}"}) as c:
-                click.echo("[preflight] fetching public key…")
-                rpk = c.get(f"{backend_base}/v1/crypto/public-key")
-                pk = (rpk.json() or {}).get("public_key") if rpk.status_code == 200 else None
-            if pk:
-                try:
-                    from nacl.public import SealedBox, PublicKey
-                    pub = PublicKey(base64.b64decode(pk, validate=True))
-                    sb = SealedBox(pub)
-                    ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode('utf-8'))).decode()
-                    payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
-                    with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}) as c:
-                        click.echo("[preflight] upserting env key…")
-                        up = c.post(f"{backend_base}/v1/env-keys", json=payload)
-                        click.echo(f"[preflight] upsert status={up.status_code}")
-                        click.echo("[preflight] verifying env key presence…")
-                        ver = c.get(f"{backend_base}/v1/env-keys/verify")
-                        if ver.status_code == 200 and (ver.json() or {}).get("present"):
-                            click.echo("✅ ENVIRONMENT_API_KEY upserted and verified in backend")
-                        else:
-                            click.echo("[WARN] ENVIRONMENT_API_KEY verification failed; proceeding anyway")
-                except Exception:
-                    click.echo("[WARN] Failed to encrypt/upload ENVIRONMENT_API_KEY; proceeding anyway")
-    except Exception:
-        click.echo("[WARN] Backend preflight for ENVIRONMENT_API_KEY failed; proceeding anyway")
-
-    script_path = _write_modal_entrypoint(
-        entry,
-        modal_cfg,
-        modal_name,
-        dotenv_paths=[str(path) for path in env_paths],
-    )
-    cmd = [modal_path, 'serve', str(script_path)]
-    try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as exc:
-        raise click.ClickException(f"modal serve failed with exit code {exc.returncode}") from exc
-    finally:
-        script_path.unlink(missing_ok=True)
+    entry = choice.ensure_entry()
+    _modal_serve_entry(entry, modal_name, modal_cli, env_file)
 
 
 def _write_modal_entrypoint(
