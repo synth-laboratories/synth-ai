@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, Dict, Iterable, List, Optional
+import os
 
 import httpx
 from pydantic import BaseModel
@@ -54,8 +55,24 @@ class TaskAppClient:
 
     def _headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {}
-        if self.api_key:
-            headers["X-API-Key"] = self.api_key
+        # Primary key
+        primary = (self.api_key or "").strip()
+        if primary:
+            headers["X-API-Key"] = primary
+            # Also set Authorization for clients that read bearer tokens
+            headers.setdefault("Authorization", f"Bearer {primary}")
+        # Include ALL available environment keys via CSV in X-API-Keys
+        keys: list[str] = []
+        if primary:
+            keys.append(primary)
+        aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
+        if aliases:
+            for part in aliases.split(","):
+                trimmed = part.strip()
+                if trimmed and trimmed not in keys:
+                    keys.append(trimmed)
+        if keys:
+            headers["X-API-Keys"] = ",".join(keys)
         return headers
 
     async def aclose(self) -> None:
@@ -68,7 +85,7 @@ class TaskAppClient:
         method: str,
         path: str,
         *,
-        params: Optional[Iterable[tuple[str, Any]] | Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any] | List[tuple[str, Any]]] = None,
         json_payload: Any = None,
     ) -> httpx.Response:
         client = await self._ensure_client()

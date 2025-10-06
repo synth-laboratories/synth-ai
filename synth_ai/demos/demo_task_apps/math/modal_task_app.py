@@ -7,6 +7,9 @@ from pathlib import Path
 
 from modal import App, Image, Secret, asgi_app
 from functools import lru_cache
+from typing import Iterable
+
+from starlette.requests import Request
 
 try:  # Backward compatibility with older installed SDKs
     from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME
@@ -95,18 +98,77 @@ app = App("hendrycks-math-task-app")
 def fastapi_app():
     import httpx
     from fastapi import Body, HTTPException, status
-    from fastapi import FastAPI, Request, Header
+    from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
+    try:
+        from synth_ai.task.auth import (
+            is_api_key_header_authorized,
+            normalize_environment_api_key,
+        )
+    except Exception:  # pragma: no cover - fallback for older synth-ai builds
+        def _normalize_env_key_fallback() -> str | None:
+            key = os.getenv("ENVIRONMENT_API_KEY")
+            if key:
+                return key
+            for alias in ("dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"):
+                candidate = os.getenv(alias)
+                if candidate:
+                    os.environ["ENVIRONMENT_API_KEY"] = candidate
+                    return candidate
+            return None
+
+        def normalize_environment_api_key() -> str | None:  # type: ignore[override]
+            return _normalize_env_key_fallback()
+
+        def _header_values(request: Request, header: str) -> Iterable[str]:
+            raw = request.headers.get(header) or request.headers.get(header.lower())
+            return [raw] if raw is not None else []
+
+        def _split(values: Iterable[str]) -> list[str]:
+            parts: list[str] = []
+            for value in values:
+                if not isinstance(value, str):
+                    continue
+                for chunk in value.split(','):
+                    chunk = chunk.strip()
+                    if chunk:
+                        parts.append(chunk)
+            return parts
+
+        def is_api_key_header_authorized(request: Request) -> bool:  # type: ignore[override]
+            expected = normalize_environment_api_key()
+            if not expected:
+                return False
+            single = _header_values(request, "x-api-key")
+            multi = _header_values(request, "x-api-keys")
+            auth = _header_values(request, "authorization")
+            bearer = []
+            for token in auth:
+                if isinstance(token, str) and token.lower().startswith("bearer "):
+                    bearer.append(token.split(" ", 1)[1].strip())
+            candidates = _split(single + multi + bearer)
+            return any(candidate == expected for candidate in candidates)
 
     # Inline, self-contained FastAPI app (math-only)
     @lru_cache(maxsize=1)
     def _hf_split(subject: str, split: str, slice_spec: str | None = None):
         from datasets import load_dataset  # type: ignore
+
         s = split
         if slice_spec:
             s = f"{s}{slice_spec}"
-        return load_dataset("nlile/hendrycks-MATH-benchmark", subject, split=s)
+
+        try:
+            return load_dataset("nlile/hendrycks-MATH-benchmark", subject, split=s)
+        except ValueError:
+            base = load_dataset("nlile/hendrycks-MATH-benchmark", split=s)
+            if subject and subject not in {"", "default"}:
+                if "subject" in base.column_names:
+                    base = base.filter(lambda ex: ex.get("subject") == subject)
+                elif isinstance(base, list):
+                    base = [ex for ex in base if ex.get("subject") == subject]
+            return base
 
     def _normalize_answer_text(s: str) -> str:
         import re as _re
@@ -121,6 +183,9 @@ def fastapi_app():
         subj = subject or os.getenv("HENDRYCKS_MATH_CONFIG", "default")
         ds = _hf_split(subj, os.getenv("HENDRYCKS_MATH_SPLIT", "test"), os.getenv("HENDRYCKS_MATH_SLICE"))
         n = len(ds) if hasattr(ds, "__len__") else 0
+        if n == 0 and subject not in {"", "default"}:
+            ds = _hf_split("default", os.getenv("HENDRYCKS_MATH_SPLIT", "test"), os.getenv("HENDRYCKS_MATH_SLICE"))
+            n = len(ds) if hasattr(ds, "__len__") else 0
         if n == 0:
             raise RuntimeError("Hendrycks MATH dataset loaded empty")
         idx = abs(int(seed)) % n
@@ -158,6 +223,53 @@ def fastapi_app():
             logger.info(msg)
             return prefix
 
+        def _resolve_env_keys() -> set[str]:
+            keys: set[str] = set()
+            for alias in ("ENVIRONMENT_API_KEY", "dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"):
+                value = os.environ.get(alias)
+                if value:
+                    os.environ.setdefault("ENVIRONMENT_API_KEY", value)
+                    keys.add(value)
+            alias_env = os.environ.get("ENVIRONMENT_API_KEY_ALIASES", "")
+            for chunk in alias_env.split(","):
+                trimmed = chunk.strip()
+                if trimmed:
+                    keys.add(trimmed)
+            return keys
+
+        def _extract_header_candidates(
+            request: Request,
+            x_api_key: str | None,
+            x_api_keys: str | None,
+            authorization: str | None,
+        ) -> list[str]:
+            headers = request.headers
+            candidates: list[str] = []
+            primary = x_api_key or headers.get("x-api-key")
+            if primary:
+                candidates.append(primary.strip())
+            secondary = x_api_keys or headers.get("x-api-keys")
+            if secondary:
+                candidates.extend([value.strip() for value in secondary.split(",") if value.strip()])
+            auth_header = authorization or headers.get("authorization") or headers.get("Authorization")
+            if auth_header and auth_header.lower().startswith("bearer "):
+                token = auth_header.split(" ", 1)[1].strip()
+                if token:
+                    candidates.append(token)
+            return [c for c in candidates if c]
+
+        def _is_authorized(
+            request: Request,
+            x_api_key: str | None,
+            x_api_keys: str | None,
+            authorization: str | None,
+        ) -> bool:
+            keys = _resolve_env_keys()
+            if not keys:
+                return False
+            candidates = _extract_header_candidates(request, x_api_key, x_api_keys, authorization)
+            return any(candidate in keys for candidate in candidates)
+
         @app.get("/info")
         async def info():
             return {
@@ -166,42 +278,47 @@ def fastapi_app():
             }
 
         @app.get("/health")
-        async def health(x_api_key: str | None = Header(default=None, alias="X-API-Key")):
-            env_key = os.environ.get("ENVIRONMENT_API_KEY")
+        async def health(request: Request):
+            env_keys = _resolve_env_keys()
+            env_key = next(iter(env_keys), None)
             if not env_key:
                 return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
-            if x_api_key is not None and x_api_key != env_key:
+            # Authorize using all header variants; avoid typed Header params to prevent 422s
+            authorized = is_api_key_header_authorized(request)
+            if not authorized:
                 prefix = _log_env_key_prefix("health", env_key)
-                content = {"status": "unauthorized", "detail": "Invalid API key"}
-                headers = None
+                content = {
+                    "status": "healthy",
+                    "authorized": False,
+                }
                 if prefix:
-                    content["detail"] = f"Invalid API key (expected prefix: {prefix})"
                     content["expected_api_key_prefix"] = prefix
-                    headers = {"X-Expected-API-Key-Prefix": prefix}
-                return JSONResponse(status_code=401, content=content, headers=headers)
-            return {"status": "healthy"}
+                return JSONResponse(status_code=200, content=content)
+            return {"status": "healthy", "authorized": True}
 
         # Optional rollout-specific health for CLI compatibility
         @app.get("/health/rollout")
-        async def health_rollout(x_api_key: str | None = Header(default=None, alias="X-API-Key")):
-            env_key = os.environ.get("ENVIRONMENT_API_KEY")
+        async def health_rollout(request: Request):
+            env_keys = _resolve_env_keys()
+            env_key = next(iter(env_keys), None)
             if not env_key:
                 return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
-            if not x_api_key or x_api_key != env_key:
+            authorized = is_api_key_header_authorized(request)
+            if not authorized:
                 prefix = _log_env_key_prefix("health/rollout", env_key)
-                content = {"status": "unauthorized", "detail": "Invalid or missing API key"}
-                headers = None
+                content = {
+                    "status": "healthy",
+                    "authorized": False,
+                }
                 if prefix:
-                    content["detail"] = f"Invalid or missing API key (expected prefix: {prefix})"
                     content["expected_api_key_prefix"] = prefix
-                    headers = {"X-Expected-API-Key-Prefix": prefix}
-                return JSONResponse(status_code=401, content=content, headers=headers)
-            return {"ok": True}
+                return JSONResponse(status_code=200, content=content)
+            return {"ok": True, "authorized": True}
 
         # _load_hendrycks_problem is defined at fastapi_app scope
 
         @app.get("/task_info")
-        async def task_info(seed: int = 0, subject: str = "algebra"):
+        async def task_info(seed: int = 0, subject: str = "default"):
             """Return Hendrycks MATH problem/answer and tool schema for a seed."""
             q, a = _load_hendrycks_problem(int(seed), subject=subject)
             tools = [{
@@ -228,6 +345,25 @@ def fastapi_app():
         return app
 
     api = create_app()
+
+    # Always log and surface 422 validation errors with header presence snapshot
+    from fastapi.exceptions import RequestValidationError
+
+    @api.exception_handler(RequestValidationError)
+    async def _on_validation_error(request: Request, exc: RequestValidationError):
+        try:
+            hdr = request.headers
+            snapshot = {
+                "path": str(getattr(request, "url").path),
+                "have_x_api_key": bool(hdr.get("x-api-key")),
+                "have_x_api_keys": bool(hdr.get("x-api-keys")),
+                "have_authorization": bool(hdr.get("authorization")),
+                "errors": exc.errors()[:5],
+            }
+            print("[422] validation", snapshot, flush=True)
+        except Exception:
+            pass
+        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
 
     @api.get("/")
     async def root_probe():

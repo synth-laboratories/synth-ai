@@ -1,3 +1,4 @@
+
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the shared TaskAppConfig defined in
@@ -11,14 +12,131 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from synth_ai.task.server import create_task_app, run_task_app
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.requests import Request
+
+from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.apps.grpo_crafter import build_config
+from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
+from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
+
+
+APP_ID = "grpo-crafter"
+
+
+_BASE_CONFIG = build_config()
+TASK_APP_CONFIG = TaskAppConfig(
+    app_id="grpo-crafter",
+    name=_BASE_CONFIG.name,
+    description=_BASE_CONFIG.description,
+    base_task_info=_BASE_CONFIG.base_task_info,
+    describe_taskset=_BASE_CONFIG.describe_taskset,
+    provide_task_instances=_BASE_CONFIG.provide_task_instances,
+    rollout=_BASE_CONFIG.rollout,
+    dataset_registry=_BASE_CONFIG.dataset_registry,
+    rubrics=_BASE_CONFIG.rubrics,
+    proxy=_BASE_CONFIG.proxy,
+    routers=_BASE_CONFIG.routers,
+    middleware=_BASE_CONFIG.middleware,
+    app_state=_BASE_CONFIG.app_state,
+    require_api_key=_BASE_CONFIG.require_api_key,
+    expose_debug_env=_BASE_CONFIG.expose_debug_env,
+    cors_origins=_BASE_CONFIG.cors_origins,
+    startup_hooks=_BASE_CONFIG.startup_hooks,
+    shutdown_hooks=_BASE_CONFIG.shutdown_hooks,
+)
+
+try:
+    _REGISTERED_ENTRY = registry.get(APP_ID)
+except Exception:  # pragma: no cover - registry unavailable in some contexts
+    MODAL_DEPLOYMENT: ModalDeploymentConfig | None = None
+    ENV_FILES: tuple[str, ...] = ()
+else:
+    MODAL_DEPLOYMENT = _REGISTERED_ENTRY.modal
+    ENV_FILES = tuple(_REGISTERED_ENTRY.env_files)
+
+
+def build_task_app_config() -> TaskAppConfig:
+    """Return a fresh TaskAppConfig for this wrapper."""
+
+    return TASK_APP_CONFIG.clone()
 
 
 def fastapi_app():
     """Return the FastAPI application for Modal or other ASGI hosts."""
 
-    return create_task_app(build_config())
+    app = create_task_app(build_task_app_config())
+
+    # Replace default health endpoints so we can permit soft auth failures and log 422s.
+    filtered_routes = []
+    for route in app.router.routes:
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set()) or set()
+        if path in {"/health", "/health/rollout"} and "GET" in methods:
+            continue
+        filtered_routes.append(route)
+    app.router.routes = filtered_routes
+
+    def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
+        if not env_key:
+            return None
+        prefix = env_key[: max(1, len(env_key) // 2)]
+        print(f"[{source}] expected ENVIRONMENT_API_KEY prefix: {prefix}")
+        return prefix
+
+    @app.get("/health")
+    async def health(request: Request):
+        env_key = normalize_environment_api_key()
+        if not env_key:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
+        if not is_api_key_header_authorized(request):
+            prefix = _log_env_key_prefix("health", env_key)
+            content = {"status": "healthy", "authorized": False}
+            if prefix:
+                content["expected_api_key_prefix"] = prefix
+            return JSONResponse(status_code=200, content=content)
+        return {"status": "healthy", "authorized": True}
+
+    @app.get("/health/rollout")
+    async def health_rollout(request: Request):
+        env_key = normalize_environment_api_key()
+        if not env_key:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
+        if not is_api_key_header_authorized(request):
+            prefix = _log_env_key_prefix("health/rollout", env_key)
+            content = {"status": "healthy", "authorized": False}
+            if prefix:
+                content["expected_api_key_prefix"] = prefix
+            return JSONResponse(status_code=200, content=content)
+        return {"ok": True, "authorized": True}
+
+    @app.exception_handler(RequestValidationError)
+    async def _on_validation_error(request: Request, exc: RequestValidationError):
+        try:
+            hdr = request.headers
+            snapshot = {
+                "path": str(getattr(request, "url").path),
+                "have_x_api_key": bool(hdr.get("x-api-key")),
+                "have_x_api_keys": bool(hdr.get("x-api-keys")),
+                "have_authorization": bool(hdr.get("authorization")),
+                "errors": exc.errors()[:5],
+            }
+            print("[422] validation", snapshot, flush=True)
+        except Exception:
+            pass
+        return JSONResponse(
+            status_code=422,
+            content={"status": "invalid", "detail": exc.errors()[:5]},
+        )
+
+    return app
 
 
 if __name__ == "__main__":
@@ -39,7 +157,7 @@ if __name__ == "__main__":
     env_files.extend(args.env_file or [])
 
     run_task_app(
-        build_config,
+        build_task_app_config,
         host=args.host,
         port=args.port,
         reload=args.reload,

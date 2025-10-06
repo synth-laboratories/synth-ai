@@ -55,17 +55,49 @@ def _iter_candidate_paths() -> Iterable[Path]:
 
 
 def _infer_config_type(data: dict) -> str:
-    if isinstance(data.get("training"), dict) or isinstance(data.get("hyperparameters"), dict):
-        return "sft"
+    # 1) Strong signals from [algorithm]
+    algo = data.get("algorithm")
+    if isinstance(algo, dict):
+        method = str(algo.get("method") or "").lower()
+        algo_type = str(algo.get("type") or "").lower()
+        variety = str(algo.get("variety") or "").lower()
+
+        # RL indicators
+        if method in {"policy_gradient", "ppo", "reinforce"}:
+            return "rl"
+        if algo_type == "online":
+            return "rl"
+        if variety in {"gspo", "grpo", "ppo"}:
+            return "rl"
+
+        # SFT indicators
+        if method in {"supervised_finetune", "sft"}:
+            return "sft"
+        if algo_type == "offline":
+            return "sft"
+        if variety in {"fft"}:
+            return "sft"
+
+    # 2) Other RL signals
     if data.get("job_type") == "rl":
         return "rl"
     services = data.get("services")
     if isinstance(services, dict) and ("task_url" in services or "environment" in services):
         return "rl"
-    compute = data.get("compute")
-    if isinstance(compute, dict) and "gpu_type" in compute:
-        # typically FFT toml
-        return "sft"
+
+    # 3) Other SFT signals
+    training = data.get("training")
+    if isinstance(training, dict):
+        mode = str(training.get("mode") or "").lower()
+        if mode.startswith("sft") or mode == "sft_offline":
+            return "sft"
+    hyper = data.get("hyperparameters")
+    if isinstance(hyper, dict):
+        kind = str(hyper.get("train_kind") or "").lower()
+        if kind in {"sft", "fft"}:
+            return "sft"
+
+    # 4) Fallback
     return "unknown"
 
 

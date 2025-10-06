@@ -163,9 +163,9 @@ def train_command(
     )
 
     missing_keys = [
-        spec.key
+        spec.name
         for spec in required_keys
-        if spec.key and not (env_values.get(spec.key) or os.environ.get(spec.key))
+        if not spec.optional and not (env_values.get(spec.name) or os.environ.get(spec.name))
     ]
     if missing_keys:
         try:

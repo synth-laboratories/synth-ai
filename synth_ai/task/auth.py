@@ -3,7 +3,7 @@ from __future__ import annotations
 """Authentication helpers shared by Task Apps."""
 
 import os
-from typing import Iterable, Optional, Any
+from typing import Iterable, Optional, Any, Set
 
 from .errors import http_exception
 
@@ -12,6 +12,7 @@ _DEV_API_KEY_ENVS = ("dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY")
 _API_KEY_HEADER = "x-api-key"
 _API_KEYS_HEADER = "x-api-keys"
 _AUTH_HEADER = "authorization"
+_API_KEY_ALIASES_ENV = "ENVIRONMENT_API_KEY_ALIASES"  # comma-separated list of additional valid keys
 
 
 def _mask(value: str, *, prefix: int = 4) -> str:
@@ -40,6 +41,26 @@ def normalize_environment_api_key() -> Optional[str]:
             )
             return candidate
     return None
+
+
+def allowed_environment_api_keys() -> Set[str]:
+    """Return the set of valid environment API keys for this Task App.
+
+    Includes:
+    - The primary ENVIRONMENT_API_KEY (normalized from dev fallbacks if needed)
+    - Any comma-separated aliases from ENVIRONMENT_API_KEY_ALIASES
+    """
+    keys: set[str] = set()
+    primary = normalize_environment_api_key()
+    if primary:
+        keys.add(primary)
+    aliases = (os.getenv(_API_KEY_ALIASES_ENV) or "").strip()
+    if aliases:
+        for part in aliases.split(","):
+            trimmed = part.strip()
+            if trimmed:
+                keys.add(trimmed)
+    return keys
 
 
 def _header_values(request: Any, header: str) -> Iterable[str]:
@@ -78,10 +99,10 @@ def _split_csv(values: Iterable[str]) -> list[str]:
 
 
 def is_api_key_header_authorized(request: Any) -> bool:
-    """Return True if `request` carries an authorised API key header."""
+    """Return True if any header-provided key matches any allowed environment key."""
 
-    expected = normalize_environment_api_key()
-    if not expected:
+    allowed = allowed_environment_api_keys()
+    if not allowed:
         return False
     single = list(_header_values(request, _API_KEY_HEADER))
     multi = list(_header_values(request, _API_KEYS_HEADER))
@@ -91,14 +112,14 @@ def is_api_key_header_authorized(request: Any) -> bool:
         if isinstance(a, str) and a.lower().startswith("bearer "):
             bearer.append(a.split(" ", 1)[1].strip())
     candidates = _split_csv(single + multi + bearer)
-    return any(candidate == expected for candidate in candidates)
+    return any(candidate in allowed for candidate in candidates)
 
 
 def require_api_key_dependency(request: Any) -> None:
     """FastAPI dependency enforcing Task App authentication headers."""
 
-    expected = normalize_environment_api_key()
-    if not expected:
+    allowed = allowed_environment_api_keys()
+    if not allowed:
         raise http_exception(503, "missing_environment_api_key", "ENVIRONMENT_API_KEY is not configured")
     # Build candidate list for verbose diagnostics
     single = list(_header_values(request, _API_KEY_HEADER))
@@ -109,12 +130,12 @@ def require_api_key_dependency(request: Any) -> None:
         if isinstance(a, str) and a.lower().startswith("bearer "):
             bearer.append(a.split(" ", 1)[1].strip())
     candidates = _split_csv(single + multi + bearer)
-    if expected not in candidates:
+    if not any(candidate in allowed for candidate in candidates):
         try:
             print({
                 "task_auth_failed": True,
-                "expected_first15": expected[:15],
-                "expected_len": len(expected),
+                "allowed_first15": [k[:15] for k in allowed],
+                "allowed_count": len(allowed),
                 "got_first15": [c[:15] for c in candidates],
                 "got_lens": [len(c) for c in candidates],
                 "have_x_api_key": bool(single),
@@ -125,8 +146,8 @@ def require_api_key_dependency(request: Any) -> None:
             pass
         # Use 400 to make failures unmistakable during preflight
         raise http_exception(400, "unauthorised", "API key missing or invalid", extra={
-            "expected_first15": expected[:15],
-            "expected_len": len(expected),
+            "allowed_first15": [k[:15] for k in allowed],
+            "allowed_count": len(allowed),
             "got_first15": [c[:15] for c in candidates],
             "got_lens": [len(c) for c in candidates],
         })

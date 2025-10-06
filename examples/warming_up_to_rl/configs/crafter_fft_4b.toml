@@ -1,5 +1,11 @@
 # FFT job config for Qwen/Qwen3-4B on Crafter SFT dataset
 
+[algorithm]
+type = "offline"
+method = "supervised_finetune"
+variety = "fft"
+
+
 [job]
 model = "Qwen/Qwen3-4B"
 # Limit training to the first 100 conversations (export a 100-row JSONL and point to it here)

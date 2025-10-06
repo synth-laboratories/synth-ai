@@ -462,7 +462,9 @@ def _load_entry_from_path(path: Path, app_id: str) -> TaskAppEntry:
             except Exception:
                 continue
             if isinstance(result, TaskAppConfig) and result.app_id == app_id:
-                factory_callable = lambda func=attr: func()
+                def _factory() -> TaskAppConfig:
+                    return attr()  # type: ignore[call-arg]
+                factory_callable = _factory
                 config_obj = result
                 break
 
@@ -728,7 +730,8 @@ def _ensure_env_values(env_paths: list[Path], fallback_dir: Path) -> None:
     result = _interactive_fill_env(target)
     if result is None:
         raise click.ClickException("ENVIRONMENT_API_KEY required to continue")
-    _load_env_files_into_process([str(result)])
+    # After generating .env, load it and override any previously-empty values
+    _load_env_values([result])
     if not (os.environ.get("ENVIRONMENT_API_KEY") or "").strip():
         raise click.ClickException("Failed to load ENVIRONMENT_API_KEY from generated .env")
 
@@ -794,8 +797,11 @@ def _load_env_files_into_process(paths: Sequence[str]) -> None:
             k, v = line.split('=', 1)
             key = k.strip()
             val = v.strip().strip('"').strip("'")
-            if key and key not in os.environ:
-                os.environ[key] = val
+            # Load into process, but allow overriding if the current value is empty
+            if key:
+                current = os.environ.get(key)
+                if current is None or not str(current).strip():
+                    os.environ[key] = val
 
 
 

@@ -1,11 +1,5 @@
 # RL training starting from base Qwen/Qwen3-4B (TOML-only model selection)
 
-[algorithm]
-type = "online"
-method = "policy_gradient"
-variety = "gspo"
-
-
 [services]
 task_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
 
