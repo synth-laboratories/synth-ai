@@ -1,0 +1,29 @@
+# Centralized configuration for Synth Qwen Crafter workflows
+
+[rollouts]
+model = "Qwen/Qwen3-4B-Instruct-2507"
+episodes = 5
+max_steps = 30
+difficulty = "easy"
+temperature = 0.4
+max_tokens = 2048
+tool_choice = "required"
+
+[traces]
+sqld_db_path = "traces/v3/synth_ai.db"
+
+[filter]
+# For v3 sqld traces, use the internal data file under the sqld directory
+db_path = "traces/v3/synth_ai.db/dbs/default/data"
+required_achievements = ["collect_wood"]
+min_total_reward = 1.0
+max_cost = 10.0
+max_tokens = 100000
+output_jsonl = "ft_data/qwen4b_crafter_sft_collect_wood.jsonl"
+
+[sft]
+base_model = "Qwen/Qwen3-4B-Instruct-2507"
+training_jsonl = "ft_data/qwen4b_crafter_sft_collect_wood.jsonl"
+n_epochs = 1
+batch_size = 4
+upload_to_wasabi = true

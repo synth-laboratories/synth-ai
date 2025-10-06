@@ -14,6 +14,20 @@ import sys
 import time
 
 import click
+try:
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    try:
+        __pkg_version__ = _pkg_version("synth-ai")
+    except PackageNotFoundError:
+        try:
+            from synth_ai import __version__ as __pkg_version__  # type: ignore
+        except Exception:
+            __pkg_version__ = "unknown"
+except Exception:
+    try:
+        from synth_ai import __version__ as __pkg_version__  # type: ignore
+    except Exception:
+        __pkg_version__ = "unknown"
 
 
 def find_sqld_binary() -> str | None:
@@ -66,9 +80,10 @@ rm -rf "$TMP_DIR"
     return os.path.expanduser("~/.local/bin/sqld")
 
 
-@click.group()
+@click.group(help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will.")
+@click.version_option(version=__pkg_version__, prog_name="synth-ai")
 def cli():
-    """Synth AI - Software for aiding the best and multiplying the will."""
+    """Top-level command group for Synth AI."""
 
 
 # === Legacy demo command group (aliases new rl_demo implementation) ===
@@ -84,7 +99,7 @@ def _forward_to_demo(args: list[str]) -> None:
     except Exception as e:  # pragma: no cover
         click.echo(f"Failed to import demo CLI: {e}")
         sys.exit(1)
-    rc = int(demo_cli.main(args) or 0)
+    rc = int(getattr(demo_cli, "main")(args) or 0)  # type: ignore[attr-defined]
     if rc != 0:
         sys.exit(rc)
 
@@ -124,6 +139,22 @@ def setup():
 
 
 @demo.command()
+@click.option("--template", type=str, default=None, help="Template id to instantiate")
+@click.option("--dest", type=str, default=None, help="Destination directory for files")
+@click.option("--force", is_flag=True, help="Overwrite existing files in destination")
+def init(template: str | None, dest: str | None, force: bool):
+    """Copy demo task app template into the current directory."""
+    args: list[str] = ["demo.init"]
+    if template:
+        args.extend(["--template", template])
+    if dest:
+        args.extend(["--dest", dest])
+    if force:
+        args.append("--force")
+    _forward_to_demo(args)
+
+
+@demo.command()
 @click.option("--batch-size", type=int, default=None)
 @click.option("--group-size", type=int, default=None)
 @click.option("--model", type=str, default=None)
@@ -142,8 +173,8 @@ def run(batch_size: int | None, group_size: int | None, model: str | None, timeo
     _forward_to_demo(args)
 
 
-@cli.command()
-def setup():
+@cli.command(name="setup")
+def setup_command():
     """Perform SDK handshake and write keys to .env."""
     _forward_to_demo(["rl_demo.setup"])
 
@@ -164,7 +195,7 @@ def setup():
     default=True,
     help="Kill any process already bound to --env-port without prompting",
 )
-def serve(
+def serve_deprecated(
     db_file: str,
     sqld_port: int,
     env_port: int,
@@ -174,6 +205,7 @@ def serve(
     force: bool,
 ):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    click.echo("⚠️  'synth-ai serve' now targets task apps; use 'synth-ai serve' for task apps or 'synth-ai serve-deprecated' for this legacy service.", err=True)
     processes = []
 
     def signal_handler(sig, frame):

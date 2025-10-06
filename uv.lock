@@ -2929,7 +2929,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.8.dev5"
+version = "0.2.8.dev12"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -2960,7 +2960,6 @@ dependencies = [
     { name = "openai-harmony" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
-    { name = "pandas" },
     { name = "pydantic" },
     { name = "pynacl" },
     { name = "python-dotenv" },
@@ -2982,6 +2981,9 @@ dependencies = [
 all = [
     { name = "crafter" },
     { name = "datasets" },
+]
+analytics = [
+    { name = "pandas" },
 ]
 dev = [
     { name = "build" },
@@ -3046,7 +3048,7 @@ requires-dist = [
     { name = "openai-harmony", specifier = ">=0.0.1" },
     { name = "opentelemetry-api", specifier = ">=1.26.0,<1.27.0" },
     { name = "opentelemetry-sdk", specifier = ">=1.26.0,<1.27.0" },
-    { name = "pandas", specifier = ">=2.2.3" },
+    { name = "pandas", marker = "extra == 'analytics'", specifier = ">=2.2.3" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pynacl", specifier = ">=1.5.0" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.350" },
@@ -3069,7 +3071,7 @@ requires-dist = [
     { name = "urllib3", specifier = ">=2.3.0" },
     { name = "uvicorn", specifier = ">=0.34.2" },
 ]
-provides-extras = ["dev", "research", "all"]
+provides-extras = ["dev", "research", "all", "analytics"]
 
 [package.metadata.requires-dev]
 dev = [

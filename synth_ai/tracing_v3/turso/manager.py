@@ -27,7 +27,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 
-import pandas as pd
+# Optional pandas import: fall back to records (list[dict]) if unavailable
+try:  # pragma: no cover - exercised in environments without pandas
+    import pandas as pd  # type: ignore
+except Exception:  # pragma: no cover
+    pd = None  # type: ignore[assignment]
 from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -406,20 +410,30 @@ class AsyncSQLTraceManager:
 
     async def query_traces(
         self, query: str, params: dict[str, Any] | None = None
-    ) -> pd.DataFrame:
-        """Execute a query and return results as DataFrame."""
+    ) -> Any:
+        """Execute a query and return results.
+
+        Returns a pandas DataFrame when pandas is available; otherwise a
+        list of dict records. Callers should handle both.
+        """
         async with self.session() as sess:
             result = await sess.execute(text(query), params or {})
             rows = result.mappings().all()
-            return pd.DataFrame(rows)
+            if pd is not None:
+                return pd.DataFrame(rows)
+            return [dict(r) for r in rows]
 
     async def get_model_usage(
         self,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
         model_name: str | None = None,
-    ) -> pd.DataFrame:
-        """Get model usage statistics."""
+    ) -> Any:
+        """Get model usage statistics.
+
+        Returns a pandas DataFrame when pandas is available; otherwise a list
+        of dict records.
+        """
         query = """
             SELECT * FROM model_usage_stats
             WHERE 1=1

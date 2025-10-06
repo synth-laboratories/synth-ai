@@ -67,9 +67,15 @@ def register(cli):
         _forward(["rl_demo.configure"]) 
 
     @_rlg.command("init")
-    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD")
-    def rl_init(force: bool):
+    @click.option("--template", type=str, default=None, help="Template id to instantiate")
+    @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
+    @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
+    def rl_init(template: str | None, dest: str | None, force: bool):
         args = ["rl_demo.init"]
+        if template:
+            args.extend(["--template", template])
+        if dest:
+            args.extend(["--dest", dest])
         if force:
             args.append("--force")
         _forward(args)
@@ -130,9 +136,15 @@ def register(cli):
         _forward(["rl_demo.configure"]) 
 
     @cli.command("rl_demo.init")
-    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD")
-    def rl_init_alias(force: bool):
+    @click.option("--template", type=str, default=None, help="Template id to instantiate")
+    @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
+    @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
+    def rl_init_alias(template: str | None, dest: str | None, force: bool):
         args = ["rl_demo.init"]
+        if template:
+            args.extend(["--template", template])
+        if dest:
+            args.extend(["--dest", dest])
         if force:
             args.append("--force")
         _forward(args)
@@ -161,12 +173,12 @@ def register(cli):
         _forward(args)
 
     # Top-level convenience alias: `synth-ai deploy`
-    @cli.command("deploy")
+    @cli.command("demo-deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
     @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
     @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
-    def deploy_top(local: bool, app: str | None, name: str, script: str | None):
+    def deploy_demo(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
             args.append("--local")

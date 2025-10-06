@@ -75,3 +75,26 @@ try:
     _rl_demo.register(cli)
 except Exception:
     pass
+try:
+    from synth_ai.api.train import register as _train_register
+
+    _train_register(cli)
+except Exception:
+    pass
+
+
+
+from .task_apps import task_app_group
+cli.add_command(task_app_group, name="task-app")
+
+
+try:
+    from . import task_apps as _task_apps
+    _task_apps.register(cli)
+except Exception:
+    pass
+
+cli.add_command(task_app_group.commands['serve'], name='serve')
+cli.add_command(task_app_group.commands['deploy'], name='deploy')
+
+cli.add_command(task_app_group.commands['modal-serve'], name='modal-serve')

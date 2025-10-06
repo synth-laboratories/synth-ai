@@ -234,7 +234,7 @@ class SessionTracer:
             event_id = await self.db.insert_event_row(
                 self._current_trace.session_id,
                 timestep_db_id=timestep_db_id,
-                event=event,
+                event=event,  # type: ignore[arg-type]
             )
             # Auto-insert an event reward if EnvironmentEvent carries reward
             try:
@@ -323,7 +323,7 @@ class SessionTracer:
             return message_id
         return None
 
-    async def end_session(self, save: bool = None) -> SessionTrace:
+    async def end_session(self, save: bool | None = None) -> SessionTrace:
         """End the current session.
 
         Args:
@@ -370,7 +370,7 @@ class SessionTracer:
         self,
         session_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-        save: bool = None,
+        save: bool | None = None,
     ):
         """Context manager for a session.
 
@@ -414,8 +414,16 @@ class SessionTracer:
         if limit:
             query += f" LIMIT {limit}"
 
-        df = await self.db.query_traces(query)
-        return df.to_dict("records")
+        # Ensure DB initialized before querying
+        if self.db is None:
+            await self.initialize()
+        df_or_records = await self.db.query_traces(query)  # type: ignore[union-attr]
+        try:
+            # If pandas DataFrame
+            return df_or_records.to_dict("records")  # type: ignore[call-arg, attr-defined]
+        except AttributeError:
+            # Already list of dicts
+            return df_or_records
 
     async def close(self):
         """Close database connections."""
