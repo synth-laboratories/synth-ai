@@ -6,7 +6,7 @@ num_episodes = 50
 seed_start = 0
 
 [policy]
-inference_url = "http://localhost:8000/api/inference"
+inference_url = "https://agent-learning.onrender.com/api/inference"
 max_tokens = 128
 temperature = 0.0
 

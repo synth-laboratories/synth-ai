@@ -11,7 +11,7 @@ base = "Qwen/Qwen3-1.7B"
 
 [policy]
 model = "Qwen/Qwen3-1.7B"
-inference_url = "http://localhost:8000/api/inference"
+inference_url = "https://agent-learning.onrender.com/api/inference"
 max_tokens = 1028
 temperature = 0.2
 
