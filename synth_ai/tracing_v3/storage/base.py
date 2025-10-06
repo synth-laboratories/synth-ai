@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
-import pandas as pd
-
 from ..abstractions import SessionTrace
 
 
@@ -42,22 +40,22 @@ class TraceStorage(ABC):
         pass
 
     @abstractmethod
-    async def query_traces(self, query: str, params: dict[str, Any] = None) -> pd.DataFrame:
-        """Execute a query and return results as DataFrame.
+    async def query_traces(self, query: str, params: dict[str, Any] | None = None) -> Any:
+        """Execute a query and return results.
 
         Args:
             query: The SQL query to execute
             params: Optional query parameters
 
         Returns:
-            Query results as a DataFrame
+            Query results as a DataFrame-like object or list of dict records
         """
         pass
 
     @abstractmethod
     async def get_model_usage(
-        self, start_date: datetime = None, end_date: datetime = None, model_name: str = None
-    ) -> pd.DataFrame:
+        self, start_date: datetime | None = None, end_date: datetime | None = None, model_name: str | None = None
+    ) -> Any:
         """Get model usage statistics.
 
         Args:
@@ -66,7 +64,7 @@ class TraceStorage(ABC):
             model_name: Optional model name filter
 
         Returns:
-            Model usage statistics as a DataFrame
+            Model usage statistics as a DataFrame-like object or list of dict records
         """
         pass
 
@@ -92,8 +90,8 @@ class TraceStorage(ABC):
         self,
         experiment_id: str,
         name: str,
-        description: str = None,
-        configuration: dict[str, Any] = None,
+        description: str | None = None,
+        configuration: dict[str, Any] | None = None,
     ) -> str:
         """Create a new experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
@@ -103,14 +101,14 @@ class TraceStorage(ABC):
         raise NotImplementedError("Experiment management not supported by this backend")
 
     async def get_sessions_by_experiment(
-        self, experiment_id: str, limit: int = None
+        self, experiment_id: str, limit: int | None = None
     ) -> list[dict[str, Any]]:
         """Get all sessions for an experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
 
     # Batch operations
     async def batch_insert_sessions(
-        self, traces: list[SessionTrace], batch_size: int = 1000
+        self, traces: list[SessionTrace], batch_size: int | None = 1000
     ) -> list[str]:
         """Batch insert multiple session traces.
 

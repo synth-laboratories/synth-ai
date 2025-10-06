@@ -1,141 +1,169 @@
-RL Example (provider-agnostic)
+# Math RL Demo (Single Step)
 
-Prereqs
-- Set `PROD_BACKEND_URL` and `SYNTH_API_KEY` (or pass via flags)
-- Deploy the task app (`examples/rl/task_app.py`) to your Modal account and set `TASK_APP_BASE_URL`
-  - SDK app name: `grpo-task-service-sdk`
-  - SDK secret name: `crafter-environment-sdk`
-- Ensure your organization has an uploaded `ENVIRONMENT_API_KEY` (see below). The backend decrypts and injects it at trainer start.
-- Optionally edit `examples/rl/crafter_online.toml` for model/batch/group and runner defaults; scripts default to this path when `--config-path` is not provided
+This example trains a reinforcement learning policy on single-step math problems sourced from the [EleutherAI/math](https://huggingface.co/datasets/EleutherAI/math) dataset. Episodes consist of a single tool call: the model must emit a `math_submit` function call whose `answer` field contains the final solution. Missing or malformed tool calls receive negative reward; correct answers earn positive reward.
 
-Working prod flow (tested)
+## Quick Commands
+
 ```bash
-# 0) Load env and set prod URLs/keys
-set -a; source /Users/you/Documents/GitHub/synth-ai/.env; set +a
-export SYNTH_BACKEND_URL_OVERRIDE=prod && export PROD_BACKEND_URL=https://agent-learning.onrender.com/api
-export SYNTH_API_KEY="${PROD_SYNTH_API_KEY:-$SYNTH_API_KEY}"
-export ENVIRONMENT_API_KEY="${PROD_ENVIRONMENT_API_KEY:-$ENVIRONMENT_API_KEY}"
-export OPENAI_API_KEY="${PROD_OPENAI_API_KEY:-$OPENAI_API_KEY}"
+# Serve locally with tracing
+uvx synth-ai serve math-single-step --port 8101 --env-file examples/rl/.env --trace traces/math
 
-# 1) Upload org ENVIRONMENT_API_KEY to backend (sealed-box)
-uv run python -c "import os; from synth_ai.rl.env_keys import setup_environment_api_key as s; r=s('https://agent-learning.onrender.com', os.environ['SYNTH_API_KEY']); print('uploaded');"
+# Modal deployment
+uvx synth-ai deploy --name synth-math-single-step --env-file examples/rl/.env
 
-# 2) Deploy the Task App (Modal) that hosts the env rollout endpoints
-bash /Users/you/Documents/GitHub/synth-ai/examples/rl/deploy_task_app.sh
+# Evaluate base Qwen policy (validation split)
+uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_base_qwen.toml
 
-# 3) Sanity check backend + task app health
-uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/check.py \
-  --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" \
-  --task-app-url "$TASK_APP_BASE_URL"
+# Launch RL job from base model
+uvx synth-ai train --type rl --config examples/rl/configs/rl_from_base_qwen.toml
 
-# 4) Optional: OpenAI-direct rollout workflow (backend orchestrates task app → OpenAI)
-uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/openai_in_task_app.py \
-  --mode prod --backend-url https://agent-learning.onrender.com/api \
-  --task-app-url "$TASK_APP_BASE_URL" \
-  --model gpt-5-nano --num-rollouts 2 --max-steps-each 10 --timeout-seconds 200
-
-# 5) Start clustered RL job (Qwen baseline)
-uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/run_rl_job.py \
-  --backend-url https://agent-learning.onrender.com/api \
-  --api-key "$SYNTH_API_KEY" \
-  --task-app-url "$TASK_APP_BASE_URL" \
-  --model "Qwen/Qwen3-0.6B" \
-  --batch-size 2 --group-size 4 \
-  --stream-seconds 10 --timeout 200
-
-# 6) Use the trained checkpoint for inference (replace RL_JOB_ID)
-export RL_JOB_ID='PASTE_JOB_ID_FROM_PREVIOUS_STEP'
-uv run python /Users/you/Documents/GitHub/synth-ai/examples/rl/hello_rl_completion.py \
-  --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" \
-  --model "rl:Qwen-Qwen3-0.6B:$RL_JOB_ID:checkpoint-epoch-1" --timeout 180
+# Evaluate RL checkpoint on held-out test split
+uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_rl_qwen.toml
 ```
 
-Setting ENVIRONMENT_API_KEY (secure upload)
-- Use the SDK helper to mint, encrypt (sealed box), and upload the token to the backend. The helper prints the token once; store it securely. The backend persists only ciphertext and injects the token at trainer start.
-```python
-import os
-from synth_ai.rl.env_keys import setup_environment_api_key
+## 1. Prerequisites
 
-setup_environment_api_key(
-    backend_base="https://agent-learning.onrender.com",
-    synth_api_key=os.environ["SYNTH_API_KEY"],
-)
-# The helper prints the token once to stdout. Keep it safe; it is not retrievable later.
-```
-CLI one-liner (optional):
+- Python 3.11+
+- `uv`/`uvx`
+- Modal CLI (`modal token new`) for deployment
+- `.env` at `examples/rl/.env` containing at least:
+  - `SYNTH_API_KEY`
+  - `ENVIRONMENT_API_KEY`
+  - Optional: `TASK_APP_URL` (Modal URL), `GROQ_API_KEY`, `OPENAI_API_KEY`
+
+Run `uvx synth-ai setup` to populate the `.env` if you have not paired the SDK before.
+
+## 2. Task App
+
+The task app is defined in `synth_ai/task/apps/math_single_step.py` and registered as `math-single-step`. It loads problems from the Hugging Face dataset (configurable via `MATH_DATASET_*` env vars) and manages per-episode state with an in-memory environment manager.
+
+- **Observation**: single math problem (string) plus dataset metadata.
+- **Actions**: exactly one `math_submit` tool call with an `answer` string.
+- **Rewards**:
+  - `+1.0` for correct answer
+  - `0.0` for incorrect answer
+  - `-0.5` if the tool call omits an answer or uses the wrong tool
+  - `-1.0` when no tool call is provided
+
+Serve locally with tracing to capture trajectories:
+
 ```bash
-DEV_BACKEND_URL=https://agent-learning.onrender.com \
-SYNTH_API_KEY=sk_your_org_key \
-uv run python - <<'PY'
-import os
-from synth_ai.rl.env_keys import setup_environment_api_key
-setup_environment_api_key(os.environ["DEV_BACKEND_URL"], os.environ["SYNTH_API_KEY"])
-PY
+uvx synth-ai serve math-single-step \
+  --port 8101 \
+  --env-file examples/rl/.env \
+  --trace traces/math \
+  --trace-db traces/math/synth_ai.db
 ```
-Notes
-- Do not send `ENVIRONMENT_API_KEY` from public clients. The backend decrypts and injects it into trainer containers.
-- Endpoints used: `GET /api/v1/crypto/public-key`, `POST /api/v1/env-keys`.
-- Details: see `examples/rl/env_api_key_crypto.txt` and `examples/rl/env_api_crypto_plan.txt`.
 
-Notes
-- Trainer endpoints are resolved server-side via trainer_id; no provider URLs in the SDK/example.
-- Status, events, and metrics use learning/* endpoints; SSE uses rl/ or learning/ where available.
-- For health-only validation: run with the above flags; the script prints backend/task_app health before creating the job.
-- Task App auth uses ENVIRONMENT_API_KEY; pass it via Modal secret and use X-API-Key on /health/rollout.
+Deploy or serve on Modal using the same env file; the registration includes a `ModalDeploymentConfig` that installs the `datasets` package automatically.
 
-Resources
-- See `examples/rl/crafter_online.toml` for an example multi-GPU layout:
-  - 8x H100 total
-  - 6 GPUs for inference (tensor-parallel) and 2 for training
-- The SDK/examples don’t allocate GPUs directly; resource placement is resolved by the backend/trainer.
+## 3. Evaluation
 
-Local config defaults and precedence
-- Scripts read `examples/rl/config.toml` by default (override with `--config-path`).
-- Modest smoke-test settings:
-  - `[trainer]` `batch_size=2`, `group_size=4`
-  - `[env]` `max_steps_per_episode=3`
-  - `[job]` `model=...`
-  - `[runner]` `stream_seconds`, `empty_polls_threshold`, `startup_deadline_s`
-- Precedence: CLI flags > config file > built-in defaults
+`examples/rl/run_eval.py` evaluates a policy by sampling deterministic seeds from the dataset splits. TOML configuration controls the model, split, and number of episodes. Example config (`eval_base_qwen.toml`):
 
-Other scripts
-- check.py: basic diagnostics
+```toml
+provider = "synth"
+task_app_url = "http://localhost:8101"
+model = "Qwen/Qwen3-4B"
+split = "validation"
+num_episodes = 50
+seed_start = 0
+
+[policy]
+inference_url = "http://localhost:8000/api/inference"
+max_tokens = 128
+temperature = 0.0
+# Optional: override headers for inference requests
+# [policy.extra_headers]
+# Authorization = "Bearer ..."
+```
+
+The `[policy]` table maps directly to the inference payload; add `[policy.headers]` if you need to forward custom HTTP headers (e.g., `Authorization`). If `SYNTH_API_KEY` is present, the evaluator automatically sends `Authorization: Bearer <key>`.
+
+Set `--use-rollout` to exercise the server-side rollout endpoint instead of the per-step API.
+
+The script reports accuracy and a breakdown of failure modes (`missing_tool_call`, `blank_answer`, etc.).
+
+## 4. RL Training
+
+Example RL config (`configs/rl_from_base_qwen.toml`):
+
+```toml
+[services]
+task_url = "https://your-app.modal.run"
+
+[model]
+base = "Qwen/Qwen3-4B"
+
+[data]
+split = "train"
+seed_start = 0
+episodes_per_iteration = 2048
+
+[training]
+max_turns = 1
+ops = ["agent", "env"]
+batch_size = 128
+group_size = 1024
+reward_positive = 1.0
+reward_negative_no_tool = -1.0
+reward_negative_no_answer = -0.5
+
+[policy]
+model = "Qwen/Qwen3-4B"
+inference_url = "https://your-inference-host"
+max_tokens = 128
+temperature = 0.0
+
+[tags]
+experiment = "math_single_step"
+```
+
+Submit jobs interactively with:
+
 ```bash
-python examples/rl/check.py --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" --task-app-url "$TASK_APP_BASE_URL"
+uvx synth-ai train --type rl --config examples/rl/configs/rl_from_base_qwen.toml
 ```
 
-- openai_in_task_app.py: Task App calls OpenAI directly
+The CLI ensures the task app is reachable (`/health`, `/task_info`), prompts for missing secrets, and polls job status until completion. For scripted automation, use `run_rl_and_save.py`:
+
 ```bash
-uv run python examples/rl/openai_in_task_app.py --model gpt-5-nano --num-rollouts 2 --max-steps-each 7 --timeout-seconds 1200
+uv run python examples/rl/run_rl_and_save.py \
+  --config examples/rl/configs/rl_from_base_qwen.toml \
+  --backend https://backend.synth.ai/api
 ```
 
-- full_training.py: end-to-end clustered training
+## 5. Evaluating RL Outputs
+
+After training completes, set `model = "rl:<job_or_model_id>"` in `configs/eval_rl_qwen.toml` (and update `split = "test"` for a held-out set). Re-run `run_eval.py` to compare:
+
 ```bash
-python examples/rl/full_training.py --backend-url "$PROD_BACKEND_URL" --api-key "$SYNTH_API_KEY" --task-app-url "$TASK_APP_BASE_URL"  --model Qwen/Qwen3-0.6B --stream-seconds 10
+uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_rl_qwen.toml
 ```
 
-- inference iwth rl'ed models
-```
- RL_WEIGHTS_PATH="models/Qwen-Qwen3-0.6B/rl-job_1993769d63c7506d485/checkpoint-epoch-1.tar.gz" uv run python examples/rl/hello_rl_completion.py --model "rl:Qwen-Qwen3-0 6B:job_1993769d63c7506d485:checkpoint-epoch-1"
-```
+Record both validation (pre-RL) and test (post-RL) accuracy to quantify improvements.
 
-Decision-level shaping (optional)
+## 6. Dataset Notes
 
-You can gate decision-level shaping via the `[step_rewards]` block in the training TOML:
+- By default the task app loads the [Hendrycks MATH benchmark](https://huggingface.co/datasets/nlile/hendrycks-MATH-benchmark). Override via `MATH_DATASET_NAME` / `MATH_DATASET_CONFIG` env vars if you want a different variant. The dataset is public and automatically downloaded when the task app starts; the server will fail fast with a clear error if it cannot be fetched.
+- For offline use, run `uv run python examples/rl/download_dataset.py --output-dir examples/rl/data --dataset nlile/hendrycks-MATH-benchmark --config algebra --limit 2000`. Then start the task app with `MATH_DATASET_LOCAL_DIR=examples/rl/data` (or set `MATH_DATASET_LOCAL_<SPLIT>_FILE`).
+- Hugging Face downloads occur at runtime; pre-fetch locally or mount a Modal volume if you need offline access.
+- Hugging Face downloads occur at runtime; pre-fetch locally or mount a Modal volume if you need offline access.
+- Seeds map directly to dataset indices. Use `seed_start` to control determinism in configs and evaluations.
 
-```
-[step_rewards]
-enabled = false
-mode = "off"            # set to "decision_stepwise" to enable
-step_beta = 0.0          # coefficient for (T - i) * achievements
-indicator_lambda = 0.0   # coefficient for achievement flip at i
-```
+## 7. Additional Utilities
 
-When enabled and mode is `decision_stepwise`, the task app computes per-decision rewards:
+- `examples/rl/task_app/math_task_app.py` – legacy runner (`python .../math_task_app.py --reload`).
+- `examples/rl/run_eval.py` – CLI evaluation helper (supports proxying Groq or hitting arbitrary inference URLs).
+- `examples/rl/run_rl_and_save.py` – thin wrapper around the Synth `/rl/jobs` API.
 
-```
-r_i = (T - i) * step_beta * A_T + indicator_lambda * indicator_i
-```
+For broader background on Synth task apps, CLI commands, and tracing, see the new documentation under `docs/`.
 
-and returns a summary at `branches.decision_rewards` in the rollout response.
-Set `STEP_BETA`/`STEP_LAMBDA` env vars to override coefficients at runtime.
+
+
+uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_base_qwen.toml
+uvx synth-ai serve math-single-step \
+    --port 8101 \
+    --env-file examples/rl/.env \
+    --trace traces/math \
+    --force

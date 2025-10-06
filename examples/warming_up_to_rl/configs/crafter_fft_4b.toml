@@ -1,9 +1,15 @@
 # FFT job config for Qwen/Qwen3-4B on Crafter SFT dataset
 
+[algorithm]
+type = "offline"
+method = "supervised_finetune"
+variety = "fft"
+
+
 [job]
 model = "Qwen/Qwen3-4B"
-# If not provided via --data, set a relative dataset path here
-# data = "../ft_data/qwen3_32b_ach_ge3_raw_filtered.jsonl"
+# Limit training to the first 100 conversations (export a 100-row JSONL and point to it here)
+# data = "../ft_data/qwen3_32b_ach_ge3_raw_filtered.head100.jsonl"
 
 [compute]
 # Adjust as needed for your quota
@@ -27,7 +33,7 @@ use_qlora = false
 [training.validation]
 enabled = true
 evaluation_strategy = "steps"
-eval_steps = 50
+eval_steps = 20
 save_best_model_at_end = true
 metric_for_best_model = "val.loss"
 greater_is_better = false
