@@ -31,12 +31,17 @@ def build_rollout_request(
     run_id: str,
     model: str,
     inference_url: str,
+    inference_api_key: str,
     ops: list[str],
     extra_headers: dict[str, str] | None = None,
     trace_format: str = "compact",
     return_trace: bool = False,
 ) -> RolloutRequest:
-    policy_config = {"model": model, "inference_url": inference_url}
+    policy_config = {
+        "model": model,
+        "inference_url": inference_url,
+        "api_key": inference_api_key,
+    }
     if extra_headers:
         policy_config["extra_headers"] = extra_headers
     record_cfg = RolloutRecordConfig(
@@ -234,7 +239,20 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
 
     api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
     if not api_key:
-        raise RuntimeError("Missing --api-key or ENVIRONMENT_API_KEY")
+        import sys
+        print("Please enter your RL Environment API key:", file=sys.stderr, flush=True)
+        api_key = input("> ").strip()
+        if not api_key:
+            raise RuntimeError("RL Environment API key is required")
+
+    # Prompt for Groq API key if not set
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    if not groq_api_key:
+        import sys
+        print("Please enter your Groq API key:", file=sys.stderr, flush=True)
+        groq_api_key = input("> ").strip()
+        if not groq_api_key:
+            raise RuntimeError("Groq API key is required")
 
     synth_key = os.getenv("SYNTH_API_KEY")
     extra_headers: dict[str, str] | None = None
@@ -252,15 +270,21 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
 
     ops = build_ops(args.max_llm_calls, args.ops)
 
+    print(f"\n🚀 Starting {args.count} rollouts with {args.parallel} parallel workers...")
+    print(f"📊 Each rollout: {len(ops)} ops ({args.max_llm_calls} LLM calls)\n")
+
     async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
         async def run_single(index: int) -> dict[str, Any]:
             run_id = f"{args.run_id}-{index:03d}"
             seed = args.seed + index * args.seed_stride
+            print(f"\n▶️  [{index+1}/{args.count}] Starting rollout {run_id} (seed={seed})...")
+
             request = build_rollout_request(
                 seed=seed,
                 run_id=run_id,
                 model=args.model,
                 inference_url=args.inference_url,
+                inference_api_key=groq_api_key,
                 ops=ops,
                 extra_headers=extra_headers,
                 trace_format=args.trace_format,
@@ -275,6 +299,7 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
             try:
                 response = await client.rollout(request)
                 summary = analyse_rollout_response(response)
+                print(f"\n✅ [{index+1}/{args.count}] Completed {run_id} (outcome={summary.get('outcome_score', 'N/A')})")
                 return {
                     "ok": True,
                     "run_id": run_id,
@@ -283,6 +308,7 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
                     "summary": summary,
                 }
             except Exception as exc:  # pragma: no cover - surface errors
+                print(f"\n❌ [{index+1}/{args.count}] Failed {run_id}: {exc}")
                 return {
                     "ok": False,
                     "run_id": run_id,
