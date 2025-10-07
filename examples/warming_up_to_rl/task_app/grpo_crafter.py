@@ -428,10 +428,6 @@ def build_config() -> TaskAppConfig:
     return config
 
 
-# Expose a top-level TaskAppConfig for CLI discovery paths that expect a module attribute
-TASK_APP_CONFIG = build_config()
-
-
 register_task_app(
     entry=TaskAppEntry(
         app_id="grpo-crafter",

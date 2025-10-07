@@ -1,0 +1,1979 @@
+{
+  "session_id": "local-trace",
+  "created_at": "datetime.datetime(2025, 10, 7, 18, 17, 20, 244494)",
+  "session_time_steps": [
+    {
+      "step_id": "decision_0",
+      "step_index": 0,
+      "timestamp": "datetime.datetime(2025, 10, 7, 18, 17, 20, 651353)",
+      "turn_number": 0,
+      "events": [
+        {
+          "system_instance_id": "policy:crafter-react",
+          "time_record": {
+            "event_time": 1759886254.589611,
+            "message_time": null
+          },
+          "metadata": {
+            "policy_id": null,
+            "turn": 0,
+            "run_id": "local-trace",
+            "step_id": "decision_0",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "model_name": "qwen/qwen3-32b",
+          "provider": "groq",
+          "input_tokens": 976,
+          "output_tokens": 381,
+          "total_tokens": 1357,
+          "cost_usd": null,
+          "latency_ms": 13319,
+          "span_id": null,
+          "trace_id": null,
+          "system_state_before": null,
+          "system_state_after": null,
+          "call_records": [
+            {
+              "call_id": "14b78314-1800-4f5d-a19c-253b80864733",
+              "api_type": "chat_completions",
+              "provider": "groq",
+              "model_name": "qwen/qwen3-32b",
+              "schema_version": "1.0",
+              "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 21, 270605)",
+              "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 34, 589611)",
+              "latency_ms": 13319,
+              "request_params": {
+                "temperature": 0.1,
+                "top_p": null,
+                "max_tokens": null,
+                "stop": null,
+                "top_k": null,
+                "presence_penalty": null,
+                "frequency_penalty": null,
+                "repetition_penalty": null,
+                "seed": null,
+                "n": null,
+                "best_of": null,
+                "response_format": null,
+                "json_mode": null,
+                "tool_config": null,
+                "raw_params": {
+                  "messages": [
+                    {
+                      "role": "system",
+                      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                    },
+                    {
+                      "role": "user",
+                      "content": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none"
+                    }
+                  ],
+                  "model": "qwen/qwen3-32b",
+                  "thinking_mode": "think",
+                  "thinking_budget": 1028,
+                  "tools": [
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "interact_many",
+                        "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "actions": {
+                              "type": "array",
+                              "description": "List of Crafter actions to execute sequentially.",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "noop",
+                                  "move_left",
+                                  "move_right",
+                                  "move_up",
+                                  "move_down",
+                                  "do",
+                                  "sleep",
+                                  "place_stone",
+                                  "place_table",
+                                  "place_furnace",
+                                  "place_plant",
+                                  "make_wood_pickaxe",
+                                  "make_stone_pickaxe",
+                                  "make_iron_pickaxe",
+                                  "make_wood_sword",
+                                  "make_stone_sword",
+                                  "make_iron_sword"
+                                ]
+                              },
+                              "minItems": 1,
+                              "maxItems": 8
+                            }
+                          },
+                          "required": [
+                            "actions"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  ],
+                  "tool_choice": {
+                    "type": "function",
+                    "function": {
+                      "name": "interact_many"
+                    }
+                  },
+                  "stop_after_tool_calls": 1,
+                  "parallel_tool_calls": false,
+                  "function_call": {
+                    "name": "interact_many"
+                  },
+                  "extra_body": {
+                    "chat_template_kwargs": {
+                      "enable_thinking": true,
+                      "thinking_budget": 1028
+                    },
+                    "stop_after_tool_calls": 1
+                  },
+                  "temperature": 0.1
+                }
+              },
+              "input_messages": [
+                {
+                  "role": "system",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                },
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "input_text": null,
+              "tool_choice": "auto",
+              "output_messages": [
+                {
+                  "role": "assistant",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "{\"id\": \"chatcmpl-396bcfdc-1cca-4375-8fac-7f33eb35f921\", \"object\": \"chat.completion\", \"created\": 1759861054, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's start. The player is at position [32,32] with all stats at 9. The local map is all grass except the player's spot. Since the game just started, the first step is to explore and find resources. The main goal is to collect wood, so I need to move towards trees. But the local map doesn't show any trees yet. The player needs to move around to find them.\\n\\nPossible actions: Move in any direction to explore. Let's choose a direction, say, move_right a few times to check adjacent tiles. Maybe after moving a few steps, there's a tree to interact with. Let me plan a sequence of moves. Let's do move_right four times to go east. If there's a tree there, then do a 'do' action. But since the map is 5x5 and the player is in the center, moving right once would take them to the edge. Wait, the initial position is [32,32], and the local map is 5x5. So moving right once would take them to the edge of the current view. Maybe after moving right, the new tiles will be revealed. Let's try moving right multiple times to explore east. So the actions would be a series of move_right steps. Let's do four move_right actions. That should take the player to the edge of the current view, possibly revealing new tiles with resources. Once there, if a tree is found, they can 'do' to collect wood. But since the initial steps don't show any resources, exploration is key. So the first tool call should be a sequence of move_right actions.\\n\", \"tool_calls\": [{\"id\": \"sw1cyefar\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.022837656, \"prompt_tokens\": 976, \"prompt_time\": 0.04920156, \"completion_tokens\": 381,\u2026",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "outputs": [],
+              "output_text": "{\"id\": \"chatcmpl-396bcfdc-1cca-4375-8fac-7f33eb35f921\", \"object\": \"chat.completion\", \"created\": 1759861054, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's start. The player is at position [32,32] with all stats at 9. The local map is all grass except the player's spot. Since the game just started, the first step is to explore and find resources. The main goal is to collect wood, so I need to move towards trees. But the local map doesn't show any trees yet. The player needs to move around to find them.\\n\\nPossible actions: Move in any direction to explore. Let's choose a direction, say, move_right a few times to check adjacent tiles. Maybe after moving a few steps, there's a tree to interact with. Let me plan a sequence of moves. Let's do move_right four times to go east. If there's a tree there, then do a 'do' action. But since the map is 5x5 and the player is in the center, moving right once would take them to the edge. Wait, the initial position is [32,32], and the local map is 5x5. So moving right once would take them to the edge of the current view. Maybe after moving right, the new tiles will be revealed. Let's try moving right multiple times to explore east. So the actions would be a series of move_right steps. Let's do four move_right actions. That should take the player to the edge of the current view, possibly revealing new tiles with resources. Once there, if a tree is found, they can 'do' to collect wood. But since the initial steps don't show any resources, exploration is key. So the first tool call should be a sequence of move_right actions.\\n\", \"tool_calls\": [{\"id\": \"sw1cyefar\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.022837656, \"prompt_tokens\": 976, \"prompt_time\": 0.04920156, \"completion_tokens\": 381,\u2026",
+              "output_tool_calls": [
+                {
+                  "name": "interact_many",
+                  "arguments_json": "{\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+                  "arguments": null,
+                  "call_id": "sw1cyefar",
+                  "index": 0,
+                  "parent_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "usage": {
+                "input_tokens": null,
+                "output_tokens": null,
+                "total_tokens": 1357,
+                "reasoning_tokens": null,
+                "reasoning_input_tokens": null,
+                "reasoning_output_tokens": null,
+                "cache_write_tokens": null,
+                "cache_read_tokens": null,
+                "billable_input_tokens": null,
+                "billable_output_tokens": null,
+                "cost_usd": null
+              },
+              "finish_reason": null,
+              "choice_index": null,
+              "tool_results": [],
+              "chunks": null,
+              "request_raw_json": null,
+              "response_raw_json": null,
+              "span_id": null,
+              "trace_id": null,
+              "provider_request_id": null,
+              "request_server_timing": null,
+              "metadata": {
+                "has_tools": true,
+                "num_tools": 1
+              },
+              "outcome": "success",
+              "error": null,
+              "token_traces": null,
+              "safety": null,
+              "refusal": null,
+              "redactions": null
+            }
+          ]
+        },
+        {
+          "system_instance_id": "environment:crafter",
+          "time_record": {
+            "event_time": 1759886254.641017,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 0,
+            "run_id": "local-trace",
+            "op_index": 1,
+            "step_id": "decision_0",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "reward": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "system_state_before": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n"
+          },
+          "system_state_after": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+          }
+        }
+      ],
+      "markov_blanket_messages": [
+        {
+          "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+          "message_type": "policy_system_prompt",
+          "time_record": {
+            "event_time": 1759886240.656075,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 0,
+            "step_id": "decision_0"
+          }
+        },
+        {
+          "content": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none",
+          "message_type": "policy_user_prompt",
+          "time_record": {
+            "event_time": 1759886240.661875,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 0,
+            "step_id": "decision_0"
+          }
+        },
+        {
+          "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"move_right\", \"move_right\", \"move_right\", \"move_right\"]}}]",
+          "message_type": "policy_tool_call",
+          "time_record": {
+            "event_time": 1759886254.628278,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 0,
+            "step_id": "decision_0"
+          }
+        }
+      ],
+      "step_metadata": {},
+      "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 34, 652271)"
+    },
+    {
+      "step_id": "decision_1",
+      "step_index": 1,
+      "timestamp": "datetime.datetime(2025, 10, 7, 18, 17, 34, 652280)",
+      "turn_number": 1,
+      "events": [
+        {
+          "system_instance_id": "policy:crafter-react",
+          "time_record": {
+            "event_time": 1759886256.117728,
+            "message_time": null
+          },
+          "metadata": {
+            "policy_id": null,
+            "turn": 1,
+            "run_id": "local-trace",
+            "step_id": "decision_1",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "model_name": "qwen/qwen3-32b",
+          "provider": "groq",
+          "input_tokens": 993,
+          "output_tokens": 254,
+          "total_tokens": 1247,
+          "cost_usd": null,
+          "latency_ms": 705,
+          "span_id": null,
+          "trace_id": null,
+          "system_state_before": null,
+          "system_state_after": null,
+          "call_records": [
+            {
+              "call_id": "d9ebf194-1dd8-4d75-868b-9f4c5371cd6e",
+              "api_type": "chat_completions",
+              "provider": "groq",
+              "model_name": "qwen/qwen3-32b",
+              "schema_version": "1.0",
+              "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 35, 412591)",
+              "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 36, 117728)",
+              "latency_ms": 705,
+              "request_params": {
+                "temperature": 0.1,
+                "top_p": null,
+                "max_tokens": null,
+                "stop": null,
+                "top_k": null,
+                "presence_penalty": null,
+                "frequency_penalty": null,
+                "repetition_penalty": null,
+                "seed": null,
+                "n": null,
+                "best_of": null,
+                "response_format": null,
+                "json_mode": null,
+                "tool_config": null,
+                "raw_params": {
+                  "messages": [
+                    {
+                      "role": "system",
+                      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                    },
+                    {
+                      "role": "user",
+                      "content": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}"
+                    }
+                  ],
+                  "model": "qwen/qwen3-32b",
+                  "thinking_mode": "think",
+                  "thinking_budget": 1028,
+                  "tools": [
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "interact_many",
+                        "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "actions": {
+                              "type": "array",
+                              "description": "List of Crafter actions to execute sequentially.",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "noop",
+                                  "move_left",
+                                  "move_right",
+                                  "move_up",
+                                  "move_down",
+                                  "do",
+                                  "sleep",
+                                  "place_stone",
+                                  "place_table",
+                                  "place_furnace",
+                                  "place_plant",
+                                  "make_wood_pickaxe",
+                                  "make_stone_pickaxe",
+                                  "make_iron_pickaxe",
+                                  "make_wood_sword",
+                                  "make_stone_sword",
+                                  "make_iron_sword"
+                                ]
+                              },
+                              "minItems": 1,
+                              "maxItems": 8
+                            }
+                          },
+                          "required": [
+                            "actions"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  ],
+                  "tool_choice": {
+                    "type": "function",
+                    "function": {
+                      "name": "interact_many"
+                    }
+                  },
+                  "stop_after_tool_calls": 1,
+                  "parallel_tool_calls": false,
+                  "function_call": {
+                    "name": "interact_many"
+                  },
+                  "extra_body": {
+                    "chat_template_kwargs": {
+                      "enable_thinking": true,
+                      "thinking_budget": 1028
+                    },
+                    "stop_after_tool_calls": 1
+                  },
+                  "temperature": 0.1
+                }
+              },
+              "input_messages": [
+                {
+                  "role": "system",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                },
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "input_text": null,
+              "tool_choice": "auto",
+              "output_messages": [
+                {
+                  "role": "assistant",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "{\"id\": \"chatcmpl-fbf8f482-fb8a-49a7-950a-a41e3f827c4a\", \"object\": \"chat.completion\", \"created\": 1759861056, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The previous actions were moving right four times, which probably brought them next to the tree. Now, they need to interact with the tree to collect wood. Since the tree is adjacent, the 'do' action should work. But wait, the player's facing direction is [1, 0], which is to the right. So they're already facing the tree. They just need to perform the 'do' action here. Let me check the inventory: they have 9 food, 9 drink, 9 energy. No tools yet. Collecting wood is the next step. So the correct action is to use 'do' to gather the wood. Then maybe craft a pickaxe. But first, confirm that the tree is there. The local map shows the tree in the same position as the player's previous movement. So after moving right four times, they should be next to the tree. Therefore, the next action is 'do' to collect the wood.\\n\", \"tool_calls\": [{\"id\": \"xqfq5mj4y\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"do\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.018621083, \"prompt_tokens\": 993, \"prompt_time\": 0.035073054, \"completion_tokens\": 254, \"completion_time\": 0.50081615, \"total_tokens\": 1247, \"total_time\": 0.535889204, \"prompt_tokens_details\": {\"cached_tokens\": 512}}, \"usage_breakdown\": null, \"system_fingerprint\": \"fp_d58dbe76cd\", \"x_groq\": {\"id\": \"req_01k6zy981qeqktf4hv09k80yrp\"}, \"service_tier\": \"on_demand\"}",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "outputs": [],
+              "output_text": "{\"id\": \"chatcmpl-fbf8f482-fb8a-49a7-950a-a41e3f827c4a\", \"object\": \"chat.completion\", \"created\": 1759861056, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The previous actions were moving right four times, which probably brought them next to the tree. Now, they need to interact with the tree to collect wood. Since the tree is adjacent, the 'do' action should work. But wait, the player's facing direction is [1, 0], which is to the right. So they're already facing the tree. They just need to perform the 'do' action here. Let me check the inventory: they have 9 food, 9 drink, 9 energy. No tools yet. Collecting wood is the next step. So the correct action is to use 'do' to gather the wood. Then maybe craft a pickaxe. But first, confirm that the tree is there. The local map shows the tree in the same position as the player's previous movement. So after moving right four times, they should be next to the tree. Therefore, the next action is 'do' to collect the wood.\\n\", \"tool_calls\": [{\"id\": \"xqfq5mj4y\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"do\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.018621083, \"prompt_tokens\": 993, \"prompt_time\": 0.035073054, \"completion_tokens\": 254, \"completion_time\": 0.50081615, \"total_tokens\": 1247, \"total_time\": 0.535889204, \"prompt_tokens_details\": {\"cached_tokens\": 512}}, \"usage_breakdown\": null, \"system_fingerprint\": \"fp_d58dbe76cd\", \"x_groq\": {\"id\": \"req_01k6zy981qeqktf4hv09k80yrp\"}, \"service_tier\": \"on_demand\"}",
+              "output_tool_calls": [
+                {
+                  "name": "interact_many",
+                  "arguments_json": "{\"actions\":[\"do\"]}",
+                  "arguments": null,
+                  "call_id": "xqfq5mj4y",
+                  "index": 0,
+                  "parent_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "usage": {
+                "input_tokens": null,
+                "output_tokens": null,
+                "total_tokens": 1247,
+                "reasoning_tokens": null,
+                "reasoning_input_tokens": null,
+                "reasoning_output_tokens": null,
+                "cache_write_tokens": null,
+                "cache_read_tokens": null,
+                "billable_input_tokens": null,
+                "billable_output_tokens": null,
+                "cost_usd": null
+              },
+              "finish_reason": null,
+              "choice_index": null,
+              "tool_results": [],
+              "chunks": null,
+              "request_raw_json": null,
+              "response_raw_json": null,
+              "span_id": null,
+              "trace_id": null,
+              "provider_request_id": null,
+              "request_server_timing": null,
+              "metadata": {
+                "has_tools": true,
+                "num_tools": 1
+              },
+              "outcome": "success",
+              "error": null,
+              "token_traces": null,
+              "safety": null,
+              "refusal": null,
+              "redactions": null
+            }
+          ]
+        },
+        {
+          "system_instance_id": "environment:crafter",
+          "time_record": {
+            "event_time": 1759886256.168328,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 1,
+            "run_id": "local-trace",
+            "op_index": 3,
+            "step_id": "decision_1",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "reward": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "system_state_before": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+          },
+          "system_state_after": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+          }
+        }
+      ],
+      "markov_blanket_messages": [
+        {
+          "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+          "message_type": "policy_system_prompt",
+          "time_record": {
+            "event_time": 1759886254.65435,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 1,
+            "step_id": "decision_1"
+          }
+        },
+        {
+          "content": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+          "message_type": "policy_user_prompt",
+          "time_record": {
+            "event_time": 1759886254.6574,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 1,
+            "step_id": "decision_1"
+          }
+        },
+        {
+          "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"do\"]}}]",
+          "message_type": "policy_tool_call",
+          "time_record": {
+            "event_time": 1759886256.160362,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 1,
+            "step_id": "decision_1"
+          }
+        }
+      ],
+      "step_metadata": {},
+      "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 36, 175700)"
+    },
+    {
+      "step_id": "decision_2",
+      "step_index": 2,
+      "timestamp": "datetime.datetime(2025, 10, 7, 18, 17, 36, 175712)",
+      "turn_number": 2,
+      "events": [
+        {
+          "system_instance_id": "policy:crafter-react",
+          "time_record": {
+            "event_time": 1759886261.550089,
+            "message_time": null
+          },
+          "metadata": {
+            "policy_id": null,
+            "turn": 2,
+            "run_id": "local-trace",
+            "step_id": "decision_2",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "model_name": "qwen/qwen3-32b",
+          "provider": "groq",
+          "input_tokens": 1002,
+          "output_tokens": 2211,
+          "total_tokens": 3213,
+          "cost_usd": null,
+          "latency_ms": 4800,
+          "span_id": null,
+          "trace_id": null,
+          "system_state_before": null,
+          "system_state_after": null,
+          "call_records": [
+            {
+              "call_id": "21f3ab89-63c3-4a23-b471-f4c48c181bb0",
+              "api_type": "chat_completions",
+              "provider": "groq",
+              "model_name": "qwen/qwen3-32b",
+              "schema_version": "1.0",
+              "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 36, 749238)",
+              "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 41, 550089)",
+              "latency_ms": 4800,
+              "request_params": {
+                "temperature": 0.1,
+                "top_p": null,
+                "max_tokens": null,
+                "stop": null,
+                "top_k": null,
+                "presence_penalty": null,
+                "frequency_penalty": null,
+                "repetition_penalty": null,
+                "seed": null,
+                "n": null,
+                "best_of": null,
+                "response_format": null,
+                "json_mode": null,
+                "tool_config": null,
+                "raw_params": {
+                  "messages": [
+                    {
+                      "role": "system",
+                      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                    },
+                    {
+                      "role": "user",
+                      "content": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}"
+                    }
+                  ],
+                  "model": "qwen/qwen3-32b",
+                  "thinking_mode": "think",
+                  "thinking_budget": 1028,
+                  "tools": [
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "interact_many",
+                        "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "actions": {
+                              "type": "array",
+                              "description": "List of Crafter actions to execute sequentially.",
+                              "items": {
+                                "type": "string",
+                                "enum": [
+                                  "noop",
+                                  "move_left",
+                                  "move_right",
+                                  "move_up",
+                                  "move_down",
+                                  "do",
+                                  "sleep",
+                                  "place_stone",
+                                  "place_table",
+                                  "place_furnace",
+                                  "place_plant",
+                                  "make_wood_pickaxe",
+                                  "make_stone_pickaxe",
+                                  "make_iron_pickaxe",
+                                  "make_wood_sword",
+                                  "make_stone_sword",
+                                  "make_iron_sword"
+                                ]
+                              },
+                              "minItems": 1,
+                              "maxItems": 8
+                            }
+                          },
+                          "required": [
+                            "actions"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    }
+                  ],
+                  "tool_choice": {
+                    "type": "function",
+                    "function": {
+                      "name": "interact_many"
+                    }
+                  },
+                  "stop_after_tool_calls": 1,
+                  "parallel_tool_calls": false,
+                  "function_call": {
+                    "name": "interact_many"
+                  },
+                  "extra_body": {
+                    "chat_template_kwargs": {
+                      "enable_thinking": true,
+                      "thinking_budget": 1028
+                    },
+                    "stop_after_tool_calls": 1
+                  },
+                  "temperature": 0.1
+                }
+              },
+              "input_messages": [
+                {
+                  "role": "system",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                },
+                {
+                  "role": "user",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "input_text": null,
+              "tool_choice": "auto",
+              "output_messages": [
+                {
+                  "role": "assistant",
+                  "parts": [
+                    {
+                      "type": "text",
+                      "text": "{\"id\": \"chatcmpl-d2e71fd7-5f08-4377-b137-52e5d31cee3b\", \"object\": \"chat.completion\", \"created\": 1759861061, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The facing direction is [1, 0], which I think means they're facing to the right. The inventory has food, drink, and energy at 9 each, so they're not in immediate danger there. The achievements are none yet, so the goal is to start collecting resources.\\n\\nIn the previous steps, the player moved right four times and then did a \\\"do\\\" action. But looking at the current map, the player is next to a tree. Since the last action was \\\"do\\\", maybe they tried to interact with the tree. But if they haven't collected the wood yet, perhaps the \\\"do\\\" didn't work. Wait, in the game rules, you have to be adjacent to a resource to interact. The local map shows the player is next to a tree, so doing \\\"do\\\" should collect wood. But maybe they need to use the correct tool? No, initially, you can collect wood with empty hands. Hmm.\\n\\nWait, the player's last action was \\\"do\\\", but maybe they need to do it again because the first \\\"do\\\" didn't work? Or maybe the tree was already harvested? But the local map still shows a tree there. Alternatively, maybe the player is not facing the tree. The facing direction is [1, 0], which is right, but the tree is to the right of the player's position. Wait, the position in the map is [player, tree, grass...], so the tree is to the right. If the player is facing right, then they are facing the tree. So the \\\"do\\\" action should work. But maybe the first \\\"do\\\" didn't work because of timing? Or maybe the player needs to move closer? Wait, the player is already adjacent to the tree. So maybe the \\\"do\\\" action was successful, but the game state hasn't updated yet. But the inventory shows food, drink, energy at 9, but no wood. So perhaps the \\\"do\u2026",
+                      "data": null,
+                      "mime_type": null,
+                      "uri": null,
+                      "base64_data": null,
+                      "size_bytes": null,
+                      "sha256": null,
+                      "width": null,
+                      "height": null,
+                      "duration_ms": null,
+                      "sample_rate": null,
+                      "channels": null,
+                      "language": null
+                    }
+                  ],
+                  "name": null,
+                  "tool_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "outputs": [],
+              "output_text": "{\"id\": \"chatcmpl-d2e71fd7-5f08-4377-b137-52e5d31cee3b\", \"object\": \"chat.completion\", \"created\": 1759861061, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The facing direction is [1, 0], which I think means they're facing to the right. The inventory has food, drink, and energy at 9 each, so they're not in immediate danger there. The achievements are none yet, so the goal is to start collecting resources.\\n\\nIn the previous steps, the player moved right four times and then did a \\\"do\\\" action. But looking at the current map, the player is next to a tree. Since the last action was \\\"do\\\", maybe they tried to interact with the tree. But if they haven't collected the wood yet, perhaps the \\\"do\\\" didn't work. Wait, in the game rules, you have to be adjacent to a resource to interact. The local map shows the player is next to a tree, so doing \\\"do\\\" should collect wood. But maybe they need to use the correct tool? No, initially, you can collect wood with empty hands. Hmm.\\n\\nWait, the player's last action was \\\"do\\\", but maybe they need to do it again because the first \\\"do\\\" didn't work? Or maybe the tree was already harvested? But the local map still shows a tree there. Alternatively, maybe the player is not facing the tree. The facing direction is [1, 0], which is right, but the tree is to the right of the player's position. Wait, the position in the map is [player, tree, grass...], so the tree is to the right. If the player is facing right, then they are facing the tree. So the \\\"do\\\" action should work. But maybe the first \\\"do\\\" didn't work because of timing? Or maybe the player needs to move closer? Wait, the player is already adjacent to the tree. So maybe the \\\"do\\\" action was successful, but the game state hasn't updated yet. But the inventory shows food, drink, energy at 9, but no wood. So perhaps the \\\"do\u2026",
+              "output_tool_calls": [
+                {
+                  "name": "interact_many",
+                  "arguments_json": "{\"actions\":[\"do\"]}",
+                  "arguments": null,
+                  "call_id": "nmvj48gbv",
+                  "index": 0,
+                  "parent_call_id": null,
+                  "metadata": {}
+                }
+              ],
+              "usage": {
+                "input_tokens": null,
+                "output_tokens": null,
+                "total_tokens": 3213,
+                "reasoning_tokens": null,
+                "reasoning_input_tokens": null,
+                "reasoning_output_tokens": null,
+                "cache_write_tokens": null,
+                "cache_read_tokens": null,
+                "billable_input_tokens": null,
+                "billable_output_tokens": null,
+                "cost_usd": null
+              },
+              "finish_reason": null,
+              "choice_index": null,
+              "tool_results": [],
+              "chunks": null,
+              "request_raw_json": null,
+              "response_raw_json": null,
+              "span_id": null,
+              "trace_id": null,
+              "provider_request_id": null,
+              "request_server_timing": null,
+              "metadata": {
+                "has_tools": true,
+                "num_tools": 1
+              },
+              "outcome": "success",
+              "error": null,
+              "token_traces": null,
+              "safety": null,
+              "refusal": null,
+              "redactions": null
+            }
+          ]
+        },
+        {
+          "system_instance_id": "environment:crafter",
+          "time_record": {
+            "event_time": 1759886261.601705,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 2,
+            "run_id": "local-trace",
+            "op_index": 5,
+            "step_id": "decision_2",
+            "enriched": true,
+            "hook_version": "1.0"
+          },
+          "event_metadata": null,
+          "reward": 0.0,
+          "terminated": false,
+          "truncated": false,
+          "system_state_before": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+          },
+          "system_state_after": {
+            "text": "=== CRAFTER GAME STATE ===\nStep: 6/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+          }
+        }
+      ],
+      "markov_blanket_messages": [
+        {
+          "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+          "message_type": "policy_system_prompt",
+          "time_record": {
+            "event_time": 1759886256.177331,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 2,
+            "step_id": "decision_2"
+          }
+        },
+        {
+          "content": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+          "message_type": "policy_user_prompt",
+          "time_record": {
+            "event_time": 1759886256.179685,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 2,
+            "step_id": "decision_2"
+          }
+        },
+        {
+          "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"do\"]}}]",
+          "message_type": "policy_tool_call",
+          "time_record": {
+            "event_time": 1759886261.591221,
+            "message_time": null
+          },
+          "metadata": {
+            "turn": 2,
+            "step_id": "decision_2"
+          }
+        }
+      ],
+      "step_metadata": {},
+      "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 41, 610930)"
+    }
+  ],
+  "event_history": [
+    {
+      "system_instance_id": "policy:crafter-react",
+      "time_record": {
+        "event_time": 1759886254.589611,
+        "message_time": null
+      },
+      "metadata": {
+        "policy_id": null,
+        "turn": 0,
+        "run_id": "local-trace",
+        "step_id": "decision_0",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "model_name": "qwen/qwen3-32b",
+      "provider": "groq",
+      "input_tokens": 976,
+      "output_tokens": 381,
+      "total_tokens": 1357,
+      "cost_usd": null,
+      "latency_ms": 13319,
+      "span_id": null,
+      "trace_id": null,
+      "system_state_before": null,
+      "system_state_after": null,
+      "call_records": [
+        {
+          "call_id": "14b78314-1800-4f5d-a19c-253b80864733",
+          "api_type": "chat_completions",
+          "provider": "groq",
+          "model_name": "qwen/qwen3-32b",
+          "schema_version": "1.0",
+          "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 21, 270605)",
+          "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 34, 589611)",
+          "latency_ms": 13319,
+          "request_params": {
+            "temperature": 0.1,
+            "top_p": null,
+            "max_tokens": null,
+            "stop": null,
+            "top_k": null,
+            "presence_penalty": null,
+            "frequency_penalty": null,
+            "repetition_penalty": null,
+            "seed": null,
+            "n": null,
+            "best_of": null,
+            "response_format": null,
+            "json_mode": null,
+            "tool_config": null,
+            "raw_params": {
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                },
+                {
+                  "role": "user",
+                  "content": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none"
+                }
+              ],
+              "model": "qwen/qwen3-32b",
+              "thinking_mode": "think",
+              "thinking_budget": 1028,
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "interact_many",
+                    "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of Crafter actions to execute sequentially.",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "noop",
+                              "move_left",
+                              "move_right",
+                              "move_up",
+                              "move_down",
+                              "do",
+                              "sleep",
+                              "place_stone",
+                              "place_table",
+                              "place_furnace",
+                              "place_plant",
+                              "make_wood_pickaxe",
+                              "make_stone_pickaxe",
+                              "make_iron_pickaxe",
+                              "make_wood_sword",
+                              "make_stone_sword",
+                              "make_iron_sword"
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 8
+                        }
+                      },
+                      "required": [
+                        "actions"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              ],
+              "tool_choice": {
+                "type": "function",
+                "function": {
+                  "name": "interact_many"
+                }
+              },
+              "stop_after_tool_calls": 1,
+              "parallel_tool_calls": false,
+              "function_call": {
+                "name": "interact_many"
+              },
+              "extra_body": {
+                "chat_template_kwargs": {
+                  "enable_thinking": true,
+                  "thinking_budget": 1028
+                },
+                "stop_after_tool_calls": 1
+              },
+              "temperature": 0.1
+            }
+          },
+          "input_messages": [
+            {
+              "role": "system",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            },
+            {
+              "role": "user",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "input_text": null,
+          "tool_choice": "auto",
+          "output_messages": [
+            {
+              "role": "assistant",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "{\"id\": \"chatcmpl-396bcfdc-1cca-4375-8fac-7f33eb35f921\", \"object\": \"chat.completion\", \"created\": 1759861054, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's start. The player is at position [32,32] with all stats at 9. The local map is all grass except the player's spot. Since the game just started, the first step is to explore and find resources. The main goal is to collect wood, so I need to move towards trees. But the local map doesn't show any trees yet. The player needs to move around to find them.\\n\\nPossible actions: Move in any direction to explore. Let's choose a direction, say, move_right a few times to check adjacent tiles. Maybe after moving a few steps, there's a tree to interact with. Let me plan a sequence of moves. Let's do move_right four times to go east. If there's a tree there, then do a 'do' action. But since the map is 5x5 and the player is in the center, moving right once would take them to the edge. Wait, the initial position is [32,32], and the local map is 5x5. So moving right once would take them to the edge of the current view. Maybe after moving right, the new tiles will be revealed. Let's try moving right multiple times to explore east. So the actions would be a series of move_right steps. Let's do four move_right actions. That should take the player to the edge of the current view, possibly revealing new tiles with resources. Once there, if a tree is found, they can 'do' to collect wood. But since the initial steps don't show any resources, exploration is key. So the first tool call should be a sequence of move_right actions.\\n\", \"tool_calls\": [{\"id\": \"sw1cyefar\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.022837656, \"prompt_tokens\": 976, \"prompt_time\": 0.04920156, \"completion_tokens\": 381,\u2026",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "outputs": [],
+          "output_text": "{\"id\": \"chatcmpl-396bcfdc-1cca-4375-8fac-7f33eb35f921\", \"object\": \"chat.completion\", \"created\": 1759861054, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's start. The player is at position [32,32] with all stats at 9. The local map is all grass except the player's spot. Since the game just started, the first step is to explore and find resources. The main goal is to collect wood, so I need to move towards trees. But the local map doesn't show any trees yet. The player needs to move around to find them.\\n\\nPossible actions: Move in any direction to explore. Let's choose a direction, say, move_right a few times to check adjacent tiles. Maybe after moving a few steps, there's a tree to interact with. Let me plan a sequence of moves. Let's do move_right four times to go east. If there's a tree there, then do a 'do' action. But since the map is 5x5 and the player is in the center, moving right once would take them to the edge. Wait, the initial position is [32,32], and the local map is 5x5. So moving right once would take them to the edge of the current view. Maybe after moving right, the new tiles will be revealed. Let's try moving right multiple times to explore east. So the actions would be a series of move_right steps. Let's do four move_right actions. That should take the player to the edge of the current view, possibly revealing new tiles with resources. Once there, if a tree is found, they can 'do' to collect wood. But since the initial steps don't show any resources, exploration is key. So the first tool call should be a sequence of move_right actions.\\n\", \"tool_calls\": [{\"id\": \"sw1cyefar\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\",\\\"move_right\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.022837656, \"prompt_tokens\": 976, \"prompt_time\": 0.04920156, \"completion_tokens\": 381,\u2026",
+          "output_tool_calls": [
+            {
+              "name": "interact_many",
+              "arguments_json": "{\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+              "arguments": null,
+              "call_id": "sw1cyefar",
+              "index": 0,
+              "parent_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "usage": {
+            "input_tokens": null,
+            "output_tokens": null,
+            "total_tokens": 1357,
+            "reasoning_tokens": null,
+            "reasoning_input_tokens": null,
+            "reasoning_output_tokens": null,
+            "cache_write_tokens": null,
+            "cache_read_tokens": null,
+            "billable_input_tokens": null,
+            "billable_output_tokens": null,
+            "cost_usd": null
+          },
+          "finish_reason": null,
+          "choice_index": null,
+          "tool_results": [],
+          "chunks": null,
+          "request_raw_json": null,
+          "response_raw_json": null,
+          "span_id": null,
+          "trace_id": null,
+          "provider_request_id": null,
+          "request_server_timing": null,
+          "metadata": {
+            "has_tools": true,
+            "num_tools": 1
+          },
+          "outcome": "success",
+          "error": null,
+          "token_traces": null,
+          "safety": null,
+          "refusal": null,
+          "redactions": null
+        }
+      ]
+    },
+    {
+      "system_instance_id": "environment:crafter",
+      "time_record": {
+        "event_time": 1759886254.641017,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 0,
+        "run_id": "local-trace",
+        "op_index": 1,
+        "step_id": "decision_0",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "reward": 0.0,
+      "terminated": false,
+      "truncated": false,
+      "system_state_before": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n"
+      },
+      "system_state_after": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+      }
+    },
+    {
+      "system_instance_id": "policy:crafter-react",
+      "time_record": {
+        "event_time": 1759886256.117728,
+        "message_time": null
+      },
+      "metadata": {
+        "policy_id": null,
+        "turn": 1,
+        "run_id": "local-trace",
+        "step_id": "decision_1",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "model_name": "qwen/qwen3-32b",
+      "provider": "groq",
+      "input_tokens": 993,
+      "output_tokens": 254,
+      "total_tokens": 1247,
+      "cost_usd": null,
+      "latency_ms": 705,
+      "span_id": null,
+      "trace_id": null,
+      "system_state_before": null,
+      "system_state_after": null,
+      "call_records": [
+        {
+          "call_id": "d9ebf194-1dd8-4d75-868b-9f4c5371cd6e",
+          "api_type": "chat_completions",
+          "provider": "groq",
+          "model_name": "qwen/qwen3-32b",
+          "schema_version": "1.0",
+          "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 35, 412591)",
+          "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 36, 117728)",
+          "latency_ms": 705,
+          "request_params": {
+            "temperature": 0.1,
+            "top_p": null,
+            "max_tokens": null,
+            "stop": null,
+            "top_k": null,
+            "presence_penalty": null,
+            "frequency_penalty": null,
+            "repetition_penalty": null,
+            "seed": null,
+            "n": null,
+            "best_of": null,
+            "response_format": null,
+            "json_mode": null,
+            "tool_config": null,
+            "raw_params": {
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                },
+                {
+                  "role": "user",
+                  "content": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}"
+                }
+              ],
+              "model": "qwen/qwen3-32b",
+              "thinking_mode": "think",
+              "thinking_budget": 1028,
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "interact_many",
+                    "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of Crafter actions to execute sequentially.",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "noop",
+                              "move_left",
+                              "move_right",
+                              "move_up",
+                              "move_down",
+                              "do",
+                              "sleep",
+                              "place_stone",
+                              "place_table",
+                              "place_furnace",
+                              "place_plant",
+                              "make_wood_pickaxe",
+                              "make_stone_pickaxe",
+                              "make_iron_pickaxe",
+                              "make_wood_sword",
+                              "make_stone_sword",
+                              "make_iron_sword"
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 8
+                        }
+                      },
+                      "required": [
+                        "actions"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              ],
+              "tool_choice": {
+                "type": "function",
+                "function": {
+                  "name": "interact_many"
+                }
+              },
+              "stop_after_tool_calls": 1,
+              "parallel_tool_calls": false,
+              "function_call": {
+                "name": "interact_many"
+              },
+              "extra_body": {
+                "chat_template_kwargs": {
+                  "enable_thinking": true,
+                  "thinking_budget": 1028
+                },
+                "stop_after_tool_calls": 1
+              },
+              "temperature": 0.1
+            }
+          },
+          "input_messages": [
+            {
+              "role": "system",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            },
+            {
+              "role": "user",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "input_text": null,
+          "tool_choice": "auto",
+          "output_messages": [
+            {
+              "role": "assistant",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "{\"id\": \"chatcmpl-fbf8f482-fb8a-49a7-950a-a41e3f827c4a\", \"object\": \"chat.completion\", \"created\": 1759861056, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The previous actions were moving right four times, which probably brought them next to the tree. Now, they need to interact with the tree to collect wood. Since the tree is adjacent, the 'do' action should work. But wait, the player's facing direction is [1, 0], which is to the right. So they're already facing the tree. They just need to perform the 'do' action here. Let me check the inventory: they have 9 food, 9 drink, 9 energy. No tools yet. Collecting wood is the next step. So the correct action is to use 'do' to gather the wood. Then maybe craft a pickaxe. But first, confirm that the tree is there. The local map shows the tree in the same position as the player's previous movement. So after moving right four times, they should be next to the tree. Therefore, the next action is 'do' to collect the wood.\\n\", \"tool_calls\": [{\"id\": \"xqfq5mj4y\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"do\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.018621083, \"prompt_tokens\": 993, \"prompt_time\": 0.035073054, \"completion_tokens\": 254, \"completion_time\": 0.50081615, \"total_tokens\": 1247, \"total_time\": 0.535889204, \"prompt_tokens_details\": {\"cached_tokens\": 512}}, \"usage_breakdown\": null, \"system_fingerprint\": \"fp_d58dbe76cd\", \"x_groq\": {\"id\": \"req_01k6zy981qeqktf4hv09k80yrp\"}, \"service_tier\": \"on_demand\"}",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "outputs": [],
+          "output_text": "{\"id\": \"chatcmpl-fbf8f482-fb8a-49a7-950a-a41e3f827c4a\", \"object\": \"chat.completion\", \"created\": 1759861056, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The previous actions were moving right four times, which probably brought them next to the tree. Now, they need to interact with the tree to collect wood. Since the tree is adjacent, the 'do' action should work. But wait, the player's facing direction is [1, 0], which is to the right. So they're already facing the tree. They just need to perform the 'do' action here. Let me check the inventory: they have 9 food, 9 drink, 9 energy. No tools yet. Collecting wood is the next step. So the correct action is to use 'do' to gather the wood. Then maybe craft a pickaxe. But first, confirm that the tree is there. The local map shows the tree in the same position as the player's previous movement. So after moving right four times, they should be next to the tree. Therefore, the next action is 'do' to collect the wood.\\n\", \"tool_calls\": [{\"id\": \"xqfq5mj4y\", \"type\": \"function\", \"function\": {\"name\": \"interact_many\", \"arguments\": \"{\\\"actions\\\":[\\\"do\\\"]}\"}}]}, \"logprobs\": null, \"finish_reason\": \"tool_calls\"}], \"usage\": {\"queue_time\": 0.018621083, \"prompt_tokens\": 993, \"prompt_time\": 0.035073054, \"completion_tokens\": 254, \"completion_time\": 0.50081615, \"total_tokens\": 1247, \"total_time\": 0.535889204, \"prompt_tokens_details\": {\"cached_tokens\": 512}}, \"usage_breakdown\": null, \"system_fingerprint\": \"fp_d58dbe76cd\", \"x_groq\": {\"id\": \"req_01k6zy981qeqktf4hv09k80yrp\"}, \"service_tier\": \"on_demand\"}",
+          "output_tool_calls": [
+            {
+              "name": "interact_many",
+              "arguments_json": "{\"actions\":[\"do\"]}",
+              "arguments": null,
+              "call_id": "xqfq5mj4y",
+              "index": 0,
+              "parent_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "usage": {
+            "input_tokens": null,
+            "output_tokens": null,
+            "total_tokens": 1247,
+            "reasoning_tokens": null,
+            "reasoning_input_tokens": null,
+            "reasoning_output_tokens": null,
+            "cache_write_tokens": null,
+            "cache_read_tokens": null,
+            "billable_input_tokens": null,
+            "billable_output_tokens": null,
+            "cost_usd": null
+          },
+          "finish_reason": null,
+          "choice_index": null,
+          "tool_results": [],
+          "chunks": null,
+          "request_raw_json": null,
+          "response_raw_json": null,
+          "span_id": null,
+          "trace_id": null,
+          "provider_request_id": null,
+          "request_server_timing": null,
+          "metadata": {
+            "has_tools": true,
+            "num_tools": 1
+          },
+          "outcome": "success",
+          "error": null,
+          "token_traces": null,
+          "safety": null,
+          "refusal": null,
+          "redactions": null
+        }
+      ]
+    },
+    {
+      "system_instance_id": "environment:crafter",
+      "time_record": {
+        "event_time": 1759886256.168328,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 1,
+        "run_id": "local-trace",
+        "op_index": 3,
+        "step_id": "decision_1",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "reward": 0.0,
+      "terminated": false,
+      "truncated": false,
+      "system_state_before": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+      },
+      "system_state_after": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+      }
+    },
+    {
+      "system_instance_id": "policy:crafter-react",
+      "time_record": {
+        "event_time": 1759886261.550089,
+        "message_time": null
+      },
+      "metadata": {
+        "policy_id": null,
+        "turn": 2,
+        "run_id": "local-trace",
+        "step_id": "decision_2",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "model_name": "qwen/qwen3-32b",
+      "provider": "groq",
+      "input_tokens": 1002,
+      "output_tokens": 2211,
+      "total_tokens": 3213,
+      "cost_usd": null,
+      "latency_ms": 4800,
+      "span_id": null,
+      "trace_id": null,
+      "system_state_before": null,
+      "system_state_after": null,
+      "call_records": [
+        {
+          "call_id": "21f3ab89-63c3-4a23-b471-f4c48c181bb0",
+          "api_type": "chat_completions",
+          "provider": "groq",
+          "model_name": "qwen/qwen3-32b",
+          "schema_version": "1.0",
+          "started_at": "datetime.datetime(2025, 10, 7, 18, 17, 36, 749238)",
+          "completed_at": "datetime.datetime(2025, 10, 7, 18, 17, 41, 550089)",
+          "latency_ms": 4800,
+          "request_params": {
+            "temperature": 0.1,
+            "top_p": null,
+            "max_tokens": null,
+            "stop": null,
+            "top_k": null,
+            "presence_penalty": null,
+            "frequency_penalty": null,
+            "repetition_penalty": null,
+            "seed": null,
+            "n": null,
+            "best_of": null,
+            "response_format": null,
+            "json_mode": null,
+            "tool_config": null,
+            "raw_params": {
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
+                },
+                {
+                  "role": "user",
+                  "content": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}"
+                }
+              ],
+              "model": "qwen/qwen3-32b",
+              "thinking_mode": "think",
+              "thinking_budget": 1028,
+              "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "interact_many",
+                    "description": "Execute a short sequence of Crafter actions in order (1-8).",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "actions": {
+                          "type": "array",
+                          "description": "List of Crafter actions to execute sequentially.",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "noop",
+                              "move_left",
+                              "move_right",
+                              "move_up",
+                              "move_down",
+                              "do",
+                              "sleep",
+                              "place_stone",
+                              "place_table",
+                              "place_furnace",
+                              "place_plant",
+                              "make_wood_pickaxe",
+                              "make_stone_pickaxe",
+                              "make_iron_pickaxe",
+                              "make_wood_sword",
+                              "make_stone_sword",
+                              "make_iron_sword"
+                            ]
+                          },
+                          "minItems": 1,
+                          "maxItems": 8
+                        }
+                      },
+                      "required": [
+                        "actions"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                }
+              ],
+              "tool_choice": {
+                "type": "function",
+                "function": {
+                  "name": "interact_many"
+                }
+              },
+              "stop_after_tool_calls": 1,
+              "parallel_tool_calls": false,
+              "function_call": {
+                "name": "interact_many"
+              },
+              "extra_body": {
+                "chat_template_kwargs": {
+                  "enable_thinking": true,
+                  "thinking_budget": 1028
+                },
+                "stop_after_tool_calls": 1
+              },
+              "temperature": 0.1
+            }
+          },
+          "input_messages": [
+            {
+              "role": "system",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            },
+            {
+              "role": "user",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "input_text": null,
+          "tool_choice": "auto",
+          "output_messages": [
+            {
+              "role": "assistant",
+              "parts": [
+                {
+                  "type": "text",
+                  "text": "{\"id\": \"chatcmpl-d2e71fd7-5f08-4377-b137-52e5d31cee3b\", \"object\": \"chat.completion\", \"created\": 1759861061, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The facing direction is [1, 0], which I think means they're facing to the right. The inventory has food, drink, and energy at 9 each, so they're not in immediate danger there. The achievements are none yet, so the goal is to start collecting resources.\\n\\nIn the previous steps, the player moved right four times and then did a \\\"do\\\" action. But looking at the current map, the player is next to a tree. Since the last action was \\\"do\\\", maybe they tried to interact with the tree. But if they haven't collected the wood yet, perhaps the \\\"do\\\" didn't work. Wait, in the game rules, you have to be adjacent to a resource to interact. The local map shows the player is next to a tree, so doing \\\"do\\\" should collect wood. But maybe they need to use the correct tool? No, initially, you can collect wood with empty hands. Hmm.\\n\\nWait, the player's last action was \\\"do\\\", but maybe they need to do it again because the first \\\"do\\\" didn't work? Or maybe the tree was already harvested? But the local map still shows a tree there. Alternatively, maybe the player is not facing the tree. The facing direction is [1, 0], which is right, but the tree is to the right of the player's position. Wait, the position in the map is [player, tree, grass...], so the tree is to the right. If the player is facing right, then they are facing the tree. So the \\\"do\\\" action should work. But maybe the first \\\"do\\\" didn't work because of timing? Or maybe the player needs to move closer? Wait, the player is already adjacent to the tree. So maybe the \\\"do\\\" action was successful, but the game state hasn't updated yet. But the inventory shows food, drink, energy at 9, but no wood. So perhaps the \\\"do\u2026",
+                  "data": null,
+                  "mime_type": null,
+                  "uri": null,
+                  "base64_data": null,
+                  "size_bytes": null,
+                  "sha256": null,
+                  "width": null,
+                  "height": null,
+                  "duration_ms": null,
+                  "sample_rate": null,
+                  "channels": null,
+                  "language": null
+                }
+              ],
+              "name": null,
+              "tool_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "outputs": [],
+          "output_text": "{\"id\": \"chatcmpl-d2e71fd7-5f08-4377-b137-52e5d31cee3b\", \"object\": \"chat.completion\", \"created\": 1759861061, \"model\": \"qwen/qwen3-32b\", \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"reasoning\": \"Okay, let's see. The player is at position [36, 32], and the local map shows a tree to the right of them. The facing direction is [1, 0], which I think means they're facing to the right. The inventory has food, drink, and energy at 9 each, so they're not in immediate danger there. The achievements are none yet, so the goal is to start collecting resources.\\n\\nIn the previous steps, the player moved right four times and then did a \\\"do\\\" action. But looking at the current map, the player is next to a tree. Since the last action was \\\"do\\\", maybe they tried to interact with the tree. But if they haven't collected the wood yet, perhaps the \\\"do\\\" didn't work. Wait, in the game rules, you have to be adjacent to a resource to interact. The local map shows the player is next to a tree, so doing \\\"do\\\" should collect wood. But maybe they need to use the correct tool? No, initially, you can collect wood with empty hands. Hmm.\\n\\nWait, the player's last action was \\\"do\\\", but maybe they need to do it again because the first \\\"do\\\" didn't work? Or maybe the tree was already harvested? But the local map still shows a tree there. Alternatively, maybe the player is not facing the tree. The facing direction is [1, 0], which is right, but the tree is to the right of the player's position. Wait, the position in the map is [player, tree, grass...], so the tree is to the right. If the player is facing right, then they are facing the tree. So the \\\"do\\\" action should work. But maybe the first \\\"do\\\" didn't work because of timing? Or maybe the player needs to move closer? Wait, the player is already adjacent to the tree. So maybe the \\\"do\\\" action was successful, but the game state hasn't updated yet. But the inventory shows food, drink, energy at 9, but no wood. So perhaps the \\\"do\u2026",
+          "output_tool_calls": [
+            {
+              "name": "interact_many",
+              "arguments_json": "{\"actions\":[\"do\"]}",
+              "arguments": null,
+              "call_id": "nmvj48gbv",
+              "index": 0,
+              "parent_call_id": null,
+              "metadata": {}
+            }
+          ],
+          "usage": {
+            "input_tokens": null,
+            "output_tokens": null,
+            "total_tokens": 3213,
+            "reasoning_tokens": null,
+            "reasoning_input_tokens": null,
+            "reasoning_output_tokens": null,
+            "cache_write_tokens": null,
+            "cache_read_tokens": null,
+            "billable_input_tokens": null,
+            "billable_output_tokens": null,
+            "cost_usd": null
+          },
+          "finish_reason": null,
+          "choice_index": null,
+          "tool_results": [],
+          "chunks": null,
+          "request_raw_json": null,
+          "response_raw_json": null,
+          "span_id": null,
+          "trace_id": null,
+          "provider_request_id": null,
+          "request_server_timing": null,
+          "metadata": {
+            "has_tools": true,
+            "num_tools": 1
+          },
+          "outcome": "success",
+          "error": null,
+          "token_traces": null,
+          "safety": null,
+          "refusal": null,
+          "redactions": null
+        }
+      ]
+    },
+    {
+      "system_instance_id": "environment:crafter",
+      "time_record": {
+        "event_time": 1759886261.601705,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 2,
+        "run_id": "local-trace",
+        "op_index": 5,
+        "step_id": "decision_2",
+        "enriched": true,
+        "hook_version": "1.0"
+      },
+      "event_metadata": null,
+      "reward": 0.0,
+      "terminated": false,
+      "truncated": false,
+      "system_state_before": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+      },
+      "system_state_after": {
+        "text": "=== CRAFTER GAME STATE ===\nStep: 6/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n"
+      }
+    }
+  ],
+  "markov_blanket_message_history": [
+    {
+      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+      "message_type": "policy_system_prompt",
+      "time_record": {
+        "event_time": 1759886240.656075,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 0,
+        "step_id": "decision_0"
+      }
+    },
+    {
+      "content": "=== CRAFTER GAME STATE ===\nStep: 0/10000\nHealth: 9\nPosition: [32, 32]\nFacing: [0, 1]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player grass grass\ngrass grass grass grass grass\ngrass grass grass grass grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- none",
+      "message_type": "policy_user_prompt",
+      "time_record": {
+        "event_time": 1759886240.661875,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 0,
+        "step_id": "decision_0"
+      }
+    },
+    {
+      "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"move_right\", \"move_right\", \"move_right\", \"move_right\"]}}]",
+      "message_type": "policy_tool_call",
+      "time_record": {
+        "event_time": 1759886254.628278,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 0,
+        "step_id": "decision_0"
+      }
+    },
+    {
+      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+      "message_type": "policy_system_prompt",
+      "time_record": {
+        "event_time": 1759886254.65435,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 1,
+        "step_id": "decision_1"
+      }
+    },
+    {
+      "content": "=== CRAFTER GAME STATE ===\nStep: 4/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+      "message_type": "policy_user_prompt",
+      "time_record": {
+        "event_time": 1759886254.6574,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 1,
+        "step_id": "decision_1"
+      }
+    },
+    {
+      "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"do\"]}}]",
+      "message_type": "policy_tool_call",
+      "time_record": {
+        "event_time": 1759886256.160362,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 1,
+        "step_id": "decision_1"
+      }
+    },
+    {
+      "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\n\nCore rules:\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\n- You start with empty hands and low health/hunger.\n- Interact ('do') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\n\nKey strategies:\n1. Begin by moving around to find trees. Use 'do' to collect wood when adjacent.\n2. Craft a wood pickaxe as soon as you have enough wood ('make_wood_pickaxe').\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\n4. Build a table ('place_table') to unlock more crafting options (furnace, sword, etc.).\n5. Manage hunger by collecting and eating plants or interacting with cows.\n6. Fight zombies with a sword for achievements and resources.\n7. Survive by balancing exploration, combat, and resource gathering.\n\n8. Keep moving to discover new resources and stay alive. If you're in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what's outside your field of view. Don't delay exploration when it's the right move.\n\nAchievements to aim for:\n- Collecting resources (wood, stone, coal, iron, plants).\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\n- Placing structures (table, furnace, plant).\n- Combat (killing a cow or zombie).\n- Survival milestones (staying alive over time).\n\nAction policy:\n- Always return a single tool call: interact_many({actions: [...]})\n- Use 2\u20135 actions per call; prefer long movement sequences to explore.\n- Mix in 'do' only when it makes sense (tree, stone, animal, enemy nearby).\n- Do not spam the same exact sequence twice in a row\u2014explore in varied directions.\n\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n",
+      "message_type": "policy_system_prompt",
+      "time_record": {
+        "event_time": 1759886256.177331,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 2,
+        "step_id": "decision_2"
+      }
+    },
+    {
+      "content": "=== CRAFTER GAME STATE ===\nStep: 5/10000\nHealth: 9\nPosition: [36, 32]\nFacing: [1, 0]\nInventory: food:9, drink:9, energy:9\nAchievements: none\n\nLocal Map View (5x5):\ngrass grass grass grass grass\ngrass grass grass grass grass\ngrass grass player tree grass\ngrass grass grass grass grass\ngrass grass grass sand grass\n\nChoose your next actions.\n\n\nPrevious tool calls (most recent first):\n- interact_many: {\"actions\":[\"do\"]}\n- interact_many: {\"actions\":[\"move_right\",\"move_right\",\"move_right\",\"move_right\"]}",
+      "message_type": "policy_user_prompt",
+      "time_record": {
+        "event_time": 1759886256.179685,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 2,
+        "step_id": "decision_2"
+      }
+    },
+    {
+      "content": "[{\"tool_name\": \"interact_many\", \"arguments\": {\"actions\": [\"do\"]}}]",
+      "message_type": "policy_tool_call",
+      "time_record": {
+        "event_time": 1759886261.591221,
+        "message_time": null
+      },
+      "metadata": {
+        "turn": 2,
+        "step_id": "decision_2"
+      }
+    }
+  ],
+  "metadata": {
+    "run_id": "local-trace",
+    "policy_name": "crafter-react",
+    "policy_id": "32afde26-857c-457c-bf89-c62a4f4d852a",
+    "env_name": "crafter",
+    "env_id": "e3f5a801-30aa-4f91-8467-75a33a53d6f1",
+    "seed": 42,
+    "training_session_id": null,
+    "synth_base_url": null,
+    "env_seed": 42,
+    "final_achievements": []
+  },
+  "session_metadata": null
+}
