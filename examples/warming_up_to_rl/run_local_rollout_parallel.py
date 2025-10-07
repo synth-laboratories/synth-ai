@@ -328,6 +328,7 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
     successes = [item for item in results if item.get("ok")]
     failures = [item for item in results if not item.get("ok")]
 
+    print(f"\n{'=' * 100}\n")
     stats = summarise_runs([item["summary"] for item in successes])
     print_summary(stats, run_details=successes, total_runs=args.count)
 
