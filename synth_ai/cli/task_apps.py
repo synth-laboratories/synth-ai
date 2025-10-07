@@ -1313,6 +1313,17 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
     if in_use_after:
         raise click.ClickException(f'Port {port} is still in use after attempting to terminate processes.')
 
+def _validate_required_env_keys() -> None:
+    """Validate required environment keys are set, prompting if missing."""
+    env_api_key = os.environ.get("ENVIRONMENT_API_KEY", "").strip()
+
+    if not env_api_key:
+        env_api_key = input("Please enter your RL Environment API key:\n> ").strip()
+        if not env_api_key:
+            raise click.ClickException("RL Environment API key is required to start the server")
+        os.environ["ENVIRONMENT_API_KEY"] = env_api_key
+
+
 def _serve_entry(
     entry: TaskAppEntry,
     host: str,
@@ -1355,6 +1366,7 @@ def _serve_entry(
 
     _ensure_port_free(port, host, force=force)
 
+    _validate_required_env_keys()
     _preflight_env_key()
 
     run_task_app(

@@ -159,8 +159,10 @@ def main() -> None:
                 # Ignore and fall through to error below
                 pass
     if not synth_key:
-        print("Missing SYNTH_API_KEY (set in env or provide --env-file pointing to .env)", file=sys.stderr)
-        sys.exit(2)
+        synth_key = input("Please enter your Synth API key:\n> ").strip()
+        if not synth_key:
+            print("Synth API key is required", file=sys.stderr)
+            sys.exit(2)
 
     backend = args.backend.rstrip("/")
     print(f"[INFO] Using backend={backend} key_fp={mask(synth_key)} data={data_file}")
