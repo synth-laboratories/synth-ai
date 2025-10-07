@@ -136,3 +136,4 @@ synth_ai/environments/examples/bandit/**/*.pyc
 node_modules/
 
 uv.lock
+local-trace_trace.json
