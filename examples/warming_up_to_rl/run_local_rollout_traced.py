@@ -29,6 +29,7 @@ def build_rollout_request(
     run_id: str,
     model: str,
     inference_url: str,
+    inference_api_key: str,
     ops: list[str],
     return_trace: bool,
     trace_format: str,
@@ -37,6 +38,7 @@ def build_rollout_request(
     policy_config = {
         "model": model,
         "inference_url": inference_url,
+        "api_key": inference_api_key,
     }
     if max_policy_tokens is not None:
         policy_config.update(
@@ -244,7 +246,8 @@ def print_reward_summary(
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8010", help="Task app base URL")
-    parser.add_argument("--api-key", required=True, help="Environment API key")
+    parser.add_argument("--api-key", help="RL Environment API key (will prompt if not provided)")
+    parser.add_argument("--inference-api-key", help="Inference provider API key (will prompt if not provided)")
     parser.add_argument("--seed", type=int, default=42, help="Environment seed")
     parser.add_argument("--run-id", default="local-trace", help="Run identifier")
     parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI-compatible model id")
@@ -286,10 +289,23 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    # Prompt for API keys if not provided
+    api_key = args.api_key
+    if not api_key:
+        api_key = input("Please enter your RL Environment API key:\n> ").strip()
+        if not api_key:
+            parser.error("RL Environment API key is required")
+
+    inference_api_key = args.inference_api_key
+    if not inference_api_key:
+        inference_api_key = input("Please enter your Groq API key:\n> ").strip()
+        if not inference_api_key:
+            parser.error("Groq API key is required")
+
     ops = ensure_ops(args.ops, args.max_llm_calls)
     return_trace = not args.no_trace
 
-    async with TaskAppClient(args.base_url, api_key=args.api_key, timeout=args.timeout) as client:
+    async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
         try:
             print(f"Fetching task_info for seed {args.seed}…")
             task_info = await client.task_info(seeds=[args.seed])
@@ -304,6 +320,7 @@ async def main() -> None:
                 run_id=args.run_id,
                 model=args.model,
                 inference_url=args.inference_url,
+                inference_api_key=inference_api_key,
                 ops=ops,
                 return_trace=return_trace,
                 trace_format=args.trace_format,
