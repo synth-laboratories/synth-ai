@@ -55,17 +55,43 @@ class EnvResolver:
 
 def _collect_default_candidates(config_path: Path | None) -> list[Path]:
     candidates: list[Path] = []
+    cwd = Path.cwd()
+    
+    # Prioritize CWD env files
+    cwd_env = cwd / ".env"
+    if cwd_env.exists():
+        candidates.append(cwd_env.resolve())
+    
+    # Search for additional .env files in CWD subdirectories
+    for sub in cwd.glob("**/.env"):
+        try:
+            resolved = sub.resolve()
+        except Exception:
+            continue
+        if resolved in candidates:
+            continue
+        # avoid nested venv caches
+        if any(part in {".venv", "node_modules", "__pycache__"} for part in resolved.parts):
+            continue
+        if len(candidates) >= 20:
+            break
+        candidates.append(resolved)
+    
+    # Then config path env file
     if config_path:
         cfg_env = config_path.parent / ".env"
         if cfg_env.exists():
             candidates.append(cfg_env.resolve())
+    
+    # Then repo env files
     repo_env = REPO_ROOT / ".env"
     if repo_env.exists():
         candidates.append(repo_env.resolve())
     examples_env = REPO_ROOT / "examples" / ".env"
     if examples_env.exists():
         candidates.append(examples_env.resolve())
-    # Search shallow depth for additional .env files
+    
+    # Search shallow depth for additional .env files in examples
     for sub in (REPO_ROOT / "examples").glob("**/.env"):
         try:
             resolved = sub.resolve()
@@ -79,6 +105,7 @@ def _collect_default_candidates(config_path: Path | None) -> list[Path]:
         if len(candidates) >= 20:
             break
         candidates.append(resolved)
+    
     deduped: list[Path] = []
     for path in candidates:
         if path not in deduped:

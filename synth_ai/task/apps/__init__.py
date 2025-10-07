@@ -2,7 +2,11 @@ from __future__ import annotations
 
 """Registry for Task Apps exposed via the shared FastAPI harness."""
 
+import importlib
+import os
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Sequence
 
 from ..server import TaskAppConfig
@@ -64,6 +68,11 @@ class TaskAppRegistry:
 
     def __iter__(self) -> Iterable[TaskAppEntry]:
         return iter(self.list())
+    
+    def clear(self) -> None:
+        """Clear all registered task apps."""
+        self._entries.clear()
+        self._alias_to_id.clear()
 
 
 registry = TaskAppRegistry()
@@ -73,16 +82,48 @@ def register_task_app(*, entry: TaskAppEntry) -> None:
     registry.register(entry)
 
 
+def discover_task_apps_from_cwd() -> None:
+    """Discover and register task apps from the current working directory and subdirectories."""
+    cwd = Path.cwd()
+    
+    # Look for task app files in common patterns
+    patterns = [
+        "**/task_app/*.py",
+        "**/task_apps/*.py", 
+        "**/*_task_app.py",
+        "**/grpo_crafter.py",
+        "**/math_single_step.py",
+    ]
+    
+    discovered_files = []
+    for pattern in patterns:
+        discovered_files.extend(cwd.glob(pattern))
+    
+    # Add current directory to Python path temporarily
+    original_path = sys.path.copy()
+    try:
+        sys.path.insert(0, str(cwd))
+        
+        for file_path in discovered_files:
+            if file_path.name.startswith('__'):
+                continue
+                
+            # Convert file path to module name
+            relative_path = file_path.relative_to(cwd)
+            module_parts = list(relative_path.parts[:-1]) + [relative_path.stem]
+            module_name = '.'.join(module_parts)
+            
+            try:
+                # Import the module to trigger registration
+                importlib.import_module(module_name)
+            except Exception as exc:
+                # Silently skip modules that can't be imported
+                # This allows for graceful handling of missing dependencies
+                continue
+                
+    finally:
+        sys.path[:] = original_path
 
-# Register built-in task apps
-try:
-    from . import grpo_crafter  # noqa: F401
-except Exception:
-    # Defer import errors so CLI can report missing deps gracefully
-    pass
 
-try:
-    from . import math_single_step  # noqa: F401
-except Exception:
-    # Defer import errors so CLI can report missing deps gracefully
-    pass
+# Note: Task apps are now discovered dynamically by the CLI, not auto-registered
+# This allows for better separation between SDK and example-specific implementations

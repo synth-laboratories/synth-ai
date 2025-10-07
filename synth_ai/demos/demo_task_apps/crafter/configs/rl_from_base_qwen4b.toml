@@ -1,0 +1,73 @@
+# RL training starting from base Qwen/Qwen3-4B (TOML-only model selection)
+
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+
+[services]
+task_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
+
+[compute]
+# Cluster shape for RL pipeline
+gpu_type = "H100"
+gpu_count = 8
+
+[topology]
+# Split GPUs across vLLM, training, and reference
+# Must sum to compute.gpu_count
+type = "single_node_split"
+gpus_for_vllm = 4
+gpus_for_training = 3
+gpus_for_ref = 1
+tensor_parallel = 4
+
+[vllm]
+# Serving tensor parallel size
+tensor_parallel_size = 4
+max_model_len = 8192
+
+[reference]
+# Required by trainer/runtime; ensures dedicated/scoped scoring server config exists
+placement = "dedicated"
+port = 8002
+tp = 1
+health_max_wait_s = 180
+health_interval_ms = 300
+
+[model]
+# Base model start
+base = "Qwen/Qwen3-4B"
+label = "crafter-rl-from-base"
+
+[rollout]
+max_turns = 10
+episodes_per_batch = 64
+policy_name = "crafter"
+
+[evaluation]
+# Run baseline evaluation over the first 100 seeds every 20 training iterations
+instances = 10
+every_n_iters = 10
+seeds = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+]
+
+[training]
+log_interval = 1
+weight_sync_interval = 1
+# Additional RL hyperparameters can go here
+
+# Stepwise rewards (Crafter decision-level)
+step_rewards_enabled = true
+step_rewards_mode = "decision_stepwise"  # "off" | "decision_stepwise" | "env_sparse"
+step_rewards_beta = 0.0
+step_rewards_indicator_lambda = 1.0
+# Optional selector for decision scalar: "unique" | "absolute" (default unique)
+event_rewards_kind = "unique"
+
+[training.weight_sync]
+enable  = true
+targets = ["policy"]
+weight_sync_interval = 1

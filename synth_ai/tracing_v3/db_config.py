@@ -4,6 +4,7 @@ Centralized database configuration for v3 tracing.
 
 import logging
 import os
+import shutil
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class DatabaseConfig:
             http_port: HTTP port for sqld daemon. If None, uses DEFAULT_HTTP_PORT from serve.sh.
             use_sqld: Whether to use sqld daemon or direct SQLite.
         """
-        self.use_sqld = use_sqld
+        self.use_sqld = use_sqld and self._sqld_binary_available()
         self.http_port = http_port or int(os.getenv("SQLD_HTTP_PORT", self.DEFAULT_HTTP_PORT))
         self._daemon: SqldDaemon | None = None
 
@@ -69,6 +70,30 @@ class DatabaseConfig:
 
         # SQLite URLs need 3 slashes for absolute paths
         return f"sqlite+aiosqlite:///{actual_db_path}"
+
+    def _sqld_binary_available(self) -> bool:
+        """Check if the sqld (Turso) binary is available on PATH."""
+        # Respect explicit SQLD_BINARY override when present
+        binary_override = os.getenv("SQLD_BINARY")
+        candidates = [binary_override, "sqld", "libsql-server"]
+
+        for candidate in candidates:
+            if candidate and shutil.which(candidate):
+                return True
+
+        if binary_override:
+            logger.warning(
+                "Configured SQLD_BINARY='%s' but the executable was not found on PATH. "
+                "Falling back to direct SQLite.",
+                binary_override,
+            )
+        else:
+            logger.warning(
+                "sqld binary not detected; falling back to SQLite-only mode. "
+                "Install Turso's sqld or set SQLD_BINARY to enable the Turso daemon."
+            )
+
+        return False
 
     def start_daemon(self, wait_time: float = 2.0):
         """

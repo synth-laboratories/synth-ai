@@ -8,13 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
-from ..contracts import RolloutRequest, RolloutResponse, TaskInfo
-from ..datasets import TaskDatasetRegistry, TaskDatasetSpec
-from ..rubrics import load_rubric
-from ..server import ProxyConfig, RubricBundle, TaskAppConfig
-from ..json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
-from . import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from ..tracing_utils import (
+from synth_ai.task.contracts import RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.task.rubrics import load_rubric
+from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
+from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
     resolve_tracing_db_url,
@@ -36,7 +36,7 @@ for path in [REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT]:
 try:
     import crafter  # type: ignore
     import crafter.constants as C  # type: ignore
-    from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS, world_traits
+    from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS
     from synth_envs_hosted.branching import router as branching_router
     from synth_envs_hosted.environment_routes import router as environment_router
     from synth_envs_hosted.hosted_app import TaskApp as HostedTaskApp
@@ -130,7 +130,7 @@ class CrafterDataset:
         env = crafter.Env(area=self.area, length=self.length, seed=seed)
         try:
             env.reset()
-            traits = world_traits(env)
+            traits = _compute_world_traits(env)
             player = getattr(env, "_player", None)
             inventory = dict(getattr(player, "inventory", {})) if player else {}
             position = getattr(player, "pos", None)
@@ -161,6 +161,33 @@ class CrafterDataset:
     @property
     def seed_range(self) -> List[int]:
         return [self.seed_min, self.seed_max]
+def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int]:
+    # Local copy to avoid import-time issues; mirrors synth_ai.environments.examples.crafter_classic.taskset.world_traits
+    from crafter import objects as _objects  # type: ignore
+    import numpy as _np  # type: ignore
+
+    player = getattr(env, "_player", None)
+    if player is None:
+        return {"trees": 0, "cows": 0, "hostiles": 0}
+    pos = _np.array(getattr(player, "pos", [0, 0]))
+    counts = {"trees": 0, "cows": 0, "hostiles": 0}
+    world = getattr(env, "_world", None)
+    objects = getattr(world, "_objects", []) if world is not None else []
+    for obj in objects:
+        if obj is None or obj is player:
+            continue
+        try:
+            if _np.abs(getattr(obj, "pos") - pos).sum() > radius:
+                continue
+        except Exception:
+            continue
+        if isinstance(obj, _objects.Plant) and getattr(obj, "kind", "") == "tree":
+            counts["trees"] += 1
+        elif isinstance(obj, _objects.Cow):
+            counts["cows"] += 1
+        elif isinstance(obj, (_objects.Zombie, _objects.Skeleton)):
+            counts["hostiles"] += 1
+    return counts
 
 
 def env_value(key: str, default: Any) -> Any:
@@ -399,6 +426,10 @@ def build_config() -> TaskAppConfig:
         cors_origins=["*"],
     )
     return config
+
+
+# Expose a top-level TaskAppConfig for CLI discovery paths that expect a module attribute
+TASK_APP_CONFIG = build_config()
 
 
 register_task_app(

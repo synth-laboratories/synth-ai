@@ -1,9 +1,13 @@
 include README.md
 include LICENSE
-include synth_ai/install_sqld.sh
 recursive-include synth_ai *.py
 # Only include lightweight config/data files from core packages
 recursive-include synth_ai *.toml
+# Include examples for task app discovery
+recursive-include examples *.py
+recursive-include examples *.toml
+recursive-include examples *.md
+recursive-include examples *.sh
 
 # Prune heavy example/demo/test/data trees from the sdist (keep code)
 prune tests

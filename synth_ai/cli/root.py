@@ -9,8 +9,10 @@ import logging
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 import click
@@ -30,6 +32,9 @@ except Exception:
         __pkg_version__ = "unknown"
 
 
+SQLD_VERSION = "v0.26.2"
+
+
 def find_sqld_binary() -> str | None:
     sqld_path = shutil.which("sqld")
     if sqld_path:
@@ -39,6 +44,7 @@ def find_sqld_binary() -> str | None:
         "/usr/bin/sqld",
         os.path.expanduser("~/.local/bin/sqld"),
         os.path.expanduser("~/bin/sqld"),
+        os.path.expanduser("~/.turso/bin/sqld"),
     ]
     for path in common_paths:
         if os.path.exists(path) and os.access(path, os.X_OK):
@@ -47,37 +53,99 @@ def find_sqld_binary() -> str | None:
 
 
 def install_sqld() -> str:
-    click.echo("🔧 sqld not found. Installing...")
-    script = """#!/bin/bash
-set -e
-SQLD_VERSION="v0.26.2"
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
-case "$ARCH" in
-  x86_64) ARCH="x86_64" ;;
-  aarch64|arm64) ARCH="aarch64" ;;
-  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-esac
-URL="https://github.com/tursodatabase/libsql/releases/download/libsql-server-${SQLD_VERSION}/sqld-${OS}-${ARCH}.tar.xz"
-TMP_DIR=$(mktemp -d)
-cd "$TMP_DIR"
-curl -L -o sqld.tar.xz "$URL"
-tar -xf sqld.tar.xz
-mkdir -p ~/.local/bin
-mv sqld ~/.local/bin/
-chmod +x ~/.local/bin/sqld
-cd -
-rm -rf "$TMP_DIR"
-"""
-    path = "/tmp/install_sqld.sh"
-    with open(path, "w") as f:
-        f.write(script)
-    subprocess.run(["bash", path], check=True)
-    os.unlink(path)
-    local_bin = os.path.expanduser("~/.local/bin")
-    if local_bin not in os.environ.get("PATH", ""):
-        os.environ["PATH"] = f"{local_bin}:{os.environ.get('PATH', '')}"
-    return os.path.expanduser("~/.local/bin/sqld")
+    """Install sqld via the Turso CLI, installing the CLI via Homebrew if needed."""
+
+    click.echo("🔧 sqld not found. Attempting automatic install...")
+
+    turso_cli_path = shutil.which("turso")
+    brew_path = shutil.which("brew")
+
+    if not turso_cli_path:
+        if not brew_path:
+            raise click.ClickException(
+                "Automatic install requires either Homebrew or an existing Turso CLI.\n"
+                "Install manually using one of:\n"
+                "  • brew install tursodatabase/tap/turso\n"
+                "  • curl -sSfL https://get.tur.so/install.sh | bash\n"
+                "Then run 'turso dev' once and re-run this command."
+            )
+
+        click.echo("🧰 Installing Turso CLI via Homebrew (tursodatabase/tap/turso)…")
+        try:
+            subprocess.run(
+                [brew_path, "install", "tursodatabase/tap/turso"],
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise click.ClickException(
+                "Homebrew install failed. Please resolve brew errors and retry."
+            ) from exc
+
+        turso_cli_path = shutil.which("turso")
+        if not turso_cli_path:
+            raise click.ClickException(
+                "Homebrew reported success but the 'turso' binary is not on PATH."
+            )
+
+    click.echo("📥 Downloading sqld via 'turso dev' (this may take a few seconds)…")
+
+    temp_db = tempfile.NamedTemporaryFile(prefix="synth_sqld_", suffix=".db", delete=False)
+    temp_db_path = temp_db.name
+    temp_db.close()
+
+    env = os.environ.copy()
+    env.setdefault("TURSO_NONINTERACTIVE", "1")
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+
+    cmd = [
+        turso_cli_path,
+        "dev",
+        f"--db-file={temp_db_path}",
+        f"--port={port}",
+    ]
+    proc: subprocess.Popen[str] | None = None
+    stdout_data = ""
+    stderr_data = ""
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+        try:
+            stdout_data, stderr_data = proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+            try:
+                stdout_data, stderr_data = proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                stdout_data, stderr_data = proc.communicate()
+    finally:
+        if proc and proc.returncode not in (0, None):
+            if stdout_data or stderr_data:
+                logging.getLogger(__name__).debug(
+                    "turso dev stdout: %s\nstderr: %s", stdout_data, stderr_data
+                )
+        try:
+            os.unlink(temp_db_path)
+        except OSError:
+            pass
+
+    sqld_path = find_sqld_binary()
+    if sqld_path:
+        click.echo(f"✅ sqld available at {sqld_path}")
+        return sqld_path
+
+    raise click.ClickException(
+        "sqld download did not succeed. Run 'turso dev' manually once, "
+        "ensure it downloads sqld, and try again."
+    )
 
 
 @click.group(help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will.")

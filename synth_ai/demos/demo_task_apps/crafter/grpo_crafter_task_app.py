@@ -1,4 +1,11 @@
-"""Legacy entrypoint for the math single-step task app."""
+
+"""Compatibility wrapper for the GRPO Crafter task app.
+
+This module now delegates to the TaskAppConfig defined in the local example at
+`examples/warming_up_to_rl/task_app/grpo_crafter.py`. It is kept for legacy usage
+(running the file directly or targeting `fastapi_app` from external tooling).
+Prefer using `uvx synth-ai serve grpo-crafter` for local development and testing.
+"""
 
 from __future__ import annotations
 
@@ -9,17 +16,55 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
-from synth_ai.task.server import create_task_app, run_task_app
-from .math_single_step import build_config
+from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
+from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
+import importlib.util
+
+
+def _load_build_config():
+    module_path = Path(__file__).resolve().parents[4] / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
+    spec = importlib.util.spec_from_file_location("warming_up_to_rl.task_app.grpo_crafter", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load task app module at {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, "build_config")
+
+
+build_config = _load_build_config()
+
+
+APP_ID = "grpo-crafter"
+
+
+def _build_base_config() -> TaskAppConfig:
+    # Lazily construct the base config to avoid heavy work at import time
+    return build_config()
+
+try:
+    _REGISTERED_ENTRY = registry.get(APP_ID)
+except Exception:  # pragma: no cover - registry unavailable in some contexts
+    MODAL_DEPLOYMENT: ModalDeploymentConfig | None = None
+    ENV_FILES: tuple[str, ...] = ()
+else:
+    MODAL_DEPLOYMENT = _REGISTERED_ENTRY.modal
+    ENV_FILES = tuple(_REGISTERED_ENTRY.env_files)
+
+
+def build_task_app_config() -> TaskAppConfig:
+    """Return a fresh TaskAppConfig for this wrapper."""
+
+    base = _build_base_config()
+    return base.clone()
 
 
 def fastapi_app():
-    """Return a FastAPI application for hosting the math task app."""
+    """Return the FastAPI application for Modal or other ASGI hosts."""
 
-    app = create_task_app(build_config())
+    app = create_task_app(build_task_app_config())
 
-    # Replace default health endpoints with auth-tolerant handlers.
+    # Replace default health endpoints so we can permit soft auth failures and log 422s.
     filtered_routes = []
     for route in app.router.routes:
         path = getattr(route, "path", None)
@@ -40,7 +85,10 @@ def fastapi_app():
     async def health(request: Request):
         env_key = normalize_environment_api_key()
         if not env_key:
-            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
         if not is_api_key_header_authorized(request):
             prefix = _log_env_key_prefix("health", env_key)
             content = {"status": "healthy", "authorized": False}
@@ -53,7 +101,10 @@ def fastapi_app():
     async def health_rollout(request: Request):
         env_key = normalize_environment_api_key()
         if not env_key:
-            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
         if not is_api_key_header_authorized(request):
             prefix = _log_env_key_prefix("health/rollout", env_key)
             content = {"status": "healthy", "authorized": False}
@@ -76,15 +127,18 @@ def fastapi_app():
             print("[422] validation", snapshot, flush=True)
         except Exception:
             pass
-        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
+        return JSONResponse(
+            status_code=422,
+            content={"status": "invalid", "detail": exc.errors()[:5]},
+        )
 
     return app
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the math single-step task app locally")
+    parser = argparse.ArgumentParser(description="Run the Crafter task app locally")
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8101)
+    parser.add_argument("--port", type=int, default=8001)
     parser.add_argument("--reload", action="store_true", help="Enable uvicorn autoreload")
     parser.add_argument(
         "--env-file",
@@ -94,12 +148,12 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    default_env = Path(__file__).resolve().parents[2] / ".env"
+    default_env = Path(__file__).resolve().parents[4] / "backend" / ".env.dev"
     env_files = [str(default_env)] if default_env.exists() else []
     env_files.extend(args.env_file or [])
 
     run_task_app(
-        build_config,
+        build_task_app_config,
         host=args.host,
         port=args.port,
         reload=args.reload,

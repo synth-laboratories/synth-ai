@@ -62,7 +62,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
                 make_executable=True,
             ),
             CopySpec(
-                "examples/rl/configs/rl_from_base_qwen17.toml",
+                "synth_ai/demos/demo_task_apps/math/config.toml",
                 "configs/rl_from_base_qwen17.toml",
             ),
         ),
@@ -78,29 +78,29 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
             "# Optional: set to 'prod' to use production names",
             "ENVIRONMENT=",
         ),
-        config_source="examples/rl/configs/rl_from_base_qwen17.toml",
+        config_source="synth_ai/demos/demo_task_apps/math/config.toml",
         requires_modal=True,
         post_copy=lambda root: _postprocess_math_modal(root),
     ),
     DemoTemplate(
         template_id="crafter-local",
         name="Crafter GRPO (local FastAPI)",
-        description="Lightweight wrapper around synth_ai.task.apps.grpo_crafter for local experimentation.",
+        description="Lightweight wrapper around examples/warming_up_to_rl/task_app/grpo_crafter for local experimentation.",
         copy_specs=(
             CopySpec(
-                "examples/warming_up_to_rl/task_app/grpo_crafter_task_app.py",
+                "synth_ai/demos/demo_task_apps/crafter/grpo_crafter_task_app.py",
                 "task_app.py",
             ),
             CopySpec(
-                "examples/warming_up_to_rl/task_app/README.md",
+                "synth_ai/demos/demo_task_apps/crafter/README.md",
                 "README.md",
             ),
             CopySpec(
-                "examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml",
+                "synth_ai/demos/demo_task_apps/crafter/configs/rl_from_base_qwen4b.toml",
                 "configs/rl_from_base_qwen4b.toml",
             ),
             CopySpec(
-                "examples/warming_up_to_rl/configs/crafter_fft_4b.toml",
+                "synth_ai/demos/demo_task_apps/crafter/configs/crafter_fft_4b.toml",
                 "configs/crafter_fft_4b.toml",
             ),
         ),
@@ -112,7 +112,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
             "# Optional: URL for existing Crafter task app",
             "TASK_APP_BASE_URL=",
         ),
-        config_source="examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml",
+        config_source="synth_ai/demos/demo_task_apps/crafter/configs/rl_from_base_qwen4b.toml",
         config_destination="demo_config.toml",
         requires_modal=False,
         post_copy=lambda root: _postprocess_crafter_local(root),
@@ -151,7 +151,12 @@ import argparse
 from pathlib import Path
 
 from synth_ai.task.apps import ModalDeploymentConfig, registry
-from synth_ai.task.apps.grpo_crafter import build_config
+import sys
+from pathlib import Path
+_EXAMPLES_TASK_APP = Path(__file__).resolve().parents[4] / "examples" / "warming_up_to_rl" / "task_app"
+if str(_EXAMPLES_TASK_APP) not in sys.path:
+    sys.path.insert(0, str(_EXAMPLES_TASK_APP))
+from grpo_crafter import build_config
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
 

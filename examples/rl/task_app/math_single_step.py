@@ -16,7 +16,7 @@ from datasets import load_dataset
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..contracts import (
+from synth_ai.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
@@ -24,18 +24,18 @@ from ..contracts import (
     RolloutTrajectory,
     TaskInfo,
 )
-from ..datasets import TaskDatasetRegistry, TaskDatasetSpec
-from ..rubrics import Rubric, load_rubric
-from ..server import ProxyConfig, RubricBundle, TaskAppConfig
-from ..errors import http_exception
-from ..tracing_utils import (
+from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.task.rubrics import Rubric, load_rubric
+from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.task.errors import http_exception
+from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
     resolve_tracing_db_url,
     tracing_env_enabled,
 )
-from ..vendors import normalize_vendor_keys
-from . import ModalDeploymentConfig, TaskAppEntry, register_task_app
+from synth_ai.task.vendors import normalize_vendor_keys
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -380,6 +380,45 @@ def _score_submission(state: MathEnvState, tool_calls: Sequence[Mapping[str, Any
 math_router = APIRouter()
 
 
+def _preview_tool_calls(tool_calls: Sequence[Mapping[str, Any]]) -> list[Dict[str, Any]]:
+    """Return a compact, log-friendly preview of tool calls.
+
+    Truncates long fields to avoid noisy logs and leaking excessive content.
+    """
+    preview: list[Dict[str, Any]] = []
+    for call in list(tool_calls or [])[:3]:
+        args = dict(call.get("args") or {})
+        answer = str(args.get("answer") or "")
+        # Hard truncate to keep logs compact
+        answer_short = answer[:120] + ("…" if len(answer) > 120 else "")
+        preview.append({
+            "tool": call.get("tool"),
+            "answer": answer_short,
+        })
+    return preview
+
+
+def _event_and_outcome_components(tool_calls: Sequence[Mapping[str, Any]], *, correct: bool, reward: float) -> Dict[str, float]:
+    """Approximate component-wise scores for RL-style logs.
+
+    - env:     task-level scalar reward (our single-step outcome)
+    - rubric_event: 1.0 if a valid tool call with non-empty answer was made else 0.0
+    - rubric_outcome: 1.0 if final answer was correct else 0.0
+    """
+    has_valid_tool = False
+    if tool_calls:
+        first = tool_calls[0] or {}
+        if str(first.get("tool") or "") == TOOL_NAME:
+            args = first.get("args") or {}
+            ans = str(args.get("answer") or "").strip()
+            has_valid_tool = bool(ans)
+    return {
+        "env": float(reward),
+        "rubric_event": 1.0 if has_valid_tool else 0.0,
+        "rubric_outcome": 1.0 if bool(correct) else 0.0,
+    }
+
+
 @math_router.post("/env/math/initialize")
 async def initialize_env(request: Request, payload: InitializePayload) -> Dict[str, Any]:
     manager: MathEnvironmentManager = request.app.state.math_env_manager
@@ -410,6 +449,28 @@ async def step_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
     action = payload.get("action") or {}
     tool_calls = action.get("tool_calls") or payload.get("tool_calls") or []
     reward, status, correct = _score_submission(state, tool_calls)
+    try:
+        print(
+            "[MATH_STEP] env_id=",
+            state.env_id,
+            " split=",
+            state.split,
+            " index=",
+            state.index,
+            " calls=",
+            _preview_tool_calls(tool_calls),
+            " reward=",
+            reward,
+            " status=",
+            status,
+            " correct=",
+            correct,
+            " components=",
+            _event_and_outcome_components(tool_calls, correct=correct, reward=reward),
+            flush=True,
+        )
+    except Exception:
+        pass
     state.done = True
 
     observation = _observation_from_state(state)
@@ -562,6 +623,17 @@ async def _call_inference(policy_config: Mapping[str, Any], observation: Mapping
             else:
                 parsed_args = {}
             tool_calls.append({"tool": name, "args": parsed_args})
+    # Lightweight provider-side logging
+    try:
+        print(
+            "[MATH_INFER] model=",
+            model,
+            " calls=",
+            _preview_tool_calls(tool_calls),
+            flush=True,
+        )
+    except Exception:
+        pass
     return tool_calls, data
 
 
@@ -600,6 +672,30 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         tool_calls,
     )
 
+    # Log a concise summary so we can debug reward=0 issues in production
+    try:
+        print(
+            "[MATH_ROLLOUT] run=",
+            request.run_id,
+            " split=",
+            sample["split"],
+            " index=",
+            sample["index"],
+            " calls=",
+            _preview_tool_calls(tool_calls),
+            " reward=",
+            reward,
+            " status=",
+            status,
+            " correct=",
+            correct,
+            " components=",
+            _event_and_outcome_components(tool_calls, correct=correct, reward=reward),
+            flush=True,
+        )
+    except Exception:
+        pass
+
     step = RolloutStep(
         obs=observation,
         tool_calls=tool_calls,
@@ -610,6 +706,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "status": status,
             "correct": correct,
             "raw_solution": sample["raw_solution"],
+            "tool_call_preview": _preview_tool_calls(tool_calls),
             **error_info,
         },
     )

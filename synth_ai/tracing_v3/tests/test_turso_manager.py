@@ -5,11 +5,15 @@ Async version of test_duckdb_manager.py for tracing v3.
 """
 
 import json
+import os
+import shutil
+import tempfile
 from datetime import datetime
 
 import pytest
 import pytest_asyncio
 
+from synth_ai.tracing_v3.config import CONFIG
 from synth_ai.tracing_v3.abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
@@ -21,6 +25,32 @@ from synth_ai.tracing_v3.session_tracer import SessionTracer
 # Import the utilities and components we want to test
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
 from synth_ai.tracing_v3.utils import calculate_cost, detect_provider, json_dumps
+
+
+if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
+    pytest.skip(
+        "sqld binary not available; install Turso sqld or set SQLD_BINARY to skip these tests",
+        allow_module_level=True,
+    )
+
+from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+
+with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
+    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
+    try:
+        _probe_daemon.start()
+    except RuntimeError as exc:  # pragma: no cover - environment dependent
+        if "Operation not permitted" in str(exc) or "Permission denied" in str(exc):
+            pytest.skip(
+                "sqld daemon cannot start in this environment (Operation not permitted)",
+                allow_module_level=True,
+            )
+        raise
+    finally:
+        try:
+            _probe_daemon.stop()
+        except Exception:
+            pass
 
 
 @pytest.mark.asyncio
