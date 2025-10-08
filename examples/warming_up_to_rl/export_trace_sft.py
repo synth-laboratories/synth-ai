@@ -426,10 +426,52 @@ def _validate_dataset(records: list[dict[str, Any]]) -> None:
         raise SystemExit(f"Validation error while exporting dataset:\n - {summary}")
 
 
+def _find_trace_database() -> Path | None:
+    """Automatically discover the trace database in common locations."""
+
+    # Check for demo directory from state
+    try:
+        state_path = Path.home() / ".synth-ai" / "demo.json"
+        if state_path.exists():
+            import json
+            with state_path.open() as f:
+                data = json.load(f)
+                demo_dir = data.get("DEMO_DIR")
+                if demo_dir:
+                    candidate = Path(demo_dir) / "traces" / "v3" / "synth_ai.db"
+                    if candidate.exists():
+                        return candidate
+    except Exception:
+        pass
+
+    # Search upward from current directory
+    cwd = Path.cwd()
+    for parent in [cwd] + list(cwd.parents):
+        candidate = parent / "traces" / "v3" / "synth_ai.db"
+        if candidate.exists():
+            return candidate
+
+    # Check standard locations
+    standard_locations = [
+        Path("traces/v3/synth_ai.db"),
+        Path("../traces/v3/synth_ai.db"),
+        Path.home() / "synth-ai" / "traces" / "v3" / "synth_ai.db",
+    ]
+
+    for location in standard_locations:
+        try:
+            if location.exists():
+                return location.resolve()
+        except Exception:
+            continue
+
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--db", type=Path, default=Path("traces/v3/synth_ai.db"), help="Path to tracing_v3 SQLite DB")
-    parser.add_argument("--output", type=Path, required=True, help="Destination JSONL path for the exported dataset")
+    parser.add_argument("--db", type=Path, default=None, help="Path to tracing_v3 SQLite DB")
+    parser.add_argument("--output", type=Path, required=False, help="Destination JSONL path for the exported dataset")
     parser.add_argument("--model", action="append", dest="models", help="Restrict to sessions whose dominant model matches (repeatable)")
     parser.add_argument("--provider", action="append", dest="providers", help="Restrict to sessions whose dominant provider matches (repeatable)")
     parser.add_argument("--min-unique", type=int, default=None, help="Minimum unique achievements per session")
@@ -446,6 +488,36 @@ def main() -> None:
     parser.add_argument("--event-reward", action="append", dest="event_reward_filters", help="Require reward_type[:min_total] in event_rewards (repeatable)")
     parser.add_argument("--limit", type=int, default=None, help="Maximum number of examples to emit")
     args = parser.parse_args()
+
+    # Auto-discover database if not specified
+    db_path = args.db
+    if db_path is None:
+        db_path = _find_trace_database()
+        if db_path:
+            print(f"Found trace database: {db_path}")
+        else:
+            print("\nTrace database configuration:")
+            db_input = input("Trace database path [traces/v3/synth_ai.db]: ").strip()
+            db_path = Path(db_input) if db_input else Path("traces/v3/synth_ai.db")
+
+    if not db_path.exists():
+        print(f"Database not found: {db_path}", file=sys.stderr)
+        raise SystemExit(1)
+
+    output_path = args.output
+    if not output_path:
+        output_path = Path("ft_data/crafter_traces.jsonl")
+        print(f"Output will be written to: {output_path.resolve()}")
+
+    min_unique = args.min_unique
+    if min_unique is None:
+        min_unique = 0  # Default to including all traces
+        print(f"Minimum unique achievements filter: {min_unique} (all traces)")
+
+    # Override args with prompted values
+    args.db = db_path
+    args.output = output_path
+    args.min_unique = min_unique
 
     if not args.db.exists():
         print(f"Database not found: {args.db}", file=sys.stderr)
@@ -530,7 +602,7 @@ def main() -> None:
         session_ids = {item.get("metadata", {}).get("session_id") for item in dataset}
         session_ids.discard(None)
         print(
-            f"Wrote {len(dataset)} examples from {len(session_ids)} session(s) -> {args.output}",
+            f"Wrote {len(dataset)} examples from {len(session_ids)} session(s) -> {args.output.resolve()}",
             file=sys.stderr,
         )
     finally:

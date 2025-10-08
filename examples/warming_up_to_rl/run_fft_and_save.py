@@ -12,6 +12,9 @@ from typing import Any, Dict, Tuple, List
 import tomllib
 import re
 import requests
+from dotenv import load_dotenv
+
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 
 
 def mask(val: str) -> str:
@@ -87,17 +90,87 @@ def get_json(base: str, api_key: str, path: str) -> Dict[str, Any]:
         return {"status": r.status_code, "text": r.text[:400]}
 
 
+def _find_fft_configs() -> List[Path]:
+    """Find FFT TOML configs in standard locations."""
+    candidates: List[Path] = []
+
+    # Check current directory configs/
+    cwd = Path.cwd()
+    configs_dir = cwd / "configs"
+    if configs_dir.is_dir():
+        for f in configs_dir.glob("*.toml"):
+            # Look for FFT configs (check if they have [algorithm] method = "supervised_finetune")
+            try:
+                content = f.read_text()
+                if "supervised_finetune" in content or "fft" in content.lower():
+                    candidates.append(f)
+            except Exception:
+                pass
+
+    # Also check for any .toml files in current directory
+    for f in cwd.glob("*.toml"):
+        if f not in candidates:
+            try:
+                content = f.read_text()
+                if "supervised_finetune" in content or "fft" in content.lower():
+                    candidates.append(f)
+            except Exception:
+                pass
+
+    return sorted(candidates)
+
+
 def main() -> None:
+    # Load .env file from current directory first if it exists
+    default_env = Path.cwd() / ".env"
+    if default_env.exists():
+        load_dotenv(default_env, override=False)
+
     parser = argparse.ArgumentParser(description="Submit FFT job and save resulting model id")
-    parser.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api"))
-    parser.add_argument("--toml", required=True, help="Path to FFT TOML config")
+    parser.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api"))
+    parser.add_argument("--toml", required=False, help="Path to FFT TOML config")
     parser.add_argument("--data", default="", help="Override dataset JSONL path")
     parser.add_argument("--poll-seconds", type=int, default=1800)
     parser.add_argument("--env-file", default="", help="Optional path to .env file with SYNTH_API_KEY")
     args = parser.parse_args()
 
-    config_path = Path(args.toml).expanduser().resolve()
-    if not config_path.exists():
+    # Also load from explicit --env-file if provided
+    if args.env_file:
+        env_path = Path(args.env_file).expanduser()
+        if not env_path.exists():
+            print(f"[WARN] Env file not found: {env_path}")
+        else:
+            load_dotenv(env_path, override=False)
+
+    # Auto-discover TOML config if not specified
+    config_path: Path | None = None
+    if args.toml:
+        config_path = Path(args.toml).expanduser().resolve()
+    else:
+        configs = _find_fft_configs()
+        if not configs:
+            print("No FFT config files found. Please specify --toml or create a config in configs/", file=sys.stderr)
+            sys.exit(2)
+        elif len(configs) == 1:
+            config_path = configs[0]
+            print(f"Using FFT config: {config_path}")
+        else:
+            print("\nFound multiple FFT configs:")
+            for idx, cfg in enumerate(configs, 1):
+                print(f"  [{idx}] {cfg}")
+            choice = input(f"Select config [1-{len(configs)}]: ").strip()
+            try:
+                selected_idx = int(choice) - 1
+                if 0 <= selected_idx < len(configs):
+                    config_path = configs[selected_idx]
+                else:
+                    print("Invalid selection", file=sys.stderr)
+                    sys.exit(2)
+            except ValueError:
+                print("Invalid input", file=sys.stderr)
+                sys.exit(2)
+
+    if not config_path or not config_path.exists():
         print(f"Config not found: {config_path}", file=sys.stderr)
         sys.exit(2)
     with config_path.open("rb") as fh:
@@ -119,7 +192,13 @@ def main() -> None:
     if isinstance(data_path, str) and data_path.strip():
         p = Path(data_path).expanduser()
         if not p.is_absolute():
-            p = (config_path.parent / p).resolve()
+            # Try relative to cwd first, then relative to config directory
+            cwd_relative = Path.cwd() / p
+            config_relative = config_path.parent / p
+            if cwd_relative.exists():
+                p = cwd_relative.resolve()
+            else:
+                p = config_relative.resolve()
         data_file = p
     if data_file is None:
         print("Missing dataset path in --data or [job].data", file=sys.stderr)
@@ -129,35 +208,6 @@ def main() -> None:
         sys.exit(2)
 
     synth_key = (os.getenv("SYNTH_API_KEY") or "").strip()
-    # Fallback: try to load from .env if not present in environment
-    if not synth_key:
-        candidate_env: Path | None = None
-        if isinstance(args.env_file, str) and args.env_file.strip():
-            candidate_env = Path(args.env_file).expanduser().resolve()
-        else:
-            # Prefer .env next to the TOML config
-            candidate_env = (config_path.parent / ".env").resolve()
-        if candidate_env and candidate_env.exists():
-            try:
-                env_text = candidate_env.read_text(encoding="utf-8", errors="ignore")
-                # Match lines like: SYNTH_API_KEY=..., or export SYNTH_API_KEY=...
-                key_val: str | None = None
-                for line in env_text.splitlines():
-                    m = re.match(r"^\s*(?:export\s+)?SYNTH_API_KEY\s*=\s*(.*)$", line)
-                    if m:
-                        raw = m.group(1).strip()
-                        # Trim surrounding quotes if present
-                        if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
-                            raw = raw[1:-1]
-                        key_val = raw.strip()
-                        break
-                if key_val:
-                    synth_key = key_val
-                    os.environ["SYNTH_API_KEY"] = synth_key
-                    print(f"[INFO] Loaded SYNTH_API_KEY from {candidate_env}")
-            except Exception as _e:
-                # Ignore and fall through to error below
-                pass
     if not synth_key:
         synth_key = input("Please enter your Synth API key:\n> ").strip()
         if not synth_key:
