@@ -951,7 +951,9 @@ async def register_environment_api(request: RegisterEnvironmentRequest) -> dict[
         ) from e
     except Exception as e:
         logger.error(f"Failed to register environment {request.name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to register environment: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Failed to register environment: {str(e)}"
+        ) from e
 
 
 @api_router.delete("/registry/environments/{env_name}")
@@ -984,7 +986,9 @@ async def unregister_environment_api(env_name: str) -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to unregister environment {env_name}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to unregister environment: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Failed to unregister environment: {str(e)}"
+        ) from e
 
 
 @api_router.get("/registry/environments")

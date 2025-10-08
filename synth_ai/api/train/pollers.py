@@ -16,7 +16,9 @@ class PollOutcome:
 
 
 class JobPoller:
-    def __init__(self, base_url: str, api_key: str, *, interval: float = 5.0, timeout: float = 3600.0) -> None:
+    def __init__(
+        self, base_url: str, api_key: str, *, interval: float = 5.0, timeout: float = 3600.0
+    ) -> None:
         self.base_url = ensure_api_base(base_url)
         self.api_key = api_key
         self.interval = interval
@@ -36,7 +38,11 @@ class JobPoller:
         while elapsed <= self.timeout:
             try:
                 resp = http_get(f"{self.base_url}{path}", headers=self._headers())
-                info = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                info = (
+                    resp.json()
+                    if resp.headers.get("content-type", "").startswith("application/json")
+                    else {}
+                )
                 status = (info.get("status") or info.get("state") or "").lower()
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 click.echo(f"[poll] {timestamp} {elapsed:.0f}s status={status}")

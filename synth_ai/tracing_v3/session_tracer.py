@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Main SessionTracer class for tracing v3."""
 
 import asyncio
@@ -110,7 +111,9 @@ class SessionTracer:
 
             # Ensure session row exists for incremental writes
             if self.db:
-                await self.db.ensure_session(session_id, created_at=self._current_trace.created_at, metadata=metadata or {})
+                await self.db.ensure_session(
+                    session_id, created_at=self._current_trace.created_at, metadata=metadata or {}
+                )
 
             # Trigger hooks
             await self.hooks.trigger(
@@ -435,7 +438,14 @@ class SessionTracer:
     # Reward recording helpers
     # -------------------------------
 
-    async def record_outcome_reward(self, *, total_reward: int, achievements_count: int, total_steps: int, reward_metadata: dict[str, Any] | None = None) -> int | None:
+    async def record_outcome_reward(
+        self,
+        *,
+        total_reward: int,
+        achievements_count: int,
+        total_steps: int,
+        reward_metadata: dict[str, Any] | None = None,
+    ) -> int | None:
         """Record an episode-level outcome reward for the current session."""
         if self._current_trace is None:
             raise RuntimeError("No active session")
@@ -462,7 +472,18 @@ class SessionTracer:
 
     # StepMetrics removed in favor of event_rewards; use record_event_reward for per-turn shaped values
 
-    async def record_event_reward(self, *, event_id: int, message_id: int | None = None, turn_number: int | None = None, reward_value: float = 0.0, reward_type: str | None = None, key: str | None = None, annotation: dict[str, Any] | None = None, source: str | None = None) -> int | None:
+    async def record_event_reward(
+        self,
+        *,
+        event_id: int,
+        message_id: int | None = None,
+        turn_number: int | None = None,
+        reward_value: float = 0.0,
+        reward_type: str | None = None,
+        key: str | None = None,
+        annotation: dict[str, Any] | None = None,
+        source: str | None = None,
+    ) -> int | None:
         """Record a first-class event-level reward with optional annotations."""
         if self._current_trace is None:
             raise RuntimeError("No active session")

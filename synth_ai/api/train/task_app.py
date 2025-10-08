@@ -42,6 +42,7 @@ def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
 def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0) -> TaskAppHealth:
     # Send ALL known environment keys so the server can authorize any valid one
     import os
+
     headers = {"X-API-Key": api_key}
     aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
     keys: list[str] = [api_key]
@@ -146,7 +147,9 @@ def list_modal_secrets(pattern: str | None = None) -> list[str]:
 def get_modal_secret_value(name: str) -> str:
     result = _run_modal(["secret", "get", name])
     if result.code != 0:
-        raise click.ClickException(f"modal secret get {name} failed: {result.stderr or result.stdout}")
+        raise click.ClickException(
+            f"modal secret get {name} failed: {result.stderr or result.stdout}"
+        )
     value = result.stdout.strip()
     if not value:
         raise click.ClickException(f"Secret {name} is empty")

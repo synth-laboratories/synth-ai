@@ -24,6 +24,7 @@ class DemoEnv:
     task_app_name: str = ""
     task_app_secret_name: str = DEFAULT_TASK_APP_SECRET_NAME
 
+
 def _mask(value: str, keep: int = 4) -> str:
     if not value:
         return ""
@@ -218,7 +219,9 @@ def load_env() -> DemoEnv:
     # Repo/package .envs (fallbacks)
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
     repo_env = load_dotenv_file(os.path.join(repo_root, ".env"))
-    pkg_env = load_dotenv_file(os.path.join(repo_root, "synth_ai", "demos", "demo_task_apps", "math", ".env"))
+    pkg_env = load_dotenv_file(
+        os.path.join(repo_root, "synth_ai", "demos", "demo_task_apps", "math", ".env")
+    )
     examples_env = load_dotenv_file(os.path.join(repo_root, "examples", "rl", ".env"))
 
     state = _read_state()
@@ -267,7 +270,11 @@ def load_env() -> DemoEnv:
         or str(state.get("SYNTH_API_KEY") or "")
     )
     if not synth_api_key:
-        mode = "prod" if default_root in dev_url else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
+        mode = (
+            "prod"
+            if default_root in dev_url
+            else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
+        )
         if mode == "prod":
             synth_api_key = (
                 os_env.get("PROD_SYNTH_API_KEY")
@@ -336,7 +343,9 @@ def load_env() -> DemoEnv:
     return env
 
 
-def assert_http_ok(url: str, method: str = "GET", allow_redirects: bool = True, timeout: float = 10.0) -> bool:
+def assert_http_ok(
+    url: str, method: str = "GET", allow_redirects: bool = True, timeout: float = 10.0
+) -> bool:
     try:
         import ssl
 
@@ -413,7 +422,14 @@ def persist_api_key(key: str) -> None:
     _write_state(data)
 
 
-def run_job(env: DemoEnv, config_toml_path: str, *, batch_size: Optional[int] = None, group_size: Optional[int] = None, model: Optional[str] = None) -> None:
+def run_job(
+    env: DemoEnv,
+    config_toml_path: str,
+    *,
+    batch_size: Optional[int] = None,
+    group_size: Optional[int] = None,
+    model: Optional[str] = None,
+) -> None:
     """Create and stream a short RL job using the backend API (placeholder: prints cURL to execute)."""
     backend = env.dev_backend_url.rstrip("/")
     if backend.endswith("/api"):
@@ -422,9 +438,11 @@ def run_job(env: DemoEnv, config_toml_path: str, *, batch_size: Optional[int] = 
         api_base = backend + "/api"
     print("\nTo create an RL job, run:")
     print(
-        "curl -s -X POST \"" + api_base + "/rl/jobs\" "
+        'curl -s -X POST "' + api_base + '/rl/jobs" '
         "-H 'Content-Type: application/json' "
         f"-H 'Authorization: Bearer {env.synth_api_key}' "
         "-d '{"  # intentionally not fully formed here for brevity in this scaffold
     )
-    print("  NOTE: CLI implementation will build the full JSON body with inline TOML config and stream events.")
+    print(
+        "  NOTE: CLI implementation will build the full JSON body with inline TOML config and stream events."
+    )

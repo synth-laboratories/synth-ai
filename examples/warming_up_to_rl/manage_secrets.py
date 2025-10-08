@@ -34,7 +34,9 @@ def write_temp_env(kv: Dict[str, str]) -> Path:
 
 
 def run(cmd: str) -> Tuple[int, str]:
-    proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    proc = subprocess.run(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
     return proc.returncode, proc.stdout
 
 
@@ -44,11 +46,14 @@ def ensure_secret(secret_name: str, kv: Dict[str, str]) -> None:
         return
     # Prefer passing KEY=VALUE pairs to avoid Typer --env-file bug under some shells
     kv_args = " ".join([f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in kv.items()])
+
     # Try plain modal first; fallback to uv run modal
     def _create() -> Tuple[int, str]:
         return run(f"modal secret create {shlex.quote(secret_name)} {kv_args}")
+
     def _delete() -> Tuple[int, str]:
         return run(f"printf 'y\n' | modal secret delete {shlex.quote(secret_name)}")
+
     rc, out = _create()
     if rc != 0:
         # Fallback: use uv run modal
@@ -70,8 +75,12 @@ def ensure_secret(secret_name: str, kv: Dict[str, str]) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Sync .env keys into Modal secret bundles for the task app")
-    ap.add_argument("--env-path", default=str(Path(__file__).parent / ".env"), help="Path to .env with keys")
+    ap = argparse.ArgumentParser(
+        description="Sync .env keys into Modal secret bundles for the task app"
+    )
+    ap.add_argument(
+        "--env-path", default=str(Path(__file__).parent / ".env"), help="Path to .env with keys"
+    )
     args = ap.parse_args()
 
     env = load_env_file(Path(args.env_path))
@@ -105,7 +114,9 @@ def main() -> None:
     }
 
     # Optional: backend key (not mounted by task app today, but useful to keep consistent)
-    synth_secret = {"SYNTH_API_KEY": env.get("SYNTH_API_KEY", "")} if env.get("SYNTH_API_KEY") else {}
+    synth_secret = (
+        {"SYNTH_API_KEY": env.get("SYNTH_API_KEY", "")} if env.get("SYNTH_API_KEY") else {}
+    )
 
     ensure_secret("crafter-environment-sdk", env_secret)
     ensure_secret("groq-api-key", groq_secret)
@@ -123,5 +134,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[error] {type(e).__name__}: {e}")
         sys.exit(1)
-
-

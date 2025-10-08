@@ -27,7 +27,6 @@ QWEN3_MODELS: List[str] = [
     "Qwen/Qwen3-8B",
     "Qwen/Qwen3-14B",
     "Qwen/Qwen3-32B",
-
     # Qwen3 specialized variants
     "Qwen/Qwen3-4B-2507",
     "Qwen/Qwen3-4B-Thinking-2507",

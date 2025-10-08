@@ -48,26 +48,46 @@ class AsyncHttpClient:
             path = path[4:]  # Remove leading /api
         return f"{self._base_url}/{path.lstrip('/')}"
 
-    async def get(self, path: str, *, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> Any:
+    async def get(
+        self,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
         async with self._session.get(url, params=params, headers=headers) as resp:
             return await self._handle_response(resp, url)
 
-    async def post_json(self, path: str, *, json: Dict[str, Any], headers: Optional[Dict[str, str]] = None) -> Any:
+    async def post_json(
+        self, path: str, *, json: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+    ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
         async with self._session.post(url, json=json, headers=headers) as resp:
             return await self._handle_response(resp, url)
 
-    async def post_multipart(self, path: str, *, data: Dict[str, Any], files: Dict[str, tuple[str, bytes, str | None]], headers: Optional[Dict[str, str]] = None) -> Any:
+    async def post_multipart(
+        self,
+        path: str,
+        *,
+        data: Dict[str, Any],
+        files: Dict[str, tuple[str, bytes, str | None]],
+        headers: Optional[Dict[str, str]] = None,
+    ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
         form = aiohttp.FormData()
         for k, v in data.items():
             form.add_field(k, str(v))
         for field, (filename, content, content_type) in files.items():
-            form.add_field(field, content, filename=filename, content_type=content_type or "application/octet-stream")
+            form.add_field(
+                field,
+                content,
+                filename=filename,
+                content_type=content_type or "application/octet-stream",
+            )
         async with self._session.post(url, data=form, headers=headers) as resp:
             return await self._handle_response(resp, url)
 
@@ -95,10 +115,14 @@ class AsyncHttpClient:
             detail = await resp.json()
         except Exception:
             detail = None
-        raise HTTPError(status=resp.status, url=url, message="request_failed", body_snippet=body_snippet, detail=detail)
+        raise HTTPError(
+            status=resp.status,
+            url=url,
+            message="request_failed",
+            body_snippet=body_snippet,
+            detail=detail,
+        )
 
 
 async def sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
-
-

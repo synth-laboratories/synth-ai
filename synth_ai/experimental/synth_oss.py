@@ -14,7 +14,7 @@ SYNTH_BACKEND_URL = ""
 # Learning V2 Modal Service URLs
 LEARNING_V2_URLS = {
     "dev": "https://synth-laboratories-dev--learning-v2-service-fastapi-app.modal.run",
-    "prod": "https://synth-laboratories-prod--learning-v2-service-fastapi-app.modal.run", 
+    "prod": "https://synth-laboratories-prod--learning-v2-service-fastapi-app.modal.run",
     "main": "https://synth-laboratories--learning-v2-service-fastapi-app.modal.run"
 }
 
@@ -30,7 +30,7 @@ HEALTH_APIS = {
         "response": {"status": "healthy"}
     },
     "detailed_health": {
-        "method": "GET", 
+        "method": "GET",
         "endpoint": "/learning/health",
         "description": "Detailed health check including GPU function availability",
         "response": {"status": "healthy", "components": {...}}
@@ -49,7 +49,7 @@ FILE_MANAGEMENT_APIS = {
         "request": "multipart/form-data with 'file' and 'purpose'='fine-tune'",
         "response": {
             "id": "file-abc123",
-            "object": "file", 
+            "object": "file",
             "bytes": 1234,
             "created_at": 1638360000,
             "filename": "data.jsonl",
@@ -84,7 +84,7 @@ FILE_MANAGEMENT_APIS = {
 }
 
 # ============================================================================
-# TRAINING/FINE-TUNING APIS  
+# TRAINING/FINE-TUNING APIS
 # ============================================================================
 
 TRAINING_APIS = {
@@ -94,7 +94,7 @@ TRAINING_APIS = {
         "description": "Create a fine-tuning job",
         "request": {
             "model": "Qwen/Qwen3-0.5B",
-            "training_file": "file-abc123", 
+            "training_file": "file-abc123",
             "training_type": "sft",  # or "dpo"
             "hyperparameters": {...},
             "suffix": "optional"
@@ -110,7 +110,7 @@ TRAINING_APIS = {
     },
     "list_training_jobs": {
         "method": "GET",
-        "endpoint": "/fine_tuning/jobs", 
+        "endpoint": "/fine_tuning/jobs",
         "description": "List all training jobs",
         "response": {"object": "list", "data": ["job_objects"]}
     },
@@ -132,7 +132,7 @@ TRAINING_APIS = {
         "response": {"object": "fine_tuning.job", "id": "...", "status": "cancelled"}
     },
     "get_training_events": {
-        "method": "GET", 
+        "method": "GET",
         "endpoint": "/fine_tuning/jobs/{job_id}/events",
         "description": "Get training logs/events",
         "response": {
@@ -154,7 +154,7 @@ TRAINING_APIS = {
 INFERENCE_APIS = {
     "chat_completions": {
         "method": "POST",
-        "endpoint": "/chat/completions", 
+        "endpoint": "/chat/completions",
         "description": "OpenAI-compatible chat completions for base and fine-tuned models",
         "request": {
             "model": "Qwen/Qwen3-0.5B",  # or "ft:Qwen/Qwen3-0.5B:suffix"
@@ -190,7 +190,7 @@ INFERENCE_APIS = {
     }
 }
 
-# ============================================================================  
+# ============================================================================
 # MODEL MANAGEMENT APIS
 # ============================================================================
 
@@ -203,7 +203,7 @@ MODEL_APIS = {
             "object": "list",
             "data": [{
                 "id": "Qwen/Qwen3-0.5B",
-                "object": "model", 
+                "object": "model",
                 "created": 1638360000,
                 "owned_by": "learning_v2"
             }]
@@ -246,7 +246,7 @@ SUPPORTED_MODELS = {
     "gpu_types": ["A10G", "L40S", "A100", "H100"],
     "features": [
         "Tool calling",
-        "Streaming responses", 
+        "Streaming responses",
         "Fine-tuning",
         "Multi-GPU training",
         "JSONL data format",
@@ -337,7 +337,6 @@ The method is a *no-op* for the default (OpenAI) backend so existing code keeps
 working.
 
 '''
-
 
 """
 LEARNING_v2 server-side changes required to honor `X-GPU-Preference`

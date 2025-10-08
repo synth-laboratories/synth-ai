@@ -56,5 +56,3 @@ def deploy(script_path: Optional[str] = None, *, env_api_key: Optional[str] = No
             f"No deploy script provided and Python-based deploy failed: {e}. "
             "Pass --script /path/to/deploy_task_app.sh to demo.deploy."
         )
-
-

@@ -39,5 +39,3 @@ class RLJobConfig:
         if self.group_size < 2:
             raise ValueError("group_size must be >= 2")
         return {"batch_size": int(self.batch_size), "group_size": int(self.group_size)}
-
-

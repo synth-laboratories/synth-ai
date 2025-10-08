@@ -40,7 +40,15 @@ class JobsApiResolver:
 
 
 class JobHandle:
-    def __init__(self, base_url: str, api_key: str, job_id: str, *, strict: bool = True, timeout: float = 600.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        job_id: str,
+        *,
+        strict: bool = True,
+        timeout: float = 600.0,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.job_id = job_id
@@ -134,7 +142,11 @@ class JobHandle:
                             if not detected_fine_tuned_model:
                                 try:
                                     data_obj = e.get("data") or {}
-                                    ftm = data_obj.get("fine_tuned_model") if isinstance(data_obj, dict) else None
+                                    ftm = (
+                                        data_obj.get("fine_tuned_model")
+                                        if isinstance(data_obj, dict)
+                                        else None
+                                    )
                                     if isinstance(ftm, str) and ftm:
                                         detected_fine_tuned_model = ftm
                                 except Exception:
@@ -200,6 +212,6 @@ class JobHandle:
                     )
                 await sleep(interval_seconds)
                 if max_seconds is not None and (time.time() - start_t) >= max_seconds:
-                    raise TimeoutError(f"Polling timed out after {max_seconds}s for job {self.job_id}")
-
-
+                    raise TimeoutError(
+                        f"Polling timed out after {max_seconds}s for job {self.job_id}"
+                    )

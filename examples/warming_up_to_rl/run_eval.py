@@ -5,6 +5,7 @@ Baseline evaluation script (public-friendly skeleton)
 - Uses a TaskAppClient interface (to be implemented in synth-ai SDK)
 - Keeps structure aligned with research/testing/crafter eval harness
 """
+
 from __future__ import annotations
 import os
 import json
@@ -16,6 +17,7 @@ import httpx
 import argparse
 import tomllib
 from pathlib import Path
+
 
 class TaskAppClient:
     """Minimal async client for the task app initialize/step/terminate routes.
@@ -68,7 +70,9 @@ class TaskAppClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def step(self, env_name: str, env_id: str, tool_calls: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def step(
+        self, env_name: str, env_id: str, tool_calls: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         """POST /env/{env_name}/step with wrapped tool_calls in action."""
         payload = {"env_id": env_id, "action": {"tool_calls": tool_calls}}
         resp = await self.client.post(f"/env/{env_name}/step", json=payload)
@@ -102,7 +106,17 @@ class TaskAppClient:
                 return {"error": data}
             return data
 
-    async def rollout(self, *, run_id: str, env_name: str, seed: int, difficulty: str, policy_name: str, policy_config: Dict[str, Any], max_turns: int) -> Dict[str, Any]:
+    async def rollout(
+        self,
+        *,
+        run_id: str,
+        env_name: str,
+        seed: int,
+        difficulty: str,
+        policy_name: str,
+        policy_config: Dict[str, Any],
+        max_turns: int,
+    ) -> Dict[str, Any]:
         ops: List[str] = []
         for _ in range(max_turns):
             ops.extend(["agent", "env"])
@@ -128,30 +142,37 @@ class TaskAppClient:
         resp.raise_for_status()
         return resp.json()
 
+
 TASK_APP_URL = os.getenv("TASK_APP_URL", "https://YOUR-TASK-APP.modal.run").rstrip("/")
 MODEL = os.getenv("EVAL_MODEL", "qwen/qwen3-32b")
 NUM_EPISODES = int(os.getenv("NUM_EPISODES", "3"))
 MAX_TURNS = int(os.getenv("MAX_TURNS", "10"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "1"))
 
-def _interact_tool_schema() -> List[Dict[str, Any]]:
-    return [{
-        "type": "function",
-        "function": {
-            "name": "interact",
-            "description": "Perform actions in the Crafter environment.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "actions": {"type": "array", "items": {"type": "string"}},
-                    "reasoning": {"type": "string"},
-                },
-                "required": ["actions", "reasoning"],
-            },
-        },
-    }]
 
-def _build_messages_from_observation(observation: Dict[str, Any], history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _interact_tool_schema() -> List[Dict[str, Any]]:
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "interact",
+                "description": "Perform actions in the Crafter environment.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {"type": "array", "items": {"type": "string"}},
+                        "reasoning": {"type": "string"},
+                    },
+                    "required": ["actions", "reasoning"],
+                },
+            },
+        }
+    ]
+
+
+def _build_messages_from_observation(
+    observation: Dict[str, Any], history: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     inv = observation.get("inventory") or {}
     pos = observation.get("player_position") or []
     ach = observation.get("achievements_status") or {}
@@ -170,6 +191,7 @@ def _build_messages_from_observation(observation: Dict[str, Any], history: List[
         user_lines.append(f"Last actions: {last.get('actions')}")
     content = "\n".join(user_lines)
     return [{"role": "user", "content": content}]
+
 
 def _parse_tool_calls_from_openai_response(data: Dict[str, Any]) -> List[str]:
     try:
@@ -203,7 +225,11 @@ def _parse_tool_calls_from_openai_response(data: Dict[str, Any]) -> List[str]:
         if isinstance(content, str):
             text = content
         elif isinstance(content, list):
-            text = "\n".join(str(part.get("text")) for part in content if isinstance(part, dict) and part.get("text"))
+            text = "\n".join(
+                str(part.get("text"))
+                for part in content
+                if isinstance(part, dict) and part.get("text")
+            )
         for raw in re.findall(r"\{[\s\S]*\}", text or ""):
             try:
                 obj = json.loads(raw)
@@ -217,7 +243,14 @@ def _parse_tool_calls_from_openai_response(data: Dict[str, Any]) -> List[str]:
         pass
     return []
 
-async def _choose_actions_via_llm(client: TaskAppClient, provider: str, model: str, observation: Dict[str, Any], history: List[Dict[str, Any]]) -> List[str]:
+
+async def _choose_actions_via_llm(
+    client: TaskAppClient,
+    provider: str,
+    model: str,
+    observation: Dict[str, Any],
+    history: List[Dict[str, Any]],
+) -> List[str]:
     messages = _build_messages_from_observation(observation, history)
     payload: Dict[str, Any] = {
         "model": model,
@@ -245,11 +278,13 @@ async def _choose_actions_via_llm(client: TaskAppClient, provider: str, model: s
     actions = _parse_tool_calls_from_openai_response(data)
     return actions or []
 
+
 def _expand_actions_to_tool_calls(actions: List[str]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for a in actions[:5]:
         out.append({"tool": "interact", "args": {"action": a}})
     return out
+
 
 def _detect_provider(model: str) -> str:
     m = (model or "").lower()
@@ -257,12 +292,16 @@ def _detect_provider(model: str) -> str:
         return "groq"
     return "vllm"
 
-def _rollout_inference_url_from_cfg(cfg: Dict[str, Any], default_vllm: Optional[str]) -> Optional[str]:
+
+def _rollout_inference_url_from_cfg(
+    cfg: Dict[str, Any], default_vllm: Optional[str]
+) -> Optional[str]:
     # Prefer explicit inference_url in TOML; else fall back to discovered vLLM base
     url = cfg.get("inference_url")
     if isinstance(url, str) and url:
         return url
     return default_vllm
+
 
 async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
     env_name = "CrafterClassic"
@@ -271,7 +310,10 @@ async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
     turns = 0
 
     # Initialize environment
-    init_cfg: Dict[str, Any] = {"seed": seed, "world_config": {"difficulty": os.getenv("DIFFICULTY", "easy")}}
+    init_cfg: Dict[str, Any] = {
+        "seed": seed,
+        "world_config": {"difficulty": os.getenv("DIFFICULTY", "easy")},
+    }
     created = await client.initialize(env_name, init_cfg)
     env_id = created.get("env_id")
     if not isinstance(env_id, str) or not env_id:
@@ -285,7 +327,9 @@ async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
     try:
         while turns < MAX_TURNS and not done:
             # Ask LLM for actions; fallback to a simple exploratory pair
-            chosen_actions = await _choose_actions_via_llm(client, provider, MODEL, observation, history)
+            chosen_actions = await _choose_actions_via_llm(
+                client, provider, MODEL, observation, history
+            )
             if not chosen_actions:
                 chosen_actions = ["move_up", "do"]
             tool_calls = _expand_actions_to_tool_calls(chosen_actions)
@@ -306,6 +350,7 @@ async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
 
     return {"seed": seed, "turns": turns, "achievements": sorted(achievements)}
 
+
 async def main() -> None:
     # Best-effort load local .env if present (ensures ENVIRONMENT_API_KEY for rollout)
     try:
@@ -322,9 +367,13 @@ async def main() -> None:
     except Exception:
         pass
 
-    parser = argparse.ArgumentParser(description="Baseline eval against task app with optional TOML config")
+    parser = argparse.ArgumentParser(
+        description="Baseline eval against task app with optional TOML config"
+    )
     parser.add_argument("--toml", help="Path to TOML config file", default=None)
-    parser.add_argument("--use-rollout", action="store_true", help="Use server-side rollout endpoint for eval")
+    parser.add_argument(
+        "--use-rollout", action="store_true", help="Use server-side rollout endpoint for eval"
+    )
     args = parser.parse_args()
 
     global TASK_APP_URL, MODEL, NUM_EPISODES, MAX_TURNS, CONCURRENCY
@@ -346,10 +395,14 @@ async def main() -> None:
             if env_url:
                 TASK_APP_URL = env_url.rstrip("/")
             else:
-                raise RuntimeError("TASK_APP_URL is a placeholder. Set task_app_url in TOML or export TASK_APP_URL.")
+                raise RuntimeError(
+                    "TASK_APP_URL is a placeholder. Set task_app_url in TOML or export TASK_APP_URL."
+                )
 
     print(f"Task App: {TASK_APP_URL}")
-    print(f"Model: {MODEL} Episodes: {NUM_EPISODES} Max turns: {MAX_TURNS} Concurrency: {CONCURRENCY}")
+    print(
+        f"Model: {MODEL} Episodes: {NUM_EPISODES} Max turns: {MAX_TURNS} Concurrency: {CONCURRENCY}"
+    )
     sem = asyncio.Semaphore(max(CONCURRENCY, 1))
     async with TaskAppClient(TASK_APP_URL, api_key=os.getenv("ENVIRONMENT_API_KEY")) as client:
         if args.use_rollout:
@@ -359,6 +412,7 @@ async def main() -> None:
             inf_url = _rollout_inference_url_from_cfg(cfg, default_vllm)
             if not inf_url:
                 raise RuntimeError("Could not resolve inference URL for rollout")
+
             async def _run(seed: int):
                 async with sem:
                     try:
@@ -368,7 +422,14 @@ async def main() -> None:
                             "model": cfg.get("model", MODEL),
                             "inference_url": inf_url,
                         }
-                        for k in ("max_tokens", "temperature", "top_p", "thinking_mode", "thinking_budget", "use_tools"):
+                        for k in (
+                            "max_tokens",
+                            "temperature",
+                            "top_p",
+                            "thinking_mode",
+                            "thinking_budget",
+                            "use_tools",
+                        ):
                             if k in cfg and cfg.get(k) is not None:
                                 policy_cfg[k] = cfg.get(k)
 
@@ -385,8 +446,16 @@ async def main() -> None:
                         ach = []
                         try:
                             trajs = r.get("trajectories") or []
-                            final_obs = (trajs[0].get("final") or {}).get("observation") if trajs and isinstance(trajs[0], dict) else None
-                            ach_map = (final_obs or {}).get("achievements_status") if isinstance(final_obs, dict) else None
+                            final_obs = (
+                                (trajs[0].get("final") or {}).get("observation")
+                                if trajs and isinstance(trajs[0], dict)
+                                else None
+                            )
+                            ach_map = (
+                                (final_obs or {}).get("achievements_status")
+                                if isinstance(final_obs, dict)
+                                else None
+                            )
                             if isinstance(ach_map, dict):
                                 ach = sorted([k for k, v in ach_map.items() if v])
                         except Exception:
@@ -401,7 +470,11 @@ async def main() -> None:
                         return {"seed": seed, "turns": length, "achievements": ach}
                     except Exception as e:
                         return {"seed": seed, "turns": 0, "achievements": [], "error": str(e)}
-            results = await asyncio.gather(*[asyncio.create_task(_run(i)) for i in range(1, NUM_EPISODES + 1)], return_exceptions=False)
+
+            results = await asyncio.gather(
+                *[asyncio.create_task(_run(i)) for i in range(1, NUM_EPISODES + 1)],
+                return_exceptions=False,
+            )
             # Aggregate summary
             counts = [len(r.get("achievements") or []) for r in results if isinstance(r, dict)]
             turns = [int(r.get("turns") or 0) for r in results if isinstance(r, dict)]
@@ -424,11 +497,16 @@ async def main() -> None:
             }
             print(json.dumps(summary, indent=2))
         else:
+
             async def _run(seed: int):
                 async with sem:
                     return await eval_episode(client, seed)
-            results = await asyncio.gather(*[asyncio.create_task(_run(i)) for i in range(1, NUM_EPISODES + 1)])
+
+            results = await asyncio.gather(
+                *[asyncio.create_task(_run(i)) for i in range(1, NUM_EPISODES + 1)]
+            )
             print(json.dumps({"episodes": results}, indent=2))
+
 
 if __name__ == "__main__":
     asyncio.run(main())

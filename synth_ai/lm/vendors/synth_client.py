@@ -276,8 +276,20 @@ class AsyncSynthClient:
         This method provides the OpenAI client interface structure.
         """
         return await self._chat_completions_create(
-            model, messages, temperature, max_tokens, top_p, frequency_penalty,
-            presence_penalty, stop, stream, tools, tool_choice, response_format, seed, **kwargs
+            model,
+            messages,
+            temperature,
+            max_tokens,
+            top_p,
+            frequency_penalty,
+            presence_penalty,
+            stop,
+            stream,
+            tools,
+            tool_choice,
+            response_format,
+            seed,
+            **kwargs,
         )
 
     async def _chat_completions_create(
@@ -368,7 +380,8 @@ class AsyncSynthClient:
             if isinstance(bt, int) and isinstance(mt, int) and bt > mt:
                 logger.warning(
                     "thinking_budget (%s) exceeds max_tokens (%s) – forwarding as-is",
-                    str(bt), str(mt)
+                    str(bt),
+                    str(mt),
                 )
         except Exception:
             pass
@@ -387,6 +400,7 @@ class AsyncSynthClient:
 
                 # If streaming requested, return an async stream adapter
                 if stream:
+
                     async def _astream():
                         await self._ensure_client()
                         async with self._client.stream("POST", url, json=payload) as r:  # type: ignore
@@ -678,6 +692,7 @@ def create_sync_client(config: SynthConfig | None = None) -> SyncSynthClient:
 # Drop-in replacements for OpenAI clients
 # These allow Synth to be used as a complete replacement for OpenAI
 
+
 class AsyncOpenAI(AsyncSynthClient):
     """
     Drop-in replacement for openai.AsyncOpenAI.
@@ -710,16 +725,22 @@ class AsyncOpenAI(AsyncSynthClient):
         """
         # Handle OpenAI-style initialization
         from ..config import SynthConfig
+
         if api_key or base_url:
             config = SynthConfig(
-                base_url=base_url or os.getenv("OPENAI_API_BASE", "https://synth-backend-dev-docker.onrender.com/api"),
-                api_key=api_key or os.getenv("OPENAI_API_KEY", "")
+                base_url=base_url
+                or os.getenv(
+                    "OPENAI_API_BASE", "https://synth-backend-dev-docker.onrender.com/api"
+                ),
+                api_key=api_key or os.getenv("OPENAI_API_KEY", ""),
             )
         else:
             # Fallback to environment variables (OPENAI_* first, then SYNTH_*)
             env_base = os.getenv("OPENAI_API_BASE") or os.getenv("SYNTH_BASE_URL")
             env_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY")
-            config = SynthConfig(base_url=env_base, api_key=env_key) if env_base and env_key else None
+            config = (
+                SynthConfig(base_url=env_base, api_key=env_key) if env_base and env_key else None
+            )
 
         super().__init__(config, **kwargs)
 
@@ -742,15 +763,21 @@ class OpenAI(SyncSynthClient):
         """
         # Handle OpenAI-style initialization
         from ..config import SynthConfig
+
         if api_key or base_url:
             config = SynthConfig(
-                base_url=base_url or os.getenv("OPENAI_API_BASE", "https://synth-backend-dev-docker.onrender.com/api"),
-                api_key=api_key or os.getenv("OPENAI_API_KEY", "")
+                base_url=base_url
+                or os.getenv(
+                    "OPENAI_API_BASE", "https://synth-backend-dev-docker.onrender.com/api"
+                ),
+                api_key=api_key or os.getenv("OPENAI_API_KEY", ""),
             )
         else:
             env_base = os.getenv("OPENAI_API_BASE") or os.getenv("SYNTH_BASE_URL")
             env_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY")
-            config = SynthConfig(base_url=env_base, api_key=env_key) if env_base and env_key else None
+            config = (
+                SynthConfig(base_url=env_base, api_key=env_key) if env_base and env_key else None
+            )
 
         super().__init__(config, **kwargs)
 
@@ -760,7 +787,7 @@ __all__ = [
     "AsyncSynthClient",
     "SyncSynthClient",
     "AsyncOpenAI",  # Drop-in replacement for openai.AsyncOpenAI
-    "OpenAI",       # Drop-in replacement for openai.OpenAI
+    "OpenAI",  # Drop-in replacement for openai.OpenAI
     "create_async_client",
     "create_sync_client",
     "create_chat_completion_async",

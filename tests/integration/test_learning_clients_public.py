@@ -22,6 +22,11 @@ pytestmark = [pytest.mark.integration, pytest.mark.public]
 # Load environment from .env at repo root
 load_dotenv()
 
+# Skip this entire module unless explicitly enabled. These are public-integration tests
+# and should not run during unit test runs.
+if os.getenv("RUN_PUBLIC_INTEGRATION_TESTS", "").strip() != "1":  # pragma: no cover
+    pytest.skip("Skipping public integration tests by default; set RUN_PUBLIC_INTEGRATION_TESTS=1 to enable.", allow_module_level=True)
+
 
 def _prod_backend_url() -> str:
     url = os.getenv("PROD_BACKEND_URL", "").strip()
@@ -50,9 +55,9 @@ async def test_chat_completion_public_prod() -> None:
     base = _prod_backend_url()
     api_key = _api_key()
 
-    client = InferenceClient(base_url=base, api_key=api_key, timeout=30.0)
+    client = InferenceClient(base_url=base, api_key=api_key, timeout=10.0)
     resp = await client.create_chat_completion(
-        model="Qwen/Qwen2.5-0.5B",
+        model="Qwen/Qwen3-0.6B",
         messages=[{"role": "user", "content": "Say 'hello world'"}],
         max_tokens=32,
         temperature=0.0,
@@ -76,7 +81,7 @@ async def test_learning_minimal_flow_smoke_prod() -> None:
         json.dumps({"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]})
     ]))
 
-    lc = LearningClient(base_url=base, api_key=api_key, timeout=30.0)
+    lc = LearningClient(base_url=base, api_key=api_key, timeout=10.0)
     file_id = await lc.upload_training_file(tmp, purpose="fine-tune")
     assert isinstance(file_id, str) and len(file_id) > 0
 

@@ -1,6 +1,5 @@
 """Factory for creating storage instances."""
 
-
 from ..turso.manager import AsyncSQLTraceManager
 from .base import TraceStorage
 from .config import StorageBackend, StorageConfig

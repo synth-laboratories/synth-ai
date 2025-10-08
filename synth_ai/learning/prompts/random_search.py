@@ -148,7 +148,10 @@ def random_search_compile(
     max_rounds: int = 2,
     num_candidate_programs: int = 16,
     stop_at_score: float | None = None,
-    evaluate_fn: Callable[[_ProgramLike, Sequence[tuple[Any, Any]], Callable[[Any, Any], float]], EvalResult] | None = None,
+    evaluate_fn: Callable[
+        [_ProgramLike, Sequence[tuple[Any, Any]], Callable[[Any, Any], float]], EvalResult
+    ]
+    | None = None,
     on_candidate_evaluated: Callable[[int, float, EvalResult, dict[str, Any]], None] | None = None,
 ) -> tuple[_ProgramLike, list[dict[str, Any]]]:
     best_program: _ProgramLike | None = None

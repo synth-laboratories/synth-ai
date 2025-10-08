@@ -13,7 +13,7 @@ def validate_training_jsonl(path: str | Path, *, sample_lines: int = 50) -> None
     lines = p.read_text().splitlines()
     if not lines:
         raise ValueError("empty JSONL")
-    for i, line in enumerate(lines[: max(1, sample_lines) ], start=1):
+    for i, line in enumerate(lines[: max(1, sample_lines)], start=1):
         if not line.strip():
             continue
         try:
@@ -29,7 +29,11 @@ def validate_training_jsonl(path: str | Path, *, sample_lines: int = 50) -> None
         for m in msgs:
             if not isinstance(m, dict):
                 raise ValueError(f"line {i}: non-dict message")
-            if not isinstance(m.get("role"), str) or not isinstance(m.get("content"), str) or not m["content"].strip():
+            if (
+                not isinstance(m.get("role"), str)
+                or not isinstance(m.get("content"), str)
+                or not m["content"].strip()
+            ):
                 raise ValueError(f"line {i}: invalid role/content")
 
 

@@ -20,7 +20,12 @@ class LearningClient:
             files = {"file": (p.name, content, _infer_content_type(p.name))}
             js = await http.post_multipart("/api/learning/files", data=data, files=files)
         if not isinstance(js, dict) or "id" not in js:
-            raise HTTPError(status=500, url="/api/learning/files", message="invalid_upload_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url="/api/learning/files",
+                message="invalid_upload_response",
+                body_snippet=str(js)[:200],
+            )
         return str(js["id"])
 
     async def create_job(
@@ -50,7 +55,9 @@ class LearningClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/learning/jobs/{job_id}")
 
-    async def get_events(self, job_id: str, *, since_seq: int = 0, limit: int = 200) -> List[Dict[str, Any]]:
+    async def get_events(
+        self, job_id: str, *, since_seq: int = 0, limit: int = 200
+    ) -> List[Dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/events", params=params)
@@ -58,7 +65,15 @@ class LearningClient:
             return js["events"]
         return []
 
-    async def get_metrics(self, job_id: str, *, name: str | None = None, after_step: int | None = None, limit: int = 500, run_id: str | None = None) -> List[Dict[str, Any]]:
+    async def get_metrics(
+        self,
+        job_id: str,
+        *,
+        name: str | None = None,
+        after_step: int | None = None,
+        limit: int = 500,
+        run_id: str | None = None,
+    ) -> List[Dict[str, Any]]:
         params: Dict[str, Any] = {"limit": limit}
         if name is not None:
             params["name"] = name
@@ -115,7 +130,9 @@ class LearningClient:
                 raise TimeoutError(f"Polling timed out after {elapsed} seconds for job {job_id}")
 
     # --- Optional diagnostics ---
-    async def pricing_preflight(self, *, job_type: str, gpu_type: str, estimated_seconds: float, container_count: int) -> Dict[str, Any]:
+    async def pricing_preflight(
+        self, *, job_type: str, gpu_type: str, estimated_seconds: float, container_count: int
+    ) -> Dict[str, Any]:
         body = {
             "job_type": job_type,
             "gpu_type": gpu_type,
@@ -125,14 +142,24 @@ class LearningClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.post_json("/api/v1/pricing/preflight", json=body)
         if not isinstance(js, dict):
-            raise HTTPError(status=500, url="/api/v1/pricing/preflight", message="invalid_preflight_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url="/api/v1/pricing/preflight",
+                message="invalid_preflight_response",
+                body_snippet=str(js)[:200],
+            )
         return js
 
     async def balance_autumn_normalized(self) -> Dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get("/api/v1/balance/autumn-normalized")
         if not isinstance(js, dict):
-            raise HTTPError(status=500, url="/api/v1/balance/autumn-normalized", message="invalid_balance_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url="/api/v1/balance/autumn-normalized",
+                message="invalid_balance_response",
+                body_snippet=str(js)[:200],
+            )
         return js
 
 
@@ -145,5 +172,3 @@ def _infer_content_type(filename: str) -> str:
     if name.endswith(".txt"):
         return "text/plain"
     return "application/octet-stream"
-
-

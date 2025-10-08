@@ -165,12 +165,16 @@ def _postprocess_math_modal(root: Path) -> None:
         return
     text = task_path.read_text(encoding="utf-8")
     text = text.replace('App("hendrycks-math-task-app")', 'App("hendrycks-math-task-app-demo")')
-    text = text.replace('DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"', 'DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"')
+    text = text.replace(
+        'DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"',
+        'DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"',
+    )
     task_path.write_text(text, encoding="utf-8")
 
 
-CRAFT_DEMO_TEMPLATE = textwrap.dedent(
-    '''
+CRAFT_DEMO_TEMPLATE = (
+    textwrap.dedent(
+        '''
 """Demo-friendly wrapper for the GRPO Crafter task app."""
 
 from __future__ import annotations
@@ -279,7 +283,9 @@ if __name__ == "__main__":
         env_files=env_files,
     )
     '''
-).strip() + "\n"
+    ).strip()
+    + "\n"
+)
 
 
 def _postprocess_crafter_local(root: Path) -> None:
@@ -287,4 +293,3 @@ def _postprocess_crafter_local(root: Path) -> None:
     if not task_path.exists():
         return
     task_path.write_text(CRAFT_DEMO_TEMPLATE, encoding="utf-8")
-

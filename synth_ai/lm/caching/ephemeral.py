@@ -28,9 +28,7 @@ class EphemeralCache:
         os.makedirs(fast_cache_dir, exist_ok=True)
         self.fast_cache = Cache(fast_cache_dir, size_limit=DISKCACHE_SIZE_LIMIT)
 
-    def hit_cache(
-        self, key: str, response_model: BaseModel | None = None
-    ) -> BaseLMResponse | None:
+    def hit_cache(self, key: str, response_model: BaseModel | None = None) -> BaseLMResponse | None:
         """
         Check if a response exists in cache for the given key.
 

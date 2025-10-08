@@ -17,12 +17,14 @@ def main() -> None:
 
     # Minimal single-example JSONL
     lines = [
-        json.dumps({
-            "messages": [
-                {"role": "user", "content": "Write a short greeting."},
-                {"role": "assistant", "content": "Hello there!"},
-            ]
-        })
+        json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "content": "Write a short greeting."},
+                    {"role": "assistant", "content": "Hello there!"},
+                ]
+            }
+        )
     ]
     out_path.write_text("\n".join(lines) + "\n")
     validate_jsonl(out_path)
@@ -31,5 +33,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

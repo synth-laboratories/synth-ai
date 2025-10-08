@@ -82,15 +82,11 @@ async def test_service():
             print(f"   Error: {response.status_code} - {response.text}")
         else:
             step_data = response.json()
-            print(
-                f"   Step result - done: {step_data['done']}, reward: {step_data.get('reward')}"
-            )
+            print(f"   Step result - done: {step_data['done']}, reward: {step_data.get('reward')}")
 
         # Test 6: Environment snapshot
         print("\n6. Creating environment snapshot...")
-        response = await client.post(
-            f"{base_url}/env/snapshot", json={"env_id": env_id}
-        )
+        response = await client.post(f"{base_url}/env/snapshot", json={"env_id": env_id})
         if response.status_code != 200:
             print(f"   Error: {response.status_code} - {response.text}")
         else:
@@ -100,9 +96,7 @@ async def test_service():
 
         # Test 7: Policy snapshot
         print("\n7. Creating policy snapshot...")
-        response = await client.post(
-            f"{base_url}/policy/snapshot", json={"policy_id": policy_id}
-        )
+        response = await client.post(f"{base_url}/policy/snapshot", json={"policy_id": policy_id})
         if response.status_code != 200:
             print(f"   Error: {response.status_code} - {response.text}")
         else:
@@ -121,9 +115,7 @@ async def test_service():
 
         # Test 9: Terminate environment
         print("\n9. Terminating environment...")
-        response = await client.post(
-            f"{base_url}/env/terminate", json={"env_id": env_id}
-        )
+        response = await client.post(f"{base_url}/env/terminate", json={"env_id": env_id})
         if response.status_code != 200:
             print(f"   Error: {response.status_code} - {response.text}")
         else:
@@ -131,9 +123,7 @@ async def test_service():
 
         # Test 10: Terminate policy
         print("\n10. Terminating policy...")
-        response = await client.post(
-            f"{base_url}/policy/terminate", json={"policy_id": policy_id}
-        )
+        response = await client.post(f"{base_url}/policy/terminate", json={"policy_id": policy_id})
         if response.status_code != 200:
             print(f"   Error: {response.status_code} - {response.text}")
         else:

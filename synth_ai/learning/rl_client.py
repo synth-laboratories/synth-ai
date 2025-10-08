@@ -31,10 +31,17 @@ class RlClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             js = await http.get(path)
         if not isinstance(js, dict):
-            raise HTTPError(status=500, url=path, message="invalid_service_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500, url=path, message="invalid_service_response", body_snippet=str(js)[:200]
+            )
         start_url = js.get("training_start_url")
         if not isinstance(start_url, str) or not start_url:
-            raise HTTPError(status=500, url=path, message="missing_training_start_url", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url=path,
+                message="missing_training_start_url",
+                body_snippet=str(js)[:200],
+            )
         return start_url
 
     async def create_job(
@@ -63,7 +70,12 @@ class RlClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.post_json(f"{_api_base(self._base_url)}/rl/jobs", json=body)
         if not isinstance(js, dict):
-            raise HTTPError(status=500, url="/api/rl/jobs", message="invalid_create_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url="/api/rl/jobs",
+                message="invalid_create_response",
+                body_snippet=str(js)[:200],
+            )
         return js
 
     async def start_job_if_supported(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -80,11 +92,15 @@ class RlClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             return await http.get(f"{_api_base(self._base_url)}/learning/jobs/{job_id}")
 
-    async def get_events(self, job_id: str, *, since_seq: int = 0, limit: int = 200) -> List[Dict[str, Any]]:
+    async def get_events(
+        self, job_id: str, *, since_seq: int = 0, limit: int = 200
+    ) -> List[Dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             try:
-                js = await http.get(f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events", params=params)
+                js = await http.get(
+                    f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events", params=params
+                )
             except HTTPError as he:
                 try:
                     print(
@@ -99,10 +115,14 @@ class RlClient:
                 return evs
         return []
 
-    async def get_metrics(self, job_id: str, *, after_step: int = -1, limit: int = 200) -> List[Dict[str, Any]]:
+    async def get_metrics(
+        self, job_id: str, *, after_step: int = -1, limit: int = 200
+    ) -> List[Dict[str, Any]]:
         params = {"after_step": after_step, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
-            js = await http.get(f"{_api_base(self._base_url)}/learning/jobs/{job_id}/metrics", params=params)
+            js = await http.get(
+                f"{_api_base(self._base_url)}/learning/jobs/{job_id}/metrics", params=params
+            )
         if isinstance(js, dict) and isinstance(js.get("points"), list):
             return js["points"]
         return []
@@ -161,7 +181,9 @@ class RlClient:
             if events_job_id and events_job_id not in stream_ids:
                 stream_ids.append(events_job_id)
             try:
-                print(f"[poll] streams={stream_ids} intervals={interval_seconds}s since_map={last_seq_by_stream} empty_polls={empty_polls}")
+                print(
+                    f"[poll] streams={stream_ids} intervals={interval_seconds}s since_map={last_seq_by_stream} empty_polls={empty_polls}"
+                )
             except Exception:
                 pass
             total_events_this_cycle = 0
@@ -173,13 +195,17 @@ class RlClient:
                     events = await self.get_events(ev_id, since_seq=since, limit=200)
                 except HTTPError as he:
                     try:
-                        print(f"[poll] get_events error status={he.status} url={he.url} since={since} body={(he.body_snippet or '')[:200]}")
+                        print(
+                            f"[poll] get_events error status={he.status} url={he.url} since={since} body={(he.body_snippet or '')[:200]}"
+                        )
                     except Exception:
                         pass
                     events = []
                 except Exception as e:
                     try:
-                        print(f"[poll] get_events unexpected error ev_id={ev_id} since={since} err={type(e).__name__}: {e}")
+                        print(
+                            f"[poll] get_events unexpected error ev_id={ev_id} since={since} err={type(e).__name__}: {e}"
+                        )
                     except Exception:
                         pass
                     events = []
@@ -238,7 +264,9 @@ class RlClient:
                     )
                 except Exception:
                     pass
-                raise AssertionError(f"No new events detected for {empty_polls_threshold} consecutive polls. Check event ingestion.")
+                raise AssertionError(
+                    f"No new events detected for {empty_polls_threshold} consecutive polls. Check event ingestion."
+                )
 
             if not saw_any_event and (time.time() - start_t) > int(startup_deadline_s):
                 try:
@@ -247,10 +275,10 @@ class RlClient:
                     )
                 except Exception:
                     pass
-                raise AssertionError(f"No events observed within startup window ({startup_deadline_s}s). Investigate event streaming.")
+                raise AssertionError(
+                    f"No events observed within startup window ({startup_deadline_s}s). Investigate event streaming."
+                )
 
             await sleep(interval_seconds)
             if max_seconds is not None and (time.time() - start_t) >= max_seconds:
                 raise TimeoutError(f"Polling timed out after {max_seconds}s for job {job_id}")
-
-

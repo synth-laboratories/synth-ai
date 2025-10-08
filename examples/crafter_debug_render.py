@@ -10,6 +10,7 @@ Quick local Crafter observation inspector.
 Run:
   uv run python examples/crafter_debug_render.py --base-url http://localhost:8901 --seed 1
 """
+
 import argparse
 import math
 import os
@@ -117,13 +118,17 @@ def format_semantic_map_view(obs: Dict[str, Any], view_size: int = 7) -> str:
                 row_cells.append("void")
         lines.append(" ".join(row_cells))
 
-    legend = f"Visible items: {', '.join(sorted(visible))}" if visible else "No notable items visible"
+    legend = (
+        f"Visible items: {', '.join(sorted(visible))}" if visible else "No notable items visible"
+    )
     return "\n".join(lines) + "\n" + legend
 
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url", default=os.getenv("CRAFTER_BASE_URL", "http://localhost:8901"))
+    parser.add_argument(
+        "--base-url", default=os.getenv("CRAFTER_BASE_URL", "http://localhost:8901")
+    )
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
@@ -145,7 +150,11 @@ async def main():
         print(f"Health: {obs.get('health', 10)}/10")
         print(f"Hunger: {obs.get('food', 10)}/10")
         print(f"Energy: {obs.get('energy', 10)}/10")
-        inv_items = ", ".join([f"{k}: {v}" for k, v in inv.items() if v]) if isinstance(inv, dict) else str(inv)
+        inv_items = (
+            ", ".join([f"{k}: {v}" for k, v in inv.items() if v])
+            if isinstance(inv, dict)
+            else str(inv)
+        )
         print(f"Inventory: {inv_items if inv_items else 'empty'}")
         if isinstance(ach, dict):
             unlocked = sum(1 for v in ach.values() if v)
@@ -167,7 +176,9 @@ async def main():
 
         # Cleanup
         try:
-            await client.post(f"{args.base_url}/env/CrafterClassic/terminate", json={"env_id": env_id})
+            await client.post(
+                f"{args.base_url}/env/CrafterClassic/terminate", json={"env_id": env_id}
+            )
         except Exception:
             pass
 
@@ -176,5 +187,3 @@ if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
-
-

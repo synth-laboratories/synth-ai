@@ -4,6 +4,7 @@ import asyncio
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 from synth_ai.inference import InferenceClient
@@ -33,5 +34,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

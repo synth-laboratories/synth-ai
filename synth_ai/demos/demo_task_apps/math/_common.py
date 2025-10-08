@@ -6,6 +6,7 @@ This module provides a local fallback for install_problem_bank_into_shared so
 the modal task app can import it without requiring an external math_rl package.
 """
 
+
 def install_problem_bank_into_shared() -> None:
     """No-op placeholder for installing the Hendrycks MATH problem bank.
 
@@ -13,5 +14,3 @@ def install_problem_bank_into_shared() -> None:
     into a shared directory. For the demo scaffold, it is a no-op.
     """
     return None
-
-

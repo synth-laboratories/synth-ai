@@ -155,7 +155,9 @@ def _as_float(value: Any) -> Optional[float]:
         return None
 
 
-def _score(criteria: Iterable[Criterion], values: Dict[str, float], aggregation: str) -> Dict[str, Any]:
+def _score(
+    criteria: Iterable[Criterion], values: Dict[str, float], aggregation: str
+) -> Dict[str, Any]:
     if aggregation == "inherit":
         aggregation = "weighted_sum"
     per_criterion: Dict[str, Dict[str, Any]] = {}
@@ -184,7 +186,9 @@ def _score(criteria: Iterable[Criterion], values: Dict[str, float], aggregation:
     }
 
 
-def score_events_against_rubric(events: list[dict[str, Any]], rubric: Rubric | None) -> Dict[str, Any]:
+def score_events_against_rubric(
+    events: list[dict[str, Any]], rubric: Rubric | None
+) -> Dict[str, Any]:
     if rubric is None:
         return {"aggregation": "none", "score": None, "per_criterion": {}}
     values: Dict[str, float] = {}
@@ -203,7 +207,9 @@ def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None)
         return {"aggregation": "none", "score": None, "per_criterion": {}}
     values: Dict[str, float] = {}
     if isinstance(outcome, dict):
-        candidates = outcome.get("criteria") if isinstance(outcome.get("criteria"), dict) else outcome
+        candidates = (
+            outcome.get("criteria") if isinstance(outcome.get("criteria"), dict) else outcome
+        )
         if isinstance(candidates, dict):
             for key, value in candidates.items():
                 score = _as_float(value)

@@ -9,13 +9,25 @@ class FilesApi:
     def __init__(self, http: AsyncHttpClient) -> None:
         self._http = http
 
-    async def upload(self, *, filename: str, content: bytes, purpose: str, content_type: Optional[str] = None, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
+    async def upload(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        purpose: str,
+        content_type: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+    ) -> Dict[str, Any]:
         data = {"purpose": purpose}
         files = {"file": (filename, content, content_type)}
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
-        return await self._http.post_multipart("/api/files", data=data, files=files, headers=headers)
+        return await self._http.post_multipart(
+            "/api/files", data=data, files=files, headers=headers
+        )
 
-    async def list(self, *, purpose: Optional[str] = None, after: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+    async def list(
+        self, *, purpose: Optional[str] = None, after: Optional[str] = None, limit: int = 20
+    ) -> Dict[str, Any]:
         params: Dict[str, Any] = {}
         if purpose is not None:
             params["purpose"] = purpose
@@ -30,7 +42,9 @@ class FilesApi:
     async def delete(self, file_id: str) -> Any:
         return await self._http.delete(f"/api/files/{file_id}")
 
-    async def list_jobs(self, file_id: str, *, after: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+    async def list_jobs(
+        self, file_id: str, *, after: Optional[str] = None, limit: int = 20
+    ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
@@ -102,11 +116,15 @@ class SftJobsApi:
     async def cancel(self, job_id: str) -> Dict[str, Any]:
         return await self._http.post_json(f"/api/sft/jobs/{job_id}/cancel", json={})
 
-    async def list_events(self, job_id: str, *, since_seq: int = 0, limit: int = 200) -> Dict[str, Any]:
+    async def list_events(
+        self, job_id: str, *, since_seq: int = 0, limit: int = 200
+    ) -> Dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
         return await self._http.get(f"/api/sft/jobs/{job_id}/events", params=params)
 
-    async def checkpoints(self, job_id: str, *, after: Optional[str] = None, limit: int = 10) -> Dict[str, Any]:
+    async def checkpoints(
+        self, job_id: str, *, after: Optional[str] = None, limit: int = 10
+    ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
@@ -174,11 +192,15 @@ class RlJobsApi:
     async def cancel(self, job_id: str) -> Dict[str, Any]:
         return await self._http.post_json(f"/api/rl/jobs/{job_id}/cancel", json={})
 
-    async def list_events(self, job_id: str, *, since_seq: int = 0, limit: int = 200) -> Dict[str, Any]:
+    async def list_events(
+        self, job_id: str, *, since_seq: int = 0, limit: int = 200
+    ) -> Dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
         return await self._http.get(f"/api/rl/jobs/{job_id}/events", params=params)
 
-    async def metrics(self, job_id: str, *, after_step: int = -1, limit: int = 200) -> Dict[str, Any]:
+    async def metrics(
+        self, job_id: str, *, after_step: int = -1, limit: int = 200
+    ) -> Dict[str, Any]:
         params = {"after_step": after_step, "limit": limit}
         return await self._http.get(f"/api/rl/jobs/{job_id}/metrics", params=params)
 
@@ -213,7 +235,9 @@ class ModelsApi:
     async def delete(self, model_id: str) -> Any:
         return await self._http.delete(f"/api/models/{model_id}")
 
-    async def list_jobs(self, model_id: str, *, after: Optional[str] = None, limit: int = 20) -> Dict[str, Any]:
+    async def list_jobs(
+        self, model_id: str, *, after: Optional[str] = None, limit: int = 20
+    ) -> Dict[str, Any]:
         params: Dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
@@ -228,7 +252,13 @@ class JobsClient:
             await c.files.list()
     """
 
-    def __init__(self, base_url: str, api_key: str, timeout: float = 30.0, http: Optional[AsyncHttpClient] = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        timeout: float = 30.0,
+        http: Optional[AsyncHttpClient] = None,
+    ) -> None:
         self._base_url = base_url
         self._api_key = api_key
         self._timeout = timeout

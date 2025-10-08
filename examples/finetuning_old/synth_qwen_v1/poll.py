@@ -5,6 +5,7 @@ from typing import Dict
 
 import sys
 import os
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
 from synth_ai.learning import JobHandle
@@ -27,7 +28,9 @@ async def _run(mode: str | None) -> None:
 
     # Use shared JobHandle poller abstraction (strict=True for FT)
     handle = JobHandle(base, key, job_id, strict=True)
-    final = await handle.poll_until_terminal(interval_seconds=2.0, max_seconds=1800, on_event=_print_event)
+    final = await handle.poll_until_terminal(
+        interval_seconds=2.0, max_seconds=1800, on_event=_print_event
+    )
     print(f"final_status={final.get('status')}")
     ft = final.get("fine_tuned_model")
     if ft:
@@ -41,4 +44,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

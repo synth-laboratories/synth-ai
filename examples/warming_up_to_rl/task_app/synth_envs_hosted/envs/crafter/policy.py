@@ -5,23 +5,25 @@ from abc import ABC, abstractmethod
 from .react_agent import CrafterReActAgent
 from .tools import TOOLS_SCHEMA
 
+
 # Define Policy base class here to avoid circular import
 class Policy(ABC):
     """Base class for environment-specific policies."""
-    
+
     @abstractmethod
     def prepare_inference_request(
         self, observation: Dict[str, Any], history: List[Dict[str, Any]] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
         """Prepare an inference request."""
         pass
-    
+
     @abstractmethod
     def parse_model_response(
         self, response: str, observation: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Parse model response into tool calls."""
         pass
+
 
 # (imports moved to top of file to satisfy linter)
 
@@ -161,7 +163,7 @@ class CrafterPolicy(Policy):
         # First check if we got actual tool calls
         choices = response.get("choices", [])
         tool_calls: List[Dict[str, Any]] = []
-        
+
         for choice in choices:
             msg = choice.get("message", {})
             if "tool_calls" in msg and msg["tool_calls"] is not None:
@@ -185,7 +187,7 @@ class CrafterPolicy(Policy):
                                 "arguments": tc["arguments"],
                             }
                         )
-        
+
         # If we got tool calls, return them
         if tool_calls:
             # Normalize common degenerate pattern ["move_right", "do"] when nothing is nearby.
@@ -197,6 +199,7 @@ class CrafterPolicy(Policy):
                     if isinstance(args, str):
                         try:
                             import json
+
                             args = json.loads(args)
                         except (json.JSONDecodeError, ValueError):
                             args = {}
@@ -208,11 +211,13 @@ class CrafterPolicy(Policy):
                     # Simple heuristic: avoid repeating same pair; avoid 'do' with no context
                     if len(actions) == 2 and actions[0] == "move_right" and actions[1] == "do":
                         actions = ["move_right"]
-                    normalized.append({"tool_name": "interact_many", "arguments": {"actions": actions or []}})
+                    normalized.append(
+                        {"tool_name": "interact_many", "arguments": {"actions": actions or []}}
+                    )
                 else:
                     normalized.append(tc)
             return normalized
-            
+
         # Otherwise, parse plain text content for actions
         text = ""
         for choice in choices:
@@ -221,15 +226,16 @@ class CrafterPolicy(Policy):
             if content:
                 text = content
                 break
-        
+
         if text:
             # Try to parse actions from the text
             from .shared import parse_actions
+
             actions = parse_actions(text)
             if actions:
                 # Wrap actions in interact_many tool call
                 return [{"tool_name": "interact_many", "arguments": {"actions": actions}}]
-        
+
         # No actions found
         return []
 
@@ -264,7 +270,11 @@ class CrafterPolicy(Policy):
                 prev_tool_calls = metadata["prev_tool_calls"]
             if "prev_env_result" in metadata:
                 prev_env_result = metadata["prev_env_result"]
-            if prev_assistant_text is not None or prev_tool_calls is not None or prev_env_result is not None:
+            if (
+                prev_assistant_text is not None
+                or prev_tool_calls is not None
+                or prev_env_result is not None
+            ):
                 self._append_assistant_turn(prev_assistant_text, prev_tool_calls, prev_env_result)
 
         # Append current observation as the next user message (internal history only)
@@ -274,8 +284,12 @@ class CrafterPolicy(Policy):
         # (formatted surroundings/inventory) with the previous 3 tool calls as context.
         # Most recent first.
         lines: List[str] = []
-        def _format_tool_call_line_for_context(tool_name: str, arguments: Any, max_chars: int = 500) -> str:
+
+        def _format_tool_call_line_for_context(
+            tool_name: str, arguments: Any, max_chars: int = 500
+        ) -> str:
             import json as _json
+
             # Render arguments compactly, then clip to max_chars
             if isinstance(arguments, (dict, list)):
                 try:
@@ -289,6 +303,7 @@ class CrafterPolicy(Policy):
             if isinstance(rendered, str) and len(rendered) > max_chars:
                 rendered = rendered[:max_chars]
             return f"- {tool_name}: {rendered}"
+
         # Prefer pulling from trajectory_history (accumulates over turns)
         for record in reversed(self.trajectory_history):
             if len(lines) >= 3:
@@ -316,7 +331,9 @@ class CrafterPolicy(Policy):
                 args = call.get("arguments")
                 lines.append(_format_tool_call_line_for_context(name, args))
 
-        context_text = "Previous tool calls (most recent first):\n" + ("\n".join(lines) if lines else "- none")
+        context_text = "Previous tool calls (most recent first):\n" + (
+            "\n".join(lines) if lines else "- none"
+        )
 
         # Combine observation with context so the model always sees surroundings/inventory
         combined_text = f"{observation_text}\n\n{context_text}"
@@ -326,7 +343,7 @@ class CrafterPolicy(Policy):
             history=[],  # no prior user/assistant history
             turn=self.turn_index,
         )
-        #print("Debugging only:; ", payload)
+        # print("Debugging only:; ", payload)
         meta_out = {
             "inference_url": self.inference_url,
             "inference_request": payload,
@@ -372,7 +389,7 @@ class CrafterPolicy(Policy):
 
     async def terminate(self) -> None:
         return None
-    
+
     def prepare_inference_request(
         self, observation: Dict[str, Any], history: List[Dict[str, Any]] = None
     ) -> Tuple[List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
@@ -382,9 +399,7 @@ class CrafterPolicy(Policy):
 
         # Build messages (observation_text already formatted; no raw matrices)
         messages = CrafterReActAgent.build_messages(
-            observation=observation_text,
-            history=history,
-            turn=self.turn_index
+            observation=observation_text, history=history, turn=self.turn_index
         )
 
         # Return messages and tools schema
@@ -402,7 +417,6 @@ class CrafterPolicy(Policy):
         if not isinstance(obs_data, dict):
             return f"Observation: {str(observation)}"
 
-
         # Use the shared format_observation function with step information
         step_idx = observation.get("step_idx", 0)
         max_steps = 100  # Default max steps, could be made configurable
@@ -416,25 +430,25 @@ class CrafterPolicy(Policy):
                 obs_data["health"] = info["health"]
 
         return format_observation(obs_data, step_count=step_idx, max_steps=max_steps)
-    
+
     def parse_model_response(
         self, response: str, observation: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Parse model response into tool calls (implementing abstract method).
-        
+
         Note: Despite the type hint, vLLM actually returns a dict response,
         not a string. We handle both cases.
         """
         # Handle dict response from vLLM (the actual case)
         if isinstance(response, dict):
             return self.parse_response_to_tool_calls(response, self.use_tools)
-        
+
         # Handle string response (fallback case for raw text)
         if isinstance(response, str):
             actions = CrafterReActAgent.parse_actions_from_response(response)
             if actions:
                 return [{"tool_name": "interact_many", "arguments": {"actions": actions}}]
-        
+
         # Default empty response
         return []
 

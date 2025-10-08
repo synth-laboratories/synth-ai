@@ -37,7 +37,9 @@ class TaskDatasetRegistry:
         self._entries: Dict[str, Tuple[TaskDatasetSpec, RegistryLoader, bool]] = {}
         self._cache: Dict[Hashable, Any] = {}
 
-    def register(self, spec: TaskDatasetSpec, loader: RegistryLoader, *, cache: bool = True) -> None:
+    def register(
+        self, spec: TaskDatasetSpec, loader: RegistryLoader, *, cache: bool = True
+    ) -> None:
         """Register a dataset loader and its metadata."""
 
         self._entries[spec.id] = (spec, loader, cache)
