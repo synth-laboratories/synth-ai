@@ -51,6 +51,7 @@ def register(cli):
                     for fn in files:
                         fp = os.path.join(dp, fn)
                         import contextlib
+
                         with contextlib.suppress(OSError):
                             total += os.path.getsize(fp)
                 return total

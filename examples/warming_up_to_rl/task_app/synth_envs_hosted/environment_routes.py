@@ -58,9 +58,7 @@ async def validate_environment_observation(observation: Any, context: str) -> No
         "terminated",
     }
     if wordle_keys.issubset(set(observation.keys())):
-        logger.info(
-            f"🔍 ENV_ROUTES: Validating Wordle observation structure in {context}"
-        )
+        logger.info(f"🔍 ENV_ROUTES: Validating Wordle observation structure in {context}")
         logger.info(f"🔍 ENV_ROUTES: Observation keys: {list(observation.keys())}")
 
         missing_keys = wordle_keys - set(observation.keys())
@@ -278,9 +276,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     WordleEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Wordle modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
 
             # Lazy import of wrapper within branch
             try:
@@ -288,9 +284,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     WordleEnvironmentWrapper as _WordleWrapper,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}")
 
             cfg = request.config or {}
             word_length = int(cfg.get("word_length", 5))
@@ -307,12 +301,8 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             )
             instance = WordleTaskInstance(
                 id=uuid4(),
-                impetus=Impetus(
-                    instructions="Play Wordle. Submit one 5-letter word per turn."
-                ),
-                intent=Intent(
-                    rubric="guess the word", gold_trajectories=None, gold_state_diff={}
-                ),
+                impetus=Impetus(instructions="Play Wordle. Submit one 5-letter word per turn."),
+                intent=Intent(rubric="guess the word", gold_trajectories=None, gold_state_diff={}),
                 metadata=md,
                 is_reproducible=True,
                 initial_engine_snapshot=None,
@@ -345,9 +335,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     if key in observation_for_registry:
                         del observation_for_registry[key]
 
-            await validate_environment_observation(
-                observation_for_registry, "initialize"
-            )
+            await validate_environment_observation(observation_for_registry, "initialize")
 
             env_id = registry.register_env(
                 env=wrapper,
@@ -376,9 +364,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     SokobanEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
 
             # Lazy import of wrapper within branch
             try:
@@ -386,9 +372,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     SokobanEnvironmentWrapper as _SokobanWrapper,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}")
 
             cfg = request.config or {}
             difficulty = cfg.get("difficulty", "easy")
@@ -411,9 +395,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             )
             base_env = SokobanEnvironment(task_instance=instance)
 
-            wrapper = _SokobanWrapper(
-                env=base_env, seed=request.seed, config=cfg
-            )
+            wrapper = _SokobanWrapper(env=base_env, seed=request.seed, config=cfg)
             result = await wrapper.initialize()
 
             # Handle the observation structure consistently for Sokoban
@@ -453,9 +435,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     MathEnvironmentWrapper as _MathWrapper,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Math wrapper unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Math wrapper unavailable: {e}")
 
             wrapper = _MathWrapper(
                 seed=request.seed,
@@ -464,7 +444,11 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             )
             result = await wrapper.initialize()
 
-            observation_for_registry = result["observation"].copy() if isinstance(result, dict) and "observation" in result else result.copy()
+            observation_for_registry = (
+                result["observation"].copy()
+                if isinstance(result, dict) and "observation" in result
+                else result.copy()
+            )
             for key in ["step_idx", "info"]:
                 if key in observation_for_registry:
                     del observation_for_registry[key]
@@ -509,7 +493,9 @@ async def compat_initialize(payload: dict) -> EnvCreateResponse:
         difficulty = str(wc.get("difficulty"))
     elif isinstance(cfg, dict) and cfg.get("difficulty"):
         difficulty = str(cfg.get("difficulty"))
-    req = EnvCreateRequest(env_name="crafter", config={"difficulty": difficulty}, seed=seed, rl_run_id="eval")
+    req = EnvCreateRequest(
+        env_name="crafter", config={"difficulty": difficulty}, seed=seed, rl_run_id="eval"
+    )
     return await create_environment(req)
 
 
@@ -525,10 +511,12 @@ async def compat_step(payload: dict) -> EnvStepResponse:
         actions_list = action.get("actions") if isinstance(action, dict) else None
         if isinstance(actions_list, list) and actions_list:
             for a in actions_list:
-                tool_calls.append({
-                    "tool": "interact",
-                    "args": {"action": a},
-                })
+                tool_calls.append(
+                    {
+                        "tool": "interact",
+                        "args": {"action": a},
+                    }
+                )
     req = EnvStepRequest(env_id=env_id, tool_calls=tool_calls)
     return await step_environment(req)
 
@@ -545,9 +533,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
     """Reset an environment to its initial state."""
     handle = registry.get_env(request.env_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Environment {request.env_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Environment {request.env_id} not found")
 
     try:
         # Determine wrapper type and rebuild base env if a new seed is provided
@@ -606,9 +592,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                         WordleEnvironment,
                     )
                 except Exception as e:
-                    raise HTTPException(
-                        status_code=500, detail=f"Wordle modules unavailable: {e}"
-                    )
+                    raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
 
                 init_snap = getattr(wrapper, "initial_engine_snapshot", None)
                 if init_snap is not None:
@@ -655,9 +639,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                     WordleEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Wordle modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
 
             init_snap = getattr(wrapper, "initial_engine_snapshot", None)
             if init_snap is not None:
@@ -711,9 +693,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                         SokobanEnvironment,
                     )
                 except Exception as e:
-                    raise HTTPException(
-                        status_code=500, detail=f"Sokoban modules unavailable: {e}"
-                    )
+                    raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
 
                 cfg = dict(wrapper.config or {})
                 metadata = SokobanTaskInstanceMetadata(
@@ -746,9 +726,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                     SokobanEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
 
             cfg = dict(wrapper.config or {})
             metadata = SokobanTaskInstanceMetadata(
@@ -757,9 +735,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
             instance = SokobanTaskInstance(
                 id=uuid4(),
                 impetus=Impetus(instructions="Reset"),
-                intent=Intent(
-                    rubric={"goal": "Reset"}, gold_trajectories=None, gold_state_diff={}
-                ),
+                intent=Intent(rubric={"goal": "Reset"}, gold_trajectories=None, gold_state_diff={}),
                 metadata=metadata,
                 is_reproducible=True,
                 initial_engine_snapshot=cfg.get("initial_state"),
@@ -818,9 +794,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
     """Execute a step in the environment."""
     handle = registry.get_env(request.env_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Environment {request.env_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Environment {request.env_id} not found")
 
     try:
         # Execute the step, pre-normalizing invalid Wordle guesses to avoid hard failures
@@ -836,12 +810,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
             expected_len = int(getattr(wrapper, "word_length", 5))
             normalized: List[Dict[str, Any]] = []
             for tc in request.tool_calls or []:
-                tool = (
-                    tc.get("tool")
-                    or tc.get("tool_name")
-                    or tc.get("name")
-                    or "interact"
-                )
+                tool = tc.get("tool") or tc.get("tool_name") or tc.get("name") or "interact"
                 args = tc.get("arguments") or tc.get("args") or {}
                 if isinstance(args, str):
                     try:
@@ -861,9 +830,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
                         # Preserve the original tool name (interact or submit) for the environment to handle
                         normalized.append({"tool": tool, "args": {"guess": g}})
                 else:
-                    normalized.append(
-                        {"tool": "invalid_guess", "args": {"original_guess": guess}}
-                    )
+                    normalized.append({"tool": "invalid_guess", "args": {"original_guess": guess}})
             result = await wrapper.step(normalized)
         else:
             result = await handle.env.step(request.tool_calls)
@@ -922,12 +889,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
                 expected_len = int(getattr(wrapper, "word_length", 5))
                 normalized: List[Dict[str, Any]] = []
                 for tc in request.tool_calls or []:
-                    tool = (
-                        tc.get("tool")
-                        or tc.get("tool_name")
-                        or tc.get("name")
-                        or "interact"
-                    )
+                    tool = tc.get("tool") or tc.get("tool_name") or tc.get("name") or "interact"
                     args = tc.get("arguments") or tc.get("args") or {}
                     if isinstance(args, str):
                         try:
@@ -947,9 +909,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
                                 }
                             )
                         else:
-                            normalized.append(
-                                {"tool": "interact", "args": {"guess": g}}
-                            )
+                            normalized.append({"tool": "interact", "args": {"guess": g}})
                     else:
                         normalized.append(
                             {"tool": "invalid_guess", "args": {"original_guess": guess}}
@@ -989,9 +949,7 @@ async def snapshot_environment(request: EnvSnapshotRequest) -> EnvSnapshotRespon
     """Create a snapshot of the environment state."""
     handle = registry.get_env(request.env_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Environment {request.env_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Environment {request.env_id} not found")
 
     try:
         # Serialize environment state
@@ -1030,9 +988,7 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
     """Restore an environment from a snapshot."""
     snapshot = registry.get_snapshot(request.snapshot_id)
     if not snapshot:
-        raise HTTPException(
-            status_code=404, detail=f"Snapshot {request.snapshot_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Snapshot {request.snapshot_id} not found")
 
     if snapshot.kind != "env":
         raise HTTPException(
@@ -1113,9 +1069,7 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     WordleEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Wordle modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
 
             cfg = state_dict.get("config", {}) or {}
             word_length = int(cfg.get("word_length", 5))
@@ -1150,12 +1104,8 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     WordleEnvironmentWrapper as _WordleWrapper,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
-                )
-            wrapper = await _WordleWrapper.deserialize(
-                payload=state_dict, env=base_env
-            )
+                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}")
+            wrapper = await _WordleWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(
                 env=wrapper,
@@ -1184,14 +1134,10 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     SokobanEnvironment,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
-                )
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
 
             cfg = state_dict.get("config", {}) or {}
-            metadata = SokobanTaskInstanceMetadata(
-                difficulty=cfg.get("difficulty", "easy")
-            )
+            metadata = SokobanTaskInstanceMetadata(difficulty=cfg.get("difficulty", "easy"))
             instance = SokobanTaskInstance(
                 id=uuid4(),
                 impetus=Impetus(instructions="Restore"),
@@ -1211,12 +1157,8 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     SokobanEnvironmentWrapper as _SokobanWrapper,
                 )
             except Exception as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
-                )
-            wrapper = await _SokobanWrapper.deserialize(
-                payload=state_dict, env=base_env
-            )
+                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}")
+            wrapper = await _SokobanWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(
                 env=wrapper,
@@ -1242,9 +1184,7 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
             )
 
     except Exception as e:
-        logger.error(
-            f"Failed to restore environment from snapshot {request.snapshot_id}: {e}"
-        )
+        logger.error(f"Failed to restore environment from snapshot {request.snapshot_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1253,9 +1193,7 @@ async def terminate_environment(request: EnvTerminateRequest) -> EnvTerminateRes
     """Terminate an environment and clean up resources."""
     handle = registry.get_env(request.env_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Environment {request.env_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Environment {request.env_id} not found")
 
     try:
         # Call terminate on the environment

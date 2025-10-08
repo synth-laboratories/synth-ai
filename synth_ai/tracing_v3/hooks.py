@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Hook system for extending tracing functionality.
 
 The hook system provides a flexible way to extend the tracing system without
@@ -202,6 +203,7 @@ def create_default_hooks() -> HookManager:
     # Example: Log session starts - useful for debugging and monitoring
     async def log_session_start(session_id: str, metadata: dict[str, Any]):
         import os
+
         if os.getenv("SYNTH_TRACE_VERBOSE", "0") in ("1", "true", "True"):
             print(f"Session started: {session_id}")
 

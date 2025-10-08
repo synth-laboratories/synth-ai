@@ -9,4 +9,3 @@ def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
     p = urlparse(url)
     if p.scheme not in ("http", "https") or not p.netloc:
         raise ValueError(f"Invalid {name}: malformed: {url}")
-

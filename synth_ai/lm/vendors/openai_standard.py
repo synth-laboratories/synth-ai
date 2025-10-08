@@ -427,7 +427,9 @@ class OpenAIStandard(VendorBase, OpenAIResponsesAPIMixin):
                             "type": getattr(tc, "type", "function"),
                             "function": {
                                 "name": getattr(getattr(tc, "function", None), "name", None),
-                                "arguments": getattr(getattr(tc, "function", None), "arguments", None),
+                                "arguments": getattr(
+                                    getattr(tc, "function", None), "arguments", None
+                                ),
                             },
                         }
                     )

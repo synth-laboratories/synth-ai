@@ -1,5 +1,3 @@
-
-
 class StructuredOutputCoercionFailureException(Exception):
     pass
 

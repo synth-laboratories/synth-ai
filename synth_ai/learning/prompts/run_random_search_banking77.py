@@ -145,7 +145,10 @@ def main():
                     t_end = time.monotonic()
                     return i, y, "", t_start, t_end, {}
 
-            tasks = [asyncio.create_task(worker(i, x, y)) for i, (x, y) in enumerate(zip(xs, ys, strict=False))]
+            tasks = [
+                asyncio.create_task(worker(i, x, y))
+                for i, (x, y) in enumerate(zip(xs, ys, strict=False))
+            ]
             correct_sum = 0.0
             processed = 0
             import statistics
@@ -185,6 +188,7 @@ def main():
                         pending, timeout=timeout, return_when=asyncio.FIRST_COMPLETED
                     )
                     import contextlib
+
                     for task in done:
                         try:
                             i, y_true, pred, t_start, t_end, usage = task.result()
@@ -251,6 +255,7 @@ def main():
         pbar.set_postfix({"score": f"{score:.2f}"})
         # store per-instance details (for apples-to-apples)
         import contextlib
+
         with contextlib.suppress(Exception):
             candidate_eval_details[idx] = {
                 "score": score,

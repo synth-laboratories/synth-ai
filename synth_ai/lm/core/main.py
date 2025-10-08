@@ -113,7 +113,19 @@ class LM:
         max_retries: Literal["None", "Few", "Many"] = "Few",
         structured_output_mode: Literal["stringified_json", "forced_json"] = "stringified_json",
         synth_logging: bool = True,
-        provider: Literal["openai", "anthropic", "groq", "gemini", "deepseek", "grok", "mistral", "openrouter", "together"] | str | None = None,
+        provider: Literal[
+            "openai",
+            "anthropic",
+            "groq",
+            "gemini",
+            "deepseek",
+            "grok",
+            "mistral",
+            "openrouter",
+            "together",
+        ]
+        | str
+        | None = None,
         enable_thinking: bool | None = None,
     ):
         # print("Structured output mode", structured_output_mode)

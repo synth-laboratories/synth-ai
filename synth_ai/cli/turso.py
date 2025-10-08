@@ -65,7 +65,9 @@ def turso(force: bool) -> None:
     try:
         installed_path = install_sqld()
     except subprocess.CalledProcessError as exc:  # pragma: no cover - surfaced as Click error
-        raise click.ClickException(f"sqld installation failed (exit code {exc.returncode}).") from exc
+        raise click.ClickException(
+            f"sqld installation failed (exit code {exc.returncode})."
+        ) from exc
 
     click.echo(f"✅ sqld installed to {installed_path}")
     click.echo("Ensure ~/.local/bin is on your PATH before running Synth AI services.")

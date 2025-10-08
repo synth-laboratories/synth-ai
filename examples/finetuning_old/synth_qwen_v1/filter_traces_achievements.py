@@ -34,7 +34,8 @@ except Exception:  # pragma: no cover
         )
     except Exception as _import_err:  # pragma: no cover
         raise ImportError(
-            "Could not import FinetuningDataExtractorV3 from synth_ai.") from _import_err
+            "Could not import FinetuningDataExtractorV3 from synth_ai."
+        ) from _import_err
 
 
 def env_list(name: str) -> list[str]:
@@ -133,6 +134,7 @@ async def main() -> None:
     try:
         import numpy as _np
         from collections import Counter as _Counter
+
         async with FinetuningDataExtractorV3(db_url) as _ex:
             _sessions = await _ex.get_all_sessions()
             _ach_counts: _Counter[str] = _Counter()
@@ -155,7 +157,9 @@ async def main() -> None:
             if _rewards:
                 _r = _np.array(_rewards, dtype=float)
                 print("\nReward stats:")
-                print(f"  min={_r.min():.2f} median={_np.median(_r):.2f} mean={_r.mean():.2f} max={_r.max():.2f}")
+                print(
+                    f"  min={_r.min():.2f} median={_np.median(_r):.2f} mean={_r.mean():.2f} max={_r.max():.2f}"
+                )
     except Exception:
         pass
 

@@ -180,8 +180,10 @@ def get_client(
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):
         # Custom endpoints are passed as the endpoint URL
         return CustomEndpointClient(endpoint_url=model_name)
-    elif (any(regex.match(model_name) for regex in synth_naming_regexes) or
-          model_name in SYNTH_SUPPORTED_MODELS):
+    elif (
+        any(regex.match(model_name) for regex in synth_naming_regexes)
+        or model_name in SYNTH_SUPPORTED_MODELS
+    ):
         # Synth models use OpenAI-compatible client with custom endpoint
         return OpenAIStructuredOutputClient(synth_logging=synth_logging)
     else:

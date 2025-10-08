@@ -229,7 +229,9 @@ def format_model_stats(stats: list[dict[str, Any]]) -> str:
     if not stats:
         return "No model usage recorded."
     lines = ["Model usage (by LLM calls):"]
-    header = f"{'Model':30} {'Provider':10} {'Calls':>7} {'Tokens (in/out)':>20} {'Avg latency ms':>15}"
+    header = (
+        f"{'Model':30} {'Provider':10} {'Calls':>7} {'Tokens (in/out)':>20} {'Avg latency ms':>15}"
+    )
     lines.append(header)
     lines.append("-" * len(header))
     for item in stats:
@@ -243,9 +245,7 @@ def format_model_stats(stats: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def format_achievement_summary(
-    name_counts: Counter, size_counts: Counter
-) -> str:
+def format_achievement_summary(name_counts: Counter, size_counts: Counter) -> str:
     lines = ["Unique achievements unlocked:"]
     if name_counts:
         top = name_counts.most_common()
@@ -349,7 +349,9 @@ def format_model_achievement_stats(model_stats: dict[str, dict[str, Any]]) -> st
         return "Achievement stats by model:\n  (no model sessions recorded)"
 
     lines = ["Achievement stats by model:"]
-    for model_name in sorted(model_stats.keys(), key=lambda m: model_stats[m]["sessions"], reverse=True):
+    for model_name in sorted(
+        model_stats.keys(), key=lambda m: model_stats[m]["sessions"], reverse=True
+    ):
         stats = model_stats[model_name]
         providers = ", ".join(sorted(stats["providers"])) if stats["providers"] else "-"
         sessions = stats["sessions"]

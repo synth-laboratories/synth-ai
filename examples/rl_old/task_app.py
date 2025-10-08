@@ -15,7 +15,15 @@ if "/opt" not in _sys.path:
     _sys.path.insert(0, "/opt")
 
 # Use environment-aware names to avoid collisions across dev/prod
-_env_flag = (_os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "") or _os.getenv("ENVIRONMENT", "") or _os.getenv("APP_ENVIRONMENT", "")).strip().lower()
+_env_flag = (
+    (
+        _os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "")
+        or _os.getenv("ENVIRONMENT", "")
+        or _os.getenv("APP_ENVIRONMENT", "")
+    )
+    .strip()
+    .lower()
+)
 _is_prod = _env_flag in ("prod", "production")
 
 # Secret name must be provided explicitly via TASK_APP_SECRET_NAME
@@ -85,7 +93,9 @@ image = (
         ]
     )
     # Bundle the crafter module into the image for imports at runtime (absolute path)
-    .add_local_dir(str((_HERE.parent / "crafter_task_app_helpers").resolve()), "/opt/crafter_task_app_helpers")
+    .add_local_dir(
+        str((_HERE.parent / "crafter_task_app_helpers").resolve()), "/opt/crafter_task_app_helpers"
+    )
     # Bundle synth_ai package to import full environment implementation.
     # Resolve repo root robustly (examples/rl/task_app.py -> repo_root = examples/rl/../../..)
     .add_local_dir(str((_HERE.parent.parent.parent / "synth_ai").resolve()), "/opt/synth_ai")
@@ -102,7 +112,10 @@ OPENAI_REMOVE_FIELDS = (
 OPENAI_REMOVE_SAMPLING_FIELDS = ("temperature", "top_p")
 OPENAI_TOOL_CHOICE_FORCED = {"type": "function", "function": {"name": "interact"}}
 
-def prepare_inference_payload_for_model(model: str | None, payload: dict[str, Any]) -> dict[str, Any]:
+
+def prepare_inference_payload_for_model(
+    model: str | None, payload: dict[str, Any]
+) -> dict[str, Any]:
     """Sanitize payload for OpenAI API.
 
     - Always strip Synth-specific fields not supported by OpenAI (e.g., stop_after_tool_calls).
@@ -132,7 +145,13 @@ def prepare_inference_payload_for_model(model: str | None, payload: dict[str, An
         out["parallel_tool_calls"] = False
     return out
 
-@app.function(image=image, secrets=[modal.Secret.from_name(MODAL_SECRET_NAME)], min_containers=1, max_containers=1)
+
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name(MODAL_SECRET_NAME)],
+    min_containers=1,
+    max_containers=1,
+)
 @modal.asgi_app()
 def fastapi_app():
     # Import FastAPI/Pydantic inside the container runtime to avoid local import errors
@@ -144,6 +163,7 @@ def fastapi_app():
     import sys
     import os
     import httpx
+
     # Logger for debug output
     logger = logging.getLogger(__name__)
 
@@ -154,6 +174,7 @@ def fastapi_app():
     os.environ.setdefault("TURSO_LOCAL_DB_URL", "sqlite+aiosqlite:////tmp/synth_ai.db")
 
     import importlib
+
     preload_modules = [
         # synth_ai core
         "synth_ai",
@@ -254,10 +275,14 @@ def fastapi_app():
     def health(request: Request):
         env_key = os.environ.get("ENVIRONMENT_API_KEY")
         if not env_key:
-            raise HTTPException(status_code=503, detail="Auth not configured: missing ENVIRONMENT_API_KEY in task service environment")
+            raise HTTPException(
+                status_code=503,
+                detail="Auth not configured: missing ENVIRONMENT_API_KEY in task service environment",
+            )
         # Authorize using all header variants; avoid typed Header to prevent 422s
         try:
             from synth_ai.task.auth import is_api_key_header_authorized
+
             authorized = is_api_key_header_authorized(request)
         except Exception:
             # Fallback: check only x-api-key
@@ -275,9 +300,13 @@ def fastapi_app():
     def health_rollout(request: Request):
         expected = os.environ.get("ENVIRONMENT_API_KEY")
         if not expected:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Missing ENVIRONMENT_API_KEY in service env")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Missing ENVIRONMENT_API_KEY in service env",
+            )
         try:
             from synth_ai.task.auth import is_api_key_header_authorized
+
             authorized = is_api_key_header_authorized(request)
         except Exception:
             header_key = request.headers.get("x-api-key")
@@ -290,6 +319,7 @@ def fastapi_app():
 
     # Log and surface 422 validation errors with header presence
     from fastapi.exceptions import RequestValidationError
+
     @api.exception_handler(RequestValidationError)
     async def _on_validation_error(request: Request, exc: RequestValidationError):
         try:
@@ -304,7 +334,9 @@ def fastapi_app():
             print("[422] validation", snapshot, flush=True)
         except Exception:
             pass
-        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
+        return JSONResponse(
+            status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]}
+        )
 
     @api.post(f"/env/{ENV_NAME}/initialize")
     async def initialize(req: InitRequest, request: Request):
@@ -337,14 +369,19 @@ def fastapi_app():
     def proxy_chat_completions(req: dict[str, Any]):
         openai_key = os.environ.get("OPENAI_API_KEY")
         if not openai_key:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Missing OPENAI_API_KEY in task service environment")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Missing OPENAI_API_KEY in task service environment",
+            )
         # Sanitize payload for OpenAI models (e.g., gpt-5-*)
         model = req.get("model")
         payload = prepare_inference_payload_for_model(model, req)
         headers = {"Authorization": f"Bearer {openai_key}"}
         # Increase timeout for proxy calls (models may be slower)
         with httpx.Client(timeout=120.0) as client:
-            resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
+            resp = client.post(
+                "https://api.openai.com/v1/chat/completions", json=payload, headers=headers
+            )
             try:
                 data = resp.json()
             except Exception:
@@ -371,7 +408,10 @@ def fastapi_app():
         expected = os.environ.get("ENVIRONMENT_API_KEY")
         if not expected:
             logger.error("rollout.auth.misconfigured: missing ENVIRONMENT_API_KEY")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auth not configured: missing ENVIRONMENT_API_KEY")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Auth not configured: missing ENVIRONMENT_API_KEY",
+            )
         # Compute masked diagnostics (never log full keys)
         try:
             exp_len = len(expected)
@@ -385,7 +425,11 @@ def fastapi_app():
             candidates = [c for c in [single, bearer, *multi] if c]
             # Assert server sees ALL keys sent by client
             if multi:
-                logger.info("rollout.auth.candidates: n=%s first15=%s", len(candidates), [c[:15] for c in candidates])
+                logger.info(
+                    "rollout.auth.candidates: n=%s first15=%s",
+                    len(candidates),
+                    [c[:15] for c in candidates],
+                )
             got_len = len(single or bearer or "")
             got_suf = (single or bearer or "")[-5:] if got_len >= 5 else ""
         except Exception:
@@ -398,13 +442,22 @@ def fastapi_app():
         if not authorized:
             logger.warning(
                 "rollout.auth.failed: have_any=%s expect_len=%s expect_last5=%s got_len=%s got_last5=%s",
-                bool(candidates), exp_len, exp_suf, got_len, got_suf,
+                bool(candidates),
+                exp_len,
+                exp_suf,
+                got_len,
+                got_suf,
             )
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key"
+            )
         else:
             logger.info(
                 "rollout.auth.ok: expect_len=%s expect_last5=%s got_len=%s got_last5=%s",
-                exp_len, exp_suf, got_len, got_suf,
+                exp_len,
+                exp_suf,
+                got_len,
+                got_suf,
             )
 
         # Extract policy config
@@ -457,11 +510,15 @@ def fastapi_app():
                         # Build mapping using crafter's internal ids
                         import itertools as _it
                         import crafter as _crafter
+
                         dummy = None
                         try:
                             dummy = _crafter.Env()
                             max_id = (
-                                max(max(dummy._world._mat_ids.values()), max(dummy._sem_view._obj_ids.values()))
+                                max(
+                                    max(dummy._world._mat_ids.values()),
+                                    max(dummy._sem_view._obj_ids.values()),
+                                )
                                 + 1
                             )
                             id_to_item = ["void"] * max_id
@@ -516,8 +573,14 @@ def fastapi_app():
                         if ach:
                             all_achievements = list(ach.keys())
                             lines.append(f"achievements_available: {', '.join(all_achievements)}")
-                            lines.append(f"achievements_unlocked: {', '.join(ach_on)}" if ach_on else "achievements_unlocked: ")
-                            lines.append(f"achievements_progress: {len(ach_on)}/{len(all_achievements)}")
+                            lines.append(
+                                f"achievements_unlocked: {', '.join(ach_on)}"
+                                if ach_on
+                                else "achievements_unlocked: "
+                            )
+                            lines.append(
+                                f"achievements_progress: {len(ach_on)}/{len(all_achievements)}"
+                            )
                         # Local surroundings (7x7) using semantic_map
                         smap = obs.get("semantic_map")
                         if smap is not None and pos is not None:
@@ -539,7 +602,11 @@ def fastapi_app():
                                             row.append("player")
                                         else:
                                             idx = int(smap[x, y])
-                                            name = id_to_item[idx] if 0 <= idx < len(id_to_item) else str(idx)
+                                            name = (
+                                                id_to_item[idx]
+                                                if 0 <= idx < len(id_to_item)
+                                                else str(idx)
+                                            )
                                             row.append(name)
                                     matrix.append(row)
                                 # Transpose to match visual orientation
@@ -554,6 +621,7 @@ def fastapi_app():
                         if not lines:
                             lines.append("no salient state; explore to gather context")
                         return "\n".join(lines)
+
                     # Build compact context from last few tool calls (gpt-5-nano friendly)
                     lines: list[str] = []
                     for rec in reversed(trajectory_steps):
@@ -568,10 +636,14 @@ def fastapi_app():
                         name = tc0.get("tool_name") or tc0.get("name") or "unknown"
                         args = tc0.get("arguments")
                         lines.append(f"- {name}: {args}")
-                    context_text = "Previous tool calls (most recent first):\n" + ("\n".join(lines) if lines else "- none")
+                    context_text = "Previous tool calls (most recent first):\n" + (
+                        "\n".join(lines) if lines else "- none"
+                    )
                     obs_text = _format_obs(observation)
                     combined_text = f"Current observation:\n{obs_text}\n\n{context_text}"
-                    payload = policy.build_inference_request(combined_text, history=[], turn=len(trajectory_steps))
+                    payload = policy.build_inference_request(
+                        combined_text, history=[], turn=len(trajectory_steps)
+                    )
                     # Debug: print the full prompt content in a stable labeled block for grepability
                     try:
                         print("PROMPT_DUMP_BEGIN")
@@ -593,14 +665,20 @@ def fastapi_app():
                     except Exception:
                         pass
                     try:
-                        _ach = observation.get("achievements_status") if isinstance(observation, dict) else {}
+                        _ach = (
+                            observation.get("achievements_status")
+                            if isinstance(observation, dict)
+                            else {}
+                        )
                         _ach_on = [k for k, v in (_ach or {}).items() if v]
                         print(f"[task:crafter] achievements_unlocked: {_ach_on}", flush=True)
                     except Exception:
                         pass
+
                     # Prepare payload based on model family (OpenAI vs vLLM)
                     def _prepare_payload(p: dict, mdl: str | None) -> dict:
                         return prepare_inference_payload_for_model(mdl, p)
+
                     # Debug: payload shape
                     print(
                         "[task:crafter] inference payload: ",
@@ -619,7 +697,7 @@ def fastapi_app():
                     _timeouts = httpx.Timeout(connect=10.0, read=180.0, write=60.0, pool=60.0)
                     with httpx.Client(timeout=_timeouts) as client:
                         # Decide endpoint: avoid calling our own /proxy inside the same request
-                        _direct = ("api.openai.com" in inference_url)
+                        _direct = "api.openai.com" in inference_url
                         if _direct:
                             # Call OpenAI directly
                             if _okey:
@@ -639,6 +717,7 @@ def fastapi_app():
                         # Debug: outbound request diagnostics
                         try:
                             import json as _json
+
                             _size = len(_json.dumps(to_send))
                         except Exception:
                             _size = -1
@@ -647,7 +726,12 @@ def fastapi_app():
                             {
                                 "endpoint": f"{endpoint_base.rstrip('/')}/v1/chat/completions",
                                 "direct_openai": bool(_direct),
-                                "timeout": {"read": 180.0, "connect": 10.0, "write": 60.0, "pool": 60.0},
+                                "timeout": {
+                                    "read": 180.0,
+                                    "connect": 10.0,
+                                    "write": 60.0,
+                                    "pool": 60.0,
+                                },
                                 "payload_bytes": _size,
                                 "has_auth": bool(headers.get("Authorization")),
                             },
@@ -663,14 +747,23 @@ def fastapi_app():
                             )
                         except httpx.ReadTimeout as rte:
                             _elapsed = time.time() - _t0
-                            print(f"[task:crafter][timeout] read timeout after {_elapsed:.1f}s: {rte}", flush=True)
+                            print(
+                                f"[task:crafter][timeout] read timeout after {_elapsed:.1f}s: {rte}",
+                                flush=True,
+                            )
                             raise
                         except Exception as re:
                             _elapsed = time.time() - _t0
-                            print(f"[task:crafter][error] request failed after {_elapsed:.1f}s: {type(re).__name__}: {re}", flush=True)
+                            print(
+                                f"[task:crafter][error] request failed after {_elapsed:.1f}s: {type(re).__name__}: {re}",
+                                flush=True,
+                            )
                             raise
                         _elapsed = time.time() - _t0
-                        print(f"[task:crafter] inference status= {resp.status_code} elapsed={_elapsed:.2f}s", flush=True)
+                        print(
+                            f"[task:crafter] inference status= {resp.status_code} elapsed={_elapsed:.2f}s",
+                            flush=True,
+                        )
                         # Emit a light-weight perf snapshot for visibility
                         try:
                             print(
@@ -702,6 +795,7 @@ def fastapi_app():
                     # Print full tool call payloads for inspection
                     try:
                         import json as _json
+
                         for _i, _tc in enumerate(parsed):
                             try:
                                 print(
@@ -717,8 +811,11 @@ def fastapi_app():
                         # Dump compact body preview to understand schema when no tools parsed
                         try:
                             import json as _json
-                            preview = _json.dumps(data, separators=(",",":"))
-                            print("[task:crafter] body(no_tools) preview:", preview[:800], flush=True)
+
+                            preview = _json.dumps(data, separators=(",", ":"))
+                            print(
+                                "[task:crafter] body(no_tools) preview:", preview[:800], flush=True
+                            )
                         except Exception:
                             pass
                         # Early terminate the episode to avoid hanging on empty tool calls
@@ -736,6 +833,7 @@ def fastapi_app():
                         if name == "interact":
                             # Parse the JSON arguments string
                             import json
+
                             args_str = tc.get("arguments", "{}")
                             try:
                                 args_dict = json.loads(args_str)
@@ -743,7 +841,10 @@ def fastapi_app():
                                 reasoning = args_dict.get("reasoning", "")
                                 print(f"[task:crafter] reasoning: {reasoning}", flush=True)
                             except (json.JSONDecodeError, TypeError):
-                                print(f"[task:crafter] ERROR: Failed to parse arguments: {args_str}", flush=True)
+                                print(
+                                    f"[task:crafter] ERROR: Failed to parse arguments: {args_str}",
+                                    flush=True,
+                                )
                                 actions = []
                                 reasoning = "Parse error"
 
@@ -751,12 +852,18 @@ def fastapi_app():
                             # Print a compact echo of the current prompt + tool call for easier triage
                             try:
                                 import json as _json
-                                print("TOOLCALL_CONFIG:", _json.dumps({
-                                    "policy": req.policy.policy_name,
-                                    "tools_present": True,
-                                    "tool_choice": "required",
-                                    "stop_after": 1,
-                                }))
+
+                                print(
+                                    "TOOLCALL_CONFIG:",
+                                    _json.dumps(
+                                        {
+                                            "policy": req.policy.policy_name,
+                                            "tools_present": True,
+                                            "tool_choice": "required",
+                                            "stop_after": 1,
+                                        }
+                                    ),
+                                )
                             except Exception:
                                 pass
 
@@ -768,42 +875,77 @@ def fastapi_app():
                                 total_reward += float(reward)
                                 # Debug: print step outcome (compact)
                                 try:
-                                    ok = list(observation.keys()) if isinstance(observation, dict) else []
-                                    print(f"[task:crafter] step => a={act} r={float(reward)} done={bool(done)} obs_keys={ok[:5]}", flush=True)
+                                    ok = (
+                                        list(observation.keys())
+                                        if isinstance(observation, dict)
+                                        else []
+                                    )
+                                    print(
+                                        f"[task:crafter] step => a={act} r={float(reward)} done={bool(done)} obs_keys={ok[:5]}",
+                                        flush=True,
+                                    )
                                 except Exception:
                                     pass
-                                step = RolloutStep(obs=observation, tool_calls=pending_tool_calls, reward=float(reward), done=bool(done), truncated=False, info=info)
+                                step = RolloutStep(
+                                    obs=observation,
+                                    tool_calls=pending_tool_calls,
+                                    reward=float(reward),
+                                    done=bool(done),
+                                    truncated=False,
+                                    info=info,
+                                )
                                 trajectory_steps.append(step)
                                 ops_executed += 1
 
                                 # Check for achievement-based termination
                                 if isinstance(observation, dict):
-                                    current_achievements = observation.get("achievements_status", {})
+                                    current_achievements = observation.get(
+                                        "achievements_status", {}
+                                    )
                                     # Track flips 0→1 within this decision
                                     try:
                                         if not isinstance(current_achievements, dict):
                                             current_achievements = {}
                                         if prev_ach is None:
-                                            prev_ach = {k: bool(v) for k, v in (current_achievements or {}).items()}
+                                            prev_ach = {
+                                                k: bool(v)
+                                                for k, v in (current_achievements or {}).items()
+                                            }
                                         else:
                                             for name, on in (current_achievements or {}).items():
                                                 if bool(on) and not bool(prev_ach.get(name, False)):
                                                     decision_flips.add(str(name))
                                             # Update prev_ach to latest snapshot
-                                            prev_ach = {k: bool(v) for k, v in (current_achievements or {}).items()}
+                                            prev_ach = {
+                                                k: bool(v)
+                                                for k, v in (current_achievements or {}).items()
+                                            }
                                     except Exception:
                                         pass
-                                    achieved_count = sum(1 for v in current_achievements.values() if v)
+                                    achieved_count = sum(
+                                        1 for v in current_achievements.values() if v
+                                    )
                                     total_achievements = len(current_achievements)
 
                                     # Terminate if we've achieved a significant portion of available achievements
-                                    if total_achievements > 0 and achieved_count >= max(3, total_achievements // 2):
-                                        print(f"[task:crafter] achievement_termination: {achieved_count}/{total_achievements} achievements reached", flush=True)
-                                        print(f"[task:crafter] achieved: {[k for k, v in current_achievements.items() if v]}", flush=True)
+                                    if total_achievements > 0 and achieved_count >= max(
+                                        3, total_achievements // 2
+                                    ):
+                                        print(
+                                            f"[task:crafter] achievement_termination: {achieved_count}/{total_achievements} achievements reached",
+                                            flush=True,
+                                        )
+                                        print(
+                                            f"[task:crafter] achieved: {[k for k, v in current_achievements.items() if v]}",
+                                            flush=True,
+                                        )
                                         break
 
                                 if done or len(trajectory_steps) >= max_steps:
-                                    print(f"[task:crafter] episode_end: done={bool(done)} steps={len(trajectory_steps)} total_reward={total_reward}", flush=True)
+                                    print(
+                                        f"[task:crafter] episode_end: done={bool(done)} steps={len(trajectory_steps)} total_reward={total_reward}",
+                                        flush=True,
+                                    )
                                     break
                         elif name == "terminate":
                             # Handle termination
@@ -812,7 +954,14 @@ def fastapi_app():
                         else:
                             # Non-interact tool call: count as a step without env change
                             print("[task:crafter] non-interact tool_call:", name, flush=True)
-                            step = RolloutStep(obs=observation, tool_calls=pending_tool_calls, reward=None, done=False, truncated=False, info=info)
+                            step = RolloutStep(
+                                obs=observation,
+                                tool_calls=pending_tool_calls,
+                                reward=None,
+                                done=False,
+                                truncated=False,
+                                info=info,
+                            )
                             trajectory_steps.append(step)
                             ops_executed += 1
                             # End of decision: record indicator_i for shaping
@@ -823,7 +972,10 @@ def fastapi_app():
                                 pass
                             pending_tool_calls = None
                     if len(trajectory_steps) >= max_steps:
-                        print(f"[task:crafter] max_steps_reached: steps={len(trajectory_steps)} total_reward={total_reward}", flush=True)
+                        print(
+                            f"[task:crafter] max_steps_reached: steps={len(trajectory_steps)} total_reward={total_reward}",
+                            flush=True,
+                        )
                         break
                 else:
                     # Unknown op: skip
@@ -865,7 +1017,11 @@ def fastapi_app():
         # Step-reward shaping: compute decision-level rewards if enabled
         branches: dict[str, Any] = {}
         try:
-            sr_cfg = (req.record.config or {}).get("step_rewards") if isinstance(req.record, RolloutRecordConfig) else None
+            sr_cfg = (
+                (req.record.config or {}).get("step_rewards")
+                if isinstance(req.record, RolloutRecordConfig)
+                else None
+            )
         except Exception:
             sr_cfg = None
         try:
@@ -880,6 +1036,7 @@ def fastapi_app():
                 indicator_lambda = float(sr_cfg.get("indicator_lambda", 0.0))
             # Env overrides
             import os as _os2
+
             if _os2.getenv("STEP_BETA"):
                 step_beta = float(_os2.getenv("STEP_BETA"))
             if _os2.getenv("STEP_LAMBDA"):
@@ -909,15 +1066,19 @@ def fastapi_app():
         # Optional tracing of episode/rewards (gated)
         try:
             import os as _os3
+
             if _os3.getenv("TRACE_RL", "0") == "1":
                 from synth_ai.tracing_v3.session_tracer import SessionTracer  # type: ignore
+
                 tracer = SessionTracer()
                 await tracer.initialize()
                 meta = {
                     "env": req.env.env_name,
                     "policy": req.policy.policy_name,
                     "step_rewards": {
-                        "enabled": bool(sr_cfg.get("enabled", False)) if isinstance(sr_cfg, dict) else False,
+                        "enabled": bool(sr_cfg.get("enabled", False))
+                        if isinstance(sr_cfg, dict)
+                        else False,
                         "mode": (sr_cfg.get("mode") if isinstance(sr_cfg, dict) else None),
                     },
                 }
@@ -938,7 +1099,10 @@ def fastapi_app():
             num_episodes=1,
         )
         # Debug: print reward and achievement metrics
-        print(f"[task:crafter] Rollout metrics: total_reward={total_reward}, total_achievements={total_achievements}, mean_return={metrics.mean_return}, episode_returns={metrics.episode_returns}", flush=True)
+        print(
+            f"[task:crafter] Rollout metrics: total_reward={total_reward}, total_achievements={total_achievements}, mean_return={metrics.mean_return}, episode_returns={metrics.episode_returns}",
+            flush=True,
+        )
         return RolloutResponse(
             run_id=req.run_id,
             trajectories=[trajectory],
@@ -952,11 +1116,16 @@ def fastapi_app():
     def test_auth(request: Request):
         expected = os.environ.get("ENVIRONMENT_API_KEY")
         if not expected:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Missing ENVIRONMENT_API_KEY in service env")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Missing ENVIRONMENT_API_KEY in service env",
+            )
         header_key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
         ok = bool(header_key) and (header_key == expected)
         if not ok:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key"
+            )
         return {"ok": True}
 
     return api

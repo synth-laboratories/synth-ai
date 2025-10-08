@@ -23,11 +23,23 @@ def _load_toml(path: Path) -> Dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Create clustered RL training job via backend RL endpoint")
-    p.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api"))
+    p = argparse.ArgumentParser(
+        description="Create clustered RL training job via backend RL endpoint"
+    )
+    p.add_argument(
+        "--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api")
+    )
     p.add_argument("--config", required=True, help="Path to RL TOML config")
-    p.add_argument("--task-url", default=os.getenv("TASK_APP_URL", ""), help="Override task service URL (or set TASK_APP_URL)")
-    p.add_argument("--idempotency", default=os.getenv("RL_IDEMPOTENCY_KEY", ""), help="Optional Idempotency-Key header value")
+    p.add_argument(
+        "--task-url",
+        default=os.getenv("TASK_APP_URL", ""),
+        help="Override task service URL (or set TASK_APP_URL)",
+    )
+    p.add_argument(
+        "--idempotency",
+        default=os.getenv("RL_IDEMPOTENCY_KEY", ""),
+        help="Optional Idempotency-Key header value",
+    )
     args = p.parse_args()
 
     cfg_path = Path(args.config).expanduser()
@@ -38,9 +50,16 @@ def main() -> None:
     # Resolve task app base URL for the job
     cli_task_url = (args.task_url or "").strip()
     env_task_url = (os.getenv("TASK_APP_URL") or "").strip()
-    task_url = cli_task_url or env_task_url or ((services.get("task_url") or "").strip() if isinstance(services, dict) else "")
+    task_url = (
+        cli_task_url
+        or env_task_url
+        or ((services.get("task_url") or "").strip() if isinstance(services, dict) else "")
+    )
     if not task_url:
-        print("Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML", file=sys.stderr)
+        print(
+            "Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     # TOML-only model selection validation
@@ -48,7 +67,10 @@ def main() -> None:
     has_source = bool((model_cfg.get("source") or "").strip())
     has_base = bool((model_cfg.get("base") or "").strip())
     if has_source == has_base:
-        print("Model selection must specify exactly one of [model].source or [model].base in TOML", file=sys.stderr)
+        print(
+            "Model selection must specify exactly one of [model].source or [model].base in TOML",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     # Build create-job payload. Send full TOML under data.config, plus endpoint_base_url.

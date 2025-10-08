@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """Async SQLAlchemy-based trace manager for Turso/sqld.
 
 This module provides the database interface for the tracing system using
@@ -139,6 +140,7 @@ class AsyncSQLTraceManager:
                 )
                 # Ensure PRAGMA foreign_keys=ON for every connection
                 try:
+
                     @event.listens_for(self.engine.sync_engine, "connect")
                     def _set_sqlite_pragma(dbapi_connection, connection_record):  # type: ignore[no-redef]
                         try:
@@ -408,9 +410,7 @@ class AsyncSQLTraceManager:
                 ],
             }
 
-    async def query_traces(
-        self, query: str, params: dict[str, Any] | None = None
-    ) -> Any:
+    async def query_traces(self, query: str, params: dict[str, Any] | None = None) -> Any:
         """Execute a query and return results.
 
         Returns a pandas DataFrame when pandas is available; otherwise a
@@ -577,10 +577,18 @@ class AsyncSQLTraceManager:
     # Incremental insert helpers
     # -------------------------------
 
-    async def ensure_session(self, session_id: str, *, created_at: datetime | None = None, metadata: dict[str, Any] | None = None):
+    async def ensure_session(
+        self,
+        session_id: str,
+        *,
+        created_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ):
         """Ensure a DB session row exists for session_id."""
         async with self.session() as sess:
-            result = await sess.execute(select(DBSessionTrace).where(DBSessionTrace.session_id == session_id))
+            result = await sess.execute(
+                select(DBSessionTrace).where(DBSessionTrace.session_id == session_id)
+            )
             existing = result.scalar_one_or_none()
             if existing:
                 return
@@ -595,11 +603,23 @@ class AsyncSQLTraceManager:
             sess.add(row)
             await sess.commit()
 
-    async def ensure_timestep(self, session_id: str, *, step_id: str, step_index: int, turn_number: int | None = None, started_at: datetime | None = None, completed_at: datetime | None = None, metadata: dict[str, Any] | None = None) -> int:
+    async def ensure_timestep(
+        self,
+        session_id: str,
+        *,
+        step_id: str,
+        step_index: int,
+        turn_number: int | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
         """Ensure a timestep row exists; return its DB id."""
         async with self.session() as sess:
             result = await sess.execute(
-                select(DBSessionTimestep).where(DBSessionTimestep.session_id == session_id, DBSessionTimestep.step_id == step_id)
+                select(DBSessionTimestep).where(
+                    DBSessionTimestep.session_id == session_id, DBSessionTimestep.step_id == step_id
+                )
             )
             row = result.scalar_one_or_none()
             if row:
@@ -626,7 +646,17 @@ class AsyncSQLTraceManager:
             await sess.commit()
             return row.id
 
-    async def insert_message_row(self, session_id: str, *, timestep_db_id: int | None, message_type: str, content: str, event_time: float | None = None, message_time: int | None = None, metadata: dict[str, Any] | None = None) -> int:
+    async def insert_message_row(
+        self,
+        session_id: str,
+        *,
+        timestep_db_id: int | None,
+        message_type: str,
+        content: str,
+        event_time: float | None = None,
+        message_time: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
         """Insert a message and return its id."""
         async with self.session() as sess:
             db_msg = DBMessage(
@@ -649,8 +679,16 @@ class AsyncSQLTraceManager:
             await sess.commit()
             return db_msg.id
 
-    async def insert_event_row(self, session_id: str, *, timestep_db_id: int | None, event: EnvironmentEvent | LMCAISEvent | RuntimeEvent, metadata_override: dict[str, Any] | None = None) -> int:
+    async def insert_event_row(
+        self,
+        session_id: str,
+        *,
+        timestep_db_id: int | None,
+        event: EnvironmentEvent | LMCAISEvent | RuntimeEvent,
+        metadata_override: dict[str, Any] | None = None,
+    ) -> int:
         """Insert an event and return its id."""
+
         def to_cents(cost: float | None) -> int | None:
             return int(cost * 100) if cost is not None else None
 
@@ -669,35 +707,41 @@ class AsyncSQLTraceManager:
                 from dataclasses import asdict
 
                 call_records_data = [asdict(record) for record in event.call_records]
-            event_data.update({
-                "event_type": "cais",
-                "model_name": event.model_name,
-                "provider": event.provider,
-                "input_tokens": event.input_tokens,
-                "output_tokens": event.output_tokens,
-                "total_tokens": event.total_tokens,
-                "cost_usd": to_cents(event.cost_usd),
-                "latency_ms": event.latency_ms,
-                "span_id": event.span_id,
-                "trace_id": event.trace_id,
-                "system_state_before": event.system_state_before,
-                "system_state_after": event.system_state_after,
-                "call_records": call_records_data,
-            })
+            event_data.update(
+                {
+                    "event_type": "cais",
+                    "model_name": event.model_name,
+                    "provider": event.provider,
+                    "input_tokens": event.input_tokens,
+                    "output_tokens": event.output_tokens,
+                    "total_tokens": event.total_tokens,
+                    "cost_usd": to_cents(event.cost_usd),
+                    "latency_ms": event.latency_ms,
+                    "span_id": event.span_id,
+                    "trace_id": event.trace_id,
+                    "system_state_before": event.system_state_before,
+                    "system_state_after": event.system_state_after,
+                    "call_records": call_records_data,
+                }
+            )
         elif isinstance(event, EnvironmentEvent):
-            event_data.update({
-                "event_type": "environment",
-                "reward": event.reward,
-                "terminated": event.terminated,
-                "truncated": event.truncated,
-                "system_state_before": event.system_state_before,
-                "system_state_after": event.system_state_after,
-            })
+            event_data.update(
+                {
+                    "event_type": "environment",
+                    "reward": event.reward,
+                    "terminated": event.terminated,
+                    "truncated": event.truncated,
+                    "system_state_before": event.system_state_before,
+                    "system_state_after": event.system_state_after,
+                }
+            )
         elif isinstance(event, RuntimeEvent):
-            event_data.update({
-                "event_type": "runtime",
-                "event_metadata_json": {**(event.metadata or {}), "actions": event.actions},
-            })
+            event_data.update(
+                {
+                    "event_type": "runtime",
+                    "event_metadata_json": {**(event.metadata or {}), "actions": event.actions},
+                }
+            )
         else:
             event_data["event_type"] = event.__class__.__name__.lower()
 
@@ -718,7 +762,15 @@ class AsyncSQLTraceManager:
     # Reward helpers
     # -------------------------------
 
-    async def insert_outcome_reward(self, session_id: str, *, total_reward: int, achievements_count: int, total_steps: int, reward_metadata: dict | None = None) -> int:
+    async def insert_outcome_reward(
+        self,
+        session_id: str,
+        *,
+        total_reward: int,
+        achievements_count: int,
+        total_steps: int,
+        reward_metadata: dict | None = None,
+    ) -> int:
         async with self.session() as sess:
             row = DBOutcomeReward(
                 session_id=session_id,
@@ -732,7 +784,19 @@ class AsyncSQLTraceManager:
             await sess.commit()
             return row.id
 
-    async def insert_event_reward(self, session_id: str, *, event_id: int, message_id: int | None = None, turn_number: int | None = None, reward_value: float = 0.0, reward_type: str | None = None, key: str | None = None, annotation: dict[str, Any] | None = None, source: str | None = None) -> int:
+    async def insert_event_reward(
+        self,
+        session_id: str,
+        *,
+        event_id: int,
+        message_id: int | None = None,
+        turn_number: int | None = None,
+        reward_value: float = 0.0,
+        reward_type: str | None = None,
+        key: str | None = None,
+        annotation: dict[str, Any] | None = None,
+        source: str | None = None,
+    ) -> int:
         async with self.session() as sess:
             row = DBEventReward(
                 event_id=event_id,

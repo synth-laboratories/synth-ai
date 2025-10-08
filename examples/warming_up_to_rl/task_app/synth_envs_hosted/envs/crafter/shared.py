@@ -71,7 +71,7 @@ def validate_action(action: str) -> bool:
 
 def parse_actions(action_text: str) -> List[str]:
     """Extract actions from response text.
-    
+
     Tries multiple parsing strategies:
     1. <action>...</action> tags (original format)
     2. [action]...[/action] or [action]... format
@@ -80,43 +80,43 @@ def parse_actions(action_text: str) -> List[str]:
     5. Newline-separated actions
     """
     import json
-    
+
     # First try the original <action> tag format
     matches = re.findall(r"<action>(.*?)</action>", action_text, re.IGNORECASE)
     if matches:
         return [m.strip() for m in matches if validate_action(m.strip())]
-    
+
     # Try [action] format
     matches = re.findall(r"\[action\](.*?)(?:\[/action\]|\n|$)", action_text, re.IGNORECASE)
     if matches:
         return [m.strip() for m in matches if validate_action(m.strip())]
-    
+
     # If no tags found, try to parse plain text
     text = action_text.strip()
-    
+
     # Check if the entire text is a valid action
     if validate_action(text):
         return [text]
-    
+
     # Try splitting by newlines and checking each line
-    lines = text.split('\n')
+    lines = text.split("\n")
     actions = []
     for line in lines:
         line = line.strip()
-        
+
         # Remove various prefixes
-        for prefix in ['ACTION:', 'Action:', 'action:', 'ACTION', '-', '*', '•', '**ACTION:**']:
+        for prefix in ["ACTION:", "Action:", "action:", "ACTION", "-", "*", "•", "**ACTION:**"]:
             if line.startswith(prefix):
-                line = line[len(prefix):].strip()
+                line = line[len(prefix) :].strip()
                 break
-        
+
         # Also handle numbered lists
-        if re.match(r'^\d+\.\s*', line):
-            line = re.sub(r'^\d+\.\s*', '', line)
-        
+        if re.match(r"^\d+\.\s*", line):
+            line = re.sub(r"^\d+\.\s*", "", line)
+
         # Split by common separators to handle multiple actions on one line
-        parts = re.split(r'[,;]|\s+and\s+|\s+then\s+', line)
-        
+        parts = re.split(r"[,;]|\s+and\s+|\s+then\s+", line)
+
         for part in parts:
             part = part.strip()
             # Remove quotes if present
@@ -124,23 +124,23 @@ def parse_actions(action_text: str) -> List[str]:
                 part = part[1:-1]
             if part.startswith("'") and part.endswith("'"):
                 part = part[1:-1]
-                
+
             # Check if it's a valid action
             if part and validate_action(part):
                 actions.append(part)
-    
+
     return actions
 
 
 def format_observation(obs_data: Dict[str, Any], step_count: int = 0, max_steps: int = 100) -> str:
     """Format a Crafter observation dictionary into a human-readable string.
-    
+
     This is critical for preventing massive token counts when observations
     contain large numpy arrays or deeply nested structures.
     """
     if not obs_data:
         return ""
-    
+
     # Extract key information
     health = obs_data.get("health") or obs_data.get("inventory", {}).get("health", 0)
     inventory_dict = obs_data.get("inventory", {})
@@ -160,18 +160,18 @@ def format_observation(obs_data: Dict[str, Any], step_count: int = 0, max_steps:
     max_steps_from_obs = obs_data.get("max_steps_episode") or obs_data.get("max_steps")
     if isinstance(max_steps_from_obs, (int, float)) and max_steps_from_obs > 0:
         max_steps = int(max_steps_from_obs)
-    
+
     # Format inventory (skip health as it's shown separately)
     inv_items = [f"{k}:{v}" for k, v in inventory_dict.items() if v > 0 and k != "health"]
     inventory_str = ", ".join(inv_items) if inv_items else "empty"
-    
+
     # Format achievements
     achieved_list = [k for k, v in achievements.items() if v]
     achievements_str = ", ".join(achieved_list) if achieved_list else "none"
-    
+
     # Format semantic map view (simplified version)
     map_view = _format_semantic_map_view(obs_data, VIEW_SIZE)
-    
+
     return (
         f"=== CRAFTER GAME STATE ===\n"
         f"Step: {step_count}/{max_steps}\n"
@@ -183,6 +183,7 @@ def format_observation(obs_data: Dict[str, Any], step_count: int = 0, max_steps:
         f"{map_view}\n\n"
         f"Choose your next actions.\n"
     )
+
 
 def _try_build_dynamic_mapping():
     """Attempt to build id->name mapping from a real Crafter env.
@@ -232,7 +233,7 @@ def _try_build_dynamic_mapping():
 # Build dynamic mapping if possible; otherwise fall back to a basic map
 _ID_TO_NAME = _try_build_dynamic_mapping()
 _FALLBACK_ID_TO_NAME = {
-    0: "none",      # None from materials
+    0: "none",  # None from materials
     1: "water",
     2: "grass",
     3: "stone",
@@ -299,4 +300,6 @@ def _format_semantic_map_view(obs_data: Dict[str, Any], view_size: int = VIEW_SI
 
     transposed = list(zip(*matrix))
     grid_rows: List[str] = [" ".join(row) for row in transposed]
-    return "\nLocal Map View (" + str(view_size) + "x" + str(view_size) + "):\n" + "\n".join(grid_rows)
+    return (
+        "\nLocal Map View (" + str(view_size) + "x" + str(view_size) + "):\n" + "\n".join(grid_rows)
+    )

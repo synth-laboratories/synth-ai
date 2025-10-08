@@ -101,7 +101,12 @@ def setup_environment_api_key(
 
     body = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ciphertext_b64}
     post_url = f"{backend}/api/v1/env-keys"
-    response2 = requests.post(post_url, headers={**headers, "Content-Type": "application/json"}, json=body, timeout=timeout)
+    response2 = requests.post(
+        post_url,
+        headers={**headers, "Content-Type": "application/json"},
+        json=body,
+        timeout=timeout,
+    )
     _raise_with_detail(response2)
 
     try:

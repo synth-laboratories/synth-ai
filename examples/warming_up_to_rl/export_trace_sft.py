@@ -233,7 +233,9 @@ def _normalise_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[
             continue
         entry = dict(call)
 
-        func_payload: dict[str, Any] | None = entry.get("function") if isinstance(entry.get("function"), dict) else None
+        func_payload: dict[str, Any] | None = (
+            entry.get("function") if isinstance(entry.get("function"), dict) else None
+        )
         name = entry.get("name") or (func_payload.get("name") if func_payload else None) or "tool"
 
         args = None
@@ -355,7 +357,10 @@ def build_sft_dataset(
             if not assistant_tool_calls:
                 assistant_tool_calls = _normalise_tool_calls(record.get("output_tool_calls"))
 
-            assistant_message: dict[str, Any] = {"role": "assistant", "content": assistant_content or ""}
+            assistant_message: dict[str, Any] = {
+                "role": "assistant",
+                "content": assistant_content or "",
+            }
             if assistant_tool_calls:
                 assistant_message["tool_calls"] = assistant_tool_calls
 
@@ -434,6 +439,7 @@ def _find_trace_database() -> Path | None:
         state_path = Path.home() / ".synth-ai" / "demo.json"
         if state_path.exists():
             import json
+
             with state_path.open() as f:
                 data = json.load(f)
                 demo_dir = data.get("DEMO_DIR")
@@ -471,22 +477,63 @@ def _find_trace_database() -> Path | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=None, help="Path to tracing_v3 SQLite DB")
-    parser.add_argument("--output", type=Path, required=False, help="Destination JSONL path for the exported dataset")
-    parser.add_argument("--model", action="append", dest="models", help="Restrict to sessions whose dominant model matches (repeatable)")
-    parser.add_argument("--provider", action="append", dest="providers", help="Restrict to sessions whose dominant provider matches (repeatable)")
-    parser.add_argument("--min-unique", type=int, default=None, help="Minimum unique achievements per session")
-    parser.add_argument("--max-unique", type=int, default=None, help="Maximum unique achievements per session")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=False,
+        help="Destination JSONL path for the exported dataset",
+    )
+    parser.add_argument(
+        "--model",
+        action="append",
+        dest="models",
+        help="Restrict to sessions whose dominant model matches (repeatable)",
+    )
+    parser.add_argument(
+        "--provider",
+        action="append",
+        dest="providers",
+        help="Restrict to sessions whose dominant provider matches (repeatable)",
+    )
+    parser.add_argument(
+        "--min-unique", type=int, default=None, help="Minimum unique achievements per session"
+    )
+    parser.add_argument(
+        "--max-unique", type=int, default=None, help="Maximum unique achievements per session"
+    )
     parser.add_argument(
         "--exclude-achievement",
         action="append",
         dest="exclude_achievements",
         help="Achievements to ignore when evaluating --min-unique/--max-unique (repeatable)",
     )
-    parser.add_argument("--require-achievement", action="append", dest="required_achievements", help="Require these outcome achievements (repeatable)")
-    parser.add_argument("--min-outcome-reward", type=float, default=None, help="Minimum total outcome reward per session")
-    parser.add_argument("--max-outcome-reward", type=float, default=None, help="Maximum total outcome reward per session")
-    parser.add_argument("--event-reward", action="append", dest="event_reward_filters", help="Require reward_type[:min_total] in event_rewards (repeatable)")
-    parser.add_argument("--limit", type=int, default=None, help="Maximum number of examples to emit")
+    parser.add_argument(
+        "--require-achievement",
+        action="append",
+        dest="required_achievements",
+        help="Require these outcome achievements (repeatable)",
+    )
+    parser.add_argument(
+        "--min-outcome-reward",
+        type=float,
+        default=None,
+        help="Minimum total outcome reward per session",
+    )
+    parser.add_argument(
+        "--max-outcome-reward",
+        type=float,
+        default=None,
+        help="Maximum total outcome reward per session",
+    )
+    parser.add_argument(
+        "--event-reward",
+        action="append",
+        dest="event_reward_filters",
+        help="Require reward_type[:min_total] in event_rewards (repeatable)",
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Maximum number of examples to emit"
+    )
     args = parser.parse_args()
 
     # Auto-discover database if not specified
@@ -560,7 +607,11 @@ def main() -> None:
 
             outcome = outcome_data.get(session_id)
             total_reward = outcome["total_reward"] if outcome else 0.0
-            final_achievements = outcome["achievements"] if outcome else session_final_achievements.get(session_id, set())
+            final_achievements = (
+                outcome["achievements"]
+                if outcome
+                else session_final_achievements.get(session_id, set())
+            )
 
             if args.min_outcome_reward is not None and total_reward < args.min_outcome_reward:
                 continue
@@ -594,7 +645,9 @@ def main() -> None:
         )
 
         if not dataset:
-            print("No rollout steps matched the filters (after session selection).", file=sys.stderr)
+            print(
+                "No rollout steps matched the filters (after session selection).", file=sys.stderr
+            )
             raise SystemExit(1)
 
         _validate_dataset(dataset)

@@ -11,16 +11,24 @@ import sys
 
 import httpx
 
+
 def check_health(base_url: str, api_key: str) -> None:
     try:
-        resp = httpx.get(f"{base_url.rstrip('/')}/health", headers={"X-API-Key": api_key}, timeout=10.0)
-        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else resp.text
+        resp = httpx.get(
+            f"{base_url.rstrip('/')}/health", headers={"X-API-Key": api_key}, timeout=10.0
+        )
+        data = (
+            resp.json()
+            if resp.headers.get("content-type", "").startswith("application/json")
+            else resp.text
+        )
         if resp.status_code != 200:
             print(f"warning: /health returned {resp.status_code}: {data}")
         else:
             print(f"/health ok: {data}")
     except Exception as exc:
         print(f"warning: failed to call /health: {exc}")
+
 
 from synth_ai.task import (
     RolloutEnvSpec,
@@ -79,8 +87,14 @@ def summarise(response) -> dict[str, any]:
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default=None, help="Remote task app base URL (e.g., https://xyz.modal.run); defaults to TASK_APP_BASE_URL env")
-    parser.add_argument("--api-key", required=True, help="Environment API key for the remote task app")
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="Remote task app base URL (e.g., https://xyz.modal.run); defaults to TASK_APP_BASE_URL env",
+    )
+    parser.add_argument(
+        "--api-key", required=True, help="Environment API key for the remote task app"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-id", default="remote-demo")
     parser.add_argument("--model", default="gpt-4o-mini")
@@ -89,9 +103,9 @@ async def main() -> None:
     parser.add_argument("--max-policy-tokens", type=int, default=None)
     args = parser.parse_args()
 
-    base_url = args.base_url or os.getenv('TASK_APP_BASE_URL')
+    base_url = args.base_url or os.getenv("TASK_APP_BASE_URL")
     if not base_url:
-        parser.error('Missing --base-url (and TASK_APP_BASE_URL not set).')
+        parser.error("Missing --base-url (and TASK_APP_BASE_URL not set).")
 
     request = build_request(
         run_id=args.run_id,
@@ -114,14 +128,27 @@ async def main() -> None:
             print(json.dumps(summarise(response), indent=2))
             print(f"Ops executed: {request.ops}")
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else exc.response.text
+            detail = (
+                exc.response.json()
+                if exc.response.headers.get("content-type", "").startswith("application/json")
+                else exc.response.text
+            )
             print(f"HTTP error {exc.response.status_code}: {detail}", file=sys.stderr)
             if exc.response.status_code in (401, 403):
-                print("Hint: check --api-key and ensure the remote deployment expects that value.", file=sys.stderr)
+                print(
+                    "Hint: check --api-key and ensure the remote deployment expects that value.",
+                    file=sys.stderr,
+                )
             if exc.response.status_code == 404:
-                print("Hint: verify the --base-url includes the correct path (should be the root of the task app).", file=sys.stderr)
+                print(
+                    "Hint: verify the --base-url includes the correct path (should be the root of the task app).",
+                    file=sys.stderr,
+                )
             if exc.response.status_code == 500:
-                print("Hint: remote rollout failed server-side; inspect the deployment logs (Modal dashboard/logs).", file=sys.stderr)
+                print(
+                    "Hint: remote rollout failed server-side; inspect the deployment logs (Modal dashboard/logs).",
+                    file=sys.stderr,
+                )
             raise
 
 

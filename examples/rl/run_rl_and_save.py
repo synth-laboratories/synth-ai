@@ -24,10 +24,18 @@ def _load_toml(path: Path) -> Dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create math RL job via backend RL endpoint")
-    parser.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api"))
+    parser.add_argument(
+        "--backend", default=os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api")
+    )
     parser.add_argument("--config", required=True, help="Path to RL TOML config")
-    parser.add_argument("--task-url", default=os.getenv("TASK_APP_URL", ""), help="Override task service URL")
-    parser.add_argument("--idempotency", default=os.getenv("RL_IDEMPOTENCY_KEY", ""), help="Optional Idempotency-Key header")
+    parser.add_argument(
+        "--task-url", default=os.getenv("TASK_APP_URL", ""), help="Override task service URL"
+    )
+    parser.add_argument(
+        "--idempotency",
+        default=os.getenv("RL_IDEMPOTENCY_KEY", ""),
+        help="Optional Idempotency-Key header",
+    )
     args = parser.parse_args()
 
     cfg_path = Path(args.config).expanduser()
@@ -35,16 +43,26 @@ def main() -> None:
 
     services = cfg.get("services") if isinstance(cfg.get("services"), dict) else {}
 
-    task_url = (args.task_url or "").strip() or (os.getenv("TASK_APP_URL") or "").strip() or (services.get("task_url") or "").strip()
+    task_url = (
+        (args.task_url or "").strip()
+        or (os.getenv("TASK_APP_URL") or "").strip()
+        or (services.get("task_url") or "").strip()
+    )
     if not task_url:
-        print("Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML", file=sys.stderr)
+        print(
+            "Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     model_cfg = cfg.get("model") if isinstance(cfg.get("model"), dict) else {}
     has_source = bool((model_cfg.get("source") or "").strip())
     has_base = bool((model_cfg.get("base") or "").strip())
     if has_source == has_base:
-        print("Model section must specify exactly one of [model].source or [model].base", file=sys.stderr)
+        print(
+            "Model section must specify exactly one of [model].source or [model].base",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     payload: Dict[str, Any] = {
@@ -91,4 +109,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

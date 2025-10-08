@@ -74,11 +74,13 @@ class OpenAIStructuredOutputClient(OpenAIStandard):
         elif synth_logging:
             # print("Using synth logging - OpenAIStructuredOutputClient")
             from synth_ai.lm.provider_support.openai import AsyncOpenAI, OpenAI
+
             sync_client = OpenAI()
             async_client = AsyncOpenAI()
         else:
             # print("Not using synth logging - OpenAIStructuredOutputClient")
             from openai import AsyncOpenAI, OpenAI
+
             sync_client = OpenAI()
             async_client = AsyncOpenAI()
 

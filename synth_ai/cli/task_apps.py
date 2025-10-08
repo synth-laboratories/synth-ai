@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import types
 from typing import Any, Callable, Iterable, Sequence, Iterator, cast
+
 try:  # Python 3.11+
     import tomllib as _toml
 except Exception:  # pragma: no cover - fallback
@@ -98,7 +99,9 @@ def _temporary_sys_path(paths: Sequence[Path]):
     return _manager()
 
 
-def _possible_module_names(path: Path, module_search_roots: Sequence[Path]) -> list[tuple[str, Path]]:
+def _possible_module_names(
+    path: Path, module_search_roots: Sequence[Path]
+) -> list[tuple[str, Path]]:
     """Return potential module names based on candidate roots."""
 
     candidates: list[tuple[str, Path]] = []
@@ -123,9 +126,9 @@ def _possible_module_names(path: Path, module_search_roots: Sequence[Path]) -> l
 def _ensure_parent_namespace(module_name: str, search_root: Path) -> None:
     """Ensure namespace packages exist for dotted module names."""
 
-    parts = module_name.split('.')
+    parts = module_name.split(".")
     for depth in range(1, len(parts)):
-        parent_name = '.'.join(parts[:depth])
+        parent_name = ".".join(parts[:depth])
         if parent_name in sys.modules:
             continue
         parent_module = types.ModuleType(parent_name)
@@ -149,6 +152,7 @@ def _candidate_search_roots() -> list[Path]:
     # Prioritize demo directory if it exists
     try:
         from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
         demo_dir = load_demo_dir()
         if demo_dir:
             demo_path = Path(demo_dir)
@@ -260,7 +264,11 @@ def _is_task_app_config_call(node: ast.Call) -> bool:
 
 def _extract_app_id(node: ast.Call) -> str | None:
     for kw in node.keywords:
-        if kw.arg == "app_id" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg == "app_id"
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             return kw.value.value
     if node.args:
         first = node.args[0]
@@ -285,7 +293,11 @@ def _extract_register_app_id(node: ast.Call) -> str | None:
             entry_call = kw.value
             if isinstance(entry_call.func, ast.Name) and entry_call.func.id == "TaskAppEntry":
                 for entry_kw in entry_call.keywords:
-                    if entry_kw.arg == "app_id" and isinstance(entry_kw.value, ast.Constant) and isinstance(entry_kw.value.value, str):
+                    if (
+                        entry_kw.arg == "app_id"
+                        and isinstance(entry_kw.value, ast.Constant)
+                        and isinstance(entry_kw.value.value, str)
+                    ):
                         return entry_kw.value.value
     return None
 
@@ -316,7 +328,11 @@ class _ModalAppVisitor(ast.NodeVisitor):
             if name:
                 self.matches.append((name, getattr(node, "lineno", 0)))
         elif isinstance(func, ast.Attribute):
-            if isinstance(func.value, ast.Name) and func.value.id in self.modal_aliases and func.attr == "App":
+            if (
+                isinstance(func.value, ast.Name)
+                and func.value.id in self.modal_aliases
+                and func.attr == "App"
+            ):
                 name = _extract_modal_app_name(node)
                 if name:
                     self.matches.append((name, getattr(node, "lineno", 0)))
@@ -325,7 +341,11 @@ class _ModalAppVisitor(ast.NodeVisitor):
 
 def _extract_modal_app_name(node: ast.Call) -> str | None:
     for kw in node.keywords:
-        if kw.arg in {"name", "app_name"} and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+        if (
+            kw.arg in {"name", "app_name"}
+            and isinstance(kw.value, ast.Constant)
+            and isinstance(kw.value.value, str)
+        ):
             return kw.value.value
     if node.args:
         first = node.args[0]
@@ -337,7 +357,7 @@ def _extract_modal_app_name(node: ast.Call) -> str | None:
 def _collect_task_app_choices() -> list[AppChoice]:
     # Clear registry to avoid duplicate registration errors
     registry.clear()
-    
+
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
         import synth_ai.demos.demo_task_apps  # noqa: F401
@@ -424,7 +444,11 @@ def _collect_scanned_task_configs() -> list[AppChoice]:
                         path=path.resolve(),
                         source="discovered",
                         description=f"TaskAppConfig in {path.name} (line {lineno})",
-                        entry_loader=lambda p=path.resolve(), a=app_id, roots=(root_resolved,): _load_entry_from_path(p, a, module_search_roots=roots),
+                        entry_loader=lambda p=path.resolve(),
+                        a=app_id,
+                        roots=(root_resolved,): _load_entry_from_path(
+                            p, a, module_search_roots=roots
+                        ),
                         lineno=lineno,
                     )
                 )
@@ -494,6 +518,7 @@ def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, st
     demo_rank = 1
     try:
         from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
         demo_dir = load_demo_dir()
         if demo_dir:
             demo_path = Path(demo_dir).resolve()
@@ -515,7 +540,15 @@ def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, st
 
     directory_rank = 0 if choice.path.parent.name.lower() in {"task_app", "task_apps"} else 1
 
-    return (demo_rank, cwd_rank, modal_rank, file_rank, directory_rank, choice.app_id, str(choice.path))
+    return (
+        demo_rank,
+        cwd_rank,
+        modal_rank,
+        file_rank,
+        directory_rank,
+        choice.app_id,
+        str(choice.path),
+    )
 
 
 def _choice_matches_identifier(choice: AppChoice, identifier: str) -> bool:
@@ -545,7 +578,7 @@ def _has_modal_support_in_file(path: Path) -> bool:
     try:
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
-        
+
         # Look for ModalDeploymentConfig in register_task_app calls
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -554,11 +587,19 @@ def _has_modal_support_in_file(path: Path) -> bool:
                     for kw in node.keywords:
                         if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                             entry_call = kw.value
-                            if isinstance(entry_call.func, ast.Name) and entry_call.func.id == "TaskAppEntry":
+                            if (
+                                isinstance(entry_call.func, ast.Name)
+                                and entry_call.func.id == "TaskAppEntry"
+                            ):
                                 for entry_kw in entry_call.keywords:
-                                    if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
+                                    if entry_kw.arg == "modal" and isinstance(
+                                        entry_kw.value, ast.Call
+                                    ):
                                         modal_call = entry_kw.value
-                                        if isinstance(modal_call.func, ast.Name) and modal_call.func.id == "ModalDeploymentConfig":
+                                        if (
+                                            isinstance(modal_call.func, ast.Name)
+                                            and modal_call.func.id == "ModalDeploymentConfig"
+                                        ):
                                             return True
     except Exception:
         pass
@@ -570,7 +611,7 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
     try:
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(path))
-        
+
         # Look for ModalDeploymentConfig in register_task_app calls
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -579,11 +620,19 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
                     for kw in node.keywords:
                         if kw.arg == "entry" and isinstance(kw.value, ast.Call):
                             entry_call = kw.value
-                            if isinstance(entry_call.func, ast.Name) and entry_call.func.id == "TaskAppEntry":
+                            if (
+                                isinstance(entry_call.func, ast.Name)
+                                and entry_call.func.id == "TaskAppEntry"
+                            ):
                                 for entry_kw in entry_call.keywords:
-                                    if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
+                                    if entry_kw.arg == "modal" and isinstance(
+                                        entry_kw.value, ast.Call
+                                    ):
                                         modal_call = entry_kw.value
-                                        if isinstance(modal_call.func, ast.Name) and modal_call.func.id == "ModalDeploymentConfig":
+                                        if (
+                                            isinstance(modal_call.func, ast.Name)
+                                            and modal_call.func.id == "ModalDeploymentConfig"
+                                        ):
                                             # Extract the arguments to ModalDeploymentConfig
                                             return _build_modal_config_from_ast(modal_call)
     except Exception:
@@ -633,9 +682,10 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfig 
                         if name and mount:
                             mounts.append((name, mount))
                 kwargs[kw.arg] = tuple(mounts)
-        
+
         # Create ModalDeploymentConfig with extracted arguments
         from synth_ai.task.apps import ModalDeploymentConfig
+
         return ModalDeploymentConfig(**kwargs)
     except Exception:
         return None
@@ -656,6 +706,7 @@ def _format_choice(choice: AppChoice, index: int | None = None) -> str:
     # Get file modification timestamp
     try:
         from datetime import datetime
+
         mtime = choice.path.stat().st_mtime
         modified_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
         details = f"Modified: {modified_str}"
@@ -740,7 +791,7 @@ def _import_task_app_module(
     sys.modules[module_name] = module
 
     with _temporary_sys_path(sys_path_roots):
-        if ensure_namespace and namespace_root is not None and '.' in module_name:
+        if ensure_namespace and namespace_root is not None and "." in module_name:
             _ensure_parent_namespace(module_name, namespace_root)
 
         # Clear registry before importing to avoid duplicate registration errors
@@ -756,7 +807,9 @@ def _import_task_app_module(
     return module
 
 
-def _load_entry_from_path(path: Path, app_id: str, module_search_roots: Sequence[Path] | None = None) -> TaskAppEntry:
+def _load_entry_from_path(
+    path: Path, app_id: str, module_search_roots: Sequence[Path] | None = None
+) -> TaskAppEntry:
     resolved = path.resolve()
     search_roots: list[Path] = []
     seen_roots: set[Path] = set()
@@ -836,7 +889,11 @@ def _load_entry_from_path(path: Path, app_id: str, module_search_roots: Sequence
                 continue
             has_required = False
             for param in sig.parameters.values():
-                if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD) and param.default is inspect._empty:
+                if (
+                    param.kind
+                    in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    and param.default is inspect._empty
+                ):
                     has_required = True
                     break
             if has_required:
@@ -848,8 +905,10 @@ def _load_entry_from_path(path: Path, app_id: str, module_search_roots: Sequence
             if isinstance(result, TaskAppConfig) and result.app_id == app_id:
                 # Bind attr to a local and close over it without exposing parameters
                 _bound_func: Callable[[], TaskAppConfig] = cast(Callable[[], TaskAppConfig], attr)  # type: ignore[assignment]
+
                 def _factory_noargs() -> TaskAppConfig:
                     return _bound_func()
+
                 factory_callable = _factory_noargs
                 config_obj = result
                 break
@@ -874,7 +933,7 @@ def _load_entry_from_path(path: Path, app_id: str, module_search_roots: Sequence
         if isinstance(attr, ModalDeploymentConfig):
             modal_cfg = attr
             break
-    
+
     # If no ModalDeploymentConfig found, try to detect it via AST parsing
     if modal_cfg is None:
         modal_cfg = _extract_modal_config_from_file(resolved)
@@ -906,31 +965,31 @@ def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) ->
     # Always prompt for env file selection instead of auto-loading defaults
     script_dir = script_path.parent.resolve()
     cwd = Path.cwd()
-    
+
     # Look for env files in current working directory first, then repo root
     env_candidates = []
-    
+
     # Add CWD env files first (prioritized)
-    cwd_env_files = sorted(cwd.glob('**/*.env'))
+    cwd_env_files = sorted(cwd.glob("**/*.env"))
     env_candidates.extend(cwd_env_files)
-    
+
     # Add repo root env files
-    repo_env_files = sorted(REPO_ROOT.glob('**/*.env'))
+    repo_env_files = sorted(REPO_ROOT.glob("**/*.env"))
     # Avoid duplicates
     for repo_file in repo_env_files:
         if repo_file not in env_candidates:
             env_candidates.append(repo_file)
-    
+
     if not env_candidates:
         created = _interactive_create_env(script_dir)
         if created is None:
             raise click.ClickException("Env file required (--env-file) for this task app")
         return [created]
 
-    click.echo('Select env file to load:')
+    click.echo("Select env file to load:")
     for idx, path in enumerate(env_candidates, start=1):
         click.echo(f"  {idx}) {path.resolve()}")
-    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)), default=1)
+    choice = click.prompt("Enter choice", type=click.IntRange(1, len(env_candidates)), default=1)
     return [env_candidates[choice - 1]]
 
 
@@ -986,15 +1045,21 @@ def _run_modal_script(
             click.echo(f"\n✓ Task app URL: {task_app_url}")
 
     except subprocess.CalledProcessError as exc:
-        raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
+        raise click.ClickException(
+            f"modal {command} failed with exit code {exc.returncode}"
+        ) from exc
 
 
 def _preflight_env_key(crash_on_failure: bool = False) -> None:
     try:
-        raw_backend = os.environ.get("BACKEND_BASE_URL") or os.environ.get("SYNTH_BASE_URL") or f"{PROD_BASE_URL_DEFAULT}/api"
-        backend_base = raw_backend.rstrip('/')
-        if not backend_base.endswith('/api'):
-            backend_base = backend_base + '/api'
+        raw_backend = (
+            os.environ.get("BACKEND_BASE_URL")
+            or os.environ.get("SYNTH_BASE_URL")
+            or f"{PROD_BASE_URL_DEFAULT}/api"
+        )
+        backend_base = raw_backend.rstrip("/")
+        if not backend_base.endswith("/api"):
+            backend_base = backend_base + "/api"
         synth_key = os.environ.get("SYNTH_API_KEY") or ""
         env_api_key = (
             os.environ.get("ENVIRONMENT_API_KEY")
@@ -1017,9 +1082,15 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
 
                     pub = PublicKey(base64.b64decode(pk, validate=True))
                     sb = SealedBox(pub)
-                    ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode('utf-8'))).decode()
+                    ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode("utf-8"))).decode()
                     payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
-                    with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}) as c:
+                    with httpx.Client(
+                        timeout=15.0,
+                        headers={
+                            "Authorization": f"Bearer {synth_key}",
+                            "Content-Type": "application/json",
+                        },
+                    ) as c:
                         click.echo("[preflight] upserting env key…")
                         up = c.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
                         click.echo(f"[preflight] upsert status={up.status_code}")
@@ -1027,8 +1098,14 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                         # If upload succeeded (2xx), consider it successful even if verification fails
                         # This handles cases where verification endpoint has issues
                         if 200 <= up.status_code < 300:
-                            key_preview = f"{env_api_key[:5]}...{env_api_key[-5:]}" if len(env_api_key) > 10 else env_api_key
-                            click.echo(f"✅ ENVIRONMENT_API_KEY uploaded successfully ({key_preview})")
+                            key_preview = (
+                                f"{env_api_key[:5]}...{env_api_key[-5:]}"
+                                if len(env_api_key) > 10
+                                else env_api_key
+                            )
+                            click.echo(
+                                f"✅ ENVIRONMENT_API_KEY uploaded successfully ({key_preview})"
+                            )
 
                             # Try verification, but don't fail if it doesn't work
                             click.echo("[preflight] verifying env key presence…")
@@ -1037,11 +1114,17 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                                 if ver.status_code == 200 and (ver.json() or {}).get("present"):
                                     click.echo("✅ Key verified in backend")
                                 else:
-                                    click.echo(f"⚠️  Verification returned {ver.status_code}, but upload succeeded - proceeding")
+                                    click.echo(
+                                        f"⚠️  Verification returned {ver.status_code}, but upload succeeded - proceeding"
+                                    )
                             except Exception as verify_err:
-                                click.echo(f"⚠️  Verification check failed ({verify_err}), but upload succeeded - proceeding")
+                                click.echo(
+                                    f"⚠️  Verification check failed ({verify_err}), but upload succeeded - proceeding"
+                                )
                         else:
-                            error_msg = f"ENVIRONMENT_API_KEY upload failed with status {up.status_code}"
+                            error_msg = (
+                                f"ENVIRONMENT_API_KEY upload failed with status {up.status_code}"
+                            )
                             if crash_on_failure:
                                 raise click.ClickException(f"[CRITICAL] {error_msg}")
                             click.echo(f"[WARN] {error_msg}; proceeding anyway")
@@ -1121,11 +1204,11 @@ def _run_modal_with_entry(
             click.echo(f"\n✓ Task app URL: {task_app_url}")
 
     except subprocess.CalledProcessError as exc:
-        raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
+        raise click.ClickException(
+            f"modal {command} failed with exit code {exc.returncode}"
+        ) from exc
     finally:
         script_path.unlink(missing_ok=True)
-
-
 
 
 def _load_env_values(paths: list[Path], *, allow_empty: bool = False) -> dict[str, str]:
@@ -1136,15 +1219,17 @@ def _load_env_values(paths: list[Path], *, allow_empty: bool = False) -> dict[st
         except FileNotFoundError:
             continue
         for line in content.splitlines():
-            if not line or line.lstrip().startswith('#') or '=' not in line:
+            if not line or line.lstrip().startswith("#") or "=" not in line:
                 continue
-            key, value = line.split('=', 1)
+            key, value = line.split("=", 1)
             if key and key not in values:
                 values[key.strip()] = value.strip()
     if not allow_empty and not values:
         raise click.ClickException("No environment values found")
     os.environ.update({k: v for k, v in values.items() if k and v})
     return values
+
+
 def _interactive_create_env(target_dir: Path) -> Path | None:
     env_path = (target_dir / ".env").resolve()
     if env_path.exists():
@@ -1163,9 +1248,9 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     data: dict[str, str] = {}
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
-            if not line or line.lstrip().startswith('#') or '=' not in line:
+            if not line or line.lstrip().startswith("#") or "=" not in line:
                 continue
-            key, value = line.split('=', 1)
+            key, value = line.split("=", 1)
             data[key.strip()] = value.strip()
     except FileNotFoundError:
         pass
@@ -1178,7 +1263,9 @@ def _interactive_fill_env(env_path: Path) -> Path | None:
     def _prompt(label: str, *, default: str = "", required: bool) -> str | None:
         while True:
             try:
-                value = click.prompt(label, default=default, show_default=bool(default) or not required).strip()
+                value = click.prompt(
+                    label, default=default, show_default=bool(default) or not required
+                ).strip()
             except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
                 click.echo("Aborted env creation.")
                 return None
@@ -1229,11 +1316,22 @@ def _deploy_entry(
 ) -> None:
     modal_cfg = entry.modal
     if modal_cfg is None:
-        raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
+        raise click.ClickException(
+            f"Task app '{entry.app_id}' does not define Modal deployment settings"
+        )
 
     env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
-    _run_modal_with_entry(entry, modal_cfg, modal_cli, modal_name, env_paths, command="deploy", dry_run=dry_run, original_path=original_path)
+    click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
+    _run_modal_with_entry(
+        entry,
+        modal_cfg,
+        modal_cli,
+        modal_name,
+        env_paths,
+        command="deploy",
+        dry_run=dry_run,
+        original_path=original_path,
+    )
 
 
 def _modal_serve_entry(
@@ -1245,21 +1343,29 @@ def _modal_serve_entry(
 ) -> None:
     modal_cfg = entry.modal
     if modal_cfg is None:
-        raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
+        raise click.ClickException(
+            f"Task app '{entry.app_id}' does not define Modal deployment settings"
+        )
 
     env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
-    _run_modal_with_entry(entry, modal_cfg, modal_cli, modal_name, env_paths, command="serve", original_path=original_path)
+    click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
+    _run_modal_with_entry(
+        entry,
+        modal_cfg,
+        modal_cli,
+        modal_name,
+        env_paths,
+        command="serve",
+        original_path=original_path,
+    )
 
-@click.group(
-    name='task-app',
-    help='Utilities for serving and deploying Synth task apps.'
-)
+
+@click.group(name="task-app", help="Utilities for serving and deploying Synth task apps.")
 def task_app_group() -> None:
     pass
 
 
-@task_app_group.command('list')
+@task_app_group.command("list")
 def list_apps() -> None:
     """List registered task apps."""
 
@@ -1270,6 +1376,8 @@ def list_apps() -> None:
     for entry in entries:
         aliases = f" (aliases: {', '.join(entry.aliases)})" if entry.aliases else ""
         click.echo(f"- {entry.app_id}{aliases}: {entry.description}")
+
+
 def _load_env_files_into_process(paths: Sequence[str]) -> None:
     for p in paths:
         try:
@@ -1277,9 +1385,9 @@ def _load_env_files_into_process(paths: Sequence[str]) -> None:
         except Exception:
             continue
         for line in txt.splitlines():
-            if not line or line.startswith('#') or '=' not in line:
+            if not line or line.startswith("#") or "=" not in line:
                 continue
-            k, v = line.split('=', 1)
+            k, v = line.split("=", 1)
             key = k.strip()
             val = v.strip().strip('"').strip("'")
             # Load into process, but allow overriding if the current value is empty
@@ -1289,16 +1397,34 @@ def _load_env_files_into_process(paths: Sequence[str]) -> None:
                     os.environ[key] = val
 
 
-
-@click.command('serve')
-@click.argument('app_id', type=str, required=False)
-@click.option('--host', default='0.0.0.0', show_default=True)
-@click.option('--port', default=None, type=int, help='Port to serve on (default: 8001)')
-@click.option('--env-file', multiple=True, type=click.Path(), help='Extra .env files to load')
-@click.option('--reload/--no-reload', 'reload_flag', default=False, help='Enable uvicorn auto-reload')
-@click.option('--force/--no-force', 'force', default=False, help='Kill any process already bound to the selected port before starting')
-@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory (default: traces/v3)')
-@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (default: traces/v3/synth_ai.db)')
+@click.command("serve")
+@click.argument("app_id", type=str, required=False)
+@click.option("--host", default="0.0.0.0", show_default=True)
+@click.option("--port", default=None, type=int, help="Port to serve on (default: 8001)")
+@click.option("--env-file", multiple=True, type=click.Path(), help="Extra .env files to load")
+@click.option(
+    "--reload/--no-reload", "reload_flag", default=False, help="Enable uvicorn auto-reload"
+)
+@click.option(
+    "--force/--no-force",
+    "force",
+    default=False,
+    help="Kill any process already bound to the selected port before starting",
+)
+@click.option(
+    "--trace",
+    "trace_dir",
+    type=click.Path(),
+    default=None,
+    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
+)
+@click.option(
+    "--trace-db",
+    "trace_db",
+    type=click.Path(),
+    default=None,
+    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
+)
 def serve_command(
     app_id: str | None,
     host: str,
@@ -1311,52 +1437,82 @@ def serve_command(
 ) -> None:
     # Change to demo directory if stored (REQUIRED for demo isolation)
     from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
     demo_dir = load_demo_dir()
     if demo_dir:
         demo_path = Path(demo_dir)
         if not demo_path.is_dir():
-            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo.")
+            raise click.ClickException(
+                f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo."
+            )
         os.chdir(demo_dir)
         click.echo(f"Using demo directory: {demo_dir}\n")
         # Store demo directory for path resolution
-        os.environ['SYNTH_DEMO_DIR'] = str(demo_path.resolve())
+        os.environ["SYNTH_DEMO_DIR"] = str(demo_path.resolve())
 
     # Prompt for port if not provided
     if port is None:
-        port = click.prompt('Port to serve on', type=int, default=8001)
+        port = click.prompt("Port to serve on", type=int, default=8001)
 
     # Prompt for trace directory if not provided
     if trace_dir is None:
-        click.echo('\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB.')
-        click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
-        enable_tracing = click.confirm('Enable tracing?', default=True)
+        click.echo(
+            "\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB."
+        )
+        click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
+        enable_tracing = click.confirm("Enable tracing?", default=True)
         if enable_tracing:
-            demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
-            default_trace_dir = str((demo_base / 'traces/v3').resolve())
-            trace_dir = click.prompt('Trace directory', type=str, default=default_trace_dir, show_default=True)
+            demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+            default_trace_dir = str((demo_base / "traces/v3").resolve())
+            trace_dir = click.prompt(
+                "Trace directory", type=str, default=default_trace_dir, show_default=True
+            )
         else:
             trace_dir = None
 
     # Prompt for trace DB if not provided and tracing is enabled
     if trace_dir and trace_db is None:
-        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
-        default_trace_db = str((demo_base / 'traces/v3/synth_ai.db').resolve())
-        trace_db = click.prompt('Trace DB path', type=str, default=default_trace_db, show_default=True)
+        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+        default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
+        trace_db = click.prompt(
+            "Trace DB path", type=str, default=default_trace_db, show_default=True
+        )
 
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
-    _serve_entry(entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db)
+    _serve_entry(
+        entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db
+    )
 
 
-@task_app_group.command('serve')
-@click.argument('app_id', type=str, required=False)
-@click.option('--host', default='0.0.0.0', show_default=True)
-@click.option('--port', default=None, type=int, help='Port to serve on (default: 8001)')
-@click.option('--env-file', multiple=True, type=click.Path(), help='Extra .env files to load')
-@click.option('--reload/--no-reload', 'reload_flag', default=False, help='Enable uvicorn auto-reload')
-@click.option('--force/--no-force', 'force', default=False, help='Kill any process already bound to the selected port before starting')
-@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory (default: traces/v3)')
-@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (default: traces/v3/synth_ai.db)')
+@task_app_group.command("serve")
+@click.argument("app_id", type=str, required=False)
+@click.option("--host", default="0.0.0.0", show_default=True)
+@click.option("--port", default=None, type=int, help="Port to serve on (default: 8001)")
+@click.option("--env-file", multiple=True, type=click.Path(), help="Extra .env files to load")
+@click.option(
+    "--reload/--no-reload", "reload_flag", default=False, help="Enable uvicorn auto-reload"
+)
+@click.option(
+    "--force/--no-force",
+    "force",
+    default=False,
+    help="Kill any process already bound to the selected port before starting",
+)
+@click.option(
+    "--trace",
+    "trace_dir",
+    type=click.Path(),
+    default=None,
+    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
+)
+@click.option(
+    "--trace-db",
+    "trace_db",
+    type=click.Path(),
+    default=None,
+    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
+)
 def serve_task_group(
     app_id: str | None,
     host: str,
@@ -1369,41 +1525,53 @@ def serve_task_group(
 ) -> None:
     # Change to demo directory if stored (REQUIRED for demo isolation)
     from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
     demo_dir = load_demo_dir()
     if demo_dir:
         demo_path = Path(demo_dir)
         if not demo_path.is_dir():
-            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo.")
+            raise click.ClickException(
+                f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo."
+            )
         os.chdir(demo_dir)
         click.echo(f"Using demo directory: {demo_dir}\n")
         # Store demo directory for path resolution
-        os.environ['SYNTH_DEMO_DIR'] = str(demo_path.resolve())
+        os.environ["SYNTH_DEMO_DIR"] = str(demo_path.resolve())
 
     # Prompt for port if not provided
     if port is None:
-        port = click.prompt('Port to serve on', type=int, default=8001)
+        port = click.prompt("Port to serve on", type=int, default=8001)
 
     # Prompt for trace directory if not provided
     if trace_dir is None:
-        click.echo('\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB.')
-        click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
-        enable_tracing = click.confirm('Enable tracing?', default=True)
+        click.echo(
+            "\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB."
+        )
+        click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
+        enable_tracing = click.confirm("Enable tracing?", default=True)
         if enable_tracing:
-            demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
-            default_trace_dir = str((demo_base / 'traces/v3').resolve())
-            trace_dir = click.prompt('Trace directory', type=str, default=default_trace_dir, show_default=True)
+            demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+            default_trace_dir = str((demo_base / "traces/v3").resolve())
+            trace_dir = click.prompt(
+                "Trace directory", type=str, default=default_trace_dir, show_default=True
+            )
         else:
             trace_dir = None
 
     # Prompt for trace DB if not provided and tracing is enabled
     if trace_dir and trace_db is None:
-        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
-        default_trace_db = str((demo_base / 'traces/v3/synth_ai.db').resolve())
-        trace_db = click.prompt('Trace DB path', type=str, default=default_trace_db, show_default=True)
+        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+        default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
+        trace_db = click.prompt(
+            "Trace DB path", type=str, default=default_trace_db, show_default=True
+        )
 
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
-    _serve_entry(entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db)
+    _serve_entry(
+        entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db
+    )
+
 
 def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> list[Path]:
     resolved: list[Path] = []
@@ -1419,25 +1587,25 @@ def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> 
     # Look for env files in current working directory first, then repo root
     cwd = Path.cwd()
     env_candidates = []
-    
+
     # Add CWD env files first (prioritized)
-    cwd_env_files = sorted(cwd.glob('**/*.env'))
+    cwd_env_files = sorted(cwd.glob("**/*.env"))
     env_candidates.extend(cwd_env_files)
-    
+
     # Add repo root env files
-    repo_env_files = sorted(REPO_ROOT.glob('**/*.env'))
+    repo_env_files = sorted(REPO_ROOT.glob("**/*.env"))
     # Avoid duplicates
     for repo_file in repo_env_files:
         if repo_file not in env_candidates:
             env_candidates.append(repo_file)
-    
-    if not env_candidates:
-        raise click.ClickException('No env file found. Pass --env-file explicitly.')
 
-    click.echo('Select env file to load:')
+    if not env_candidates:
+        raise click.ClickException("No env file found. Pass --env-file explicitly.")
+
+    click.echo("Select env file to load:")
     for idx, path in enumerate(env_candidates, start=1):
         click.echo(f"  {idx}) {path.resolve()}")
-    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)), default=1)
+    choice = click.prompt("Enter choice", type=click.IntRange(1, len(env_candidates)), default=1)
     return [env_candidates[choice - 1]]
 
 
@@ -1453,7 +1621,9 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
         return
 
     try:
-        out = subprocess.run(["lsof", "-ti", f"TCP:{port}"], capture_output=True, text=True, check=False)
+        out = subprocess.run(
+            ["lsof", "-ti", f"TCP:{port}"], capture_output=True, text=True, check=False
+        )
         pids = [pid for pid in out.stdout.strip().splitlines() if pid]
     except FileNotFoundError:
         pids = []
@@ -1468,7 +1638,7 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
         try:
             os.kill(int(pid), signal.SIGTERM)
         except Exception as exc:
-            raise click.ClickException(f'Failed to terminate PID {pid}: {exc}')
+            raise click.ClickException(f"Failed to terminate PID {pid}: {exc}")
 
     time.sleep(0.5)
 
@@ -1480,13 +1650,16 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
             try:
                 os.kill(int(pid), signal.SIGKILL)
             except Exception as exc:
-                raise click.ClickException(f'Failed to force terminate PID {pid}: {exc}')
+                raise click.ClickException(f"Failed to force terminate PID {pid}: {exc}")
         time.sleep(0.5)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         in_use_after = s.connect_ex((host, port)) == 0
     if in_use_after:
-        raise click.ClickException(f'Port {port} is still in use after attempting to terminate processes.')
+        raise click.ClickException(
+            f"Port {port} is still in use after attempting to terminate processes."
+        )
+
 
 def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
     """Save or update a key-value pair in the .env file."""
@@ -1528,12 +1701,13 @@ def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
 def _validate_required_env_keys() -> None:
     """Validate required environment keys are set, prompting if missing."""
     # Use demo directory .env file if set, otherwise current directory
-    demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+    demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
     env_file = demo_base / ".env"
 
     if env_file.exists():
         try:
             from dotenv import load_dotenv
+
             load_dotenv(env_file, override=False)
         except Exception:
             pass  # Best effort
@@ -1563,6 +1737,7 @@ def _print_demo_next_steps_if_applicable() -> None:
     """Print next steps if currently in a demo directory."""
     try:
         from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
         cwd = Path.cwd().resolve()
         demo_dir = load_demo_dir()
 
@@ -1570,14 +1745,14 @@ def _print_demo_next_steps_if_applicable() -> None:
         if demo_dir and Path(demo_dir).resolve() == cwd:
             # Check if this looks like the crafter demo (has run_local_rollout_traced.py)
             if (cwd / "run_local_rollout_traced.py").exists():
-                click.echo("\n" + "="*60)
+                click.echo("\n" + "=" * 60)
                 click.echo("Next step: Collect traced rollouts")
-                click.echo("="*60)
+                click.echo("=" * 60)
                 click.echo("\nIn another terminal, run:")
                 click.echo(f"  cd {cwd}")
                 click.echo("  uv run python run_local_rollout_traced.py")
                 click.echo("\nRun this 5-10 times to collect diverse traces.")
-                click.echo("="*60 + "\n")
+                click.echo("=" * 60 + "\n")
     except Exception:
         # Silently fail - this is just a helpful printout
         pass
@@ -1599,10 +1774,10 @@ def _serve_entry(
 
     trace_enabled = trace_dir is not None or trace_db is not None
     if trace_enabled:
-        os.environ['TASKAPP_TRACING_ENABLED'] = '1'
+        os.environ["TASKAPP_TRACING_ENABLED"] = "1"
 
         # Ensure paths are absolute relative to demo directory
-        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
 
         if trace_dir is not None:
             dir_path = Path(trace_dir).expanduser()
@@ -1611,8 +1786,10 @@ def _serve_entry(
             try:
                 dir_path.mkdir(parents=True, exist_ok=True)
             except Exception as exc:
-                raise click.ClickException(f"Failed to create trace directory {dir_path}: {exc}") from exc
-            os.environ['TASKAPP_SFT_OUTPUT_DIR'] = str(dir_path)
+                raise click.ClickException(
+                    f"Failed to create trace directory {dir_path}: {exc}"
+                ) from exc
+            os.environ["TASKAPP_SFT_OUTPUT_DIR"] = str(dir_path)
             click.echo(f"Tracing enabled. SFT JSONL will be written to {dir_path}")
         if trace_db is not None:
             db_path = Path(trace_db).expanduser()
@@ -1620,16 +1797,17 @@ def _serve_entry(
                 db_path = (demo_base / db_path).resolve()
             # Construct the sqlite URL from the absolute path
             db_url = f"sqlite+aiosqlite:///{db_path}"
-            os.environ['SQLD_DB_PATH'] = str(db_path)
-            os.environ['TURSO_LOCAL_DB_URL'] = db_url
+            os.environ["SQLD_DB_PATH"] = str(db_path)
+            os.environ["TURSO_LOCAL_DB_URL"] = db_url
             click.echo(f"Tracing DB path set to {db_path}")
         from synth_ai.tracing_v3.config import CONFIG as TRACE_CONFIG
+
         # Use the explicitly set URL if available
-        new_db_url = os.getenv('TURSO_LOCAL_DB_URL') or TRACE_CONFIG.db_url
+        new_db_url = os.getenv("TURSO_LOCAL_DB_URL") or TRACE_CONFIG.db_url
         TRACE_CONFIG.db_url = new_db_url
         if new_db_url:
             click.echo(f"Tracing DB URL resolved to {new_db_url}")
-    elif os.getenv('TASKAPP_TRACING_ENABLED'):
+    elif os.getenv("TASKAPP_TRACING_ENABLED"):
         click.echo("Tracing enabled via environment variables")
 
     _ensure_port_free(port, host, force=force)
@@ -1650,22 +1828,36 @@ def _serve_entry(
     )
 
 
-@task_app_group.command('deploy')
+@task_app_group.command("deploy")
 @click.argument("app_id", type=str, required=False)
 @click.option("--name", "modal_name", default=None, help="Override Modal app name")
 @click.option("--dry-run", is_flag=True, help="Print modal deploy command without executing")
 @click.option("--modal-cli", default="modal", help="Path to modal CLI executable")
-@click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
-def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_cli: str, env_file: Sequence[str]) -> None:
+@click.option(
+    "--env-file",
+    multiple=True,
+    type=click.Path(),
+    help="Env file to load into the container (can be repeated)",
+)
+def deploy_app(
+    app_id: str | None,
+    modal_name: str | None,
+    dry_run: bool,
+    modal_cli: str,
+    env_file: Sequence[str],
+) -> None:
     """Deploy a task app to Modal."""
 
     # Change to demo directory if stored (for consistent discovery)
     from synth_ai.demos.demo_task_apps.core import load_demo_dir
+
     demo_dir = load_demo_dir()
     if demo_dir:
         demo_path = Path(demo_dir)
         if not demo_path.is_dir():
-            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai demo' to create a demo.")
+            raise click.ClickException(
+                f"Demo directory not found: {demo_dir}\nRun 'synth-ai demo' to create a demo."
+            )
         os.chdir(demo_dir)
         click.echo(f"Using demo directory: {demo_dir}\n")
 
@@ -1673,24 +1865,39 @@ def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_
 
     if choice.modal_script:
         env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
-        click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
-        _run_modal_script(choice.modal_script, modal_cli, "deploy", env_paths, modal_name=modal_name, dry_run=dry_run)
+        click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
+        _run_modal_script(
+            choice.modal_script,
+            modal_cli,
+            "deploy",
+            env_paths,
+            modal_name=modal_name,
+            dry_run=dry_run,
+        )
         return
 
     entry = choice.ensure_entry()
     _deploy_entry(entry, modal_name, dry_run, modal_cli, env_file, original_path=choice.path)
 
-@task_app_group.command('modal-serve')
-@click.argument('app_id', type=str, required=False)
-@click.option('--modal-cli', default='modal', help='Path to modal CLI executable')
-@click.option('--name', 'modal_name', default=None, help='Override Modal app name (optional)')
-@click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
-def modal_serve_app(app_id: str | None, modal_cli: str, modal_name: str | None, env_file: Sequence[str]) -> None:
+
+@task_app_group.command("modal-serve")
+@click.argument("app_id", type=str, required=False)
+@click.option("--modal-cli", default="modal", help="Path to modal CLI executable")
+@click.option("--name", "modal_name", default=None, help="Override Modal app name (optional)")
+@click.option(
+    "--env-file",
+    multiple=True,
+    type=click.Path(),
+    help="Env file to load into the container (can be repeated)",
+)
+def modal_serve_app(
+    app_id: str | None, modal_cli: str, modal_name: str | None, env_file: Sequence[str]
+) -> None:
     choice = _select_app_choice(app_id, purpose="modal-serve")
 
     if choice.modal_script:
         env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
-        click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
+        click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
         _run_modal_script(choice.modal_script, modal_cli, "serve", env_paths, modal_name=modal_name)
         return
 
@@ -1715,7 +1922,8 @@ def _write_modal_entrypoint(
         try:
             # Build lookup of local->remote mounts
             mount_map: list[tuple[Path, Path]] = [
-                (Path(local).resolve(), Path(remote)) for (local, remote) in modal_cfg.extra_local_dirs
+                (Path(local).resolve(), Path(remote))
+                for (local, remote) in modal_cfg.extra_local_dirs
             ]
             orig = Path(original_path).resolve()
             for local_src, remote_dst in mount_map:
@@ -1736,8 +1944,12 @@ def _write_modal_entrypoint(
     # Prefer a guaranteed mount for the discovered file to avoid package import issues
     guaranteed_file_str: str | None = None
     if original_path:
-        guaranteed_file_str = str((Path("/opt/synth_ai_repo/__local_task_app__") / Path(original_path).stem).with_suffix('.py'))
-    
+        guaranteed_file_str = str(
+            (Path("/opt/synth_ai_repo/__local_task_app__") / Path(original_path).stem).with_suffix(
+                ".py"
+            )
+        )
+
     dotenv_paths = [str(Path(path)) for path in (dotenv_paths or [])]
 
     pip_packages = list(modal_cfg.pip_packages)
@@ -1745,6 +1957,7 @@ def _write_modal_entrypoint(
     synth_pkg = "synth-ai"
     try:
         import synth_ai as _host_synth
+
         host_ver = getattr(_host_synth, "__version__", None)
         if host_ver:
             synth_pkg = f"synth-ai=={host_ver}"
@@ -1757,6 +1970,7 @@ def _write_modal_entrypoint(
     # Also mount the host synth_ai source if available to ensure latest code is used
     try:
         import synth_ai as _host_synth
+
         host_synth_dir = Path(_host_synth.__file__).resolve().parent
         # host_synth_dir points to .../synth_ai; mount that directory
         sy_dst = "/opt/synth_ai_repo/synth_ai"
@@ -1808,7 +2022,7 @@ def _copy_tree_filtered(src_dir: str) -> str:
     src = _Path(src_dir)
     temp_dir = _Path(tempfile.mkdtemp(prefix='synth_mount_'))
 
-    exclude_dirs = {'.cache', '.git', '__pycache__'}
+    exclude_dirs = {".cache", ".git", "__pycache__"}
     exclude_globs = ['*.db', '*.db-journal', '*-wal', '*-shm']
 
     for root, dirs, files in os.walk(src):
@@ -1921,12 +2135,26 @@ def register(cli: click.Group) -> None:
 @click.command("eval")
 @click.argument("app_id", type=str, required=False)
 @click.option("--config", type=click.Path(), default=None, help="Path to eval TOML (short schema)")
-@click.option("--url", "task_app_url", type=str, default=None, help="Base URL of a running task app (skip in-process server)")
+@click.option(
+    "--url",
+    "task_app_url",
+    type=str,
+    default=None,
+    help="Base URL of a running task app (skip in-process server)",
+)
 @click.option("--seeds", default="0,1,2,3,4", help="Comma-separated seeds/indices to evaluate")
 @click.option("--split", default="train", show_default=True, help="Dataset split to use")
 @click.option("--model", default=None, help="Model identifier (prompted if omitted)")
-@click.option('--env-file', multiple=True, type=click.Path(), help='Env file(s) for keys')
-def eval_command(app_id: str | None, config: str | None, task_app_url: str | None, seeds: str, split: str, model: str | None, env_file: Sequence[str]) -> None:
+@click.option("--env-file", multiple=True, type=click.Path(), help="Env file(s) for keys")
+def eval_command(
+    app_id: str | None,
+    config: str | None,
+    task_app_url: str | None,
+    seeds: str,
+    split: str,
+    model: str | None,
+    env_file: Sequence[str],
+) -> None:
     """Run local rollouts against a task app using in-process ASGI and summarize results."""
     cfg: dict[str, Any] = {}
     config_path: Path | None = None
@@ -1940,7 +2168,9 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
 
     if config_path:
         if _toml is None:
-            raise click.ClickException("TOML parser not available; use Python 3.11+ or install tomli")
+            raise click.ClickException(
+                "TOML parser not available; use Python 3.11+ or install tomli"
+            )
         if not config_path.exists():
             raise click.ClickException(f"Eval config not found: {config_path}")
         try:
@@ -1995,14 +2225,16 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
                 raise click.ClickException(f"Env file not found: {p}")
             env_paths.append(p)
 
-    click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+    click.echo("Using env file(s): " + ", ".join(str(p) for p in env_paths))
     _load_env_files_into_process([str(Path(p)) for p in env_paths])
 
     if task_app_url is None:
         config = entry.config_factory()  # type: ignore[union-attr]
         # Help the type checker; runtime check also enforced in server.run_task_app
         if not isinstance(config, TaskAppConfig):
-            raise click.ClickException("Invalid task app: config_factory did not return TaskAppConfig")
+            raise click.ClickException(
+                "Invalid task app: config_factory did not return TaskAppConfig"
+            )
         app = create_task_app(config)
 
     # Determine supported models
@@ -2015,6 +2247,7 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
     else:
         try:
             import httpx as _hx
+
             headers = {}
             api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
             if api_key:
@@ -2053,19 +2286,22 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
     selected_model = model
     if not selected_model:
         if not supported:
-            raise click.ClickException("No supported models; supply --model or add base_task_info.inference.models")
+            raise click.ClickException(
+                "No supported models; supply --model or add base_task_info.inference.models"
+            )
         click.echo("Select model to evaluate:")
         for idx, m in enumerate(supported, start=1):
             click.echo(f"  {idx}) {m}")
-        choice_idx = click.prompt('Enter choice', type=click.IntRange(1, len(supported)))
+        choice_idx = click.prompt("Enter choice", type=click.IntRange(1, len(supported)))
         selected_model = supported[choice_idx - 1]
 
     try:
-        seed_values = [int(s.strip()) for s in seeds.split(',') if s.strip()]
+        seed_values = [int(s.strip()) for s in seeds.split(",") if s.strip()]
     except Exception:
         raise click.ClickException("Invalid --seeds; expected comma-separated integers")
 
     import httpx
+
     headers = {}
     api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
     if api_key:
@@ -2080,7 +2316,12 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
     if task_app_url is None:
         transport = httpx.ASGITransport(app=app)  # type: ignore[name-defined]
         # Newer httpx types consider ASGITransport under httpx._transports; cast to satisfy type checker
-        client = httpx.Client(transport=cast(Any, transport), base_url="http://eval.local", timeout=60.0, headers=headers)
+        client = httpx.Client(
+            transport=cast(Any, transport),
+            base_url="http://eval.local",
+            timeout=60.0,
+            headers=headers,
+        )
     else:
         client = httpx.Client(base_url=task_app_url, timeout=60.0, headers=headers)
     with client as client:
@@ -2095,7 +2336,13 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
             if isinstance(cfg.get("policy"), dict):
                 policy_overrides.update(dict(cfg["policy"]))
             # Back-compat: allow temperature/max_tokens at top level
-            for k in ("temperature", "max_tokens", "reasoning_effort", "system_hint", "tool_choice"):
+            for k in (
+                "temperature",
+                "max_tokens",
+                "reasoning_effort",
+                "system_hint",
+                "tool_choice",
+            ):
                 if k in cfg and k not in policy_overrides:
                     policy_overrides[k] = cfg.get(k)
         except Exception:
@@ -2105,7 +2352,10 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
             body = {
                 "run_id": str(uuid.uuid4()),
                 "env": {"config": {"split": split, "index": seed_val}, "seed": seed_val},
-                "policy": {"policy_name": selected_model, "config": {"model": selected_model, **policy_overrides}},
+                "policy": {
+                    "policy_name": selected_model,
+                    "config": {"model": selected_model, **policy_overrides},
+                },
                 "ops": [],
             }
             try:
@@ -2141,7 +2391,11 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
                             except Exception:
                                 pass
                     # Try to infer tool call count from first trajectory step
-                    trajs = data.get("trajectories") if isinstance(data.get("trajectories"), list) else None
+                    trajs = (
+                        data.get("trajectories")
+                        if isinstance(data.get("trajectories"), list)
+                        else None
+                    )
                     if trajs:
                         first = trajs[0] if trajs else None
                         steps = first.get("steps") if isinstance(first, dict) else None
@@ -2162,12 +2416,16 @@ def eval_command(app_id: str | None, config: str | None, task_app_url: str | Non
                 failures += 1
                 click.echo(f"seed={seed_val} error={exc}")
 
-    click.echo(f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}")
+    click.echo(
+        f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}"
+    )
     # Print outcome summary if any successes
     if outcome_count > 0:
         mean_outcome = outcome_sum / float(outcome_count)
         frac_right = outcome_correct / float(outcome_count)
-        click.echo(f"Outcome summary: correct={outcome_correct}/{outcome_count} ({frac_right:.2%}), mean_outcome={mean_outcome:.3f}")
+        click.echo(
+            f"Outcome summary: correct={outcome_correct}/{outcome_count} ({frac_right:.2%}), mean_outcome={mean_outcome:.3f}"
+        )
 
 
 def register_eval(cli: click.Group) -> None:

@@ -194,9 +194,7 @@ IMPORTANT: To use a tool, respond with JSON wrapped in ```json fences:
 
 For regular responses, just respond normally without JSON fences."""
 
-    def _extract_tool_calls(
-        self, content: str, tools: list[BaseTool]
-    ) -> tuple[list | None, str]:
+    def _extract_tool_calls(self, content: str, tools: list[BaseTool]) -> tuple[list | None, str]:
         """Extract and validate tool calls from response."""
         # Look for JSON fenced blocks
         json_pattern = r"```json\s*(\{.*?\})\s*```"

@@ -5,6 +5,7 @@ Synth AI - Software for aiding the best and multiplying the will.
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
 import synth_ai.environments as environments  # expose module name for __all__
+
 try:
     from synth_ai.lm.core.main import LM  # Moved from zyk to lm for better organization
 except Exception:  # allow minimal imports (e.g., tracing) without LM stack

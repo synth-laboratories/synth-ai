@@ -36,4 +36,3 @@ register_task_app(
         modal=DEMO_MODAL_CONFIG,
     )
 )
-

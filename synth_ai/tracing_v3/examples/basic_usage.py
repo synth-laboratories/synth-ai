@@ -166,8 +166,9 @@ async def main():
 
         tracer.hooks.register("event_recorded", count_events, name="event_counter")
 
-        async with tracer.session(metadata={"example": "hooks"}) as session_id, tracer.timestep(
-            "hook_test"
+        async with (
+            tracer.session(metadata={"example": "hooks"}) as session_id,
+            tracer.timestep("hook_test"),
         ):
             for i in range(3):
                 event = RuntimeEvent(

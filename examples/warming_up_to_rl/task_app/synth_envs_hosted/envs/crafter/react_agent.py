@@ -51,7 +51,7 @@ class CrafterReActAgent:
             "place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, "
             "make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\n"
         )
-    
+
     @staticmethod
     def get_system_prompt_with_tools() -> str:
         """System prompt for tool-based interaction (e.g., Qwen3 models)."""
@@ -80,9 +80,13 @@ class CrafterReActAgent:
         )
 
     @staticmethod
-    def build_messages(observation: str, history: Optional[List[Dict[str, str]]] = None, turn: Optional[int] = None) -> List[Dict[str, str]]:
+    def build_messages(
+        observation: str, history: Optional[List[Dict[str, str]]] = None, turn: Optional[int] = None
+    ) -> List[Dict[str, str]]:
         """Construct OpenAI-style messages list for vLLM generation."""
-        msgs: List[Dict[str, str]] = [{"role": "system", "content": CrafterReActAgent.get_system_prompt()}]
+        msgs: List[Dict[str, str]] = [
+            {"role": "system", "content": CrafterReActAgent.get_system_prompt()}
+        ]
         if history:
             msgs.extend(history)
         msgs.append({"role": "user", "content": observation})

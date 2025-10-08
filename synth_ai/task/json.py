@@ -74,4 +74,3 @@ def to_jsonable(value: Any) -> Any:
         return to_jsonable(vars(value))
 
     return repr(value)
-

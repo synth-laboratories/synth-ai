@@ -256,7 +256,9 @@ class TrajectoryTreeStore:
     def reconstruct_actions(self, snap_id: str) -> tuple[Any, ...]:
         """Return the sequence of *actions* from the root → `snap_id`."""
         actions = []
-        for child, parent in zip(self.path_to_root(snap_id)[:-1], self.path_to_root(snap_id)[1:], strict=False):
+        for child, parent in zip(
+            self.path_to_root(snap_id)[:-1], self.path_to_root(snap_id)[1:], strict=False
+        ):
             actions.append(self.graph.edges[parent, child]["action"])
         return tuple(reversed(actions))
 

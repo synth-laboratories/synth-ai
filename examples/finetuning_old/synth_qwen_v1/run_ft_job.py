@@ -65,12 +65,14 @@ def ensure_training_jsonl(path: Path) -> Path:
     if not path.exists():
         # Minimal JSONL with a single example
         lines: list[str] = [
-            json.dumps({
-                "messages": [
-                    {"role": "user", "content": "Write a short greeting."},
-                    {"role": "assistant", "content": "Hello there!"},
-                ]
-            })
+            json.dumps(
+                {
+                    "messages": [
+                        {"role": "user", "content": "Write a short greeting."},
+                        {"role": "assistant", "content": "Hello there!"},
+                    ]
+                }
+            )
         ]
         path.write_text("\n".join(lines) + "\n")
     # Validate using shared SDK validator
@@ -83,7 +85,9 @@ async def run(args: argparse.Namespace) -> None:
     base_url, api_key = load_env(args.mode)
     # Force canonical prod base when prod mode (or override) is selected
     try:
-        if (args.mode == "prod") or (os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "").strip().lower() == "prod"):
+        if (args.mode == "prod") or (
+            os.getenv("SYNTH_BACKEND_URL_OVERRIDE", "").strip().lower() == "prod"
+        ):
             base_url = _resolve_backend_default()
             # Also export for any downstream helpers that read env
             os.environ["PROD_BACKEND_URL"] = base_url
@@ -123,8 +127,8 @@ async def run(args: argparse.Namespace) -> None:
                     "gpu_type": "A10G",
                     "container_count": 1,
                 }
-            }
-        }
+            },
+        },
     }
 
     create_resp = await ft.create_sft_job(
@@ -194,6 +198,7 @@ async def run(args: argparse.Namespace) -> None:
         except Exception as e:
             # Always print full error details and traceback
             import traceback
+
             try:
                 from synth_ai.http import HTTPError  # type: ignore
             except Exception:  # pragma: no cover - fallback if import shape changes
@@ -206,7 +211,7 @@ async def run(args: argparse.Namespace) -> None:
                 print("Traceback:")
                 print(tb)
             # If HTTP error from backend, surface structured fields
-            if 'HTTPError' in str(type(e)) or (isinstance((), tuple) and False):
+            if "HTTPError" in str(type(e)) or (isinstance((), tuple) and False):
                 pass
             try:
                 if HTTPError and isinstance(e, HTTPError):  # type: ignore[arg-type]
@@ -214,9 +219,9 @@ async def run(args: argparse.Namespace) -> None:
                     print(f"  status={e.status}")
                     print(f"  url={e.url}")
                     print(f"  message={e.message}")
-                    if getattr(e, 'detail', None) is not None:
+                    if getattr(e, "detail", None) is not None:
                         print(f"  detail={e.detail}")
-                    if getattr(e, 'body_snippet', None):
+                    if getattr(e, "body_snippet", None):
                         print(f"  body_snippet={e.body_snippet}")
             except Exception:
                 pass
