@@ -93,8 +93,27 @@ def build_sft_payload(
     if not raw_dataset:
         raise TrainError("Dataset not specified; pass --dataset or set [job].data")
     dataset_path = Path(raw_dataset)
-    # Resolve relative paths from current working directory, not config directory
-    dataset_path = (dataset_path if dataset_path.is_absolute() else (Path.cwd() / dataset_path)).resolve()
+
+    # For relative paths, try multiple locations in order:
+    # 1. Relative to config file's directory
+    # 2. Relative to config file's parent directory (for configs in subdirs)
+    # 3. Relative to current working directory
+    if not dataset_path.is_absolute():
+        config_dir = config_path.parent
+        candidates = [
+            config_dir / dataset_path,
+            config_dir.parent / dataset_path,
+            Path.cwd() / dataset_path,
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                dataset_path = candidate.resolve()
+                break
+        else:
+            dataset_path = (config_dir / dataset_path).resolve()
+    else:
+        dataset_path = dataset_path.resolve()
+
     if not dataset_path.exists():
         raise TrainError(f"Dataset not found: {dataset_path}")
 
@@ -102,8 +121,23 @@ def build_sft_payload(
     validation_file = None
     if validation_path:
         vpath = Path(validation_path)
-        # Resolve relative paths from current working directory, not config directory
-        vpath = (vpath if vpath.is_absolute() else (Path.cwd() / vpath)).resolve()
+        # For relative paths, try multiple locations (same as dataset)
+        if not vpath.is_absolute():
+            config_dir = config_path.parent
+            candidates = [
+                config_dir / vpath,
+                config_dir.parent / vpath,
+                Path.cwd() / vpath,
+            ]
+            for candidate in candidates:
+                if candidate.exists():
+                    vpath = candidate.resolve()
+                    break
+            else:
+                vpath = (config_dir / vpath).resolve()
+        else:
+            vpath = vpath.resolve()
+
         if not vpath.exists():
             click.echo(f"[WARN] Validation dataset {vpath} missing; continuing without validation")
         else:
