@@ -960,17 +960,31 @@ def _run_modal_script(
         click.echo("Dry run: " + " ".join(cmd))
         return
     try:
-        # Capture output to extract URL
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        # Print output as it would normally appear
-        if result.stdout:
-            click.echo(result.stdout, nl=False)
-        if result.stderr:
-            click.echo(result.stderr, nl=False, err=True)
+        # Stream output in real-time while capturing for URL extraction
+        click.echo(f"\n🚀 Starting Modal deployment (this may take a few minutes)...\n")
 
-        # Extract and save task app URL from output
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+
+        # Capture output while streaming it
+        output_lines = []
+        if process.stdout:
+            for line in process.stdout:
+                click.echo(line, nl=False)
+                output_lines.append(line)
+
+        return_code = process.wait()
+        if return_code != 0:
+            raise subprocess.CalledProcessError(return_code, cmd)
+
+        # Extract and save task app URL from captured output
         task_app_url = None
-        for line in result.stdout.splitlines():
+        for line in output_lines:
             # Look for lines containing modal.run URLs
             if "modal.run" in line and "=>" in line:
                 # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
@@ -983,7 +997,7 @@ def _run_modal_script(
         if task_app_url and env_paths_list:
             env_file = env_paths_list[0]  # Use the first .env file
             _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL: {task_app_url}")
+            click.echo(f"\n✓ Task app URL saved to {env_file}: {task_app_url}")
 
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
@@ -1095,17 +1109,31 @@ def _run_modal_with_entry(
         return
 
     try:
-        # Capture output to extract URL
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        # Print output as it would normally appear
-        if result.stdout:
-            click.echo(result.stdout, nl=False)
-        if result.stderr:
-            click.echo(result.stderr, nl=False, err=True)
+        # Stream output in real-time while capturing for URL extraction
+        click.echo(f"\n🚀 Starting Modal deployment (this may take a few minutes)...\n")
 
-        # Extract and save task app URL from output
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+
+        # Capture output while streaming it
+        output_lines = []
+        if process.stdout:
+            for line in process.stdout:
+                click.echo(line, nl=False)
+                output_lines.append(line)
+
+        return_code = process.wait()
+        if return_code != 0:
+            raise subprocess.CalledProcessError(return_code, cmd)
+
+        # Extract and save task app URL from captured output
         task_app_url = None
-        for line in result.stdout.splitlines():
+        for line in output_lines:
             # Look for lines containing modal.run URLs
             if "modal.run" in line and "=>" in line:
                 # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
@@ -1118,7 +1146,7 @@ def _run_modal_with_entry(
         if task_app_url and env_paths_list:
             env_file = env_paths_list[0]  # Use the first .env file
             _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL: {task_app_url}")
+            click.echo(f"\n✓ Task app URL saved to {env_file}: {task_app_url}")
 
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
