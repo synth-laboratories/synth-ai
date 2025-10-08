@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
-from synth_ai.task.contracts import RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.task.contracts import RolloutRequest, RolloutResponse, TaskInfo, RolloutMetrics
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.rubrics import load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
@@ -33,15 +33,16 @@ for path in [REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT]:
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
+HAS_HOSTED = True
 try:
     import crafter  # type: ignore
     import crafter.constants as C  # type: ignore
     from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS
-    from synth_envs_hosted.branching import router as branching_router
-    from synth_envs_hosted.environment_routes import router as environment_router
-    from synth_envs_hosted.hosted_app import TaskApp as HostedTaskApp
-    from synth_envs_hosted.policy_routes import router as policy_router
-    from synth_envs_hosted.rollout import (
+    from synth_envs_hosted.branching import router as branching_router  # type: ignore
+    from synth_envs_hosted.environment_routes import router as environment_router  # type: ignore
+    from synth_envs_hosted.hosted_app import TaskApp as HostedTaskApp  # type: ignore
+    from synth_envs_hosted.policy_routes import router as policy_router  # type: ignore
+    from synth_envs_hosted.rollout import (  # type: ignore
         RolloutEnvSpec as LegacyRolloutEnvSpec,
         RolloutPolicySpec as LegacyRolloutPolicySpec,
         RolloutRecordConfig as LegacyRolloutRecordConfig,
@@ -74,12 +75,16 @@ except Exception as exc:  # pragma: no cover - import-time validation
             f"For Modal: add '{pkg}' to ModalDeploymentConfig.pip_packages in synth_ai/task/apps/grpo_crafter.py.\n"
             f"Locally: pip install {pkg}"
         )
-    detailed = (
-        "grpo_crafter task app requires example dependencies and runtime libs.\n"
-        + (fix_hint + "\n" if fix_hint else "")
-        + f"Original error: {exc}"
-    )
-    raise RuntimeError(detailed) from exc
+    # Allow running without synth_envs_hosted; gate hosted features off
+    if missing_mod == "synth_envs_hosted":
+        HAS_HOSTED = False
+    else:
+        detailed = (
+            "grpo_crafter task app requires example dependencies and runtime libs.\n"
+            + (fix_hint + "\n" if fix_hint else "")
+            + f"Original error: {exc}"
+        )
+        raise RuntimeError(detailed) from exc
 
 
 CRAFTING_RULES_SYSTEM_HINT = (
@@ -342,6 +347,24 @@ def _normalise_op(op_value: Any, index: int) -> str:
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
+    # If hosted env service code is not bundled, return a no-op rollout response compatible with contracts
+    if not HAS_HOSTED:
+        return RolloutResponse(
+            run_id=request.run_id,
+            trajectories=[],
+            branches={},
+            metrics=RolloutMetrics(
+                episode_returns=[],
+                mean_return=0.0,
+                num_steps=0,
+                num_episodes=0,
+                details={},
+            ),
+            aborted=False,
+            ops_executed=0,
+            trace=None,
+        )
+
     converted_ops: List[str] = [_normalise_op(op, idx) for idx, op in enumerate(request.ops)]
     legacy_request = LegacyRolloutRequest(
         run_id=request.run_id,
@@ -379,7 +402,7 @@ def build_config() -> TaskAppConfig:
     registry, dataset = build_dataset()
     base_info = _base_task_info(dataset)
 
-    hosted_task_app = HostedTaskApp()
+    hosted_task_app = HostedTaskApp() if HAS_HOSTED else None
 
     tracing_enabled = tracing_env_enabled()
     tracing_db_url = resolve_tracing_db_url()
@@ -410,6 +433,8 @@ def build_config() -> TaskAppConfig:
     def _provide_instances(seeds: Sequence[int]):
         return provide_task_instances(dataset, base_info, seeds)
 
+    routers: tuple = (environment_router, policy_router, branching_router) if HAS_HOSTED else ()
+
     config = TaskAppConfig(
         app_id="grpo-crafter",
         name="GRPO Crafter Task App",
@@ -421,7 +446,7 @@ def build_config() -> TaskAppConfig:
         dataset_registry=registry,
         rubrics=RubricBundle(outcome=OUTCOME_RUBRIC, events=EVENTS_RUBRIC),
         proxy=ProxyConfig(enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT),
-        routers=(environment_router, policy_router, branching_router),
+        routers=routers,
         app_state=app_state,
         cors_origins=["*"],
     )
