@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 class OpenAIClient:
     """Async HTTP client for OpenAI-compatible inference servers (vLLM)."""
-    
+
     def __init__(
         self,
         base_url: str,
@@ -22,11 +22,13 @@ class OpenAIClient:
         self.api_key = api_key
         self.timeout_s = timeout_s
         self.headers = {}
-        
+
         if api_key:
             self.headers["Authorization"] = f"Bearer {api_key}"
 
-    def _fix_model_parameters(self, request: Dict[str, Any], target_url: Optional[str] = None) -> Dict[str, Any]:
+    def _fix_model_parameters(
+        self, request: Dict[str, Any], target_url: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Fix parameter compatibility for newer OpenAI models.
 
@@ -75,7 +77,9 @@ class OpenAIClient:
                 if "max_tokens" in fixed_request:
                     if "max_completion_tokens" not in fixed_request:
                         fixed_request["max_completion_tokens"] = fixed_request.pop("max_tokens")
-                        logger.info(f"Converted max_tokens to max_completion_tokens for model {model}")
+                        logger.info(
+                            f"Converted max_tokens to max_completion_tokens for model {model}"
+                        )
                     else:
                         fixed_request.pop("max_tokens")
                         logger.info(f"Removed conflicting max_tokens parameter for model {model}")
@@ -145,7 +149,9 @@ class OpenAIClient:
                     logger.info("Removed stop_after_tool_calls for OpenAI request")
             # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             low_url = url.lower()
-            if ("groq.com" in low_url or "/openai" in low_url) and isinstance(processed_request, dict):
+            if ("groq.com" in low_url or "/openai" in low_url) and isinstance(
+                processed_request, dict
+            ):
                 rf = processed_request.get("response_format")
                 rf_type = None
                 if isinstance(rf, dict):
@@ -164,7 +170,9 @@ class OpenAIClient:
                                     # Join any text segments
                                     parts = []
                                     for seg in content:
-                                        if isinstance(seg, dict) and isinstance(seg.get("text"), str):
+                                        if isinstance(seg, dict) and isinstance(
+                                            seg.get("text"), str
+                                        ):
                                             parts.append(seg["text"])
                                     text = "\n".join(parts)
                                 if isinstance(text, str) and ("json" in text.lower()):
@@ -174,13 +182,17 @@ class OpenAIClient:
                                 continue
                     if not has_json_word:
                         try:
-                            instruction = "Respond in strict JSON only. Output a single valid JSON object."
+                            instruction = (
+                                "Respond in strict JSON only. Output a single valid JSON object."
+                            )
                             if not isinstance(msgs, list):
                                 msgs = []
                             # Prepend a system message to satisfy Groq requirement without changing user intent
                             prepend = {"role": "system", "content": instruction}
                             processed_request["messages"] = [prepend] + list(msgs)
-                            logger.info("Injected JSON-mode system instruction for Groq response_format compliance")
+                            logger.info(
+                                "Injected JSON-mode system instruction for Groq response_format compliance"
+                            )
                         except Exception:
                             pass
         except Exception:
@@ -194,7 +206,7 @@ class OpenAIClient:
                     headers=headers,
                 )
                 response.raise_for_status()
-                
+
                 # Rich response diagnostics
                 content_type = response.headers.get("content-type")
                 body_text = response.text
@@ -203,12 +215,14 @@ class OpenAIClient:
                 )
                 if body_text:
                     preview_len = min(800, len(body_text))
-                    logger.info(f"Inference response preview ({preview_len} bytes): {body_text[:preview_len]}")
+                    logger.info(
+                        f"Inference response preview ({preview_len} bytes): {body_text[:preview_len]}"
+                    )
 
                 result = response.json()
                 logger.info(f"Inference response parsed_type={type(result).__name__}")
                 return result
-                
+
             except httpx.TimeoutException:
                 logger.error(f"Request to {url} timed out after {timeout}s")
                 raise
@@ -217,12 +231,14 @@ class OpenAIClient:
                 text = e.response.text if e.response is not None else str(e)
                 # Log full body for debugging remote failures
                 try:
-                    logger.error({
-                        "openai_http_error": True,
-                        "status": status,
-                        "url": url,
-                        "body": text,
-                    })
+                    logger.error(
+                        {
+                            "openai_http_error": True,
+                            "status": status,
+                            "url": url,
+                            "body": text,
+                        }
+                    )
                 except Exception:
                     logger.error(f"HTTP error from {url}: {status} - {text}")
                 # For 4xx/5xx, print full sanitized request to aid debugging (especially Groq 400s)
@@ -230,13 +246,15 @@ class OpenAIClient:
                     redacted_headers = dict(headers)
                     if "Authorization" in redacted_headers:
                         redacted_headers["Authorization"] = "***REDACTED***"
-                    logger.error({
-                        "request_debug": True,
-                        "status": status,
-                        "target": url,
-                        "headers": redacted_headers,
-                        "payload": processed_request,
-                    })
+                    logger.error(
+                        {
+                            "request_debug": True,
+                            "status": status,
+                            "target": url,
+                            "headers": redacted_headers,
+                            "payload": processed_request,
+                        }
+                    )
                 except Exception:
                     pass
                 # Special case: token budget exceeded (OpenAI-compatible error schema)
@@ -270,23 +288,38 @@ class OpenAIClient:
                                         try:
                                             tools_arr = processed_request.get("tools") or []
                                             if isinstance(tools_arr, list) and tools_arr:
-                                                f = tools_arr[0].get("function") if isinstance(tools_arr[0], dict) else None
-                                                cand = (f or {}).get("name") if isinstance(f, dict) else None
+                                                f = (
+                                                    tools_arr[0].get("function")
+                                                    if isinstance(tools_arr[0], dict)
+                                                    else None
+                                                )
+                                                cand = (
+                                                    (f or {}).get("name")
+                                                    if isinstance(f, dict)
+                                                    else None
+                                                )
                                                 if isinstance(cand, str) and cand:
                                                     func_name = cand
                                         except Exception:
                                             pass
-                                        processed_request["tool_choice"] = {"type": "function", "function": {"name": func_name}}
+                                        processed_request["tool_choice"] = {
+                                            "type": "function",
+                                            "function": {"name": func_name},
+                                        }
                                         processed_request["parallel_tool_calls"] = False
-                                    logger.warning({
-                                        "token_budget_recovery": True,
-                                        "messages_tokens": messages_tokens,
-                                        "model_limit": model_limit,
-                                        "retry_max_tokens": new_max,
-                                    })
+                                    logger.warning(
+                                        {
+                                            "token_budget_recovery": True,
+                                            "messages_tokens": messages_tokens,
+                                            "model_limit": model_limit,
+                                            "retry_max_tokens": new_max,
+                                        }
+                                    )
                                     # Retry once with reduced budget
                                     async with httpx.AsyncClient(timeout=timeout) as client2:
-                                        r2 = await client2.post(url, json=processed_request, headers=headers)
+                                        r2 = await client2.post(
+                                            url, json=processed_request, headers=headers
+                                        )
                                         r2.raise_for_status()
                                         return r2.json()
                             except Exception:
@@ -302,14 +335,17 @@ class OpenAIClient:
                             err = e.response.json()
                         except Exception:
                             err = {"error": "unprocessable", "detail": (text or "")[:200]}
-                        logger.warning({
-                            "inference_422_recovered": True,
-                            "detail": err,
-                        })
+                        logger.warning(
+                            {
+                                "inference_422_recovered": True,
+                                "detail": err,
+                            }
+                        )
                     except Exception:
                         pass
                     # Return a minimal OpenAI-compatible response with no tool_calls/content
                     import time as _t
+
                     return {
                         "id": f"cmpl-{int(_t.time())}",
                         "object": "chat.completion",
@@ -328,7 +364,7 @@ class OpenAIClient:
             except Exception as e:
                 logger.error(f"Unexpected error calling {url}: {e}")
                 raise
-    
+
     async def check_health(
         self,
         base_url: Optional[str] = None,
@@ -336,17 +372,17 @@ class OpenAIClient:
     ) -> Dict[str, Any]:
         """
         Check if the inference service is healthy.
-        
+
         Args:
             base_url: Override base URL for this request
             timeout_s: Override timeout for this request
-        
+
         Returns:
             Health status dict with 'status' field
         """
         url = (base_url or self.base_url).rstrip("/") + "/health"
         timeout = timeout_s or 10.0
-        
+
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 response = await client.get(url, headers=self.headers)
@@ -364,7 +400,7 @@ class OpenAIClient:
             return {"status": "unhealthy", "error": str(e)}
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
-    
+
     async def generate_with_retries(
         self,
         request: Dict[str, Any],
@@ -376,7 +412,7 @@ class OpenAIClient:
     ) -> Dict[str, Any]:
         """
         Generate with exponential backoff retries for transient errors.
-        
+
         Args:
             request: OpenAI-compatible chat completion request
             base_url: Override base URL
@@ -384,13 +420,13 @@ class OpenAIClient:
             max_retries: Maximum number of retry attempts
             backoff_factor: Exponential backoff multiplier
             extra_headers: Additional headers to include (e.g., X-Policy-Name)
-        
+
         Returns:
             OpenAI-compatible chat completion response
         """
         last_error = None
         wait_time = 1.0
-        
+
         for attempt in range(max_retries + 1):
             try:
                 # Apply parameter fixes to the request
@@ -417,7 +453,9 @@ class OpenAIClient:
                             retry_after = response_data.get("retry_after", 1)
                             # Use the suggested retry_after time instead of exponential backoff for overload
                             wait_time = max(wait_time, float(retry_after))
-                            logger.warning(f"Inference service overloaded (400). {response_data} Retrying after {wait_time}s...")
+                            logger.warning(
+                                f"Inference service overloaded (400). {response_data} Retrying after {wait_time}s..."
+                            )
                         else:
                             # This is a different type of 400 error, don't retry
                             try:
@@ -428,13 +466,15 @@ class OpenAIClient:
                                         redacted_headers["Authorization"] = "***REDACTED***"
                                 except Exception:
                                     redacted_headers = {}
-                                logger.error({
-                                    "non_overload_400": True,
-                                    "target": (base_url or self.base_url),
-                                    "payload": processed_request,
-                                    "headers": redacted_headers,
-                                    "body": e.response.text if e.response is not None else None,
-                                })
+                                logger.error(
+                                    {
+                                        "non_overload_400": True,
+                                        "target": (base_url or self.base_url),
+                                        "payload": processed_request,
+                                        "headers": redacted_headers,
+                                        "body": e.response.text if e.response is not None else None,
+                                    }
+                                )
                             except Exception:
                                 pass
                             raise RuntimeError(
@@ -443,11 +483,13 @@ class OpenAIClient:
                     except Exception:
                         # If we can't parse the response, don't retry 400 errors
                         try:
-                            logger.error({
-                                "non_overload_400_unparsed": True,
-                                "target": (base_url or self.base_url),
-                                "payload": processed_request,
-                            })
+                            logger.error(
+                                {
+                                    "non_overload_400_unparsed": True,
+                                    "target": (base_url or self.base_url),
+                                    "payload": processed_request,
+                                }
+                            )
                         except Exception:
                             pass
                         raise RuntimeError(
@@ -472,7 +514,7 @@ class OpenAIClient:
                     )
             except httpx.TimeoutException as e:
                 last_error = e
-            
+
             if attempt < max_retries:
                 logger.warning(
                     f"Inference request failed (attempt {attempt + 1}/{max_retries + 1}), "
@@ -480,7 +522,7 @@ class OpenAIClient:
                 )
                 await asyncio.sleep(wait_time)
                 wait_time *= backoff_factor
-        
+
         raise last_error
 
 
@@ -490,11 +532,11 @@ def create_inference_client(
 ) -> OpenAIClient:
     """
     Create an inference client using TaskApp configuration.
-    
+
     Args:
         task_app: TaskApp instance with vllm_base_url
         api_key: Optional API key for authentication
-    
+
     Returns:
         Configured OpenAIClient instance
     """
@@ -502,6 +544,7 @@ def create_inference_client(
     if api_key is None:
         try:
             import os as _os  # local import to avoid module-level side effects
+
             api_key = _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
         except Exception:
             api_key = None

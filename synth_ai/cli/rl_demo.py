@@ -20,6 +20,7 @@ import click
 
 def _forward(args: list[str]) -> None:
     import sys
+
     try:
         from synth_ai.demos.core import cli as demo_cli  # type: ignore
     except Exception as e:  # pragma: no cover
@@ -37,6 +38,7 @@ def register(cli):
 
     # Help pyright understand dynamic Click group attributes
     from typing import Any, cast as _cast
+
     _rlg = _cast(Any, rl_demo)
 
     @_rlg.command("setup")
@@ -47,9 +49,19 @@ def register(cli):
 
     @_rlg.command("deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-    @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
+    @click.option(
+        "--app",
+        type=click.Path(),
+        default=None,
+        help="Path to Modal app.py for uv run modal deploy",
+    )
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
-    @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
+    @click.option(
+        "--script",
+        type=click.Path(),
+        default=None,
+        help="Path to deploy_task_app.sh (optional legacy)",
+    )
     def rl_deploy(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
@@ -64,7 +76,7 @@ def register(cli):
 
     @_rlg.command("configure")
     def rl_configure():
-        _forward(["rl_demo.configure"]) 
+        _forward(["rl_demo.configure"])
 
     @_rlg.command("init")
     @click.option("--template", type=str, default=None, help="Template id to instantiate")
@@ -81,13 +93,22 @@ def register(cli):
         _forward(args)
 
     @_rlg.command("run")
-    @click.option("--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)")
+    @click.option(
+        "--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)"
+    )
     @click.option("--batch-size", type=int, default=None)
     @click.option("--group-size", type=int, default=None)
     @click.option("--model", type=str, default=None)
     @click.option("--timeout", type=int, default=600)
     @click.option("--dry-run", is_flag=True, help="Print request body and exit")
-    def rl_run(config: str | None, batch_size: int | None, group_size: int | None, model: str | None, timeout: int, dry_run: bool):
+    def rl_run(
+        config: str | None,
+        batch_size: int | None,
+        group_size: int | None,
+        model: str | None,
+        timeout: int,
+        dry_run: bool,
+    ):
         args = ["rl_demo.run"]
         if config:
             args.extend(["--config", config])
@@ -106,19 +127,29 @@ def register(cli):
     # Dotted aliases (top-level): legacy check → setup
     @cli.command("rl_demo.check")
     def rl_check_alias():
-        _forward(["rl_demo.setup"]) 
+        _forward(["rl_demo.setup"])
 
     @cli.command("rl_demo.setup")
     def rl_setup_alias():
-        _forward(["rl_demo.setup"]) 
+        _forward(["rl_demo.setup"])
 
     # (prepare alias removed)
 
     @cli.command("rl_demo.deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-    @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
+    @click.option(
+        "--app",
+        type=click.Path(),
+        default=None,
+        help="Path to Modal app.py for uv run modal deploy",
+    )
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
-    @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
+    @click.option(
+        "--script",
+        type=click.Path(),
+        default=None,
+        help="Path to deploy_task_app.sh (optional legacy)",
+    )
     def rl_deploy_alias(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
@@ -133,7 +164,7 @@ def register(cli):
 
     @cli.command("rl_demo.configure")
     def rl_configure_alias():
-        _forward(["rl_demo.configure"]) 
+        _forward(["rl_demo.configure"])
 
     @cli.command("rl_demo.init")
     @click.option("--template", type=str, default=None, help="Template id to instantiate")
@@ -150,13 +181,22 @@ def register(cli):
         _forward(args)
 
     @cli.command("rl_demo.run")
-    @click.option("--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)")
+    @click.option(
+        "--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)"
+    )
     @click.option("--batch-size", type=int, default=None)
     @click.option("--group-size", type=int, default=None)
     @click.option("--model", type=str, default=None)
     @click.option("--timeout", type=int, default=600)
     @click.option("--dry-run", is_flag=True, help="Print request body and exit")
-    def rl_run_alias(config: str | None, batch_size: int | None, group_size: int | None, model: str | None, timeout: int, dry_run: bool):
+    def rl_run_alias(
+        config: str | None,
+        batch_size: int | None,
+        group_size: int | None,
+        model: str | None,
+        timeout: int,
+        dry_run: bool,
+    ):
         args = ["rl_demo.run"]
         if config:
             args.extend(["--config", config])
@@ -175,9 +215,19 @@ def register(cli):
     # Top-level convenience alias: `synth-ai deploy`
     @cli.command("demo-deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-    @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
+    @click.option(
+        "--app",
+        type=click.Path(),
+        default=None,
+        help="Path to Modal app.py for uv run modal deploy",
+    )
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
-    @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
+    @click.option(
+        "--script",
+        type=click.Path(),
+        default=None,
+        help="Path to deploy_task_app.sh (optional legacy)",
+    )
     def deploy_demo(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
@@ -191,13 +241,22 @@ def register(cli):
         _forward(args)
 
     @cli.command("run")
-    @click.option("--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)")
+    @click.option(
+        "--config", type=click.Path(), default=None, help="Path to TOML config (skip prompt)"
+    )
     @click.option("--batch-size", type=int, default=None)
     @click.option("--group-size", type=int, default=None)
     @click.option("--model", type=str, default=None)
     @click.option("--timeout", type=int, default=600)
     @click.option("--dry-run", is_flag=True, help="Print request body and exit")
-    def run_top(config: str | None, batch_size: int | None, group_size: int | None, model: str | None, timeout: int, dry_run: bool):
+    def run_top(
+        config: str | None,
+        batch_size: int | None,
+        group_size: int | None,
+        model: str | None,
+        timeout: int,
+        dry_run: bool,
+    ):
         args = ["run"]
         if config:
             args.extend(["--config", config])

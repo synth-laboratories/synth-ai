@@ -223,7 +223,9 @@ class OpenAIResponsesAPIMixin:
         if not synth_gpu_endpoint:
             raise ValueError("SYNTH_GPU_HARMONY_ENDPOINT environment variable not set")
 
-        async with aiohttp.ClientSession() as session, session.post(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
                 f"{synth_gpu_endpoint}/v1/completions",
                 json={
                     "model": model,
@@ -231,8 +233,9 @@ class OpenAIResponsesAPIMixin:
                     "max_tokens": lm_config.get("max_tokens", 4096),
                     "temperature": lm_config.get("temperature", 0.8),
                 },
-            ) as resp:
-                result = await resp.json()
+            ) as resp,
+        ):
+            result = await resp.json()
 
         # Parse response using Harmony
         response_tokens = result.get("choices", [{}])[0].get("text", "")

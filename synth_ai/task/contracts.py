@@ -46,6 +46,7 @@ class TaskAppContract:
 
 # --- Unified rollout schema used by Task App services and SDK utilities ---
 
+
 class RolloutEnvSpec(BaseModel):
     env_id: Optional[str] = None
     env_name: Optional[str] = None

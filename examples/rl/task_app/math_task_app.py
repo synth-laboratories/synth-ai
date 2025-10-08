@@ -40,7 +40,10 @@ def fastapi_app():
     async def health(request: Request):
         env_key = normalize_environment_api_key()
         if not env_key:
-            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
         if not is_api_key_header_authorized(request):
             prefix = _log_env_key_prefix("health", env_key)
             content = {"status": "healthy", "authorized": False}
@@ -53,7 +56,10 @@ def fastapi_app():
     async def health_rollout(request: Request):
         env_key = normalize_environment_api_key()
         if not env_key:
-            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+            )
         if not is_api_key_header_authorized(request):
             prefix = _log_env_key_prefix("health/rollout", env_key)
             content = {"status": "healthy", "authorized": False}
@@ -76,7 +82,9 @@ def fastapi_app():
             print("[422] validation", snapshot, flush=True)
         except Exception:
             pass
-        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
+        return JSONResponse(
+            status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]}
+        )
 
     return app
 

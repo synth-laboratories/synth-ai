@@ -180,6 +180,7 @@ class ReplicaSync:
             # Request cancellation
             self._sync_task.cancel()
             import contextlib
+
             with contextlib.suppress(asyncio.CancelledError):
                 # Wait for the task to finish
                 await self._sync_task

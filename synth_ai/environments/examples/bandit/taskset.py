@@ -156,10 +156,10 @@ async def create_bandit_taskset(
         )
 
         expected = _expected_rewards(metadata)
-        arm_count = len(expected) if expected else (
-            len(metadata.arm_probabilities or [])
-            or len(metadata.arm_means or [])
-            or 0
+        arm_count = (
+            len(expected)
+            if expected
+            else (len(metadata.arm_probabilities or []) or len(metadata.arm_means or []) or 0)
         )
         if arm_count == 0:
             arm_count = 1

@@ -90,6 +90,7 @@ class CrafterEnvironmentWrapper:
                 logger.warning("Unknown Crafter action: %s - ignoring", action_str)
                 return None  # Signal to skip this action
             return CRAFTER_ACTIONS[action_str]
+
         for tc in tool_calls:
             if isinstance(tc, EnvToolCall):
                 # Expand interact_many; otherwise coerce non-interact tools into interact(action=tool)
@@ -103,12 +104,12 @@ class CrafterEnvironmentWrapper:
                             )
                 elif tc.tool != "interact":
                     candidate_action = tc.args.get("action") if isinstance(tc.args, dict) else None
-                    resolved_action = candidate_action if candidate_action in allowed_actions else tc.tool
+                    resolved_action = (
+                        candidate_action if candidate_action in allowed_actions else tc.tool
+                    )
                     action_int = _action_to_int(resolved_action)
                     if action_int is not None:  # Skip invalid actions
-                        normalized.append(
-                            EnvToolCall(tool="interact", args={"action": action_int})
-                        )
+                        normalized.append(EnvToolCall(tool="interact", args={"action": action_int}))
                 else:
                     normalized.append(tc)
             else:
@@ -120,13 +121,14 @@ class CrafterEnvironmentWrapper:
                 args = tc.get("arguments") or tc.get("args") or {}
                 if isinstance(args, str):
                     import json as _json
+
                     try:
                         args = _json.loads(args)
                     except Exception:
                         args = {}
                 # Expand interact_many into multiple interacts
                 if tool_name == "interact_many":
-                    for action in (args.get("actions") or []):
+                    for action in args.get("actions") or []:
                         action_int = _action_to_int(action)
                         if action_int is not None:  # Skip invalid actions
                             normalized.append(
@@ -135,11 +137,17 @@ class CrafterEnvironmentWrapper:
                 else:
                     # For any non-interact tool, resolve to an interact action.
                     # Support a packed list of actions under 'actions' for convenience.
-                    if isinstance(args, dict) and isinstance(args.get("actions"), list) and args.get("actions"):
+                    if (
+                        isinstance(args, dict)
+                        and isinstance(args.get("actions"), list)
+                        and args.get("actions")
+                    ):
                         for action in args.get("actions"):
                             action_int = _action_to_int(action)
                             if action_int is not None:
-                                normalized.append(EnvToolCall(tool="interact", args={"action": action_int}))
+                                normalized.append(
+                                    EnvToolCall(tool="interact", args={"action": action_int})
+                                )
                     else:
                         candidate_action = None
                         if isinstance(args, dict) and "action" in args:
@@ -148,13 +156,18 @@ class CrafterEnvironmentWrapper:
                         action_int: Optional[int]
                         if isinstance(candidate_action, int):
                             action_int = _action_to_int(candidate_action)
-                        elif isinstance(candidate_action, str) and candidate_action in allowed_actions:
+                        elif (
+                            isinstance(candidate_action, str)
+                            and candidate_action in allowed_actions
+                        ):
                             action_int = _action_to_int(candidate_action)
                         else:
                             # Fallback: interpret the tool name itself as the action label
                             action_int = _action_to_int(tool_name)
                         if action_int is not None:
-                            normalized.append(EnvToolCall(tool="interact", args={"action": action_int}))
+                            normalized.append(
+                                EnvToolCall(tool="interact", args={"action": action_int})
+                            )
 
         # Ensure we have at least one valid action; default to noop if none provided
         if not normalized:
@@ -173,7 +186,9 @@ class CrafterEnvironmentWrapper:
                 "semantic_map": pub_before.semantic_map,
             }
             actions_printable = [
-                (tc.args.get("action") if isinstance(tc.args, dict) else None) if isinstance(tc, EnvToolCall) else None
+                (tc.args.get("action") if isinstance(tc.args, dict) else None)
+                if isinstance(tc, EnvToolCall)
+                else None
                 for tc in normalized
             ]
             logger.info(
@@ -185,7 +200,11 @@ class CrafterEnvironmentWrapper:
                 [k for k, v in before_state["achievements_status"].items() if v],
                 actions_printable,
             )
-            logger.info("Surroundings BEFORE (seed=%s):\n%s", str(self.seed), _format_semantic_map_view(before_state))
+            logger.info(
+                "Surroundings BEFORE (seed=%s):\n%s",
+                str(self.seed),
+                _format_semantic_map_view(before_state),
+            )
         except Exception as _:
             # Logging should not interfere with stepping; fail-fast elsewhere
             pass
@@ -253,8 +272,14 @@ class CrafterEnvironmentWrapper:
                     inv_changes = ", ".join(changed_items) if changed_items else "none"
 
                     # Achievements gained/lost
-                    ach_b = {k for k, v in (before_state.get("achievements_status", {}) or {}).items() if v}
-                    ach_a = {k for k, v in (after_dict.get("achievements_status", {}) or {}).items() if v}
+                    ach_b = {
+                        k
+                        for k, v in (before_state.get("achievements_status", {}) or {}).items()
+                        if v
+                    }
+                    ach_a = {
+                        k for k, v in (after_dict.get("achievements_status", {}) or {}).items() if v
+                    }
                     ach_added = sorted(list(ach_a - ach_b))
                     ach_added_latest = ach_added
                     ach_removed = sorted(list(ach_b - ach_a))
@@ -272,12 +297,19 @@ class CrafterEnvironmentWrapper:
                     if reward is None and ach_added_latest:
                         try:
                             reward = float(len(ach_added_latest))
-                            logger.info("Reward shaping applied: +%s (achievements added)", len(ach_added_latest))
+                            logger.info(
+                                "Reward shaping applied: +%s (achievements added)",
+                                len(ach_added_latest),
+                            )
                         except Exception:
                             pass
                 except Exception:
                     pass
-            logger.info("Surroundings AFTER (seed=%s):\n%s", str(self.seed), _format_semantic_map_view(after_dict))
+            logger.info(
+                "Surroundings AFTER (seed=%s):\n%s",
+                str(self.seed),
+                _format_semantic_map_view(after_dict),
+            )
         except Exception as _:
             pass
         result: Dict[str, Any] = {
@@ -340,6 +372,7 @@ class CrafterEnvironmentWrapper:
             # Build reverse action map for readability
             int_to_action = {v: k for k, v in CRAFTER_ACTIONS.items()}
             from collections import Counter
+
             action_ids = []
             for tc in normalized:
                 if isinstance(tc, EnvToolCall) and isinstance(tc.args, dict):
@@ -380,7 +413,7 @@ class CrafterEnvironmentWrapper:
         return {
             "observation": convert_numpy_to_python(observation),
             "info": convert_numpy_to_python(info) if info else None,
-            "step_idx": self.step_idx
+            "step_idx": self.step_idx,
         }
 
     async def terminate(self) -> Dict[str, Any]:
@@ -390,7 +423,7 @@ class CrafterEnvironmentWrapper:
         return {
             "observation": convert_numpy_to_python(observation),
             "info": convert_numpy_to_python(info) if info else None,
-            "step_idx": self.step_idx
+            "step_idx": self.step_idx,
         }
 
     def state_dict(self) -> Dict[str, Any]:

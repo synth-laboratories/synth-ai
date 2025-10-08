@@ -120,7 +120,9 @@ def _ensure_task_info(obj: Any) -> TaskInfo:
         return obj
     if isinstance(obj, MutableMapping):
         return TaskInfo.model_validate(obj)
-    raise TypeError(f"Task instance provider must yield TaskInfo-compatible objects (got {type(obj)!r})")
+    raise TypeError(
+        f"Task instance provider must yield TaskInfo-compatible objects (got {type(obj)!r})"
+    )
 
 
 def _normalise_seeds(values: Sequence[int]) -> list[int]:
@@ -140,7 +142,9 @@ def _build_proxy_routes(
     if not proxy:
         return
 
-    async def _call_vendor(url: str, payload: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
+    async def _call_vendor(
+        url: str, payload: dict[str, Any], headers: dict[str, str]
+    ) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(600.0), follow_redirects=True) as client:
             response = await client.post(url, json=payload, headers=headers)
         data = (
@@ -168,13 +172,17 @@ def _build_proxy_routes(
             msg_count = len(messages) if isinstance(messages, list) else 0
             tool_count = len(payload.get("tools") or []) if isinstance(payload, dict) else 0
             model = payload.get("model") if isinstance(payload, dict) else None
-            print(f"[task:proxy:{route}] model={model} messages={msg_count} tools={tool_count}", flush=True)
+            print(
+                f"[task:proxy:{route}] model={model} messages={msg_count} tools={tool_count}",
+                flush=True,
+            )
         except Exception:  # pragma: no cover - best effort logging
             pass
 
     system_hint = proxy.system_hint
 
     if proxy.enable_openai:
+
         @app.post("/proxy/v1/chat/completions", dependencies=[Depends(auth_dependency)])
         async def proxy_openai(body: dict[str, Any], request: Request) -> Any:  # type: ignore[no-redef]
             key = get_openai_key_or_503()
@@ -187,6 +195,7 @@ def _build_proxy_routes(
             return to_jsonable(sanitized)
 
     if proxy.enable_groq:
+
         @app.post("/proxy/groq/v1/chat/completions", dependencies=[Depends(auth_dependency)])
         async def proxy_groq(body: dict[str, Any], request: Request) -> Any:  # type: ignore[no-redef]
             key = get_groq_key_or_503()
@@ -194,7 +203,9 @@ def _build_proxy_routes(
             payload = prepare_for_groq(model, body)
             payload = inject_system_hint(payload, system_hint or "")
             _log_proxy("groq", payload)
-            data = await _call_vendor(proxy.groq_url.rstrip("/"), payload, {"Authorization": f"Bearer {key}"})
+            data = await _call_vendor(
+                proxy.groq_url.rstrip("/"), payload, {"Authorization": f"Bearer {key}"}
+            )
             sanitized = synthesize_tool_call_if_missing(data)
             return to_jsonable(sanitized)
 
@@ -278,7 +289,15 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     async def health(request: Request) -> Mapping[str, Any]:
         # If we got here, auth_dependency already verified the key exactly matches
         expected = normalize_environment_api_key()
-        return to_jsonable({"healthy": True, "auth": {"required": True, "expected_prefix": (expected[:6] + '...') if expected else '<unset>'}})
+        return to_jsonable(
+            {
+                "healthy": True,
+                "auth": {
+                    "required": True,
+                    "expected_prefix": (expected[:6] + "...") if expected else "<unset>",
+                },
+            }
+        )
 
     @app.get("/info", dependencies=[Depends(auth_dependency)])
     async def info() -> Mapping[str, Any]:
@@ -335,6 +354,7 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
         raise TypeError("Rollout executor must return RolloutResponse or mapping")
 
     if cfg.expose_debug_env:
+
         @app.get("/debug/env", dependencies=[Depends(auth_dependency)])
         async def debug_env() -> Mapping[str, Any]:
             def _mask(value: str | None) -> str:

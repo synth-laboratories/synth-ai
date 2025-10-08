@@ -16,8 +16,10 @@ import tempfile
 import time
 
 import click
+
 try:
     from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
     try:
         __pkg_version__ = _pkg_version("synth-ai")
     except PackageNotFoundError:
@@ -148,7 +150,9 @@ def install_sqld() -> str:
     )
 
 
-@click.group(help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will.")
+@click.group(
+    help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will."
+)
 @click.version_option(version=__pkg_version__, prog_name="synth-ai")
 def cli():
     """Top-level command group for Synth AI."""
@@ -177,9 +181,13 @@ def _forward_to_demo(args: list[str]) -> None:
 
 @demo.command()
 @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-@click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
+@click.option(
+    "--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy"
+)
 @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
-@click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
+@click.option(
+    "--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)"
+)
 def deploy(local: bool, app: str | None, name: str, script: str | None):
     """Deploy the Math Task App (Modal by default)."""
     args: list[str] = ["rl_demo.deploy"]
@@ -273,7 +281,10 @@ def serve_deprecated(
     force: bool,
 ):
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    click.echo("⚠️  'synth-ai serve' now targets task apps; use 'synth-ai serve' for task apps or 'synth-ai serve-deprecated' for this legacy service.", err=True)
+    click.echo(
+        "⚠️  'synth-ai serve' now targets task apps; use 'synth-ai serve' for task apps or 'synth-ai serve-deprecated' for this legacy service.",
+        err=True,
+    )
     processes = []
 
     def signal_handler(sig, frame):

@@ -44,6 +44,7 @@ async def main() -> None:
         print("===== End Response =====\n")
     except Exception as e:  # always print full failure context
         import traceback
+
         print("\n===== Inference Error =====")
         print(f"Type: {type(e).__name__}")
         print(f"Repr: {repr(e)}")
@@ -51,14 +52,15 @@ async def main() -> None:
         print(traceback.format_exc())
         try:
             from synth_ai.http import HTTPError  # type: ignore
+
             if isinstance(e, HTTPError):
                 print("HTTPError details:")
                 print(f"  status={e.status}")
                 print(f"  url={e.url}")
                 print(f"  message={e.message}")
-                if getattr(e, 'detail', None) is not None:
+                if getattr(e, "detail", None) is not None:
                     print(f"  detail={e.detail}")
-                if getattr(e, 'body_snippet', None):
+                if getattr(e, "body_snippet", None):
                     print(f"  body_snippet={e.body_snippet}")
         except Exception:
             pass
@@ -67,5 +69,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-

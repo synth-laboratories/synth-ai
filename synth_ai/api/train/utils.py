@@ -83,7 +83,13 @@ class CLIResult:
     stderr: str
 
 
-def run_cli(args: Iterable[str], *, cwd: Path | None = None, env: Mapping[str, str] | None = None, timeout: float | None = None) -> CLIResult:
+def run_cli(
+    args: Iterable[str],
+    *,
+    cwd: Path | None = None,
+    env: Mapping[str, str] | None = None,
+    timeout: float | None = None,
+) -> CLIResult:
     proc = subprocess.run(
         list(args),
         cwd=cwd,
@@ -95,17 +101,27 @@ def run_cli(args: Iterable[str], *, cwd: Path | None = None, env: Mapping[str, s
     return CLIResult(code=proc.returncode, stdout=proc.stdout.strip(), stderr=proc.stderr.strip())
 
 
-def http_post(url: str, *, headers: Mapping[str, str] | None = None, json_body: Any | None = None, timeout: float = 60.0) -> requests.Response:
+def http_post(
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    json_body: Any | None = None,
+    timeout: float = 60.0,
+) -> requests.Response:
     resp = requests.post(url, headers=dict(headers or {}), json=json_body, timeout=timeout)
     return resp
 
 
-def http_get(url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0) -> requests.Response:
+def http_get(
+    url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0
+) -> requests.Response:
     resp = requests.get(url, headers=dict(headers or {}), timeout=timeout)
     return resp
 
 
-def post_multipart(url: str, *, api_key: str, file_field: str, file_path: Path, purpose: str = "fine-tune") -> requests.Response:
+def post_multipart(
+    url: str, *, api_key: str, file_field: str, file_path: Path, purpose: str = "fine-tune"
+) -> requests.Response:
     headers = {"Authorization": f"Bearer {api_key}"}
     files = {file_field: (file_path.name, file_path.read_bytes(), "application/jsonl")}
     data = {"purpose": purpose}

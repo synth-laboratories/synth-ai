@@ -1,5 +1,3 @@
-
-
 class Judgement:
     def __init__(
         self, criteria: str, score: float, reasoning: str = "", evidence: list[str] = None

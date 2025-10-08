@@ -25,7 +25,10 @@ class TaskAppClient:
     async def __aenter__(self) -> "TaskAppClient":
         headers = {"X-API-Key": self.api_key} if self.api_key else {}
         self._client = httpx.AsyncClient(
-            base_url=self.base_url, headers=headers, timeout=httpx.Timeout(120.0), follow_redirects=True
+            base_url=self.base_url,
+            headers=headers,
+            timeout=httpx.Timeout(120.0),
+            follow_redirects=True,
         )
         return self
 
@@ -39,7 +42,10 @@ class TaskAppClient:
         if self._client is None:
             headers = {"X-API-Key": self.api_key} if self.api_key else {}
             self._client = httpx.AsyncClient(
-                base_url=self.base_url, headers=headers, timeout=httpx.Timeout(120.0), follow_redirects=True
+                base_url=self.base_url,
+                headers=headers,
+                timeout=httpx.Timeout(120.0),
+                follow_redirects=True,
             )
         return self._client
 
@@ -103,8 +109,7 @@ def _math_tool_schema() -> List[Dict[str, Any]]:
                         "answer": {
                             "type": "string",
                             "description": "Final answer in simplest form",
-                        }
-                        ,
+                        },
                         "explanation": {
                             "type": "string",
                             "description": "Optional explanation of reasoning",
@@ -203,9 +208,7 @@ async def _choose_actions(
 
     if provider == "groq":
         # Task app proxies Groq requests; reuse existing headers on the client
-        response = await client.client.post(
-            "/proxy/groq/v1/chat/completions", json=payload
-        )
+        response = await client.client.post("/proxy/groq/v1/chat/completions", json=payload)
         response.raise_for_status()
         body = response.json()
     else:
@@ -223,18 +226,15 @@ async def _choose_actions(
                 headers=headers or None,
             )
         except httpx.ReadTimeout as exc:
-            raise RuntimeError(
-                "Inference request timed out. Check the inference service." ) from exc
+            raise RuntimeError("Inference request timed out. Check the inference service.") from exc
         try:
             body = response.json()
         except Exception:
             body = {"raw": response.text[:800]}
         if response.status_code >= 500:
-            raise RuntimeError(
-                f"Inference server error {response.status_code}: {body}")
+            raise RuntimeError(f"Inference server error {response.status_code}: {body}")
         if response.status_code >= 400:
-            raise RuntimeError(
-                f"Inference request invalid ({response.status_code}): {body}")
+            raise RuntimeError(f"Inference request invalid ({response.status_code}): {body}")
     tool_calls = _parse_tool_calls(body)
     return tool_calls, body
 
@@ -371,7 +371,9 @@ async def main() -> None:
     seed_start = int(cfg.get("seed_start") or 0)
 
     policy_cfg = _default_policy_cfg(cfg)
-    provider_hint = cfg.get("provider") or cfg.get("policy", {}).get("provider") or policy_cfg.get("provider")
+    provider_hint = (
+        cfg.get("provider") or cfg.get("policy", {}).get("provider") or policy_cfg.get("provider")
+    )
     provider = _detect_provider(model, provider_hint)
     policy_cfg.pop("provider", None)
 
@@ -412,7 +414,7 @@ async def main() -> None:
             problem = data.get("problem")
             tool_calls = data.get("tool_calls") or []
             print(
-                f"Episode {episode+1}/{episodes} seed={seed} status={status} reward={data.get('reward')}\n"
+                f"Episode {episode + 1}/{episodes} seed={seed} status={status} reward={data.get('reward')}\n"
                 f"  problem: {problem!r}\n"
                 f"  tool   : {tool_calls!r}\n"
                 f"  answer : {answer!r}\n  expected: {expected!r}",

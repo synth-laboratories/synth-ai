@@ -11,6 +11,7 @@ from synth_ai.config.base_url import get_backend_from_env
 try:
     from dotenv import load_dotenv  # type: ignore[reportMissingImports]
 except Exception:  # pragma: no cover
+
     def load_dotenv(*args, **kwargs):  # type: ignore[no-redef]
         return False
 
@@ -71,7 +72,9 @@ def load_env(mode: str | None = None) -> tuple[str, str]:
             or os.getenv("TESTING_LOCAL_SYNTH_API_KEY", "").strip()
         )
         if not base_url or not api_key:
-            raise RuntimeError("Missing LOCAL_BACKEND_URL or DEV_SYNTH_API_KEY/TESTING_LOCAL_SYNTH_API_KEY in environment/.env")
+            raise RuntimeError(
+                "Missing LOCAL_BACKEND_URL or DEV_SYNTH_API_KEY/TESTING_LOCAL_SYNTH_API_KEY in environment/.env"
+            )
     elif mode == "dev":
         base_url = os.getenv("DEV_BACKEND_URL", "").strip()
         api_key = os.getenv("DEV_SYNTH_API_KEY", "").strip()
@@ -85,7 +88,9 @@ def load_env(mode: str | None = None) -> tuple[str, str]:
             or os.getenv("SYNTH_API_KEY", "").strip()
         )
         if not api_key:
-            raise RuntimeError("Missing PROD_SYNTH_API_KEY/TESTING_PROD_SYNTH_API_KEY/SYNTH_API_KEY in environment/.env")
+            raise RuntimeError(
+                "Missing PROD_SYNTH_API_KEY/TESTING_PROD_SYNTH_API_KEY/SYNTH_API_KEY in environment/.env"
+            )
     base_url = base_url.rstrip("/")
     print(f"SYNTH backend: {base_url} (mode={mode})")
     # Also print masked API key and source

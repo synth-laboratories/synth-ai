@@ -20,10 +20,12 @@ def extract_examples(dataset: Any, *, limit: int | None) -> list[dict[str, str]]
         solution = item.get("solution") or ""
         if isinstance(solution, list):
             solution = "\n".join(str(part) for part in solution)
-        examples.append({
-            "problem": problem,
-            "solution": solution,
-        })
+        examples.append(
+            {
+                "problem": problem,
+                "solution": solution,
+            }
+        )
     return examples
 
 
@@ -35,12 +37,26 @@ def write_jsonl(path: Path, rows: list[dict[str, str]]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Download MATH dataset splits to JSONL for offline use")
-    parser.add_argument("--output-dir", default="examples/rl/data", help="Directory to write <split>.jsonl files")
-    parser.add_argument("--dataset", default="nlile/hendrycks-MATH-benchmark", help="Hugging Face dataset identifier")
-    parser.add_argument("--config", default="algebra", help="Hugging Face dataset config (if required)")
-    parser.add_argument("--splits", nargs="*", default=["train", "validation", "test"], help="Splits to download")
-    parser.add_argument("--limit", type=int, default=None, help="Optional cap on examples per split")
+    parser = argparse.ArgumentParser(
+        description="Download MATH dataset splits to JSONL for offline use"
+    )
+    parser.add_argument(
+        "--output-dir", default="examples/rl/data", help="Directory to write <split>.jsonl files"
+    )
+    parser.add_argument(
+        "--dataset",
+        default="nlile/hendrycks-MATH-benchmark",
+        help="Hugging Face dataset identifier",
+    )
+    parser.add_argument(
+        "--config", default="algebra", help="Hugging Face dataset config (if required)"
+    )
+    parser.add_argument(
+        "--splits", nargs="*", default=["train", "validation", "test"], help="Splits to download"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Optional cap on examples per split"
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir).expanduser()

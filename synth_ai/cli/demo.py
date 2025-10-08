@@ -23,6 +23,7 @@ def _find_demo_scripts(root: Path) -> list[Path]:
 
 def _forward_to_new(args: list[str]) -> None:
     import sys
+
     try:
         from synth_ai.demos.core import cli as demo_cli  # type: ignore
     except Exception as e:  # pragma: no cover
@@ -35,7 +36,9 @@ def _forward_to_new(args: list[str]) -> None:
 
 def register(cli):
     @cli.group("demo", invoke_without_command=True)
-    @click.option("--force", is_flag=True, help="Overwrite existing files in CWD when initializing demo")
+    @click.option(
+        "--force", is_flag=True, help="Overwrite existing files in CWD when initializing demo"
+    )
     @click.option("--list", "list_only", is_flag=True, help="List available legacy demos and exit")
     @click.option("-f", "filter_term", default="", help="Filter legacy demos by substring")
     @click.pass_context
@@ -99,13 +102,24 @@ def register(cli):
 
     # Help pyright understand dynamic Click group attributes
     from typing import Any, cast as _cast
+
     _dg = _cast(Any, demo)
 
     @_dg.command("deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-    @click.option("--app", type=click.Path(), default=None, help="Path to Modal app.py for uv run modal deploy")
+    @click.option(
+        "--app",
+        type=click.Path(),
+        default=None,
+        help="Path to Modal app.py for uv run modal deploy",
+    )
     @click.option("--name", type=str, default="synth-math-demo", help="Modal app name")
-    @click.option("--script", type=click.Path(), default=None, help="Path to deploy_task_app.sh (optional legacy)")
+    @click.option(
+        "--script",
+        type=click.Path(),
+        default=None,
+        help="Path to deploy_task_app.sh (optional legacy)",
+    )
     def demo_deploy(local: bool, app: str | None, name: str, script: str | None):
         args: list[str] = ["rl_demo.deploy"]
         if local:
@@ -120,11 +134,11 @@ def register(cli):
 
     @_dg.command("configure")
     def demo_configure():
-        _forward_to_new(["rl_demo.configure"]) 
+        _forward_to_new(["rl_demo.configure"])
 
     @_dg.command("setup")
     def demo_setup():
-        _forward_to_new(["rl_demo.setup"]) 
+        _forward_to_new(["rl_demo.setup"])
 
     @_dg.command("run")
     @click.option("--batch-size", type=int, default=None)

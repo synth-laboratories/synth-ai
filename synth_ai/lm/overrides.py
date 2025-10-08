@@ -20,8 +20,8 @@ from synth_ai.lm.injection import (
 #   "params": { ... api params to override ... },
 #   "tools": { ... optional tools overrides ... },
 # }
-_override_specs_ctx: contextvars.ContextVar[list[dict[str, Any]] | None] = (
-    contextvars.ContextVar("override_specs", default=None)
+_override_specs_ctx: contextvars.ContextVar[list[dict[str, Any]] | None] = contextvars.ContextVar(
+    "override_specs", default=None
 )
 
 # ContextVars actually applied for the specific call once matched

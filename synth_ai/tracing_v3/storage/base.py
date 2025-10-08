@@ -54,7 +54,10 @@ class TraceStorage(ABC):
 
     @abstractmethod
     async def get_model_usage(
-        self, start_date: datetime | None = None, end_date: datetime | None = None, model_name: str | None = None
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        model_name: str | None = None,
     ) -> Any:
         """Get model usage statistics.
 

@@ -100,13 +100,13 @@ class AnthropicAPI(VendorBase):
                 and model in CLAUDE_REASONING_MODELS
                 and reasoning_effort in ["high", "medium"]
             ):
-                    budget = SONNET_37_BUDGETS[reasoning_effort]
-                    api_params["thinking"] = {
-                        "type": "enabled",
-                        "budget_tokens": budget,
-                    }
-                    api_params["max_tokens"] = budget + 4096
-                    api_params["temperature"] = 1
+                budget = SONNET_37_BUDGETS[reasoning_effort]
+                api_params["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": budget,
+                }
+                api_params["max_tokens"] = budget + 4096
+                api_params["temperature"] = 1
         except (ImportError, AttributeError, TypeError):
             pass
 

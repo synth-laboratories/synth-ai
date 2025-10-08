@@ -54,5 +54,3 @@ async def stream_events(
                             return
         except Exception:
             continue
-
-

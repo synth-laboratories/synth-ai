@@ -179,7 +179,7 @@ def parse_tool_call_from_text(text: str) -> Tuple[list[str], str]:
     if m:
         items = [part.strip() for part in m.group(1).split(",") if part.strip()]
         if items:
-            reasoning = text[:m.start()].strip()
+            reasoning = text[: m.start()].strip()
             return items, reasoning
 
     # Patterns like "Action 1: move_right"
@@ -242,9 +242,7 @@ def synthesize_tool_call_if_missing(openai_response: dict[str, Any]) -> dict[str
         return openai_response
 
     new_message = copy.deepcopy(message)
-    new_message["tool_calls"] = [
-        _build_tool_call(actions, reasoning)
-    ]
+    new_message["tool_calls"] = [_build_tool_call(actions, reasoning)]
     if "content" not in new_message:
         new_message["content"] = None
 
@@ -255,4 +253,3 @@ def synthesize_tool_call_if_missing(openai_response: dict[str, Any]) -> dict[str
     result = copy.deepcopy(openai_response)
     result["choices"] = new_choices
     return result
-

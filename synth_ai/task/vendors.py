@@ -58,4 +58,3 @@ def get_groq_key_or_503() -> str:
     if not key:
         raise http_exception(503, "missing_groq_api_key", "GROQ_API_KEY is not configured")
     return key
-

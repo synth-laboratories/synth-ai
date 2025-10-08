@@ -27,4 +27,3 @@ __all__ = [
     "mint_environment_api_key",
     "MAX_ENVIRONMENT_API_KEY_BYTES",
 ]
-

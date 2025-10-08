@@ -25,5 +25,3 @@ TERMINAL_EVENT_FAILURE = {
     "rl.job.failed",
     "workflow.failed",
 }
-
-

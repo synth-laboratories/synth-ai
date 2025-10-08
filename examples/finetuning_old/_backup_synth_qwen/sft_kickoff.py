@@ -67,9 +67,10 @@ async def create_job(file_id: str) -> str:
         "upload_to_wasabi": bool(scfg.get("upload_to_wasabi", True)),
     }
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    async with aiohttp.ClientSession() as session, session.post(
-        f"{API_URL}/fine_tuning/jobs", json=body, headers=headers
-    ) as resp:
+    async with (
+        aiohttp.ClientSession() as session,
+        session.post(f"{API_URL}/fine_tuning/jobs", json=body, headers=headers) as resp,
+    ):
         assert resp.status == 200, await resp.text()
         data = await resp.json()
         return data["id"]

@@ -29,7 +29,7 @@ def _get_default_base_url() -> str:
     base, _ = get_backend_from_env()
     base = base.rstrip("/")
     if base.endswith("/api"):
-        base = base[:-len("/api")]
+        base = base[: -len("/api")]
     return f"{base}/api/v1"
 
 

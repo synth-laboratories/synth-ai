@@ -5,6 +5,7 @@ This demonstrates using the LM class with Synth models through native integratio
 
 This version uses the new tracing_v3 system with async Turso/SQLite backend.
 """
+
 import argparse
 import asyncio
 import contextlib
@@ -100,11 +101,11 @@ HTTP_TIMEOUT = (
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
 
+
 # Use the backend
 @asynccontextmanager
 async def _noop_async_context():
     yield
-
 
 
 async def create_experiment_context(
@@ -1266,9 +1267,8 @@ async def run_episode(
                         info = step_data.get("info", {})
 
                         # Calculate achievement reward if not provided by service
-                        if (
-                            (reward == 0 or reward is None)
-                            and ("achievements_status" in obs and "achievements_status" in prev_obs)
+                        if (reward == 0 or reward is None) and (
+                            "achievements_status" in obs and "achievements_status" in prev_obs
                         ):
                             prev_achievements = prev_obs["achievements_status"]
                             curr_achievements = obs["achievements_status"]

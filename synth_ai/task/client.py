@@ -158,7 +158,9 @@ class _TaskAppEnvironmentClient:
         )
         return response.json()
 
-    async def terminate(self, env_name: str, payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    async def terminate(
+        self, env_name: str, payload: Dict[str, Any] | None = None
+    ) -> Dict[str, Any]:
         response = await self._client._request(
             "POST", f"/env/{env_name}/terminate", json_payload=payload or {}
         )

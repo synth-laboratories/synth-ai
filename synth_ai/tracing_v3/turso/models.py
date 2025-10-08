@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """SQLAlchemy declarative models for tracing v3."""
 
 import json
@@ -452,7 +453,9 @@ class EventReward(Base):
     message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
     turn_number = Column(Integer, nullable=True)
     reward_value = Column(Float, nullable=False, default=0.0)
-    reward_type = Column(String, nullable=True)  # shaped | sparse | achievement | penalty | evaluator | human
+    reward_type = Column(
+        String, nullable=True
+    )  # shaped | sparse | achievement | penalty | evaluator | human
     key = Column(String, nullable=True)  # e.g., achievement name
     annotation = Column(JSONText)  # free-form JSON
     source = Column(String, nullable=True)  # environment | runner | evaluator | human

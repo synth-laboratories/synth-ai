@@ -191,7 +191,9 @@ class BanditEngine(StatefulEngine, IReproducibleEngine):
             step_count=self.step_count,
             max_steps=self.max_steps,
             last_arm=self.last_arm,
-            last_reward=float(reward) if reward is not None else (self.last_reward if self.step_count else None),
+            last_reward=float(reward)
+            if reward is not None
+            else (self.last_reward if self.step_count else None),
             cumulative_reward=float(self.total_reward),
             reward_history=self.reward_history.copy(),
             arm_pull_counts=self.arm_pull_counts.copy(),
@@ -238,7 +240,9 @@ class BanditEngine(StatefulEngine, IReproducibleEngine):
         engine.arm_probabilities = data.get("arm_probabilities", engine.arm_probabilities)
         engine.arm_means = data.get("arm_means", engine.arm_means)
         engine.arm_stds = data.get("arm_stds", engine.arm_stds)
-        engine.true_expected_rewards = list(data.get("true_expected_rewards", engine.true_expected_rewards))
+        engine.true_expected_rewards = list(
+            data.get("true_expected_rewards", engine.true_expected_rewards)
+        )
         engine.arm_count = len(engine.true_expected_rewards)
 
         engine.step_count = int(data.get("step_count", 0))
@@ -247,7 +251,9 @@ class BanditEngine(StatefulEngine, IReproducibleEngine):
         engine.last_arm = data.get("last_arm")
         engine.reward_history = list(data.get("reward_history", []))
         engine.arm_history = list(data.get("arm_history", []))
-        engine.arm_pull_counts = list(data.get("arm_pull_counts", [0 for _ in range(engine.arm_count)]))
+        engine.arm_pull_counts = list(
+            data.get("arm_pull_counts", [0 for _ in range(engine.arm_count)])
+        )
         engine.terminated = bool(data.get("terminated", False))
         engine.status = data.get("status", "in_progress")
 
@@ -287,7 +293,9 @@ class SynthBanditCheckpointObservationCallable(GetObservationCallable):
             "arm_count": pub.arm_count,
             "total_reward": priv.total_reward,
             "steps_taken": pub.step_count,
-            "best_expected_reward": max(priv.true_expected_rewards) if priv.true_expected_rewards else None,
+            "best_expected_reward": max(priv.true_expected_rewards)
+            if priv.true_expected_rewards
+            else None,
             "terminated": pub.terminated,
             "status": pub.status,
         }

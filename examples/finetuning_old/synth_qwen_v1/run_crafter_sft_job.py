@@ -37,13 +37,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--mode", choices=["local", "dev", "prod"], default=None)
     p.add_argument(
         "--db",
-        default=str(
-            Path(__file__).resolve().parents[3]
-            / "traces/v3/synth_ai.db/dbs/default/data"
-        ),
+        default=str(Path(__file__).resolve().parents[3] / "traces/v3/synth_ai.db/dbs/default/data"),
         help="Path to sqld internal data file or sqlite+aiosqlite URL",
     )
-    p.add_argument("--output", default=str(Path(__file__).parent / "data" / "training_crafter.jsonl"))
+    p.add_argument(
+        "--output", default=str(Path(__file__).parent / "data" / "training_crafter.jsonl")
+    )
     p.add_argument("--min-achievements", type=int, default=2)
     p.add_argument("--max-cost", type=float, default=10.0)
     p.add_argument("--max-tokens", type=int, default=100000)
@@ -72,12 +71,14 @@ async def extract_jsonl_from_traces(db_url: str, output_path: str, cfg: dict[str
         from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_modal_ft.filter_traces_sft_turso import (  # type: ignore
             FinetuningDataExtractorV3 as _Ex,
         )
+
         Extractor = _Ex
     except Exception:
         try:
             from synth_ai.environments.examples.crafter_classic.agent_demos.crafter_openai_ft.filter_traces_sft_turso import (  # type: ignore
                 FinetuningDataExtractorV3 as _Ex,
             )
+
             Extractor = _Ex
         except Exception as e:
             raise ImportError("FinetuningDataExtractorV3 not available in current build") from e
@@ -110,7 +111,11 @@ async def extract_jsonl_from_traces(db_url: str, output_path: str, cfg: dict[str
                     """,
                     {"session_id": sid},
                 )
-                session_models = model_df["model_name"].tolist() if model_df is not None and not model_df.empty else []
+                session_models = (
+                    model_df["model_name"].tolist()
+                    if model_df is not None and not model_df.empty
+                    else []
+                )
                 if not any(m in session_models for m in models):
                     continue
             ach = await ex.get_session_achievements(sid) or []
@@ -203,5 +208,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

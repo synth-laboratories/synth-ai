@@ -171,9 +171,7 @@ async def step_policy(
     """Execute a policy step to generate actions."""
     handle = registry.get_policy(request.policy_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Policy {request.policy_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Policy {request.policy_id} not found")
 
     try:
         task_app = req.app.state.task_app
@@ -196,9 +194,7 @@ async def step_policy(
                     from .envs.wordle.shared import format_observation_wordle
 
                 # ASSERTION: Validate observation structure
-                assert request.observation is not None, (
-                    "request.observation cannot be None"
-                )
+                assert request.observation is not None, "request.observation cannot be None"
                 assert isinstance(request.observation, dict), (
                     f"request.observation must be dict, got {type(request.observation)}"
                 )
@@ -215,22 +211,14 @@ async def step_policy(
                     "terminated",
                 }
                 missing_keys = required_keys - set(request.observation.keys())
-                assert not missing_keys, (
-                    f"Wordle observation missing required keys: {missing_keys}"
-                )
+                assert not missing_keys, f"Wordle observation missing required keys: {missing_keys}"
 
                 print("DEBUG POLICY_ROUTES: About to format Wordle observation")
-                print(
-                    f"DEBUG POLICY_ROUTES: Observation type: {type(request.observation)}"
-                )
-                print(
-                    f"DEBUG POLICY_ROUTES: Observation keys: {list(request.observation.keys())}"
-                )
+                print(f"DEBUG POLICY_ROUTES: Observation type: {type(request.observation)}")
+                print(f"DEBUG POLICY_ROUTES: Observation keys: {list(request.observation.keys())}")
                 feedback_val = request.observation["feedback"]
                 print(f"DEBUG POLICY_ROUTES: Observation feedback: {feedback_val}")
-                print(
-                    f"DEBUG POLICY_ROUTES: Observation guesses: {request.observation['guesses']}"
-                )
+                print(f"DEBUG POLICY_ROUTES: Observation guesses: {request.observation['guesses']}")
                 print(
                     f"DEBUG POLICY_ROUTES: Observation text length: {len(request.observation['text'])}"
                 )
@@ -238,50 +226,34 @@ async def step_policy(
                 # ASSERTION: Validate feedback data
                 guesses = request.observation["guesses"]
                 feedback = request.observation["feedback"]
-                assert isinstance(guesses, list), (
-                    f"guesses must be list, got {type(guesses)}"
-                )
-                assert isinstance(feedback, list), (
-                    f"feedback must be list, got {type(feedback)}"
-                )
+                assert isinstance(guesses, list), f"guesses must be list, got {type(guesses)}"
+                assert isinstance(feedback, list), f"feedback must be list, got {type(feedback)}"
                 # Note: We don't assert equal lengths here since the environment is broken
 
                 obs_text = format_observation_wordle(request.observation)
 
                 # ASSERTION: Validate formatted output
-                assert isinstance(obs_text, str), (
-                    f"obs_text must be string, got {type(obs_text)}"
-                )
+                assert isinstance(obs_text, str), f"obs_text must be string, got {type(obs_text)}"
                 assert len(obs_text) > 0, "obs_text cannot be empty"
                 assert "WORDLE" in obs_text, "obs_text must contain 'WORDLE' header"
                 assert "Respond with a single tool call" in obs_text, (
                     "obs_text must contain instruction text"
                 )
 
-                print(
-                    f"DEBUG POLICY_ROUTES: Formatted obs_text length: {len(obs_text)}"
-                )
-                print(
-                    f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟩: {'🟩' in obs_text}"
-                )
-                print(
-                    f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟨: {'🟨' in obs_text}"
-                )
-                print(
-                    f"DEBUG POLICY_ROUTES: Formatted obs_text contains ⬛: {'⬛' in obs_text}"
-                )
-                print(
-                    f"DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: {obs_text[:200]}"
-                )
+                print(f"DEBUG POLICY_ROUTES: Formatted obs_text length: {len(obs_text)}")
+                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟩: {'🟩' in obs_text}")
+                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟨: {'🟨' in obs_text}")
+                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains ⬛: {'⬛' in obs_text}")
+                print(f"DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: {obs_text[:200]}")
             elif True:
                 try:
                     from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
                 except Exception:
                     _SokobanPolicy = None  # type: ignore
-                
+
                 if _SokobanPolicy is not None and isinstance(policy, _SokobanPolicy):
                     from .envs.sokoban.shared import format_observation_sokoban
- 
+
                     obs_text = format_observation_sokoban(request.observation)
             elif True:
                 try:
@@ -291,7 +263,9 @@ async def step_policy(
                 if _MathPolicy is not None and isinstance(policy, _MathPolicy):
                     # Simple extraction of problem text
                     try:
-                        obs_text = str(request.observation.get("problem_text") or request.observation)
+                        obs_text = str(
+                            request.observation.get("problem_text") or request.observation
+                        )
                     except Exception:
                         obs_text = str(request.observation)
             else:
@@ -316,9 +290,7 @@ async def step_policy(
             user_messages: List[str] = []
             if msgs and len(msgs) > 0 and msgs[0]["role"] == "system":
                 sys_text = msgs[0]["content"]
-                policy_name = (
-                    getattr(policy, "name", "") or type(policy).__name__.lower()
-                )
+                policy_name = getattr(policy, "name", "") or type(policy).__name__.lower()
 
                 # Assert environment-specific prompts match the policy
                 if policy_name in ("wordle-react", "wordle"):
@@ -363,6 +335,7 @@ async def step_policy(
 
             # Emit full system/user prompts for observability (no secrets included)
             try:
+
                 def _as_text(content: object) -> str:
                     if isinstance(content, str):
                         return content
@@ -404,7 +377,7 @@ async def step_policy(
                     # Print concise preview for visibility in standard logs
                     try:
                         last_user = user_messages[-1] if user_messages else ""
-                        #preview = last_user[:400] if isinstance(last_user, str) else str(last_user)[:400]
+                        # preview = last_user[:400] if isinstance(last_user, str) else str(last_user)[:400]
                         print(f"[task:crafter] user prompt: {last_user}", flush=True)
                     except Exception:
                         pass
@@ -435,16 +408,27 @@ async def step_policy(
             api_key_override = None
             try:
                 import os as _os
+
                 if isinstance(target_url, str):
                     low_url = target_url.lower()
                     if "openai.com" in low_url:
-                        api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
+                        api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(
+                            task_app, "openai_api_key", None
+                        )
                     elif "groq.com" in low_url:
                         api_key_override = _os.getenv("GROQ_API_KEY")
                     else:
-                        api_key_override = _os.getenv("SYNTH_API_KEY") or _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
+                        api_key_override = (
+                            _os.getenv("SYNTH_API_KEY")
+                            or _os.getenv("OPENAI_API_KEY")
+                            or getattr(task_app, "openai_api_key", None)
+                        )
                 else:
-                    api_key_override = _os.getenv("SYNTH_API_KEY") or _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
+                    api_key_override = (
+                        _os.getenv("SYNTH_API_KEY")
+                        or _os.getenv("OPENAI_API_KEY")
+                        or getattr(task_app, "openai_api_key", None)
+                    )
             except Exception:
                 api_key_override = None
 
@@ -455,7 +439,9 @@ async def step_policy(
                     masked = "<masked>"
                 logger.debug(f"INFERENCE_AUTH: Using bearer key {masked}")
             else:
-                logger.warning("INFERENCE_AUTH: No API key resolved for inference request; downstream may 401")
+                logger.warning(
+                    "INFERENCE_AUTH: No API key resolved for inference request; downstream may 401"
+                )
 
             client = create_inference_client(task_app, api_key=api_key_override)
 
@@ -650,6 +636,7 @@ async def step_policy(
                 if model_for_diag and messages_for_diag:
                     try:
                         from transformers import AutoTokenizer
+
                         tok = AutoTokenizer.from_pretrained(model_for_diag)
                         prompt_preview = tok.apply_chat_template(
                             messages_for_diag,
@@ -660,7 +647,9 @@ async def step_policy(
                         max_len = getattr(tok, "model_max_length", None)
                         over_limit = False
                         try:
-                            over_limit = isinstance(max_len, int) and max_len > 0 and len(ids) > int(max_len)
+                            over_limit = (
+                                isinstance(max_len, int) and max_len > 0 and len(ids) > int(max_len)
+                            )
                         except Exception:
                             over_limit = False
                         if over_limit or len(ids) > 10000:
@@ -672,7 +661,9 @@ async def step_policy(
                                         "prompt_token_overflow_local": True,
                                         "model": str(model_for_diag),
                                         "token_count": int(len(ids)),
-                                        "model_max_length": int(max_len) if isinstance(max_len, int) else None,
+                                        "model_max_length": int(max_len)
+                                        if isinstance(max_len, int)
+                                        else None,
                                         "preview_tokens_logged": int(len(preview_ids)),
                                         "prompt_preview_first_10k_tokens": preview_text,
                                     }
@@ -682,7 +673,9 @@ async def step_policy(
                             try:
                                 meta["prompt_debug"] = {
                                     "token_count": int(len(ids)),
-                                    "model_max_length": int(max_len) if isinstance(max_len, int) else None,
+                                    "model_max_length": int(max_len)
+                                    if isinstance(max_len, int)
+                                    else None,
                                     "preview_first_10k_tokens": preview_text,
                                 }
                             except Exception:
@@ -700,14 +693,19 @@ async def step_policy(
                 if isinstance(msgs, list):
                     # Print compact messages structure and tool schema with bounded length
                     import json as _json
+
                     msgs_compact = _json.dumps(msgs)[:20000]
-                    tools_compact = _json.dumps(tools_dump)[:8000] if tools_dump is not None else None
-                    print({
-                        "llm.call": True,
-                        "policy": str(policy_name),
-                        "messages_preview": msgs_compact,
-                        "tools_preview": tools_compact,
-                    })
+                    tools_compact = (
+                        _json.dumps(tools_dump)[:8000] if tools_dump is not None else None
+                    )
+                    print(
+                        {
+                            "llm.call": True,
+                            "policy": str(policy_name),
+                            "messages_preview": msgs_compact,
+                            "tools_preview": tools_compact,
+                        }
+                    )
             except Exception:
                 pass
 
@@ -724,13 +722,20 @@ async def step_policy(
                             try:
                                 tools_arr = req_body.get("tools") or []
                                 if isinstance(tools_arr, list) and tools_arr:
-                                    f = tools_arr[0].get("function") if isinstance(tools_arr[0], dict) else None
+                                    f = (
+                                        tools_arr[0].get("function")
+                                        if isinstance(tools_arr[0], dict)
+                                        else None
+                                    )
                                     cand = (f or {}).get("name") if isinstance(f, dict) else None
                                     if isinstance(cand, str) and cand:
                                         func_name = cand
                             except Exception:
                                 pass
-                            req_body["tool_choice"] = {"type": "function", "function": {"name": func_name}}
+                            req_body["tool_choice"] = {
+                                "type": "function",
+                                "function": {"name": func_name},
+                            }
                             req_body["parallel_tool_calls"] = False
                             req_body.setdefault("function_call", {"name": func_name})
                         # Inject extra_body for thinking controls expected by Modal service
@@ -799,10 +804,13 @@ async def step_policy(
             else:
                 try:
                     import json as _json
-                    print({
-                        "tool_calls_parsed": int(len(tool_calls)),
-                        "tool_calls_preview": _json.dumps(tool_calls)[:20000],
-                    })
+
+                    print(
+                        {
+                            "tool_calls_parsed": int(len(tool_calls)),
+                            "tool_calls_preview": _json.dumps(tool_calls)[:20000],
+                        }
+                    )
                 except Exception:
                     logger.info(f"Parsed {len(tool_calls)} tool calls: {tool_calls}")
 
@@ -814,9 +822,7 @@ async def step_policy(
                         inference_response, getattr(policy, "use_tools", True)
                     )
                 else:
-                    parsed = policy.parse_model_response(
-                        inference_response, request.observation
-                    )
+                    parsed = policy.parse_model_response(inference_response, request.observation)
                 # Replace tool_calls with parsed result
                 if isinstance(parsed, list):
                     tool_calls = parsed
@@ -866,9 +872,7 @@ async def snapshot_policy(request: PolicySnapshotRequest) -> PolicySnapshotRespo
     """Create a snapshot of the policy state."""
     handle = registry.get_policy(request.policy_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Policy {request.policy_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Policy {request.policy_id} not found")
 
     try:
         # Serialize policy state
@@ -906,9 +910,7 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
     """Restore a policy from a snapshot."""
     snapshot = registry.get_snapshot(request.snapshot_id)
     if not snapshot:
-        raise HTTPException(
-            status_code=404, detail=f"Snapshot {request.snapshot_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Snapshot {request.snapshot_id} not found")
 
     if snapshot.kind != "policy":
         raise HTTPException(
@@ -956,9 +958,7 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
         return PolicyRestoreResponse(policy_id=policy_id)
 
     except Exception as e:
-        logger.error(
-            f"Failed to restore policy from snapshot {request.snapshot_id}: {e}"
-        )
+        logger.error(f"Failed to restore policy from snapshot {request.snapshot_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -967,9 +967,7 @@ async def terminate_policy(request: PolicyTerminateRequest) -> PolicyTerminateRe
     """Terminate a policy and clean up resources."""
     handle = registry.get_policy(request.policy_id)
     if not handle:
-        raise HTTPException(
-            status_code=404, detail=f"Policy {request.policy_id} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Policy {request.policy_id} not found")
 
     try:
         # Call terminate on the policy

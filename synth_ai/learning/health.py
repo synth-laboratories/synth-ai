@@ -24,7 +24,15 @@ async def task_app_health(task_app_url: str) -> Dict[str, Any]:
     return await _th(task_app_url)
 
 
-async def pricing_preflight(base_url: str, api_key: str, *, job_type: str, gpu_type: str, estimated_seconds: float, container_count: int) -> Dict[str, Any]:
+async def pricing_preflight(
+    base_url: str,
+    api_key: str,
+    *,
+    job_type: str,
+    gpu_type: str,
+    estimated_seconds: float,
+    container_count: int,
+) -> Dict[str, Any]:
     body = {
         "job_type": job_type,
         "gpu_type": gpu_type,
@@ -40,4 +48,3 @@ async def balance_autumn_normalized(base_url: str, api_key: str) -> Dict[str, An
     async with AsyncHttpClient(base_url, api_key, timeout=30.0) as http:
         js = await http.get(f"{_api_base(base_url)}/v1/balance/autumn-normalized")
     return js if isinstance(js, dict) else {"raw": js}
-

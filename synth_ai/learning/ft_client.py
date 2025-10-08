@@ -20,7 +20,12 @@ class FtClient:
             files = {"file": (p.name, content, _infer_content_type(p.name))}
             js = await http.post_multipart("/api/learning/files", data=data, files=files)
         if not isinstance(js, dict) or "id" not in js:
-            raise HTTPError(status=500, url="/api/learning/files", message="invalid_upload_response", body_snippet=str(js)[:200])
+            raise HTTPError(
+                status=500,
+                url="/api/learning/files",
+                message="invalid_upload_response",
+                body_snippet=str(js)[:200],
+            )
         return str(js["id"])
 
     async def create_sft_job(
@@ -55,5 +60,3 @@ def _infer_content_type(filename: str) -> str:
     if name.endswith(".txt"):
         return "text/plain"
     return "application/octet-stream"
-
-

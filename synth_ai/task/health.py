@@ -24,5 +24,3 @@ async def task_app_health(task_app_url: str) -> Dict[str, Any]:
         return {"ok": False, "status": None}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
-
-

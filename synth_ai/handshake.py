@@ -72,7 +72,9 @@ def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, i
     )
 
 
-def poll_handshake_token(device_code: str, origin: str | None = None, *, timeout_s: int | None = None) -> Dict[str, Any]:
+def poll_handshake_token(
+    device_code: str, origin: str | None = None, *, timeout_s: int | None = None
+) -> Dict[str, Any]:
     base = (origin or _origin()).rstrip("/")
     api_origin, _ = _split_origin(base)
     url = urljoin(api_origin.rstrip("/") + "/", "api/sdk/handshake/token")
