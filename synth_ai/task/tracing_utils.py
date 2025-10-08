@@ -74,6 +74,8 @@ def resolve_sft_output_dir() -> str | None:
 def unique_sft_path(base_dir: str, *, run_id: str) -> Path:
     """Return a unique JSONL path for an SFT record batch."""
 
-    ts = int(time.time() * 1000)
-    name = f"{run_id}_{ts}.jsonl"
+    from datetime import datetime
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    name = f"{run_id}_{timestamp}.jsonl"
     return Path(base_dir) / name
