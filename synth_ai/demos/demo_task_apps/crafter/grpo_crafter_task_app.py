@@ -23,7 +23,14 @@ import importlib.util
 
 
 def _load_build_config():
-    module_path = Path(__file__).resolve().parents[4] / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
+    # Find synth_ai package location to locate examples/
+    import synth_ai
+    synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
+    module_path = synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
+
+    if not module_path.exists():
+        raise ImportError(f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository.")
+
     spec = importlib.util.spec_from_file_location("warming_up_to_rl.task_app.grpo_crafter", module_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load task app module at {module_path}")

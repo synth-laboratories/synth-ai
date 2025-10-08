@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -9,12 +11,47 @@ import click
 from .utils import REPO_ROOT, load_toml, preview_json
 
 _SKIP_DIRS = {".git", "__pycache__", ".venv", "node_modules", "dist", "build"}
+_STATE_FILE = os.path.expanduser("~/.synth-ai/demo.json")
 
 
 @dataclass(slots=True)
 class ConfigCandidate:
     path: Path
     train_type: str  # "rl", "sft", or "unknown"
+
+
+def _load_last_config() -> Path | None:
+    """Load the last used training config path from state file."""
+    try:
+        if os.path.isfile(_STATE_FILE):
+            with open(_STATE_FILE) as fh:
+                data = json.load(fh)
+                if isinstance(data, dict):
+                    last_config = data.get("LAST_CONFIG")
+                    if last_config:
+                        path = Path(last_config).resolve()
+                        if path.exists():
+                            return path
+    except Exception:
+        pass
+    return None
+
+
+def _save_last_config(config_path: Path) -> None:
+    """Save the last used training config path to state file."""
+    try:
+        data = {}
+        if os.path.isfile(_STATE_FILE):
+            with open(_STATE_FILE) as fh:
+                data = json.load(fh) or {}
+        if not isinstance(data, dict):
+            data = {}
+        data["LAST_CONFIG"] = str(config_path.resolve())
+        os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
+        with open(_STATE_FILE, "w") as fh:
+            json.dump(data, fh)
+    except Exception:
+        pass
 
 
 def _iter_candidate_paths() -> Iterable[Path]:
@@ -139,19 +176,35 @@ def prompt_for_config(candidates: list[ConfigCandidate], *, requested_type: str 
     if not candidates:
         raise click.ClickException("No training configs found. Pass --config explicitly.")
 
+    # Check for last used config and move it to the top if found
+    last_config = _load_last_config()
+    default_idx = 1
+
+    if last_config:
+        for idx, cand in enumerate(candidates):
+            if cand.path.resolve() == last_config:
+                # Move last used config to the front
+                candidates.insert(0, candidates.pop(idx))
+                break
+
     click.echo("Select a training config:")
     for idx, cand in enumerate(candidates, start=1):
         label = cand.train_type if cand.train_type != "unknown" else "?"
-        click.echo(f"  {idx}) [{label}] {cand.path}")
+        last_marker = " (last used)" if last_config and cand.path.resolve() == last_config else ""
+        click.echo(f"  {idx}) [{label}] {cand.path}{last_marker}")
     click.echo("  0) Abort")
 
-    choice = click.prompt("Enter choice", type=int)
+    choice = click.prompt("Enter choice", type=int, default=default_idx)
     if choice == 0:
         raise click.ClickException("Aborted by user")
     if choice < 0 or choice > len(candidates):
         raise click.ClickException("Invalid selection")
 
     selection = candidates[choice - 1]
+
+    # Save this config as the last used
+    _save_last_config(selection.path)
+
     try:
         data = load_toml(selection.path)
         preview = preview_json({k: data.get(k) for k in list(data.keys())[:4]}, limit=320)

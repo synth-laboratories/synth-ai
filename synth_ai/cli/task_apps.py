@@ -27,6 +27,7 @@ import uuid
 import click
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
 from synth_ai.task.server import run_task_app, create_task_app
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -919,7 +920,7 @@ def _run_modal_script(
 
 def _preflight_env_key(crash_on_failure: bool = False) -> None:
     try:
-        raw_backend = os.environ.get("BACKEND_BASE_URL") or os.environ.get("SYNTH_BASE_URL") or "http://localhost:8000/api"
+        raw_backend = os.environ.get("BACKEND_BASE_URL") or os.environ.get("SYNTH_BASE_URL") or f"{PROD_BASE_URL_DEFAULT}/api"
         backend_base = raw_backend.rstrip('/')
         if not backend_base.endswith('/api'):
             backend_base = backend_base + '/api'
@@ -1186,22 +1187,52 @@ def _load_env_files_into_process(paths: Sequence[str]) -> None:
 @click.command('serve')
 @click.argument('app_id', type=str, required=False)
 @click.option('--host', default='0.0.0.0', show_default=True)
-@click.option('--port', default=8001, show_default=True, type=int)
+@click.option('--port', default=None, type=int, help='Port to serve on (default: 8001)')
 @click.option('--env-file', multiple=True, type=click.Path(), help='Extra .env files to load')
 @click.option('--reload/--no-reload', 'reload_flag', default=False, help='Enable uvicorn auto-reload')
 @click.option('--force/--no-force', 'force', default=False, help='Kill any process already bound to the selected port before starting')
-@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory')
-@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (maps to SQLD_DB_PATH)')
+@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory (default: traces/v3)')
+@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (default: traces/v3/synth_ai.db)')
 def serve_command(
     app_id: str | None,
     host: str,
-    port: int,
+    port: int | None,
     env_file: Sequence[str],
     reload_flag: bool,
     force: bool,
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
+    # Change to demo directory if stored (REQUIRED for demo isolation)
+    from synth_ai.demos.demo_task_apps.core import load_demo_dir
+    demo_dir = load_demo_dir()
+    if demo_dir:
+        demo_path = Path(demo_dir)
+        if not demo_path.is_dir():
+            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo.")
+        os.chdir(demo_dir)
+        click.echo(f"Using demo directory: {demo_dir}\n")
+        # Store demo directory for path resolution
+        os.environ['SYNTH_DEMO_DIR'] = str(demo_path.resolve())
+
+    # Prompt for port if not provided
+    if port is None:
+        port = click.prompt('Port to serve on', type=int, default=8001)
+
+    # Prompt for trace directory if not provided
+    if trace_dir is None:
+        click.echo('\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB.')
+        click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
+        enable_tracing = click.confirm('Enable tracing?', default=True)
+        if enable_tracing:
+            trace_dir = click.prompt('Trace directory', type=str, default='traces/v3', show_default=True)
+        else:
+            trace_dir = None
+
+    # Prompt for trace DB if not provided and tracing is enabled
+    if trace_dir and trace_db is None:
+        trace_db = click.prompt('Trace DB path', type=str, default='traces/v3/synth_ai.db', show_default=True)
+
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
     _serve_entry(entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db)
@@ -1210,22 +1241,52 @@ def serve_command(
 @task_app_group.command('serve')
 @click.argument('app_id', type=str, required=False)
 @click.option('--host', default='0.0.0.0', show_default=True)
-@click.option('--port', default=8001, show_default=True, type=int)
+@click.option('--port', default=None, type=int, help='Port to serve on (default: 8001)')
 @click.option('--env-file', multiple=True, type=click.Path(), help='Extra .env files to load')
 @click.option('--reload/--no-reload', 'reload_flag', default=False, help='Enable uvicorn auto-reload')
 @click.option('--force/--no-force', 'force', default=False, help='Kill any process already bound to the selected port before starting')
-@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory')
-@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (maps to SQLD_DB_PATH)')
+@click.option('--trace', 'trace_dir', type=click.Path(), default=None, help='Enable tracing and write SFT JSONL files to this directory (default: traces/v3)')
+@click.option('--trace-db', 'trace_db', type=click.Path(), default=None, help='Override local trace DB path (default: traces/v3/synth_ai.db)')
 def serve_task_group(
     app_id: str | None,
     host: str,
-    port: int,
+    port: int | None,
     env_file: Sequence[str],
     reload_flag: bool,
     force: bool,
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
+    # Change to demo directory if stored (REQUIRED for demo isolation)
+    from synth_ai.demos.demo_task_apps.core import load_demo_dir
+    demo_dir = load_demo_dir()
+    if demo_dir:
+        demo_path = Path(demo_dir)
+        if not demo_path.is_dir():
+            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo.")
+        os.chdir(demo_dir)
+        click.echo(f"Using demo directory: {demo_dir}\n")
+        # Store demo directory for path resolution
+        os.environ['SYNTH_DEMO_DIR'] = str(demo_path.resolve())
+
+    # Prompt for port if not provided
+    if port is None:
+        port = click.prompt('Port to serve on', type=int, default=8001)
+
+    # Prompt for trace directory if not provided
+    if trace_dir is None:
+        click.echo('\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB.')
+        click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
+        enable_tracing = click.confirm('Enable tracing?', default=True)
+        if enable_tracing:
+            trace_dir = click.prompt('Trace directory', type=str, default='traces/v3', show_default=True)
+        else:
+            trace_dir = None
+
+    # Prompt for trace DB if not provided and tracing is enabled
+    if trace_dir and trace_db is None:
+        trace_db = click.prompt('Trace DB path', type=str, default='traces/v3/synth_ai.db', show_default=True)
+
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
     _serve_entry(entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db)
@@ -1313,8 +1374,45 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
     if in_use_after:
         raise click.ClickException(f'Port {port} is still in use after attempting to terminate processes.')
 
+def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
+    """Save or update a key-value pair in the .env file."""
+    try:
+        # Read existing .env
+        existing_lines = []
+        if env_path.exists():
+            existing_lines = env_path.read_text().splitlines()
+
+        # Check if key already exists
+        key_exists = any(line.strip().startswith(f"{key}=") for line in existing_lines)
+
+        if not key_exists:
+            # Append to .env
+            with open(env_path, "a") as f:
+                if existing_lines and not existing_lines[-1].strip():
+                    # File exists and last line is not empty
+                    pass
+                elif existing_lines:
+                    # Add newline before appending
+                    f.write("\n")
+                f.write(f"{key}={value}\n")
+            click.echo(f"Saved {key} to {env_path}")
+    except Exception as e:
+        click.echo(f"Warning: Could not save {key} to .env: {e}", err=True)
+
+
 def _validate_required_env_keys() -> None:
     """Validate required environment keys are set, prompting if missing."""
+    # Use demo directory .env file if set, otherwise current directory
+    demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+    env_file = demo_base / ".env"
+
+    if env_file.exists():
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(env_file, override=False)
+        except Exception:
+            pass  # Best effort
+
     env_api_key = os.environ.get("ENVIRONMENT_API_KEY", "").strip()
 
     if not env_api_key:
@@ -1322,6 +1420,42 @@ def _validate_required_env_keys() -> None:
         if not env_api_key:
             raise click.ClickException("RL Environment API key is required to start the server")
         os.environ["ENVIRONMENT_API_KEY"] = env_api_key
+        _save_to_env_file(env_file, "ENVIRONMENT_API_KEY", env_api_key)
+
+    # Check for Groq API key
+    groq_api_key = os.environ.get("GROQ_API_KEY", "").strip()
+
+    if not groq_api_key:
+        click.echo("\nInference API key configuration:")
+        click.echo("This workflow requires a Groq API key.")
+        groq_api_key = input("Groq API key (or press Enter to skip): ").strip()
+        if groq_api_key:
+            os.environ["GROQ_API_KEY"] = groq_api_key
+            _save_to_env_file(env_file, "GROQ_API_KEY", groq_api_key)
+
+
+def _print_demo_next_steps_if_applicable() -> None:
+    """Print next steps if currently in a demo directory."""
+    try:
+        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        cwd = Path.cwd().resolve()
+        demo_dir = load_demo_dir()
+
+        # Check if we're in the demo directory
+        if demo_dir and Path(demo_dir).resolve() == cwd:
+            # Check if this looks like the crafter demo (has run_local_rollout_traced.py)
+            if (cwd / "run_local_rollout_traced.py").exists():
+                click.echo("\n" + "="*60)
+                click.echo("Next step: Collect traced rollouts")
+                click.echo("="*60)
+                click.echo("\nIn another terminal, run:")
+                click.echo(f"  cd {cwd}")
+                click.echo("  uv run python run_local_rollout_traced.py")
+                click.echo("\nRun this 5-10 times to collect diverse traces.")
+                click.echo("="*60 + "\n")
+    except Exception:
+        # Silently fail - this is just a helpful printout
+        pass
 
 
 def _serve_entry(
@@ -1341,8 +1475,14 @@ def _serve_entry(
     trace_enabled = trace_dir is not None or trace_db is not None
     if trace_enabled:
         os.environ['TASKAPP_TRACING_ENABLED'] = '1'
+
+        # Ensure paths are absolute relative to demo directory
+        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+
         if trace_dir is not None:
             dir_path = Path(trace_dir).expanduser()
+            if not dir_path.is_absolute():
+                dir_path = (demo_base / dir_path).resolve()
             try:
                 dir_path.mkdir(parents=True, exist_ok=True)
             except Exception as exc:
@@ -1351,15 +1491,18 @@ def _serve_entry(
             click.echo(f"Tracing enabled. SFT JSONL will be written to {dir_path}")
         if trace_db is not None:
             db_path = Path(trace_db).expanduser()
+            if not db_path.is_absolute():
+                db_path = (demo_base / db_path).resolve()
+            # Construct the sqlite URL from the absolute path
+            db_url = f"sqlite+aiosqlite:///{db_path}"
             os.environ['SQLD_DB_PATH'] = str(db_path)
-            os.environ.pop('TURSO_LOCAL_DB_URL', None)
+            os.environ['TURSO_LOCAL_DB_URL'] = db_url
             click.echo(f"Tracing DB path set to {db_path}")
         from synth_ai.tracing_v3.config import CONFIG as TRACE_CONFIG
-        # recompute db_url based on current environment
+        # Use the explicitly set URL if available
         new_db_url = os.getenv('TURSO_LOCAL_DB_URL') or TRACE_CONFIG.db_url
         TRACE_CONFIG.db_url = new_db_url
         if new_db_url:
-            os.environ['TURSO_LOCAL_DB_URL'] = new_db_url
             click.echo(f"Tracing DB URL resolved to {new_db_url}")
     elif os.getenv('TASKAPP_TRACING_ENABLED'):
         click.echo("Tracing enabled via environment variables")
@@ -1368,6 +1511,10 @@ def _serve_entry(
 
     _validate_required_env_keys()
     _preflight_env_key()
+
+    # Print next steps if in demo context
+    if trace_enabled:
+        _print_demo_next_steps_if_applicable()
 
     run_task_app(
         entry.config_factory,

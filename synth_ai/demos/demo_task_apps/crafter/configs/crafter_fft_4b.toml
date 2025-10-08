@@ -8,8 +8,7 @@ variety = "fft"
 
 [job]
 model = "Qwen/Qwen3-4B"
-# Limit training to the first 100 conversations (export a 100-row JSONL and point to it here)
-# data = "../ft_data/qwen3_32b_ach_ge3_raw_filtered.head100.jsonl"
+data = "ft_data/crafter_traces.jsonl"
 
 [compute]
 # Adjust as needed for your quota
@@ -23,7 +22,7 @@ topology = {}
 
 # Optional local validation dataset path (JSONL). If set, the client will upload
 # this file and wire up validation so the frontend can display val.loss.
-validation_path = "../ft_data/qwen3_32b_ach_ge3_raw_filtered.tokens_1000000_seed_123.val_2000.jsonl"
+# validation_path = "../ft_data/crafter_validation.jsonl"
 
 [training]
 mode = "sft_offline"

@@ -45,7 +45,17 @@ def _is_modal_public_url(u: str) -> bool:
 
 
 def cmd_setup(_args: argparse.Namespace) -> int:
-    # 1) Always perform SDK handshake and overwrite .env with returned keys
+    # Change to demo directory if stored
+    demo_dir = demo_core.load_demo_dir()
+    if demo_dir and os.path.isdir(demo_dir):
+        os.chdir(demo_dir)
+        print(f"Using demo directory: {demo_dir}")
+
+    # 1) Try to fetch keys from frontend; fall back to manual input if fetch fails
+    synth_key = ""
+    rl_env_key = ""
+    org_name = "this organization"
+
     try:
         print("\n⏳ Connecting SDK to your browser session…")
         res = run_handshake()
@@ -54,21 +64,38 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         keys = res.get("keys") or {}
         synth_key = str(keys.get("synth") or "").strip()
         rl_env_key = str(keys.get("rl_env") or "").strip()
-        if not synth_key or not rl_env_key:
-            raise HandshakeError("handshake returned missing keys")
-        # Overwrite .env with the latest values from the account/org
-        demo_core.persist_dotenv_values({
-            "SYNTH_API_KEY": synth_key,
-            "ENVIRONMENT_API_KEY": rl_env_key,
-        })
         org_name = (org.get("name") or "this organization")
         print(f"✅ Connected to {org_name}!")
-    except HandshakeError as e:
-        print(f"Handshake failed: {e}")
-        return 1
-    except Exception as e:
-        print(f"Unexpected handshake error: {e}")
-        return 1
+    except (HandshakeError, Exception) as e:
+        print(f"⚠️  Failed to fetch keys from frontend: {e}")
+        print("Falling back to manual entry...")
+
+    # Prompt for manual input if any key is missing
+    if not synth_key:
+        try:
+            synth_key = input("Failed to fetch your Synth API key. Please enter your Synth API key here:\n> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nSetup cancelled.")
+            return 1
+        if not synth_key:
+            print("Synth API key is required.")
+            return 1
+
+    if not rl_env_key:
+        try:
+            rl_env_key = input("Failed to fetch your RL Environment API key. Please enter your RL Environment API key here:\n> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nSetup cancelled.")
+            return 1
+        if not rl_env_key:
+            print("RL Environment API key is required.")
+            return 1
+
+    # Persist both keys to .env
+    dotenv_path = demo_core.persist_dotenv_values({
+        "SYNTH_API_KEY": synth_key,
+        "ENVIRONMENT_API_KEY": rl_env_key,
+    })
 
     # 2) Reload env after handshake to pick up values from .env (suppress env prints)
     import io
@@ -150,6 +177,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     # Omit uv version print to keep output concise
 
     # Keep exit code neutral; not all checks are critical for pairing
+    print(f"\nKeys saved to: {dotenv_path}")
     return 0
 
 
@@ -667,6 +695,12 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
 
 
 def cmd_deploy(args: argparse.Namespace) -> int:
+    # Change to demo directory if stored
+    demo_dir = demo_core.load_demo_dir()
+    if demo_dir and os.path.isdir(demo_dir):
+        os.chdir(demo_dir)
+        print(f"Using demo directory: {demo_dir}")
+
     env = demo_core.load_env()
     os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     cwd_env_path = os.path.join(os.getcwd(), ".env")
@@ -991,7 +1025,18 @@ def cmd_init(args: argparse.Namespace) -> int:
     assert selected is not None
 
     default_subdir = selected.default_subdir or selected.template_id
-    default_dest = Path(args.dest).expanduser().resolve() if args.dest else (Path.cwd() / default_subdir).resolve()
+
+    # Check if default destination is already occupied and switch to local_demos/ if needed
+    if args.dest:
+        default_dest = Path(args.dest).expanduser().resolve()
+    else:
+        primary_dest = Path.cwd() / default_subdir
+        if primary_dest.exists() and any(primary_dest.iterdir()) and not args.force:
+            # Switch to local_demos/ automatically if primary location is occupied
+            default_dest = (Path.cwd() / "local_demos" / default_subdir).resolve()
+        else:
+            default_dest = primary_dest.resolve()
+
     try:
         dest_input = input(f"Destination directory [{default_dest}]: ").strip()
     except Exception:
@@ -1018,17 +1063,28 @@ def cmd_init(args: argparse.Namespace) -> int:
                 print(f"Template source missing: {src_path}")
                 return 1
             dest_path = (destination / spec.destination).resolve()
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-            if dest_path.exists() and not args.force:
-                print(f"Refusing to overwrite existing file: {dest_path} (use --force)")
-                return 1
-            shutil.copy2(src_path, dest_path)
-            if spec.make_executable:
-                try:
-                    st = os.stat(dest_path)
-                    os.chmod(dest_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                except Exception:
-                    pass
+
+            # Handle directory copying
+            if src_path.is_dir():
+                if dest_path.exists() and not args.force:
+                    print(f"Refusing to overwrite existing directory: {dest_path} (use --force)")
+                    return 1
+                if dest_path.exists() and args.force:
+                    shutil.rmtree(dest_path)
+                shutil.copytree(src_path, dest_path)
+            else:
+                # Handle file copying
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                if dest_path.exists() and not args.force:
+                    print(f"Refusing to overwrite existing file: {dest_path} (use --force)")
+                    return 1
+                shutil.copy2(src_path, dest_path)
+                if spec.make_executable:
+                    try:
+                        st = os.stat(dest_path)
+                        os.chmod(dest_path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                    except Exception:
+                        pass
 
         if selected.env_lines:
             env_path = destination / ".env"
@@ -1049,6 +1105,9 @@ def cmd_init(args: argparse.Namespace) -> int:
                 print(f"Post-processing failed: {post_exc}")
                 return 1
 
+        # Store demo directory for subsequent commands
+        demo_core.persist_demo_dir(str(destination))
+
         print(f"Demo template '{selected.name}' materialised at {destination}.")
         print("Files created:")
         for spec in selected.iter_copy_specs():
@@ -1057,6 +1116,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             print("  - .env")
         if selected.config_source_path():
             print(f"  - {selected.config_destination}")
+        print("\nDemo directory stored. Subsequent commands will use this directory automatically.")
         print("Review the files, edit .env, and run any provided deploy scripts when ready.")
         return 0
     except KeyboardInterrupt:
@@ -1106,6 +1166,12 @@ def _write_text(path: str, content: str) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    # Change to demo directory if stored
+    demo_dir = demo_core.load_demo_dir()
+    if demo_dir and os.path.isdir(demo_dir):
+        os.chdir(demo_dir)
+        print(f"Using demo directory: {demo_dir}")
+
     env = demo_core.load_env()
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)

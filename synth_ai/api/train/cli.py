@@ -24,6 +24,7 @@ from .utils import (
     sleep,
     validate_sft_jsonl,
 )
+from synth_ai.config.base_url import get_backend_from_env
 
 
 def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Path]:
@@ -92,13 +93,24 @@ def _prompt_manual_dataset() -> Path:
     return Path(manual).expanduser()
 
 
+def _default_backend() -> str:
+    """Resolve backend URL with proper production default."""
+    # Check explicit override first
+    explicit = os.getenv("BACKEND_BASE_URL", "").strip()
+    if explicit:
+        return explicit
+    # Use standard resolution logic
+    base, _ = get_backend_from_env()
+    return f"{base}/api" if not base.endswith("/api") else base
+
+
 @click.command("train")
 @click.option("--config", "config_paths", multiple=True, type=click.Path(), help="Path to training TOML (repeatable)")
 @click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft"]), default="auto")
 @click.option("--env-file", "env_files", multiple=True, type=click.Path(), help=".env file(s) to preload (skips selection prompt)")
 @click.option("--task-url", default=None, help="Override task app base URL (RL only)")
 @click.option("--dataset", "dataset_path", type=click.Path(), default=None, help="Override dataset JSONL path (SFT)")
-@click.option("--backend", default=lambda: os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api"), help="Backend base URL")
+@click.option("--backend", default=_default_backend, help="Backend base URL")
 @click.option("--model", default=None, help="Override model identifier")
 @click.option("--idempotency", default=None, help="Idempotency-Key header for job creation")
 @click.option("--dry-run", is_flag=True, help="Preview payload without submitting")
@@ -224,6 +236,7 @@ def _wait_for_training_file(backend_base: str, api_key: str, file_id: str, *, ti
     headers = {"Authorization": f"Bearer {api_key}"}
     elapsed = 0.0
     interval = 2.0
+    first_check = True
     while True:
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code == 200:
@@ -232,16 +245,48 @@ def _wait_for_training_file(backend_base: str, api_key: str, file_id: str, *, ti
             except Exception:
                 data = {}
             status = str(data.get("status") or data.get("state") or data.get("storage_state") or "ready").lower()
+            if first_check:
+                click.echo(f"File uploaded successfully (id={file_id}, status={status})")
+                first_check = False
             if status in {"ready", "uploaded", "stored", "complete"}:
+                click.echo(f"✓ Training file ready (status={status})")
                 return
+            # Show progress for processing states
+            if status in {"processing", "pending", "validating"}:
+                click.echo(f"  Waiting for file processing... (status={status}, {elapsed:.0f}s elapsed)")
         elif resp.status_code == 404:
             # Keep polling; object may not be visible yet
-            pass
+            if first_check:
+                click.echo(f"Waiting for file {file_id} to become visible...")
+                first_check = False
+        elif resp.status_code in {401, 403}:
+            # Auth errors won't resolve by polling - fail immediately
+            try:
+                error_body = resp.json()
+            except Exception:
+                error_body = resp.text[:400]
+            click.echo(f"\n[ERROR] Authentication failed when checking training file:")
+            click.echo(f"  URL: {url}")
+            click.echo(f"  Status: {resp.status_code}")
+            click.echo(f"  Response: {error_body}")
+            click.echo(f"  API key: {mask_value(api_key)}")
+            raise click.ClickException(
+                f"Authentication error ({resp.status_code}). "
+                "Check that your SYNTH_API_KEY is valid and has permission to access this organization's files."
+            )
         else:
-            click.echo(f"[WARN] Unexpected response while checking training file {file_id}: {resp.status_code}")
+            # Other errors - show details but keep polling
+            try:
+                error_body = resp.json()
+            except Exception:
+                error_body = resp.text[:400]
+            click.echo(f"[WARN] Unexpected response checking file {file_id}:")
+            click.echo(f"  URL: {url}")
+            click.echo(f"  Status: {resp.status_code}")
+            click.echo(f"  Response: {error_body}")
 
         if elapsed >= timeout:
-            raise click.ClickException(f"Training file {file_id} not ready after {timeout:.0f}s")
+            raise click.ClickException(f"Training file {file_id} not ready after {timeout:.0f}s (last status: {resp.status_code})")
         sleep(interval)
         elapsed += interval
 
@@ -379,7 +424,9 @@ def handle_sft(
             validate_sft_jsonl(build.validation_file)
 
         upload_url = f"{backend_base}/learning/files"
-        click.echo(f"Uploading dataset {build.train_file}")
+        click.echo(f"\n=== Uploading Training Data ===")
+        click.echo(f"Dataset: {build.train_file}")
+        click.echo(f"Destination: {upload_url}")
         if dry_run:
             click.echo("Dry run: skipping upload")
             train_file_id = "dry-run-train"
@@ -388,46 +435,66 @@ def handle_sft(
             resp = post_multipart(upload_url, api_key=synth_key, file_field="file", file_path=build.train_file)
             js = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
             if resp.status_code >= 400 or "id" not in js:
-                raise click.ClickException(f"Training file upload failed ({resp.status_code}): {js or resp.text[:200]}")
+                click.echo(f"\n[ERROR] Training file upload failed:")
+                click.echo(f"  URL: {upload_url}")
+                click.echo(f"  Status: {resp.status_code}")
+                click.echo(f"  Response: {js or resp.text[:400]}")
+                click.echo(f"  File: {build.train_file}")
+                raise click.ClickException(f"Training file upload failed with status {resp.status_code}")
             train_file_id = js["id"]
+            click.echo(f"✓ Training file uploaded (id={train_file_id})")
             val_file_id = None
             if build.validation_file:
-                click.echo(f"Uploading validation dataset {build.validation_file}")
+                click.echo(f"Uploading validation dataset: {build.validation_file}")
                 vresp = post_multipart(upload_url, api_key=synth_key, file_field="file", file_path=build.validation_file)
                 vjs = vresp.json() if vresp.headers.get("content-type", "").startswith("application/json") else {}
                 if vresp.status_code < 400 and "id" in vjs:
                     val_file_id = vjs["id"]
+                    click.echo(f"✓ Validation file uploaded (id={val_file_id})")
                 else:
-                    click.echo(f"[WARN] Validation upload failed: {vresp.status_code} {vjs or vresp.text[:200]}")
+                    click.echo(f"[WARN] Validation upload failed ({vresp.status_code}): {vjs or vresp.text[:200]}")
         payload = dict(build.payload)
         payload["training_file_id"] = train_file_id
         if val_file_id:
             payload.setdefault("metadata", {}).setdefault("effective_config", {}).setdefault("data", {})["validation_files"] = [val_file_id]
 
+        click.echo(f"\n=== Checking File Processing Status ===")
         try:
             _wait_for_training_file(backend_base, synth_key, train_file_id)
         except click.ClickException as exc:
             raise click.ClickException(f"Training file {train_file_id} not ready: {exc}") from exc
 
-        click.echo("FFT job payload:\n" + preview_json(payload, limit=800))
+        click.echo(f"\n=== Creating Training Job ===")
+        click.echo("Job payload preview:")
+        click.echo(preview_json(payload, limit=800))
         if dry_run:
             click.echo("Dry run: skipping job submission")
             return
 
         create_url = f"{backend_base}/learning/jobs"
         headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+        click.echo(f"\nPOST {create_url}")
         resp = http_post(create_url, headers=headers, json_body=payload)
         js = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-        click.echo(f"Response {resp.status_code}: {preview_json(js, limit=400)}")
         if resp.status_code not in (200, 201):
-            raise click.ClickException("Failed to create learning job")
+            click.echo(f"\n[ERROR] Job creation failed:")
+            click.echo(f"  URL: {create_url}")
+            click.echo(f"  Status: {resp.status_code}")
+            click.echo(f"  Response: {preview_json(js, limit=600)}")
+            raise click.ClickException(f"Job creation failed with status {resp.status_code}")
         job_id = js.get("job_id") or js.get("id")
         if not job_id:
             raise click.ClickException("Response missing job id")
+        click.echo(f"✓ Job created (id={job_id})")
 
+        click.echo(f"\n=== Starting Training Job ===")
         start_url = f"{backend_base}/learning/jobs/{job_id}/start"
-        click.echo(f"POST {start_url} (start)")
-        _ = http_post(start_url, headers=headers, json_body={})
+        click.echo(f"POST {start_url}")
+        start_resp = http_post(start_url, headers=headers, json_body={})
+        if start_resp.status_code not in (200, 201):
+            click.echo(f"[WARN] Job start returned status {start_resp.status_code}")
+        else:
+            click.echo(f"✓ Job started")
 
         if not poll:
             click.echo(f"Started job {job_id} (polling disabled)")
