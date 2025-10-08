@@ -882,7 +882,7 @@ def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) ->
 
     click.echo('Select env file to load:')
     for idx, path in enumerate(env_candidates, start=1):
-        click.echo(f"  {idx}) {path}")
+        click.echo(f"  {idx}) {path.resolve()}")
     choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)))
     return [env_candidates[choice - 1]]
 
@@ -1126,7 +1126,7 @@ def _deploy_entry(
         raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
 
     env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+    click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
     _run_modal_with_entry(entry, modal_cfg, modal_cli, modal_name, env_paths, command="deploy", dry_run=dry_run, original_path=original_path)
 
 
@@ -1142,7 +1142,7 @@ def _modal_serve_entry(
         raise click.ClickException(f"Task app '{entry.app_id}' does not define Modal deployment settings")
 
     env_paths = _determine_env_files(entry, env_file)
-    click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+    click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
     _run_modal_with_entry(entry, modal_cfg, modal_cli, modal_name, env_paths, command="serve", original_path=original_path)
 
 @click.group(
@@ -1225,13 +1225,17 @@ def serve_command(
         click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
         enable_tracing = click.confirm('Enable tracing?', default=True)
         if enable_tracing:
-            trace_dir = click.prompt('Trace directory', type=str, default='traces/v3', show_default=True)
+            demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+            default_trace_dir = str((demo_base / 'traces/v3').resolve())
+            trace_dir = click.prompt('Trace directory', type=str, default=default_trace_dir, show_default=True)
         else:
             trace_dir = None
 
     # Prompt for trace DB if not provided and tracing is enabled
     if trace_dir and trace_db is None:
-        trace_db = click.prompt('Trace DB path', type=str, default='traces/v3/synth_ai.db', show_default=True)
+        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+        default_trace_db = str((demo_base / 'traces/v3/synth_ai.db').resolve())
+        trace_db = click.prompt('Trace DB path', type=str, default=default_trace_db, show_default=True)
 
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
@@ -1279,13 +1283,17 @@ def serve_task_group(
         click.echo('This data can be exported to JSONL for supervised fine-tuning (SFT).')
         enable_tracing = click.confirm('Enable tracing?', default=True)
         if enable_tracing:
-            trace_dir = click.prompt('Trace directory', type=str, default='traces/v3', show_default=True)
+            demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+            default_trace_dir = str((demo_base / 'traces/v3').resolve())
+            trace_dir = click.prompt('Trace directory', type=str, default=default_trace_dir, show_default=True)
         else:
             trace_dir = None
 
     # Prompt for trace DB if not provided and tracing is enabled
     if trace_dir and trace_db is None:
-        trace_db = click.prompt('Trace DB path', type=str, default='traces/v3/synth_ai.db', show_default=True)
+        demo_base = Path(os.environ.get('SYNTH_DEMO_DIR') or Path.cwd())
+        default_trace_db = str((demo_base / 'traces/v3/synth_ai.db').resolve())
+        trace_db = click.prompt('Trace DB path', type=str, default=default_trace_db, show_default=True)
 
     choice = _select_app_choice(app_id, purpose="serve")
     entry = choice.ensure_entry()
@@ -1322,7 +1330,7 @@ def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> 
 
     click.echo('Select env file to load:')
     for idx, path in enumerate(env_candidates, start=1):
-        click.echo(f"  {idx}) {path}")
+        click.echo(f"  {idx}) {path.resolve()}")
     choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)))
     return [env_candidates[choice - 1]]
 
@@ -1538,7 +1546,7 @@ def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_
 
     if choice.modal_script:
         env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
-        click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+        click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
         _run_modal_script(choice.modal_script, modal_cli, "deploy", env_paths, modal_name=modal_name, dry_run=dry_run)
         return
 
@@ -1555,7 +1563,7 @@ def modal_serve_app(app_id: str | None, modal_cli: str, modal_name: str | None, 
 
     if choice.modal_script:
         env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
-        click.echo('Using env file(s): ' + ', '.join(str(p) for p in env_paths))
+        click.echo('Using env file(s): ' + ', '.join(str(p.resolve()) for p in env_paths))
         _run_modal_script(choice.modal_script, modal_cli, "serve", env_paths, modal_name=modal_name)
         return
 
