@@ -252,7 +252,10 @@ async def main() -> None:
         load_dotenv(env_file)
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
+    # Default to TASK_APP_BASE_URL from .env, fallback to localhost:8001
+    # Treat empty string as unset
+    default_base_url = os.getenv("TASK_APP_BASE_URL") or "http://localhost:8001"
+    parser.add_argument("--base-url", default=default_base_url, help="Task app base URL")
     parser.add_argument("--api-key", help="RL Environment API key (will prompt if not provided)")
     parser.add_argument("--inference-api-key", help="Inference provider API key (will prompt if not provided)")
     parser.add_argument("--seed", type=int, default=42, help="Environment seed")
@@ -298,7 +301,8 @@ async def main() -> None:
 
     # Prompt for required parameters if not provided
     base_url = args.base_url
-    if args.base_url == "http://localhost:8001":
+    # Only prompt if using default localhost AND no TASK_APP_BASE_URL in env
+    if base_url == "http://localhost:8001" and not os.getenv("TASK_APP_BASE_URL"):
         print("\nTask app configuration:")
         base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
         base_url = base_url_input if base_url_input else "http://localhost:8001"
