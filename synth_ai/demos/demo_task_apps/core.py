@@ -121,6 +121,32 @@ def persist_env_api_key(key: str) -> None:
     _write_state(data)
 
 
+def persist_demo_dir(demo_dir: str) -> None:
+    """Store the demo directory path for subsequent commands."""
+    data = _read_state()
+    data["DEMO_DIR"] = demo_dir
+    _write_state(data)
+
+
+def load_demo_dir() -> str | None:
+    """Load the stored demo directory path, if any."""
+    data = _read_state()
+    return data.get("DEMO_DIR")
+
+
+def persist_env_file_path(env_path: str) -> None:
+    """Store the .env file path for subsequent commands."""
+    data = _read_state()
+    data["ENV_FILE_PATH"] = env_path
+    _write_state(data)
+
+
+def load_env_file_path() -> str | None:
+    """Load the stored .env file path, if any."""
+    data = _read_state()
+    return data.get("ENV_FILE_PATH")
+
+
 def modal_auth_status() -> Tuple[bool, str]:
     """Return (ok, message) describing Modal CLI credential status."""
 

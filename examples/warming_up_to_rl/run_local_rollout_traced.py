@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ def build_rollout_request(
     run_id: str,
     model: str,
     inference_url: str,
+    inference_api_key: str,
     ops: list[str],
     return_trace: bool,
     trace_format: str,
@@ -37,6 +39,7 @@ def build_rollout_request(
     policy_config = {
         "model": model,
         "inference_url": inference_url,
+        "api_key": inference_api_key,
     }
     if max_policy_tokens is not None:
         policy_config.update(
@@ -242,9 +245,16 @@ def print_reward_summary(
 
 
 async def main() -> None:
+    # Load .env file from current directory if it exists
+    env_file = Path.cwd() / ".env"
+    if env_file.exists():
+        from dotenv import load_dotenv
+        load_dotenv(env_file)
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="http://localhost:8010", help="Task app base URL")
-    parser.add_argument("--api-key", required=True, help="Environment API key")
+    parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
+    parser.add_argument("--api-key", help="RL Environment API key (will prompt if not provided)")
+    parser.add_argument("--inference-api-key", help="Inference provider API key (will prompt if not provided)")
     parser.add_argument("--seed", type=int, default=42, help="Environment seed")
     parser.add_argument("--run-id", default="local-trace", help="Run identifier")
     parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI-compatible model id")
@@ -286,10 +296,69 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    # Prompt for required parameters if not provided
+    base_url = args.base_url
+    if args.base_url == "http://localhost:8001":
+        print("\nTask app configuration:")
+        base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
+        base_url = base_url_input if base_url_input else "http://localhost:8001"
+
+    api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
+    if not api_key:
+        api_key = input("RL Environment API key (from ENVIRONMENT_API_KEY): ").strip()
+        if not api_key:
+            parser.error("RL Environment API key is required")
+
+    # Use Groq by default
+    model = "llama-3.3-70b-versatile"
+    inference_url = "https://api.groq.com/openai"
+
+    print("\nInference configuration (Groq):")
+    inference_api_key = args.inference_api_key or os.getenv("GROQ_API_KEY")
+    if not inference_api_key:
+        inference_api_key = input("Groq API key: ").strip()
+        if not inference_api_key:
+            parser.error("Groq API key is required")
+
+        # Save to .env for future use
+        env_path = Path.cwd() / ".env"
+        try:
+            # Read existing .env
+            existing_lines = []
+            if env_path.exists():
+                existing_lines = env_path.read_text().splitlines()
+
+            # Check if GROQ_API_KEY already exists
+            key_exists = any(line.strip().startswith("GROQ_API_KEY=") for line in existing_lines)
+
+            if not key_exists:
+                # Append to .env
+                with open(env_path, "a") as f:
+                    if existing_lines and not existing_lines[-1].strip():
+                        # File exists and last line is not empty
+                        pass
+                    elif existing_lines:
+                        # Add newline before appending
+                        f.write("\n")
+                    f.write(f"GROQ_API_KEY={inference_api_key}\n")
+                print(f"[INFO] Saved GROQ_API_KEY to {env_path}")
+        except Exception as e:
+            print(f"[WARN] Could not save GROQ_API_KEY to .env: {e}")
+
+    print("\nRollout configuration:")
+    max_llm_calls = args.max_llm_calls
+    if args.max_llm_calls == 1:
+        max_llm_calls_input = input(f"Max LLM calls [10]: ").strip()
+        max_llm_calls = int(max_llm_calls_input) if max_llm_calls_input else 10
+
+    # Override args with prompted values
+    args.base_url = base_url
+    args.max_llm_calls = max_llm_calls
+
     ops = ensure_ops(args.ops, args.max_llm_calls)
     return_trace = not args.no_trace
 
-    async with TaskAppClient(args.base_url, api_key=args.api_key, timeout=args.timeout) as client:
+    async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
         try:
             print(f"Fetching task_info for seed {args.seed}…")
             task_info = await client.task_info(seeds=[args.seed])
@@ -302,8 +371,9 @@ async def main() -> None:
             request = build_rollout_request(
                 seed=args.seed,
                 run_id=args.run_id,
-                model=args.model,
-                inference_url=args.inference_url,
+                model=model,
+                inference_url=inference_url,
+                inference_api_key=inference_api_key,
                 ops=ops,
                 return_trace=return_trace,
                 trace_format=args.trace_format,

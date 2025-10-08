@@ -1,9 +1,9 @@
 
 """Compatibility wrapper for the GRPO Crafter task app.
 
-This module now delegates to the shared TaskAppConfig defined in
-`synth_ai.task.apps.grpo_crafter`. It is kept for legacy usage (running the
-file directly or targeting `fastapi_app` from external tooling). Prefer using
+This module now delegates to the TaskAppConfig defined in the colocated example at
+`examples/warming_up_to_rl/task_app/grpo_crafter.py`. It is kept for legacy usage
+(running the file directly or targeting `fastapi_app` from external tooling). Prefer using
 `uvx synth-ai serve grpo-crafter` for local development and testing.
 """
 
@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
 from synth_ai.task.apps import ModalDeploymentConfig, registry
-from synth_ai.task.apps.grpo_crafter import build_config
+from .grpo_crafter import build_config
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
@@ -25,27 +25,9 @@ from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 APP_ID = "grpo-crafter"
 
 
-_BASE_CONFIG = build_config()
-TASK_APP_CONFIG = TaskAppConfig(
-    app_id="grpo-crafter",
-    name=_BASE_CONFIG.name,
-    description=_BASE_CONFIG.description,
-    base_task_info=_BASE_CONFIG.base_task_info,
-    describe_taskset=_BASE_CONFIG.describe_taskset,
-    provide_task_instances=_BASE_CONFIG.provide_task_instances,
-    rollout=_BASE_CONFIG.rollout,
-    dataset_registry=_BASE_CONFIG.dataset_registry,
-    rubrics=_BASE_CONFIG.rubrics,
-    proxy=_BASE_CONFIG.proxy,
-    routers=_BASE_CONFIG.routers,
-    middleware=_BASE_CONFIG.middleware,
-    app_state=_BASE_CONFIG.app_state,
-    require_api_key=_BASE_CONFIG.require_api_key,
-    expose_debug_env=_BASE_CONFIG.expose_debug_env,
-    cors_origins=_BASE_CONFIG.cors_origins,
-    startup_hooks=_BASE_CONFIG.startup_hooks,
-    shutdown_hooks=_BASE_CONFIG.shutdown_hooks,
-)
+def _build_base_config() -> TaskAppConfig:
+    # Lazily construct the base config to avoid heavy work at import time
+    return build_config()
 
 try:
     _REGISTERED_ENTRY = registry.get(APP_ID)
@@ -59,8 +41,8 @@ else:
 
 def build_task_app_config() -> TaskAppConfig:
     """Return a fresh TaskAppConfig for this wrapper."""
-
-    return TASK_APP_CONFIG.clone()
+    base = _build_base_config()
+    return base.clone()
 
 
 def fastapi_app():

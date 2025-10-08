@@ -66,6 +66,18 @@ Alias of the RL demo setup routine (`synth_ai/cli/root.py:146`). It guides you t
 uvx synth-ai setup
 ```
 
+## `uvx synth-ai turso`
+
+Verify the Turso `sqld` binary needed for tracing v3 and install it through the Turso CLI, bootstrapping that CLI with Homebrew when available (`synth_ai/cli/turso.py`). If `brew` is missing, the command prints manual instructions (e.g. install the Turso CLI via `brew install tursodatabase/tap/turso` or `curl -sSfL https://get.tur.so/install.sh | bash`, then run `turso dev` once to download `sqld`).
+
+```bash
+# Check for sqld and install ~/.local/bin/sqld when absent
+uvx synth-ai turso
+
+# Re-run after installing manually to verify detection
+uvx synth-ai turso
+```
+
 ## `uvx synth-ai train`
 
 Interactive launcher for SFT (FFT, QLoRA) and RL jobs (`synth_ai/api/train/cli.py:95`).

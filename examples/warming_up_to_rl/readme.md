@@ -87,9 +87,16 @@ Evaluation scripts auto-load `.env` values. Update TOMLs under `configs/` with t
 
 ## 4. Tracing and SFT Dataset Export
 
-1. Serve the task app with tracing enabled (see Section 2) or run the traced rollout helper:
+1. Serve the task app with tracing enabled (see Section 2). Optionally, run the traced rollout helper against the running server:
    ```bash
-   uv run python examples/warming_up_to_rl/run_local_rollout_traced.py --episodes 10 --difficulty easy
+   uv run python examples/warming_up_to_rl/run_local_rollout_traced.py \
+     --base-url http://localhost:8001 \
+     --api-key "$ENVIRONMENT_API_KEY" \
+     --inference-api-key "$GROQ_API_KEY" \
+     --model qwen/qwen3-32b \
+     --inference-url https://api.groq.com/openai \
+     --max-llm-calls 3 \
+     --run-id local-trace
    ```
 2. Inspect local trace databases:
    ```bash

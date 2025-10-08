@@ -134,3 +134,6 @@ examples/finetuning/_backup_synth_qwen/
 synth_ai/environments/examples/bandit/**/__pycache__/
 synth_ai/environments/examples/bandit/**/*.pyc
 node_modules/
+
+uv.lock
+local-trace_trace.json

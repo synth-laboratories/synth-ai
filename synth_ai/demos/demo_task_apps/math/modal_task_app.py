@@ -605,6 +605,32 @@ def fastapi_app():
         except Exception:
             reward_val = 0.0
 
+        # Immediate, concise rollout logging mirroring RL format
+        try:
+            preview = tool_answer[:120] + ("…" if isinstance(tool_answer, str) and len(tool_answer) > 120 else "")
+            components = {
+                "env": float(reward_val),
+                "rubric_event": 1.0 if bool(tool_answer.strip()) else 0.0,
+                "rubric_outcome": 1.0 if float(reward_val) > 0.0 else 0.0,
+            }
+            print(
+                "[MATH_ROLLOUT] run=",
+                run_id,
+                " seed=",
+                seed_val,
+                " subject=",
+                subject,
+                " tool=submit_answer answer=",
+                preview,
+                " reward=",
+                float(reward_val),
+                " components=",
+                components,
+                flush=True,
+            )
+        except Exception:
+            pass
+
         total_reward += float(reward_val)
         steps.append({
             "obs": {},
