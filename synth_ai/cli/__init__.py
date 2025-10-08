@@ -70,6 +70,12 @@ try:
 except Exception:
     pass
 try:
+    from . import turso as _turso
+
+    _turso.register(cli)
+except Exception:
+    pass
+try:
     from . import rl_demo as _rl_demo
 
     _rl_demo.register(cli)

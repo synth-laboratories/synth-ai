@@ -93,7 +93,8 @@ def build_sft_payload(
     if not raw_dataset:
         raise TrainError("Dataset not specified; pass --dataset or set [job].data")
     dataset_path = Path(raw_dataset)
-    dataset_path = (dataset_path if dataset_path.is_absolute() else (config_path.parent / dataset_path)).resolve()
+    # Resolve relative paths from current working directory, not config directory
+    dataset_path = (dataset_path if dataset_path.is_absolute() else (Path.cwd() / dataset_path)).resolve()
     if not dataset_path.exists():
         raise TrainError(f"Dataset not found: {dataset_path}")
 
@@ -101,7 +102,8 @@ def build_sft_payload(
     validation_file = None
     if validation_path:
         vpath = Path(validation_path)
-        vpath = (vpath if vpath.is_absolute() else (config_path.parent / vpath)).resolve()
+        # Resolve relative paths from current working directory, not config directory
+        vpath = (vpath if vpath.is_absolute() else (Path.cwd() / vpath)).resolve()
         if not vpath.exists():
             click.echo(f"[WARN] Validation dataset {vpath} missing; continuing without validation")
         else:

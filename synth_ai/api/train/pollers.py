@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Mapping
 
 import click
@@ -37,7 +38,8 @@ class JobPoller:
                 resp = http_get(f"{self.base_url}{path}", headers=self._headers())
                 info = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                 status = (info.get("status") or info.get("state") or "").lower()
-                click.echo(f"[poll] {elapsed:.0f}s status={status}")
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                click.echo(f"[poll] {timestamp} {elapsed:.0f}s status={status}")
                 if status in {"succeeded", "failed", "cancelled", "canceled", "completed"}:
                     break
             except Exception as exc:  # pragma: no cover - network failures

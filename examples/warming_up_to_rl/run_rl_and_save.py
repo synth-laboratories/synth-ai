@@ -11,6 +11,8 @@ from typing import Any, Dict
 import tomllib
 import requests
 
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+
 
 def _load_toml(path: Path) -> Dict[str, Any]:
     if not path.exists():
@@ -22,7 +24,7 @@ def _load_toml(path: Path) -> Dict[str, Any]:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Create clustered RL training job via backend RL endpoint")
-    p.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api"))
+    p.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api"))
     p.add_argument("--config", required=True, help="Path to RL TOML config")
     p.add_argument("--task-url", default=os.getenv("TASK_APP_URL", ""), help="Override task service URL (or set TASK_APP_URL)")
     p.add_argument("--idempotency", default=os.getenv("RL_IDEMPOTENCY_KEY", ""), help="Optional Idempotency-Key header value")

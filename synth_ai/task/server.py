@@ -387,6 +387,12 @@ def run_task_app(
         print(f"[task:server] Loaded environment from: {', '.join(loaded_files)}", flush=True)
 
     config = config_factory()
+    # Defensive: ensure the factory produced a valid TaskAppConfig to avoid
+    # confusing attribute errors later in the boot sequence.
+    if not isinstance(config, TaskAppConfig):  # type: ignore[arg-type]
+        raise TypeError(
+            f"Task app config_factory must return TaskAppConfig, got {type(config).__name__}"
+        )
     app = create_task_app(config)
 
     try:

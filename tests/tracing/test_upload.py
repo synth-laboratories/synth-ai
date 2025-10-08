@@ -282,7 +282,7 @@ class TestUploadFunction:
 
     @patch.dict(os.environ, {"SYNTH_API_KEY": "test-api-key"})
     @patch("synth_ai.tracing.upload.send_system_traces_s3")
-    @patch("synth_ai.tracing.events.store.event_store")
+    @patch("synth_ai.tracing.upload.event_store")
     def test_upload_success(self, mock_event_store, mock_send_s3):
         """Test successful upload."""
         # Setup mocks
@@ -344,7 +344,7 @@ class TestUploadFunction:
 
     @patch.dict(os.environ, {"SYNTH_API_KEY": "test-key"})
     @patch("synth_ai.tracing.upload.send_system_traces_s3")
-    @patch("synth_ai.tracing.events.store.event_store")
+    @patch("synth_ai.tracing.upload.event_store")
     def test_upload_http_error(self, mock_event_store, mock_send_s3):
         """Test upload handles HTTP errors."""
         # Setup mocks

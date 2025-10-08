@@ -8,13 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 
-from ..contracts import RolloutRequest, RolloutResponse, TaskInfo
-from ..datasets import TaskDatasetRegistry, TaskDatasetSpec
-from ..rubrics import load_rubric
-from ..server import ProxyConfig, RubricBundle, TaskAppConfig
-from ..json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
-from . import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from ..tracing_utils import (
+from synth_ai.task.contracts import RolloutRequest, RolloutResponse, TaskInfo, RolloutMetrics
+from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.task.rubrics import load_rubric
+from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
+from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
     resolve_tracing_db_url,
@@ -33,15 +33,16 @@ for path in [REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT]:
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
+HAS_HOSTED = True
 try:
     import crafter  # type: ignore
     import crafter.constants as C  # type: ignore
-    from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS, world_traits
-    from synth_envs_hosted.branching import router as branching_router
-    from synth_envs_hosted.environment_routes import router as environment_router
-    from synth_envs_hosted.hosted_app import TaskApp as HostedTaskApp
-    from synth_envs_hosted.policy_routes import router as policy_router
-    from synth_envs_hosted.rollout import (
+    from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS
+    from synth_envs_hosted.branching import router as branching_router  # type: ignore
+    from synth_envs_hosted.environment_routes import router as environment_router  # type: ignore
+    from synth_envs_hosted.hosted_app import TaskApp as HostedTaskApp  # type: ignore
+    from synth_envs_hosted.policy_routes import router as policy_router  # type: ignore
+    from synth_envs_hosted.rollout import (  # type: ignore
         RolloutEnvSpec as LegacyRolloutEnvSpec,
         RolloutPolicySpec as LegacyRolloutPolicySpec,
         RolloutRecordConfig as LegacyRolloutRecordConfig,
@@ -74,12 +75,16 @@ except Exception as exc:  # pragma: no cover - import-time validation
             f"For Modal: add '{pkg}' to ModalDeploymentConfig.pip_packages in synth_ai/task/apps/grpo_crafter.py.\n"
             f"Locally: pip install {pkg}"
         )
-    detailed = (
-        "grpo_crafter task app requires example dependencies and runtime libs.\n"
-        + (fix_hint + "\n" if fix_hint else "")
-        + f"Original error: {exc}"
-    )
-    raise RuntimeError(detailed) from exc
+    # Allow running without synth_envs_hosted; gate hosted features off
+    if missing_mod == "synth_envs_hosted":
+        HAS_HOSTED = False
+    else:
+        detailed = (
+            "grpo_crafter task app requires example dependencies and runtime libs.\n"
+            + (fix_hint + "\n" if fix_hint else "")
+            + f"Original error: {exc}"
+        )
+        raise RuntimeError(detailed) from exc
 
 
 CRAFTING_RULES_SYSTEM_HINT = (
@@ -130,7 +135,7 @@ class CrafterDataset:
         env = crafter.Env(area=self.area, length=self.length, seed=seed)
         try:
             env.reset()
-            traits = world_traits(env)
+            traits = _compute_world_traits(env)
             player = getattr(env, "_player", None)
             inventory = dict(getattr(player, "inventory", {})) if player else {}
             position = getattr(player, "pos", None)
@@ -161,6 +166,33 @@ class CrafterDataset:
     @property
     def seed_range(self) -> List[int]:
         return [self.seed_min, self.seed_max]
+def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int]:
+    # Local copy to avoid import-time issues; mirrors synth_ai.environments.examples.crafter_classic.taskset.world_traits
+    from crafter import objects as _objects  # type: ignore
+    import numpy as _np  # type: ignore
+
+    player = getattr(env, "_player", None)
+    if player is None:
+        return {"trees": 0, "cows": 0, "hostiles": 0}
+    pos = _np.array(getattr(player, "pos", [0, 0]))
+    counts = {"trees": 0, "cows": 0, "hostiles": 0}
+    world = getattr(env, "_world", None)
+    objects = getattr(world, "_objects", []) if world is not None else []
+    for obj in objects:
+        if obj is None or obj is player:
+            continue
+        try:
+            if _np.abs(getattr(obj, "pos") - pos).sum() > radius:
+                continue
+        except Exception:
+            continue
+        if isinstance(obj, _objects.Plant) and getattr(obj, "kind", "") == "tree":
+            counts["trees"] += 1
+        elif isinstance(obj, _objects.Cow):
+            counts["cows"] += 1
+        elif isinstance(obj, (_objects.Zombie, _objects.Skeleton)):
+            counts["hostiles"] += 1
+    return counts
 
 
 def env_value(key: str, default: Any) -> Any:
@@ -315,6 +347,24 @@ def _normalise_op(op_value: Any, index: int) -> str:
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
+    # If hosted env service code is not bundled, return a no-op rollout response compatible with contracts
+    if not HAS_HOSTED:
+        return RolloutResponse(
+            run_id=request.run_id,
+            trajectories=[],
+            branches={},
+            metrics=RolloutMetrics(
+                episode_returns=[],
+                mean_return=0.0,
+                num_steps=0,
+                num_episodes=0,
+                details={},
+            ),
+            aborted=False,
+            ops_executed=0,
+            trace=None,
+        )
+
     converted_ops: List[str] = [_normalise_op(op, idx) for idx, op in enumerate(request.ops)]
     legacy_request = LegacyRolloutRequest(
         run_id=request.run_id,
@@ -352,7 +402,7 @@ def build_config() -> TaskAppConfig:
     registry, dataset = build_dataset()
     base_info = _base_task_info(dataset)
 
-    hosted_task_app = HostedTaskApp()
+    hosted_task_app = HostedTaskApp() if HAS_HOSTED else None
 
     tracing_enabled = tracing_env_enabled()
     tracing_db_url = resolve_tracing_db_url()
@@ -383,6 +433,8 @@ def build_config() -> TaskAppConfig:
     def _provide_instances(seeds: Sequence[int]):
         return provide_task_instances(dataset, base_info, seeds)
 
+    routers: tuple = (environment_router, policy_router, branching_router) if HAS_HOSTED else ()
+
     config = TaskAppConfig(
         app_id="grpo-crafter",
         name="GRPO Crafter Task App",
@@ -394,7 +446,7 @@ def build_config() -> TaskAppConfig:
         dataset_registry=registry,
         rubrics=RubricBundle(outcome=OUTCOME_RUBRIC, events=EVENTS_RUBRIC),
         proxy=ProxyConfig(enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT),
-        routers=(environment_router, policy_router, branching_router),
+        routers=routers,
         app_state=app_state,
         cors_origins=["*"],
     )

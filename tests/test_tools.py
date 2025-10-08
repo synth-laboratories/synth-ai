@@ -1,4 +1,5 @@
 import json
+import os
 
 import openai
 import pytest
@@ -11,6 +12,13 @@ from synth_ai.lm.tools.base import BaseTool
 from synth_ai.lm.vendors.core.anthropic_api import AnthropicAPI
 from synth_ai.lm.vendors.openai_standard import OpenAIStandard
 from synth_ai.zyk import LM
+
+
+if not os.getenv("OPENAI_API_KEY") or not os.getenv("ANTHROPIC_API_KEY"):
+    pytest.skip(
+        "OpenAI/Anthropic API keys not configured; skipping tool integration tests",
+        allow_module_level=True,
+    )
 
 
 class WeatherParams(BaseModel):

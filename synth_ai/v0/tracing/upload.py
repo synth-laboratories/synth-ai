@@ -373,140 +373,37 @@ def upload_helper(
         raise ValueError("SYNTH_API_KEY environment variable not set")
     base_url = os.getenv("SYNTH_ENDPOINT_OVERRIDE", PROD_BASE_URL_DEFAULT)
 
-"""Legacy block below retained for reference and disabled for linting/parsing.
-Start disabled block.
-"""
-"""
-from .decorators import _local, active_events_var
-from .trackers import synth_tracker_async, synth_tracker_sync
-
-    # First close any tracker events
-    if hasattr(synth_tracker_async, "active_events"):
-        for event_type, event in list(synth_tracker_async.active_events.items()):
-            if event and event.closed is None:
-                event.closed = time.time()
-                try:
-                    event_store.add_event(
-                        event.system_name,
-                        event.system_id,
-                        event.system_instance_id,
-                        event,
-                    )
-                    if verbose:
-                        print(f"Closed and stored tracker async event: {event_type}")
-                except Exception as e:
-                    logging.error(f"Failed to store tracker event {event_type}: {str(e)}")
-        synth_tracker_async.active_events.clear()
-
-    # End all active events before uploading
-    if hasattr(_local, "active_events"):
-        for event_type, event in _local.active_events.items():
-            if event and event.closed is None:
-                event.closed = time.time()
-                if hasattr(_local, "system_instance_id"):
-                    try:
-                        event_store.add_event(
-                            _local.system_name,
-                            _local.system_id,
-                            _local.system_instance_id,
-                            event,
-                        )
-                        if verbose:
-                            print(f"Closed and stored active event: {event_type}")
-                    except Exception as e:
-                        logging.error(f"Failed to store event {event_type}: {str(e)}")
-        _local.active_events.clear()
-
-    # NEW: Close all open asynchronous events
-    active_events_async = active_events_var.get()
-    if active_events_async:
-        current_time = time.time()
-        for event_type, event in list(active_events_async.items()):
-            if event and event.closed is None:
-                event.closed = current_time
-                try:
-                    event_store.add_event(
-                        event.system_name,
-                        event.system_id,
-                        event.system_instance_id,
-                        event,
-                    )
-                    if verbose:
-                        print(f"Closed and stored async event: {event_type}")
-                except Exception as e:
-                    logging.error(f"Failed to store async event {event_type}: {str(e)}")
-        active_events_var.set({})
-
-    # Also close any unclosed events in existing traces
     logged_traces = event_store.get_system_traces()
-    traces = logged_traces + traces
-    # traces = event_store.get_system_traces() if len(traces) == 0 else traces
-    current_time = time.time()
-    for trace in traces:
-        for partition in trace.partition:
-            for event in partition.events:
-                if event.closed is None:
-                    event.closed = current_time
-                    event_store.add_event(
-                        trace.system_name,
-                        trace.system_id,
-                        trace.system_instance_id,
-                        event,
-                    )
-                    if verbose:
-                        print(f"Closed existing unclosed event: {event.event_type}")
+    combined_traces: List[SystemTrace] = list(logged_traces) + list(traces)
 
-    try:
-        # Get traces and convert to dict format
-        if len(traces) == 0:
-            raise ValueError("No system traces found")
-        traces_dict = [trace.to_dict() for trace in traces]
-        dataset_dict = dataset.to_dict()
+    if not combined_traces:
+        raise ValueError("No system traces found")
 
-        # Validate upload format
-        if verbose:
-            print("Validating upload format...")
-        validate_upload(traces_dict, dataset_dict)
-        if verbose:
-            print("Upload format validation successful")
+    traces_dict = [trace.to_dict() for trace in combined_traces]
+    dataset_dict = dataset.to_dict()
 
-        # Send to server
-        upload_id, signed_url = send_system_traces_s3(
-            dataset=dataset,
-            traces=traces,
-            base_url=base_url,
-            api_key=api_key,
-            system_id=traces[0].system_id,
-            system_name=traces[0].system_name,
-            verbose=verbose,
-        )
+    if verbose:
+        print("Validating upload format...")
+    validate_upload(traces_dict, dataset_dict)
 
-        questions_json, reward_signals_json, traces_json = format_upload_output(dataset, traces)
-        return (
-            {
-                "status": "success",
-                "upload_id": upload_id,
-                "signed_url": signed_url,
-            },
-            questions_json,
-            reward_signals_json,
-            traces_json,
-        )
+    upload_id, signed_url = send_system_traces_s3(
+        dataset=dataset,
+        traces=combined_traces,
+        base_url=base_url,
+        api_key=api_key,
+        system_id=combined_traces[0].system_id,
+        system_name=combined_traces[0].system_name,
+        verbose=verbose,
+    )
 
-    except ValueError as e:
-        if verbose:
-            print("Validation error:", str(e))
-            print("\nTraces:")
-            print(json.dumps(traces_dict, indent=2))
-            print("\nDataset:")
-            print(json.dumps(dataset_dict, indent=2))
-        raise
-    except requests.exceptions.HTTPError as e:
-        if verbose:
-            print("HTTP error occurred:", e)
-            print("\nTraces:")
-            print(json.dumps(traces_dict, indent=2))
-            print("\nDataset:")
-            print(json.dumps(dataset_dict, indent=2))
-        raise
-"""
+    questions_json, reward_signals_json, traces_json = format_upload_output(dataset, combined_traces)
+    return (
+        {
+            "status": "success",
+            "upload_id": upload_id,
+            "signed_url": signed_url,
+        },
+        questions_json,
+        reward_signals_json,
+        traces_json,
+    )

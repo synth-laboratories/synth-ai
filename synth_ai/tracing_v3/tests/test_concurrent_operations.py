@@ -9,6 +9,7 @@ These tests should PASS with Turso's multi-writer MVCC.
 
 import asyncio
 import os
+import shutil
 import tempfile
 import time
 import uuid
@@ -16,6 +17,7 @@ import uuid
 import pytest
 import pytest_asyncio
 
+from synth_ai.tracing_v3.config import CONFIG
 from synth_ai.tracing_v3.abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
@@ -25,6 +27,36 @@ from synth_ai.tracing_v3.abstractions import (
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.turso.daemon import SqldDaemon
 from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+
+
+if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
+    pytest.skip(
+        "sqld binary not available; install Turso sqld or set SQLD_BINARY to skip these tests",
+        allow_module_level=True,
+    )
+
+# Proactively verify that sqld can start in this environment. Some sandboxed CI
+# environments block the process from binding to localhost, resulting in
+# `Operation not permitted` errors when the daemon launches. If we detect that
+# condition, skip the module instead of failing all tests.
+from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+
+with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
+    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
+    try:
+        _probe_daemon.start()
+    except RuntimeError as exc:  # pragma: no cover - environment dependent
+        if "Operation not permitted" in str(exc) or "Permission denied" in str(exc):
+            pytest.skip(
+                "sqld daemon cannot start in this environment (Operation not permitted)",
+                allow_module_level=True,
+            )
+        raise
+    finally:
+        try:
+            _probe_daemon.stop()
+        except Exception:
+            pass
 
 
 @pytest.mark.asyncio

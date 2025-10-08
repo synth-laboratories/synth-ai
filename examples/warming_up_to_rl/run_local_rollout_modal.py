@@ -57,13 +57,18 @@ def summarise_response(data: Any) -> dict[str, Any]:
 
 
 async def main() -> None:
+    # Load .env file from current directory first if it exists
+    default_env = Path.cwd() / ".env"
+    if default_env.exists():
+        load_dotenv(default_env, override=False)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8010", help="Task app base URL")
     parser.add_argument("--env-file", type=str, default=None, help="Path to .env file with keys")
     parser.add_argument("--seed", type=int, default=42, help="Env seed to rollout")
     parser.add_argument("--run-id", default="modal-eval", help="Run identifier")
-    parser.add_argument("--model", required=True, help="Model identifier for the Crafter policy")
-    parser.add_argument("--inference-url", required=True, help="Modal backend inference base URL (e.g., http://localhost:8000/api)")
+    parser.add_argument("--model", required=False, help="Model identifier for the Crafter policy (e.g., fft:Qwen/Qwen3-4B:job_xxx)")
+    parser.add_argument("--inference-url", required=False, help="Modal backend inference base URL (e.g., http://localhost:8000/api)")
     parser.add_argument("--task-app-key", default=None, help="Environment API key for the task app (fallback ENVIRONMENT_API_KEY)")
     parser.add_argument("--modal-key", default=None, help="Synth/Modal API key for inference (fallback SYNTH_API_KEY)")
     parser.add_argument("--max-llm-calls", type=int, default=20, help="Number of policy inference calls")
@@ -72,6 +77,7 @@ async def main() -> None:
     parser.add_argument("--verbose", action="store_true", help="Print resolved configuration and headers")
     args = parser.parse_args()
 
+    # Also load from explicit --env-file if provided
     if args.env_file:
         env_path = Path(args.env_file).expanduser()
         if not env_path.exists():
@@ -79,16 +85,49 @@ async def main() -> None:
         else:
             load_dotenv(env_path, override=False)
 
+    # Prompt for required parameters if not provided
+    base_url = args.base_url
+    if args.base_url == "http://localhost:8010":
+        print("\nTask app configuration:")
+        base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
+        base_url = base_url_input if base_url_input else "http://localhost:8001"
+
+    model = args.model
+    if not model:
+        print("\nFine-tuned model configuration:")
+        print("Note: This should be the model ID returned from training (e.g., fft:Qwen/Qwen3-4B:job_abc123)")
+        model_input = input("Fine-tuned model ID: ").strip()
+        if not model_input:
+            parser.error("Model identifier is required")
+        model = model_input
+
+    inference_url = args.inference_url
+    if not inference_url:
+        inference_url_input = input("Inference URL [http://localhost:8000/api]: ").strip()
+        inference_url = inference_url_input if inference_url_input else "http://localhost:8000/api"
+
+    # Override args
+    args.base_url = base_url
+    args.model = model
+    args.inference_url = inference_url
+
+    # Check environment variables first (loaded from .env)
     task_app_key = args.task_app_key or os.getenv("ENVIRONMENT_API_KEY")
     if not task_app_key:
-        parser.error("Missing task app API key (set ENVIRONMENT_API_KEY or pass --task-app-key)")
+        print("\n[INFO] ENVIRONMENT_API_KEY not found in environment or .env file")
+        task_app_key = input("RL Environment API key: ").strip()
+        if not task_app_key:
+            parser.error("Missing task app API key")
 
     modal_key = args.modal_key or os.getenv("SYNTH_API_KEY")
     if not modal_key:
-        parser.error("Missing Synth/Modal API key (set SYNTH_API_KEY or pass --modal-key)")
+        print("[INFO] SYNTH_API_KEY not found in environment or .env file")
+        modal_key = input("Synth API key: ").strip()
+        if not modal_key:
+            parser.error("Missing Synth/Modal API key")
 
-    if synth_key and "openai.com" not in args.inference_url.lower():
-        os.environ["OPENAI_API_KEY"] = synth_key
+    if modal_key and "openai.com" not in args.inference_url.lower():
+        os.environ["OPENAI_API_KEY"] = modal_key
 
     if args.ops:
         ops = [op.strip() for op in args.ops.split(",") if op.strip()]

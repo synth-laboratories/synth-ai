@@ -155,10 +155,10 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         """
         import os as _os
 
-        env_key = _os.getenv("ENVIRONMENT_API_KEY") or _os.getenv(
-            "dev_environment_api_key"
-        )
-        if not env_key:
+        # Check if any environment API keys are configured
+        from synth_ai.task.auth import allowed_environment_api_keys
+        allowed_keys = allowed_environment_api_keys()
+        if not allowed_keys:
             # Server-side misconfiguration; rollout would fail with 503
             return JSONResponse(
                 status_code=503,
@@ -167,12 +167,14 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
                     "detail": "Auth not configured: missing ENVIRONMENT_API_KEY in task service environment",
                 },
             )
+        
         # Authorize using all header variants without typed Header params (avoid 422s)
         from synth_ai.task.auth import is_api_key_header_authorized
         authorized = is_api_key_header_authorized(request)
         if not authorized:
             # Soft-pass 200 with authorized=False to avoid failing CLI preflight
-            prefix = (env_key[: max(1, len(env_key) // 2)] if isinstance(env_key, str) else None)
+            primary_key = list(allowed_keys)[0] if allowed_keys else None
+            prefix = (primary_key[: max(1, len(primary_key) // 2)] if primary_key else None)
             content = {"status": "healthy", "authorized": False}
             if prefix:
                 content["expected_api_key_prefix"] = prefix

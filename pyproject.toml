@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.9.dev1"
+version = "0.2.9.dev5"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -97,7 +97,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*"]
+include = ["synth_ai*", "examples*"]
 exclude = [
     "docs*",
     "tests*",
