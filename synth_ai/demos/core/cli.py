@@ -956,40 +956,60 @@ def cmd_deploy(args: argparse.Namespace) -> int:
 
 
 def _ensure_modal_installed() -> None:
-    """Install the modal package if it is not already available."""
+    """Install the modal package if it is not already available and check authentication."""
 
+    # Check if modal is installed
+    modal_installed = False
     try:
         import importlib.util as _iu
-
         if _iu.find_spec("modal") is not None:
-            print("modal package found")
-            return
+            modal_installed = True
     except Exception:
         pass
 
-    print("modal not found; installing…")
-    try:
-        if shutil.which("uv"):
-            code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
-        else:
-            code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
-        if code != 0:
-            print(out)
-            print("Failed to install modal; continuing may fail.")
-        else:
-            print("modal installed successfully.")
-    except Exception as exc:
-        print(f"modal install error: {exc}")
+    # Install modal if needed
+    if not modal_installed:
+        print("modal not found; installing…")
+        try:
+            if shutil.which("uv"):
+                code, out = _popen_capture(["uv", "pip", "install", "modal>=1.1.4"])
+            else:
+                code, out = _popen_capture([sys.executable, "-m", "pip", "install", "modal>=1.1.4"])
+            if code != 0:
+                print(out)
+                print("Failed to install modal; continuing may fail.")
+                return
+            else:
+                print("✓ modal installed successfully")
+                modal_installed = True
+        except Exception as exc:
+            print(f"modal install error: {exc}")
+            return
 
-    try:
-        import importlib.util as _iu
+    # Verify modal is importable
+    if modal_installed:
+        try:
+            import importlib.util as _iu
+            if _iu.find_spec("modal") is None:
+                print("Warning: modal is still not importable after install attempt.")
+                return
+        except Exception:
+            print("Warning: unable to verify modal installation.")
+            return
 
-        if _iu.find_spec("modal") is None:
-            print("Warning: modal is still not importable after install attempt.")
-        else:
-            print("modal package ready")
-    except Exception:
-        print("Warning: unable to verify modal installation.")
+    # Check modal authentication status
+    auth_ok, auth_msg = demo_core.modal_auth_status()
+    if auth_ok:
+        print(f"✓ Modal authenticated: {auth_msg}")
+    else:
+        print(f"\n⚠️  Modal authentication required")
+        print(f"   Status: {auth_msg}")
+        print(f"\n   To authenticate Modal, run:")
+        print(f"     modal setup")
+        print(f"\n   Or set environment variables:")
+        print(f"     export MODAL_TOKEN_ID=your-token-id")
+        print(f"     export MODAL_TOKEN_SECRET=your-token-secret")
+        print(f"\n   You can deploy later after authenticating.\n")
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -1034,7 +1054,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         default_dest = Path(args.dest).expanduser().resolve()
     else:
         primary_dest = Path.cwd() / default_subdir
-        if primary_dest.exists() and any(primary_dest.iterdir()) and not args.force:
+        if primary_dest.exists() and any(primary_dest.iterdir()):
             # Switch to local_demos/ automatically if primary location is occupied
             default_dest = (Path.cwd() / "local_demos" / default_subdir).resolve()
         else:
@@ -1046,13 +1066,39 @@ def cmd_init(args: argparse.Namespace) -> int:
         dest_input = ""
     destination = Path(dest_input).expanduser().resolve() if dest_input else default_dest
 
+    # Track whether we should skip individual file prompts (if we already cleared the directory)
+    directory_cleared = False
+
     if destination.exists():
         if destination.is_file():
             print(f"Destination {destination} is a file. Provide a directory path.")
             return 1
-        if not args.force and any(destination.iterdir()):
-            print(f"Destination {destination} is not empty. Use --force or choose another directory.")
-            return 1
+        if any(destination.iterdir()):
+            try:
+                response = input(f"Destination {destination} is not empty. Overwrite? [y/N]: ").strip().lower()
+            except (EOFError, KeyboardInterrupt):
+                print("\nCancelled.")
+                return 1
+            if response not in ('y', 'yes'):
+                print("Cancelled. Choose another directory or delete the existing one.")
+                return 1
+            # User agreed to overwrite - clear the entire directory including hidden files
+            print(f"Clearing {destination}...")
+            try:
+                # Remove all contents including hidden files (.env, .git, etc.)
+                shutil.rmtree(destination)
+            except Exception as e:
+                print(f"Error clearing directory: {e}")
+                print("Please manually remove the directory and try again.")
+                return 1
+            # Recreate empty directory
+            destination.mkdir(parents=True, exist_ok=True)
+            # Verify it's actually empty
+            if any(destination.iterdir()):
+                print(f"Warning: Directory {destination} still contains files after clearing.")
+                print("Some files may not have been removed. Please check manually.")
+                return 1
+            directory_cleared = True
     else:
         destination.mkdir(parents=True, exist_ok=True)
 
@@ -1069,18 +1115,31 @@ def cmd_init(args: argparse.Namespace) -> int:
 
             # Handle directory copying
             if src_path.is_dir():
-                if dest_path.exists() and not args.force:
-                    print(f"Refusing to overwrite existing directory: {dest_path} (use --force)")
-                    return 1
-                if dest_path.exists() and args.force:
+                if dest_path.exists() and not directory_cleared:
+                    try:
+                        response = input(f"Directory {dest_path.name} exists. Overwrite? [y/N]: ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nCancelled.")
+                        return 1
+                    if response not in ('y', 'yes'):
+                        print(f"Skipping {dest_path.name}")
+                        continue
+                    shutil.rmtree(dest_path)
+                elif dest_path.exists() and directory_cleared:
                     shutil.rmtree(dest_path)
                 shutil.copytree(src_path, dest_path)
             else:
                 # Handle file copying
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
-                if dest_path.exists() and not args.force:
-                    print(f"Refusing to overwrite existing file: {dest_path} (use --force)")
-                    return 1
+                if dest_path.exists() and not directory_cleared:
+                    try:
+                        response = input(f"File {dest_path.name} exists. Overwrite? [y/N]: ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nCancelled.")
+                        return 1
+                    if response not in ('y', 'yes'):
+                        print(f"Skipping {dest_path.name}")
+                        continue
                 shutil.copy2(src_path, dest_path)
                 if spec.make_executable:
                     try:
@@ -1091,15 +1150,35 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         if selected.env_lines:
             env_path = destination / ".env"
-            if not env_path.exists() or args.force:
+            should_write = True
+            if env_path.exists() and not directory_cleared:
+                try:
+                    response = input(f"File .env exists. Overwrite? [y/N]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nCancelled.")
+                    return 1
+                should_write = response in ('y', 'yes')
+            if should_write:
                 _write_text(env_path, "\n".join(selected.env_lines) + "\n")
+            elif not directory_cleared:
+                print("Skipping .env")
 
         config_src = selected.config_source_path()
         if config_src and config_src.exists():
             cfg_dst = (destination / selected.config_destination).resolve()
-            if not cfg_dst.exists() or args.force:
+            should_copy = True
+            if cfg_dst.exists() and not directory_cleared:
+                try:
+                    response = input(f"File {cfg_dst.name} exists. Overwrite? [y/N]: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nCancelled.")
+                    return 1
+                should_copy = response in ('y', 'yes')
+            if should_copy:
                 cfg_dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(config_src, cfg_dst)
+            elif not directory_cleared:
+                print(f"Skipping {cfg_dst.name}")
 
         if selected.post_copy is not None:
             try:
@@ -1468,7 +1547,6 @@ def main(argv: list[str] | None = None) -> int:
     def _init_opts(parser):
         parser.add_argument("--template", type=str, default=None, help="Template id to instantiate")
         parser.add_argument("--dest", type=str, default=None, help="Destination directory for files")
-        parser.add_argument("--force", action="store_true", help="Overwrite existing files in destination")
         parser.set_defaults(func=cmd_init)
 
     _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)
