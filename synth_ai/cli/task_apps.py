@@ -145,7 +145,18 @@ def _should_ignore_path(path: Path) -> bool:
 def _candidate_search_roots() -> list[Path]:
     """Only search for task apps in the current working directory and subdirectories."""
     roots: list[Path] = []
-    
+
+    # Prioritize demo directory if it exists
+    try:
+        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        demo_dir = load_demo_dir()
+        if demo_dir:
+            demo_path = Path(demo_dir)
+            if demo_path.exists() and demo_path.is_dir():
+                roots.append(demo_path.resolve())
+    except Exception:
+        pass
+
     # Allow explicit search paths via environment variable
     env_paths = os.environ.get("SYNTH_TASK_APP_SEARCH_PATH")
     if env_paths:
@@ -460,8 +471,36 @@ def _collect_modal_scripts() -> list[AppChoice]:
     return results
 
 
-def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, str, str]:
+def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
     """Ranking heuristic so wrapper-style task apps surface first."""
+
+    # Prioritize apps in the current working directory (demo or otherwise)
+    cwd_rank = 1
+    try:
+        cwd = Path.cwd().resolve()
+        if choice.path.is_relative_to(cwd):
+            # Check if this is directly in CWD (not in subdirectories like examples/)
+            try:
+                rel_path = choice.path.relative_to(cwd)
+                # If it's in the immediate directory or one level deep, prioritize it
+                if len(rel_path.parts) <= 2:
+                    cwd_rank = 0
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Further prioritize apps in the demo directory if one is set
+    demo_rank = 1
+    try:
+        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        demo_dir = load_demo_dir()
+        if demo_dir:
+            demo_path = Path(demo_dir).resolve()
+            if choice.path.is_relative_to(demo_path):
+                demo_rank = 0
+    except Exception:
+        pass
 
     modal_rank = 1 if choice.modal_script else 0
 
@@ -476,7 +515,7 @@ def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, str, str]:
 
     directory_rank = 0 if choice.path.parent.name.lower() in {"task_app", "task_apps"} else 1
 
-    return (modal_rank, file_rank, directory_rank, choice.app_id, str(choice.path))
+    return (demo_rank, cwd_rank, modal_rank, file_rank, directory_rank, choice.app_id, str(choice.path))
 
 
 def _choice_matches_identifier(choice: AppChoice, identifier: str) -> bool:
@@ -614,20 +653,28 @@ def _choice_has_local_support(choice: AppChoice) -> bool:
 
 def _format_choice(choice: AppChoice, index: int | None = None) -> str:
     prefix = f"[{index}] " if index is not None else ""
-    rel_path: str
+    # Get file modification timestamp
     try:
-        rel_path = str(choice.path.relative_to(REPO_ROOT))
+        from datetime import datetime
+        mtime = choice.path.stat().st_mtime
+        modified_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+        details = f"Modified: {modified_str}"
     except Exception:
-        rel_path = str(choice.path)
-    details = choice.description or f"Located at {rel_path}"
-    return f"{prefix}{choice.app_id} ({choice.source}) – {details}"
+        # Fallback if timestamp unavailable
+        details = choice.description or "No timestamp available"
+    # Format: single line with timestamp
+    main_line = f"{prefix}{choice.app_id} ({choice.source}) – {details}"
+    return main_line
 
 
 def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
     click.echo("Select a task app:")
     for idx, choice in enumerate(choices, start=1):
         click.echo(_format_choice(choice, idx))
-    response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
+    try:
+        response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
+    except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
+        raise click.ClickException("Task app selection cancelled by user")
     if not response.isdigit():
         raise click.ClickException("Selection must be a number")
     index = int(response)
@@ -883,7 +930,7 @@ def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) ->
     click.echo('Select env file to load:')
     for idx, path in enumerate(env_candidates, start=1):
         click.echo(f"  {idx}) {path.resolve()}")
-    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)))
+    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)), default=1)
     return [env_candidates[choice - 1]]
 
 
@@ -913,7 +960,31 @@ def _run_modal_script(
         click.echo("Dry run: " + " ".join(cmd))
         return
     try:
-        subprocess.run(cmd, check=True)
+        # Capture output to extract URL
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # Print output as it would normally appear
+        if result.stdout:
+            click.echo(result.stdout, nl=False)
+        if result.stderr:
+            click.echo(result.stderr, nl=False, err=True)
+
+        # Extract and save task app URL from output
+        task_app_url = None
+        for line in result.stdout.splitlines():
+            # Look for lines containing modal.run URLs
+            if "modal.run" in line and "=>" in line:
+                # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
+                parts = line.split("=>")
+                if len(parts) >= 2:
+                    task_app_url = parts[-1].strip()
+                    break
+
+        # Save URL to .env file if found
+        if task_app_url and env_paths_list:
+            env_file = env_paths_list[0]  # Use the first .env file
+            _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
+            click.echo(f"\n✓ Task app URL: {task_app_url}")
+
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
 
@@ -952,14 +1023,25 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                         click.echo("[preflight] upserting env key…")
                         up = c.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
                         click.echo(f"[preflight] upsert status={up.status_code}")
-                        click.echo("[preflight] verifying env key presence…")
-                        ver = c.get(f"{backend_base.rstrip('/')}/v1/env-keys/verify")
-                        if ver.status_code == 200 and (ver.json() or {}).get("present"):
-                            # Show first and last 5 chars of the API key for verification
+
+                        # If upload succeeded (2xx), consider it successful even if verification fails
+                        # This handles cases where verification endpoint has issues
+                        if 200 <= up.status_code < 300:
                             key_preview = f"{env_api_key[:5]}...{env_api_key[-5:]}" if len(env_api_key) > 10 else env_api_key
-                            click.echo(f"✅ ENVIRONMENT_API_KEY upserted and verified in backend ({key_preview})")
+                            click.echo(f"✅ ENVIRONMENT_API_KEY uploaded successfully ({key_preview})")
+
+                            # Try verification, but don't fail if it doesn't work
+                            click.echo("[preflight] verifying env key presence…")
+                            try:
+                                ver = c.get(f"{backend_base.rstrip('/')}/v1/env-keys/verify")
+                                if ver.status_code == 200 and (ver.json() or {}).get("present"):
+                                    click.echo("✅ Key verified in backend")
+                                else:
+                                    click.echo(f"⚠️  Verification returned {ver.status_code}, but upload succeeded - proceeding")
+                            except Exception as verify_err:
+                                click.echo(f"⚠️  Verification check failed ({verify_err}), but upload succeeded - proceeding")
                         else:
-                            error_msg = "ENVIRONMENT_API_KEY verification failed"
+                            error_msg = f"ENVIRONMENT_API_KEY upload failed with status {up.status_code}"
                             if crash_on_failure:
                                 raise click.ClickException(f"[CRITICAL] {error_msg}")
                             click.echo(f"[WARN] {error_msg}; proceeding anyway")
@@ -1013,7 +1095,31 @@ def _run_modal_with_entry(
         return
 
     try:
-        subprocess.run(cmd, check=True)
+        # Capture output to extract URL
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # Print output as it would normally appear
+        if result.stdout:
+            click.echo(result.stdout, nl=False)
+        if result.stderr:
+            click.echo(result.stderr, nl=False, err=True)
+
+        # Extract and save task app URL from output
+        task_app_url = None
+        for line in result.stdout.splitlines():
+            # Look for lines containing modal.run URLs
+            if "modal.run" in line and "=>" in line:
+                # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
+                parts = line.split("=>")
+                if len(parts) >= 2:
+                    task_app_url = parts[-1].strip()
+                    break
+
+        # Save URL to .env file if found
+        if task_app_url and env_paths_list:
+            env_file = env_paths_list[0]  # Use the first .env file
+            _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
+            click.echo(f"\n✓ Task app URL: {task_app_url}")
+
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
     finally:
@@ -1331,7 +1437,7 @@ def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> 
     click.echo('Select env file to load:')
     for idx, path in enumerate(env_candidates, start=1):
         click.echo(f"  {idx}) {path.resolve()}")
-    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)))
+    choice = click.prompt('Enter choice', type=click.IntRange(1, len(env_candidates)), default=1)
     return [env_candidates[choice - 1]]
 
 
@@ -1390,10 +1496,21 @@ def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
         if env_path.exists():
             existing_lines = env_path.read_text().splitlines()
 
-        # Check if key already exists
-        key_exists = any(line.strip().startswith(f"{key}=") for line in existing_lines)
+        # Check if key already exists and update it
+        key_updated = False
+        new_lines = []
+        for line in existing_lines:
+            if line.strip().startswith(f"{key}="):
+                new_lines.append(f"{key}={value}")
+                key_updated = True
+            else:
+                new_lines.append(line)
 
-        if not key_exists:
+        if key_updated:
+            # Write updated lines back
+            env_path.write_text("\n".join(new_lines) + "\n")
+            click.echo(f"Updated {key} in {env_path}")
+        else:
             # Append to .env
             with open(env_path, "a") as f:
                 if existing_lines and not existing_lines[-1].strip():
@@ -1541,6 +1658,16 @@ def _serve_entry(
 @click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
 def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_cli: str, env_file: Sequence[str]) -> None:
     """Deploy a task app to Modal."""
+
+    # Change to demo directory if stored (for consistent discovery)
+    from synth_ai.demos.demo_task_apps.core import load_demo_dir
+    demo_dir = load_demo_dir()
+    if demo_dir:
+        demo_path = Path(demo_dir)
+        if not demo_path.is_dir():
+            raise click.ClickException(f"Demo directory not found: {demo_dir}\nRun 'synth-ai demo' to create a demo.")
+        os.chdir(demo_dir)
+        click.echo(f"Using demo directory: {demo_dir}\n")
 
     choice = _select_app_choice(app_id, purpose="deploy")
 
