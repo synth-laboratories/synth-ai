@@ -55,9 +55,7 @@ except Exception as exc:  # pragma: no cover - import-time validation
     # Provide a more actionable error with the missing module and fix hints
     missing_mod = None
     if isinstance(exc, ModuleNotFoundError):
-        missing_mod = (
-            getattr(exc, "name", None) or str(exc).split("'")[1] if "'" in str(exc) else None
-        )
+        missing_mod = getattr(exc, "name", None) or str(exc).split("'")[1] if "'" in str(exc) else None
     fix_hint = None
     if missing_mod:
         mapping = {
@@ -158,17 +156,16 @@ class CrafterDataset:
 
     def _difficulty(self, traits: Dict[str, int]) -> str:
         for difficulty, bounds in TRAIT_BOUNDS.items():
-            if traits.get("trees", 0) >= bounds.get("min_trees", 0) and traits.get(
-                "hostiles", 0
-            ) <= bounds.get("max_hostiles", 0):
+            if (
+                traits.get("trees", 0) >= bounds.get("min_trees", 0)
+                and traits.get("hostiles", 0) <= bounds.get("max_hostiles", 0)
+            ):
                 return difficulty
         return "custom"
 
     @property
     def seed_range(self) -> List[int]:
         return [self.seed_min, self.seed_max]
-
-
 def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int]:
     # Local copy to avoid import-time issues; mirrors synth_ai.environments.examples.crafter_classic.taskset.world_traits
     from crafter import objects as _objects  # type: ignore
@@ -301,9 +298,7 @@ def describe_taskset(dataset: CrafterDataset) -> Dict[str, Any]:
     }
 
 
-def provide_task_instances(
-    dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]
-) -> Iterable[TaskInfo]:
+def provide_task_instances(dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
     for seed_value in seeds:
         summary = dataset.describe_seed(seed_value)
@@ -393,9 +388,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         synth_base_url=request.synth_base_url,
     )
 
-    legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(
-        legacy_request, fastapi_request
-    )
+    legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(legacy_request, fastapi_request)
     data = legacy_response.model_dump()
     metrics = data.get("metrics", {}) or {}
     metrics.setdefault("outcome_score", None)
@@ -413,9 +406,7 @@ def build_config() -> TaskAppConfig:
 
     tracing_enabled = tracing_env_enabled()
     tracing_db_url = resolve_tracing_db_url()
-    tracer_factory = build_tracer_factory(
-        SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url
-    )
+    tracer_factory = build_tracer_factory(SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url)
     sft_output_dir = resolve_sft_output_dir()
 
     app_state: Dict[str, Any] = {
@@ -454,9 +445,7 @@ def build_config() -> TaskAppConfig:
         rollout=rollout_executor,
         dataset_registry=registry,
         rubrics=RubricBundle(outcome=OUTCOME_RUBRIC, events=EVENTS_RUBRIC),
-        proxy=ProxyConfig(
-            enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT
-        ),
+        proxy=ProxyConfig(enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT),
         routers=routers,
         app_state=app_state,
         cors_origins=["*"],
@@ -489,8 +478,8 @@ register_task_app(
                 "crafter",
             ),
             extra_local_dirs=(
-                (str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),
-                (str(TASK_APP_ROOT), "/opt/synth_ai_repo/examples/warming_up_to_rl/task_app"),
+                (str(REPO_ROOT / 'synth_ai'), '/opt/synth_ai_repo/synth_ai'),
+                (str(TASK_APP_ROOT), '/opt/synth_ai_repo/examples/warming_up_to_rl/task_app'),
             ),
             secret_names=("crafter-environment-sdk", "groq-api-key", "openai-api-key"),
             memory=16384,

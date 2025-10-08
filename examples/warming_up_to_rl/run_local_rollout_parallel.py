@@ -128,9 +128,7 @@ def analyse_rollout_response(response: Any) -> dict[str, Any]:
         if isinstance(final_list, list):
             final_achievements = [str(item) for item in final_list]
 
-    decision_rewards = (
-        trace_payload.get("decision_rewards") if isinstance(trace_payload, dict) else []
-    )
+    decision_rewards = trace_payload.get("decision_rewards") if isinstance(trace_payload, dict) else []
     trace_all: list[str] = []
     if isinstance(decision_rewards, list):
         for item in decision_rewards:
@@ -187,9 +185,7 @@ def summarise_runs(run_summaries: list[dict[str, Any]]) -> dict[str, Any]:
     return stats
 
 
-def print_summary(
-    stats: dict[str, Any], *, run_details: list[dict[str, Any]], total_runs: int
-) -> None:
+def print_summary(stats: dict[str, Any], *, run_details: list[dict[str, Any]], total_runs: int) -> None:
     if not stats:
         print("No successful rollouts to summarise.")
         return
@@ -244,7 +240,6 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
     api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
     if not api_key:
         import sys
-
         print("Please enter your RL Environment API key:", file=sys.stderr, flush=True)
         api_key = input("> ").strip()
         if not api_key:
@@ -254,7 +249,6 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
     groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
         import sys
-
         print("Please enter your Groq API key:", file=sys.stderr, flush=True)
         groq_api_key = input("> ").strip()
         if not groq_api_key:
@@ -280,11 +274,10 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
     print(f"📊 Each rollout: {len(ops)} ops ({args.max_llm_calls} LLM calls)\n")
 
     async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
-
         async def run_single(index: int) -> dict[str, Any]:
             run_id = f"{args.run_id}-{index:03d}"
             seed = args.seed + index * args.seed_stride
-            print(f"\n▶️  [{index + 1}/{args.count}] Starting rollout {run_id} (seed={seed})...")
+            print(f"\n▶️  [{index+1}/{args.count}] Starting rollout {run_id} (seed={seed})...")
 
             request = build_rollout_request(
                 seed=seed,
@@ -298,19 +291,15 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
                 return_trace=True,
             )
             if args.max_policy_tokens is not None:
-                request.policy.config.update(
-                    {
-                        "max_completion_tokens": args.max_policy_tokens,
-                        "max_tokens": args.max_policy_tokens,
-                    }
-                )
+                request.policy.config.update({
+                    "max_completion_tokens": args.max_policy_tokens,
+                    "max_tokens": args.max_policy_tokens,
+                })
 
             try:
                 response = await client.rollout(request)
                 summary = analyse_rollout_response(response)
-                print(
-                    f"\n✅ [{index + 1}/{args.count}] Completed {run_id} (outcome={summary.get('outcome_score', 'N/A')})"
-                )
+                print(f"\n✅ [{index+1}/{args.count}] Completed {run_id} (outcome={summary.get('outcome_score', 'N/A')})")
                 return {
                     "ok": True,
                     "run_id": run_id,
@@ -319,7 +308,7 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
                     "summary": summary,
                 }
             except Exception as exc:  # pragma: no cover - surface errors
-                print(f"\n❌ [{index + 1}/{args.count}] Failed {run_id}: {exc}")
+                print(f"\n❌ [{index+1}/{args.count}] Failed {run_id}: {exc}")
                 return {
                     "ok": False,
                     "run_id": run_id,
@@ -355,43 +344,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
     parser.add_argument("--api-key", help="Environment API key (or set via --env-file)")
     parser.add_argument("--env-file", help="Path to .env file providing API keys")
-    parser.add_argument(
-        "--model", default="gpt-4o-mini", help="Model identifier for the Crafter policy"
-    )
-    parser.add_argument(
-        "--inference-url",
-        default="https://api.openai.com",
-        help="Inference base URL for the policy",
-    )
+    parser.add_argument("--model", default="gpt-4o-mini", help="Model identifier for the Crafter policy")
+    parser.add_argument("--inference-url", default="https://api.openai.com", help="Inference base URL for the policy")
     parser.add_argument("--seed", type=int, default=42, help="Base seed for the first rollout")
-    parser.add_argument(
-        "--seed-stride", type=int, default=1, help="Increment applied to the seed for each rollout"
-    )
-    parser.add_argument(
-        "--count", type=int, default=20, help="Number of rollout trajectories to execute"
-    )
+    parser.add_argument("--seed-stride", type=int, default=1, help="Increment applied to the seed for each rollout")
+    parser.add_argument("--count", type=int, default=20, help="Number of rollout trajectories to execute")
     parser.add_argument("--parallel", type=int, default=4, help="Maximum concurrent rollouts")
     parser.add_argument("--ops", help="Comma-separated rollout ops (advanced override)")
-    parser.add_argument(
-        "--max-llm-calls",
-        type=int,
-        default=20,
-        help="Number of agent/env pairs per rollout when --ops not provided",
-    )
-    parser.add_argument(
-        "--max-policy-tokens",
-        type=int,
-        help="Optional per-call token limit forwarded to the policy config",
-    )
-    parser.add_argument(
-        "--timeout", type=float, default=600.0, help="HTTP timeout (seconds) for task app requests"
-    )
-    parser.add_argument(
-        "--trace-format",
-        default="compact",
-        choices=["compact", "full"],
-        help="Trace format requested from the task app",
-    )
+    parser.add_argument("--max-llm-calls", type=int, default=20, help="Number of agent/env pairs per rollout when --ops not provided")
+    parser.add_argument("--max-policy-tokens", type=int, help="Optional per-call token limit forwarded to the policy config")
+    parser.add_argument("--timeout", type=float, default=600.0, help="HTTP timeout (seconds) for task app requests")
+    parser.add_argument("--trace-format", default="compact", choices=["compact", "full"], help="Trace format requested from the task app")
     parser.add_argument("--run-id", default="batch-demo", help="Run ID prefix for rollouts")
     parser.add_argument("--verbose", action="store_true", help="Print resolved configuration")
     return parser.parse_args()

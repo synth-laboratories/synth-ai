@@ -40,9 +40,7 @@ from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_modal_volume_candidate = Path(
-    os.getenv("MATH_MODAL_DATASET_DIR", "/modal_volumes/math_dataset")
-).expanduser()
+_modal_volume_candidate = Path(os.getenv("MATH_MODAL_DATASET_DIR", "/modal_volumes/math_dataset")).expanduser()
 _modal_volume_root: Optional[Path] = None
 try:
     _modal_volume_candidate.mkdir(parents=True, exist_ok=True)
@@ -57,9 +55,7 @@ if _modal_volume_root is not None:
     local_dataset_dir.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MATH_DATASET_LOCAL_DIR", str(local_dataset_dir))
 else:
-    hf_cache_path = Path(
-        os.getenv("MATH_DATASET_CACHE_DIR", str(REPO_ROOT / ".cache" / "hf-datasets"))
-    ).expanduser()
+    hf_cache_path = Path(os.getenv("MATH_DATASET_CACHE_DIR", str(REPO_ROOT / ".cache" / "hf-datasets")) ).expanduser()
 
 hf_cache_path.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("MATH_DATASET_CACHE_DIR", str(hf_cache_path))
@@ -207,9 +203,7 @@ class MathDataset:
         if split not in self._cache:
             local_file = self._local_file_for_split(split)
             if local_file is not None:
-                dataset = load_dataset(
-                    "json", data_files=str(local_file), cache_dir=str(HF_DATASETS_CACHE)
-                )
+                dataset = load_dataset("json", data_files=str(local_file), cache_dir=str(HF_DATASETS_CACHE))
                 self._cache[split] = dataset["train"]
             else:
                 try:
@@ -307,7 +301,9 @@ class MathDataset:
             except Exception as exc:
                 errors.append(f"{split}: {exc}")
         if errors:
-            raise RuntimeError("Dataset preparation failed:\n" + "\n".join(errors))
+            raise RuntimeError(
+                "Dataset preparation failed:\n" + "\n".join(errors)
+            )
 
 
 @dataclass
@@ -366,9 +362,7 @@ def _observation_from_state(state: MathEnvState) -> Dict[str, Any]:
     }
 
 
-def _score_submission(
-    state: MathEnvState, tool_calls: Sequence[Mapping[str, Any]]
-) -> tuple[float, str, bool]:
+def _score_submission(state: MathEnvState, tool_calls: Sequence[Mapping[str, Any]]) -> tuple[float, str, bool]:
     if not tool_calls:
         return REWARD_NEGATIVE_NO_TOOL, "missing_tool_call", False
     call = tool_calls[0]
@@ -380,11 +374,7 @@ def _score_submission(
     if not answer:
         return REWARD_NEGATIVE_NO_ANSWER, "blank_answer", False
     is_correct = answer == state.answer
-    return (
-        (REWARD_POSITIVE if is_correct else 0.0),
-        ("correct" if is_correct else "incorrect"),
-        is_correct,
-    )
+    return (REWARD_POSITIVE if is_correct else 0.0), ("correct" if is_correct else "incorrect"), is_correct
 
 
 math_router = APIRouter()
@@ -401,18 +391,14 @@ def _preview_tool_calls(tool_calls: Sequence[Mapping[str, Any]]) -> list[Dict[st
         answer = str(args.get("answer") or "")
         # Hard truncate to keep logs compact
         answer_short = answer[:120] + ("…" if len(answer) > 120 else "")
-        preview.append(
-            {
-                "tool": call.get("tool"),
-                "answer": answer_short,
-            }
-        )
+        preview.append({
+            "tool": call.get("tool"),
+            "answer": answer_short,
+        })
     return preview
 
 
-def _event_and_outcome_components(
-    tool_calls: Sequence[Mapping[str, Any]], *, correct: bool, reward: float
-) -> Dict[str, float]:
+def _event_and_outcome_components(tool_calls: Sequence[Mapping[str, Any]], *, correct: bool, reward: float) -> Dict[str, float]:
     """Approximate component-wise scores for RL-style logs.
 
     - env:     task-level scalar reward (our single-step outcome)
@@ -523,9 +509,7 @@ def _resolve_inference_url(base_url: str) -> str:
     return f"{normalized}/v1/chat/completions"
 
 
-async def _call_inference(
-    policy_config: Mapping[str, Any], observation: Mapping[str, Any]
-) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
+async def _call_inference(policy_config: Mapping[str, Any], observation: Mapping[str, Any]) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
     inference_url = str(policy_config.get("inference_url") or "").rstrip("/")
     if not inference_url:
         raise RuntimeError("policy.config.inference_url required for rollout")
@@ -668,9 +652,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     inference_payload: Dict[str, Any] | None = None
     error_info: Dict[str, Any] = {}
     try:
-        tool_calls, inference_payload = await _call_inference(
-            request.policy.config or {}, observation
-        )
+        tool_calls, inference_payload = await _call_inference(request.policy.config or {}, observation)
     except HTTPException as http_err:
         tool_calls = []
         error_info = {"error": http_err.detail, "code": http_err.status_code}
@@ -890,9 +872,7 @@ def build_config() -> TaskAppConfig:
 
     tracing_enabled = tracing_env_enabled()
     tracing_db_url = resolve_tracing_db_url()
-    tracer_factory = build_tracer_factory(
-        SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url
-    )
+    tracer_factory = build_tracer_factory(SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url)
     sft_output_dir = resolve_sft_output_dir()
 
     app_state: Dict[str, Any] = {

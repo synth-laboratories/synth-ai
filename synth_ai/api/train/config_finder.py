@@ -56,7 +56,7 @@ def _save_last_config(config_path: Path) -> None:
 
 def _iter_candidate_paths() -> Iterable[Path]:
     seen: set[Path] = set()
-
+    
     # Prioritize current working directory first
     try:
         cwd = Path.cwd().resolve()
@@ -172,9 +172,7 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
     return candidates
 
 
-def prompt_for_config(
-    candidates: list[ConfigCandidate], *, requested_type: str | None
-) -> ConfigCandidate:
+def prompt_for_config(candidates: list[ConfigCandidate], *, requested_type: str | None) -> ConfigCandidate:
     if not candidates:
         raise click.ClickException("No training configs found. Pass --config explicitly.")
 

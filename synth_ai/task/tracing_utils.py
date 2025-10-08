@@ -45,9 +45,7 @@ def resolve_tracing_db_url() -> str | None:
     return f"sqlite+aiosqlite:///{fallback_path}"
 
 
-def build_tracer_factory(
-    make_tracer: Callable[..., Any], *, enabled: bool, db_url: str | None
-) -> Callable[[], Any] | None:
+def build_tracer_factory(make_tracer: Callable[..., Any], *, enabled: bool, db_url: str | None) -> Callable[[], Any] | None:
     """Return a factory that instantiates a tracer when enabled, else None."""
 
     if not enabled:
@@ -77,7 +75,6 @@ def unique_sft_path(base_dir: str, *, run_id: str) -> Path:
     """Return a unique JSONL path for an SFT record batch."""
 
     from datetime import datetime
-
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
     name = f"{run_id}_{timestamp}.jsonl"

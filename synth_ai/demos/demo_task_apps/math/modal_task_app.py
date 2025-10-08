@@ -25,9 +25,7 @@ _SYNTH_HOSTED = None
 try:
     probe = _HERE
     for _ in range(8):
-        candidate = (
-            probe / "backend/app/routes/clustered_training/dev/synth_envs_hosted"
-        ).resolve()
+        candidate = (probe / "backend/app/routes/clustered_training/dev/synth_envs_hosted").resolve()
         if candidate.exists():
             _SYNTH_HOSTED = candidate
             break
@@ -103,14 +101,12 @@ def fastapi_app():
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
-
     try:
         from synth_ai.task.auth import (
             is_api_key_header_authorized,
             normalize_environment_api_key,
         )
     except Exception:  # pragma: no cover - fallback for older synth-ai builds
-
         def _normalize_env_key_fallback() -> str | None:
             key = os.getenv("ENVIRONMENT_API_KEY")
             if key:
@@ -134,7 +130,7 @@ def fastapi_app():
             for value in values:
                 if not isinstance(value, str):
                     continue
-                for chunk in value.split(","):
+                for chunk in value.split(','):
                     chunk = chunk.strip()
                     if chunk:
                         parts.append(chunk)
@@ -176,27 +172,19 @@ def fastapi_app():
 
     def _normalize_answer_text(s: str) -> str:
         import re as _re
-
         return _re.sub(r"[^0-9A-Za-z.+\-/*=]", "", (s or "").strip()).lower()
 
     def _extract_boxed(s: str) -> str:
         import re as _re
-
         m = list(_re.finditer(r"\\boxed\{([^}]+)\}", s or ""))
         return m[-1].group(1) if m else ""
 
     def _load_hendrycks_problem(seed: int, subject: str | None = None) -> tuple[str, str]:
         subj = subject or os.getenv("HENDRYCKS_MATH_CONFIG", "default")
-        ds = _hf_split(
-            subj, os.getenv("HENDRYCKS_MATH_SPLIT", "test"), os.getenv("HENDRYCKS_MATH_SLICE")
-        )
+        ds = _hf_split(subj, os.getenv("HENDRYCKS_MATH_SPLIT", "test"), os.getenv("HENDRYCKS_MATH_SLICE"))
         n = len(ds) if hasattr(ds, "__len__") else 0
         if n == 0 and subject not in {"", "default"}:
-            ds = _hf_split(
-                "default",
-                os.getenv("HENDRYCKS_MATH_SPLIT", "test"),
-                os.getenv("HENDRYCKS_MATH_SLICE"),
-            )
+            ds = _hf_split("default", os.getenv("HENDRYCKS_MATH_SPLIT", "test"), os.getenv("HENDRYCKS_MATH_SLICE"))
             n = len(ds) if hasattr(ds, "__len__") else 0
         if n == 0:
             raise RuntimeError("Hendrycks MATH dataset loaded empty")
@@ -237,11 +225,7 @@ def fastapi_app():
 
         def _resolve_env_keys() -> set[str]:
             keys: set[str] = set()
-            for alias in (
-                "ENVIRONMENT_API_KEY",
-                "dev_environment_api_key",
-                "DEV_ENVIRONMENT_API_KEY",
-            ):
+            for alias in ("ENVIRONMENT_API_KEY", "dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"):
                 value = os.environ.get(alias)
                 if value:
                     os.environ.setdefault("ENVIRONMENT_API_KEY", value)
@@ -266,12 +250,8 @@ def fastapi_app():
                 candidates.append(primary.strip())
             secondary = x_api_keys or headers.get("x-api-keys")
             if secondary:
-                candidates.extend(
-                    [value.strip() for value in secondary.split(",") if value.strip()]
-                )
-            auth_header = (
-                authorization or headers.get("authorization") or headers.get("Authorization")
-            )
+                candidates.extend([value.strip() for value in secondary.split(",") if value.strip()])
+            auth_header = authorization or headers.get("authorization") or headers.get("Authorization")
             if auth_header and auth_header.lower().startswith("bearer "):
                 token = auth_header.split(" ", 1)[1].strip()
                 if token:
@@ -294,10 +274,7 @@ def fastapi_app():
         async def info():
             return {
                 "service": {"base_url": os.getenv("SERVICE_BASE_URL", "")},
-                "inference": {
-                    "base_url": "",
-                    "endpoints": {"chat_completions": "/v1/chat/completions"},
-                },
+                "inference": {"base_url": "", "endpoints": {"chat_completions": "/v1/chat/completions"}},
             }
 
         @app.get("/health")
@@ -305,10 +282,7 @@ def fastapi_app():
             env_keys = _resolve_env_keys()
             env_key = next(iter(env_keys), None)
             if not env_key:
-                return JSONResponse(
-                    status_code=503,
-                    content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
-                )
+                return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
             # Authorize using all header variants; avoid typed Header params to prevent 422s
             authorized = is_api_key_header_authorized(request)
             if not authorized:
@@ -328,10 +302,7 @@ def fastapi_app():
             env_keys = _resolve_env_keys()
             env_key = next(iter(env_keys), None)
             if not env_key:
-                return JSONResponse(
-                    status_code=503,
-                    content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
-                )
+                return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
             authorized = is_api_key_header_authorized(request)
             if not authorized:
                 prefix = _log_env_key_prefix("health/rollout", env_key)
@@ -350,22 +321,17 @@ def fastapi_app():
         async def task_info(seed: int = 0, subject: str = "default"):
             """Return Hendrycks MATH problem/answer and tool schema for a seed."""
             q, a = _load_hendrycks_problem(int(seed), subject=subject)
-            tools = [
-                {
-                    "name": "submit_answer",
-                    "description": "Provide the final numerical or algebraic answer for the current math problem.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "answer": {
-                                "type": "string",
-                                "description": "The proposed final answer",
-                            },
-                        },
-                        "required": ["answer"],
+            tools = [{
+                "name": "submit_answer",
+                "description": "Provide the final numerical or algebraic answer for the current math problem.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "answer": {"type": "string", "description": "The proposed final answer"},
                     },
-                }
-            ]
+                    "required": ["answer"],
+                },
+            }]
             return {
                 "seed": int(seed),
                 "subject": subject,
@@ -397,9 +363,7 @@ def fastapi_app():
             print("[422] validation", snapshot, flush=True)
         except Exception:
             pass
-        return JSONResponse(
-            status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]}
-        )
+        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
 
     @api.get("/")
     async def root_probe():
@@ -417,12 +381,7 @@ def fastapi_app():
     if not env_key:
         raise RuntimeError("ENVIRONMENT_API_KEY missing in task app environment")
 
-    OPENAI_REMOVE_FIELDS = (
-        "stop_after_tool_calls",
-        "thinking_mode",
-        "thinking_budget",
-        "reasoning",
-    )
+    OPENAI_REMOVE_FIELDS = ("stop_after_tool_calls", "thinking_mode", "thinking_budget", "reasoning")
     OPENAI_REMOVE_SAMPLING_FIELDS = ("temperature", "top_p")
     TOOL_CHOICE_FORCE = {"type": "function", "function": {"name": "submit_answer"}}
 
@@ -445,18 +404,12 @@ def fastapi_app():
     def proxy_chat_completions(request: dict[str, object] = Body(...)):
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY missing"
-            )
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY missing")
         model = request.get("model") if isinstance(request, dict) else None
-        payload = _prepare_openai_payload(
-            model if isinstance(model, str) else None, request if isinstance(request, dict) else {}
-        )
+        payload = _prepare_openai_payload(model if isinstance(model, str) else None, request if isinstance(request, dict) else {})
         headers = {"Authorization": f"Bearer {key}"}
         with httpx.Client(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
-            resp = client.post(
-                "https://api.openai.com/v1/chat/completions", json=payload, headers=headers
-            )
+            resp = client.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers)
             try:
                 data = resp.json()
             except Exception:
@@ -489,25 +442,15 @@ def fastapi_app():
         env_cfg = (env or {}).get("config") or {}
         # Prefer env.seed; fall back to env.config.seed -> default 0
         try:
-            seed_val = (
-                int((env or {}).get("seed"))
-                if isinstance(env, dict) and (env or {}).get("seed") is not None
-                else 0
-            )
+            seed_val = int((env or {}).get("seed")) if isinstance(env, dict) and (env or {}).get("seed") is not None else 0
         except Exception:
             seed_val = 0
         if seed_val == 0:
             try:
-                seed_val = (
-                    int(env_cfg.get("seed"))
-                    if isinstance(env_cfg, dict) and env_cfg.get("seed") is not None
-                    else 0
-                )
+                seed_val = int(env_cfg.get("seed")) if isinstance(env_cfg, dict) and env_cfg.get("seed") is not None else 0
             except Exception:
                 seed_val = 0
-        subject = (env_cfg.get("subject") if isinstance(env_cfg, dict) else None) or os.getenv(
-            "HENDRYCKS_MATH_CONFIG", "default"
-        )
+        subject = (env_cfg.get("subject") if isinstance(env_cfg, dict) else None) or os.getenv("HENDRYCKS_MATH_CONFIG", "default")
         # Load real Hendrycks problem text/solution (download if necessary). Crash on failure.
         qh, ah = _load_hendrycks_problem(seed_val, subject=subject)
         question = qh
@@ -525,10 +468,7 @@ def fastapi_app():
                     sanitized.pop("max_tokens", None)
                 for field in ("temperature", "top_p"):
                     sanitized.pop(field, None)
-                sanitized["tool_choice"] = {
-                    "type": "function",
-                    "function": {"name": "submit_answer"},
-                }
+                sanitized["tool_choice"] = {"type": "function", "function": {"name": "submit_answer"}}
                 sanitized["parallel_tool_calls"] = False
             return sanitized
 
@@ -569,21 +509,19 @@ def fastapi_app():
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": user_prompt}],
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "submit_answer",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "answer": {"type": "string"},
-                            },
-                            "required": ["answer"],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "submit_answer",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "answer": {"type": "string"},
                         },
+                        "required": ["answer"],
                     },
-                }
-            ],
+                },
+            }],
             "max_tokens": 256,
             "temperature": 0.2,
         }
@@ -591,7 +529,7 @@ def fastapi_app():
 
         try:
             tool_names = []
-            for t in payload.get("tools") or []:
+            for t in (payload.get("tools") or []):
                 if isinstance(t, dict):
                     fn = (t.get("function") or {}) if isinstance(t.get("function"), dict) else {}
                     name = fn.get("name")
@@ -609,9 +547,7 @@ def fastapi_app():
             if sk:
                 headers["Authorization"] = f"Bearer {sk}"
         with httpx.Client(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
-            resp = client.post(
-                f"{inference_url}/v1/chat/completions", json=to_send, headers=headers
-            )
+            resp = client.post(f"{inference_url}/v1/chat/completions", json=to_send, headers=headers)
             try:
                 data = resp.json()
             except Exception:
@@ -644,21 +580,14 @@ def fastapi_app():
 
         tool_answer = _parse_tool_answer(data)
         history.append({"answer": tool_answer})
-        steps.append(
-            {
-                "obs": {},
-                "tool_calls": [
-                    {
-                        "tool_name": "submit_answer",
-                        "arguments": _json.dumps({"answer": tool_answer}),
-                    }
-                ],
-                "reward": None,
-                "done": False,
-                "truncated": False,
-                "info": None,
-            }
-        )
+        steps.append({
+            "obs": {},
+            "tool_calls": [{"tool_name": "submit_answer", "arguments": _json.dumps({"answer": tool_answer})}],
+            "reward": None,
+            "done": False,
+            "truncated": False,
+            "info": None,
+        })
 
         # Evaluate answer correctness using tool output (or fall back to assistant text)
         reward_val = 0.0
@@ -678,9 +607,7 @@ def fastapi_app():
 
         # Immediate, concise rollout logging mirroring RL format
         try:
-            preview = tool_answer[:120] + (
-                "…" if isinstance(tool_answer, str) and len(tool_answer) > 120 else ""
-            )
+            preview = tool_answer[:120] + ("…" if isinstance(tool_answer, str) and len(tool_answer) > 120 else "")
             components = {
                 "env": float(reward_val),
                 "rubric_event": 1.0 if bool(tool_answer.strip()) else 0.0,
@@ -705,28 +632,24 @@ def fastapi_app():
             pass
 
         total_reward += float(reward_val)
-        steps.append(
-            {
-                "obs": {},
-                "tool_calls": [],
-                "reward": reward_val,
-                "done": True,
-                "truncated": False,
-                "info": None,
-            }
-        )
+        steps.append({
+            "obs": {},
+            "tool_calls": [],
+            "reward": reward_val,
+            "done": True,
+            "truncated": False,
+            "info": None,
+        })
 
         return {
             "run_id": run_id,
-            "trajectories": [
-                {
-                    "env_id": env_name,
-                    "policy_id": (policy or {}).get("policy_name") or "math-react",
-                    "steps": steps,
-                    "final": {"observation": {}},
-                    "length": len(steps),
-                }
-            ],
+            "trajectories": [{
+                "env_id": env_name,
+                "policy_id": (policy or {}).get("policy_name") or "math-react",
+                "steps": steps,
+                "final": {"observation": {}},
+                "length": len(steps),
+            }],
             "branches": {},
             "metrics": {
                 "episode_returns": [total_reward],

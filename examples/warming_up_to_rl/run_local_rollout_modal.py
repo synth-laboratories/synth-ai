@@ -25,9 +25,7 @@ from synth_ai.task import (
 )
 
 
-def build_rollout_request(
-    seed: int, run_id: str, *, model: str, inference_url: str, ops: list[str], api_key: str
-) -> RolloutRequest:
+def build_rollout_request(seed: int, run_id: str, *, model: str, inference_url: str, ops: list[str], api_key: str) -> RolloutRequest:
     policy_config = {
         "model": model,
         "inference_url": inference_url,
@@ -47,11 +45,7 @@ def build_rollout_request(
 
 
 def summarise_response(data: Any) -> dict[str, Any]:
-    metrics = (
-        data.metrics.model_dump()
-        if hasattr(data.metrics, "model_dump")
-        else data.get("metrics", {})
-    )
+    metrics = data.metrics.model_dump() if hasattr(data.metrics, "model_dump") else data.get("metrics", {})
     return {
         "run_id": getattr(data, "run_id", None) or data.get("run_id"),
         "num_episodes": metrics.get("num_episodes"),
@@ -73,41 +67,14 @@ async def main() -> None:
     parser.add_argument("--env-file", type=str, default=None, help="Path to .env file with keys")
     parser.add_argument("--seed", type=int, default=42, help="Env seed to rollout")
     parser.add_argument("--run-id", default="modal-eval", help="Run identifier")
-    parser.add_argument(
-        "--model",
-        required=False,
-        help="Model identifier for the Crafter policy (e.g., fft:Qwen/Qwen3-4B:job_xxx)",
-    )
-    parser.add_argument(
-        "--inference-url",
-        required=False,
-        help="Modal backend inference base URL (e.g., http://localhost:8000/api)",
-    )
-    parser.add_argument(
-        "--task-app-key",
-        default=None,
-        help="Environment API key for the task app (fallback ENVIRONMENT_API_KEY)",
-    )
-    parser.add_argument(
-        "--modal-key",
-        default=None,
-        help="Synth/Modal API key for inference (fallback SYNTH_API_KEY)",
-    )
-    parser.add_argument(
-        "--max-llm-calls", type=int, default=20, help="Number of policy inference calls"
-    )
-    parser.add_argument(
-        "--ops", default=None, help="Comma-separated rollout ops (advanced override)"
-    )
-    parser.add_argument(
-        "--max-policy-tokens",
-        type=int,
-        default=None,
-        help="Optional per-call token limit forwarded to the policy config",
-    )
-    parser.add_argument(
-        "--verbose", action="store_true", help="Print resolved configuration and headers"
-    )
+    parser.add_argument("--model", required=False, help="Model identifier for the Crafter policy (e.g., fft:Qwen/Qwen3-4B:job_xxx)")
+    parser.add_argument("--inference-url", required=False, help="Modal backend inference base URL (e.g., http://localhost:8000/api)")
+    parser.add_argument("--task-app-key", default=None, help="Environment API key for the task app (fallback ENVIRONMENT_API_KEY)")
+    parser.add_argument("--modal-key", default=None, help="Synth/Modal API key for inference (fallback SYNTH_API_KEY)")
+    parser.add_argument("--max-llm-calls", type=int, default=20, help="Number of policy inference calls")
+    parser.add_argument("--ops", default=None, help="Comma-separated rollout ops (advanced override)")
+    parser.add_argument("--max-policy-tokens", type=int, default=None, help="Optional per-call token limit forwarded to the policy config")
+    parser.add_argument("--verbose", action="store_true", help="Print resolved configuration and headers")
     args = parser.parse_args()
 
     # Also load from explicit --env-file if provided
@@ -128,9 +95,7 @@ async def main() -> None:
     model = args.model
     if not model:
         print("\nFine-tuned model configuration:")
-        print(
-            "Note: This should be the model ID returned from training (e.g., fft:Qwen/Qwen3-4B:job_abc123)"
-        )
+        print("Note: This should be the model ID returned from training (e.g., fft:Qwen/Qwen3-4B:job_abc123)")
         model_input = input("Fine-tuned model ID: ").strip()
         if not model_input:
             parser.error("Model identifier is required")
@@ -177,7 +142,6 @@ async def main() -> None:
             ops.extend(["agent", "env"])
 
     if args.verbose:
-
         def _mask(val: str | None) -> str:
             if not val:
                 return "<unset>"
@@ -190,15 +154,11 @@ async def main() -> None:
         print(f"  Modal API key      : {_mask(modal_key)}")
         print(f"  Ops (count={len(ops)}) : {ops}")
 
-    inf_url_norm = args.inference_url.rstrip("/")
-    if "/api" not in inf_url_norm:
-        print(
-            "[WARN] Inference URL is missing /api prefix; proxy endpoints usually live at /api/inference/v1/chat/completions."
-        )
-    elif not inf_url_norm.lower().endswith("/api"):
-        print(
-            "[INFO] Using inference base URL; policy will append /v1/chat/completions automatically."
-        )
+    inf_url_norm = args.inference_url.rstrip('/')
+    if '/api' not in inf_url_norm:
+        print('[WARN] Inference URL is missing /api prefix; proxy endpoints usually live at /api/inference/v1/chat/completions.')
+    elif not inf_url_norm.lower().endswith('/api'):
+        print('[INFO] Using inference base URL; policy will append /v1/chat/completions automatically.')
 
     async with TaskAppClient(args.base_url, api_key=task_app_key) as client:
         try:
@@ -218,29 +178,20 @@ async def main() -> None:
             if args.verbose:
                 print(f"Request headers: {request.policy.config.get('extra_headers', {})}")
             if args.max_policy_tokens is not None:
-                request.policy.config.update(
-                    {
-                        "max_completion_tokens": args.max_policy_tokens,
-                        "max_tokens": args.max_policy_tokens,
-                    }
-                )
+                request.policy.config.update({
+                    "max_completion_tokens": args.max_policy_tokens,
+                    "max_tokens": args.max_policy_tokens,
+                })
             print("Requesting rollout…")
             response = await client.rollout(request)
             summary = summarise_response(response)
             print(json.dumps(summary, indent=2))
             print(f"Ops executed: {ops}")
         except httpx.HTTPStatusError as exc:
-            detail = (
-                exc.response.json()
-                if exc.response.headers.get("content-type", "").startswith("application/json")
-                else exc.response.text
-            )
+            detail = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else exc.response.text
             print(f"HTTP error {exc.response.status_code}: {detail}", file=sys.stderr)
             if exc.response.status_code in (401, 503):
-                print(
-                    "Hint: ensure ENVIRONMENT_API_KEY and SYNTH_API_KEY are correctly set.",
-                    file=sys.stderr,
-                )
+                print("Hint: ensure ENVIRONMENT_API_KEY and SYNTH_API_KEY are correctly set.", file=sys.stderr)
             raise
 
 

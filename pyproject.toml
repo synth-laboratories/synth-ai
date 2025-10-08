@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.9.dev7"
+version = "0.2.9.dev5"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -145,7 +145,8 @@ markers = [
 ]
 # Add timeout for long-running tests
 timeout = 300
-# LM-specific pytest config is handled in pytest.unit.ini and pytest.integration.ini
+# Show test durations (slowest N tests)
+addopts = "--durations=10"
 
 [tool.coverage.run]
 source = ["synth_ai"]

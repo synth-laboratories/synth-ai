@@ -1,3 +1,4 @@
+
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the TaskAppConfig defined in the colocated example at
@@ -27,7 +28,6 @@ APP_ID = "grpo-crafter"
 def _build_base_config() -> TaskAppConfig:
     # Lazily construct the base config to avoid heavy work at import time
     return build_config()
-
 
 try:
     _REGISTERED_ENTRY = registry.get(APP_ID)

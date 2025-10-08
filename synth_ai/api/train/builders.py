@@ -34,13 +34,9 @@ def build_rl_payload(
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
     model_cfg = data.get("model") if isinstance(data.get("model"), dict) else {}
 
-    final_task_url = (
-        overrides.get("task_url") or task_url or services.get("task_url") or ""
-    ).strip()
+    final_task_url = (overrides.get("task_url") or task_url or services.get("task_url") or "").strip()
     if not final_task_url:
-        raise click.ClickException(
-            "Task app URL required (provide --task-url or set services.task_url in TOML)"
-        )
+        raise click.ClickException("Task app URL required (provide --task-url or set services.task_url in TOML)")
 
     model_source = (model_cfg.get("source") or "").strip()
     model_base = (model_cfg.get("base") or "").strip()
@@ -49,9 +45,7 @@ def build_rl_payload(
         model_source = override_model
         model_base = ""
     if bool(model_source) == bool(model_base):
-        raise click.ClickException(
-            "Model section must specify exactly one of [model].source or [model].base"
-        )
+        raise click.ClickException("Model section must specify exactly one of [model].source or [model].base")
 
     # Force TOML services.task_url to the effective endpoint to avoid split URLs
     try:
@@ -100,17 +94,11 @@ def build_sft_payload(
         raise TrainError("Dataset not specified; pass --dataset or set [job].data")
     dataset_path = Path(raw_dataset)
     # Resolve relative paths from current working directory, not config directory
-    dataset_path = (
-        dataset_path if dataset_path.is_absolute() else (Path.cwd() / dataset_path)
-    ).resolve()
+    dataset_path = (dataset_path if dataset_path.is_absolute() else (Path.cwd() / dataset_path)).resolve()
     if not dataset_path.exists():
         raise TrainError(f"Dataset not found: {dataset_path}")
 
-    validation_path = (
-        data_cfg.get("validation_path")
-        if isinstance(data_cfg.get("validation_path"), str)
-        else None
-    )
+    validation_path = data_cfg.get("validation_path") if isinstance(data_cfg.get("validation_path"), str) else None
     validation_file = None
     if validation_path:
         vpath = Path(validation_path)
@@ -139,23 +127,15 @@ def build_sft_payload(
     if isinstance(hp_cfg.get("parallelism"), dict):
         hp_block["parallelism"] = hp_cfg["parallelism"]
 
-    compute_block = {
-        k: compute_cfg[k] for k in ("gpu_type", "gpu_count", "nodes") if k in compute_cfg
-    }
+    compute_block = {k: compute_cfg[k] for k in ("gpu_type", "gpu_count", "nodes") if k in compute_cfg}
 
     effective = {
         "compute": compute_block,
-        "data": {
-            "topology": data_cfg.get("topology", {})
-            if isinstance(data_cfg.get("topology"), dict)
-            else {}
-        },
+        "data": {"topology": data_cfg.get("topology", {}) if isinstance(data_cfg.get("topology"), dict) else {}},
         "training": {k: v for k, v in train_cfg.items() if k in ("mode", "use_qlora")},
     }
 
-    validation_cfg = (
-        train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
-    )
+    validation_cfg = train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
     if isinstance(validation_cfg, dict):
         hp_block.update(
             {
@@ -166,9 +146,7 @@ def build_sft_payload(
                 "greater_is_better": bool(validation_cfg.get("greater_is_better", False)),
             }
         )
-        effective.setdefault("training", {})["validation"] = {
-            "enabled": bool(validation_cfg.get("enabled", True))
-        }
+        effective.setdefault("training", {})["validation"] = {"enabled": bool(validation_cfg.get("enabled", True))}
 
     payload = {
         "model": job_cfg.get("model") or data.get("model"),
