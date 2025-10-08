@@ -156,8 +156,26 @@ def resolve_env(
                 raise click.ClickException(f"Env file not found: {path}")
         resolver = EnvResolver(provided)
     else:
-        resolver = EnvResolver(_collect_default_candidates(config_path))
-        resolver.select_new_env()  # force user selection even if one candidate
+        # Check for saved .env path from demo command
+        try:
+            from synth_ai.demos.demo_task_apps.core import load_env_file_path
+            saved_env_path = load_env_file_path()
+            if saved_env_path:
+                saved_path = Path(saved_env_path)
+                if saved_path.exists():
+                    click.echo(f"Using .env file: {saved_path}")
+                    resolver = EnvResolver([saved_path])
+                else:
+                    # Saved path no longer exists, fall back to prompt
+                    resolver = EnvResolver(_collect_default_candidates(config_path))
+                    resolver.select_new_env()
+            else:
+                resolver = EnvResolver(_collect_default_candidates(config_path))
+                resolver.select_new_env()
+        except Exception:
+            # If import fails or any error, fall back to original behavior
+            resolver = EnvResolver(_collect_default_candidates(config_path))
+            resolver.select_new_env()
 
     # Preload selected .env keys into process env so downstream lookups succeed
     try:
@@ -207,10 +225,10 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
                     break
         if env_val:
             click.echo(f"Found {spec.name} in current sources: {mask_value(env_val)}")
-            if _prompt_yes_no(f"Use this value for {spec.name}?", default=True):
-                _maybe_persist(resolver, spec, env_val)
-                os.environ[spec.name] = env_val
-                return env_val
+            # Automatically use and persist the value (no prompt)
+            _maybe_persist(resolver, spec, env_val)
+            os.environ[spec.name] = env_val
+            return env_val
         options: list[tuple[str, Callable[[], str | None]]] = []
 
         def _enter_manual() -> str:
@@ -254,8 +272,7 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
 
 
 def _maybe_persist(resolver: EnvResolver, spec: KeySpec, value: str) -> None:
-    if not _prompt_yes_no(f"Save {spec.name} to {resolver.current_path}?", default=True):
-        return
+    # Automatically save (no prompt)
     resolver.set_value(spec.name, value)
     click.echo(f"Saved {spec.name} to {resolver.current_path}")
 

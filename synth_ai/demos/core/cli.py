@@ -97,6 +97,9 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         "ENVIRONMENT_API_KEY": rl_env_key,
     })
 
+    # Store .env path for subsequent commands
+    demo_core.persist_env_file_path(dotenv_path)
+
     # 2) Reload env after handshake to pick up values from .env (suppress env prints)
     import io
     import contextlib
@@ -1107,6 +1110,11 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         # Store demo directory for subsequent commands
         demo_core.persist_demo_dir(str(destination))
+
+        # Store .env path if it was created
+        env_file = destination / ".env"
+        if env_file.exists():
+            demo_core.persist_env_file_path(str(env_file))
 
         print(f"Demo template '{selected.name}' materialised at {destination}.")
         print("Files created:")
