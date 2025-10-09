@@ -549,6 +549,56 @@ def create_inference_client(
         except Exception:
             api_key = None
 
+    import os as _os
+    import time as _time
+    import json as _json
+
+    if _os.getenv("SYNTH_FAKE_INFERENCE", "").strip():
+        class _DummyClient:
+            async def generate_with_retries(
+                self,
+                request: dict[str, Any],
+                base_url: str | None = None,
+                max_retries: int = 0,
+                backoff_factor: float = 1.0,
+                extra_headers: dict[str, str] | None = None,
+            ) -> dict[str, Any]:
+                tool_call = {
+                    "id": "call_dummy",
+                    "type": "function",
+                    "function": {
+                        "name": "interact_many",
+                        "arguments": _json.dumps({"actions": ["move_right"]}),
+                    },
+                }
+                return {
+                    "id": f"cmpl-{int(_time.time())}",
+                    "object": "chat.completion",
+                    "created": int(_time.time()),
+                    "model": request.get("model") or "dummy-model",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [tool_call],
+                            },
+                            "finish_reason": "tool_calls",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                }
+
+            async def check_health(
+                self,
+                base_url: str | None = None,
+                timeout_s: float | None = None,
+            ) -> dict[str, Any]:
+                return {"status": "ok", "dummy": True}
+
+        return _DummyClient()
+
     return OpenAIClient(
         base_url=task_app.vllm_base_url,
         api_key=api_key,

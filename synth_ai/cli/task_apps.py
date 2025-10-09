@@ -1348,6 +1348,56 @@ def serve_command(
     _serve_entry(entry, host, port, env_file, reload_flag, force, trace_dir=trace_dir, trace_db=trace_db)
 
 
+@task_app_group.command('info')
+@click.option('--base', 'base_url', default=None, help='Task app base URL (default: TASK_APP_BASE_URL or http://127.0.0.1:8001)')
+@click.option('--api-key', default=None, help='Environment API key (default: ENVIRONMENT_API_KEY or dev fallbacks)')
+@click.option('--seed', 'seeds', multiple=True, type=int, help='Optional seed(s) to request specific instances (repeatable)')
+def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ...]) -> None:
+    """Fetch Task App /task_info with authentication and print JSON."""
+    import json as _json
+    import os as _os
+    import requests as _requests
+
+    base = (base_url or _os.getenv('TASK_APP_BASE_URL') or 'http://127.0.0.1:8001').rstrip('/')
+
+    # Resolve API key, permitting dev fallbacks
+    try:
+        from synth_ai.task.auth import normalize_environment_api_key as _norm_key
+    except Exception:
+        _norm_key = lambda: _os.getenv('ENVIRONMENT_API_KEY')  # noqa: E731
+    key = (api_key or _norm_key() or '').strip()
+    if not key:
+        raise click.ClickException('Missing API key. Provide --api-key or set ENVIRONMENT_API_KEY.')
+
+    headers: dict[str, str] = {'X-API-Key': key, 'Authorization': f'Bearer {key}'}
+    aliases = (_os.getenv('ENVIRONMENT_API_KEY_ALIASES') or '').strip()
+    keys_csv = ','.join([key] + [p.strip() for p in aliases.split(',') if p.strip()]) if aliases else key
+    if keys_csv:
+        headers['X-API-Keys'] = keys_csv
+
+    params: list[tuple[str, str]] = []
+    for s in seeds:
+        params.append(('seed', str(int(s))))
+
+    url = f"{base}/task_info"
+    try:
+        r = _requests.get(url, headers=headers, params=params or None, timeout=30)
+    except Exception as exc:
+        raise click.ClickException(f"Request failed: {exc}") from exc
+    if not (200 <= r.status_code < 300):
+        ct = r.headers.get('content-type', '')
+        detail = r.text
+        if ct.startswith('application/json'):
+            try:
+                detail = _json.dumps(r.json(), indent=2)
+            except Exception:
+                pass
+        raise click.ClickException(f"{url} returned {r.status_code}:\n{detail}")
+
+    data = r.json() if r.headers.get('content-type', '').startswith('application/json') else {'raw': r.text}
+    click.echo(_json.dumps(data, indent=2, sort_keys=True))
+
+
 @task_app_group.command('serve')
 @click.argument('app_id', type=str, required=False)
 @click.option('--host', default='0.0.0.0', show_default=True)

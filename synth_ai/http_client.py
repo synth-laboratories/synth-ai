@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import os
 from typing import Any, Dict, Optional
 
 import aiohttp
@@ -32,6 +33,13 @@ class AsyncHttpClient:
     async def __aenter__(self) -> "AsyncHttpClient":
         if self._session is None:
             headers = {"authorization": f"Bearer {self._api_key}"}
+            # Optional dev overrides for user/org context
+            user_id = os.getenv("SYNTH_USER_ID") or os.getenv("X_USER_ID") or os.getenv("USER_ID")
+            if user_id:
+                headers["X-User-ID"] = user_id
+            org_id = os.getenv("SYNTH_ORG_ID") or os.getenv("X_ORG_ID") or os.getenv("ORG_ID")
+            if org_id:
+                headers["X-Org-ID"] = org_id
             self._session = aiohttp.ClientSession(headers=headers, timeout=self._timeout)
         return self
 

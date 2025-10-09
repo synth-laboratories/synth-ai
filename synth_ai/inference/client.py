@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from synth_ai.api.models.supported import (
+    UnsupportedModelError,
+    normalize_model_identifier,
+)
+
 from ..http import AsyncHttpClient
 
 
@@ -14,7 +19,12 @@ class InferenceClient:
     async def create_chat_completion(
         self, *, model: str, messages: list[dict], **kwargs: Any
     ) -> Dict[str, Any]:
-        body: Dict[str, Any] = {"model": model, "messages": messages}
+        try:
+            normalized_model = normalize_model_identifier(model)
+        except UnsupportedModelError as exc:
+            raise ValueError(str(exc)) from exc
+
+        body: Dict[str, Any] = {"model": normalized_model, "messages": messages}
         body.update(kwargs)
         # Backend now expects an explicit thinking_budget; provide a sensible default if omitted
         if "thinking_budget" not in body:

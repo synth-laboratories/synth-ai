@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from synth_ai.api.models.supported import normalize_model_identifier
 from synth_ai.http import AsyncHttpClient
+from synth_ai.learning.sft.config import prepare_sft_job_payload
 
 
 class FilesApi:
@@ -67,20 +69,18 @@ class SftJobsApi:
         metadata: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
     ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
-            "training_file": training_file,
-            "model": model,
-        }
-        if validation_file is not None:
-            payload["validation_file"] = validation_file
-        if hyperparameters is not None:
-            payload["hyperparameters"] = hyperparameters
-        if suffix is not None:
-            payload["suffix"] = suffix
-        if integrations is not None:
-            payload["integrations"] = integrations
-        if metadata is not None:
-            payload["metadata"] = metadata
+        payload = prepare_sft_job_payload(
+            model=model,
+            training_file=training_file,
+            hyperparameters=hyperparameters,
+            metadata=metadata,
+            training_type=None,
+            validation_file=validation_file,
+            suffix=suffix,
+            integrations=integrations,
+            training_file_field="training_file",
+            require_training_file=True,
+        )
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
         return await self._http.post_json("/api/sft/jobs", json=payload, headers=headers)
 
@@ -148,7 +148,7 @@ class RlJobsApi:
         idempotency_key: Optional[str] = None,
     ) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
-            "model": model,
+            "model": normalize_model_identifier(model),
             "endpoint_base_url": endpoint_base_url,
             "trainer_id": trainer_id,
         }

@@ -7,6 +7,8 @@ from typing import Any
 import click
 
 from .utils import ensure_api_base, load_toml, TrainError
+from synth_ai.api.models.supported import UnsupportedModelError, normalize_model_identifier
+from synth_ai.learning.sft.config import prepare_sft_job_payload
 
 
 @dataclass(slots=True)
@@ -46,6 +48,14 @@ def build_rl_payload(
         model_base = ""
     if bool(model_source) == bool(model_base):
         raise click.ClickException("Model section must specify exactly one of [model].source or [model].base")
+
+    try:
+        if model_source:
+            model_source = normalize_model_identifier(model_source)
+        if model_base:
+            model_base = normalize_model_identifier(model_base, allow_finetuned_prefixes=False)
+    except UnsupportedModelError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     # Force TOML services.task_url to the effective endpoint to avoid split URLs
     try:
@@ -148,13 +158,25 @@ def build_sft_payload(
         )
         effective.setdefault("training", {})["validation"] = {"enabled": bool(validation_cfg.get("enabled", True))}
 
-    payload = {
-        "model": job_cfg.get("model") or data.get("model"),
-        "training_file_id": None,  # populated after upload
-        "training_type": "sft_offline",
-        "hyperparameters": hp_block,
-        "metadata": {"effective_config": effective},
-    }
+    raw_model = (job_cfg.get("model") or data.get("model") or "").strip()
+    if not raw_model:
+        raise TrainError("Model not specified; set [job].model or [model].base in the config")
+    try:
+        payload = prepare_sft_job_payload(
+            model=raw_model,
+            training_file=None,
+            hyperparameters=hp_block,
+            metadata={"effective_config": effective},
+            training_type="sft_offline",
+            training_file_field="training_file_id",
+            require_training_file=False,
+            include_training_file_when_none=True,
+            allow_finetuned_prefixes=False,
+        )
+    except UnsupportedModelError as exc:
+        raise TrainError(str(exc)) from exc
+    except ValueError as exc:
+        raise TrainError(str(exc)) from exc
 
     return SFTBuildResult(payload=payload, train_file=dataset_path, validation_file=validation_file)
 

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 import pytest
 
+from synth_ai.api.models.supported import UnsupportedModelError
 from synth_ai.jobs.client import JobsClient
 
 
@@ -236,3 +237,29 @@ async def test_models_endpoints():
         assert call["method"] == "GET"
         assert call["path"] == "/api/models/ft:Qwen/Qwen3-0.6B:suffix/jobs"
         assert call["params"] == {"limit": 3, "after": "j1"}
+
+
+@pytest.mark.asyncio
+async def test_sft_create_rejects_unknown_model():
+    fake = FakeHttp()
+    async with JobsClient(base_url="https://backend", api_key="k", http=fake) as client:
+        with pytest.raises(UnsupportedModelError):
+            await client.sft.create(
+                training_file="file-abc",
+                model="Unknown/Model",
+                hyperparameters={"n_epochs": 1},
+            )
+    assert not fake.calls, "HTTP request should not be sent for invalid model"
+
+
+@pytest.mark.asyncio
+async def test_rl_create_rejects_unknown_model():
+    fake = FakeHttp()
+    async with JobsClient(base_url="https://backend", api_key="k", http=fake) as client:
+        with pytest.raises(UnsupportedModelError):
+            await client.rl.create(
+                model="Unknown/Model",
+                endpoint_base_url="https://task",
+                trainer_id="trainer-1",
+            )
+    assert not fake.calls, "HTTP request should not be sent for invalid model"

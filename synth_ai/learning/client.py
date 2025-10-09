@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypedDict
 
+from synth_ai.api.models.supported import (
+    UnsupportedModelError,
+    normalize_model_identifier,
+)
+from synth_ai.learning.sft.config import prepare_sft_job_payload
 from ..http import AsyncHttpClient, HTTPError, sleep
 
 
@@ -37,13 +42,33 @@ class LearningClient:
         hyperparameters: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        body = {
-            "training_type": training_type,
-            "model": model,
-            "training_file_id": training_file_id,
-            "hyperparameters": hyperparameters or {},
-            "metadata": metadata or {},
-        }
+        lower_type = (training_type or "").strip().lower()
+        require_base = lower_type.startswith("sft") or lower_type.startswith("fft") or lower_type.startswith("qft")
+        try:
+            normalized_model = normalize_model_identifier(
+                model, allow_finetuned_prefixes=not require_base
+            )
+        except UnsupportedModelError as exc:
+            raise ValueError(str(exc)) from exc
+
+        if lower_type.startswith("sft") or lower_type in {"fft", "qft"}:
+            body = prepare_sft_job_payload(
+                model=model,
+                training_file=training_file_id,
+                hyperparameters=hyperparameters,
+                metadata=metadata,
+                training_type=training_type or "sft_offline",
+                training_file_field="training_file_id",
+                require_training_file=True,
+            )
+        else:
+            body = {
+                "training_type": training_type,
+                "model": normalized_model,
+                "training_file_id": training_file_id,
+                "hyperparameters": hyperparameters or {},
+                "metadata": metadata or {},
+            }
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json("/api/learning/jobs", json=body)
 
@@ -161,6 +186,41 @@ class LearningClient:
                 body_snippet=str(js)[:200],
             )
         return js
+
+
+class FineTunedModelInfo(TypedDict, total=False):
+    id: str
+    base_model: Optional[str]
+    created_at: Optional[int]
+    job_id: Optional[str]
+    status: Optional[str]
+
+
+class LearningClient(LearningClient):  # type: ignore[misc]
+    async def list_fine_tuned_models(self) -> List[FineTunedModelInfo]:
+        """Return completed fine‑tuned models for the caller's organization.
+
+        Calls backend route `/api/learning/models` and returns a compact list.
+        """
+        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.get("/api/learning/models")
+        if isinstance(js, dict) and isinstance(js.get("data"), list):
+            out: List[FineTunedModelInfo] = []
+            for item in js["data"]:
+                if not isinstance(item, dict):
+                    continue
+                rec: FineTunedModelInfo = {
+                    "id": str(item.get("id")),
+                    "base_model": item.get("base_model"),
+                    "created_at": item.get("created_at"),
+                    "job_id": item.get("job_id"),
+                    "status": item.get("status"),
+                }
+                if rec.get("id"):
+                    out.append(rec)
+            return out
+        # Fallback: empty list on unexpected shape
+        return []
 
 
 def _infer_content_type(filename: str) -> str:

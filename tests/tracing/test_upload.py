@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from requests.exceptions import HTTPError
 
-from synth_ai.tracing.abstractions import (
+from synth_ai.v0.tracing.abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
     ArbitraryOutputs,
@@ -22,8 +22,8 @@ from synth_ai.tracing.abstractions import (
     SystemTrace,
     TrainingQuestion,
 )
-from synth_ai.tracing.events.store import event_store
-from synth_ai.tracing.upload import (
+from synth_ai.v0.tracing.events.store import event_store
+from synth_ai.v0.tracing.upload import (
     UploadValidator,
     createPayload,
     format_upload_output,
@@ -281,8 +281,8 @@ class TestUploadFunction:
     """Test the main upload function."""
 
     @patch.dict(os.environ, {"SYNTH_API_KEY": "test-api-key"})
-    @patch("synth_ai.tracing.upload.send_system_traces_s3")
-    @patch("synth_ai.tracing.upload.event_store")
+    @patch("synth_ai.v0.tracing.upload.send_system_traces_s3")
+    @patch("synth_ai.v0.tracing.upload.event_store")
     def test_upload_success(self, mock_event_store, mock_send_s3):
         """Test successful upload."""
         # Setup mocks
@@ -328,7 +328,7 @@ class TestUploadFunction:
             upload(dataset)
 
     @patch.dict(os.environ, {"SYNTH_API_KEY": "test-key"})
-    @patch("synth_ai.tracing.upload.event_store")
+    @patch("synth_ai.v0.tracing.upload.event_store")
     def test_upload_no_traces(self, mock_event_store):
         """Test upload fails with no traces."""
         # Mock event store to return no traces
@@ -343,8 +343,8 @@ class TestUploadFunction:
             upload(dataset, [])
 
     @patch.dict(os.environ, {"SYNTH_API_KEY": "test-key"})
-    @patch("synth_ai.tracing.upload.send_system_traces_s3")
-    @patch("synth_ai.tracing.upload.event_store")
+    @patch("synth_ai.v0.tracing.upload.send_system_traces_s3")
+    @patch("synth_ai.v0.tracing.upload.event_store")
     def test_upload_http_error(self, mock_event_store, mock_send_s3):
         """Test upload handles HTTP errors."""
         # Setup mocks

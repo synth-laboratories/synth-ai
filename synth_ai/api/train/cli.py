@@ -136,7 +136,11 @@ def train_command(
     """Interactive launcher for RL / SFT jobs."""
 
     candidates = discover_configs(list(config_paths), requested_type=train_type if train_type != "auto" else None)
-    selection = prompt_for_config(candidates, requested_type=train_type if train_type != "auto" else None)
+    selection = prompt_for_config(
+        candidates,
+        requested_type=train_type if train_type != "auto" else None,
+        allow_autoselect=bool(config_paths),
+    )
 
     effective_type = train_type if train_type != "auto" else selection.train_type
     if effective_type not in {"rl", "sft"}:

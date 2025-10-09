@@ -1,16 +1,50 @@
 from .client import LearningClient
-from .rl_client import RlClient
-from .ft_client import FtClient
+from .rl import (
+    MAX_ENVIRONMENT_API_KEY_BYTES,
+    RLJobConfig,
+    RlClient,
+    RolloutEnvSpec,
+    RolloutMetrics,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    RolloutResponse,
+    RolloutSafetyConfig,
+    RolloutStep,
+    RolloutTrajectory,
+    encrypt_for_backend,
+    mint_environment_api_key,
+    setup_environment_api_key,
+)
+from .sft import FtClient
+from .sft.config import SFTJobConfig, prepare_sft_job_payload
 from .validators import validate_training_jsonl, validate_trainer_cfg_rl
-from synth_ai.task import validate_task_app_url, task_app_health
-from .health import backend_health, pricing_preflight, balance_autumn_normalized
+from synth_ai.task import task_app_health, validate_task_app_url
+from .health import backend_health, balance_autumn_normalized, pricing_preflight
 from .sse import stream_events as stream_job_events
 from .jobs import JobHandle, JobsApiResolver
 
 __all__ = [
     "LearningClient",
     "RlClient",
+    "RLJobConfig",
     "FtClient",
+    "SFTJobConfig",
+    "prepare_sft_job_payload",
+    "RolloutEnvSpec",
+    "RolloutPolicySpec",
+    "RolloutRecordConfig",
+    "RolloutSafetyConfig",
+    "RolloutRequest",
+    "RolloutStep",
+    "RolloutTrajectory",
+    "RolloutMetrics",
+    "RolloutResponse",
+    "mint_environment_api_key",
+    "encrypt_for_backend",
+    "setup_environment_api_key",
+    "MAX_ENVIRONMENT_API_KEY_BYTES",
+    # convenience re-export for typing
     "validate_training_jsonl",
     "validate_trainer_cfg_rl",
     "validate_task_app_url",

@@ -14,6 +14,8 @@ from typing import Any, Iterable, Mapping
 import requests
 import tomllib
 
+from synth_ai.learning.sft import collect_sft_jsonl_errors
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -139,49 +141,17 @@ def fmt_duration(seconds: float) -> str:
 
 
 def validate_sft_jsonl(path: Path, *, max_errors: int = 20) -> None:
-    errors: list[str] = []
-    try:
-        fh = path.open("r", encoding="utf-8")
-    except FileNotFoundError as exc:  # pragma: no cover - upstream ensures existence
-        raise TrainError(f"Dataset not found: {path}") from exc
+    if not path.exists():
+        raise TrainError(f"Dataset not found: {path}")
 
-    with fh:
-        for idx, line in enumerate(fh, start=1):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            try:
-                record = json.loads(stripped)
-            except json.JSONDecodeError as exc:
-                errors.append(f"Line {idx}: invalid JSON ({exc.msg})")
-                if len(errors) >= max_errors:
-                    break
-                continue
+    issues = collect_sft_jsonl_errors(path, min_messages=1, max_errors=max_errors)
+    if not issues:
+        return
 
-            messages = record.get("messages")
-            if not isinstance(messages, list) or not messages:
-                errors.append(f"Line {idx}: missing or empty 'messages' list")
-                if len(errors) >= max_errors:
-                    break
-                continue
-
-            for msg_idx, msg in enumerate(messages):
-                if not isinstance(msg, dict):
-                    errors.append(f"Line {idx}: message {msg_idx} is not an object")
-                    break
-                if "role" not in msg or "content" not in msg:
-                    errors.append(f"Line {idx}: message {msg_idx} missing 'role' or 'content'")
-                    break
-                if not isinstance(msg["role"], str) or not isinstance(msg["content"], str):
-                    errors.append(f"Line {idx}: message {msg_idx} has non-string role/content")
-                    break
-            if len(errors) >= max_errors:
-                break
-
-    if errors:
-        suffix = "" if len(errors) < max_errors else f" (showing first {max_errors} issues)"
-        details = "\n - ".join(errors)
-        raise TrainError(f"Dataset validation failed{suffix}:\n - {details}")
+    truncated = max_errors is not None and len(issues) >= max_errors
+    suffix = "" if not truncated else f" (showing first {max_errors} issues)"
+    details = "\n - ".join(issues)
+    raise TrainError(f"{path}: Dataset validation failed{suffix}:\n - {details}")
 
 
 def limit_jsonl_examples(src: Path, limit: int) -> Path:

@@ -1,7 +1,0 @@
-## Gemini
-
-
-## OpenAI
-
-
-## Synth

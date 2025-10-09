@@ -4,7 +4,7 @@ import time
 import uuid
 from datetime import datetime
 
-from synth_ai.tracing.abstractions import (
+from synth_ai.v0.tracing.abstractions import (
     AgentComputeStep,
     ArbitraryInputs,
     ArbitraryOutputs,
