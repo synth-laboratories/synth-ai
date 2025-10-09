@@ -181,9 +181,11 @@ from pathlib import Path
 from synth_ai.task.apps import ModalDeploymentConfig, registry
 import sys
 from pathlib import Path
-_EXAMPLES_TASK_APP = Path(__file__).resolve().parents[4] / "examples" / "warming_up_to_rl" / "task_app"
-if str(_EXAMPLES_TASK_APP) not in sys.path:
-    sys.path.insert(0, str(_EXAMPLES_TASK_APP))
+
+# In demo mode, grpo_crafter.py is in the same directory
+_DEMO_DIR = Path(__file__).resolve().parent
+if str(_DEMO_DIR) not in sys.path:
+    sys.path.insert(0, str(_DEMO_DIR))
 from grpo_crafter import build_config
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
@@ -267,7 +269,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    default_env = Path(__file__).resolve().parents[4] / "backend" / ".env.dev"
+    # In demo mode, use .env in the same directory
+    default_env = Path(__file__).resolve().parent / ".env"
     env_files = [str(default_env)] if default_env.exists() else []
     env_files.extend(args.env_file or [])
 
