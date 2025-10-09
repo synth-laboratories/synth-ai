@@ -55,3 +55,26 @@ jobs:
             echo "Fast unit tests exceeded 5 seconds (${DUR}s)" >&2
             exit 1
           fi
+
+  integration-dev:
+    name: Integration (dev endpoints)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    env:
+      DEV_ACTIONS_SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
+      DEV_BACKEND_URL: ${{ secrets.DEV_BACKEND_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Run all dev endpoint tests (against DEV_BACKEND_URL)
+        run: |
+          uvx --from pytest pytest -c pytest.integration.ini -q tests/integration/endpoints/*_dev.py -s --maxfail=1
+      - name: Run CLI finetune smoke (Qwen3-32B on 4x H100)
+        env:
+          SYNTH_GPU_TYPE: H100-4x
+          SYNTH_API_KEY: ${{ secrets.DEV_ACTIONS_SYNTH_API_KEY }}
+        run: |
+          uvx --from pytest pytest -c pytest.integration.ini -q tests/cli/test_cli_train_multi_gpu_dev.py -s --maxfail=1
