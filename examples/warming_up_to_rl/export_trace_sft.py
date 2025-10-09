@@ -494,20 +494,24 @@ def main() -> None:
     if db_path is None:
         db_path = _find_trace_database()
         if db_path:
+            db_path = db_path.resolve()
             print(f"Found trace database: {db_path}")
         else:
             print("\nTrace database configuration:")
-            db_input = input("Trace database path [traces/v3/synth_ai.db]: ").strip()
-            db_path = Path(db_input) if db_input else Path("traces/v3/synth_ai.db")
+            default_db = (Path.cwd() / "traces" / "v3" / "synth_ai.db").resolve()
+            db_input = input(f"Trace database path [{default_db}]: ").strip()
+            db_path = Path(db_input).resolve() if db_input else default_db
 
+    db_path = db_path.resolve()
     if not db_path.exists():
-        print(f"Database not found: {db_path}", file=sys.stderr)
+        print(f"❌ Database not found: {db_path}", file=sys.stderr)
+        print(f"Tip: Run traced rollouts first to populate the database", file=sys.stderr)
         raise SystemExit(1)
 
     output_path = args.output
     if not output_path:
-        output_path = Path("ft_data/crafter_traces.jsonl")
-        print(f"Output will be written to: {output_path.resolve()}")
+        output_path = (Path.cwd() / "ft_data" / "crafter_traces.jsonl").resolve()
+        print(f"Output will be written to: {output_path}")
 
     min_unique = args.min_unique
     if min_unique is None:
@@ -525,6 +529,15 @@ def main() -> None:
 
     conn = connect(args.db)
     try:
+        # Check if database has any sessions
+        total_sessions = conn.execute("SELECT COUNT(DISTINCT session_id) FROM events").fetchone()[0]
+        if total_sessions == 0:
+            print(f"❌ Database is empty (no sessions found)", file=sys.stderr)
+            print(f"Tip: Run traced rollouts with TASKAPP_TRACING_ENABLED=1 to populate the database", file=sys.stderr)
+            raise SystemExit(1)
+
+        print(f"Found {total_sessions} session(s) in database")
+
         (
             achievements_map,
             unique_counts_per_session,
@@ -582,7 +595,21 @@ def main() -> None:
             eligible_sessions.add(session_id)
 
         if not eligible_sessions:
-            print("No sessions matched the provided filters.", file=sys.stderr)
+            print(f"❌ No sessions matched the provided filters out of {total_sessions} total sessions.", file=sys.stderr)
+            print(f"Applied filters:", file=sys.stderr)
+            if args.min_unique:
+                print(f"  - min-unique: {args.min_unique}", file=sys.stderr)
+            if args.max_unique:
+                print(f"  - max-unique: {args.max_unique}", file=sys.stderr)
+            if allowed_models:
+                print(f"  - models: {', '.join(allowed_models)}", file=sys.stderr)
+            if allowed_providers:
+                print(f"  - providers: {', '.join(allowed_providers)}", file=sys.stderr)
+            if args.min_outcome_reward:
+                print(f"  - min-outcome-reward: {args.min_outcome_reward}", file=sys.stderr)
+            if required_achievements:
+                print(f"  - required achievements: {', '.join(required_achievements)}", file=sys.stderr)
+            print(f"Tip: Try reducing filter constraints or run more rollouts", file=sys.stderr)
             raise SystemExit(1)
 
         dataset = build_sft_dataset(
@@ -601,10 +628,11 @@ def main() -> None:
         write_jsonl(args.output, dataset)
         session_ids = {item.get("metadata", {}).get("session_id") for item in dataset}
         session_ids.discard(None)
-        print(
-            f"Wrote {len(dataset)} examples from {len(session_ids)} session(s) -> {args.output.resolve()}",
-            file=sys.stderr,
-        )
+        print(f"\n✅ Successfully exported SFT dataset!")
+        print(f"   Examples: {len(dataset)}")
+        print(f"   Sessions: {len(session_ids)}")
+        print(f"   Output: {args.output.resolve()}")
+        print(f"\nYou can now use this dataset for fine-tuning!")
     finally:
         conn.close()
 
