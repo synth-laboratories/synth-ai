@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 """Vendor API key helpers shared by Task Apps."""
 
+from __future__ import annotations
+
 import os
-from typing import Optional
 
 from .errors import http_exception
 
@@ -20,7 +19,7 @@ def _mask(value: str, *, prefix: int = 4) -> str:
     return f"{visible}{'…' if len(value) > prefix else ''}"
 
 
-def _normalize_single(key: str) -> Optional[str]:
+def _normalize_single(key: str) -> str | None:
     direct = os.getenv(key)
     if direct:
         return direct
@@ -37,10 +36,10 @@ def _normalize_single(key: str) -> Optional[str]:
     return None
 
 
-def normalize_vendor_keys() -> dict[str, Optional[str]]:
+def normalize_vendor_keys() -> dict[str, str | None]:
     """Normalise known vendor keys from dev fallbacks and return the mapping."""
 
-    resolved: dict[str, Optional[str]] = {}
+    resolved: dict[str, str | None] = {}
     for key in _VENDOR_KEYS:
         resolved[key] = _normalize_single(key)
     return resolved

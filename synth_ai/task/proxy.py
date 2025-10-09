@@ -1,14 +1,14 @@
-from __future__ import annotations
-
 """Shared helpers for Task App proxy endpoints (OpenAI, Groq, etc.)."""
+
+from __future__ import annotations
 
 import copy
 import json
 import re
-from typing import Any, Iterable, List, Tuple
+from collections.abc import Iterable
+from typing import Any
 
-
-INTERACT_TOOL_SCHEMA: List[dict[str, Any]] = [
+INTERACT_TOOL_SCHEMA: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -80,9 +80,13 @@ def prepare_for_groq(model: str | None, payload: dict[str, Any]) -> dict[str, An
 
     sanitized = prepare_for_openai(model, payload)
     # Groq supports `max_tokens`; prefer their native parameter when present
-    if model and "gpt-5" not in (model or ""):
-        if "max_completion_tokens" in sanitized and "max_tokens" not in payload:
-            sanitized["max_tokens"] = sanitized.pop("max_completion_tokens")
+    if (
+        model
+        and "gpt-5" not in model
+        and "max_completion_tokens" in sanitized
+        and "max_tokens" not in payload
+    ):
+        sanitized["max_tokens"] = sanitized.pop("max_completion_tokens")
     return sanitized
 
 
@@ -146,7 +150,7 @@ def _parse_actions_from_json_candidate(candidate: Any) -> tuple[list[str], str]:
     return actions, reasoning
 
 
-def parse_tool_call_from_text(text: str) -> Tuple[list[str], str]:
+def parse_tool_call_from_text(text: str) -> tuple[list[str], str]:
     """Derive tool-call actions and reasoning from assistant text."""
 
     text = (text or "").strip()

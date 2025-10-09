@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Hook system for extending tracing functionality.
 
 The hook system provides a flexible way to extend the tracing system without
@@ -33,6 +31,8 @@ Common Use Cases:
 - Data enrichment and transformation
 - Custom filtering and sampling
 """
+
+from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable

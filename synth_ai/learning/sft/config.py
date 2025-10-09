@@ -1,9 +1,10 @@
-from __future__ import annotations
-
 """Utilities for validating and constructing SFT job payloads."""
 
+from __future__ import annotations
+
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields
-from typing import Any, Mapping
+from typing import Any
 
 from synth_ai.api.models.supported import (
     UnsupportedModelError,
@@ -65,7 +66,7 @@ class SFTTrainingHyperparameters:
     extras: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any] | None) -> "SFTTrainingHyperparameters":
+    def from_mapping(cls, data: Mapping[str, Any] | None) -> SFTTrainingHyperparameters:
         if data is None:
             raise ValueError("hyperparameters must not be empty")
         normalized: dict[str, Any] = dict(data)

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
-from urllib.parse import urlparse
+from typing import Any
 
 from synth_ai.learning.sft import SFTDataError, parse_jsonl_line
 
@@ -41,7 +40,7 @@ def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
     _vt(url, name=name)
 
 
-def validate_trainer_cfg_rl(trainer: Dict[str, Any]) -> None:
+def validate_trainer_cfg_rl(trainer: dict[str, Any]) -> None:
     bs = int(trainer.get("batch_size", 1))
     gs = int(trainer.get("group_size", 2))
     if bs < 1:

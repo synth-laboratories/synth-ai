@@ -1,8 +1,9 @@
-from __future__ import annotations
-
 """Dataset registry and helpers shared by Task Apps."""
 
-from typing import Any, Callable, Dict, Hashable, Tuple
+from __future__ import annotations
+
+from collections.abc import Callable, Hashable
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -34,8 +35,8 @@ class TaskDatasetRegistry:
     """Lightweight registry mapping dataset specs to loader callables."""
 
     def __init__(self) -> None:
-        self._entries: Dict[str, Tuple[TaskDatasetSpec, RegistryLoader, bool]] = {}
-        self._cache: Dict[Hashable, Any] = {}
+        self._entries: dict[str, tuple[TaskDatasetSpec, RegistryLoader, bool]] = {}
+        self._cache: dict[Hashable, Any] = {}
 
     def register(
         self, spec: TaskDatasetSpec, loader: RegistryLoader, *, cache: bool = True

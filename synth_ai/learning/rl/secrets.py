@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Helpers for generating RL environment credentials."""
+
+from __future__ import annotations
 
 import secrets
 

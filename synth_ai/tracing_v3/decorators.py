@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Async-aware decorators for tracing v3.
 
 This module provides decorators and context management utilities for the tracing
@@ -23,6 +21,8 @@ Key Decorators:
 The decorators support both sync and async functions where appropriate,
 though async is preferred for consistency with the rest of the system.
 """
+
+from __future__ import annotations
 
 import asyncio
 import contextvars

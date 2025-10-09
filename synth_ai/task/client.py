@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Async HTTP client for interacting with Task Apps."""
 
+from __future__ import annotations
+
 import asyncio
-from typing import Any, Dict, Iterable, List, Optional
 import os
+from typing import Any
 
 import httpx
 from pydantic import BaseModel
@@ -37,7 +37,7 @@ class TaskAppClient:
         self._client: httpx.AsyncClient | None = None
         self.env = _TaskAppEnvironmentClient(self)
 
-    async def __aenter__(self) -> "TaskAppClient":
+    async def __aenter__(self) -> TaskAppClient:
         await self._ensure_client()
         return self
 
@@ -53,8 +53,8 @@ class TaskAppClient:
             )
         return self._client
 
-    def _headers(self) -> Dict[str, str]:
-        headers: Dict[str, str] = {}
+    def _headers(self) -> dict[str, str]:
+        headers: dict[str, str] = {}
         # Primary key
         primary = (self.api_key or "").strip()
         if primary:
@@ -85,7 +85,7 @@ class TaskAppClient:
         method: str,
         path: str,
         *,
-        params: Optional[Dict[str, Any] | List[tuple[str, Any]]] = None,
+        params: dict[str, Any] | list[tuple[str, Any]] | None = None,
         json_payload: Any = None,
     ) -> httpx.Response:
         client = await self._ensure_client()
@@ -118,16 +118,16 @@ class TaskAppClient:
             raise last_exc
         raise RuntimeError("Unreachable code in TaskAppClient._request")
 
-    async def health(self) -> Dict[str, Any]:
+    async def health(self) -> dict[str, Any]:
         response = await self._request("GET", "/health")
         return response.json()
 
-    async def info(self) -> Dict[str, Any]:
+    async def info(self) -> dict[str, Any]:
         response = await self._request("GET", "/info")
         return response.json()
 
     async def task_info(self, seeds: list[int] | None = None) -> TaskInfo | list[TaskInfo]:
-        params: Optional[List[tuple[str, Any]]] = None
+        params: list[tuple[str, Any]] | None = None
         if seeds:
             params = [("seed", seed) for seed in seeds]
         response = await self._request("GET", "/task_info", params=params)
@@ -146,21 +146,21 @@ class _TaskAppEnvironmentClient:
     def __init__(self, client: TaskAppClient) -> None:
         self._client = client
 
-    async def initialize(self, env_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def initialize(self, env_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         response = await self._client._request(
             "POST", f"/env/{env_name}/initialize", json_payload=payload
         )
         return response.json()
 
-    async def step(self, env_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def step(self, env_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         response = await self._client._request(
             "POST", f"/env/{env_name}/step", json_payload=payload
         )
         return response.json()
 
     async def terminate(
-        self, env_name: str, payload: Dict[str, Any] | None = None
-    ) -> Dict[str, Any]:
+        self, env_name: str, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         response = await self._client._request(
             "POST", f"/env/{env_name}/terminate", json_payload=payload or {}
         )

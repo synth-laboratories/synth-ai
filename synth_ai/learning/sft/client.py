@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ...http import AsyncHttpClient, HTTPError
-from .data import validate_jsonl_or_raise
 from .config import prepare_sft_job_payload
+from .data import validate_jsonl_or_raise
 
 
 class FtClient:
@@ -37,9 +37,9 @@ class FtClient:
         *,
         model: str,
         training_file_id: str,
-        hyperparameters: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        hyperparameters: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         body = prepare_sft_job_payload(
             model=model,
             training_file=training_file_id,
@@ -52,7 +52,7 @@ class FtClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json("/api/learning/jobs", json=body)
 
-    async def start_job(self, job_id: str) -> Dict[str, Any]:
+    async def start_job(self, job_id: str) -> dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
 

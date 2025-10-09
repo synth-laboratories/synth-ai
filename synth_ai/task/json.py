@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """Shared JSON sanitisation helpers for Task Apps."""
 
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
-from dataclasses import is_dataclass, asdict
+from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any
 
@@ -13,7 +13,7 @@ except Exception:  # pragma: no cover - handled at runtime
     _np = None  # type: ignore
 
 
-def _mask_numpy_array(arr: "_np.ndarray") -> str:
+def _mask_numpy_array(arr: Any) -> str:
     shape = getattr(arr, "shape", None)
     dtype = getattr(arr, "dtype", None)
     return f"<ndarray shape={shape} dtype={dtype}>"
@@ -29,18 +29,18 @@ def to_jsonable(value: Any) -> Any:
     - non-serialisable objects fall back to `repr`
     """
 
-    if value is None or isinstance(value, (str, bool, int, float)):
+    if value is None or isinstance(value, str | bool | int | float):
         return value
 
     # numpy scalars / arrays
     if _np is not None:
-        if isinstance(value, (_np.integer,)):
+        if isinstance(value, _np.integer):
             return int(value)
-        if isinstance(value, (_np.floating,)):
+        if isinstance(value, _np.floating):
             return float(value)
-        if isinstance(value, (_np.bool_,)):
+        if isinstance(value, _np.bool_):
             return bool(value)
-        if isinstance(value, (_np.ndarray,)):
+        if isinstance(value, _np.ndarray):
             return _mask_numpy_array(value)
 
     if isinstance(value, Enum):
@@ -61,13 +61,13 @@ def to_jsonable(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {str(k): to_jsonable(v) for k, v in value.items()}
 
-    if isinstance(value, (set, tuple)):
+    if isinstance(value, set | tuple):
         return [to_jsonable(v) for v in value]
 
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return [to_jsonable(v) for v in value]
 
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, bytes | bytearray):
         return f"<bytes len={len(value)}>"
 
     if hasattr(value, "__dict__"):

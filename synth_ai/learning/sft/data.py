@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Sequence
+from typing import Any
 
-
-SFTMessageContent = str | Dict[str, Any] | List[Any] | None
+SFTMessageContent = str | dict[str, Any] | list[Any] | None
 
 
 class SFTDataError(ValueError):
@@ -17,8 +17,8 @@ class SFTDataError(ValueError):
 class SFTToolDefinition:
     name: str
     description: str | None
-    parameters: Dict[str, Any] | None
-    raw: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] | None
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -27,26 +27,26 @@ class SFTToolCall:
     arguments: Any
     call_id: str | None = None
     type: str | None = None
-    raw: Dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class SFTMessage:
     role: str
     content: SFTMessageContent
-    tool_calls: List[SFTToolCall] = field(default_factory=list)
+    tool_calls: list[SFTToolCall] = field(default_factory=list)
     tool_call_id: str | None = None
     name: str | None = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
 class SFTExample:
-    messages: List[SFTMessage]
-    tools: List[SFTToolDefinition] = field(default_factory=list)
+    messages: list[SFTMessage]
+    tools: list[SFTToolDefinition] = field(default_factory=list)
     tool_choice: Any | None = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 def _parse_tool_arguments(value: Any) -> Any:
@@ -82,7 +82,7 @@ def _coerce_tool_call(raw: Any, *, index: int) -> SFTToolCall:
     call_id = raw.get("id")
     call_type = raw.get("type")
 
-    fn_payload: Dict[str, Any] | None = None
+    fn_payload: dict[str, Any] | None = None
     name: str | None = None
     arguments: Any = None
 
@@ -125,13 +125,13 @@ def _coerce_message(raw: Any, *, index: int) -> SFTMessage:
         raise SFTDataError(f"message {index} has invalid role")
 
     content = raw.get("content")
-    if content is not None and not isinstance(content, (str, list, dict)):
+    if content is not None and not isinstance(content, str | list | dict):
         raise SFTDataError(f"message {index} has unsupported content type {type(content).__name__}")
 
     raw_tool_calls = raw.get("tool_calls")
-    tool_calls: List[SFTToolCall] = []
+    tool_calls: list[SFTToolCall] = []
     if raw_tool_calls is not None:
-        if not isinstance(raw_tool_calls, (list, tuple)):
+        if not isinstance(raw_tool_calls, list | tuple):
             raise SFTDataError(f"message {index} tool_calls must be a list")
         for call_index, call in enumerate(raw_tool_calls):
             tool_calls.append(_coerce_tool_call(call, index=call_index))
@@ -172,7 +172,7 @@ def coerce_example(raw: Any, *, min_messages: int = 1) -> SFTExample:
 
     messages = [_coerce_message(msg, index=i) for i, msg in enumerate(messages_raw)]
 
-    tools: List[SFTToolDefinition] = []
+    tools: list[SFTToolDefinition] = []
     if "tools" in raw and raw["tools"] is not None:
         tools_raw = raw["tools"]
         if not isinstance(tools_raw, Sequence):
@@ -183,7 +183,7 @@ def coerce_example(raw: Any, *, min_messages: int = 1) -> SFTExample:
     tool_choice = raw.get("tool_choice")
 
     metadata_field = raw.get("metadata")
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     if metadata_field is not None:
         if not isinstance(metadata_field, dict):
             raise SFTDataError("metadata must be an object if present")
@@ -224,8 +224,8 @@ def collect_sft_jsonl_errors(
     min_messages: int = 1,
     max_lines: int | None = None,
     max_errors: int | None = None,
-) -> List[str]:
-    errors: List[str] = []
+) -> list[str]:
+    errors: list[str] = []
     lines_checked = 0
 
     with path.open("r", encoding="utf-8") as fh:
@@ -244,9 +244,8 @@ def collect_sft_jsonl_errors(
                 errors.append(f"Line {lineno}: {exc}")
             if max_errors is not None and len(errors) >= max_errors:
                 break
-    if lines_checked == 0:
-        if max_errors is None or len(errors) < max_errors:
-            errors.append("File contains no SFT examples")
+    if lines_checked == 0 and (max_errors is None or len(errors) < max_errors):
+        errors.append("File contains no SFT examples")
     return errors
 
 
@@ -274,7 +273,7 @@ def validate_jsonl_or_raise(
         raise error_factory(f"{path}: Dataset validation failed{suffix}:\n - {details}")
 
 
-def load_jsonl(path: Path, *, min_messages: int = 1) -> List[SFTExample]:
+def load_jsonl(path: Path, *, min_messages: int = 1) -> list[SFTExample]:
     if not path.exists():
         raise FileNotFoundError(str(path))
     with path.open("r", encoding="utf-8") as fh:

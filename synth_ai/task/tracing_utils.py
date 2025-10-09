@@ -1,11 +1,11 @@
-from __future__ import annotations
-
 """Utilities for wiring tracing_v3 into task apps."""
 
+from __future__ import annotations
+
 import os
-import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 def tracing_env_enabled(default: bool = False) -> bool:

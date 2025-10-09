@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Async SQLAlchemy-based trace manager for Turso/sqld.
 
 This module provides the database interface for the tracing system using
@@ -22,6 +20,8 @@ Performance Considerations:
 - Creates indexes for common query patterns
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
@@ -33,10 +33,10 @@ try:  # pragma: no cover - exercised in environments without pandas
     import pandas as pd  # type: ignore
 except Exception:  # pragma: no cover
     pd = None  # type: ignore[assignment]
-from sqlalchemy import select, text, update
+
+from sqlalchemy import event, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy import event
 from sqlalchemy.orm import selectinload, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -55,22 +55,22 @@ from .models import (
     Event as DBEvent,
 )
 from .models import (
+    EventReward as DBEventReward,
+)
+from .models import (
     Experiment as DBExperiment,
 )
 from .models import (
     Message as DBMessage,
 )
 from .models import (
+    OutcomeReward as DBOutcomeReward,
+)
+from .models import (
     SessionTimestep as DBSessionTimestep,
 )
 from .models import (
     SessionTrace as DBSessionTrace,
-)
-from .models import (
-    OutcomeReward as DBOutcomeReward,
-)
-from .models import (
-    EventReward as DBEventReward,
 )
 
 logger = logging.getLogger(__name__)

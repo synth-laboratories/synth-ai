@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from contextlib import suppress
 
 import aiohttp
 
@@ -18,7 +19,7 @@ async def stream_events(
     job_id: str,
     *,
     seconds: int = 60,
-    on_event: Optional[Callable[[dict], None]] = None,
+    on_event: Callable[[dict], None] | None = None,
 ) -> None:
     if seconds <= 0:
         return
@@ -29,28 +30,27 @@ async def stream_events(
     ]
     for url in candidates:
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session:
-                async with session.get(url, headers=headers) as resp:
-                    if resp.status != 200:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session, session.get(
+                url, headers=headers
+            ) as resp:
+                if resp.status != 200:
+                    continue
+                start_t = time.time()
+                async for raw in resp.content:
+                    line = raw.decode(errors="ignore").strip()
+                    if not line or line.startswith(":"):
                         continue
-                    start_t = time.time()
-                    async for raw in resp.content:
-                        line = raw.decode(errors="ignore").strip()
-                        if not line or line.startswith(":"):
-                            continue
-                        if not line.startswith("data:"):
-                            continue
-                        data = line[5:].strip()
-                        try:
-                            obj = json.loads(data)
-                        except Exception:
-                            continue
-                        if on_event:
-                            try:
-                                on_event(obj)
-                            except Exception:
-                                pass
-                        if (time.time() - start_t) >= seconds:
-                            return
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    try:
+                        obj = json.loads(data)
+                    except Exception:
+                        continue
+                    if on_event:
+                        with suppress(Exception):
+                            on_event(obj)
+                    if (time.time() - start_t) >= seconds:
+                        return
         except Exception:
             continue

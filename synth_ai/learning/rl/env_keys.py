@@ -1,12 +1,12 @@
-from __future__ import annotations
-
 """Helpers for uploading RL environment credentials to the backend."""
+
+from __future__ import annotations
 
 import base64
 import binascii
 import json
 import os
-from typing import Any, Dict
+from typing import Any
 
 import requests
 from nacl.public import PublicKey, SealedBox
@@ -50,7 +50,7 @@ def setup_environment_api_key(
     token: str | None = None,
     *,
     timeout: float = 15.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     backend = backend_base.rstrip("/")
     if not backend:
         raise ValueError("backend_base must be provided")
