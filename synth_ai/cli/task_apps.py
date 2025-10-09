@@ -959,6 +959,18 @@ def _run_modal_script(
     if dry_run:
         click.echo("Dry run: " + " ".join(cmd))
         return
+
+    # For 'serve' command, run directly without capturing output so Ctrl-C works immediately
+    # Don't catch KeyboardInterrupt - let it propagate naturally to Modal
+    if command == "serve":
+        click.echo(f"\n🚀 Starting Modal serve (press Ctrl-C to stop)...\n")
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as exc:
+            raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
+        return
+
+    # For 'deploy' and other commands, capture output to extract URL
     try:
         # Stream output in real-time while capturing for URL extraction
         click.echo(f"\n🚀 Starting Modal deployment (this may take a few minutes)...\n")
@@ -973,14 +985,24 @@ def _run_modal_script(
 
         # Capture output while streaming it
         output_lines = []
-        if process.stdout:
-            for line in process.stdout:
-                click.echo(line, nl=False)
-                output_lines.append(line)
+        try:
+            if process.stdout:
+                for line in process.stdout:
+                    click.echo(line, nl=False)
+                    output_lines.append(line)
 
-        return_code = process.wait()
-        if return_code != 0:
-            raise subprocess.CalledProcessError(return_code, cmd)
+            return_code = process.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, cmd)
+        except KeyboardInterrupt:
+            click.echo("\nAborted!")
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            raise click.Abort()
 
         # Extract and save task app URL from captured output
         task_app_url = None
@@ -997,7 +1019,11 @@ def _run_modal_script(
         if task_app_url and env_paths_list:
             env_file = env_paths_list[0]  # Use the first .env file
             _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL saved to {env_file}: {task_app_url}")
+            click.echo("\n" + "="*80)
+            click.echo("🎯 THIS IS YOUR TASK APP URL (use this, NOT the dashboard URL):")
+            click.echo(f"   {task_app_url}")
+            click.echo("="*80)
+            click.echo(f"✓ Saved to {env_file}\n")
 
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
@@ -1094,12 +1120,18 @@ def _run_modal_with_entry(
     _load_env_values(env_paths_list)
     _preflight_env_key(crash_on_failure=True)
 
+    # Collect extra environment variables to inject into Modal container
+    extra_env_vars = {}
+    if os.environ.get('TASKAPP_TRACING_ENABLED'):
+        extra_env_vars['TASKAPP_TRACING_ENABLED'] = os.environ['TASKAPP_TRACING_ENABLED']
+
     script_path = _write_modal_entrypoint(
         entry,
         modal_cfg,
         modal_name,
         dotenv_paths=dotenv_paths,
         original_path=original_path,
+        extra_env_vars=extra_env_vars,
     )
     cmd = [modal_path, command, str(script_path)]
 
@@ -1108,6 +1140,19 @@ def _run_modal_with_entry(
         script_path.unlink(missing_ok=True)
         return
 
+    # For 'serve' command, run directly without capturing output so Ctrl-C works immediately
+    # Don't catch KeyboardInterrupt - let it propagate naturally to Modal
+    if command == "serve":
+        click.echo(f"\n🚀 Starting Modal serve (press Ctrl-C to stop)...\n")
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as exc:
+            raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
+        finally:
+            script_path.unlink(missing_ok=True)
+        return
+
+    # For 'deploy' and other commands, capture output to extract URL
     try:
         # Stream output in real-time while capturing for URL extraction
         click.echo(f"\n🚀 Starting Modal deployment (this may take a few minutes)...\n")
@@ -1122,14 +1167,24 @@ def _run_modal_with_entry(
 
         # Capture output while streaming it
         output_lines = []
-        if process.stdout:
-            for line in process.stdout:
-                click.echo(line, nl=False)
-                output_lines.append(line)
+        try:
+            if process.stdout:
+                for line in process.stdout:
+                    click.echo(line, nl=False)
+                    output_lines.append(line)
 
-        return_code = process.wait()
-        if return_code != 0:
-            raise subprocess.CalledProcessError(return_code, cmd)
+            return_code = process.wait()
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, cmd)
+        except KeyboardInterrupt:
+            click.echo("\nAborted!")
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+            raise click.Abort()
 
         # Extract and save task app URL from captured output
         task_app_url = None
@@ -1146,7 +1201,11 @@ def _run_modal_with_entry(
         if task_app_url and env_paths_list:
             env_file = env_paths_list[0]  # Use the first .env file
             _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL saved to {env_file}: {task_app_url}")
+            click.echo("\n" + "="*80)
+            click.echo("🎯 THIS IS YOUR TASK APP URL (use this, NOT the dashboard URL):")
+            click.echo(f"   {task_app_url}")
+            click.echo("="*80)
+            click.echo(f"✓ Saved to {env_file}\n")
 
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal {command} failed with exit code {exc.returncode}") from exc
@@ -1697,6 +1756,17 @@ def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_
         os.chdir(demo_dir)
         click.echo(f"Using demo directory: {demo_dir}\n")
 
+    # Ask about tracing BEFORE discovering task apps to avoid confusing "disabled" messages
+    enable_tracing = click.confirm(
+        "💾 Enable tracing to save execution traces for SFT?",
+        default=True
+    )
+    if enable_tracing:
+        os.environ['TASKAPP_TRACING_ENABLED'] = '1'
+        click.echo("✓ Tracing enabled (TASKAPP_TRACING_ENABLED=1)\n")
+    else:
+        click.echo("✗ Tracing disabled\n")
+
     choice = _select_app_choice(app_id, purpose="deploy")
 
     if choice.modal_script:
@@ -1714,6 +1784,17 @@ def deploy_app(app_id: str | None, modal_name: str | None, dry_run: bool, modal_
 @click.option('--name', 'modal_name', default=None, help='Override Modal app name (optional)')
 @click.option('--env-file', multiple=True, type=click.Path(), help='Env file to load into the container (can be repeated)')
 def modal_serve_app(app_id: str | None, modal_cli: str, modal_name: str | None, env_file: Sequence[str]) -> None:
+    # Ask about tracing BEFORE discovering task apps to avoid confusing "disabled" messages
+    enable_tracing = click.confirm(
+        "💾 Enable tracing to save execution traces for SFT?",
+        default=True
+    )
+    if enable_tracing:
+        os.environ['TASKAPP_TRACING_ENABLED'] = '1'
+        click.echo("✓ Tracing enabled (TASKAPP_TRACING_ENABLED=1)\n")
+    else:
+        click.echo("✗ Tracing disabled\n")
+
     choice = _select_app_choice(app_id, purpose="modal-serve")
 
     if choice.modal_script:
@@ -1733,6 +1814,7 @@ def _write_modal_entrypoint(
     *,
     dotenv_paths: Sequence[str] | None = None,
     original_path: Path | None = None,
+    extra_env_vars: dict[str, str] | None = None,
 ) -> Path:
     modal_name = override_name or modal_cfg.app_name
 
@@ -1823,6 +1905,7 @@ MODAL_APP_NAME = {modal_name!r}
 MODULE_NAME = {module_name!r}
 MODULE_FILE = {guaranteed_file_str or remote_file_str!r}
 DOTENV_PATHS = {dotenv_paths!r}
+EXTRA_ENV_VARS = {extra_env_vars or {}!r}
 
 image = Image.debian_slim(python_version={modal_cfg.python_version!r})
 
@@ -1890,6 +1973,11 @@ app = App(MODAL_APP_NAME)
 def fastapi_app():
     # Import the module to trigger registration (inside container)
     import os
+
+    # Set extra environment variables (e.g., TASKAPP_TRACING_ENABLED)
+    for key, value in EXTRA_ENV_VARS.items():
+        os.environ[key] = value
+
     # Prefer mounted source over any preinstalled site-packages version
     import sys as _sys
     for k in list(_sys.modules.keys()):
@@ -1922,7 +2010,13 @@ def fastapi_app():
     except Exception as e:
         raise RuntimeError("Task app import failed: " + str(e))
 
-    # Get the entry from registry (now that it's registered)
+    # Check if the module has a fastapi_app function (e.g., demo apps)
+    mod = sys.modules.get(MODULE_NAME or 'task_app_module')
+    if mod and hasattr(mod, 'fastapi_app') and callable(getattr(mod, 'fastapi_app')):
+        # Call the module's fastapi_app() function directly
+        return mod.fastapi_app()
+
+    # Otherwise, get the entry from registry (for registered apps)
     from synth_ai.task.apps import registry
     from synth_ai.task.server import create_task_app
     entry = registry.get(ENTRY_ID)
