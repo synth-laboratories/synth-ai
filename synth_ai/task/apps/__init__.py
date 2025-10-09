@@ -68,7 +68,7 @@ class TaskAppRegistry:
 
     def __iter__(self) -> Iterable[TaskAppEntry]:
         return iter(self.list())
-    
+
     def clear(self) -> None:
         """Clear all registered task apps."""
         self._entries.clear()
@@ -85,34 +85,34 @@ def register_task_app(*, entry: TaskAppEntry) -> None:
 def discover_task_apps_from_cwd() -> None:
     """Discover and register task apps from the current working directory and subdirectories."""
     cwd = Path.cwd()
-    
+
     # Look for task app files in common patterns
     patterns = [
         "**/task_app/*.py",
-        "**/task_apps/*.py", 
+        "**/task_apps/*.py",
         "**/*_task_app.py",
         "**/grpo_crafter.py",
         "**/math_single_step.py",
     ]
-    
+
     discovered_files = []
     for pattern in patterns:
         discovered_files.extend(cwd.glob(pattern))
-    
+
     # Add current directory to Python path temporarily
     original_path = sys.path.copy()
     try:
         sys.path.insert(0, str(cwd))
-        
+
         for file_path in discovered_files:
-            if file_path.name.startswith('__'):
+            if file_path.name.startswith("__"):
                 continue
-                
+
             # Convert file path to module name
             relative_path = file_path.relative_to(cwd)
             module_parts = list(relative_path.parts[:-1]) + [relative_path.stem]
-            module_name = '.'.join(module_parts)
-            
+            module_name = ".".join(module_parts)
+
             try:
                 # Import the module to trigger registration
                 importlib.import_module(module_name)
@@ -120,7 +120,7 @@ def discover_task_apps_from_cwd() -> None:
                 # Silently skip modules that can't be imported
                 # This allows for graceful handling of missing dependencies
                 continue
-                
+
     finally:
         sys.path[:] = original_path
 

@@ -19,7 +19,7 @@ for _finder, _name, _ispkg in _pkgutil.walk_packages(_pkg.__path__, prefix=_TARG
         _module = _importlib.import_module(_name)
     except Exception:  # pragma: no cover - best effort
         continue
-    _alias = _ALIAS_PREFIX + _name[len(_TARGET_PREFIX):]
+    _alias = _ALIAS_PREFIX + _name[len(_TARGET_PREFIX) :]
     _sys.modules[_alias] = _module
 
 del _finder, _name, _ispkg, _module, _alias, _TARGET_PREFIX, _ALIAS_PREFIX, _alias_path

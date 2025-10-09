@@ -56,12 +56,12 @@ class EnvResolver:
 def _collect_default_candidates(config_path: Path | None) -> list[Path]:
     candidates: list[Path] = []
     cwd = Path.cwd()
-    
+
     # Prioritize CWD env files
     cwd_env = cwd / ".env"
     if cwd_env.exists():
         candidates.append(cwd_env.resolve())
-    
+
     # Search for additional .env files in CWD subdirectories
     for sub in cwd.glob("**/.env"):
         try:
@@ -76,13 +76,13 @@ def _collect_default_candidates(config_path: Path | None) -> list[Path]:
         if len(candidates) >= 20:
             break
         candidates.append(resolved)
-    
+
     # Then config path env file
     if config_path:
         cfg_env = config_path.parent / ".env"
         if cfg_env.exists():
             candidates.append(cfg_env.resolve())
-    
+
     # Then repo env files
     repo_env = REPO_ROOT / ".env"
     if repo_env.exists():
@@ -90,7 +90,7 @@ def _collect_default_candidates(config_path: Path | None) -> list[Path]:
     examples_env = REPO_ROOT / "examples" / ".env"
     if examples_env.exists():
         candidates.append(examples_env.resolve())
-    
+
     # Search shallow depth for additional .env files in examples
     for sub in (REPO_ROOT / "examples").glob("**/.env"):
         try:
@@ -105,7 +105,7 @@ def _collect_default_candidates(config_path: Path | None) -> list[Path]:
         if len(candidates) >= 20:
             break
         candidates.append(resolved)
-    
+
     deduped: list[Path] = []
     for path in candidates:
         if path not in deduped:
@@ -159,6 +159,7 @@ def resolve_env(
         # Check for saved .env path from demo command
         try:
             from synth_ai.demos.demo_task_apps.core import load_env_file_path
+
             saved_env_path = load_env_file_path()
             if saved_env_path:
                 saved_path = Path(saved_env_path)

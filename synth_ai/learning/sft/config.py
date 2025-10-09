@@ -31,7 +31,9 @@ def _ensure_non_negative_float(value: Any, *, key: str) -> float:
     try:
         fvalue = float(value)
     except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
-        raise ValueError(f"hyperparameters.{key} must be a float greater than or equal to zero") from exc
+        raise ValueError(
+            f"hyperparameters.{key} must be a float greater than or equal to zero"
+        ) from exc
     if fvalue < 0:
         raise ValueError(f"hyperparameters.{key} must be a float greater than or equal to zero")
     return fvalue
@@ -148,6 +150,7 @@ def _coerce_mapping(value: Mapping[str, Any] | None, *, name: str) -> dict[str, 
     if not isinstance(value, Mapping):
         raise ValueError(f"{name} must be a mapping")
     return dict(value)
+
 
 @dataclass(slots=True)
 class SFTJobConfig:

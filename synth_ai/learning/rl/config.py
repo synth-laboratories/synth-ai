@@ -29,4 +29,3 @@ class RLJobConfig:
             "batch_size": _ensure_positive(self.batch_size, name="trainer.batch_size"),
             "group_size": _ensure_positive(self.group_size, name="trainer.group_size"),
         }
-

@@ -133,4 +133,3 @@ def _raise_with_detail(response: requests.Response) -> None:
         if detail_snippet:
             message = f"{message} | body={detail_snippet}"
         raise requests.HTTPError(message, request=exc.request, response=exc.response) from None
-

@@ -70,7 +70,9 @@ def _coerce_tool_definition(raw: Any, *, index: int) -> SFTToolDefinition:
     parameters = raw.get("parameters")
     if parameters is not None and not isinstance(parameters, dict):
         raise SFTDataError(f"tool {index} parameters must be an object if present")
-    return SFTToolDefinition(name=name, description=description, parameters=parameters, raw=dict(raw))
+    return SFTToolDefinition(
+        name=name, description=description, parameters=parameters, raw=dict(raw)
+    )
 
 
 def _coerce_tool_call(raw: Any, *, index: int) -> SFTToolCall:

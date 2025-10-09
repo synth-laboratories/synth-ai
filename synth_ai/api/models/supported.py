@@ -114,9 +114,7 @@ def normalize_model_identifier(
 ) -> str:
     """Return a cleaned model identifier suitable for job payloads."""
 
-    canonical = ensure_supported_model(
-        model_id, allow_finetuned_prefixes=allow_finetuned_prefixes
-    )
+    canonical = ensure_supported_model(model_id, allow_finetuned_prefixes=allow_finetuned_prefixes)
     cleaned = (model_id or "").strip()
     if not cleaned:
         return canonical
@@ -125,9 +123,7 @@ def normalize_model_identifier(
     return cleaned
 
 
-def is_supported_model(
-    model_id: str, *, allow_finetuned_prefixes: bool = True
-) -> bool:
+def is_supported_model(model_id: str, *, allow_finetuned_prefixes: bool = True) -> bool:
     """Return True if *model_id* resolves to a supported base model."""
 
     try:

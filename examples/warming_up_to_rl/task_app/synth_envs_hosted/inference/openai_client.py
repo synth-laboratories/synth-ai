@@ -554,6 +554,7 @@ def create_inference_client(
     import json as _json
 
     if _os.getenv("SYNTH_FAKE_INFERENCE", "").strip():
+
         class _DummyClient:
             async def generate_with_retries(
                 self,

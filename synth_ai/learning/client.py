@@ -43,7 +43,11 @@ class LearningClient:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         lower_type = (training_type or "").strip().lower()
-        require_base = lower_type.startswith("sft") or lower_type.startswith("fft") or lower_type.startswith("qft")
+        require_base = (
+            lower_type.startswith("sft")
+            or lower_type.startswith("fft")
+            or lower_type.startswith("qft")
+        )
         try:
             normalized_model = normalize_model_identifier(
                 model, allow_finetuned_prefixes=not require_base

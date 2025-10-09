@@ -56,7 +56,7 @@ def _save_last_config(config_path: Path) -> None:
 
 def _iter_candidate_paths() -> Iterable[Path]:
     seen: set[Path] = set()
-    
+
     # Prioritize current working directory first
     try:
         cwd = Path.cwd().resolve()
