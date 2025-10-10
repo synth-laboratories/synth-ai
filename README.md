@@ -6,7 +6,7 @@
 ![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
 ![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen)
 
-Docs: [Synth‑AI Documentation](https://docs.usesynth.ai/synth-ai/introduction)
+Docs: [Synth‑AI Documentation](https://docs.usesynth.ai/welcome/introduction)
 
 Fast and effective reinforcement learning for agents, via an API
 
@@ -30,7 +30,7 @@ uvx synth-ai deploy
 uvx synth-ai run
 ```
 
-To walk through kicking off your first RL run, see the [Synth‑AI Documentation](https://docs.usesynth.ai/synth-ai/introduction).
+To walk through kicking off your first RL run, see the [Synth‑AI Documentation](https://docs.usesynth.ai/welcome/introduction).
 
 ### What `setup` does now
 
