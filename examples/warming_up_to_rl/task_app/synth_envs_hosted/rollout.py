@@ -1552,7 +1552,8 @@ async def execute_rollout(
                 log_wordle_rollout_summary = None  # type: ignore
 
             is_wordle = wordle_wrapper_cls is not None and isinstance(
-                env_handle.env, wordle_wrapper_cls  # type: ignore[arg-type]
+                env_handle.env,
+                wordle_wrapper_cls,  # type: ignore[arg-type]
             )
             if is_wordle:
                 # Convert trajectory steps to expected format

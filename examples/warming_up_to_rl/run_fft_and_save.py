@@ -204,11 +204,7 @@ def main() -> None:
             # Try relative to cwd first, then relative to config directory
             cwd_relative = Path.cwd() / p
             config_relative = config_path.parent / p
-            p = (
-                cwd_relative.resolve()
-                if cwd_relative.exists()
-                else config_relative.resolve()
-            )
+            p = cwd_relative.resolve() if cwd_relative.exists() else config_relative.resolve()
         data_file = p
     if data_file is None:
         print("Missing dataset path in --data or [job].data", file=sys.stderr)

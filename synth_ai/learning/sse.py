@@ -30,9 +30,10 @@ async def stream_events(
     ]
     for url in candidates:
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session, session.get(
-                url, headers=headers
-            ) as resp:
+            async with (
+                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None)) as session,
+                session.get(url, headers=headers) as resp,
+            ):
                 if resp.status != 200:
                     continue
                 start_t = time.time()

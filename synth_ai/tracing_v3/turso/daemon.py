@@ -13,7 +13,12 @@ from ..config import CONFIG
 class SqldDaemon:
     """Manages local sqld daemon lifecycle."""
 
-    def __init__(self, db_path: str | None = None, http_port: int | None = None, binary_path: str | None = None):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        http_port: int | None = None,
+        binary_path: str | None = None,
+    ):
         """Initialize sqld daemon manager.
 
         Args:

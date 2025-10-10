@@ -203,9 +203,7 @@ def score_events_against_rubric(
     return _score(rubric.criteria, values, rubric.aggregation)
 
 
-def score_outcome_against_rubric(
-    outcome: dict[str, Any], rubric: Rubric | None
-) -> dict[str, Any]:
+def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None) -> dict[str, Any]:
     if rubric is None:
         return {"aggregation": "none", "score": None, "per_criterion": {}}
     values: dict[str, float] = {}

@@ -210,7 +210,6 @@ def _compute_world_traits(env: crafter.Env, radius: int = 10) -> dict[str, int]:
 
 
 def env_value(key: str, default: Any) -> Any:
-
     return os.getenv(key, default)
 
 

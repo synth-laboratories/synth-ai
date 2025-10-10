@@ -295,9 +295,7 @@ def _detect_provider(model: str) -> str:
     return "vllm"
 
 
-def _rollout_inference_url_from_cfg(
-    cfg: dict[str, Any], default_vllm: str | None
-) -> str | None:
+def _rollout_inference_url_from_cfg(cfg: dict[str, Any], default_vllm: str | None) -> str | None:
     # Prefer explicit inference_url in TOML; else fall back to discovered vLLM base
     url = cfg.get("inference_url")
     if isinstance(url, str) and url:

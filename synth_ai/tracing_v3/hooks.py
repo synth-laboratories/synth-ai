@@ -115,7 +115,7 @@ class HookManager:
             raise ValueError(f"Unknown hook event: {event}")
 
         hook = Hook(
-            name=name or getattr(callback, '__name__', 'unknown'),
+            name=name or getattr(callback, "__name__", "unknown"),
             callback=callback,
             event_types=event_types,
             priority=priority,

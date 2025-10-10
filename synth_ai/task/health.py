@@ -15,9 +15,8 @@ async def task_app_health(task_app_url: str) -> dict[str, Any]:
     - Fallback to GET if HEAD is unsupported
     - Returns {ok: bool, status?: int, error?: str}
     """
-    async def _try_request(
-        session: aiohttp.ClientSession, method: str
-    ) -> dict[str, Any] | None:
+
+    async def _try_request(session: aiohttp.ClientSession, method: str) -> dict[str, Any] | None:
         request = getattr(session, method)
         async with request(task_app_url, allow_redirects=True) as response:
             if 200 <= response.status < 400:

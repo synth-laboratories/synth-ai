@@ -37,12 +37,8 @@ from .utils import calculate_cost, detect_provider
 # Context variables for session and turn tracking
 # These variables automatically propagate across async call boundaries,
 # allowing deeply nested code to access tracing context without explicit passing
-_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "session_id"
-)
-_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
-    "turn_number"
-)
+_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar("session_id")
+_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar("turn_number")
 _session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
     "session_tracer", default=None
 )
@@ -120,7 +116,9 @@ def with_session(require: bool = True):
             async def async_wrapper(*args, **kwargs):
                 session_id = get_session_id()
                 if require and session_id is None:
-                    raise RuntimeError(f"No active session for {getattr(fn, '__name__', 'unknown')}")
+                    raise RuntimeError(
+                        f"No active session for {getattr(fn, '__name__', 'unknown')}"
+                    )
                 return await fn(*args, **kwargs)
 
             return async_wrapper
@@ -130,7 +128,9 @@ def with_session(require: bool = True):
             def sync_wrapper(*args, **kwargs):
                 session_id = get_session_id()
                 if require and session_id is None:
-                    raise RuntimeError(f"No active session for {getattr(fn, '__name__', 'unknown')}")
+                    raise RuntimeError(
+                        f"No active session for {getattr(fn, '__name__', 'unknown')}"
+                    )
                 return fn(*args, **kwargs)
 
             return sync_wrapper
@@ -209,14 +209,16 @@ def trace_llm_call(
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
                         total_tokens=total_tokens,
-                        cost_usd=calculate_cost(actual_model or "unknown", input_tokens or 0, output_tokens or 0)
+                        cost_usd=calculate_cost(
+                            actual_model or "unknown", input_tokens or 0, output_tokens or 0
+                        )
                         if extract_cost
                         else None,
                         latency_ms=latency_ms,
                         system_state_before=system_state_before,
                         system_state_after=kwargs.get("state_after", {}),
                         metadata={
-                            "function": getattr(fn, '__name__', 'unknown'),
+                            "function": getattr(fn, "__name__", "unknown"),
                             "step_id": kwargs.get("step_id"),
                         },
                     )
@@ -234,11 +236,11 @@ def trace_llm_call(
                             model_name=model_name or "unknown",
                             provider=detect_provider(model_name),
                             latency_ms=int((time.time() - start_time) * 1000),
-                        metadata={
-                            "function": getattr(fn, '__name__', 'unknown'),
-                            "error": str(e),
-                            "error_type": type(e).__name__,
-                        },
+                            metadata={
+                                "function": getattr(fn, "__name__", "unknown"),
+                                "error": str(e),
+                                "error_type": type(e).__name__,
+                            },
                         )
                         await tracer.record_event(event)
                     raise
@@ -289,7 +291,7 @@ def trace_method(event_type: str = "runtime", system_id: str | None = None):
                     time_record=TimeRecord(event_time=time.time()),
                     actions=[],  # Can be overridden in metadata
                     metadata={
-                        "method": getattr(fn, '__name__', 'unknown'),
+                        "method": getattr(fn, "__name__", "unknown"),
                         "args": str(args)[:100],  # Truncate for safety
                         "step_id": kwargs.get("step_id"),
                     },

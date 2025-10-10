@@ -30,7 +30,7 @@ def _safe_eval(expr: str) -> float:
     def _eval(n):
         if isinstance(n, ast.Expression):
             return _eval(n.body)
-        if hasattr(ast, 'Num') and isinstance(n, ast.Num):  # 3.8 and earlier
+        if hasattr(ast, "Num") and isinstance(n, ast.Num):  # 3.8 and earlier
             return n.n
         if isinstance(n, ast.Constant):  # 3.8+
             if isinstance(n.value, int | float):

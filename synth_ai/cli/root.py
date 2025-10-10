@@ -93,9 +93,7 @@ def install_sqld() -> str:
 
     click.echo("📥 Downloading sqld via 'turso dev' (this may take a few seconds)…")
 
-    with tempfile.NamedTemporaryFile(
-        prefix="synth_sqld_", suffix=".db", delete=False
-    ) as temp_db:
+    with tempfile.NamedTemporaryFile(prefix="synth_sqld_", suffix=".db", delete=False) as temp_db:
         temp_db_path = temp_db.name
 
     env = os.environ.copy()
@@ -132,11 +130,7 @@ def install_sqld() -> str:
                 proc.kill()
                 stdout_data, stderr_data = proc.communicate()
     finally:
-        if (
-            proc
-            and proc.returncode not in (0, None)
-            and (stdout_data or stderr_data)
-        ):
+        if proc and proc.returncode not in (0, None) and (stdout_data or stderr_data):
             logging.getLogger(__name__).debug(
                 "turso dev stdout: %s\nstderr: %s", stdout_data, stderr_data
             )

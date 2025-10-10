@@ -424,11 +424,7 @@ class CrafterPolicy(Policy):
 
         # Get additional info from the observation wrapper
         info = observation.get("info", {})
-        if (
-            isinstance(info, dict)
-            and "health" in info
-            and "health" not in obs_data
-        ):
+        if isinstance(info, dict) and "health" in info and "health" not in obs_data:
             obs_data = dict(obs_data)  # Make a copy
             obs_data["health"] = info["health"]
 

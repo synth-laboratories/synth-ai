@@ -256,9 +256,9 @@ class _TaskAppConfigVisitor(ast.NodeVisitor):
 
 def _is_task_app_config_call(node: ast.Call) -> bool:
     func = node.func
-    return (
-        isinstance(func, ast.Name) and func.id == "TaskAppConfig"
-    ) or (isinstance(func, ast.Attribute) and func.attr == "TaskAppConfig")
+    return (isinstance(func, ast.Name) and func.id == "TaskAppConfig") or (
+        isinstance(func, ast.Attribute) and func.attr == "TaskAppConfig"
+    )
 
 
 def _extract_app_id(node: ast.Call) -> str | None:
@@ -278,9 +278,9 @@ def _extract_app_id(node: ast.Call) -> str | None:
 
 def _is_register_task_app_call(node: ast.Call) -> bool:
     func = node.func
-    return (
-        isinstance(func, ast.Name) and func.id == "register_task_app"
-    ) or (isinstance(func, ast.Attribute) and func.attr == "register_task_app")
+    return (isinstance(func, ast.Name) and func.id == "register_task_app") or (
+        isinstance(func, ast.Attribute) and func.attr == "register_task_app"
+    )
 
 
 def _extract_register_app_id(node: ast.Call) -> str | None:
@@ -584,9 +584,7 @@ def _has_modal_support_in_file(path: Path) -> bool:
                             and entry_call.func.id == "TaskAppEntry"
                         ):
                             for entry_kw in entry_call.keywords:
-                                if entry_kw.arg == "modal" and isinstance(
-                                    entry_kw.value, ast.Call
-                                ):
+                                if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                     modal_call = entry_kw.value
                                     if (
                                         isinstance(modal_call.func, ast.Name)
@@ -616,9 +614,7 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
                             and entry_call.func.id == "TaskAppEntry"
                         ):
                             for entry_kw in entry_call.keywords:
-                                if entry_kw.arg == "modal" and isinstance(
-                                    entry_kw.value, ast.Call
-                                ):
+                                if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
                                     modal_call = entry_kw.value
                                     if (
                                         isinstance(modal_call.func, ast.Name)
@@ -901,7 +897,9 @@ def _load_entry_from_path(
                 # Bind attr to a local and close over it without exposing parameters
                 bound_func: Callable[[], TaskAppConfig] = cast(Callable[[], TaskAppConfig], attr)  # type: ignore[assignment]
 
-                def _factory_noargs(func: Callable[[], TaskAppConfig] = bound_func) -> TaskAppConfig:
+                def _factory_noargs(
+                    func: Callable[[], TaskAppConfig] = bound_func,
+                ) -> TaskAppConfig:
                     return func()
 
                 factory_callable = _factory_noargs
@@ -1057,10 +1055,8 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
             backend_base = backend_base + "/api"
         synth_key = os.environ.get("SYNTH_API_KEY") or ""
         env_api_key = (
-        os.environ.get("ENVIRONMENT_API_KEY")
-        or os.environ.get("DEV_ENVIRONMENT_API_KEY")
-        or ""
-    )
+            os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get("DEV_ENVIRONMENT_API_KEY") or ""
+        )
         if synth_key and env_api_key:
             import base64
 
@@ -1807,7 +1803,11 @@ def _print_demo_next_steps_if_applicable() -> None:
         demo_dir = load_demo_dir()
 
         # Check if we're in the demo directory
-        if demo_dir and Path(demo_dir).resolve() == cwd and (cwd / "run_local_rollout_traced.py").exists():
+        if (
+            demo_dir
+            and Path(demo_dir).resolve() == cwd
+            and (cwd / "run_local_rollout_traced.py").exists()
+        ):
             click.echo("\n" + "=" * 60)
             click.echo("Next step: Collect traced rollouts")
             click.echo("=" * 60)
@@ -2182,9 +2182,7 @@ def fastapi_app():
     return create_task_app(config)
 """
 
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=f"_{entry.app_id}_modal.py", delete=False
-    ) as tmp:
+    with tempfile.NamedTemporaryFile("w", suffix=f"_{entry.app_id}_modal.py", delete=False) as tmp:
         tmp.write(script)
         tmp.flush()
         name = tmp.name

@@ -112,7 +112,9 @@ async def create_policy(
             try:
                 from .envs.wordle.policy import WordlePolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle policy unavailable: {e}"
+                ) from e
 
             policy = WordlePolicy(
                 inference_url=config["inference_url"],
@@ -125,7 +127,9 @@ async def create_policy(
             try:
                 from .envs.sokoban.policy import SokobanPolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban policy unavailable: {e}"
+                ) from e
 
             policy = SokobanPolicy(
                 inference_url=config["inference_url"],
@@ -630,11 +634,7 @@ async def step_policy(
             # compact preview in meta so the trainer can surface it.
             with contextlib.suppress(Exception):
                 req_for_diag = meta.get("inference_request", {})
-                model_for_diag = (
-                    req_for_diag.get("model")
-                    or getattr(policy, "model", None)
-                    or ""
-                )
+                model_for_diag = req_for_diag.get("model") or getattr(policy, "model", None) or ""
                 messages_for_diag = req_for_diag.get("messages") or []
                 if model_for_diag and messages_for_diag:
                     from transformers import AutoTokenizer
@@ -650,9 +650,7 @@ async def step_policy(
                     over_limit = False
                     with contextlib.suppress(Exception):
                         over_limit = (
-                            isinstance(max_len, int)
-                            and max_len > 0
-                            and len(ids) > int(max_len)
+                            isinstance(max_len, int) and max_len > 0 and len(ids) > int(max_len)
                         )
                     if over_limit or len(ids) > 10000:
                         preview_ids = ids[:10000]
@@ -920,13 +918,17 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
             try:
                 from .envs.wordle.policy import WordlePolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle policy unavailable: {e}"
+                ) from e
             policy = await WordlePolicy.deserialize(state_dict)
         elif low in ["sokoban-react", "sokoban"]:
             try:
                 from .envs.sokoban.policy import SokobanPolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban policy unavailable: {e}"
+                ) from e
             policy = await SokobanPolicy.deserialize(state_dict)
         else:
             raise HTTPException(

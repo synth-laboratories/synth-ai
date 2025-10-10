@@ -277,13 +277,17 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     WordleTaskInstanceMetadata,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle modules unavailable: {e}"
+                ) from e
 
             # Lazy import of wrapper within branch
             try:
                 from .envs.wordle.environment import WordleEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
+                ) from e
             else:
                 wordle_wrapper_cls = WordleEnvironmentWrapper
 
@@ -365,13 +369,17 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
                     SokobanTaskInstanceMetadata,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                ) from e
 
             # Lazy import of wrapper within branch
             try:
                 from .envs.sokoban.environment import SokobanEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
+                ) from e
 
             cfg = request.config or {}
             difficulty = cfg.get("difficulty", "easy")
@@ -588,7 +596,9 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                         create_wordle_taskset,
                     )
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
+                    raise HTTPException(
+                        status_code=500, detail=f"Wordle modules unavailable: {e}"
+                    ) from e
 
                 init_snap = getattr(wrapper, "initial_engine_snapshot", None)
                 if init_snap is not None:
@@ -635,7 +645,9 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                     create_wordle_taskset,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle modules unavailable: {e}"
+                ) from e
 
             init_snap = getattr(wrapper, "initial_engine_snapshot", None)
             if init_snap is not None:
@@ -688,7 +700,9 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                         SokobanTaskInstanceMetadata,
                     )
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
+                    raise HTTPException(
+                        status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                    ) from e
 
                 cfg = dict(wrapper.config or {})
                 metadata = SokobanTaskInstanceMetadata(
@@ -721,7 +735,9 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                     SokobanTaskInstanceMetadata,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                ) from e
 
             cfg = dict(wrapper.config or {})
             metadata = SokobanTaskInstanceMetadata(
@@ -1066,7 +1082,9 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     create_wordle_taskset,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle modules unavailable: {e}"
+                ) from e
 
             cfg = state_dict.get("config", {}) or {}
             word_length = int(cfg.get("word_length", 5))
@@ -1099,7 +1117,9 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
             try:
                 from .envs.wordle.environment import WordleEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle wrapper unavailable: {e}"
+                ) from e
             wrapper = await WordleEnvironmentWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(
@@ -1129,7 +1149,9 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                     SokobanTaskInstanceMetadata,
                 )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban modules unavailable: {e}"
+                ) from e
 
             cfg = state_dict.get("config", {}) or {}
             metadata = SokobanTaskInstanceMetadata(difficulty=cfg.get("difficulty", "easy"))
@@ -1150,7 +1172,9 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
             try:
                 from .envs.sokoban.environment import SokobanEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}") from e
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban wrapper unavailable: {e}"
+                ) from e
             wrapper = await SokobanEnvironmentWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(

@@ -68,7 +68,9 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         async def validate_environment(request, call_next):
             # Check if this is an environment-related request
             path = request.url.path
-            if (path.startswith("/env/") or path.startswith("/rollout")) and request.method == "POST":
+            if (
+                path.startswith("/env/") or path.startswith("/rollout")
+            ) and request.method == "POST":
                 # We need to read the body to check env_name
                 body = await request.body()
                 try:
