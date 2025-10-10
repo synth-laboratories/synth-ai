@@ -41,14 +41,12 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: Run fast unit tests (≤5s)
-        env:
-          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
         run: |
           SECONDS=0
           set -e
           # Strict ultra-fast unit tests only
-          uv run --group dev pytest -p pytest_asyncio tests/unit -m unit -q --maxfail=1
-          uv run --group dev pytest -p pytest_asyncio tests/environments/unit/test_external_registry.py -q --maxfail=1
+          uv run --group dev pytest -p pytest_asyncio.plugin tests/unit -m unit -q --maxfail=1
+          uv run --group dev pytest -p pytest_asyncio.plugin tests/environments/unit/test_external_registry.py -q --maxfail=1
           DUR=$SECONDS
           echo "Total fast unit test time: ${DUR}s"
           if [ "$DUR" -gt 5 ]; then
