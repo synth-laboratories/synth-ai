@@ -8,10 +8,11 @@ rendered surroundings appeared only as iron/stone due to a mismatched
 hardcoded mapping.
 """
 
-from typing import Dict, Any, List, Set
-import numpy as np
-import re
 import itertools
+import re
+from typing import Any
+
+import numpy as np
 
 VIEW_SIZE = 5  # Default view size for the map (match eval_rollout_table)
 
@@ -58,9 +59,9 @@ ACTION_ALIASES = {
     "craft_iron_sword": "make_iron_sword",
 }
 
-VALID_PRIMARY_ACTIONS: Set[str] = set(CRAFTER_ACTIONS.keys())
-VALID_ACTION_ALIASES: Set[str] = set(ACTION_ALIASES.keys())
-ALL_VALID_ACTION_STRINGS: Set[str] = VALID_PRIMARY_ACTIONS | VALID_ACTION_ALIASES
+VALID_PRIMARY_ACTIONS: set[str] = set(CRAFTER_ACTIONS.keys())
+VALID_ACTION_ALIASES: set[str] = set(ACTION_ALIASES.keys())
+ALL_VALID_ACTION_STRINGS: set[str] = VALID_PRIMARY_ACTIONS | VALID_ACTION_ALIASES
 
 
 def validate_action(action: str) -> bool:
@@ -69,7 +70,7 @@ def validate_action(action: str) -> bool:
     return normalized in ALL_VALID_ACTION_STRINGS
 
 
-def parse_actions(action_text: str) -> List[str]:
+def parse_actions(action_text: str) -> list[str]:
     """Extract actions from response text.
 
     Tries multiple parsing strategies:
@@ -79,7 +80,6 @@ def parse_actions(action_text: str) -> List[str]:
     4. Plain action names if they match valid actions
     5. Newline-separated actions
     """
-    import json
 
     # First try the original <action> tag format
     matches = re.findall(r"<action>(.*?)</action>", action_text, re.IGNORECASE)
@@ -132,7 +132,7 @@ def parse_actions(action_text: str) -> List[str]:
     return actions
 
 
-def format_observation(obs_data: Dict[str, Any], step_count: int = 0, max_steps: int = 100) -> str:
+def format_observation(obs_data: dict[str, Any], step_count: int = 0, max_steps: int = 100) -> str:
     """Format a Crafter observation dictionary into a human-readable string.
 
     This is critical for preventing massive token counts when observations
@@ -154,11 +154,11 @@ def format_observation(obs_data: Dict[str, Any], step_count: int = 0, max_steps:
         if obs_data.get("steps") is not None
         else obs_data.get("num_steps_taken")
     )
-    if isinstance(step_from_obs, (int, float)) and step_from_obs >= 0:
+    if isinstance(step_from_obs, int | float) and step_from_obs >= 0:
         step_count = int(step_from_obs)
 
     max_steps_from_obs = obs_data.get("max_steps_episode") or obs_data.get("max_steps")
-    if isinstance(max_steps_from_obs, (int, float)) and max_steps_from_obs > 0:
+    if isinstance(max_steps_from_obs, int | float) and max_steps_from_obs > 0:
         max_steps = int(max_steps_from_obs)
 
     # Format inventory (skip health as it's shown separately)
@@ -255,7 +255,7 @@ _FALLBACK_ID_TO_NAME = {
 }
 
 
-def _format_semantic_map_view(obs_data: Dict[str, Any], view_size: int = VIEW_SIZE) -> str:
+def _format_semantic_map_view(obs_data: dict[str, Any], view_size: int = VIEW_SIZE) -> str:
     """Format the semantic map into a text representation using dynamic IDs.
 
     Shows a local view around the player with nearby objects.
@@ -280,9 +280,9 @@ def _format_semantic_map_view(obs_data: Dict[str, Any], view_size: int = VIEW_SI
     use_list = isinstance(_ID_TO_NAME, list) and len(_ID_TO_NAME) > 0
 
     # Build matrix centered at player, then transpose for human-friendly view
-    matrix: List[List[str]] = []
+    matrix: list[list[str]] = []
     for dy in range(-half, half + 1):
-        row_tokens: List[str] = []
+        row_tokens: list[str] = []
         for dx in range(-half, half + 1):
             x, y = px + dx, py + dy
             if not (0 <= x < sem_arr.shape[0] and 0 <= y < sem_arr.shape[1]):
@@ -298,8 +298,8 @@ def _format_semantic_map_view(obs_data: Dict[str, Any], view_size: int = VIEW_SI
                 row_tokens.append(name)
         matrix.append(row_tokens)
 
-    transposed = list(zip(*matrix))
-    grid_rows: List[str] = [" ".join(row) for row in transposed]
+    transposed = list(zip(*matrix, strict=False))
+    grid_rows: list[str] = [" ".join(row) for row in transposed]
     return (
         "\nLocal Map View (" + str(view_size) + "x" + str(view_size) + "):\n" + "\n".join(grid_rows)
     )

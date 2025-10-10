@@ -14,8 +14,10 @@ big “backend.production” code-base.
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import logging
+import os
 import pickle
 import sqlite3
 from collections.abc import Iterable
@@ -32,11 +34,6 @@ log = logging.getLogger(__name__)
 # --------------------------------------------------------------------------- #
 # lightweight metadata record                                                 #
 # --------------------------------------------------------------------------- #
-import hashlib
-import logging
-import os
-
-log = logging.getLogger(__name__)
 
 # Default directory for storing snapshots relative to some base path
 # This could be configured via environment variables or settings later.

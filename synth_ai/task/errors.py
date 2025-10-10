@@ -1,16 +1,16 @@
-from __future__ import annotations
-
 """Error helpers used across Task App implementations."""
 
-from typing import Any, Dict, Optional
+from __future__ import annotations
+
+from typing import Any
 
 from .json import to_jsonable
 
 
 def error_payload(
-    code: str, message: str, *, extra: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {"error": {"code": code, "message": message}}
+    code: str, message: str, *, extra: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {"error": {"code": code, "message": message}}
     if extra:
         payload["error"].update(extra)
     return payload
@@ -21,8 +21,8 @@ def http_exception(
     code: str,
     message: str,
     *,
-    extra: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    extra: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ):
     try:
         from fastapi import HTTPException  # type: ignore
@@ -38,8 +38,8 @@ def json_error_response(
     code: str,
     message: str,
     *,
-    extra: Optional[Dict[str, Any]] = None,
-    headers: Optional[Dict[str, str]] = None,
+    extra: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
 ):
     try:
         from fastapi.responses import JSONResponse  # type: ignore

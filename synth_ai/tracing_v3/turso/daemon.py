@@ -13,7 +13,12 @@ from ..config import CONFIG
 class SqldDaemon:
     """Manages local sqld daemon lifecycle."""
 
-    def __init__(self, db_path: str = None, http_port: int = None, binary_path: str = None):
+    def __init__(
+        self,
+        db_path: str | None = None,
+        http_port: int | None = None,
+        binary_path: str | None = None,
+    ):
         """Initialize sqld daemon manager.
 
         Args:
@@ -120,7 +125,7 @@ class SqldDaemon:
 _daemon: SqldDaemon | None = None
 
 
-def start_sqld(db_path: str = None, port: int = None) -> SqldDaemon:
+def start_sqld(db_path: str | None = None, port: int | None = None) -> SqldDaemon:
     """Start a global sqld daemon instance."""
     global _daemon
     if _daemon and _daemon.is_running():

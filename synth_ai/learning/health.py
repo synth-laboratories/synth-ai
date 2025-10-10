@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-import aiohttp
+from typing import Any
 
 from ..http import AsyncHttpClient
 
@@ -11,13 +10,13 @@ def _api_base(b: str) -> str:
     return b if b.endswith("/api") else f"{b}/api"
 
 
-async def backend_health(base_url: str, api_key: str) -> Dict[str, Any]:
+async def backend_health(base_url: str, api_key: str) -> dict[str, Any]:
     async with AsyncHttpClient(base_url, api_key, timeout=15.0) as http:
         js = await http.get(f"{_api_base(base_url)}/health")
     return {"ok": True, "raw": js}
 
 
-async def task_app_health(task_app_url: str) -> Dict[str, Any]:
+async def task_app_health(task_app_url: str) -> dict[str, Any]:
     # Delegate to central task module for consistency
     from synth_ai.task.health import task_app_health as _th
 
@@ -32,7 +31,7 @@ async def pricing_preflight(
     gpu_type: str,
     estimated_seconds: float,
     container_count: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     body = {
         "job_type": job_type,
         "gpu_type": gpu_type,
@@ -44,7 +43,7 @@ async def pricing_preflight(
     return js if isinstance(js, dict) else {"raw": js}
 
 
-async def balance_autumn_normalized(base_url: str, api_key: str) -> Dict[str, Any]:
+async def balance_autumn_normalized(base_url: str, api_key: str) -> dict[str, Any]:
     async with AsyncHttpClient(base_url, api_key, timeout=30.0) as http:
         js = await http.get(f"{_api_base(base_url)}/v1/balance/autumn-normalized")
     return js if isinstance(js, dict) else {"raw": js}

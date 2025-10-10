@@ -7,14 +7,14 @@ import argparse
 import json
 import os
 import sys
+import tomllib
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import requests
-import tomllib
 
 
-def _load_toml(path: Path) -> Dict[str, Any]:
+def _load_toml(path: Path) -> dict[str, Any]:
     if not path.exists():
         print(f"config not found: {path}", file=sys.stderr)
         sys.exit(2)
@@ -65,7 +65,7 @@ def main() -> None:
         )
         sys.exit(2)
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "job_type": "rl",
         "compute": cfg.get("compute", {}),
         "data": {
@@ -77,7 +77,7 @@ def main() -> None:
 
     backend = str(args.backend).rstrip("/")
     url = f"{backend}/rl/jobs"
-    api_key = (os.getenv("SYNTH_API_KEY") or os.getenv("synth_key") or "").strip()
+    api_key = (os.getenv("SYNTH_API_KEY") or os.getenv("SYNTH_KEY") or "").strip()
     if not api_key:
         print("Missing SYNTH_API_KEY in env", file=sys.stderr)
         sys.exit(2)

@@ -29,13 +29,12 @@ class RangeFilter(TaskInstanceMetadataFilter):
             # If the attribute doesn't exist on the metadata, it can't be in range.
             return False
 
-        if not isinstance(instance_value, (int, float)):
+        if not isinstance(instance_value, int | float):
             # If the attribute is not a number, it can't be in a numerical range.
             # Or, we could raise an error, depending on desired strictness.
             return False
 
-        if self.min_val is not None and instance_value < self.min_val:
-            return False
-        if self.max_val is not None and instance_value > self.max_val:
-            return False
-        return True
+        return not (
+            (self.min_val is not None and instance_value < self.min_val)
+            or (self.max_val is not None and instance_value > self.max_val)
+        )

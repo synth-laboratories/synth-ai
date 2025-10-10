@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 from uuid import UUID
 
+from synth_ai.environments.stateful.engine import StatefulEngineSnapshot
 from synth_ai.environments.v0_observability.history import SynthGlobalTrajectory
 
 

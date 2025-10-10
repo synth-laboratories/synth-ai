@@ -16,6 +16,7 @@ This script will:
 
 import asyncio
 import os
+
 import httpx
 
 BASE_URL = os.environ.get("SYNTH_ENVS_HOSTED_URL", "http://localhost:8000")

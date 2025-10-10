@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .registry import registry
-from .storage.volume import storage
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +13,15 @@ router = APIRouter()
 
 
 class BranchRequest(BaseModel):
-    env_ids: Optional[List[str]] = None
-    policy_ids: Optional[List[str]] = None
+    env_ids: list[str] | None = None
+    policy_ids: list[str] | None = None
     num_children: int = 1
     max_branches: int = 10
 
 
 class BranchResponse(BaseModel):
-    env_branches: Dict[str, List[str]]
-    policy_branches: Dict[str, List[str]]
+    env_branches: dict[str, list[str]]
+    policy_branches: dict[str, list[str]]
 
 
 @router.post("/branch", response_model=BranchResponse)
@@ -53,8 +51,8 @@ async def create_branches(request: BranchRequest) -> BranchResponse:
                 for child_idx in range(request.num_children):
                     # Create snapshot of parent
                     from .environment_routes import (
-                        snapshot_environment,
                         EnvSnapshotRequest,
+                        snapshot_environment,
                     )
 
                     snapshot_response = await snapshot_environment(
@@ -63,8 +61,8 @@ async def create_branches(request: BranchRequest) -> BranchResponse:
 
                     # Restore to new environment with modified seed
                     from .environment_routes import (
-                        restore_environment,
                         EnvRestoreRequest,
+                        restore_environment,
                     )
 
                     restore_response = await restore_environment(
@@ -100,14 +98,14 @@ async def create_branches(request: BranchRequest) -> BranchResponse:
 
                 for child_idx in range(request.num_children):
                     # Create snapshot of parent
-                    from .policy_routes import snapshot_policy, PolicySnapshotRequest
+                    from .policy_routes import PolicySnapshotRequest, snapshot_policy
 
                     snapshot_response = await snapshot_policy(
                         PolicySnapshotRequest(policy_id=policy_id)
                     )
 
                     # Restore to new policy
-                    from .policy_routes import restore_policy, PolicyRestoreRequest
+                    from .policy_routes import PolicyRestoreRequest, restore_policy
 
                     restore_response = await restore_policy(
                         PolicyRestoreRequest(snapshot_id=snapshot_response.snapshot_id)
@@ -142,4 +140,4 @@ async def create_branches(request: BranchRequest) -> BranchResponse:
 
     except Exception as e:
         logger.error(f"Failed to create branches: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

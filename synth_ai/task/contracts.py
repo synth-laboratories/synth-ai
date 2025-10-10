@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Any, Dict, List, Literal
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -40,7 +41,7 @@ class TaskAppContract:
     """
 
     base_url: str
-    env_name: Optional[str] = None
+    env_name: str | None = None
     requires_api_key_header: bool = True
 
 
@@ -48,16 +49,16 @@ class TaskAppContract:
 
 
 class RolloutEnvSpec(BaseModel):
-    env_id: Optional[str] = None
-    env_name: Optional[str] = None
-    config: Dict[str, Any] = {}
-    seed: Optional[int] = None
+    env_id: str | None = None
+    env_name: str | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    seed: int | None = None
 
 
 class RolloutPolicySpec(BaseModel):
-    policy_id: Optional[str] = None
-    policy_name: Optional[str] = None
-    config: Dict[str, Any] = {}
+    policy_id: str | None = None
+    policy_name: str | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class RolloutRecordConfig(BaseModel):
@@ -77,60 +78,60 @@ class RolloutRequest(BaseModel):
     run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    ops: List[Dict[str, Any]] | List[str]
+    ops: list[dict[str, Any]] | list[str]
     record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
-    training_session_id: Optional[str] = None
-    synth_base_url: Optional[str] = None
+    training_session_id: str | None = None
+    synth_base_url: str | None = None
 
 
 class RolloutStep(BaseModel):
-    obs: Dict[str, Any]
-    tool_calls: List[Dict[str, Any]]
-    reward: Optional[float] = None
+    obs: dict[str, Any]
+    tool_calls: list[dict[str, Any]]
+    reward: float | None = None
     done: bool = False
-    truncated: Optional[bool] = None
-    info: Optional[Dict[str, Any]] = None
+    truncated: bool | None = None
+    info: dict[str, Any] | None = None
 
 
 class RolloutTrajectory(BaseModel):
     env_id: str
     policy_id: str
-    steps: List[RolloutStep]
-    final: Optional[Dict[str, Any]] = None
+    steps: list[RolloutStep]
+    final: dict[str, Any] | None = None
     length: int
 
 
 class RolloutMetrics(BaseModel):
-    episode_returns: List[float]
+    episode_returns: list[float]
     mean_return: float
     num_steps: int
     num_episodes: int = 0
-    outcome_score: Optional[float] = None
-    events_score: Optional[float] = None
-    details: Dict[str, Any] = Field(default_factory=dict)
+    outcome_score: float | None = None
+    events_score: float | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class RolloutResponse(BaseModel):
     run_id: str
-    trajectories: List[RolloutTrajectory]
-    branches: Dict[str, List[str]] = {}
+    trajectories: list[RolloutTrajectory]
+    branches: dict[str, list[str]] = Field(default_factory=dict)
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
-    trace: Dict[str, Any] | None = None
+    trace: dict[str, Any] | None = None
 
 
 class TaskInfo(BaseModel):
     """Static metadata describing the capabilities of a Task App task."""
 
-    task: Dict[str, Any]
-    environments: List[str]
-    action_space: Dict[str, Any]
-    observation: Dict[str, Any]
-    dataset: Dict[str, Any]
-    rubric: Dict[str, Any]
-    inference: Dict[str, Any]
-    capabilities: Dict[str, Any]
-    limits: Dict[str, Any]
+    task: dict[str, Any]
+    environments: list[str]
+    action_space: dict[str, Any]
+    observation: dict[str, Any]
+    dataset: dict[str, Any]
+    rubric: dict[str, Any]
+    inference: dict[str, Any]
+    capabilities: dict[str, Any]
+    limits: dict[str, Any]

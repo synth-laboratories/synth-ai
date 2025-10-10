@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import textwrap
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

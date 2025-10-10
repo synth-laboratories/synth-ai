@@ -1,28 +1,27 @@
-from __future__ import annotations
-
 """Task App configuration for the GRPO Crafter example."""
+
+from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any
 
-from synth_ai.task.contracts import RolloutRequest, RolloutResponse, TaskInfo, RolloutMetrics
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
+from synth_ai.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
 from synth_ai.task.rubrics import load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
-from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
     resolve_tracing_db_url,
     tracing_env_enabled,
 )
-
 from synth_ai.tracing_v3.session_tracer import SessionTracer
-
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TASK_APP_ROOT = REPO_ROOT / "examples" / "warming_up_to_rl" / "task_app"
@@ -36,7 +35,7 @@ for path in [REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT]:
 HAS_HOSTED = True
 try:
     import crafter  # type: ignore
-    import crafter.constants as C  # type: ignore
+    import crafter.constants as crafter_constants  # type: ignore
     from synth_ai.environments.examples.crafter_classic.taskset import TRAIT_BOUNDS
     from synth_envs_hosted.branching import router as branching_router  # type: ignore
     from synth_envs_hosted.environment_routes import router as environment_router  # type: ignore
@@ -44,18 +43,32 @@ try:
     from synth_envs_hosted.policy_routes import router as policy_router  # type: ignore
     from synth_envs_hosted.rollout import (  # type: ignore
         RolloutEnvSpec as LegacyRolloutEnvSpec,
+    )
+    from synth_envs_hosted.rollout import (
         RolloutPolicySpec as LegacyRolloutPolicySpec,
+    )
+    from synth_envs_hosted.rollout import (
         RolloutRecordConfig as LegacyRolloutRecordConfig,
+    )
+    from synth_envs_hosted.rollout import (
         RolloutRequest as LegacyRolloutRequest,
+    )
+    from synth_envs_hosted.rollout import (
         RolloutResponse as LegacyRolloutResponse,
+    )
+    from synth_envs_hosted.rollout import (
         RolloutSafetyConfig as LegacyRolloutSafetyConfig,
+    )
+    from synth_envs_hosted.rollout import (
         execute_rollout as legacy_execute_rollout,
     )
 except Exception as exc:  # pragma: no cover - import-time validation
     # Provide a more actionable error with the missing module and fix hints
     missing_mod = None
     if isinstance(exc, ModuleNotFoundError):
-        missing_mod = getattr(exc, "name", None) or str(exc).split("'")[1] if "'" in str(exc) else None
+        missing_mod = (
+            getattr(exc, "name", None) or str(exc).split("'")[1] if "'" in str(exc) else None
+        )
     fix_hint = None
     if missing_mod:
         mapping = {
@@ -119,16 +132,16 @@ class CrafterDataset:
         area_env = env_value("CRAFTER_AREA", "64,64")
         self.area = tuple(int(x) for x in str(area_env).split(","))
         self.length = int(env_value("CRAFTER_EPISODE_LENGTH", 10000))
-        self._cache: Dict[int, Dict[str, Any]] = {}
+        self._cache: dict[int, dict[str, Any]] = {}
 
-    def config_for_seed(self, seed: int) -> Dict[str, Any]:
+    def config_for_seed(self, seed: int) -> dict[str, Any]:
         return {
             "seed": int(seed),
             "area": list(self.area),
             "length": self.length,
         }
 
-    def describe_seed(self, seed: int) -> Dict[str, Any]:
+    def describe_seed(self, seed: int) -> dict[str, Any]:
         seed = int(seed)
         if seed in self._cache:
             return self._cache[seed]
@@ -154,22 +167,23 @@ class CrafterDataset:
         self._cache[seed] = summary
         return summary
 
-    def _difficulty(self, traits: Dict[str, int]) -> str:
+    def _difficulty(self, traits: dict[str, int]) -> str:
         for difficulty, bounds in TRAIT_BOUNDS.items():
-            if (
-                traits.get("trees", 0) >= bounds.get("min_trees", 0)
-                and traits.get("hostiles", 0) <= bounds.get("max_hostiles", 0)
-            ):
+            if traits.get("trees", 0) >= bounds.get("min_trees", 0) and traits.get(
+                "hostiles", 0
+            ) <= bounds.get("max_hostiles", 0):
                 return difficulty
         return "custom"
 
     @property
-    def seed_range(self) -> List[int]:
+    def seed_range(self) -> list[int]:
         return [self.seed_min, self.seed_max]
-def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int]:
+
+
+def _compute_world_traits(env: crafter.Env, radius: int = 10) -> dict[str, int]:
     # Local copy to avoid import-time issues; mirrors synth_ai.environments.examples.crafter_classic.taskset.world_traits
-    from crafter import objects as _objects  # type: ignore
     import numpy as _np  # type: ignore
+    from crafter import objects as _objects  # type: ignore
 
     player = getattr(env, "_player", None)
     if player is None:
@@ -182,7 +196,7 @@ def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int
         if obj is None or obj is player:
             continue
         try:
-            if _np.abs(getattr(obj, "pos") - pos).sum() > radius:
+            if _np.abs(obj.pos - pos).sum() > radius:
                 continue
         except Exception:
             continue
@@ -190,14 +204,12 @@ def _compute_world_traits(env: "crafter.Env", radius: int = 10) -> Dict[str, int
             counts["trees"] += 1
         elif isinstance(obj, _objects.Cow):
             counts["cows"] += 1
-        elif isinstance(obj, (_objects.Zombie, _objects.Skeleton)):
+        elif isinstance(obj, _objects.Zombie | _objects.Skeleton):
             counts["hostiles"] += 1
     return counts
 
 
 def env_value(key: str, default: Any) -> Any:
-    import os
-
     return os.getenv(key, default)
 
 
@@ -214,8 +226,8 @@ def _base_task_info(dataset: CrafterDataset) -> TaskInfo:
         environments=["crafter"],
         action_space={
             "type": "discrete",
-            "size": len(C.actions),
-            "actions": list(C.actions),
+            "size": len(crafter_constants.actions),
+            "actions": list(crafter_constants.actions),
         },
         observation={
             "summary": "RGB frame plus inventory, achievements, and semantic map patches.",
@@ -286,7 +298,7 @@ EVENTS_RUBRIC = load_rubric(
 )
 
 
-def describe_taskset(dataset: CrafterDataset) -> Dict[str, Any]:
+def describe_taskset(dataset: CrafterDataset) -> dict[str, Any]:
     return {
         **DATASET_SPEC.model_dump(),
         "seed_range": dataset.seed_range,
@@ -298,7 +310,9 @@ def describe_taskset(dataset: CrafterDataset) -> Dict[str, Any]:
     }
 
 
-def provide_task_instances(dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]) -> Iterable[TaskInfo]:
+def provide_task_instances(
+    dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]
+) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
     for seed_value in seeds:
         summary = dataset.describe_seed(seed_value)
@@ -365,7 +379,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
             trace=None,
         )
 
-    converted_ops: List[str] = [_normalise_op(op, idx) for idx, op in enumerate(request.ops)]
+    converted_ops: list[str] = [_normalise_op(op, idx) for idx, op in enumerate(request.ops)]
     legacy_request = LegacyRolloutRequest(
         run_id=request.run_id,
         env=LegacyRolloutEnvSpec(
@@ -388,7 +402,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         synth_base_url=request.synth_base_url,
     )
 
-    legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(legacy_request, fastapi_request)
+    legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(
+        legacy_request, fastapi_request
+    )
     data = legacy_response.model_dump()
     metrics = data.get("metrics", {}) or {}
     metrics.setdefault("outcome_score", None)
@@ -406,10 +422,12 @@ def build_config() -> TaskAppConfig:
 
     tracing_enabled = tracing_env_enabled()
     tracing_db_url = resolve_tracing_db_url()
-    tracer_factory = build_tracer_factory(SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url)
+    tracer_factory = build_tracer_factory(
+        SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url
+    )
     sft_output_dir = resolve_sft_output_dir()
 
-    app_state: Dict[str, Any] = {
+    app_state: dict[str, Any] = {
         "task_app": hosted_task_app,
         "allowed_environments": ["crafter"],
         "tracing_enabled": tracing_enabled,
@@ -427,7 +445,7 @@ def build_config() -> TaskAppConfig:
     if sft_output_dir:
         print(f"[task:sft] writing JSONL to {sft_output_dir}", flush=True)
 
-    def _describe_taskset() -> Dict[str, Any]:
+    def _describe_taskset() -> dict[str, Any]:
         return describe_taskset(dataset)
 
     def _provide_instances(seeds: Sequence[int]):
@@ -445,7 +463,9 @@ def build_config() -> TaskAppConfig:
         rollout=rollout_executor,
         dataset_registry=registry,
         rubrics=RubricBundle(outcome=OUTCOME_RUBRIC, events=EVENTS_RUBRIC),
-        proxy=ProxyConfig(enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT),
+        proxy=ProxyConfig(
+            enable_openai=True, enable_groq=True, system_hint=CRAFTING_RULES_SYSTEM_HINT
+        ),
         routers=routers,
         app_state=app_state,
         cors_origins=["*"],
@@ -478,8 +498,8 @@ register_task_app(
                 "crafter",
             ),
             extra_local_dirs=(
-                (str(REPO_ROOT / 'synth_ai'), '/opt/synth_ai_repo/synth_ai'),
-                (str(TASK_APP_ROOT), '/opt/synth_ai_repo/examples/warming_up_to_rl/task_app'),
+                (str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),
+                (str(TASK_APP_ROOT), "/opt/synth_ai_repo/examples/warming_up_to_rl/task_app"),
             ),
             secret_names=("crafter-environment-sdk", "groq-api-key", "openai-api-key"),
             memory=16384,

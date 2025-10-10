@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import logging
+import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -11,8 +13,6 @@ from .envs.crafter.policy import CrafterPolicy
 from .inference.openai_client import create_inference_client
 from .registry import registry
 from .storage.volume import storage
-import os
-from typing import Tuple
 
 # Token budgeting (shared logic with inference server)
 try:
@@ -34,10 +34,10 @@ router = APIRouter()
 
 class PolicyCreateRequest(BaseModel):
     policy_name: str
-    config: Dict[str, Any] = {}
-    parent_policy_id: Optional[str] = None
+    config: dict[str, Any] = {}
+    parent_policy_id: str | None = None
     rl_run_id: str
-    bound_env_id: Optional[str] = None
+    bound_env_id: str | None = None
 
 
 class PolicyCreateResponse(BaseModel):
@@ -46,15 +46,15 @@ class PolicyCreateResponse(BaseModel):
 
 class PolicyStepRequest(BaseModel):
     policy_id: str
-    observation: Dict[str, Any]
-    state: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    observation: dict[str, Any]
+    state: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
     dry_run: bool = False
 
 
 class PolicyStepResponse(BaseModel):
-    tool_calls: List[Dict[str, Any]]
-    meta: Dict[str, Any]
+    tool_calls: list[dict[str, Any]]
+    meta: dict[str, Any]
 
 
 class PolicySnapshotRequest(BaseModel):
@@ -110,11 +110,13 @@ async def create_policy(
             await policy.initialize(config)
         elif pname in ["wordle-react", "wordle"]:
             try:
-                from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+                from .envs.wordle.policy import WordlePolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}")
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle policy unavailable: {e}"
+                ) from e
 
-            policy = _WordlePolicy(
+            policy = WordlePolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
                 word_length=int(config["word_length"]),
@@ -123,22 +125,24 @@ async def create_policy(
             await policy.initialize(config)
         elif pname in ["sokoban-react", "sokoban"]:
             try:
-                from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
+                from .envs.sokoban.policy import SokobanPolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}")
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban policy unavailable: {e}"
+                ) from e
 
-            policy = _SokobanPolicy(
+            policy = SokobanPolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
             )
             await policy.initialize(config)
         elif pname in ["math-react", "math"]:
             try:
-                from .envs.math.policy import MathPolicy as _MathPolicy
+                from .envs.math.policy import MathPolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Math policy unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Math policy unavailable: {e}") from e
 
-            policy = _MathPolicy(
+            policy = MathPolicy(
                 inference_url=config["inference_url"],
                 model=config["model"],
             )
@@ -160,7 +164,7 @@ async def create_policy(
 
     except Exception as e:
         logger.error(f"Failed to create policy: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/step", response_model=PolicyStepResponse)
@@ -186,11 +190,13 @@ async def step_policy(
                 obs_text = format_crafter(request.observation)
             elif True:
                 try:
-                    from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+                    from .envs.wordle.policy import WordlePolicy
                 except Exception:
-                    _WordlePolicy = None  # type: ignore
+                    wordle_policy_cls = None  # type: ignore[assignment]
+                else:
+                    wordle_policy_cls = WordlePolicy
 
-                if _WordlePolicy is not None and isinstance(policy, _WordlePolicy):
+                if wordle_policy_cls is not None and isinstance(policy, wordle_policy_cls):
                     from .envs.wordle.shared import format_observation_wordle
 
                 # ASSERTION: Validate observation structure
@@ -247,20 +253,24 @@ async def step_policy(
                 print(f"DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: {obs_text[:200]}")
             elif True:
                 try:
-                    from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
+                    from .envs.sokoban.policy import SokobanPolicy
                 except Exception:
-                    _SokobanPolicy = None  # type: ignore
+                    sokoban_policy_cls = None  # type: ignore[assignment]
+                else:
+                    sokoban_policy_cls = SokobanPolicy
 
-                if _SokobanPolicy is not None and isinstance(policy, _SokobanPolicy):
+                if sokoban_policy_cls is not None and isinstance(policy, sokoban_policy_cls):
                     from .envs.sokoban.shared import format_observation_sokoban
 
                     obs_text = format_observation_sokoban(request.observation)
             elif True:
                 try:
-                    from .envs.math.policy import MathPolicy as _MathPolicy
+                    from .envs.math.policy import MathPolicy
                 except Exception:
-                    _MathPolicy = None  # type: ignore
-                if _MathPolicy is not None and isinstance(policy, _MathPolicy):
+                    math_policy_cls = None  # type: ignore[assignment]
+                else:
+                    math_policy_cls = MathPolicy
+                if math_policy_cls is not None and isinstance(policy, math_policy_cls):
                     # Simple extraction of problem text
                     try:
                         obs_text = str(
@@ -286,8 +296,8 @@ async def step_policy(
             inf_req = meta["inference_request"]
             msgs = inf_req["messages"]
             model_name = inf_req.get("model") or getattr(policy, "model", None) or ""
-            system_messages: List[str] = []
-            user_messages: List[str] = []
+            system_messages: list[str] = []
+            user_messages: list[str] = []
             if msgs and len(msgs) > 0 and msgs[0]["role"] == "system":
                 sys_text = msgs[0]["content"]
                 policy_name = getattr(policy, "name", "") or type(policy).__name__.lower()
@@ -375,12 +385,9 @@ async def step_policy(
                         logger.info(f"USER[{idx}]\n{umsg}")
                     logger.info("PROMPT_DUMP_USER_END")
                     # Print concise preview for visibility in standard logs
-                    try:
+                    with contextlib.suppress(Exception):
                         last_user = user_messages[-1] if user_messages else ""
-                        # preview = last_user[:400] if isinstance(last_user, str) else str(last_user)[:400]
                         print(f"[task:crafter] user prompt: {last_user}", flush=True)
-                    except Exception:
-                        pass
             except Exception as e:
                 logger.warning(f"PROMPT_DUMP_FAILED: {e}")
 
@@ -399,10 +406,8 @@ async def step_policy(
             )
 
             # Ensure meta carries the final target URL for downstream logging/clients
-            try:
+            with contextlib.suppress(Exception):
                 meta["inference_url"] = target_url
-            except Exception:
-                pass
 
             # Select API key based on resolved target URL
             api_key_override = None
@@ -530,16 +535,16 @@ async def step_policy(
                         except Exception:
                             return max(1, int(len(text) / 4))
 
-                    def _count_messages_tokens(messages: List[Dict[str, Any]]) -> int:
+                    def _count_messages_tokens(messages: list[dict[str, Any]]) -> int:
                         total = 0
                         for m in messages:
                             total += _count_tokens(_content_to_text(m.get("content")))
                         return total
 
                     def _truncate_messages_to_budget(
-                        messages: List[Dict[str, Any]],
+                        messages: list[dict[str, Any]],
                         max_tokens: int,
-                    ) -> Tuple[List[Dict[str, Any]], int, int, int]:
+                    ) -> tuple[list[dict[str, Any]], int, int, int]:
                         before = _count_messages_tokens(messages)
                         if before <= max_tokens:
                             return messages, before, before, len(messages)
@@ -549,7 +554,7 @@ async def step_policy(
                         if messages and messages[0].get("role") == "system":
                             system_msg = messages[0]
                             start_idx = 1
-                        kept_rev: List[Dict[str, Any]] = []
+                        kept_rev: list[dict[str, Any]] = []
                         total = _count_messages_tokens([system_msg] if system_msg else [])
                         # Walk from the end keeping most recent messages
                         for m in reversed(messages[start_idx:]):
@@ -590,7 +595,7 @@ async def step_policy(
                     )
                     if new_msgs is not msgs:
                         inf_req["messages"] = new_msgs
-                        try:
+                        with contextlib.suppress(Exception):
                             logger.info(
                                 {
                                     "chat_truncated": True,
@@ -600,8 +605,6 @@ async def step_policy(
                                     "kept_msgs": int(kept_count),
                                 }
                             )
-                        except Exception:
-                            pass
             except Exception as _trunc_e:
                 logger.warning(f"CHAT_TRUNCATION_FAILED: {type(_trunc_e).__name__}: {_trunc_e}")
 
@@ -629,64 +632,56 @@ async def step_policy(
             # Prompt diagnostics before sending to inference: build chat template locally,
             # count tokens, and log the first 10k tokens if oversized. Also stash a
             # compact preview in meta so the trainer can surface it.
-            try:
+            with contextlib.suppress(Exception):
                 req_for_diag = meta.get("inference_request", {})
                 model_for_diag = req_for_diag.get("model") or getattr(policy, "model", None) or ""
                 messages_for_diag = req_for_diag.get("messages") or []
                 if model_for_diag and messages_for_diag:
-                    try:
-                        from transformers import AutoTokenizer
+                    from transformers import AutoTokenizer
 
-                        tok = AutoTokenizer.from_pretrained(model_for_diag)
-                        prompt_preview = tok.apply_chat_template(
-                            messages_for_diag,
-                            add_generation_prompt=True,
-                            tokenize=False,
+                    tok = AutoTokenizer.from_pretrained(model_for_diag)
+                    prompt_preview = tok.apply_chat_template(
+                        messages_for_diag,
+                        add_generation_prompt=True,
+                        tokenize=False,
+                    )
+                    ids = tok.encode(prompt_preview, add_special_tokens=False)
+                    max_len = getattr(tok, "model_max_length", None)
+                    over_limit = False
+                    with contextlib.suppress(Exception):
+                        over_limit = (
+                            isinstance(max_len, int) and max_len > 0 and len(ids) > int(max_len)
                         )
-                        ids = tok.encode(prompt_preview, add_special_tokens=False)
-                        max_len = getattr(tok, "model_max_length", None)
-                        over_limit = False
-                        try:
-                            over_limit = (
-                                isinstance(max_len, int) and max_len > 0 and len(ids) > int(max_len)
-                            )
-                        except Exception:
-                            over_limit = False
-                        if over_limit or len(ids) > 10000:
-                            preview_ids = ids[:10000]
-                            preview_text = tok.decode(preview_ids, skip_special_tokens=False)
-                            try:
-                                logger.warning(
-                                    {
-                                        "prompt_token_overflow_local": True,
-                                        "model": str(model_for_diag),
-                                        "token_count": int(len(ids)),
-                                        "model_max_length": int(max_len)
-                                        if isinstance(max_len, int)
-                                        else None,
-                                        "preview_tokens_logged": int(len(preview_ids)),
-                                        "prompt_preview_first_10k_tokens": preview_text,
-                                    }
-                                )
-                            except Exception:
-                                pass
-                            try:
-                                meta["prompt_debug"] = {
+                    if over_limit or len(ids) > 10000:
+                        preview_ids = ids[:10000]
+                        preview_text = tok.decode(
+                            preview_ids,
+                            skip_special_tokens=False,
+                        )
+                        with contextlib.suppress(Exception):
+                            logger.warning(
+                                {
+                                    "prompt_token_overflow_local": True,
+                                    "model": str(model_for_diag),
                                     "token_count": int(len(ids)),
                                     "model_max_length": int(max_len)
                                     if isinstance(max_len, int)
                                     else None,
-                                    "preview_first_10k_tokens": preview_text,
+                                    "preview_tokens_logged": int(len(preview_ids)),
+                                    "prompt_preview_first_10k_tokens": preview_text,
                                 }
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                            )
+                        with contextlib.suppress(Exception):
+                            meta["prompt_debug"] = {
+                                "token_count": int(len(ids)),
+                                "model_max_length": int(max_len)
+                                if isinstance(max_len, int)
+                                else None,
+                                "preview_first_10k_tokens": preview_text,
+                            }
 
             # Emit the exact prompt/messages and tools before calling the LLM (bounded preview)
-            try:
+            with contextlib.suppress(Exception):
                 req_dump = meta.get("inference_request", {})
                 msgs = req_dump.get("messages")
                 tools_dump = req_dump.get("tools")
@@ -706,11 +701,9 @@ async def step_policy(
                             "tools_preview": tools_compact,
                         }
                     )
-            except Exception:
-                pass
 
             # Normalize request for non-OpenAI endpoints (strict schemas)
-            try:
+            with contextlib.suppress(Exception):
                 base = str(target_url or "")
                 is_openai_dotcom = "openai.com" in base.lower()
                 if not is_openai_dotcom:
@@ -719,7 +712,7 @@ async def step_policy(
                         # Force structured tool_choice if a bare "required" is present
                         if req_body.get("tool_choice") == "required":
                             func_name = "interact_many"
-                            try:
+                            with contextlib.suppress(Exception):
                                 tools_arr = req_body.get("tools") or []
                                 if isinstance(tools_arr, list) and tools_arr:
                                     f = (
@@ -730,8 +723,6 @@ async def step_policy(
                                     cand = (f or {}).get("name") if isinstance(f, dict) else None
                                     if isinstance(cand, str) and cand:
                                         func_name = cand
-                            except Exception:
-                                pass
                             req_body["tool_choice"] = {
                                 "type": "function",
                                 "function": {"name": func_name},
@@ -739,7 +730,7 @@ async def step_policy(
                             req_body["parallel_tool_calls"] = False
                             req_body.setdefault("function_call", {"name": func_name})
                         # Inject extra_body for thinking controls expected by Modal service
-                        try:
+                        with contextlib.suppress(Exception):
                             tb = req_body.get("thinking_budget")
                             tm = str(req_body.get("thinking_mode") or "").lower()
                             enable_thinking = bool(tb) or tm == "think"
@@ -747,25 +738,19 @@ async def step_policy(
                             chat_kwargs = dict(extra.get("chat_template_kwargs") or {})
                             if enable_thinking:
                                 chat_kwargs["enable_thinking"] = True
-                            if isinstance(tb, (int, float, str)) and str(tb).strip():
-                                try:
+                            if isinstance(tb, int | float | str) and str(tb).strip():
+                                with contextlib.suppress(Exception):
                                     chat_kwargs["thinking_budget"] = int(tb)
-                                except Exception:
-                                    pass
                             if chat_kwargs:
                                 extra["chat_template_kwargs"] = chat_kwargs
                             # Ensure stop_after_tool_calls honored via extra_body for stricter servers
                             extra.setdefault("stop_after_tool_calls", 1)
                             if extra:
                                 req_body["extra_body"] = extra
-                        except Exception:
-                            pass
                         # Provide a conservative default temperature if missing
                         if "temperature" not in req_body:
                             req_body["temperature"] = 0.1
                         meta["inference_request"] = req_body
-            except Exception:
-                pass
 
             _t_start = _t.time()
             call_started_at = datetime.utcnow()
@@ -826,15 +811,13 @@ async def step_policy(
                 # Replace tool_calls with parsed result
                 if isinstance(parsed, list):
                     tool_calls = parsed
-                try:
+                with contextlib.suppress(Exception):
                     logger.info(
                         "TOOLCALL_PARSE: parsed=%d has_tools=%s example=%r",
                         len(tool_calls) if isinstance(tool_calls, list) else -1,
                         bool(getattr(policy, "use_tools", True)),
                         (tool_calls[0] if isinstance(tool_calls, list) and tool_calls else None),
                     )
-                except Exception:
-                    pass
             except Exception as _pe:
                 logger.warning(f"Failed to parse tool calls: {str(_pe)}")
             # Attach raw response + usage for observability
@@ -864,7 +847,7 @@ async def step_policy(
 
     except Exception as e:
         logger.error(f"Failed to step policy {request.policy_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/snapshot", response_model=PolicySnapshotResponse)
@@ -902,7 +885,7 @@ async def snapshot_policy(request: PolicySnapshotRequest) -> PolicySnapshotRespo
 
     except Exception as e:
         logger.error(f"Failed to snapshot policy {request.policy_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/restore", response_model=PolicyRestoreResponse)
@@ -933,16 +916,20 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
             policy = await CrafterPolicy.deserialize(state_dict)
         elif low in ["wordle-react", "wordle"]:
             try:
-                from .envs.wordle.policy import WordlePolicy as _WordlePolicy
+                from .envs.wordle.policy import WordlePolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle policy unavailable: {e}")
-            policy = await _WordlePolicy.deserialize(state_dict)
+                raise HTTPException(
+                    status_code=500, detail=f"Wordle policy unavailable: {e}"
+                ) from e
+            policy = await WordlePolicy.deserialize(state_dict)
         elif low in ["sokoban-react", "sokoban"]:
             try:
-                from .envs.sokoban.policy import SokobanPolicy as _SokobanPolicy
+                from .envs.sokoban.policy import SokobanPolicy
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban policy unavailable: {e}")
-            policy = await _SokobanPolicy.deserialize(state_dict)
+                raise HTTPException(
+                    status_code=500, detail=f"Sokoban policy unavailable: {e}"
+                ) from e
+            policy = await SokobanPolicy.deserialize(state_dict)
         else:
             raise HTTPException(
                 status_code=422,
@@ -959,7 +946,7 @@ async def restore_policy(request: PolicyRestoreRequest) -> PolicyRestoreResponse
 
     except Exception as e:
         logger.error(f"Failed to restore policy from snapshot {request.snapshot_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/terminate", response_model=PolicyTerminateResponse)
@@ -980,4 +967,4 @@ async def terminate_policy(request: PolicyTerminateRequest) -> PolicyTerminateRe
 
     except Exception as e:
         logger.error(f"Failed to terminate policy {request.policy_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

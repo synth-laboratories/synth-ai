@@ -1,17 +1,17 @@
-from __future__ import annotations
-
 """Utility functions for tracing v3."""
+
+from __future__ import annotations
 
 import hashlib
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
 def iso_now() -> str:
     """Get current UTC time as ISO format string."""
-    return datetime.utcnow().isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def json_dumps(obj: Any) -> str:

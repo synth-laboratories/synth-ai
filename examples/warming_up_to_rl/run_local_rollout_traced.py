@@ -7,13 +7,11 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-import sys
-
 import httpx
-
 from synth_ai.task import (
     RolloutEnvSpec,
     RolloutPolicySpec,
@@ -67,7 +65,11 @@ def build_rollout_request(
 
 
 def summarise_rollout(response: Any) -> dict[str, Any]:
-    metrics = response.metrics.model_dump() if hasattr(response, "metrics") else response.get("metrics", {})
+    metrics = (
+        response.metrics.model_dump()
+        if hasattr(response, "metrics")
+        else response.get("metrics", {})
+    )
     return {
         "run_id": getattr(response, "run_id", None) or response.get("run_id"),
         "num_episodes": metrics.get("num_episodes"),
@@ -86,17 +88,25 @@ def summarise_trace(trace: Any) -> dict[str, Any]:
 
     format_hint = "compact" if "events_count" in trace or "lm_calls" in trace else "full"
     events_count = trace.get("events_count")
-    if events_count is None and "event_history" in trace and isinstance(trace["event_history"], list):
+    if (
+        events_count is None
+        and "event_history" in trace
+        and isinstance(trace["event_history"], list)
+    ):
         events_count = len(trace["event_history"])
     messages_count = trace.get("messages_count")
-    if messages_count is None and "markov_blanket_message_history" in trace and isinstance(
-        trace["markov_blanket_message_history"], list
+    if (
+        messages_count is None
+        and "markov_blanket_message_history" in trace
+        and isinstance(trace["markov_blanket_message_history"], list)
     ):
         messages_count = len(trace["markov_blanket_message_history"])
 
     metadata = trace.get("metadata") if isinstance(trace.get("metadata"), dict) else {}
     lm_calls = trace.get("lm_calls") if isinstance(trace.get("lm_calls"), list) else []
-    decision_rewards = trace.get("decision_rewards") if isinstance(trace.get("decision_rewards"), list) else []
+    decision_rewards = (
+        trace.get("decision_rewards") if isinstance(trace.get("decision_rewards"), list) else []
+    )
 
     return {
         "session_id": trace.get("session_id"),
@@ -218,11 +228,13 @@ def print_reward_summary(
     if decision_rewards:
         print("  Decision rewards:")
         for entry in decision_rewards:
-            turn = entry.get('turn')
-            ach_delta = entry.get('ach_delta')
-            unique_delta = entry.get('unique_delta')
-            achievements = entry.get('achievements') or []
-            print(f"    turn={turn}, ach_delta={ach_delta}, unique_delta={unique_delta}, achievements={achievements}")
+            turn = entry.get("turn")
+            ach_delta = entry.get("ach_delta")
+            unique_delta = entry.get("unique_delta")
+            achievements = entry.get("achievements") or []
+            print(
+                f"    turn={turn}, ach_delta={ach_delta}, unique_delta={unique_delta}, achievements={achievements}"
+            )
     else:
         print("  Decision rewards: none recorded")
 
@@ -249,19 +261,36 @@ async def main() -> None:
     env_file = Path.cwd() / ".env"
     if env_file.exists():
         from dotenv import load_dotenv
+
         load_dotenv(env_file)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
     parser.add_argument("--api-key", help="RL Environment API key (will prompt if not provided)")
-    parser.add_argument("--inference-api-key", help="Inference provider API key (will prompt if not provided)")
+    parser.add_argument(
+        "--inference-api-key", help="Inference provider API key (will prompt if not provided)"
+    )
     parser.add_argument("--seed", type=int, default=42, help="Environment seed")
     parser.add_argument("--run-id", default="local-trace", help="Run identifier")
     parser.add_argument("--model", default="gpt-4o-mini", help="OpenAI-compatible model id")
-    parser.add_argument("--inference-url", default="https://api.openai.com", help="Inference base URL (OpenAI/Groq)")
-    parser.add_argument("--ops", help="Comma-separated rollout ops (fallback: alternating agent/env)")
-    parser.add_argument("--max-llm-calls", type=int, default=1, help="Number of agent/env pairs when --ops not supplied")
-    parser.add_argument("--max-policy-tokens", type=int, default=None, help="Optional max token budget forwarded to policy")
+    parser.add_argument(
+        "--inference-url", default="https://api.openai.com", help="Inference base URL (OpenAI/Groq)"
+    )
+    parser.add_argument(
+        "--ops", help="Comma-separated rollout ops (fallback: alternating agent/env)"
+    )
+    parser.add_argument(
+        "--max-llm-calls",
+        type=int,
+        default=1,
+        help="Number of agent/env pairs when --ops not supplied",
+    )
+    parser.add_argument(
+        "--max-policy-tokens",
+        type=int,
+        default=None,
+        help="Optional max token budget forwarded to policy",
+    )
     parser.add_argument(
         "--trace-format",
         choices=["compact", "full"],
@@ -300,7 +329,7 @@ async def main() -> None:
     base_url = args.base_url
     if args.base_url == "http://localhost:8001":
         print("\nTask app configuration:")
-        base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
+        base_url_input = input("Task app base URL [http://localhost:8001]: ").strip()
         base_url = base_url_input if base_url_input else "http://localhost:8001"
 
     api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
@@ -348,7 +377,7 @@ async def main() -> None:
     print("\nRollout configuration:")
     max_llm_calls = args.max_llm_calls
     if args.max_llm_calls == 1:
-        max_llm_calls_input = input(f"Max LLM calls [10]: ").strip()
+        max_llm_calls_input = input("Max LLM calls [10]: ").strip()
         max_llm_calls = int(max_llm_calls_input) if max_llm_calls_input else 10
 
     # Override args with prompted values
@@ -420,7 +449,11 @@ async def main() -> None:
                 "Tip: export TASKAPP_TRACING_ENABLED=1 and optionally TASKAPP_SFT_OUTPUT_DIR before running `uvx synth-ai serve …` to persist traces/SFT."
             )
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.json() if exc.response.headers.get("content-type", "").startswith("application/json") else exc.response.text
+            detail = (
+                exc.response.json()
+                if exc.response.headers.get("content-type", "").startswith("application/json")
+                else exc.response.text
+            )
             print(f"HTTP error {exc.response.status_code}: {detail}", file=sys.stderr)
             if exc.response.status_code in (401, 503):
                 print(

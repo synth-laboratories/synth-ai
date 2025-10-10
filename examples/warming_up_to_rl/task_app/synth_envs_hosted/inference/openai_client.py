@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
 
@@ -15,7 +16,7 @@ class OpenAIClient:
     def __init__(
         self,
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         timeout_s: float = 120.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -27,8 +28,8 @@ class OpenAIClient:
             self.headers["Authorization"] = f"Bearer {api_key}"
 
     def _fix_model_parameters(
-        self, request: Dict[str, Any], target_url: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, request: dict[str, Any], target_url: str | None = None
+    ) -> dict[str, Any]:
         """
         Fix parameter compatibility for newer OpenAI models.
 
@@ -103,11 +104,11 @@ class OpenAIClient:
 
     async def generate(
         self,
-        request: Dict[str, Any],
-        base_url: Optional[str] = None,
-        timeout_s: Optional[float] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        request: dict[str, Any],
+        base_url: str | None = None,
+        timeout_s: float | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Send a chat completion request to the inference server.
 
@@ -135,18 +136,15 @@ class OpenAIClient:
         logger.info(f"Inference POST target: {url}")
         if extra_headers:
             logger.info(f"Extra headers: {extra_headers}")
-        try:
-            keys_preview = sorted(list(processed_request.keys()))
+        with contextlib.suppress(Exception):
+            keys_preview = sorted(processed_request.keys())
             logger.info(f"Request keys: {keys_preview}")
-        except Exception:
-            pass
 
         # Final hard-guard for OpenAI: ensure unsupported field is not present
         try:
-            if "openai" in url.lower():
-                if "stop_after_tool_calls" in processed_request:
-                    processed_request.pop("stop_after_tool_calls", None)
-                    logger.info("Removed stop_after_tool_calls for OpenAI request")
+            if "openai" in url.lower() and "stop_after_tool_calls" in processed_request:
+                processed_request.pop("stop_after_tool_calls", None)
+                logger.info("Removed stop_after_tool_calls for OpenAI request")
             # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             low_url = url.lower()
             if ("groq.com" in low_url or "/openai" in low_url) and isinstance(
@@ -367,9 +365,9 @@ class OpenAIClient:
 
     async def check_health(
         self,
-        base_url: Optional[str] = None,
-        timeout_s: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        base_url: str | None = None,
+        timeout_s: float | None = None,
+    ) -> dict[str, Any]:
         """
         Check if the inference service is healthy.
 
@@ -403,13 +401,13 @@ class OpenAIClient:
 
     async def generate_with_retries(
         self,
-        request: Dict[str, Any],
-        base_url: Optional[str] = None,
-        timeout_s: Optional[float] = None,
+        request: dict[str, Any],
+        base_url: str | None = None,
+        timeout_s: float | None = None,
         max_retries: int = 4,
         backoff_factor: float = 2.0,
-        extra_headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         Generate with exponential backoff retries for transient errors.
 
@@ -482,7 +480,7 @@ class OpenAIClient:
                             ) from e
                     except Exception:
                         # If we can't parse the response, don't retry 400 errors
-                        try:
+                        with contextlib.suppress(Exception):
                             logger.error(
                                 {
                                     "non_overload_400_unparsed": True,
@@ -490,8 +488,6 @@ class OpenAIClient:
                                     "payload": processed_request,
                                 }
                             )
-                        except Exception:
-                            pass
                         raise RuntimeError(
                             f"Inference 400 response (unparsed): {e.response.text if e.response is not None else 'Bad Request'}"
                         ) from e
@@ -528,7 +524,7 @@ class OpenAIClient:
 
 def create_inference_client(
     task_app: Any,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
 ) -> OpenAIClient:
     """
     Create an inference client using TaskApp configuration.
@@ -548,6 +544,57 @@ def create_inference_client(
             api_key = _os.getenv("OPENAI_API_KEY") or getattr(task_app, "openai_api_key", None)
         except Exception:
             api_key = None
+
+    import json as _json
+    import os as _os
+    import time as _time
+
+    if _os.getenv("SYNTH_FAKE_INFERENCE", "").strip():
+
+        class _DummyClient:
+            async def generate_with_retries(
+                self,
+                request: dict[str, Any],
+                base_url: str | None = None,
+                max_retries: int = 0,
+                backoff_factor: float = 1.0,
+                extra_headers: dict[str, str] | None = None,
+            ) -> dict[str, Any]:
+                tool_call = {
+                    "id": "call_dummy",
+                    "type": "function",
+                    "function": {
+                        "name": "interact_many",
+                        "arguments": _json.dumps({"actions": ["move_right"]}),
+                    },
+                }
+                return {
+                    "id": f"cmpl-{int(_time.time())}",
+                    "object": "chat.completion",
+                    "created": int(_time.time()),
+                    "model": request.get("model") or "dummy-model",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": [tool_call],
+                            },
+                            "finish_reason": "tool_calls",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                }
+
+            async def check_health(
+                self,
+                base_url: str | None = None,
+                timeout_s: float | None = None,
+            ) -> dict[str, Any]:
+                return {"status": "ok", "dummy": True}
+
+        return _DummyClient()
 
     return OpenAIClient(
         base_url=task_app.vllm_base_url,

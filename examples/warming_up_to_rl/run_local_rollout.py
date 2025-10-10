@@ -7,14 +7,12 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-import sys
-
 import httpx
 from dotenv import load_dotenv
-
 from synth_ai.task import (
     RolloutEnvSpec,
     RolloutPolicySpec,

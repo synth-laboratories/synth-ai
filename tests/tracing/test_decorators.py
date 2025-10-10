@@ -5,11 +5,11 @@ import time
 
 import pytest
 
-from synth_ai.tracing.decorators import (
+from synth_ai.v0.tracing.decorators import (
     trace_event_async,
     trace_event_sync,
 )
-from synth_ai.tracing.events.store import event_store
+from synth_ai.v0.tracing.events.store import event_store
 
 
 class MockSystem:

@@ -1,25 +1,26 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
-import sys
-import time
-from pathlib import Path
-from typing import Any, Dict, Callable
 import shutil
 import stat
+import sys
 import textwrap
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
-from synth_ai.demos.demo_task_apps import core as demo_core
-from synth_ai.demos.demo_task_apps.core import DemoEnv, DEFAULT_TASK_APP_SECRET_NAME
 from synth_ai.demo_registry import (
-    CopySpec,
     DemoTemplate,
     get_demo_template,
     list_demo_templates,
 )
-from synth_ai.handshake import run_handshake, HandshakeError
+from synth_ai.demos.demo_task_apps import core as demo_core
+from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
+from synth_ai.handshake import HandshakeError, run_handshake
 
 
 def _key_preview(value: str, label: str) -> str:
@@ -59,12 +60,11 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     try:
         print("\n⏳ Connecting SDK to your browser session…")
         res = run_handshake()
-        user = res.get("user") or {}
         org = res.get("org") or {}
         keys = res.get("keys") or {}
         synth_key = str(keys.get("synth") or "").strip()
         rl_env_key = str(keys.get("rl_env") or "").strip()
-        org_name = (org.get("name") or "this organization")
+        org_name = org.get("name") or "this organization"
         print(f"✅ Connected to {org_name}!")
     except (HandshakeError, Exception) as e:
         print(f"⚠️  Failed to fetch keys from frontend: {e}")
@@ -73,7 +73,9 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     # Prompt for manual input if any key is missing
     if not synth_key:
         try:
-            synth_key = input("Failed to fetch your Synth API key. Please enter your Synth API key here:\n> ").strip()
+            synth_key = input(
+                "Failed to fetch your Synth API key. Please enter your Synth API key here:\n> "
+            ).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nSetup cancelled.")
             return 1
@@ -83,7 +85,9 @@ def cmd_setup(_args: argparse.Namespace) -> int:
 
     if not rl_env_key:
         try:
-            rl_env_key = input("Failed to fetch your RL Environment API key. Please enter your RL Environment API key here:\n> ").strip()
+            rl_env_key = input(
+                "Failed to fetch your RL Environment API key. Please enter your RL Environment API key here:\n> "
+            ).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nSetup cancelled.")
             return 1
@@ -92,17 +96,20 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             return 1
 
     # Persist both keys to .env
-    dotenv_path = demo_core.persist_dotenv_values({
-        "SYNTH_API_KEY": synth_key,
-        "ENVIRONMENT_API_KEY": rl_env_key,
-    })
+    dotenv_path = demo_core.persist_dotenv_values(
+        {
+            "SYNTH_API_KEY": synth_key,
+            "ENVIRONMENT_API_KEY": rl_env_key,
+        }
+    )
 
     # Store .env path for subsequent commands
     demo_core.persist_env_file_path(dotenv_path)
 
     # 2) Reload env after handshake to pick up values from .env (suppress env prints)
-    import io
     import contextlib
+    import io
+
     _buf = io.StringIO()
     with contextlib.redirect_stdout(_buf):
         env = demo_core.load_env()
@@ -119,22 +126,22 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             return
         current = env.task_app_base_url
         needs_lookup = False
-        if not current:
-            needs_lookup = True
-        elif not _is_modal_public_url(current):
+        if not current or not _is_modal_public_url(current):
             needs_lookup = True
         if not needs_lookup:
             return
-        code, out = _popen_capture([
-            "uv",
-            "run",
-            "python",
-            "-m",
-            "modal",
-            "app",
-            "url",
-            env.task_app_name,
-        ])
+        code, out = _popen_capture(
+            [
+                "uv",
+                "run",
+                "python",
+                "-m",
+                "modal",
+                "app",
+                "url",
+                env.task_app_name,
+            ]
+        )
         if code != 0 or not out:
             return
         new_url = ""
@@ -164,15 +171,16 @@ def cmd_setup(_args: argparse.Namespace) -> int:
 
     _maybe_fix_task_url()
 
-    ok_backend = False
-    ok_task = False
     if env.dev_backend_url:
-        api = env.dev_backend_url.rstrip("/") + ("" if env.dev_backend_url.endswith("/api") else "/api")
-        ok_backend = demo_core.assert_http_ok(api + "/health", method="GET")
+        api = env.dev_backend_url.rstrip("/") + (
+            "" if env.dev_backend_url.endswith("/api") else "/api"
+        )
+        demo_core.assert_http_ok(api + "/health", method="GET")
         # Intentionally suppress backend health print for concise output
     if env.task_app_base_url:
-        ok_task = demo_core.assert_http_ok(env.task_app_base_url.rstrip("/") + "/health", method="GET") or \
-                  demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
+        demo_core.assert_http_ok(
+            env.task_app_base_url.rstrip("/") + "/health", method="GET"
+        ) or demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
         # Intentionally suppress task app health print
     else:
         print("\nSet your task app URL by running:\nuvx synth-ai rl_demo deploy\n")
@@ -184,10 +192,15 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     return 0
 
 
-def _popen_capture(cmd: list[str], cwd: str | None = None, env: dict | None = None) -> tuple[int, str]:
+def _popen_capture(
+    cmd: list[str], cwd: str | None = None, env: dict | None = None
+) -> tuple[int, str]:
     import subprocess
+
     try:
-        proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        proc = subprocess.Popen(
+            cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
         out, _ = proc.communicate()
         return int(proc.returncode or 0), out or ""
     except Exception as e:
@@ -231,7 +244,9 @@ def _popen_stream(cmd: list[str], cwd: str | None = None, env: dict | None = Non
     return int(proc.returncode or 0)
 
 
-def _popen_stream_capture(cmd: list[str], cwd: str | None = None, env: dict | None = None) -> tuple[int, str]:
+def _popen_stream_capture(
+    cmd: list[str], cwd: str | None = None, env: dict | None = None
+) -> tuple[int, str]:
     """Stream subprocess output to stdout and also capture it into a buffer."""
     import subprocess
     import threading
@@ -282,7 +297,19 @@ def _find_asgi_apps(root: Path) -> list[Path]:
       - "@modal.asgi_app()"
     """
     results: list[Path] = []
-    skip_dirs = {".git", ".hg", ".svn", "node_modules", "dist", "build", "__pycache__", ".ruff_cache", ".mypy_cache", "venv", ".venv"}
+    skip_dirs = {
+        ".git",
+        ".hg",
+        ".svn",
+        "node_modules",
+        "dist",
+        "build",
+        "__pycache__",
+        ".ruff_cache",
+        ".mypy_cache",
+        "venv",
+        ".venv",
+    }
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for name in filenames:
@@ -296,16 +323,20 @@ def _find_asgi_apps(root: Path) -> list[Path]:
                     results.append(path)
             except Exception:
                 continue
+
     # Stable order: prioritize files under synth_demo/ first, then alphabetical
     def _priority(p: Path) -> tuple[int, str]:
         rel = str(p.resolve())
         in_demo = "/synth_demo/" in rel or rel.endswith("/synth_demo/task_app.py")
         return (0 if in_demo else 1, rel)
+
     results.sort(key=_priority)
     return results
 
 
-def _prompt_value(label: str, default: str | int | float, cast: Callable[[str], Any] | None = None) -> Any:
+def _prompt_value(
+    label: str, default: str | int | float, cast: Callable[[str], Any] | None = None
+) -> Any:
     prompt = f"{label} [{default}]: "
     try:
         raw = input(prompt).strip()
@@ -324,7 +355,19 @@ def _prompt_value(label: str, default: str | int | float, cast: Callable[[str], 
 
 def _find_vllm_tomls(root: Path) -> list[Path]:
     results: list[Path] = []
-    skip_dirs = {".git", ".hg", ".svn", "node_modules", "dist", "build", "__pycache__", ".ruff_cache", ".mypy_cache", "venv", ".venv"}
+    skip_dirs = {
+        ".git",
+        ".hg",
+        ".svn",
+        "node_modules",
+        "dist",
+        "build",
+        "__pycache__",
+        ".ruff_cache",
+        ".mypy_cache",
+        "venv",
+        ".venv",
+    }
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for name in filenames:
@@ -344,7 +387,9 @@ def _create_new_config(env: DemoEnv) -> str:
     default_path = os.path.join(os.getcwd(), "demo_config.toml")
     while True:
         try:
-            destination = input(f"Path to save new config [{default_path}]: ").strip() or default_path
+            destination = (
+                input(f"Path to save new config [{default_path}]: ").strip() or default_path
+            )
         except Exception:
             destination = default_path
         destination = os.path.abspath(destination)
@@ -353,7 +398,9 @@ def _create_new_config(env: DemoEnv) -> str:
             continue
         if os.path.exists(destination):
             try:
-                overwrite = input(f"{destination} exists. Overwrite? [y/N]: ").strip().lower() or "n"
+                overwrite = (
+                    input(f"{destination} exists. Overwrite? [y/N]: ").strip().lower() or "n"
+                )
             except Exception:
                 overwrite = "n"
             if not overwrite.startswith("y"):
@@ -365,7 +412,9 @@ def _create_new_config(env: DemoEnv) -> str:
     model_name = _prompt_value("Model name", "Qwen/Qwen3-0.6B")
     compute_gpu_type = _prompt_value("Compute GPU type", "H100")
     compute_gpu_count = _prompt_value("Compute GPU count", 4, int)
-    topology_gpu_type = _prompt_value("Topology GPU type", f"{compute_gpu_type}:{compute_gpu_count}")
+    topology_gpu_type = _prompt_value(
+        "Topology GPU type", f"{compute_gpu_type}:{compute_gpu_count}"
+    )
     gpus_for_vllm = _prompt_value("Topology gpus_for_vllm", 2, int)
     gpus_for_training = _prompt_value("Topology gpus_for_training", 1, int)
     tensor_parallel = _prompt_value("Topology tensor_parallel", 2, int)
@@ -383,8 +432,9 @@ def _create_new_config(env: DemoEnv) -> str:
     task_url_default = env.task_app_base_url or ""
     services_task_url = _prompt_value("services.task_url", task_url_default)
 
-    template = textwrap.dedent(
-        f"""\
+    template = (
+        textwrap.dedent(
+            f"""\
         # Crafter online RL training configuration (research local copy)
 
         [model]
@@ -526,7 +576,9 @@ def _create_new_config(env: DemoEnv) -> str:
         [services]
         task_url = \"{services_task_url}\"
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
     with open(destination, "w", encoding="utf-8") as fh:
         fh.write(template)
@@ -545,7 +597,11 @@ def _select_or_create_config(explicit: str | None, env: DemoEnv) -> str:
     discovered = _find_vllm_tomls(search_root)
 
     extras: list[Path] = []
-    packaged = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "config.toml")))
+    packaged = Path(
+        os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "demo_task_apps", "math", "config.toml")
+        )
+    )
     extras.append(packaged)
     home_cfg = Path(os.path.expanduser("~/.synth-ai/demo_config.toml"))
     extras.append(home_cfg)
@@ -591,29 +647,36 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
 
     env_key = (env.env_api_key or "").strip()
     if not env_key:
-        raise RuntimeError(f"[{label}] ENVIRONMENT_API_KEY missing. Run `uvx synth-ai rl_demo deploy` first.")
+        raise RuntimeError(
+            f"[{label}] ENVIRONMENT_API_KEY missing. Run `uvx synth-ai rl_demo deploy` first."
+        )
 
     task_url = env.task_app_base_url
     if not task_url or not _is_modal_public_url(task_url):
         resolved = ""
         if env.task_app_name:
             try:
-                choice = input(
-                    f"Resolve URL from Modal for app '{env.task_app_name}'? [Y/n]: "
-                ).strip().lower() or "y"
+                choice = (
+                    input(f"Resolve URL from Modal for app '{env.task_app_name}'? [Y/n]: ")
+                    .strip()
+                    .lower()
+                    or "y"
+                )
             except Exception:
                 choice = "y"
             if choice.startswith("y"):
-                code, out = _popen_capture([
-                    "uv",
-                    "run",
-                    "python",
-                    "-m",
-                    "modal",
-                    "app",
-                    "url",
-                    env.task_app_name,
-                ])
+                code, out = _popen_capture(
+                    [
+                        "uv",
+                        "run",
+                        "python",
+                        "-m",
+                        "modal",
+                        "app",
+                        "url",
+                        env.task_app_name,
+                    ]
+                )
                 if code == 0 and out:
                     for tok in out.split():
                         if _is_modal_public_url(tok):
@@ -622,7 +685,9 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         if not resolved:
             print(f"[{label}] Task app URL not configured or not a valid Modal public URL.")
             print("Examples: https://<app-name>-fastapi-app.modal.run")
-            entered = input("Enter Task App base URL (must contain '.modal.run'), or press Enter to abort: ").strip()
+            entered = input(
+                "Enter Task App base URL (must contain '.modal.run'), or press Enter to abort: "
+            ).strip()
             if not entered or not _is_modal_public_url(entered):
                 raise RuntimeError(f"[{label}] Valid Task App URL is required.")
             task_url = entered.rstrip("/")
@@ -639,11 +704,13 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         demo_core.persist_task_url(task_url, name=app_name)
 
     demo_core.persist_task_url(task_url, name=app_name)
-    demo_core.persist_dotenv_values({
-        "TASK_APP_BASE_URL": task_url,
-        "TASK_APP_NAME": app_name,
-        "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
-    })
+    demo_core.persist_dotenv_values(
+        {
+            "TASK_APP_BASE_URL": task_url,
+            "TASK_APP_NAME": app_name,
+            "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
+        }
+    )
 
     if synth_key:
         os.environ["SYNTH_API_KEY"] = synth_key
@@ -652,7 +719,6 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
 
-    rollout_url = task_url.rstrip("/") + "/health/rollout"
     print(f"[{label}] Verifying rollout health:")
     try:
         ek = (env_key or "").strip()
@@ -667,7 +733,6 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         print(f"[{label}] GET", h)
         rc, body = _http("GET", h, headers={"X-API-Key": env_key})
         if rc == 200:
-            rollout_url = h
             break
     print(f"[{label}] status: {rc}")
     try:
@@ -679,10 +744,8 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     print(f"[{label}] body:", preview)
     if rc != 200:
         print(f"[{label}] Warning: rollout health check failed ({rc}). Response: {body}")
-        try:
+        with contextlib.suppress(Exception):
             print(f"[{label}] Sent header X-API-Key → {_key_preview(env_key, 'X-API-Key')}")
-        except Exception:
-            pass
     else:
         print(f"[{label}] Task app rollout health check OK.")
 
@@ -714,12 +777,22 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         if args.local:
             print("Starting local Task App…")
             import subprocess
-            subprocess.Popen([sys.executable, "-c", "from synth_ai.demos.demo_task_apps.math.app import run; run()"],
-                             stdout=sys.stdout, stderr=sys.stderr)
+
+            subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    "from synth_ai.demos.demo_task_apps.math.app import run; run()",
+                ],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+            )
             target = "http://127.0.0.1:8080"
             app_name = ""
             for _ in range(30):
-                if demo_core.assert_http_ok(target + "/health", method="GET") or demo_core.assert_http_ok(target, method="GET"):
+                if demo_core.assert_http_ok(
+                    target + "/health", method="GET"
+                ) or demo_core.assert_http_ok(target, method="GET"):
                     url = target
                     break
                 time.sleep(1)
@@ -744,7 +817,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                             rel = os.path.relpath(str(pth), os.getcwd())
                             print(f"  [{idx}] {rel}")
                         try:
-                            sel = input(f"Enter choice [1-{len(found)}] (default 1): ").strip() or "1"
+                            sel = (
+                                input(f"Enter choice [1-{len(found)}] (default 1): ").strip() or "1"
+                            )
                         except Exception:
                             sel = "1"
                         try:
@@ -756,6 +831,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
             if not app_path and args.script:
                 # Legacy script fallback if user supplied --script explicitly
                 from synth_ai.demos.demo_task_apps.math.deploy_modal import deploy as modal_deploy
+
                 url = modal_deploy(script_path=args.script, env_api_key=env.env_api_key)
                 if args.name:
                     app_name = args.name
@@ -787,16 +863,19 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                 env_key: str | None = existing_env_key or None
                 if existing_env_key:
                     try:
-                        reuse_choice = input(
-                            "Use existing ENVIRONMENT_API_KEY from state/.env? [Y/n]: "
-                        ).strip().lower() or "y"
+                        reuse_choice = (
+                            input("Use existing ENVIRONMENT_API_KEY from state/.env? [Y/n]: ")
+                            .strip()
+                            .lower()
+                            or "y"
+                        )
                     except Exception:
                         reuse_choice = "y"
                     if not reuse_choice.startswith("y"):
                         env_key = None
 
                 if env_key is None:
-                    from synth_ai.rl.secrets import mint_environment_api_key
+                    from synth_ai.learning.rl.secrets import mint_environment_api_key
 
                     env_key = mint_environment_api_key()
                     demo_core.persist_env_api_key(env_key)
@@ -807,35 +886,50 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     print("[deploy] Minted new ENVIRONMENT_API_KEY")
                 elif env_key:
                     os.environ["ENVIRONMENT_API_KEY"] = env_key
-                
+
                 # Optionally upload the new key to the backend using sealed box helper
                 backend_base = (env.dev_backend_url or "").rstrip("/")
-                synth_key = (env.synth_api_key or os.environ.get("SYNTH_API_KEY") or local_env.get("SYNTH_API_KEY") or "").strip()
+                synth_key = (
+                    env.synth_api_key
+                    or os.environ.get("SYNTH_API_KEY")
+                    or local_env.get("SYNTH_API_KEY")
+                    or ""
+                ).strip()
                 if backend_base and synth_key:
-                        # Pass a base WITHOUT trailing /api to setup_environment_api_key,
-                        # since it appends /api/v1/... internally.
-                        non_api_base = backend_base[:-4] if backend_base.endswith("/api") else backend_base
+                    # Pass a base WITHOUT trailing /api to setup_environment_api_key,
+                    # since it appends /api/v1/... internally.
+                    non_api_base = (
+                        backend_base[:-4] if backend_base.endswith("/api") else backend_base
+                    )
+                    try:
+                        choice = (
+                            input(f"Upload ENVIRONMENT_API_KEY to backend {non_api_base}? [Y/n]: ")
+                            .strip()
+                            .lower()
+                            or "y"
+                        )
+                    except Exception:
+                        choice = "y"
+                    if choice.startswith("y"):
                         try:
-                            choice = input(
-                                f"Upload ENVIRONMENT_API_KEY to backend {non_api_base}? [Y/n]: "
-                            ).strip().lower() or "y"
-                        except Exception:
-                            choice = "y"
-                        if choice.startswith("y"):
-                            try:
-                                print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {non_api_base} …")
-                                from synth_ai.rl.env_keys import setup_environment_api_key
+                            print(f"[deploy] Uploading ENVIRONMENT_API_KEY to {non_api_base} …")
+                            from synth_ai.learning.rl.env_keys import setup_environment_api_key
 
-                                setup_environment_api_key(non_api_base, synth_key, token=env_key)
-                                print("[deploy] Backend sealed-box upload complete.")
-                            except Exception as upload_err:
-                                print(f"[deploy] Failed to upload ENVIRONMENT_API_KEY: {upload_err}")
-                                print(
-                                    "Hint: run `uvx python -c \"from synth_ai.rl.env_keys import setup_environment_api_key as s;"
-                                    " s('<backend>', '<synth_api_key>')\"` once the backend is reachable."
-                                )
+                            setup_environment_api_key(non_api_base, synth_key, token=env_key)
+                            print("[deploy] Backend sealed-box upload complete.")
+                        except Exception as upload_err:
+                            print(f"[deploy] Failed to upload ENVIRONMENT_API_KEY: {upload_err}")
+                            print(
+                                'Hint: run `uvx python -c "from synth_ai.learning.rl.env_keys import setup_environment_api_key as s;'
+                                " s('<backend>', '<synth_api_key>')\"` once the backend is reachable."
+                            )
 
-                synth_key = (env.synth_api_key or os.environ.get("SYNTH_API_KEY") or local_env.get("SYNTH_API_KEY") or "").strip()
+                synth_key = (
+                    env.synth_api_key
+                    or os.environ.get("SYNTH_API_KEY")
+                    or local_env.get("SYNTH_API_KEY")
+                    or ""
+                ).strip()
                 if not synth_key:
                     synth_key = input("Enter SYNTH_API_KEY for deployment (required): ").strip()
                     if not synth_key:
@@ -846,7 +940,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     env.synth_api_key = synth_key
                 os.environ["SYNTH_API_KEY"] = synth_key
 
-                openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
+                openai_key = (
+                    os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or ""
+                ).strip()
                 if not openai_key:
                     openai_key = input(
                         "Enter your OpenAI API key, found at https://platform.openai.com/api-keys\n> "
@@ -858,8 +954,20 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     local_env["OPENAI_API_KEY"] = openai_key
                 os.environ["OPENAI_API_KEY"] = openai_key
 
-                deploy_cmd = ["uv", "run", "python", "-m", "modal", "deploy", "--name", name_in, app_path]
-                print("\nStreaming Modal build/deploy logs (this can take several minutes on first run)…\n")
+                deploy_cmd = [
+                    "uv",
+                    "run",
+                    "python",
+                    "-m",
+                    "modal",
+                    "deploy",
+                    "--name",
+                    name_in,
+                    app_path,
+                ]
+                print(
+                    "\nStreaming Modal build/deploy logs (this can take several minutes on first run)…\n"
+                )
                 code, deploy_logs = _popen_stream_capture(deploy_cmd)
                 if code != 0:
                     raise RuntimeError(f"modal deploy failed (exit {code})")
@@ -867,6 +975,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                 if not url:
                     try:
                         import re as _re
+
                         m_all = _re.findall(r"https?://[^\s]+\.modal\.run", deploy_logs or "")
                         if m_all:
                             url = m_all[-1].strip().rstrip("/")
@@ -881,7 +990,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                             break
                 # Fallback: try reading recent Modal logs for the app to find a URL line
                 if not url:
-                    code3, out3 = _popen_capture(["uv", "run", "python", "-m", "modal", "app", "list"])
+                    code3, out3 = _popen_capture(
+                        ["uv", "run", "python", "-m", "modal", "app", "list"]
+                    )
                     if code3 == 0 and out3:
                         for line in out3.splitlines():
                             if name_in in line:
@@ -894,7 +1005,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                 # Prompt user if still no valid URL
                 if not url:
                     print("\nCould not auto-detect a public Modal URL for the app.")
-                    entered = input("Enter the Modal public URL (must contain '.modal.run'), or press Enter to abort: ").strip()
+                    entered = input(
+                        "Enter the Modal public URL (must contain '.modal.run'), or press Enter to abort: "
+                    ).strip()
                     if entered and _is_modal_public_url(entered):
                         url = entered.rstrip("/")
                 if not url:
@@ -922,8 +1035,9 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         print(f"Deploy error: {e}")
         return 2
 
-
-    print("`rl_demo configure` prepares environment and secrets; `synth-ai run` now handles launches.")
+    print(
+        "`rl_demo configure` prepares environment and secrets; `synth-ai run` now handles launches."
+    )
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -962,6 +1076,7 @@ def _ensure_modal_installed() -> None:
     modal_installed = False
     try:
         import importlib.util as _iu
+
         if _iu.find_spec("modal") is not None:
             modal_installed = True
     except Exception:
@@ -990,6 +1105,7 @@ def _ensure_modal_installed() -> None:
     if modal_installed:
         try:
             import importlib.util as _iu
+
             if _iu.find_spec("modal") is None:
                 print("Warning: modal is still not importable after install attempt.")
                 return
@@ -1002,14 +1118,14 @@ def _ensure_modal_installed() -> None:
     if auth_ok:
         print(f"✓ Modal authenticated: {auth_msg}")
     else:
-        print(f"\n⚠️  Modal authentication required")
+        print("\n⚠️  Modal authentication required")
         print(f"   Status: {auth_msg}")
-        print(f"\n   To authenticate Modal, run:")
-        print(f"     modal setup")
-        print(f"\n   Or set environment variables:")
-        print(f"     export MODAL_TOKEN_ID=your-token-id")
-        print(f"     export MODAL_TOKEN_SECRET=your-token-secret")
-        print(f"\n   You can deploy later after authenticating.\n")
+        print("\n   To authenticate Modal, run:")
+        print("     modal setup")
+        print("\n   Or set environment variables:")
+        print("     export MODAL_TOKEN_ID=your-token-id")
+        print("     export MODAL_TOKEN_SECRET=your-token-secret")
+        print("\n   You can deploy later after authenticating.\n")
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -1075,11 +1191,15 @@ def cmd_init(args: argparse.Namespace) -> int:
             return 1
         if any(destination.iterdir()):
             try:
-                response = input(f"Destination {destination} is not empty. Overwrite? [y/N]: ").strip().lower()
+                response = (
+                    input(f"Destination {destination} is not empty. Overwrite? [y/N]: ")
+                    .strip()
+                    .lower()
+                )
             except (EOFError, KeyboardInterrupt):
                 print("\nCancelled.")
                 return 1
-            if response not in ('y', 'yes'):
+            if response not in ("y", "yes"):
                 print("Cancelled. Choose another directory or delete the existing one.")
                 return 1
             # User agreed to overwrite - clear the entire directory including hidden files
@@ -1117,11 +1237,15 @@ def cmd_init(args: argparse.Namespace) -> int:
             if src_path.is_dir():
                 if dest_path.exists() and not directory_cleared:
                     try:
-                        response = input(f"Directory {dest_path.name} exists. Overwrite? [y/N]: ").strip().lower()
+                        response = (
+                            input(f"Directory {dest_path.name} exists. Overwrite? [y/N]: ")
+                            .strip()
+                            .lower()
+                        )
                     except (EOFError, KeyboardInterrupt):
                         print("\nCancelled.")
                         return 1
-                    if response not in ('y', 'yes'):
+                    if response not in ("y", "yes"):
                         print(f"Skipping {dest_path.name}")
                         continue
                     shutil.rmtree(dest_path)
@@ -1133,11 +1257,15 @@ def cmd_init(args: argparse.Namespace) -> int:
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 if dest_path.exists() and not directory_cleared:
                     try:
-                        response = input(f"File {dest_path.name} exists. Overwrite? [y/N]: ").strip().lower()
+                        response = (
+                            input(f"File {dest_path.name} exists. Overwrite? [y/N]: ")
+                            .strip()
+                            .lower()
+                        )
                     except (EOFError, KeyboardInterrupt):
                         print("\nCancelled.")
                         return 1
-                    if response not in ('y', 'yes'):
+                    if response not in ("y", "yes"):
                         print(f"Skipping {dest_path.name}")
                         continue
                 shutil.copy2(src_path, dest_path)
@@ -1153,11 +1281,11 @@ def cmd_init(args: argparse.Namespace) -> int:
             should_write = True
             if env_path.exists() and not directory_cleared:
                 try:
-                    response = input(f"File .env exists. Overwrite? [y/N]: ").strip().lower()
+                    response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     print("\nCancelled.")
                     return 1
-                should_write = response in ('y', 'yes')
+                should_write = response in ("y", "yes")
             if should_write:
                 _write_text(env_path, "\n".join(selected.env_lines) + "\n")
             elif not directory_cleared:
@@ -1169,11 +1297,13 @@ def cmd_init(args: argparse.Namespace) -> int:
             should_copy = True
             if cfg_dst.exists() and not directory_cleared:
                 try:
-                    response = input(f"File {cfg_dst.name} exists. Overwrite? [y/N]: ").strip().lower()
+                    response = (
+                        input(f"File {cfg_dst.name} exists. Overwrite? [y/N]: ").strip().lower()
+                    )
                 except (EOFError, KeyboardInterrupt):
                     print("\nCancelled.")
                     return 1
-                should_copy = response in ('y', 'yes')
+                should_copy = response in ("y", "yes")
             if should_copy:
                 cfg_dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(config_src, cfg_dst)
@@ -1214,8 +1344,14 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
 
-def _http(method: str, url: str, headers: Dict[str, str] | None = None, body: Dict[str, Any] | None = None) -> tuple[int, Dict[str, Any] | str]:
-    import urllib.request, urllib.error, json as _json, ssl
+def _http(
+    method: str, url: str, headers: dict[str, str] | None = None, body: dict[str, Any] | None = None
+) -> tuple[int, dict[str, Any] | str]:
+    import json as _json
+    import ssl
+    import urllib.error
+    import urllib.request
+
     data = None
     if body is not None:
         data = _json.dumps(body).encode("utf-8")
@@ -1261,7 +1397,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     env = demo_core.load_env()
     cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
+    demo_core.load_dotenv_file(cwd_env_path)
 
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -1301,7 +1437,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Detect monorepo launcher and delegate if available (aligns with run_clustered.sh which works)
     launcher = "/Users/joshpurtell/Documents/GitHub/monorepo/tests/applications/math/rl/start_math_clustered.py"
     if os.path.isfile(launcher):
-        backend_base = env.dev_backend_url[:-4] if env.dev_backend_url.endswith("/api") else env.dev_backend_url
+        backend_base = (
+            env.dev_backend_url[:-4]
+            if env.dev_backend_url.endswith("/api")
+            else env.dev_backend_url
+        )
         run_env = os.environ.copy()
         run_env["BACKEND_URL"] = backend_base
         run_env["SYNTH_API_KEY"] = env.synth_api_key
@@ -1334,13 +1474,15 @@ def cmd_run(args: argparse.Namespace) -> int:
                 print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
             if ek:
                 print(f"  {_key_preview(ek, 'ENVIRONMENT_API_KEY')}")
-            print("Ensure the ENVIRONMENT_API_KEY you deployed with matches the task app and remains exported.")
+            print(
+                "Ensure the ENVIRONMENT_API_KEY you deployed with matches the task app and remains exported."
+            )
         return code
 
     # Fallback: legacy jobs API flow
     with open(cfg_path, "rb") as fh:
         inline_cfg = tomllib.load(fh)
-    with open(cfg_path, "r") as fh2:
+    with open(cfg_path) as fh2:
         toml_text = fh2.read()
     if args.batch_size is not None:
         inline_cfg.setdefault("training", {})["batch_size"] = int(args.batch_size)
@@ -1351,13 +1493,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Print backend and key preview before request for clearer diagnostics
     try:
         sk = (env.synth_api_key or "").strip()
-        sk_len = len(sk)
-        sk_tail = sk[-5:] if sk_len >= 5 else sk
         print(f"[run] Backend API: {api}")
         print(f"[run] {_key_preview(sk, 'SYNTH_API_KEY')}")
     except Exception:
         pass
-    data_fragment: Dict[str, Any] = {
+    data_fragment: dict[str, Any] = {
         "model": model_name,
         "endpoint_base_url": env.task_app_base_url,
         "config": inline_cfg,
@@ -1375,23 +1515,28 @@ def cmd_run(args: argparse.Namespace) -> int:
         if inline_cfg["compute"].get("gpu_type"):
             compute["gpu_type"] = str(inline_cfg["compute"]["gpu_type"]).upper()
         if inline_cfg["compute"].get("gpu_count"):
-            compute["gpu_count"] = int(inline_cfg["compute"]["gpu_count"]) 
+            compute["gpu_count"] = int(inline_cfg["compute"]["gpu_count"])
     if not compute:
         topo = inline_cfg.get("topology") or {}
         gshape = str(topo.get("gpu_type") or "")
         if ":" in gshape:
             t, c = gshape.split(":", 1)
             compute = {"gpu_type": t.upper(), "gpu_count": int(c)}
-    body: Dict[str, Any] = {
+    body: dict[str, Any] = {
         "job_type": "rl",
         "data": data_fragment,
     }
     if compute:
         body["compute"] = compute
-    code, js = _http("POST", api + "/rl/jobs", headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {env.synth_api_key}",
-    }, body=body)
+    code, js = _http(
+        "POST",
+        api + "/rl/jobs",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {env.synth_api_key}",
+        },
+        body=body,
+    )
     if code not in (200, 201) or not isinstance(js, dict):
         print("Job create failed:", code)
         print(f"Backend: {api}")
@@ -1429,12 +1574,14 @@ def cmd_run(args: argparse.Namespace) -> int:
                 try:
                     sent_key = detail.get("sent_key")
                     if isinstance(sent_key, str):
-                        print(f"[run] Backend detail.sent_key {_key_preview(sent_key, 'detail.sent_key')}")
+                        print(
+                            f"[run] Backend detail.sent_key {_key_preview(sent_key, 'detail.sent_key')}"
+                        )
                 except Exception:
                     pass
                 try:
                     sent_keys = detail.get("sent_keys")
-                    if isinstance(sent_keys, (list, tuple)):
+                    if isinstance(sent_keys, list | tuple):
                         previews = []
                         for idx, val in enumerate(sent_keys):
                             if isinstance(val, str):
@@ -1459,12 +1606,19 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Extra hints for auth failures
         try:
             sk = (env.synth_api_key or "").strip()
-            if int(code) == 401 or (isinstance(js, dict) and any(isinstance(v, str) and "Invalid API key" in v for v in js.values())):
+            if int(code) == 401 or (
+                isinstance(js, dict)
+                and any(isinstance(v, str) and "Invalid API key" in v for v in js.values())
+            ):
                 base_url = env.dev_backend_url
-                print("Hint: HTTP 401 Unauthorized from backend. Verify SYNTH_API_KEY for:", base_url)
+                print(
+                    "Hint: HTTP 401 Unauthorized from backend. Verify SYNTH_API_KEY for:", base_url
+                )
                 if sk:
                     print(f"  {_key_preview(sk, 'SYNTH_API_KEY')}")
-                print("Ensure the ENVIRONMENT_API_KEY and OPENAI_API_KEY used for deployment remain valid.")
+                print(
+                    "Ensure the ENVIRONMENT_API_KEY and OPENAI_API_KEY used for deployment remain valid."
+                )
         except Exception:
             pass
         return 2
@@ -1516,9 +1670,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     "rl.performance.metrics",
                 ):
                     print(f"[{seq}] {typ}: {msg}")
-        mc, mj = _http(
-            "GET", api + f"/learning/jobs/{job_id}/metrics?after_step=-1&limit=50"
-        )
+        mc, mj = _http("GET", api + f"/learning/jobs/{job_id}/metrics?after_step=-1&limit=50")
         if mc == 200 and isinstance(mj, dict):
             pts = mj.get("points") or []
             for p in pts:
@@ -1537,16 +1689,23 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="synth-ai")
     sub = p.add_subparsers(dest="cmd")
 
-    def _add_parser(names: list[str], *, configure: Callable[[argparse.ArgumentParser], None]) -> None:
+    def _add_parser(
+        names: list[str], *, configure: Callable[[argparse.ArgumentParser], None]
+    ) -> None:
         for name in names:
             parser = sub.add_parser(name)
             configure(parser)
 
-    _add_parser(["rl_demo.setup", "demo.setup"], configure=lambda parser: parser.set_defaults(func=cmd_setup))
+    _add_parser(
+        ["rl_demo.setup", "demo.setup"],
+        configure=lambda parser: parser.set_defaults(func=cmd_setup),
+    )
 
     def _init_opts(parser):
         parser.add_argument("--template", type=str, default=None, help="Template id to instantiate")
-        parser.add_argument("--dest", type=str, default=None, help="Destination directory for files")
+        parser.add_argument(
+            "--dest", type=str, default=None, help="Destination directory for files"
+        )
         parser.set_defaults(func=cmd_init)
 
     _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)
@@ -1554,18 +1713,29 @@ def main(argv: list[str] | None = None) -> int:
     # (prepare command removed)
 
     def _deploy_opts(parser):
-        parser.add_argument("--local", action="store_true", help="Run local FastAPI instead of Modal deploy")
-        parser.add_argument("--app", type=str, default=None, help="Path to Modal app.py for uv run modal deploy")
+        parser.add_argument(
+            "--local", action="store_true", help="Run local FastAPI instead of Modal deploy"
+        )
+        parser.add_argument(
+            "--app", type=str, default=None, help="Path to Modal app.py for uv run modal deploy"
+        )
         parser.add_argument("--name", type=str, default=None, help="Modal app name")
-        parser.add_argument("--script", type=str, default=None, help="Path to deploy_task_app.sh (optional legacy)")
+        parser.add_argument(
+            "--script", type=str, default=None, help="Path to deploy_task_app.sh (optional legacy)"
+        )
         parser.set_defaults(func=cmd_deploy)
 
     _add_parser(["rl_demo.deploy", "demo.deploy"], configure=_deploy_opts)
 
-    _add_parser(["rl_demo.configure", "demo.configure"], configure=lambda parser: parser.set_defaults(func=cmd_run))
+    _add_parser(
+        ["rl_demo.configure", "demo.configure"],
+        configure=lambda parser: parser.set_defaults(func=cmd_run),
+    )
 
     def _run_opts(parser):
-        parser.add_argument("--config", type=str, default=None, help="Path to TOML config (skip prompt)")
+        parser.add_argument(
+            "--config", type=str, default=None, help="Path to TOML config (skip prompt)"
+        )
         parser.add_argument("--batch-size", type=int, default=None)
         parser.add_argument("--group-size", type=int, default=None)
         parser.add_argument("--model", type=str, default=None)

@@ -1,38 +1,33 @@
-from __future__ import annotations
-
 """FastAPI scaffolding for Task Apps (local dev + deployment)."""
+
+from __future__ import annotations
 
 import asyncio
 import inspect
 import os
+from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from starlette.middleware import Middleware
 
-from .auth import (
-    is_api_key_header_authorized,
-    normalize_environment_api_key,
-    require_api_key_dependency,
-)
+from .auth import normalize_environment_api_key, require_api_key_dependency
 from .contracts import RolloutRequest, RolloutResponse, TaskInfo
 from .datasets import TaskDatasetRegistry
 from .errors import http_exception
 from .json import to_jsonable
 from .proxy import (
+    inject_system_hint,
     prepare_for_groq,
     prepare_for_openai,
-    inject_system_hint,
     synthesize_tool_call_if_missing,
 )
 from .rubrics import Rubric
 from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendor_keys
-
 
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
 InstanceProvider = Callable[[Sequence[int]], Iterable[TaskInfo] | Awaitable[Iterable[TaskInfo]]]
@@ -81,7 +76,7 @@ class TaskAppConfig:
     startup_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
     shutdown_hooks: Sequence[Callable[[], None | Awaitable[None]]] = field(default_factory=tuple)
 
-    def clone(self) -> "TaskAppConfig":
+    def clone(self) -> TaskAppConfig:
         """Return a shallow copy safe to mutate when wiring the app."""
 
         return TaskAppConfig(

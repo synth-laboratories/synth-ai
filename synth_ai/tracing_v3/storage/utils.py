@@ -21,7 +21,7 @@ def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0)
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            last_exception = None
+            last_exception: Exception | None = None
             current_delay = delay
 
             for attempt in range(max_attempts):
@@ -35,7 +35,9 @@ def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0)
                     else:
                         raise
 
-            raise last_exception
+            if last_exception:
+                raise last_exception
+            raise RuntimeError("Retry logic failed without exception")
 
         return wrapper
 

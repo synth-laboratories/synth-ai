@@ -12,7 +12,6 @@ For Modal deployment:
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import modal
 
@@ -25,7 +24,6 @@ except ImportError:
     MODAL_AVAILABLE = False
 
 from synth_envs_hosted.hosted_app import create_app
-
 
 # Local development mode
 if __name__ == "__main__":

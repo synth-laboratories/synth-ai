@@ -1,51 +1,25 @@
-"""
-Synth AI Language Model Interface.
+"""Deprecated shim forwarding to synth_ai.v0.lm."""
 
-Provides a unified interface for multiple LLM providers including OpenAI and Synth.
-"""
+import importlib as _importlib
+import pkgutil as _pkgutil
+import sys as _sys
+from pathlib import Path as _Path
 
-from .config import OpenAIConfig, SynthConfig
-from .core.main_v3 import LM
-from .unified_interface import (
-    OpenAIProvider,
-    SynthProvider,
-    UnifiedLMClient,
-    UnifiedLMProvider,
-    create_provider,
-)
-from .vendors.synth_client import (
-    AsyncSynthClient,
-    SyncSynthClient,
-    create_async_client,
-    create_chat_completion_async,
-    create_chat_completion_sync,
-    create_sync_client,
-)
-from .warmup import get_warmup_status, warmup_synth_model
+_TARGET_PREFIX = "synth_ai.v0.lm"
+_ALIAS_PREFIX = __name__
 
-__all__ = [
-    # Configuration
-    "SynthConfig",
-    "OpenAIConfig",
-    # Warmup utilities
-    "warmup_synth_model",
-    "get_warmup_status",
-    # Unified interface
-    "UnifiedLMProvider",
-    "OpenAIProvider",
-    "SynthProvider",
-    "UnifiedLMClient",
-    "create_provider",
-    # Synth client
-    "AsyncSynthClient",
-    "SyncSynthClient",
-    "create_async_client",
-    "create_sync_client",
-    "create_chat_completion_async",
-    "create_chat_completion_sync",
-    # Core LM class
-    "LM",
-]
+_alias_path = _Path(__file__).resolve().parents[1] / "v0" / "lm"
+__path__ = [str(_alias_path)]  # type: ignore[assignment]
 
-# Version info
-__version__ = "0.1.0"
+_pkg = _importlib.import_module(_TARGET_PREFIX)
+_sys.modules[_ALIAS_PREFIX] = _pkg
+
+for _finder, _name, _ispkg in _pkgutil.walk_packages(_pkg.__path__, prefix=_TARGET_PREFIX + "."):  # type: ignore[attr-defined]
+    try:
+        _module = _importlib.import_module(_name)
+    except Exception:  # pragma: no cover - best effort
+        continue
+    _alias = _ALIAS_PREFIX + _name[len(_TARGET_PREFIX) :]
+    _sys.modules[_alias] = _module
+
+del _finder, _name, _ispkg, _module, _alias, _TARGET_PREFIX, _ALIAS_PREFIX, _alias_path

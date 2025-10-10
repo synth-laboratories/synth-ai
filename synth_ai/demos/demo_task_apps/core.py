@@ -3,14 +3,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
-from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
-
 import urllib.request
+from dataclasses import dataclass
+from typing import Any
 
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
-
 
 DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
 
@@ -35,7 +32,7 @@ def _state_path() -> str:
     return os.path.expanduser("~/.synth-ai/demo.json")
 
 
-def _read_state() -> Dict[str, Any]:
+def _read_state() -> dict[str, Any]:
     try:
         path = _state_path()
         if os.path.isfile(path):
@@ -47,7 +44,7 @@ def _read_state() -> Dict[str, Any]:
     return {}
 
 
-def _write_state(data: Dict[str, Any]) -> None:
+def _write_state(data: dict[str, Any]) -> None:
     try:
         path = _state_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -57,8 +54,8 @@ def _write_state(data: Dict[str, Any]) -> None:
         pass
 
 
-def load_dotenv_file(path: str) -> Dict[str, str]:
-    out: Dict[str, str] = {}
+def load_dotenv_file(path: str) -> dict[str, str]:
+    out: dict[str, str] = {}
     try:
         with open(path) as fh:
             for raw in fh:
@@ -72,7 +69,7 @@ def load_dotenv_file(path: str) -> Dict[str, str]:
     return out
 
 
-def _persist_dotenv_values(path: str, values: Dict[str, str]) -> None:
+def _persist_dotenv_values(path: str, values: dict[str, str]) -> None:
     """Ensure ``values`` are present in ``path`` (.env style)."""
 
     try:
@@ -82,7 +79,7 @@ def _persist_dotenv_values(path: str, values: Dict[str, str]) -> None:
                 existing_lines = fh.read().splitlines()
         else:
             os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        mapping: Dict[str, str] = {}
+        mapping: dict[str, str] = {}
         order: list[str] = []
         for line in existing_lines:
             if not line or line.startswith("#") or "=" not in line:
@@ -110,7 +107,7 @@ def _persist_dotenv_values(path: str, values: Dict[str, str]) -> None:
         pass
 
 
-def persist_dotenv_values(values: Dict[str, str], *, cwd: str | None = None) -> str:
+def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> str:
     path = os.path.join(cwd or os.getcwd(), ".env")
     _persist_dotenv_values(path, values)
     return path
@@ -148,14 +145,15 @@ def load_env_file_path() -> str | None:
     return data.get("ENV_FILE_PATH")
 
 
-def modal_auth_status() -> Tuple[bool, str]:
+def modal_auth_status() -> tuple[bool, str]:
     """Return (ok, message) describing Modal CLI credential status."""
 
     env_token_id = (os.environ.get("MODAL_TOKEN_ID") or "").strip()
     env_token_secret = (os.environ.get("MODAL_TOKEN_SECRET") or "").strip()
 
     try:
-        from modal.config import config as modal_config, user_config_path
+        from modal.config import config as modal_config
+        from modal.config import user_config_path
     except Exception as exc:  # pragma: no cover - modal optional in some envs
         return False, f"Modal client unavailable ({exc})"
 
@@ -210,7 +208,7 @@ def load_env() -> DemoEnv:
     """
     env = DemoEnv()
 
-    os_env: Dict[str, str] = dict(os.environ)
+    os_env: dict[str, str] = dict(os.environ)
 
     # CWD .env
     cwd_env_path = os.path.join(os.getcwd(), ".env")
@@ -245,15 +243,12 @@ def load_env() -> DemoEnv:
         or pkg_env.get("DEV_BACKEND_URL")
         or ""
     ).strip()
-    use_dev = False
     if backend_override:
         dev_url = backend_override
-        use_dev = True
     elif dev_env:
         lower = dev_env.lower()
         if "localhost" in lower or "127.0.0.1" in lower or lower.endswith(":8000"):
             dev_url = dev_env
-            use_dev = True
         else:
             dev_url = prod_default
     else:
@@ -426,16 +421,13 @@ def run_job(
     env: DemoEnv,
     config_toml_path: str,
     *,
-    batch_size: Optional[int] = None,
-    group_size: Optional[int] = None,
-    model: Optional[str] = None,
+    batch_size: int | None = None,
+    group_size: int | None = None,
+    model: str | None = None,
 ) -> None:
     """Create and stream a short RL job using the backend API (placeholder: prints cURL to execute)."""
     backend = env.dev_backend_url.rstrip("/")
-    if backend.endswith("/api"):
-        api_base = backend
-    else:
-        api_base = backend + "/api"
+    api_base = backend if backend.endswith("/api") else backend + "/api"
     print("\nTo create an RL job, run:")
     print(
         'curl -s -X POST "' + api_base + '/rl/jobs" '

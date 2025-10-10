@@ -6,7 +6,7 @@ proper usage patterns for migrating from legacy fields to the new structure.
 
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -34,7 +34,7 @@ class TestLLMCallRecord:
     def test_create_basic_call_record(self):
         """Test creating a basic LLMCallRecord."""
         call_id = str(uuid.uuid4())
-        started_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
 
         record = LLMCallRecord(
             call_id=call_id,
@@ -61,8 +61,8 @@ class TestLLMCallRecord:
 
     def test_compute_latency(self):
         """Test latency computation from timestamps."""
-        started_at = datetime.utcnow()
-        completed_at = datetime.utcnow()
+        started_at = datetime.now(timezone.utc)
+        completed_at = datetime.now(timezone.utc)
 
         record = LLMCallRecord(
             call_id=str(uuid.uuid4()),
@@ -234,7 +234,7 @@ class TestComplexScenarios:
 
     def test_multi_turn_conversation(self):
         """Test a multi-turn conversation with multiple LLM calls."""
-        session = SessionTrace(session_id=str(uuid.uuid4()), created_at=datetime.utcnow())
+        session = SessionTrace(session_id=str(uuid.uuid4()), created_at=datetime.now(timezone.utc))
 
         # Turn 1: Initial question
         turn1 = SessionTimeStep(step_id="turn_1", step_index=0, turn_number=1)
@@ -341,35 +341,35 @@ class TestComplexScenarios:
         chunks = [
             LLMChunk(
                 sequence_index=0,
-                received_at=datetime.utcnow(),
+                received_at=datetime.now(timezone.utc),
                 event_type="content.delta",
                 delta_text="The",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=1,
-                received_at=datetime.utcnow(),
+                received_at=datetime.now(timezone.utc),
                 event_type="content.delta",
                 delta_text=" answer",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=2,
-                received_at=datetime.utcnow(),
+                received_at=datetime.now(timezone.utc),
                 event_type="content.delta",
                 delta_text=" is",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=3,
-                received_at=datetime.utcnow(),
+                received_at=datetime.now(timezone.utc),
                 event_type="content.delta",
                 delta_text=" 42",
                 choice_index=0,
             ),
             LLMChunk(
                 sequence_index=4,
-                received_at=datetime.utcnow(),
+                received_at=datetime.now(timezone.utc),
                 event_type="message.stop",
                 choice_index=0,
             ),

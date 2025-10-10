@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -11,7 +12,7 @@ except Exception:  # fallback path when imported from repo root
     try:
         from examples.rl.task_app import make_app as make_rl_app  # type: ignore
     except Exception as e:  # pragma: no cover
-        raise ImportError(f"Unable to import RL task app: {e}")
+        raise ImportError(f"Unable to import RL task app: {e}") from e
 
 
 def create_app() -> FastAPI:

@@ -1,10 +1,11 @@
-from __future__ import annotations
-
 """Rubric schema, loading, and scoring helpers for Task Apps."""
 
+from __future__ import annotations
+
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -48,14 +49,14 @@ class Rubric(BaseModel):
         return criteria
 
 
-def _load_text(source: str) -> tuple[str, Optional[str]]:
+def _load_text(source: str) -> tuple[str, str | None]:
     path = Path(source)
     if path.exists():
         return path.read_text(encoding="utf-8"), path.suffix.lower()
     return source, None
 
 
-def _parse_structured(text: str, suffix: Optional[str]) -> Dict[str, Any]:
+def _parse_structured(text: str, suffix: str | None) -> dict[str, Any]:
     text = text.strip()
     if not text:
         raise ValueError("Rubric source is empty")
@@ -66,7 +67,7 @@ def _parse_structured(text: str, suffix: Optional[str]) -> Dict[str, Any]:
             raise RuntimeError("PyYAML is required to load YAML rubrics") from exc
         data = yaml.safe_load(text)
         if not isinstance(data, dict):
-            raise ValueError("Rubric YAML must produce a mapping")
+            raise ValueError("Rubric YAML must produce a mapping") from None
         return data
     if text.startswith("{"):
         return json.loads(text)
@@ -85,7 +86,7 @@ def _parse_structured(text: str, suffix: Optional[str]) -> Dict[str, Any]:
             raise RuntimeError("PyYAML is required to load rubric text") from exc
         data = yaml.safe_load(text)
         if not isinstance(data, dict):
-            raise ValueError("Rubric text must decode to a mapping")
+            raise ValueError("Rubric text must decode to a mapping") from None
         return data
 
 
@@ -148,7 +149,7 @@ def blend_rubrics(base: Rubric | None, override: Rubric | None) -> Rubric | None
     )
 
 
-def _as_float(value: Any) -> Optional[float]:
+def _as_float(value: Any) -> float | None:
     try:
         return float(value)
     except Exception:
@@ -156,11 +157,11 @@ def _as_float(value: Any) -> Optional[float]:
 
 
 def _score(
-    criteria: Iterable[Criterion], values: Dict[str, float], aggregation: str
-) -> Dict[str, Any]:
+    criteria: Iterable[Criterion], values: dict[str, float], aggregation: str
+) -> dict[str, Any]:
     if aggregation == "inherit":
         aggregation = "weighted_sum"
-    per_criterion: Dict[str, Dict[str, Any]] = {}
+    per_criterion: dict[str, dict[str, Any]] = {}
     total = 0.0
     total_weight = 0.0
     for criterion in criteria:
@@ -188,10 +189,10 @@ def _score(
 
 def score_events_against_rubric(
     events: list[dict[str, Any]], rubric: Rubric | None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     if rubric is None:
         return {"aggregation": "none", "score": None, "per_criterion": {}}
-    values: Dict[str, float] = {}
+    values: dict[str, float] = {}
     for event in events or []:
         if not isinstance(event, dict):
             continue
@@ -202,10 +203,10 @@ def score_events_against_rubric(
     return _score(rubric.criteria, values, rubric.aggregation)
 
 
-def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None) -> Dict[str, Any]:
+def score_outcome_against_rubric(outcome: dict[str, Any], rubric: Rubric | None) -> dict[str, Any]:
     if rubric is None:
         return {"aggregation": "none", "score": None, "per_criterion": {}}
-    values: Dict[str, float] = {}
+    values: dict[str, float] = {}
     if isinstance(outcome, dict):
         candidates = (
             outcome.get("criteria") if isinstance(outcome.get("criteria"), dict) else outcome

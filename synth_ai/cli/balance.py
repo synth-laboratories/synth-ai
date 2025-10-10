@@ -6,7 +6,6 @@ CLI: check remaining credit balance from Synth backend.
 from __future__ import annotations
 
 import os
-from urllib.parse import urlparse
 
 import click
 import requests
@@ -15,7 +14,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from synth_ai.config.base_url import get_backend_from_env, PROD_BASE_URL_DEFAULT
+from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env
 
 PROD_BACKEND_BASE = f"{PROD_BASE_URL_DEFAULT.rstrip('/')}/api/v1"
 

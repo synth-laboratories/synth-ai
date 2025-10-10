@@ -1,7 +1,8 @@
 """Utility functions for the task service."""
 
+from typing import Any
+
 import numpy as np
-from typing import Any, Dict, List, Union
 
 
 def convert_numpy_to_python(obj: Any) -> Any:
@@ -22,13 +23,13 @@ def convert_numpy_to_python(obj: Any) -> Any:
         return obj.tolist()
     elif isinstance(obj, dict):
         return {key: convert_numpy_to_python(value) for key, value in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, list | tuple):
         return [convert_numpy_to_python(item) for item in obj]
     else:
         return obj
 
 
-def sanitize_observation(observation: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_observation(observation: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize observation data for JSON serialization.
 

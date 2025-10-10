@@ -5,6 +5,7 @@ Canonical CLI entrypoint for Synth AI (moved from synth_ai/cli.py).
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import shutil
@@ -18,7 +19,8 @@ import time
 import click
 
 try:
-    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
 
     try:
         __pkg_version__ = _pkg_version("synth-ai")
@@ -91,9 +93,8 @@ def install_sqld() -> str:
 
     click.echo("📥 Downloading sqld via 'turso dev' (this may take a few seconds)…")
 
-    temp_db = tempfile.NamedTemporaryFile(prefix="synth_sqld_", suffix=".db", delete=False)
-    temp_db_path = temp_db.name
-    temp_db.close()
+    with tempfile.NamedTemporaryFile(prefix="synth_sqld_", suffix=".db", delete=False) as temp_db:
+        temp_db_path = temp_db.name
 
     env = os.environ.copy()
     env.setdefault("TURSO_NONINTERACTIVE", "1")
@@ -129,15 +130,12 @@ def install_sqld() -> str:
                 proc.kill()
                 stdout_data, stderr_data = proc.communicate()
     finally:
-        if proc and proc.returncode not in (0, None):
-            if stdout_data or stderr_data:
-                logging.getLogger(__name__).debug(
-                    "turso dev stdout: %s\nstderr: %s", stdout_data, stderr_data
-                )
-        try:
+        if proc and proc.returncode not in (0, None) and (stdout_data or stderr_data):
+            logging.getLogger(__name__).debug(
+                "turso dev stdout: %s\nstderr: %s", stdout_data, stderr_data
+            )
+        with contextlib.suppress(OSError):
             os.unlink(temp_db_path)
-        except OSError:
-            pass
 
     sqld_path = find_sqld_binary()
     if sqld_path:
@@ -171,7 +169,7 @@ def _forward_to_demo(args: list[str]) -> None:
     except Exception as e:  # pragma: no cover
         click.echo(f"Failed to import demo CLI: {e}")
         sys.exit(1)
-    rc = int(getattr(demo_cli, "main")(args) or 0)  # type: ignore[attr-defined]
+    rc = int(demo_cli.main(args) or 0)  # type: ignore[attr-defined]
     if rc != 0:
         sys.exit(rc)
 

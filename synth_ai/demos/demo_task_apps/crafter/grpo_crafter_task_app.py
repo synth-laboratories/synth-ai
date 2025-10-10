@@ -1,4 +1,3 @@
-
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the TaskAppConfig defined in the local example at
@@ -10,33 +9,37 @@ Prefer using `uvx synth-ai serve grpo-crafter` for local development and testing
 from __future__ import annotations
 
 import argparse
+import importlib.util
 from pathlib import Path
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-
 from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
-import importlib.util
 
 
 def _load_build_config():
     # Find synth_ai package location to locate examples/
     import synth_ai
+
     synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
     module_path = synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
 
     if not module_path.exists():
-        raise ImportError(f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository.")
+        raise ImportError(
+            f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository."
+        )
 
-    spec = importlib.util.spec_from_file_location("warming_up_to_rl.task_app.grpo_crafter", module_path)
+    spec = importlib.util.spec_from_file_location(
+        "warming_up_to_rl.task_app.grpo_crafter", module_path
+    )
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load task app module at {module_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return getattr(module, "build_config")
+    return module.build_config
 
 
 build_config = _load_build_config()
@@ -48,6 +51,7 @@ APP_ID = "grpo-crafter"
 def _build_base_config() -> TaskAppConfig:
     # Lazily construct the base config to avoid heavy work at import time
     return build_config()
+
 
 try:
     _REGISTERED_ENTRY = registry.get(APP_ID)
@@ -125,7 +129,7 @@ def fastapi_app():
         try:
             hdr = request.headers
             snapshot = {
-                "path": str(getattr(request, "url").path),
+                "path": str(request.url.path),
                 "have_x_api_key": bool(hdr.get("x-api-key")),
                 "have_x_api_keys": bool(hdr.get("x-api-keys")),
                 "have_authorization": bool(hdr.get("authorization")),

@@ -1,8 +1,10 @@
 from __future__ import annotations
+
+import contextlib
 import os
 import time
 import webbrowser
-from typing import Any, Dict, Tuple
+from typing import Any
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import requests
@@ -43,7 +45,7 @@ def _split_origin(origin: str) -> tuple[str, str]:
     return bare, path
 
 
-def _ensure_verification_uri(data: Dict[str, Any], base_with_path: str) -> None:
+def _ensure_verification_uri(data: dict[str, Any], base_with_path: str) -> None:
     uri = data.get("verification_uri")
     if not isinstance(uri, str) or not uri:
         return
@@ -52,7 +54,7 @@ def _ensure_verification_uri(data: Dict[str, Any], base_with_path: str) -> None:
     data["verification_uri"] = urljoin(base_with_path.rstrip("/") + "/", uri.lstrip("/"))
 
 
-def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, int]:
+def start_handshake_session(origin: str | None = None) -> tuple[str, str, int, int]:
     base = (origin or _origin()).rstrip("/")
     api_origin, _ = _split_origin(base)
     url = urljoin(api_origin.rstrip("/") + "/", "api/sdk/handshake/init")
@@ -74,7 +76,7 @@ def start_handshake_session(origin: str | None = None) -> Tuple[str, str, int, i
 
 def poll_handshake_token(
     device_code: str, origin: str | None = None, *, timeout_s: int | None = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     base = (origin or _origin()).rstrip("/")
     api_origin, _ = _split_origin(base)
     url = urljoin(api_origin.rstrip("/") + "/", "api/sdk/handshake/token")
@@ -84,7 +86,7 @@ def poll_handshake_token(
             raise HandshakeError("handshake timed out")
         try:
             r = requests.post(url, json={"device_code": device_code}, timeout=10)
-        except Exception as e:
+        except Exception:
             time.sleep(2)
             continue
         if r.status_code == 200:
@@ -100,10 +102,8 @@ def poll_handshake_token(
         time.sleep(2)
 
 
-def run_handshake(origin: str | None = None) -> Dict[str, Any]:
+def run_handshake(origin: str | None = None) -> dict[str, Any]:
     device_code, verification_uri, expires_in, interval = start_handshake_session(origin)
-    try:
+    with contextlib.suppress(Exception):
         webbrowser.open(verification_uri)
-    except Exception:
-        pass
     return poll_handshake_token(device_code, origin, timeout_s=expires_in)
