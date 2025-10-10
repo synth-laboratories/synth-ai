@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Main SessionTracer class for tracing v3."""
+
+from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from .abstractions import (
@@ -98,7 +98,7 @@ class SessionTracer:
 
             self._current_trace = SessionTrace(
                 session_id=session_id,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
                 session_time_steps=[],
                 event_history=[],
                 markov_blanket_message_history=[],
@@ -144,7 +144,7 @@ class SessionTracer:
         step = SessionTimeStep(
             step_id=step_id,
             step_index=len(self._current_trace.session_time_steps),
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             turn_number=turn_number,
             step_metadata=metadata or {},
         )
@@ -189,7 +189,7 @@ class SessionTracer:
             step = self._current_step
 
         if step and step.completed_at is None:
-            step.completed_at = datetime.utcnow()
+            step.completed_at = datetime.now(UTC)
 
             # Trigger hooks
             await self.hooks.trigger(
@@ -284,7 +284,7 @@ class SessionTracer:
             content=content,
             message_type=message_type,
             time_record=TimeRecord(
-                event_time=event_time or datetime.utcnow().timestamp(), message_time=message_time
+                event_time=event_time or datetime.now(UTC).timestamp(), message_time=message_time
             ),
             metadata=metadata or {},
         )
@@ -342,7 +342,7 @@ class SessionTracer:
             # End any open timesteps
             for step in self._current_trace.session_time_steps:
                 if step.completed_at is None:
-                    step.completed_at = datetime.utcnow()
+                    step.completed_at = datetime.now(UTC)
 
             # Trigger pre-save hooks
             await self.hooks.trigger("before_save", session=self._current_trace)

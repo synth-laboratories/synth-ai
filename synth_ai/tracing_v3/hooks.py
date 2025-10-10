@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Hook system for extending tracing functionality.
 
 The hook system provides a flexible way to extend the tracing system without
@@ -33,6 +31,8 @@ Common Use Cases:
 - Data enrichment and transformation
 - Custom filtering and sampling
 """
+
+from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
@@ -89,9 +89,9 @@ class HookManager:
         self,
         event: str,
         callback: Callable,
-        name: str = None,
+        name: str | None = None,
         priority: int = 0,
-        event_types: list[str] = None,
+        event_types: list[str] | None = None,
     ) -> Hook:
         """Register a new hook.
 
@@ -115,7 +115,7 @@ class HookManager:
             raise ValueError(f"Unknown hook event: {event}")
 
         hook = Hook(
-            name=name or callback.__name__,
+            name=name or getattr(callback, "__name__", "unknown"),
             callback=callback,
             event_types=event_types,
             priority=priority,

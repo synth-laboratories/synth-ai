@@ -6,14 +6,12 @@ import json
 import os
 import sys
 import time
-from pathlib import Path
-from typing import Any, Dict, Tuple, List
-
 import tomllib
-import re
+from pathlib import Path
+from typing import Any
+
 import requests
 from dotenv import load_dotenv
-
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 
 
@@ -23,7 +21,9 @@ def mask(val: str) -> str:
     return f"{val[:6]}…{val[-4:]}" if len(val) >= 10 else "****"
 
 
-def post_multipart(base: str, api_key: str, path: str, file_field: str, filepath: Path) -> Dict[str, Any]:
+def post_multipart(
+    base: str, api_key: str, path: str, file_field: str, filepath: Path
+) -> dict[str, Any]:
     """Upload a file, trying backend-specific endpoints with fallbacks.
 
     Priority:
@@ -36,9 +36,9 @@ def post_multipart(base: str, api_key: str, path: str, file_field: str, filepath
 
     endpoints = [
         f"{base.rstrip('/')}/{path.lstrip('/')}",  # e.g., /learning/files
-        f"{base.rstrip('/')}/files",               # OpenAI-style
+        f"{base.rstrip('/')}/files",  # OpenAI-style
     ]
-    last_err: Dict[str, Any] | None = None
+    last_err: dict[str, Any] | None = None
     for ep in endpoints:
         try:
             r = requests.post(ep, headers=headers, files=files, data=data, timeout=300)
@@ -70,7 +70,7 @@ def post_multipart(base: str, api_key: str, path: str, file_field: str, filepath
     return last_err or {"error": True, "detail": "upload_failed_all_endpoints"}
 
 
-def post_json(base: str, api_key: str, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
+def post_json(base: str, api_key: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
     url = f"{base.rstrip('/')}/{path.lstrip('/')}"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     r = requests.post(url, headers=headers, data=json.dumps(body), timeout=120)
@@ -80,7 +80,7 @@ def post_json(base: str, api_key: str, path: str, body: Dict[str, Any]) -> Dict[
         return {"status": r.status_code, "text": r.text[:400]}
 
 
-def get_json(base: str, api_key: str, path: str) -> Dict[str, Any]:
+def get_json(base: str, api_key: str, path: str) -> dict[str, Any]:
     url = f"{base.rstrip('/')}/{path.lstrip('/')}"
     headers = {"Authorization": f"Bearer {api_key}"}
     r = requests.get(url, headers=headers, timeout=30)
@@ -90,9 +90,9 @@ def get_json(base: str, api_key: str, path: str) -> Dict[str, Any]:
         return {"status": r.status_code, "text": r.text[:400]}
 
 
-def _find_fft_configs() -> List[Path]:
+def _find_fft_configs() -> list[Path]:
     """Find FFT TOML configs in standard locations."""
-    candidates: List[Path] = []
+    candidates: list[Path] = []
 
     # Check current directory configs/
     cwd = Path.cwd()
@@ -127,11 +127,15 @@ def main() -> None:
         load_dotenv(default_env, override=False)
 
     parser = argparse.ArgumentParser(description="Submit FFT job and save resulting model id")
-    parser.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api"))
+    parser.add_argument(
+        "--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api")
+    )
     parser.add_argument("--toml", required=False, help="Path to FFT TOML config")
     parser.add_argument("--data", default="", help="Override dataset JSONL path")
     parser.add_argument("--poll-seconds", type=int, default=1800)
-    parser.add_argument("--env-file", default="", help="Optional path to .env file with SYNTH_API_KEY")
+    parser.add_argument(
+        "--env-file", default="", help="Optional path to .env file with SYNTH_API_KEY"
+    )
     args = parser.parse_args()
 
     # Also load from explicit --env-file if provided
@@ -149,7 +153,10 @@ def main() -> None:
     else:
         configs = _find_fft_configs()
         if not configs:
-            print("No FFT config files found. Please specify --toml or create a config in configs/", file=sys.stderr)
+            print(
+                "No FFT config files found. Please specify --toml or create a config in configs/",
+                file=sys.stderr,
+            )
             sys.exit(2)
         elif len(configs) == 1:
             config_path = configs[0]
@@ -180,7 +187,9 @@ def main() -> None:
     compute_cfg = cfg.get("compute", {}) if isinstance(cfg.get("compute"), dict) else {}
     data_cfg_full = cfg.get("data", {}) if isinstance(cfg.get("data"), dict) else {}
     topo_cfg = (data_cfg_full or {}).get("topology", {}) if isinstance(data_cfg_full, dict) else {}
-    validation_local_path = (data_cfg_full or {}).get("validation_path") if isinstance(data_cfg_full, dict) else None
+    validation_local_path = (
+        (data_cfg_full or {}).get("validation_path") if isinstance(data_cfg_full, dict) else None
+    )
     train_cfg = cfg.get("training", {}) if isinstance(cfg.get("training"), dict) else {}
     hp_cfg = cfg.get("hyperparameters", {}) if isinstance(cfg.get("hyperparameters"), dict) else {}
 
@@ -195,10 +204,7 @@ def main() -> None:
             # Try relative to cwd first, then relative to config directory
             cwd_relative = Path.cwd() / p
             config_relative = config_path.parent / p
-            if cwd_relative.exists():
-                p = cwd_relative.resolve()
-            else:
-                p = config_relative.resolve()
+            p = cwd_relative.resolve() if cwd_relative.exists() else config_relative.resolve()
         data_file = p
     if data_file is None:
         print("Missing dataset path in --data or [job].data", file=sys.stderr)
@@ -232,7 +238,10 @@ def main() -> None:
         err_status = (upf or {}).get("status")
         err_body = (upf or {}).get("body") or (upf or {}).get("text")
         err_ep = (upf or {}).get("endpoint")
-        print(f"Upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:200]}", file=sys.stderr)
+        print(
+            f"Upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:200]}",
+            file=sys.stderr,
+        )
         sys.exit(4)
 
     # Optionally upload validation file
@@ -255,10 +264,12 @@ def main() -> None:
                 err_status = (upv or {}).get("status")
                 err_body = (upv or {}).get("body") or (upv or {}).get("text")
                 err_ep = (upv or {}).get("endpoint")
-                print(f"[WARN] Validation upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:180]} — continuing without validation")
+                print(
+                    f"[WARN] Validation upload failed (status={err_status} endpoint={err_ep}) body={str(err_body)[:180]} — continuing without validation"
+                )
 
     # 2) Build job payload
-    hp_block: Dict[str, Any] = {
+    hp_block: dict[str, Any] = {
         "n_epochs": int(hp_cfg.get("n_epochs") or 1),
     }
     # Optional extras if present
@@ -279,7 +290,7 @@ def main() -> None:
     if parallel:
         hp_block["parallelism"] = parallel
 
-    compute_block: Dict[str, Any] = {}
+    compute_block: dict[str, Any] = {}
     for k in ("gpu_type", "gpu_count", "nodes"):
         if k in compute_cfg:
             compute_block[k] = compute_cfg[k]
@@ -290,18 +301,24 @@ def main() -> None:
         "training": {k: v for k, v in train_cfg.items() if k in ("mode", "use_qlora")},
     }
     # If TOML includes a [training.validation] block, forward relevant knobs into hyperparameters
-    validation_cfg = train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
+    validation_cfg = (
+        train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
+    )
     if isinstance(validation_cfg, dict):
         # Enable evaluation and map keys as-is; backend trainer maps metric_for_best_model 'val.loss'→'eval_loss'
-        hp_block.update({
-            "evaluation_strategy": validation_cfg.get("evaluation_strategy", "steps"),
-            "eval_steps": int(validation_cfg.get("eval_steps", 0) or 0),
-            "save_best_model_at_end": bool(validation_cfg.get("save_best_model_at_end", True)),
-            "metric_for_best_model": validation_cfg.get("metric_for_best_model", "val.loss"),
-            "greater_is_better": bool(validation_cfg.get("greater_is_better", False)),
-        })
+        hp_block.update(
+            {
+                "evaluation_strategy": validation_cfg.get("evaluation_strategy", "steps"),
+                "eval_steps": int(validation_cfg.get("eval_steps", 0) or 0),
+                "save_best_model_at_end": bool(validation_cfg.get("save_best_model_at_end", True)),
+                "metric_for_best_model": validation_cfg.get("metric_for_best_model", "val.loss"),
+                "greater_is_better": bool(validation_cfg.get("greater_is_better", False)),
+            }
+        )
         # Also surface validation enable flag into effective_config for visibility (optional)
-        effective.setdefault("training", {})["validation"] = {"enabled": bool(validation_cfg.get("enabled", True))}
+        effective.setdefault("training", {})["validation"] = {
+            "enabled": bool(validation_cfg.get("enabled", True))
+        }
 
     body = {
         "model": model,
@@ -341,7 +358,9 @@ def main() -> None:
             break
         # Warn if stuck queued for >10 minutes
         if status == "queued" and (time.time() - queued_since) > 600:
-            print("[WARN] Job has remained queued for >10 minutes. Backend may be capacity constrained.")
+            print(
+                "[WARN] Job has remained queued for >10 minutes. Backend may be capacity constrained."
+            )
             queued_since = time.time()
         time.sleep(5)
 

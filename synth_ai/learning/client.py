@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, TypedDict
+
+from synth_ai.api.models.supported import (
+    UnsupportedModelError,
+    normalize_model_identifier,
+)
+from synth_ai.learning.sft.config import prepare_sft_job_payload
 
 from ..http import AsyncHttpClient, HTTPError, sleep
 
@@ -34,30 +42,54 @@ class LearningClient:
         training_type: str,
         model: str,
         training_file_id: str,
-        hyperparameters: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        body = {
-            "training_type": training_type,
-            "model": model,
-            "training_file_id": training_file_id,
-            "hyperparameters": hyperparameters or {},
-            "metadata": metadata or {},
-        }
+        hyperparameters: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        lower_type = (training_type or "").strip().lower()
+        require_base = (
+            lower_type.startswith("sft")
+            or lower_type.startswith("fft")
+            or lower_type.startswith("qft")
+        )
+        try:
+            normalized_model = normalize_model_identifier(
+                model, allow_finetuned_prefixes=not require_base
+            )
+        except UnsupportedModelError as exc:
+            raise ValueError(str(exc)) from exc
+
+        if lower_type.startswith("sft") or lower_type in {"fft", "qft"}:
+            body = prepare_sft_job_payload(
+                model=model,
+                training_file=training_file_id,
+                hyperparameters=hyperparameters,
+                metadata=metadata,
+                training_type=training_type or "sft_offline",
+                training_file_field="training_file_id",
+                require_training_file=True,
+            )
+        else:
+            body = {
+                "training_type": training_type,
+                "model": normalized_model,
+                "training_file_id": training_file_id,
+                "hyperparameters": hyperparameters or {},
+                "metadata": metadata or {},
+            }
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json("/api/learning/jobs", json=body)
 
-    async def start_job(self, job_id: str) -> Dict[str, Any]:
+    async def start_job(self, job_id: str) -> dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
 
-    async def get_job(self, job_id: str) -> Dict[str, Any]:
+    async def get_job(self, job_id: str) -> dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/learning/jobs/{job_id}")
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/events", params=params)
@@ -73,8 +105,8 @@ class LearningClient:
         after_step: int | None = None,
         limit: int = 500,
         run_id: str | None = None,
-    ) -> List[Dict[str, Any]]:
-        params: Dict[str, Any] = {"limit": limit}
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": limit}
         if name is not None:
             params["name"] = name
         if after_step is not None:
@@ -87,7 +119,7 @@ class LearningClient:
             return js["points"]
         return []
 
-    async def get_timeline(self, job_id: str, *, limit: int = 200) -> List[Dict[str, Any]]:
+    async def get_timeline(self, job_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
         params = {"limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/timeline", params=params)
@@ -101,8 +133,8 @@ class LearningClient:
         *,
         interval_seconds: float = 2.0,
         max_seconds: float | None = 3600,
-        on_event: Callable[[Dict[str, Any]], None] | None = None,
-    ) -> Dict[str, Any]:
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
         last_seq = 0
         elapsed = 0.0
         while True:
@@ -112,10 +144,8 @@ class LearningClient:
                 if isinstance(e, dict) and isinstance(e.get("seq"), int):
                     last_seq = max(last_seq, int(e["seq"]))
                 if on_event:
-                    try:
+                    with suppress(Exception):
                         on_event(e)
-                    except Exception:
-                        pass
 
             # Status
             job = await self.get_job(job_id)
@@ -132,7 +162,7 @@ class LearningClient:
     # --- Optional diagnostics ---
     async def pricing_preflight(
         self, *, job_type: str, gpu_type: str, estimated_seconds: float, container_count: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         body = {
             "job_type": job_type,
             "gpu_type": gpu_type,
@@ -150,7 +180,7 @@ class LearningClient:
             )
         return js
 
-    async def balance_autumn_normalized(self) -> Dict[str, Any]:
+    async def balance_autumn_normalized(self) -> dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get("/api/v1/balance/autumn-normalized")
         if not isinstance(js, dict):
@@ -161,6 +191,41 @@ class LearningClient:
                 body_snippet=str(js)[:200],
             )
         return js
+
+
+class FineTunedModelInfo(TypedDict, total=False):
+    id: str
+    base_model: str | None
+    created_at: int | None
+    job_id: str | None
+    status: str | None
+
+
+class LearningClient(LearningClient):  # type: ignore[misc]
+    async def list_fine_tuned_models(self) -> list[FineTunedModelInfo]:
+        """Return completed fine‑tuned models for the caller's organization.
+
+        Calls backend route `/api/learning/models` and returns a compact list.
+        """
+        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.get("/api/learning/models")
+        if isinstance(js, dict) and isinstance(js.get("data"), list):
+            out: list[FineTunedModelInfo] = []
+            for item in js["data"]:
+                if not isinstance(item, dict):
+                    continue
+                rec: FineTunedModelInfo = {
+                    "id": str(item.get("id")),
+                    "base_model": item.get("base_model"),
+                    "created_at": item.get("created_at"),
+                    "job_id": item.get("job_id"),
+                    "status": item.get("status"),
+                }
+                if rec.get("id"):
+                    out.append(rec)
+            return out
+        # Fallback: empty list on unexpected shape
+        return []
 
 
 def _infer_content_type(filename: str) -> str:

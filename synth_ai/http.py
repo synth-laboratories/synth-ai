@@ -18,7 +18,7 @@ except Exception:
         _client_path = _here.parent / "http_client.py"
         _spec = _ilu.spec_from_file_location("http_client", str(_client_path))
         if not _spec or not _spec.loader:
-            raise ImportError("Could not load http_client module")
+            raise ImportError("Could not load http_client module") from None
         _mod = _ilu.module_from_spec(_spec)
         _spec.loader.exec_module(_mod)
         _sys.modules["synth_ai.http_client"] = _mod

@@ -5,16 +5,15 @@ import argparse
 import json
 import os
 import sys
-from pathlib import Path
-from typing import Any, Dict
-
 import tomllib
-import requests
+from pathlib import Path
+from typing import Any
 
+import requests
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 
 
-def _load_toml(path: Path) -> Dict[str, Any]:
+def _load_toml(path: Path) -> dict[str, Any]:
     if not path.exists():
         print(f"config not found: {path}", file=sys.stderr)
         sys.exit(2)
@@ -23,11 +22,23 @@ def _load_toml(path: Path) -> Dict[str, Any]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Create clustered RL training job via backend RL endpoint")
-    p.add_argument("--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api"))
+    p = argparse.ArgumentParser(
+        description="Create clustered RL training job via backend RL endpoint"
+    )
+    p.add_argument(
+        "--backend", default=os.getenv("BACKEND_BASE_URL", f"{PROD_BASE_URL_DEFAULT}/api")
+    )
     p.add_argument("--config", required=True, help="Path to RL TOML config")
-    p.add_argument("--task-url", default=os.getenv("TASK_APP_URL", ""), help="Override task service URL (or set TASK_APP_URL)")
-    p.add_argument("--idempotency", default=os.getenv("RL_IDEMPOTENCY_KEY", ""), help="Optional Idempotency-Key header value")
+    p.add_argument(
+        "--task-url",
+        default=os.getenv("TASK_APP_URL", ""),
+        help="Override task service URL (or set TASK_APP_URL)",
+    )
+    p.add_argument(
+        "--idempotency",
+        default=os.getenv("RL_IDEMPOTENCY_KEY", ""),
+        help="Optional Idempotency-Key header value",
+    )
     args = p.parse_args()
 
     cfg_path = Path(args.config).expanduser()
@@ -38,9 +49,16 @@ def main() -> None:
     # Resolve task app base URL for the job
     cli_task_url = (args.task_url or "").strip()
     env_task_url = (os.getenv("TASK_APP_URL") or "").strip()
-    task_url = cli_task_url or env_task_url or ((services.get("task_url") or "").strip() if isinstance(services, dict) else "")
+    task_url = (
+        cli_task_url
+        or env_task_url
+        or ((services.get("task_url") or "").strip() if isinstance(services, dict) else "")
+    )
     if not task_url:
-        print("Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML", file=sys.stderr)
+        print(
+            "Missing task service URL. Provide --task-url or set TASK_APP_URL or services.task_url in TOML",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     # TOML-only model selection validation
@@ -48,11 +66,14 @@ def main() -> None:
     has_source = bool((model_cfg.get("source") or "").strip())
     has_base = bool((model_cfg.get("base") or "").strip())
     if has_source == has_base:
-        print("Model selection must specify exactly one of [model].source or [model].base in TOML", file=sys.stderr)
+        print(
+            "Model selection must specify exactly one of [model].source or [model].base in TOML",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
     # Build create-job payload. Send full TOML under data.config, plus endpoint_base_url.
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "job_type": "rl",
         # Optional: compute pass-through
         "compute": cfg.get("compute", {}) if isinstance(cfg.get("compute"), dict) else {},
@@ -65,7 +86,7 @@ def main() -> None:
 
     backend = str(args.backend).rstrip("/")
     url = f"{backend}/rl/jobs"
-    api_key = (os.getenv("SYNTH_API_KEY") or os.getenv("synth_key") or "").strip()
+    api_key = (os.getenv("SYNTH_API_KEY") or os.getenv("SYNTH_KEY") or "").strip()
     if not api_key:
         print("Missing SYNTH_API_KEY in env", file=sys.stderr)
         sys.exit(2)

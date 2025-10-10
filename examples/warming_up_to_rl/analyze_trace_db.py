@@ -9,7 +9,7 @@ import sqlite3
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 Row = sqlite3.Row
 
@@ -56,7 +56,7 @@ def fetch_model_usage(conn: sqlite3.Connection) -> list[dict[str, Any]]:
 def _parse_json(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return value
     try:
         return json.loads(value)
@@ -64,7 +64,7 @@ def _parse_json(value: Any) -> Any:
         return None
 
 
-AchievementMap = dict[Tuple[str, int], dict[str, list[str]]]
+AchievementMap = dict[tuple[str, int], dict[str, list[str]]]
 
 
 def fetch_achievement_data(
@@ -162,7 +162,7 @@ def fetch_achievement_data(
         achievement_name_counts.update(achievement_set)
 
     achievement_size_counts: Counter = Counter()
-    for session_id, count in unique_counts_per_session.items():
+    for _session_id, count in unique_counts_per_session.items():
         achievement_size_counts[count] += 1
 
     return (
@@ -295,7 +295,7 @@ def format_reward_summary(outcome: dict[str, Any], breakdown: list[dict[str, Any
 
 
 def compute_model_achievement_stats(
-    conn: sqlite3.Connection, session_unique_sets: dict[str, Set[str]]
+    conn: sqlite3.Connection, session_unique_sets: dict[str, set[str]]
 ) -> dict[str, dict[str, Any]]:
     """Aggregate unique-achievement stats per model."""
 

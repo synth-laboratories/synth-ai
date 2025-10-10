@@ -1,5 +1,16 @@
+import logging
 import os  # Added to ensure os is available before use
 import sys
+
+import synth_ai.environments.examples.crafter_classic.environment as cc
+import synth_ai.environments.examples.crafter_custom.environment as ccustom
+from fastapi import FastAPI
+from synth_ai.environments.service.core_routes import api_router
+from synth_ai.environments.service.external_registry import (
+    ExternalRegistryConfig,
+    load_external_environments,
+)
+from synth_ai.environments.service.registry import list_supported_env_types, register_environment
 
 # Ensure repository root is on PYTHONPATH for dev installs
 # Current file path: <repo>/synth_ai/environments/service/app.py
@@ -16,15 +27,6 @@ if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
 print(f"SYS.PATH IN APP.PY: {sys.path}")
-import logging
-
-from fastapi import FastAPI
-from synth_ai.environments.service.core_routes import api_router
-from synth_ai.environments.service.external_registry import (
-    ExternalRegistryConfig,
-    load_external_environments,
-)
-from synth_ai.environments.service.registry import list_supported_env_types, register_environment
 
 # Configure logging with more detail
 logging.basicConfig(
@@ -38,11 +40,8 @@ logger = logging.getLogger(__name__)
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
 # Register built-in environments at import time
-import synth_ai.environments.examples.crafter_classic.environment as cc
 
 register_environment("CrafterClassic", cc.CrafterClassicEnvironment)
-import synth_ai.environments.examples.crafter_custom.environment as ccustom
-
 register_environment("CrafterCustom", ccustom.CrafterCustomEnvironment)
 
 # Register Wordle example environment

@@ -3,9 +3,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional
-
-from synth_ai.environments.stateful.core import StatefulEnvironment
+from typing import Any
 
 
 @dataclass
@@ -14,10 +12,10 @@ class EnvHandle:
 
     env_id: str
     env: Any  # StatefulEnvironment or wrapper
-    last_observation: Optional[Dict[str, Any]]
-    last_info: Optional[Dict[str, Any]]
+    last_observation: dict[str, Any] | None
+    last_info: dict[str, Any] | None
     step_idx: int
-    seed: Optional[int]
+    seed: int | None
     rl_run_id: str
     created_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -28,7 +26,7 @@ class PolicyHandle:
 
     policy_id: str
     policy: Any  # Policy instance
-    bound_env_id: Optional[str]
+    bound_env_id: str | None
     rl_run_id: str
     created_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -40,7 +38,7 @@ class RunHandle:
     run_id: str
     status: str  # "running" | "aborted" | "completed"
     started_at: datetime
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
 
 
 @dataclass
@@ -50,7 +48,7 @@ class SnapshotMeta:
     snapshot_id: str
     kind: str  # "env" | "policy"
     rl_run_id: str
-    parent_snapshot_id: Optional[str]
+    parent_snapshot_id: str | None
     size: int
     created_at: datetime
     path: str
@@ -60,10 +58,10 @@ class Registry:
     """In-memory registries for the service."""
 
     def __init__(self) -> None:
-        self.envs: Dict[str, EnvHandle] = {}
-        self.policies: Dict[str, PolicyHandle] = {}
-        self.runs: Dict[str, RunHandle] = {}
-        self.snapshots: Dict[str, SnapshotMeta] = {}
+        self.envs: dict[str, EnvHandle] = {}
+        self.policies: dict[str, PolicyHandle] = {}
+        self.runs: dict[str, RunHandle] = {}
+        self.snapshots: dict[str, SnapshotMeta] = {}
 
     def generate_id(self) -> str:
         """Generate a UUID for unique identification."""
@@ -72,10 +70,10 @@ class Registry:
     def register_env(
         self,
         env: Any,
-        seed: Optional[int],
+        seed: int | None,
         rl_run_id: str,
-        last_observation: Optional[Dict[str, Any]] = None,
-        last_info: Optional[Dict[str, Any]] = None,
+        last_observation: dict[str, Any] | None = None,
+        last_info: dict[str, Any] | None = None,
     ) -> str:
         """Register a new environment instance."""
         env_id = self.generate_id()
@@ -95,7 +93,7 @@ class Registry:
         self,
         policy: Any,
         rl_run_id: str,
-        bound_env_id: Optional[str] = None,
+        bound_env_id: str | None = None,
     ) -> str:
         """Register a new policy instance."""
         policy_id = self.generate_id()
@@ -108,7 +106,7 @@ class Registry:
         self.policies[policy_id] = handle
         return policy_id
 
-    def register_run(self, run_id: Optional[str] = None) -> str:
+    def register_run(self, run_id: str | None = None) -> str:
         """Register a new run."""
         if run_id is None:
             run_id = self.generate_id()
@@ -146,7 +144,7 @@ class Registry:
         rl_run_id: str,
         size: int,
         path: str,
-        parent_snapshot_id: Optional[str] = None,
+        parent_snapshot_id: str | None = None,
     ) -> str:
         """Register a new snapshot."""
         snapshot_id = self.generate_id()
@@ -162,19 +160,19 @@ class Registry:
         self.snapshots[snapshot_id] = meta
         return snapshot_id
 
-    def get_env(self, env_id: str) -> Optional[EnvHandle]:
+    def get_env(self, env_id: str) -> EnvHandle | None:
         """Get an environment handle by ID."""
         return self.envs.get(env_id)
 
-    def get_policy(self, policy_id: str) -> Optional[PolicyHandle]:
+    def get_policy(self, policy_id: str) -> PolicyHandle | None:
         """Get a policy handle by ID."""
         return self.policies.get(policy_id)
 
-    def get_run(self, run_id: str) -> Optional[RunHandle]:
+    def get_run(self, run_id: str) -> RunHandle | None:
         """Get a run handle by ID."""
         return self.runs.get(run_id)
 
-    def get_snapshot(self, snapshot_id: str) -> Optional[SnapshotMeta]:
+    def get_snapshot(self, snapshot_id: str) -> SnapshotMeta | None:
         """Get snapshot metadata by ID."""
         return self.snapshots.get(snapshot_id)
 

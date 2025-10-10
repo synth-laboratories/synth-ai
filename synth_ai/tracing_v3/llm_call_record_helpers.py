@@ -5,10 +5,9 @@ format and compute aggregates from call records.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from synth_ai.lm.vendors.base import BaseLMResponse
 from synth_ai.tracing_v3.lm_call_record_abstractions import (
     LLMCallRecord,
     LLMChunk,
@@ -18,6 +17,7 @@ from synth_ai.tracing_v3.lm_call_record_abstractions import (
     LLMUsage,
     ToolCallSpec,
 )
+from synth_ai.v0.lm.vendors.base import BaseLMResponse
 
 
 def create_llm_call_record_from_response(
@@ -161,8 +161,8 @@ def create_llm_call_record_from_response(
         api_type=api_type,
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.utcnow(),
-        completed_at=completed_at or datetime.utcnow(),
+        started_at=started_at or datetime.now(UTC),
+        completed_at=completed_at or datetime.now(UTC),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,
@@ -322,8 +322,8 @@ def create_llm_call_record_from_streaming(
         api_type="responses",  # Streaming typically from Responses API
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.utcnow(),
-        completed_at=completed_at or datetime.utcnow(),
+        started_at=started_at or datetime.now(UTC),
+        completed_at=completed_at or datetime.now(UTC),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,

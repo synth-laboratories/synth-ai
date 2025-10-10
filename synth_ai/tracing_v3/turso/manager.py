@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Async SQLAlchemy-based trace manager for Turso/sqld.
 
 This module provides the database interface for the tracing system using
@@ -22,10 +20,12 @@ Performance Considerations:
 - Creates indexes for common query patterns
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 # Optional pandas import: fall back to records (list[dict]) if unavailable
@@ -33,10 +33,10 @@ try:  # pragma: no cover - exercised in environments without pandas
     import pandas as pd  # type: ignore
 except Exception:  # pragma: no cover
     pd = None  # type: ignore[assignment]
-from sqlalchemy import select, text, update
+
+from sqlalchemy import event, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy import event
 from sqlalchemy.orm import selectinload, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -47,6 +47,7 @@ from ..abstractions import (
     SessionTrace,
 )
 from ..config import CONFIG
+from ..storage.base import TraceStorage
 from .models import (
     Base,
     analytics_views,
@@ -55,10 +56,16 @@ from .models import (
     Event as DBEvent,
 )
 from .models import (
+    EventReward as DBEventReward,
+)
+from .models import (
     Experiment as DBExperiment,
 )
 from .models import (
     Message as DBMessage,
+)
+from .models import (
+    OutcomeReward as DBOutcomeReward,
 )
 from .models import (
     SessionTimestep as DBSessionTimestep,
@@ -66,17 +73,11 @@ from .models import (
 from .models import (
     SessionTrace as DBSessionTrace,
 )
-from .models import (
-    OutcomeReward as DBOutcomeReward,
-)
-from .models import (
-    EventReward as DBEventReward,
-)
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncSQLTraceManager:
+class AsyncSQLTraceManager(TraceStorage):
     """Async trace storage manager using SQLAlchemy and Turso/sqld.
 
     Handles all database operations for the tracing system. Designed to work
@@ -594,7 +595,7 @@ class AsyncSQLTraceManager:
                 return
             row = DBSessionTrace(
                 session_id=session_id,
-                created_at=created_at or datetime.utcnow(),
+                created_at=created_at or datetime.now(UTC),
                 num_timesteps=0,
                 num_events=0,
                 num_messages=0,
@@ -629,7 +630,7 @@ class AsyncSQLTraceManager:
                 step_id=step_id,
                 step_index=step_index,
                 turn_number=turn_number,
-                started_at=started_at or datetime.utcnow(),
+                started_at=started_at or datetime.now(UTC),
                 completed_at=completed_at,
                 num_events=0,
                 num_messages=0,

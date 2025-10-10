@@ -54,11 +54,10 @@ class RangeFilter(TaskInstanceMetadataFilter):
 
     def __call__(self, instance: TaskInstance) -> bool:
         value = getattr(instance.metadata, self.key, None)
-        if self.min_value is not None and (value is None or value < self.min_value):
-            return False
-        if self.max_value is not None and (value is None or value > self.max_value):
-            return False
-        return True
+        return not (
+            (self.min_value is not None and (value is None or value < self.min_value))
+            or (self.max_value is not None and (value is None or value > self.max_value))
+        )
 
 
 def make_taskset(

@@ -7,16 +7,19 @@ Baseline evaluation script (public-friendly skeleton)
 """
 
 from __future__ import annotations
-import os
-import json
-import re
-from typing import Any, Dict, List, Optional
-from collections import Counter
-import asyncio
-import httpx
+
 import argparse
+import asyncio
+import contextlib
+import json
+import os
+import re
 import tomllib
+from collections import Counter
 from pathlib import Path
+from typing import Any
+
+import httpx
 
 
 class TaskAppClient:
@@ -25,12 +28,12 @@ class TaskAppClient:
     This is a public-friendly shim for examples, pending SDK surface consolidation.
     """
 
-    def __init__(self, base_url: str, api_key: Optional[str] = None) -> None:
+    def __init__(self, base_url: str, api_key: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "TaskAppClient":
+    async def __aenter__(self) -> TaskAppClient:
         headers = {}
         if self.api_key:
             headers["X-API-Key"] = self.api_key
@@ -56,9 +59,9 @@ class TaskAppClient:
             )
         return self._client
 
-    async def initialize(self, env_name: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    async def initialize(self, env_name: str, config: dict[str, Any]) -> dict[str, Any]:
         """POST /env/{env_name}/initialize (compat route supported in task app)."""
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "seed": config.get("seed"),
         }
         # Allow both world_config and config inputs; env routes will normalize difficulty
@@ -71,30 +74,30 @@ class TaskAppClient:
         return resp.json()
 
     async def step(
-        self, env_name: str, env_id: str, tool_calls: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, env_name: str, env_id: str, tool_calls: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """POST /env/{env_name}/step with wrapped tool_calls in action."""
         payload = {"env_id": env_id, "action": {"tool_calls": tool_calls}}
         resp = await self.client.post(f"/env/{env_name}/step", json=payload)
         resp.raise_for_status()
         return resp.json()
 
-    async def terminate(self, env_name: str, env_id: str) -> Dict[str, Any]:
+    async def terminate(self, env_name: str, env_id: str) -> dict[str, Any]:
         resp = await self.client.post(f"/env/{env_name}/terminate", json={"env_id": env_id})
         resp.raise_for_status()
         return resp.json()
 
-    async def get_info(self) -> Dict[str, Any]:
+    async def get_info(self) -> dict[str, Any]:
         resp = await self.client.get("/info")
         resp.raise_for_status()
         return resp.json()
 
-    async def proxy_groq_chat(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def proxy_groq_chat(self, payload: dict[str, Any]) -> dict[str, Any]:
         resp = await self.client.post("/proxy/groq/v1/chat/completions", json=payload)
         resp.raise_for_status()
         return resp.json()
 
-    async def vllm_chat(self, vllm_base_url: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def vllm_chat(self, vllm_base_url: str, payload: dict[str, Any]) -> dict[str, Any]:
         async with httpx.AsyncClient(base_url=vllm_base_url.rstrip("/"), timeout=60.0) as c:
             resp = await c.post("/v1/chat/completions", json=payload)
             # Do not raise for status to surface body in errors
@@ -114,13 +117,13 @@ class TaskAppClient:
         seed: int,
         difficulty: str,
         policy_name: str,
-        policy_config: Dict[str, Any],
+        policy_config: dict[str, Any],
         max_turns: int,
-    ) -> Dict[str, Any]:
-        ops: List[str] = []
+    ) -> dict[str, Any]:
+        ops: list[str] = []
         for _ in range(max_turns):
             ops.extend(["agent", "env"])
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "run_id": run_id,
             "env": {
                 "env_name": env_name,
@@ -150,7 +153,7 @@ MAX_TURNS = int(os.getenv("MAX_TURNS", "10"))
 CONCURRENCY = int(os.getenv("CONCURRENCY", "1"))
 
 
-def _interact_tool_schema() -> List[Dict[str, Any]]:
+def _interact_tool_schema() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -171,13 +174,12 @@ def _interact_tool_schema() -> List[Dict[str, Any]]:
 
 
 def _build_messages_from_observation(
-    observation: Dict[str, Any], history: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
+    observation: dict[str, Any], history: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     inv = observation.get("inventory") or {}
     pos = observation.get("player_position") or []
     ach = observation.get("achievements_status") or {}
-    turns_taken = observation.get("num_steps_taken") or 0
-    user_lines: List[str] = []
+    user_lines: list[str] = []
     user_lines.append("Environment: CrafterClassic")
     user_lines.append(f"Player position: {pos}")
     user_lines.append(f"Inventory: {json.dumps(inv, ensure_ascii=False)}")
@@ -193,7 +195,7 @@ def _build_messages_from_observation(
     return [{"role": "user", "content": content}]
 
 
-def _parse_tool_calls_from_openai_response(data: Dict[str, Any]) -> List[str]:
+def _parse_tool_calls_from_openai_response(data: dict[str, Any]) -> list[str]:
     try:
         choices = data.get("choices")
         if isinstance(choices, list) and choices:
@@ -248,11 +250,11 @@ async def _choose_actions_via_llm(
     client: TaskAppClient,
     provider: str,
     model: str,
-    observation: Dict[str, Any],
-    history: List[Dict[str, Any]],
-) -> List[str]:
+    observation: dict[str, Any],
+    history: list[dict[str, Any]],
+) -> list[str]:
     messages = _build_messages_from_observation(observation, history)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "tools": _interact_tool_schema(),
@@ -279,8 +281,8 @@ async def _choose_actions_via_llm(
     return actions or []
 
 
-def _expand_actions_to_tool_calls(actions: List[str]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+def _expand_actions_to_tool_calls(actions: list[str]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
     for a in actions[:5]:
         out.append({"tool": "interact", "args": {"action": a}})
     return out
@@ -293,9 +295,7 @@ def _detect_provider(model: str) -> str:
     return "vllm"
 
 
-def _rollout_inference_url_from_cfg(
-    cfg: Dict[str, Any], default_vllm: Optional[str]
-) -> Optional[str]:
+def _rollout_inference_url_from_cfg(cfg: dict[str, Any], default_vllm: str | None) -> str | None:
     # Prefer explicit inference_url in TOML; else fall back to discovered vLLM base
     url = cfg.get("inference_url")
     if isinstance(url, str) and url:
@@ -303,14 +303,14 @@ def _rollout_inference_url_from_cfg(
     return default_vllm
 
 
-async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
+async def eval_episode(client: TaskAppClient, seed: int) -> dict[str, Any]:
     env_name = "CrafterClassic"
-    history: List[Dict[str, Any]] = []
+    history: list[dict[str, Any]] = []
     achievements: set[str] = set()
     turns = 0
 
     # Initialize environment
-    init_cfg: Dict[str, Any] = {
+    init_cfg: dict[str, Any] = {
         "seed": seed,
         "world_config": {"difficulty": os.getenv("DIFFICULTY", "easy")},
     }
@@ -343,10 +343,8 @@ async def eval_episode(client: TaskAppClient, seed: int) -> Dict[str, Any]:
                 if isinstance(nxt, dict):
                     observation = nxt
     finally:
-        try:
+        with contextlib.suppress(Exception):
             await client.terminate(env_name, env_id)
-        except Exception:
-            pass
 
     return {"seed": seed, "turns": turns, "achievements": sorted(achievements)}
 
@@ -377,7 +375,7 @@ async def main() -> None:
     args = parser.parse_args()
 
     global TASK_APP_URL, MODEL, NUM_EPISODES, MAX_TURNS, CONCURRENCY
-    cfg: Dict[str, Any] = {}
+    cfg: dict[str, Any] = {}
     if args.toml:
         with open(args.toml, "rb") as f:
             cfg = tomllib.load(f)
@@ -418,7 +416,7 @@ async def main() -> None:
                     try:
                         run_id = f"eval-{seed}"
                         # Build policy config from TOML (explicit control; no server-side guessing)
-                        policy_cfg: Dict[str, Any] = {
+                        policy_cfg: dict[str, Any] = {
                             "model": cfg.get("model", MODEL),
                             "inference_url": inf_url,
                         }

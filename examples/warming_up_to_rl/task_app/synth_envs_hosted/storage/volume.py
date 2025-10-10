@@ -8,7 +8,7 @@ import tarfile
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class VolumeStorage:
@@ -57,8 +57,8 @@ class VolumeStorage:
 
     def create_archive(
         self,
-        state_dict: Dict[str, Any],
-        meta: Dict[str, Any],
+        state_dict: dict[str, Any],
+        meta: dict[str, Any],
     ) -> bytes:
         """Create a tar.gz archive with state and metadata."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -88,7 +88,7 @@ class VolumeStorage:
 
             return compressed
 
-    def extract_archive(self, archive_bytes: bytes) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    def extract_archive(self, archive_bytes: bytes) -> tuple[dict[str, Any], dict[str, Any]]:
         """Extract state and metadata from a tar.gz archive."""
         # Decompress
         tar_bytes = gzip.decompress(archive_bytes)
@@ -106,10 +106,10 @@ class VolumeStorage:
                 tar.extractall(tmppath)
 
             # Read state and meta
-            with open(tmppath / "state.json", "r") as f:
+            with open(tmppath / "state.json") as f:
                 state = json.load(f)
 
-            with open(tmppath / "meta.json", "r") as f:
+            with open(tmppath / "meta.json") as f:
                 meta = json.load(f)
 
             return state, meta
@@ -122,9 +122,9 @@ class VolumeStorage:
         self,
         rl_run_id: str,
         kind: str,
-        state_dict: Dict[str, Any],
-        config: Optional[Dict[str, Any]] = None,
-        parent_snapshot_id: Optional[str] = None,
+        state_dict: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        parent_snapshot_id: str | None = None,
     ) -> tuple[str, str, int]:
         """Save a snapshot and return (snapshot_id, path, size)."""
         # Build metadata
@@ -166,7 +166,7 @@ class VolumeStorage:
         rl_run_id: str,
         kind: str,
         snapshot_id: str,
-    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Load a snapshot and return (state_dict, meta)."""
         path = self.get_snapshot_path(rl_run_id, kind, snapshot_id)
 
@@ -182,7 +182,7 @@ class VolumeStorage:
     def append_to_index(
         self,
         rl_run_id: str,
-        meta: Dict[str, Any],
+        meta: dict[str, Any],
     ) -> None:
         """Append metadata to the run's index file."""
         index_path = self.get_index_path(rl_run_id)
@@ -191,7 +191,7 @@ class VolumeStorage:
         with open(index_path, "a") as f:
             f.write(json.dumps(meta) + "\n")
 
-    def read_index(self, rl_run_id: str) -> list[Dict[str, Any]]:
+    def read_index(self, rl_run_id: str) -> list[dict[str, Any]]:
         """Read all entries from a run's index file."""
         index_path = self.get_index_path(rl_run_id)
 
@@ -199,7 +199,7 @@ class VolumeStorage:
             return []
 
         entries = []
-        with open(index_path, "r") as f:
+        with open(index_path) as f:
             for line in f:
                 if line.strip():
                     entries.append(json.loads(line))

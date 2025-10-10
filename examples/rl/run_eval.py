@@ -5,24 +5,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+import tomllib
+from typing import Any
 
 import httpx
-import tomllib
 
 
 class TaskAppClient:
     """Minimal async client for math single-step task app."""
 
-    def __init__(self, base_url: str, api_key: Optional[str] = None) -> None:
+    def __init__(self, base_url: str, api_key: str | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
-    async def __aenter__(self) -> "TaskAppClient":
+    async def __aenter__(self) -> TaskAppClient:
         headers = {"X-API-Key": self.api_key} if self.api_key else {}
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
@@ -49,32 +49,30 @@ class TaskAppClient:
             )
         return self._client
 
-    async def initialize(self, split: str, seed: int | None) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {"config": {"split": split}}
+    async def initialize(self, split: str, seed: int | None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"config": {"split": split}}
         if seed is not None:
             payload["seed"] = seed
         resp = await self.client.post("/env/math/initialize", json=payload)
         resp.raise_for_status()
         return resp.json()
 
-    async def step(self, env_id: str, tool_calls: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def step(self, env_id: str, tool_calls: list[dict[str, Any]]) -> dict[str, Any]:
         payload = {"env_id": env_id, "action": {"tool_calls": tool_calls}}
         resp = await self.client.post("/env/math/step", json=payload)
         resp.raise_for_status()
         return resp.json()
 
     async def terminate(self, env_id: str) -> None:
-        try:
+        with contextlib.suppress(Exception):
             await self.client.post("/env/math/terminate", json={"env_id": env_id})
-        except Exception:
-            pass
 
-    async def get_info(self) -> Dict[str, Any]:
+    async def get_info(self) -> dict[str, Any]:
         resp = await self.client.get("/info")
         resp.raise_for_status()
         return resp.json()
 
-    async def rollout(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def rollout(self, payload: dict[str, Any]) -> dict[str, Any]:
         resp = await self.client.post("/rollout", json=payload)
         resp.raise_for_status()
         return resp.json()
@@ -82,10 +80,10 @@ class TaskAppClient:
     async def post_inference(
         self,
         url: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         *,
-        headers: Dict[str, str] | None = None,
-    ) -> Dict[str, Any]:
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as c:
             resp = await c.post(url, json=payload, headers=headers)
         resp.raise_for_status()
@@ -96,7 +94,7 @@ TOOL_NAME = "math_submit"
 DEFAULT_SPLIT = os.getenv("MATH_EVAL_DEFAULT_SPLIT", "validation")
 
 
-def _math_tool_schema() -> List[Dict[str, Any]]:
+def _math_tool_schema() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -123,7 +121,7 @@ def _math_tool_schema() -> List[Dict[str, Any]]:
     ]
 
 
-def _build_messages(problem: str) -> List[Dict[str, Any]]:
+def _build_messages(problem: str) -> list[dict[str, Any]]:
     return [
         {
             "role": "system",
@@ -139,18 +137,18 @@ def _build_messages(problem: str) -> List[Dict[str, Any]]:
     ]
 
 
-def _parse_tool_calls(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _parse_tool_calls(data: dict[str, Any]) -> list[dict[str, Any]]:
     choices = data.get("choices") or []
     if not choices:
         return []
     message = choices[0].get("message") or {}
     raw_calls = message.get("tool_calls") or []
-    tool_calls: List[Dict[str, Any]] = []
+    tool_calls: list[dict[str, Any]] = []
     for call in raw_calls:
         function = call.get("function") or {}
         name = function.get("name")
         arguments = function.get("arguments")
-        parsed_args: Dict[str, Any]
+        parsed_args: dict[str, Any]
         if isinstance(arguments, str):
             try:
                 parsed_args = json.loads(arguments)
@@ -164,7 +162,7 @@ def _parse_tool_calls(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return tool_calls
 
 
-def _detect_provider(model: str, hint: Optional[str]) -> str:
+def _detect_provider(model: str, hint: str | None) -> str:
     if hint:
         return hint.lower()
     lowered = (model or "").lower()
@@ -193,10 +191,10 @@ async def _choose_actions(
     provider: str,
     model: str,
     problem: str,
-    policy_cfg: Dict[str, Any],
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    policy_cfg: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     messages = _build_messages(problem)
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "tools": _math_tool_schema(),
@@ -239,7 +237,7 @@ async def _choose_actions(
     return tool_calls, body
 
 
-def _tool_to_answer(tool_calls: List[Dict[str, Any]]) -> str:
+def _tool_to_answer(tool_calls: list[dict[str, Any]]) -> str:
     if not tool_calls:
         return ""
     args = tool_calls[0].get("args") or {}
@@ -251,11 +249,11 @@ async def eval_episode(
     client: TaskAppClient,
     *,
     split: str,
-    seed: Optional[int],
+    seed: int | None,
     model: str,
     provider: str,
-    policy_cfg: Dict[str, Any],
-) -> Dict[str, Any]:
+    policy_cfg: dict[str, Any],
+) -> dict[str, Any]:
     created = await client.initialize(split, seed)
     env_id = created["env_id"]
     observation = created.get("observation") or {}
@@ -288,10 +286,10 @@ async def eval_via_rollout(
     *,
     run_id: str,
     split: str,
-    seed: Optional[int],
+    seed: int | None,
     model: str,
-    policy_cfg: Dict[str, Any],
-) -> Dict[str, Any]:
+    policy_cfg: dict[str, Any],
+) -> dict[str, Any]:
     payload = {
         "run_id": run_id,
         "env": {
@@ -314,6 +312,7 @@ async def eval_via_rollout(
     steps = traj.get("steps") or []
     step = steps[0] if steps else {}
     info = step.get("info") or {}
+    observation = step.get("obs") or {}
     return {
         "seed": seed,
         "split": split,
@@ -328,14 +327,14 @@ async def eval_via_rollout(
     }
 
 
-def _load_config(path: Optional[str]) -> Dict[str, Any]:
+def _load_config(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
     with open(path, "rb") as fh:
         return tomllib.load(fh)
 
 
-def _default_policy_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+def _default_policy_cfg(cfg: dict[str, Any]) -> dict[str, Any]:
     policy = dict(cfg.get("policy") or {})
     if "inference_url" not in policy:
         env_url = os.getenv("INFERENCE_URL")
@@ -380,8 +379,8 @@ async def main() -> None:
     api_key = os.getenv("ENVIRONMENT_API_KEY")
 
     successes = 0
-    failures: Dict[str, int] = {}
-    results: List[Dict[str, Any]] = []
+    failures: dict[str, int] = {}
+    results: list[dict[str, Any]] = []
 
     async with TaskAppClient(task_app_url, api_key=api_key) as client:
         for episode in range(episodes):

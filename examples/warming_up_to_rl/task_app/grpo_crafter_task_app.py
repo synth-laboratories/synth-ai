@@ -1,4 +1,3 @@
-
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the TaskAppConfig defined in the colocated example at
@@ -15,12 +14,11 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-
 from synth_ai.task.apps import ModalDeploymentConfig, registry
-from .grpo_crafter import build_config
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
+from .grpo_crafter import build_config
 
 APP_ID = "grpo-crafter"
 
@@ -28,6 +26,7 @@ APP_ID = "grpo-crafter"
 def _build_base_config() -> TaskAppConfig:
     # Lazily construct the base config to avoid heavy work at import time
     return build_config()
+
 
 try:
     _REGISTERED_ENTRY = registry.get(APP_ID)
@@ -104,7 +103,7 @@ def fastapi_app():
         try:
             hdr = request.headers
             snapshot = {
-                "path": str(getattr(request, "url").path),
+                "path": str(request.url.path),
                 "have_x_api_key": bool(hdr.get("x-api-key")),
                 "have_x_api_keys": bool(hdr.get("x-api-keys")),
                 "have_authorization": bool(hdr.get("authorization")),

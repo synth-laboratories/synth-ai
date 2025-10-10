@@ -10,6 +10,14 @@ import os
 import sys
 
 import httpx
+from synth_ai.task import (
+    RolloutEnvSpec,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    RolloutSafetyConfig,
+    TaskAppClient,
+)
 
 
 def check_health(base_url: str, api_key: str) -> None:
@@ -28,16 +36,6 @@ def check_health(base_url: str, api_key: str) -> None:
             print(f"/health ok: {data}")
     except Exception as exc:
         print(f"warning: failed to call /health: {exc}")
-
-
-from synth_ai.task import (
-    RolloutEnvSpec,
-    RolloutPolicySpec,
-    RolloutRecordConfig,
-    RolloutRequest,
-    RolloutSafetyConfig,
-    TaskAppClient,
-)
 
 
 def build_request(

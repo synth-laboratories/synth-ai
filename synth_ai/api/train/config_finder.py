@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import click
 
@@ -56,7 +56,7 @@ def _save_last_config(config_path: Path) -> None:
 
 def _iter_candidate_paths() -> Iterable[Path]:
     seen: set[Path] = set()
-    
+
     # Prioritize current working directory first
     try:
         cwd = Path.cwd().resolve()
@@ -172,13 +172,20 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
     return candidates
 
 
-def prompt_for_config(candidates: list[ConfigCandidate], *, requested_type: str | None) -> ConfigCandidate:
+def prompt_for_config(
+    candidates: list[ConfigCandidate], *, requested_type: str | None, allow_autoselect: bool = False
+) -> ConfigCandidate:
     if not candidates:
         raise click.ClickException("No training configs found. Pass --config explicitly.")
 
     # Check for last used config and move it to the top if found
     last_config = _load_last_config()
     default_idx = 1
+
+    if allow_autoselect and len(candidates) == 1:
+        chosen = candidates[0]
+        _save_last_config(chosen.path)
+        return chosen
 
     if last_config:
         for idx, cand in enumerate(candidates):

@@ -1,9 +1,11 @@
-from __future__ import annotations
-
 """Authentication helpers shared by Task Apps."""
 
+from __future__ import annotations
+
 import os
-from typing import Iterable, Optional, Any, Set
+from collections.abc import Iterable
+from contextlib import suppress
+from typing import Any
 
 from .errors import http_exception
 
@@ -24,7 +26,7 @@ def _mask(value: str, *, prefix: int = 4) -> str:
     return f"{visible}{'…' if len(value) > prefix else ''}"
 
 
-def normalize_environment_api_key() -> Optional[str]:
+def normalize_environment_api_key() -> str | None:
     """Ensure `ENVIRONMENT_API_KEY` is populated from dev fallbacks.
 
     Returns the resolved key (if any) so callers can branch on configuration.
@@ -45,7 +47,7 @@ def normalize_environment_api_key() -> Optional[str]:
     return None
 
 
-def allowed_environment_api_keys() -> Set[str]:
+def allowed_environment_api_keys() -> set[str]:
     """Return the set of valid environment API keys for this Task App.
 
     Includes:
@@ -135,7 +137,7 @@ def require_api_key_dependency(request: Any) -> None:
             bearer.append(a.split(" ", 1)[1].strip())
     candidates = _split_csv(single + multi + bearer)
     if not any(candidate in allowed for candidate in candidates):
-        try:
+        with suppress(Exception):
             print(
                 {
                     "task_auth_failed": True,
@@ -149,8 +151,6 @@ def require_api_key_dependency(request: Any) -> None:
                 },
                 flush=True,
             )
-        except Exception:
-            pass
         # Use 400 to make failures unmistakable during preflight
         raise http_exception(
             400,

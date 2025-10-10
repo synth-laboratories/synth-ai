@@ -8,11 +8,10 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, Tuple
 
 
-def load_env_file(path: Path) -> Dict[str, str]:
-    env: Dict[str, str] = {}
+def load_env_file(path: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
     if not path.exists():
         raise FileNotFoundError(f".env not found at {path}")
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -24,7 +23,7 @@ def load_env_file(path: Path) -> Dict[str, str]:
     return env
 
 
-def write_temp_env(kv: Dict[str, str]) -> Path:
+def write_temp_env(kv: dict[str, str]) -> Path:
     fd, p = tempfile.mkstemp(prefix="modal_secret_", suffix=".env")
     path = Path(p)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
@@ -33,14 +32,14 @@ def write_temp_env(kv: Dict[str, str]) -> Path:
     return path
 
 
-def run(cmd: str) -> Tuple[int, str]:
+def run(cmd: str) -> tuple[int, str]:
     proc = subprocess.run(
         cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     return proc.returncode, proc.stdout
 
 
-def ensure_secret(secret_name: str, kv: Dict[str, str]) -> None:
+def ensure_secret(secret_name: str, kv: dict[str, str]) -> None:
     if not kv:
         print(f"[skip] {secret_name}: no values provided")
         return
@@ -48,10 +47,10 @@ def ensure_secret(secret_name: str, kv: Dict[str, str]) -> None:
     kv_args = " ".join([f"{shlex.quote(k)}={shlex.quote(v)}" for k, v in kv.items()])
 
     # Try plain modal first; fallback to uv run modal
-    def _create() -> Tuple[int, str]:
+    def _create() -> tuple[int, str]:
         return run(f"modal secret create {shlex.quote(secret_name)} {kv_args}")
 
-    def _delete() -> Tuple[int, str]:
+    def _delete() -> tuple[int, str]:
         return run(f"printf 'y\n' | modal secret delete {shlex.quote(secret_name)}")
 
     rc, out = _create()

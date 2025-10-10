@@ -105,3 +105,4 @@ cli.add_command(task_app_group.commands["serve"], name="serve")
 cli.add_command(task_app_group.commands["deploy"], name="deploy")
 
 cli.add_command(task_app_group.commands["modal-serve"], name="modal-serve")
+cli.add_command(task_app_group.commands["info"], name="info")

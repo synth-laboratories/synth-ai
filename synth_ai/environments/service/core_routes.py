@@ -97,15 +97,12 @@ def create_task_instance_for_environment(
             task.initial_engine_snapshot["seed"] = config["seed"]
 
         # For CrafterClassic, also handle difficulty
-        if env_name == "CrafterClassic" and config:
-            if "difficulty" in config:
-                task.initial_engine_snapshot["difficulty"] = config["difficulty"]
+        if env_name == "CrafterClassic" and config and "difficulty" in config:
+            task.initial_engine_snapshot["difficulty"] = config["difficulty"]
 
         # For MiniGrid, handle environment selection
-        if env_name == "MiniGrid" and config:
-            # Check if a specific environment is requested
-            if "env_name" in config:
-                task.initial_engine_snapshot["env_name"] = config["env_name"]
+        if env_name == "MiniGrid" and config and "env_name" in config:
+            task.initial_engine_snapshot["env_name"] = config["env_name"]
 
         return task
 
