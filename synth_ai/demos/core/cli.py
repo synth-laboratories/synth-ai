@@ -1,25 +1,26 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
-import sys
-import time
-from pathlib import Path
-from typing import Any, Dict, Callable
 import shutil
 import stat
+import sys
 import textwrap
+import time
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
-from synth_ai.demos.demo_task_apps import core as demo_core
-from synth_ai.demos.demo_task_apps.core import DemoEnv, DEFAULT_TASK_APP_SECRET_NAME
 from synth_ai.demo_registry import (
-    CopySpec,
     DemoTemplate,
     get_demo_template,
     list_demo_templates,
 )
-from synth_ai.handshake import run_handshake, HandshakeError
+from synth_ai.demos.demo_task_apps import core as demo_core
+from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
+from synth_ai.handshake import HandshakeError, run_handshake
 
 
 def _key_preview(value: str, label: str) -> str:
@@ -59,7 +60,6 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     try:
         print("\n⏳ Connecting SDK to your browser session…")
         res = run_handshake()
-        user = res.get("user") or {}
         org = res.get("org") or {}
         keys = res.get("keys") or {}
         synth_key = str(keys.get("synth") or "").strip()
@@ -107,8 +107,8 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     demo_core.persist_env_file_path(dotenv_path)
 
     # 2) Reload env after handshake to pick up values from .env (suppress env prints)
-    import io
     import contextlib
+    import io
 
     _buf = io.StringIO()
     with contextlib.redirect_stdout(_buf):
@@ -126,9 +126,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
             return
         current = env.task_app_base_url
         needs_lookup = False
-        if not current:
-            needs_lookup = True
-        elif not _is_modal_public_url(current):
+        if not current or not _is_modal_public_url(current):
             needs_lookup = True
         if not needs_lookup:
             return
@@ -173,16 +171,14 @@ def cmd_setup(_args: argparse.Namespace) -> int:
 
     _maybe_fix_task_url()
 
-    ok_backend = False
-    ok_task = False
     if env.dev_backend_url:
         api = env.dev_backend_url.rstrip("/") + (
             "" if env.dev_backend_url.endswith("/api") else "/api"
         )
-        ok_backend = demo_core.assert_http_ok(api + "/health", method="GET")
+        demo_core.assert_http_ok(api + "/health", method="GET")
         # Intentionally suppress backend health print for concise output
     if env.task_app_base_url:
-        ok_task = demo_core.assert_http_ok(
+        demo_core.assert_http_ok(
             env.task_app_base_url.rstrip("/") + "/health", method="GET"
         ) or demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
         # Intentionally suppress task app health print
@@ -723,7 +719,6 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
 
-    rollout_url = task_url.rstrip("/") + "/health/rollout"
     print(f"[{label}] Verifying rollout health:")
     try:
         ek = (env_key or "").strip()
@@ -738,7 +733,6 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
         print(f"[{label}] GET", h)
         rc, body = _http("GET", h, headers={"X-API-Key": env_key})
         if rc == 200:
-            rollout_url = h
             break
     print(f"[{label}] status: {rc}")
     try:
@@ -750,10 +744,8 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     print(f"[{label}] body:", preview)
     if rc != 200:
         print(f"[{label}] Warning: rollout health check failed ({rc}). Response: {body}")
-        try:
+        with contextlib.suppress(Exception):
             print(f"[{label}] Sent header X-API-Key → {_key_preview(env_key, 'X-API-Key')}")
-        except Exception:
-            pass
     else:
         print(f"[{label}] Task app rollout health check OK.")
 
@@ -1126,14 +1118,14 @@ def _ensure_modal_installed() -> None:
     if auth_ok:
         print(f"✓ Modal authenticated: {auth_msg}")
     else:
-        print(f"\n⚠️  Modal authentication required")
+        print("\n⚠️  Modal authentication required")
         print(f"   Status: {auth_msg}")
-        print(f"\n   To authenticate Modal, run:")
-        print(f"     modal setup")
-        print(f"\n   Or set environment variables:")
-        print(f"     export MODAL_TOKEN_ID=your-token-id")
-        print(f"     export MODAL_TOKEN_SECRET=your-token-secret")
-        print(f"\n   You can deploy later after authenticating.\n")
+        print("\n   To authenticate Modal, run:")
+        print("     modal setup")
+        print("\n   Or set environment variables:")
+        print("     export MODAL_TOKEN_ID=your-token-id")
+        print("     export MODAL_TOKEN_SECRET=your-token-secret")
+        print("\n   You can deploy later after authenticating.\n")
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -1289,7 +1281,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             should_write = True
             if env_path.exists() and not directory_cleared:
                 try:
-                    response = input(f"File .env exists. Overwrite? [y/N]: ").strip().lower()
+                    response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     print("\nCancelled.")
                     return 1
@@ -1353,9 +1345,12 @@ def cmd_init(args: argparse.Namespace) -> int:
 
 
 def _http(
-    method: str, url: str, headers: Dict[str, str] | None = None, body: Dict[str, Any] | None = None
-) -> tuple[int, Dict[str, Any] | str]:
-    import urllib.request, urllib.error, json as _json, ssl
+    method: str, url: str, headers: dict[str, str] | None = None, body: dict[str, Any] | None = None
+) -> tuple[int, dict[str, Any] | str]:
+    import json as _json
+    import ssl
+    import urllib.error
+    import urllib.request
 
     data = None
     if body is not None:
@@ -1402,7 +1397,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     env = demo_core.load_env()
     cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
+    demo_core.load_dotenv_file(cwd_env_path)
 
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -1487,7 +1482,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Fallback: legacy jobs API flow
     with open(cfg_path, "rb") as fh:
         inline_cfg = tomllib.load(fh)
-    with open(cfg_path, "r") as fh2:
+    with open(cfg_path) as fh2:
         toml_text = fh2.read()
     if args.batch_size is not None:
         inline_cfg.setdefault("training", {})["batch_size"] = int(args.batch_size)
@@ -1498,13 +1493,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     # Print backend and key preview before request for clearer diagnostics
     try:
         sk = (env.synth_api_key or "").strip()
-        sk_len = len(sk)
-        sk_tail = sk[-5:] if sk_len >= 5 else sk
         print(f"[run] Backend API: {api}")
         print(f"[run] {_key_preview(sk, 'SYNTH_API_KEY')}")
     except Exception:
         pass
-    data_fragment: Dict[str, Any] = {
+    data_fragment: dict[str, Any] = {
         "model": model_name,
         "endpoint_base_url": env.task_app_base_url,
         "config": inline_cfg,
@@ -1529,7 +1522,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         if ":" in gshape:
             t, c = gshape.split(":", 1)
             compute = {"gpu_type": t.upper(), "gpu_count": int(c)}
-    body: Dict[str, Any] = {
+    body: dict[str, Any] = {
         "job_type": "rl",
         "data": data_fragment,
     }
@@ -1588,7 +1581,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     pass
                 try:
                     sent_keys = detail.get("sent_keys")
-                    if isinstance(sent_keys, (list, tuple)):
+                    if isinstance(sent_keys, list | tuple):
                         previews = []
                         for idx, val in enumerate(sent_keys):
                             if isinstance(val, str):

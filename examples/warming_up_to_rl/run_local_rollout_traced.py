@@ -7,13 +7,11 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-import sys
-
 import httpx
-
 from synth_ai.task import (
     RolloutEnvSpec,
     RolloutPolicySpec,
@@ -331,7 +329,7 @@ async def main() -> None:
     base_url = args.base_url
     if args.base_url == "http://localhost:8001":
         print("\nTask app configuration:")
-        base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
+        base_url_input = input("Task app base URL [http://localhost:8001]: ").strip()
         base_url = base_url_input if base_url_input else "http://localhost:8001"
 
     api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
@@ -379,7 +377,7 @@ async def main() -> None:
     print("\nRollout configuration:")
     max_llm_calls = args.max_llm_calls
     if args.max_llm_calls == 1:
-        max_llm_calls_input = input(f"Max LLM calls [10]: ").strip()
+        max_llm_calls_input = input("Max LLM calls [10]: ").strip()
         max_llm_calls = int(max_llm_calls_input) if max_llm_calls_input else 10
 
     # Override args with prompted values

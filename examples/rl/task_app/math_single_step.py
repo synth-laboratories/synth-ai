@@ -1,21 +1,22 @@
-from __future__ import annotations
-
 """Task app configuration for a single-step math reasoning environment."""
+
+from __future__ import annotations
 
 import contextlib
 import os
 import random
 import re
 import uuid
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, MutableMapping, Optional, Sequence, cast
+from typing import Any, cast
 
 import httpx
 from datasets import load_dataset
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -25,9 +26,9 @@ from synth_ai.task.contracts import (
     TaskInfo,
 )
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
+from synth_ai.task.errors import http_exception
 from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
-from synth_ai.task.errors import http_exception
 from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
@@ -35,7 +36,6 @@ from synth_ai.task.tracing_utils import (
     tracing_env_enabled,
 )
 from synth_ai.task.vendors import normalize_vendor_keys
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -43,7 +43,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 _modal_volume_candidate = Path(
     os.getenv("MATH_MODAL_DATASET_DIR", "/modal_volumes/math_dataset")
 ).expanduser()
-_modal_volume_root: Optional[Path] = None
+_modal_volume_root: Path | None = None
 try:
     _modal_volume_candidate.mkdir(parents=True, exist_ok=True)
     _modal_volume_root = _modal_volume_candidate
@@ -105,7 +105,7 @@ MATH_DATASET_SPEC = TaskDatasetSpec(
 _BOXED_MARKERS: tuple[str, ...] = ("\\boxed", "boxed")
 
 
-def _extract_boxed(text: str) -> Optional[str]:
+def _extract_boxed(text: str) -> str | None:
     if not text:
         return None
     for marker in _BOXED_MARKERS:
@@ -174,9 +174,9 @@ class MathDataset:
         self.name = name
         self.config = config
         self.splits = [split for split in splits if split]
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._local_dir = os.getenv("MATH_DATASET_LOCAL_DIR")
-        self._hf_token: Optional[str] = None
+        self._hf_token: str | None = None
         for key in HF_TOKEN_ENV_KEYS:
             value = os.getenv(key)
             if value:
@@ -186,7 +186,7 @@ class MathDataset:
                     break
         # No multi-candidate fallback: enforce explicit dataset id
 
-    def _local_file_for_split(self, split: str) -> Optional[Path]:
+    def _local_file_for_split(self, split: str) -> Path | None:
         specific = os.getenv(f"MATH_DATASET_LOCAL_{split.upper()}_FILE")
         if specific:
             path = Path(specific).expanduser()
@@ -213,7 +213,7 @@ class MathDataset:
                 self._cache[split] = dataset["train"]
             else:
                 try:
-                    load_kwargs: Dict[str, Any] = {"split": split}
+                    load_kwargs: dict[str, Any] = {"split": split}
                     if self.config:
                         load_kwargs["name"] = self.config
                     if self._hf_token:
@@ -227,7 +227,7 @@ class MathDataset:
                             tmp_path = target.with_name(target.name + ".tmp")
                             try:
                                 local_dir.mkdir(parents=True, exist_ok=True)
-                                getattr(ds, "to_json")(str(tmp_path))
+                                ds.to_json(str(tmp_path))
                                 tmp_path.replace(target)
                             except Exception:
                                 with contextlib.suppress(FileNotFoundError):
@@ -241,7 +241,7 @@ class MathDataset:
                     raise RuntimeError(" ".join(hints)) from exc
         return self._cache[split]
 
-    def sample(self, *, split: str, index: Optional[int] = None) -> Dict[str, Any]:
+    def sample(self, *, split: str, index: int | None = None) -> dict[str, Any]:
         dataset = self._load_split(split)
         if len(dataset) == 0:
             raise RuntimeError(f"Dataset split '{split}' is empty")
@@ -326,9 +326,9 @@ class MathEnvironmentManager:
 
     def __init__(self, dataset: MathDataset) -> None:
         self.dataset = dataset
-        self._states: Dict[str, MathEnvState] = {}
+        self._states: dict[str, MathEnvState] = {}
 
-    def create(self, *, split: str, index: Optional[int], seed: Optional[int]) -> MathEnvState:
+    def create(self, *, split: str, index: int | None, seed: int | None) -> MathEnvState:
         if index is None and seed is not None:
             index = seed
         sample = self.dataset.sample(split=split, index=index)
@@ -354,11 +354,11 @@ class MathEnvironmentManager:
 
 
 class InitializePayload(BaseModel):
-    seed: Optional[int] = None
-    config: Dict[str, Any] = Field(default_factory=dict)
+    seed: int | None = None
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
-def _observation_from_state(state: MathEnvState) -> Dict[str, Any]:
+def _observation_from_state(state: MathEnvState) -> dict[str, Any]:
     return {
         "problem": state.problem,
         "split": state.split,
@@ -390,12 +390,12 @@ def _score_submission(
 math_router = APIRouter()
 
 
-def _preview_tool_calls(tool_calls: Sequence[Mapping[str, Any]]) -> list[Dict[str, Any]]:
+def _preview_tool_calls(tool_calls: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Return a compact, log-friendly preview of tool calls.
 
     Truncates long fields to avoid noisy logs and leaking excessive content.
     """
-    preview: list[Dict[str, Any]] = []
+    preview: list[dict[str, Any]] = []
     for call in list(tool_calls or [])[:3]:
         args = dict(call.get("args") or {})
         answer = str(args.get("answer") or "")
@@ -412,7 +412,7 @@ def _preview_tool_calls(tool_calls: Sequence[Mapping[str, Any]]) -> list[Dict[st
 
 def _event_and_outcome_components(
     tool_calls: Sequence[Mapping[str, Any]], *, correct: bool, reward: float
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Approximate component-wise scores for RL-style logs.
 
     - env:     task-level scalar reward (our single-step outcome)
@@ -434,7 +434,7 @@ def _event_and_outcome_components(
 
 
 @math_router.post("/env/math/initialize")
-async def initialize_env(request: Request, payload: InitializePayload) -> Dict[str, Any]:
+async def initialize_env(request: Request, payload: InitializePayload) -> dict[str, Any]:
     manager: MathEnvironmentManager = request.app.state.math_env_manager
     split = str(payload.config.get("split") or DEFAULT_SPLIT)
     seed = payload.seed
@@ -450,7 +450,7 @@ async def initialize_env(request: Request, payload: InitializePayload) -> Dict[s
 
 
 @math_router.post("/env/math/step")
-async def step_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def step_env(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
     manager: MathEnvironmentManager = request.app.state.math_env_manager
     env_id = str(payload.get("env_id") or "")
     if not env_id:
@@ -463,7 +463,7 @@ async def step_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
     action = payload.get("action") or {}
     tool_calls = action.get("tool_calls") or payload.get("tool_calls") or []
     reward, status, correct = _score_submission(state, tool_calls)
-    try:
+    with contextlib.suppress(Exception):
         print(
             "[MATH_STEP] env_id=",
             state.env_id,
@@ -483,8 +483,6 @@ async def step_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
             _event_and_outcome_components(tool_calls, correct=correct, reward=reward),
             flush=True,
         )
-    except Exception:
-        pass
     state.done = True
 
     observation = _observation_from_state(state)
@@ -502,7 +500,7 @@ async def step_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
 
 
 @math_router.post("/env/math/terminate")
-async def terminate_env(request: Request, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def terminate_env(request: Request, payload: dict[str, Any]) -> dict[str, Any]:
     manager: MathEnvironmentManager = request.app.state.math_env_manager
     env_id = str(payload.get("env_id") or "")
     if env_id:
@@ -525,7 +523,7 @@ def _resolve_inference_url(base_url: str) -> str:
 
 async def _call_inference(
     policy_config: Mapping[str, Any], observation: Mapping[str, Any]
-) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     inference_url = str(policy_config.get("inference_url") or "").rstrip("/")
     if not inference_url:
         raise RuntimeError("policy.config.inference_url required for rollout")
@@ -557,7 +555,7 @@ async def _call_inference(
         },
     ]
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "tools": [
@@ -626,7 +624,7 @@ async def _call_inference(
             function = call.get("function") or {}
             name = function.get("name")
             arguments = function.get("arguments")
-            parsed_args: Dict[str, Any]
+            parsed_args: dict[str, Any]
             if isinstance(arguments, str):
                 try:
                     import json
@@ -640,7 +638,7 @@ async def _call_inference(
                 parsed_args = {}
             tool_calls.append({"tool": name, "args": parsed_args})
     # Lightweight provider-side logging
-    try:
+    with contextlib.suppress(Exception):
         print(
             "[MATH_INFER] model=",
             model,
@@ -648,8 +646,6 @@ async def _call_inference(
             _preview_tool_calls(tool_calls),
             flush=True,
         )
-    except Exception:
-        pass
     return tool_calls, data
 
 
@@ -664,9 +660,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         "index": sample["index"],
     }
 
-    tool_calls: list[Dict[str, Any]] = []
-    inference_payload: Dict[str, Any] | None = None
-    error_info: Dict[str, Any] = {}
+    tool_calls: list[dict[str, Any]] = []
+    inference_payload: dict[str, Any] | None = None
+    error_info: dict[str, Any] = {}
     try:
         tool_calls, inference_payload = await _call_inference(
             request.policy.config or {}, observation
@@ -691,7 +687,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     )
 
     # Log a concise summary so we can debug reward=0 issues in production
-    try:
+    with contextlib.suppress(Exception):
         print(
             "[MATH_ROLLOUT] run=",
             request.run_id,
@@ -711,8 +707,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             _event_and_outcome_components(tool_calls, correct=correct, reward=reward),
             flush=True,
         )
-    except Exception:
-        pass
 
     step = RolloutStep(
         obs=observation,
@@ -854,7 +848,7 @@ EVENTS_RUBRIC: Rubric = cast(
 )
 
 
-def describe_taskset(dataset: MathDataset) -> Dict[str, Any]:
+def describe_taskset(dataset: MathDataset) -> dict[str, Any]:
     return {
         **MATH_DATASET_SPEC.model_dump(),
         "hf_dataset": DATASET_NAME,
@@ -895,7 +889,7 @@ def build_config() -> TaskAppConfig:
     )
     sft_output_dir = resolve_sft_output_dir()
 
-    app_state: Dict[str, Any] = {
+    app_state: dict[str, Any] = {
         "math_dataset": dataset,
         "math_env_manager": MathEnvironmentManager(dataset),
         "tracing_enabled": tracing_enabled,

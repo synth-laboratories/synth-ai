@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def _ensure_positive(value: Any, *, name: str) -> int:
@@ -21,10 +21,10 @@ class RLJobConfig:
     trainer_id: str
     batch_size: int = 1
     group_size: int = 2
-    job_config_id: Optional[str] = None
-    inline_config: Optional[Dict[str, Any]] = None
+    job_config_id: str | None = None
+    inline_config: dict[str, Any] | None = None
 
-    def trainer_dict(self) -> Dict[str, Any]:
+    def trainer_dict(self) -> dict[str, Any]:
         return {
             "batch_size": _ensure_positive(self.batch_size, name="trainer.batch_size"),
             "group_size": _ensure_positive(self.group_size, name="trainer.group_size"),

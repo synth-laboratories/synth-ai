@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import os
-from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from typing import Any
 
 import aiohttp
 
@@ -28,9 +28,9 @@ class AsyncHttpClient:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = aiohttp.ClientTimeout(total=timeout)
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
 
-    async def __aenter__(self) -> "AsyncHttpClient":
+    async def __aenter__(self) -> AsyncHttpClient:
         if self._session is None:
             headers = {"authorization": f"Bearer {self._api_key}"}
             # Optional dev overrides for user/org context
@@ -60,8 +60,8 @@ class AsyncHttpClient:
         self,
         path: str,
         *,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
@@ -69,7 +69,7 @@ class AsyncHttpClient:
             return await self._handle_response(resp, url)
 
     async def post_json(
-        self, path: str, *, json: Dict[str, Any], headers: Optional[Dict[str, str]] = None
+        self, path: str, *, json: dict[str, Any], headers: dict[str, str] | None = None
     ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
@@ -80,9 +80,9 @@ class AsyncHttpClient:
         self,
         path: str,
         *,
-        data: Dict[str, Any],
-        files: Dict[str, tuple[str, bytes, str | None]],
-        headers: Optional[Dict[str, str]] = None,
+        data: dict[str, Any],
+        files: dict[str, tuple[str, bytes, str | None]],
+        headers: dict[str, str] | None = None,
     ) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
@@ -99,7 +99,7 @@ class AsyncHttpClient:
         async with self._session.post(url, data=form, headers=headers) as resp:
             return await self._handle_response(resp, url)
 
-    async def delete(self, path: str, *, headers: Optional[Dict[str, str]] = None) -> Any:
+    async def delete(self, path: str, *, headers: dict[str, str] | None = None) -> Any:
         url = self._abs(path)
         assert self._session is not None, "AsyncHttpClient must be used as an async context manager"
         async with self._session.delete(url, headers=headers) as resp:

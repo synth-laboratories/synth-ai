@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import click
-
-from .utils import ensure_api_base, load_toml, TrainError
 from synth_ai.api.models.supported import UnsupportedModelError, normalize_model_identifier
 from synth_ai.learning.sft.config import prepare_sft_job_payload
+
+from .utils import TrainError, ensure_api_base, load_toml
 
 
 @dataclass(slots=True)
@@ -37,15 +37,15 @@ def build_rl_payload(
     model_cfg = data.get("model") if isinstance(data.get("model"), dict) else {}
 
     final_task_url = (
-        overrides.get("task_url") or task_url or services.get("task_url") or ""
+        overrides.get("task_url") or task_url or (services.get("task_url") if isinstance(services, dict) else None) or ""
     ).strip()
     if not final_task_url:
         raise click.ClickException(
             "Task app URL required (provide --task-url or set services.task_url in TOML)"
         )
 
-    model_source = (model_cfg.get("source") or "").strip()
-    model_base = (model_cfg.get("base") or "").strip()
+    model_source = str(model_cfg.get("source") if isinstance(model_cfg, dict) else None or "").strip()
+    model_base = str(model_cfg.get("base") if isinstance(model_cfg, dict) else None or "").strip()
     override_model = (overrides.get("model") or "").strip()
     if override_model:
         model_source = override_model
@@ -105,7 +105,7 @@ def build_sft_payload(
     train_cfg = data.get("training") if isinstance(data.get("training"), dict) else {}
     compute_cfg = data.get("compute") if isinstance(data.get("compute"), dict) else {}
 
-    raw_dataset = dataset_override or job_cfg.get("data") or job_cfg.get("data_path")
+    raw_dataset = dataset_override or (job_cfg.get("data") if isinstance(job_cfg, dict) else None) or (job_cfg.get("data_path") if isinstance(job_cfg, dict) else None)
     if not raw_dataset:
         raise TrainError("Dataset not specified; pass --dataset or set [job].data")
     dataset_path = Path(raw_dataset)
@@ -117,8 +117,8 @@ def build_sft_payload(
         raise TrainError(f"Dataset not found: {dataset_path}")
 
     validation_path = (
-        data_cfg.get("validation_path")
-        if isinstance(data_cfg.get("validation_path"), str)
+        data_cfg.get("validation_path") if isinstance(data_cfg, dict) else None
+        if isinstance(data_cfg, dict) and isinstance(data_cfg.get("validation_path"), str)
         else None
     )
     validation_file = None
@@ -132,7 +132,7 @@ def build_sft_payload(
             validation_file = vpath
 
     hp_block: dict[str, Any] = {
-        "n_epochs": int(hp_cfg.get("n_epochs", 1)),
+        "n_epochs": int(hp_cfg.get("n_epochs", 1) if isinstance(hp_cfg, dict) else 1),
     }
     for key in (
         "batch_size",
@@ -144,27 +144,28 @@ def build_sft_payload(
         "warmup_ratio",
         "train_kind",
     ):
-        if key in hp_cfg:
+        if isinstance(hp_cfg, dict) and key in hp_cfg:
             hp_block[key] = hp_cfg[key]
-    if isinstance(hp_cfg.get("parallelism"), dict):
+    if isinstance(hp_cfg, dict) and isinstance(hp_cfg.get("parallelism"), dict):
         hp_block["parallelism"] = hp_cfg["parallelism"]
 
     compute_block = {
-        k: compute_cfg[k] for k in ("gpu_type", "gpu_count", "nodes") if k in compute_cfg
+        k: compute_cfg[k] for k in ("gpu_type", "gpu_count", "nodes") 
+        if isinstance(compute_cfg, dict) and k in compute_cfg
     }
 
     effective = {
         "compute": compute_block,
         "data": {
             "topology": data_cfg.get("topology", {})
-            if isinstance(data_cfg.get("topology"), dict)
+            if isinstance(data_cfg, dict) and isinstance(data_cfg.get("topology"), dict)
             else {}
         },
-        "training": {k: v for k, v in train_cfg.items() if k in ("mode", "use_qlora")},
+        "training": {k: v for k, v in (train_cfg.items() if isinstance(train_cfg, dict) else []) if k in ("mode", "use_qlora")},
     }
 
     validation_cfg = (
-        train_cfg.get("validation") if isinstance(train_cfg.get("validation"), dict) else None
+        train_cfg.get("validation") if isinstance(train_cfg, dict) and isinstance(train_cfg.get("validation"), dict) else None
     )
     if isinstance(validation_cfg, dict):
         hp_block.update(
@@ -180,7 +181,7 @@ def build_sft_payload(
             "enabled": bool(validation_cfg.get("enabled", True))
         }
 
-    raw_model = (job_cfg.get("model") or data.get("model") or "").strip()
+    raw_model = str(job_cfg.get("model") if isinstance(job_cfg, dict) else None or data.get("model") or "").strip()
     if not raw_model:
         raise TrainError("Model not specified; set [job].model or [model].base in the config")
     try:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import contextlib
 import os
-from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,9 +15,9 @@ class TaskApp:
 
     def __init__(
         self,
-        service_base_url: Optional[str] = None,
-        vllm_base_url: Optional[str] = None,
-        default_model: Optional[str] = None,
+        service_base_url: str | None = None,
+        vllm_base_url: str | None = None,
+        default_model: str | None = None,
     ) -> None:
         self.service_base_url = service_base_url or os.getenv(
             "SERVICE_BASE_URL", "http://localhost:8000"
@@ -67,38 +67,37 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         @app.middleware("http")
         async def validate_environment(request, call_next):
             # Check if this is an environment-related request
-            if request.url.path.startswith("/env/") or request.url.path.startswith("/rollout"):
-                # Extract environment name from request body for POST requests
-                if request.method == "POST":
-                    # We need to read the body to check env_name
-                    body = await request.body()
-                    try:
-                        import json
+            path = request.url.path
+            if (path.startswith("/env/") or path.startswith("/rollout")) and request.method == "POST":
+                # We need to read the body to check env_name
+                body = await request.body()
+                try:
+                    import json
 
-                        data = json.loads(body) if body else {}
-                        env_name = data.get("env_name", "").lower()
+                    data = json.loads(body) if body else {}
+                    env_name = data.get("env_name", "").lower()
 
-                        # Check if environment is allowed
-                        if env_name and env_name not in [e.lower() for e in allowed_environments]:
-                            from fastapi import HTTPException
+                    # Check if environment is allowed
+                    if env_name and env_name not in [e.lower() for e in allowed_environments]:
+                        from fastapi import HTTPException
 
-                            raise HTTPException(
-                                status_code=403,
-                                detail=f"Environment '{env_name}' not allowed. This service only handles: {allowed_environments}",
-                            )
-                    except json.JSONDecodeError:
-                        pass  # Invalid JSON, let the endpoint handle it
+                        raise HTTPException(
+                            status_code=403,
+                            detail=f"Environment '{env_name}' not allowed. This service only handles: {allowed_environments}",
+                        )
+                except json.JSONDecodeError:
+                    pass  # Invalid JSON, let the endpoint handle it
 
-                    # Recreate request with the body we consumed
-                    request._body = body
+                # Recreate request with the body we consumed
+                request._body = body
 
             response = await call_next(request)
             return response
 
     # Mount routers
+    from .branching import router as branching_router
     from .environment_routes import router as env_router
     from .rollout import router as rollout_router
-    from .branching import router as branching_router
 
     app.include_router(env_router, prefix="/env", tags=["environment"])
 
@@ -109,10 +108,8 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         app.include_router(policy_router, prefix="/policy", tags=["policy"])
     except Exception as _e:
         # Log lightweight message; policy endpoints will be unavailable
-        try:
+        with contextlib.suppress(Exception):
             print(f"[hosted_app] Skipping policy routes: {_e}", flush=True)
-        except Exception:
-            pass
 
     app.include_router(rollout_router, tags=["rollout"])
     app.include_router(branching_router, tags=["branching"])
@@ -148,7 +145,6 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         - If X-API-Key header is provided and mismatches, returns 401.
         - Otherwise returns 200 with basic info.
         """
-        import os as _os
 
         # Check if any environment API keys are configured
         from synth_ai.task.auth import allowed_environment_api_keys
@@ -190,7 +186,7 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         try:
             hdr = request.headers
             snapshot = {
-                "path": str(getattr(request, "url").path),
+                "path": str(request.url.path),
                 "have_x_api_key": bool(hdr.get("x-api-key")),
                 "have_x_api_keys": bool(hdr.get("x-api-keys")),
                 "have_authorization": bool(hdr.get("authorization")),

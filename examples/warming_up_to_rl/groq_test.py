@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Quick smoke test that drives a rollout through the Groq proxy-backed Crafter Task App."""
+
+from __future__ import annotations
 
 import argparse
 import asyncio
@@ -29,8 +29,8 @@ def _build_policy_payload(seed: int, model: str) -> dict[str, Any]:
             {
                 "role": "user",
                 "content": (
-                    "Environment seed {seed}. Plan initial survival/crafting steps and then call interact with concrete actions."
-                ).format(seed=seed),
+                    f"Environment seed {seed}. Plan initial survival/crafting steps and then call interact with concrete actions."
+                ),
             },
         ],
     }

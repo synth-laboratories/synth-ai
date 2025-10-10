@@ -1,14 +1,13 @@
-from __future__ import annotations
-
 """Modal task app for Hendrycks MATH single-step RL environment."""
 
+from __future__ import annotations
+
 import os
+from collections.abc import Iterable
+from functools import lru_cache
 from pathlib import Path
 
 from modal import App, Image, Secret, asgi_app
-from functools import lru_cache
-from typing import Iterable
-
 from starlette.requests import Request
 
 try:  # Backward compatibility with older installed SDKs
@@ -99,8 +98,7 @@ app = App("hendrycks-math-task-app")
 @asgi_app()
 def fastapi_app():
     import httpx
-    from fastapi import Body, HTTPException, status
-    from fastapi import FastAPI
+    from fastapi import Body, FastAPI, HTTPException, status
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
 
@@ -388,7 +386,7 @@ def fastapi_app():
         try:
             hdr = request.headers
             snapshot = {
-                "path": str(getattr(request, "url").path),
+                "path": str(request.url.path),
                 "have_x_api_key": bool(hdr.get("x-api-key")),
                 "have_x_api_keys": bool(hdr.get("x-api-keys")),
                 "have_authorization": bool(hdr.get("authorization")),
@@ -412,32 +410,32 @@ def fastapi_app():
     env_key = (
         os.environ.get("ENVIRONMENT_API_KEY")
         or os.environ.get("DEV_ENVIRONMENT_API_KEY")
-        or os.environ.get("dev_environment_api_key")
+        or os.environ.get("DEV_ENVIRONMENT_API_KEY")
     )
     if not env_key:
         raise RuntimeError("ENVIRONMENT_API_KEY missing in task app environment")
 
-    OPENAI_REMOVE_FIELDS = (
+    openai_remove_fields = (
         "stop_after_tool_calls",
         "thinking_mode",
         "thinking_budget",
         "reasoning",
     )
-    OPENAI_REMOVE_SAMPLING_FIELDS = ("temperature", "top_p")
-    TOOL_CHOICE_FORCE = {"type": "function", "function": {"name": "submit_answer"}}
+    openai_remove_sampling_fields = ("temperature", "top_p")
+    tool_choice_force = {"type": "function", "function": {"name": "submit_answer"}}
 
     def _prepare_openai_payload(model: str | None, payload: dict[str, object]) -> dict[str, object]:
         sanitized = dict(payload)
-        for key in OPENAI_REMOVE_FIELDS:
+        for key in openai_remove_fields:
             sanitized.pop(key, None)
         if model and "gpt-5" in model:
             if "max_tokens" in sanitized and "max_completion_tokens" not in sanitized:
                 sanitized["max_completion_tokens"] = sanitized.pop("max_tokens")
             else:
                 sanitized.pop("max_tokens", None)
-            for field in OPENAI_REMOVE_SAMPLING_FIELDS:
+            for field in openai_remove_sampling_fields:
                 sanitized.pop(field, None)
-                sanitized["tool_choice"] = TOOL_CHOICE_FORCE
+                sanitized["tool_choice"] = tool_choice_force
                 sanitized["parallel_tool_calls"] = False
             return sanitized
 
@@ -470,8 +468,8 @@ def fastapi_app():
     # Minimal math rollout endpoint: alternates agent/env; calls inference_url chat/completions
     @api.post("/rollout")
     def rollout(request: dict[str, object] = Body(...)):
-        from typing import Any
         import json as _json
+        from typing import Any
 
         run_id = str(request.get("run_id"))
         data = request if isinstance(request, dict) else {}
@@ -563,7 +561,7 @@ def fastapi_app():
 
         user_prompt = (
             str(question)
-            if isinstance(question, (str, int, float)) and str(question).strip()
+            if isinstance(question, str | int | float) and str(question).strip()
             else "Solve the problem. Provide answer steps succinctly."
         )
         payload = {
@@ -597,7 +595,7 @@ def fastapi_app():
                     name = fn.get("name")
                     if isinstance(name, str):
                         tool_names.append(name)
-            print(f"[math] system: <none>", flush=True)
+            print("[math] system: <none>", flush=True)
             print(f"[math] user: {user_prompt}", flush=True)
             print(f"[math] tools: {tool_names}", flush=True)
         except Exception:

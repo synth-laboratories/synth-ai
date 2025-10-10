@@ -4,16 +4,15 @@ import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
 import time
+import tomllib
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import requests
-import tomllib
-
 from synth_ai.learning.sft import collect_sft_jsonl_errors
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

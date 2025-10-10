@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from synth_ai.api.models.supported import normalize_model_identifier
 from synth_ai.http import AsyncHttpClient
@@ -17,9 +17,9 @@ class FilesApi:
         filename: str,
         content: bytes,
         purpose: str,
-        content_type: Optional[str] = None,
-        idempotency_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        content_type: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         data = {"purpose": purpose}
         files = {"file": (filename, content, content_type)}
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
@@ -28,9 +28,9 @@ class FilesApi:
         )
 
     async def list(
-        self, *, purpose: Optional[str] = None, after: Optional[str] = None, limit: int = 20
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
+        self, *, purpose: str | None = None, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
         if purpose is not None:
             params["purpose"] = purpose
         if after is not None:
@@ -38,16 +38,16 @@ class FilesApi:
         params["limit"] = limit
         return await self._http.get("/api/files", params=params)
 
-    async def retrieve(self, file_id: str) -> Dict[str, Any]:
+    async def retrieve(self, file_id: str) -> dict[str, Any]:
         return await self._http.get(f"/api/files/{file_id}")
 
     async def delete(self, file_id: str) -> Any:
         return await self._http.delete(f"/api/files/{file_id}")
 
     async def list_jobs(
-        self, file_id: str, *, after: Optional[str] = None, limit: int = 20
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+        self, file_id: str, *, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
         return await self._http.get(f"/api/files/{file_id}/jobs", params=params)
@@ -62,13 +62,13 @@ class SftJobsApi:
         *,
         training_file: str,
         model: str,
-        validation_file: Optional[str] = None,
-        hyperparameters: Optional[Dict[str, Any]] = None,
-        suffix: Optional[str] = None,
-        integrations: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        idempotency_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        validation_file: str | None = None,
+        hyperparameters: dict[str, Any] | None = None,
+        suffix: str | None = None,
+        integrations: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         payload = prepare_sft_job_payload(
             model=model,
             training_file=training_file,
@@ -87,15 +87,15 @@ class SftJobsApi:
     async def list(
         self,
         *,
-        status: Optional[str] = None,
-        model: Optional[str] = None,
-        file_id: Optional[str] = None,
-        created_after: Optional[int] = None,
-        created_before: Optional[int] = None,
-        after: Optional[str] = None,
+        status: str | None = None,
+        model: str | None = None,
+        file_id: str | None = None,
+        created_after: int | None = None,
+        created_before: int | None = None,
+        after: str | None = None,
         limit: int = 20,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if status is not None:
             params["status"] = status
         if model is not None:
@@ -110,22 +110,22 @@ class SftJobsApi:
             params["after"] = after
         return await self._http.get("/api/sft/jobs", params=params)
 
-    async def retrieve(self, job_id: str) -> Dict[str, Any]:
+    async def retrieve(self, job_id: str) -> dict[str, Any]:
         return await self._http.get(f"/api/sft/jobs/{job_id}")
 
-    async def cancel(self, job_id: str) -> Dict[str, Any]:
+    async def cancel(self, job_id: str) -> dict[str, Any]:
         return await self._http.post_json(f"/api/sft/jobs/{job_id}/cancel", json={})
 
     async def list_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
         return await self._http.get(f"/api/sft/jobs/{job_id}/events", params=params)
 
     async def checkpoints(
-        self, job_id: str, *, after: Optional[str] = None, limit: int = 10
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+        self, job_id: str, *, after: str | None = None, limit: int = 10
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
         return await self._http.get(f"/api/sft/jobs/{job_id}/checkpoints", params=params)
@@ -141,13 +141,13 @@ class RlJobsApi:
         model: str,
         endpoint_base_url: str,
         trainer_id: str,
-        trainer: Optional[Dict[str, Any]] = None,
-        job_config_id: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        idempotency_key: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        payload: Dict[str, Any] = {
+        trainer: dict[str, Any] | None = None,
+        job_config_id: str | None = None,
+        config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
             "model": normalize_model_identifier(model),
             "endpoint_base_url": endpoint_base_url,
             "trainer_id": trainer_id,
@@ -166,14 +166,14 @@ class RlJobsApi:
     async def list(
         self,
         *,
-        status: Optional[str] = None,
-        model: Optional[str] = None,
-        created_after: Optional[int] = None,
-        created_before: Optional[int] = None,
-        after: Optional[str] = None,
+        status: str | None = None,
+        model: str | None = None,
+        created_after: int | None = None,
+        created_before: int | None = None,
+        after: str | None = None,
         limit: int = 20,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if status is not None:
             params["status"] = status
         if model is not None:
@@ -186,21 +186,21 @@ class RlJobsApi:
             params["after"] = after
         return await self._http.get("/api/rl/jobs", params=params)
 
-    async def retrieve(self, job_id: str) -> Dict[str, Any]:
+    async def retrieve(self, job_id: str) -> dict[str, Any]:
         return await self._http.get(f"/api/rl/jobs/{job_id}")
 
-    async def cancel(self, job_id: str) -> Dict[str, Any]:
+    async def cancel(self, job_id: str) -> dict[str, Any]:
         return await self._http.post_json(f"/api/rl/jobs/{job_id}/cancel", json={})
 
     async def list_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
         return await self._http.get(f"/api/rl/jobs/{job_id}/events", params=params)
 
     async def metrics(
         self, job_id: str, *, after_step: int = -1, limit: int = 200
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         params = {"after_step": after_step, "limit": limit}
         return await self._http.get(f"/api/rl/jobs/{job_id}/metrics", params=params)
 
@@ -212,13 +212,13 @@ class ModelsApi:
     async def list(
         self,
         *,
-        source: Optional[str] = None,
-        base_model: Optional[str] = None,
-        status: Optional[str] = None,
-        after: Optional[str] = None,
+        source: str | None = None,
+        base_model: str | None = None,
+        status: str | None = None,
+        after: str | None = None,
         limit: int = 20,
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if source is not None:
             params["source"] = source
         if base_model is not None:
@@ -229,35 +229,30 @@ class ModelsApi:
             params["after"] = after
         return await self._http.get("/api/models", params=params)
 
-    async def retrieve(self, model_id: str) -> Dict[str, Any]:
+    async def retrieve(self, model_id: str) -> dict[str, Any]:
         return await self._http.get(f"/api/models/{model_id}")
 
     async def delete(self, model_id: str) -> Any:
         return await self._http.delete(f"/api/models/{model_id}")
 
     async def list_jobs(
-        self, model_id: str, *, after: Optional[str] = None, limit: int = 20
-    ) -> Dict[str, Any]:
-        params: Dict[str, Any] = {"limit": limit}
+        self, model_id: str, *, after: str | None = None, limit: int = 20
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
         if after is not None:
             params["after"] = after
         return await self._http.get(f"/api/models/{model_id}/jobs", params=params)
 
 
 class JobsClient:
-    """High-level client aggregating job APIs.
-
-    Usage:
-        async with JobsClient(base_url, api_key) as c:
-            await c.files.list()
-    """
+    """High-level client aggregating job APIs."""
 
     def __init__(
         self,
         base_url: str,
         api_key: str,
         timeout: float = 30.0,
-        http: Optional[AsyncHttpClient] = None,
+        http: AsyncHttpClient | None = None,
     ) -> None:
         self._base_url = base_url
         self._api_key = api_key
@@ -268,7 +263,7 @@ class JobsClient:
         self.rl = RlJobsApi(self._http)
         self.models = ModelsApi(self._http)
 
-    async def __aenter__(self) -> "JobsClient":
+    async def __aenter__(self) -> JobsClient:
         await self._http.__aenter__()
         return self
 

@@ -37,7 +37,8 @@ def register(cli):
         """RL Demo commands (separate from legacy demo)."""
 
     # Help pyright understand dynamic Click group attributes
-    from typing import Any, cast as _cast
+    from typing import Any
+    from typing import cast as _cast
 
     _rlg = _cast(Any, rl_demo)
 

@@ -1,17 +1,17 @@
-from __future__ import annotations
-
 """Compatibility re-export for rollout contracts used by RL tooling."""
+
+from __future__ import annotations
 
 from synth_ai.task.contracts import (
     RolloutEnvSpec,
+    RolloutMetrics,
     RolloutPolicySpec,
     RolloutRecordConfig,
-    RolloutSafetyConfig,
     RolloutRequest,
+    RolloutResponse,
+    RolloutSafetyConfig,
     RolloutStep,
     RolloutTrajectory,
-    RolloutMetrics,
-    RolloutResponse,
 )
 
 __all__ = [

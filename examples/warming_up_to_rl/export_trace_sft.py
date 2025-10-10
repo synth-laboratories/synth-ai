@@ -8,8 +8,9 @@ import json
 import sqlite3
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Set, Tuple
+from typing import Any
 
 Row = sqlite3.Row
 
@@ -23,7 +24,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
 def _parse_json(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return value
     try:
         return json.loads(value)
@@ -31,7 +32,7 @@ def _parse_json(value: Any) -> Any:
         return None
 
 
-AchievementMap = dict[Tuple[str, int], dict[str, list[str]]]
+AchievementMap = dict[tuple[str, int], dict[str, list[str]]]
 
 
 def fetch_achievement_data(
@@ -116,7 +117,7 @@ def fetch_achievement_data(
         achievement_name_counts.update(achievement_set)
 
     achievement_size_counts: Counter = Counter()
-    for session_id, count in unique_counts_per_session.items():
+    for _session_id, count in unique_counts_per_session.items():
         achievement_size_counts[count] += 1
 
     return (
@@ -203,9 +204,9 @@ def parse_event_filters(specs: list[str] | None) -> list[tuple[str, float]]:
         if min_val_str:
             try:
                 min_val = float(min_val_str)
-            except ValueError:
+            except ValueError as e:
                 print(f"Invalid event reward specification '{spec}'", file=sys.stderr)
-                raise SystemExit(1)
+                raise SystemExit(1) from e
         filters.append((reward_type, min_val))
     return filters
 
@@ -251,7 +252,7 @@ def _normalise_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[
                     except Exception:
                         args = raw
 
-        if isinstance(args, (dict, list)):
+        if isinstance(args, dict | list):
             args_str = json.dumps(args, ensure_ascii=False)
         elif isinstance(args, str):
             args_str = args
@@ -279,7 +280,7 @@ def _normalise_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[
 def build_sft_dataset(
     conn: sqlite3.Connection,
     achievements_map: AchievementMap,
-    sessions_filter: Set[str],
+    sessions_filter: set[str],
     *,
     allowed_models: set[str] | None = None,
     limit: int | None = None,

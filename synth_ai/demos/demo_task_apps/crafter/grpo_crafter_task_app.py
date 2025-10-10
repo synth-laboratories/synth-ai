@@ -9,16 +9,15 @@ Prefer using `uvx synth-ai serve grpo-crafter` for local development and testing
 from __future__ import annotations
 
 import argparse
+import importlib.util
 from pathlib import Path
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-
 from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
-import importlib.util
 
 
 def _load_build_config():
@@ -40,7 +39,7 @@ def _load_build_config():
         raise ImportError(f"Could not load task app module at {module_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return getattr(module, "build_config")
+    return module.build_config
 
 
 build_config = _load_build_config()
@@ -130,7 +129,7 @@ def fastapi_app():
         try:
             hdr = request.headers
             snapshot = {
-                "path": str(getattr(request, "url").path),
+                "path": str(request.url.path),
                 "have_x_api_key": bool(hdr.get("x-api-key")),
                 "have_x_api_keys": bool(hdr.get("x-api-keys")),
                 "have_authorization": bool(hdr.get("authorization")),

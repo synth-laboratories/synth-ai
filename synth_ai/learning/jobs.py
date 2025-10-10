@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
 import time
+from collections.abc import Callable
+from contextlib import suppress
+from typing import Any
 
-from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 from ..http import AsyncHttpClient, sleep
+from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 
 
 def _api_base(b: str) -> str:
@@ -17,7 +19,7 @@ class JobsApiResolver:
         self._base = _api_base(base_url)
         self._strict = strict
 
-    def status_urls(self, job_id: str) -> List[str]:
+    def status_urls(self, job_id: str) -> list[str]:
         if self._strict:
             return [f"{self._base}/learning/jobs/{job_id}"]
         return [
@@ -26,7 +28,7 @@ class JobsApiResolver:
             f"{self._base}/orchestration/jobs/{job_id}",
         ]
 
-    def events_urls(self, job_id: str, since: int) -> List[str]:
+    def events_urls(self, job_id: str, since: int) -> list[str]:
         if self._strict:
             return [f"{self._base}/learning/jobs/{job_id}/events?since_seq={since}&limit=200"]
         return [
@@ -62,23 +64,23 @@ class JobHandle:
         max_seconds: float | None = None,
         empty_polls_threshold: int = 5,
         startup_deadline_s: int = 45,
-        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
-        on_metric: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
-        last_seq_by_stream: Dict[str, int] = {}
-        events_job_id: Optional[str] = None
-        last_status: Optional[str] = None
-        last_step_by_name: Dict[str, int] = {}
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+        on_metric: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        last_seq_by_stream: dict[str, int] = {}
+        events_job_id: str | None = None
+        last_status: str | None = None
+        last_step_by_name: dict[str, int] = {}
         empty_polls = 0
         saw_any_event = False
         start_t = time.time()
         resolver = JobsApiResolver(self.base_url, strict=self.strict)
-        detected_fine_tuned_model: Optional[str] = None
+        detected_fine_tuned_model: str | None = None
 
         async with AsyncHttpClient(self.base_url, self.api_key, timeout=self.timeout) as http:
             while True:
                 # Status
-                status_data: Optional[Dict[str, Any]] = None
+                status_data: dict[str, Any] | None = None
                 for su in resolver.status_urls(self.job_id):
                     try:
                         status_data = await http.get(su)
@@ -99,10 +101,8 @@ class JobHandle:
                 if status and status != last_status:
                     last_status = status
                     if on_event:
-                        try:
+                        with suppress(Exception):
                             on_event({"type": "job.status", "message": status})
-                        except Exception:
-                            pass
 
                 # Events
                 stream_ids = [self.job_id]
@@ -110,7 +110,7 @@ class JobHandle:
                     stream_ids.append(events_job_id)
                 total_events_this_cycle = 0
                 terminal_event_seen = False
-                terminal_event_status: Optional[str] = None
+                terminal_event_status: str | None = None
                 for ev_id in stream_ids:
                     since = last_seq_by_stream.get(ev_id, 0)
                     for eu in resolver.events_urls(ev_id, since):
@@ -118,11 +118,8 @@ class JobHandle:
                             ev_js = await http.get(eu)
                         except Exception:
                             continue
-                        try:
-                            events = (ev_js or {}).get("events") or (ev_js or {}).get("data") or []
-                            if not isinstance(events, list):
-                                events = []
-                        except Exception:
+                        events = (ev_js or {}).get("events") or (ev_js or {}).get("data") or []
+                        if not isinstance(events, list):
                             events = []
                         total_events_this_cycle += len(events)
                         if events:
@@ -133,24 +130,16 @@ class JobHandle:
                                 continue
                             last_seq_by_stream[ev_id] = seq_val
                             if on_event:
-                                try:
+                                with suppress(Exception):
                                     on_event(e)
-                                except Exception:
-                                    pass
                             et = str(e.get("type") or e.get("event_type") or "").lower()
                             # Capture fine_tuned_model from event data when available
                             if not detected_fine_tuned_model:
-                                try:
-                                    data_obj = e.get("data") or {}
-                                    ftm = (
-                                        data_obj.get("fine_tuned_model")
-                                        if isinstance(data_obj, dict)
-                                        else None
-                                    )
+                                data_obj = e.get("data") or {}
+                                if isinstance(data_obj, dict):
+                                    ftm = data_obj.get("fine_tuned_model")
                                     if isinstance(ftm, str) and ftm:
                                         detected_fine_tuned_model = ftm
-                                except Exception:
-                                    pass
                             if et in TERMINAL_EVENT_SUCCESS:
                                 terminal_event_seen = True
                                 terminal_event_status = "succeeded"
@@ -170,10 +159,8 @@ class JobHandle:
                             continue
                         last_step_by_name[name] = step
                         if on_metric:
-                            try:
+                            with suppress(Exception):
                                 on_metric(p)
-                            except Exception:
-                                pass
                 except Exception:
                     pass
 
@@ -181,20 +168,17 @@ class JobHandle:
                 if terminal_event_seen or (status and status in TERMINAL_STATUSES):
                     # Best-effort enrichment of final result with fine_tuned_model
                     result_status = terminal_event_status or status or "completed"
-                    final_res: Dict[str, Any] = {"status": result_status, "job_id": self.job_id}
+                    final_res: dict[str, Any] = {"status": result_status, "job_id": self.job_id}
                     if not detected_fine_tuned_model:
                         # Briefly try to re-fetch status to see if fine_tuned_model is persisted
                         try:
                             for su in resolver.status_urls(self.job_id):
-                                try:
-                                    final_status = await http.get(su)
-                                    if isinstance(final_status, dict):
-                                        ftm2 = final_status.get("fine_tuned_model")
-                                        if isinstance(ftm2, str) and ftm2:
-                                            detected_fine_tuned_model = ftm2
-                                            break
-                                except Exception:
-                                    continue
+                                final_status = await http.get(su)
+                                if isinstance(final_status, dict):
+                                    ftm2 = final_status.get("fine_tuned_model")
+                                    if isinstance(ftm2, str) and ftm2:
+                                        detected_fine_tuned_model = ftm2
+                                        break
                         except Exception:
                             pass
                     if detected_fine_tuned_model:

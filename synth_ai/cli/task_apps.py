@@ -2,22 +2,22 @@ from __future__ import annotations
 
 import ast
 import contextlib
-import functools
 import hashlib
 import importlib
 import importlib.util
 import inspect
-import os
 import json
-import signal
+import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import types
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-import types
-from typing import Any, Callable, Iterable, Sequence, Iterator, cast
+from typing import Any, cast
 
 try:  # Python 3.11+
     import tomllib as _toml
@@ -26,9 +26,10 @@ except Exception:  # pragma: no cover - fallback
 import uuid
 
 import click
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
-from synth_ai.task.server import run_task_app, create_task_app
+
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
+from synth_ai.task.server import create_task_app, run_task_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -213,7 +214,7 @@ def _discover_eval_config_paths() -> list[Path]:
         if not root.exists() or not root.is_dir():
             continue
         try:
-            root_resolved = root.resolve()
+            root = root.resolve()
         except Exception:
             continue
         for path in root.rglob("*.toml"):
@@ -255,11 +256,9 @@ class _TaskAppConfigVisitor(ast.NodeVisitor):
 
 def _is_task_app_config_call(node: ast.Call) -> bool:
     func = node.func
-    if isinstance(func, ast.Name) and func.id == "TaskAppConfig":
-        return True
-    if isinstance(func, ast.Attribute) and func.attr == "TaskAppConfig":
-        return True
-    return False
+    return (
+        isinstance(func, ast.Name) and func.id == "TaskAppConfig"
+    ) or (isinstance(func, ast.Attribute) and func.attr == "TaskAppConfig")
 
 
 def _extract_app_id(node: ast.Call) -> str | None:
@@ -279,11 +278,9 @@ def _extract_app_id(node: ast.Call) -> str | None:
 
 def _is_register_task_app_call(node: ast.Call) -> bool:
     func = node.func
-    if isinstance(func, ast.Name) and func.id == "register_task_app":
-        return True
-    if isinstance(func, ast.Attribute) and func.attr == "register_task_app":
-        return True
-    return False
+    return (
+        isinstance(func, ast.Name) and func.id == "register_task_app"
+    ) or (isinstance(func, ast.Attribute) and func.attr == "register_task_app")
 
 
 def _extract_register_app_id(node: ast.Call) -> str | None:
@@ -555,11 +552,7 @@ def _choice_matches_identifier(choice: AppChoice, identifier: str) -> bool:
     ident = identifier.strip()
     if not ident:
         return False
-    if ident == choice.app_id or ident == choice.label:
-        return True
-    if ident in choice.aliases:
-        return True
-    return False
+    return ident == choice.app_id or ident == choice.label or ident in choice.aliases
 
 
 def _choice_has_modal_support(choice: AppChoice) -> bool:
@@ -581,26 +574,25 @@ def _has_modal_support_in_file(path: Path) -> bool:
 
         # Look for ModalDeploymentConfig in register_task_app calls
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                if _is_register_task_app_call(node):
-                    # Check if the entry has modal=ModalDeploymentConfig(...)
-                    for kw in node.keywords:
-                        if kw.arg == "entry" and isinstance(kw.value, ast.Call):
-                            entry_call = kw.value
-                            if (
-                                isinstance(entry_call.func, ast.Name)
-                                and entry_call.func.id == "TaskAppEntry"
-                            ):
-                                for entry_kw in entry_call.keywords:
-                                    if entry_kw.arg == "modal" and isinstance(
-                                        entry_kw.value, ast.Call
+            if isinstance(node, ast.Call) and _is_register_task_app_call(node):
+                # Check if the entry has modal=ModalDeploymentConfig(...)
+                for kw in node.keywords:
+                    if kw.arg == "entry" and isinstance(kw.value, ast.Call):
+                        entry_call = kw.value
+                        if (
+                            isinstance(entry_call.func, ast.Name)
+                            and entry_call.func.id == "TaskAppEntry"
+                        ):
+                            for entry_kw in entry_call.keywords:
+                                if entry_kw.arg == "modal" and isinstance(
+                                    entry_kw.value, ast.Call
+                                ):
+                                    modal_call = entry_kw.value
+                                    if (
+                                        isinstance(modal_call.func, ast.Name)
+                                        and modal_call.func.id == "ModalDeploymentConfig"
                                     ):
-                                        modal_call = entry_kw.value
-                                        if (
-                                            isinstance(modal_call.func, ast.Name)
-                                            and modal_call.func.id == "ModalDeploymentConfig"
-                                        ):
-                                            return True
+                                        return True
     except Exception:
         pass
     return False
@@ -614,27 +606,26 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
 
         # Look for ModalDeploymentConfig in register_task_app calls
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                if _is_register_task_app_call(node):
-                    # Check if the entry has modal=ModalDeploymentConfig(...)
-                    for kw in node.keywords:
-                        if kw.arg == "entry" and isinstance(kw.value, ast.Call):
-                            entry_call = kw.value
-                            if (
-                                isinstance(entry_call.func, ast.Name)
-                                and entry_call.func.id == "TaskAppEntry"
-                            ):
-                                for entry_kw in entry_call.keywords:
-                                    if entry_kw.arg == "modal" and isinstance(
-                                        entry_kw.value, ast.Call
+            if isinstance(node, ast.Call) and _is_register_task_app_call(node):
+                # Check if the entry has modal=ModalDeploymentConfig(...)
+                for kw in node.keywords:
+                    if kw.arg == "entry" and isinstance(kw.value, ast.Call):
+                        entry_call = kw.value
+                        if (
+                            isinstance(entry_call.func, ast.Name)
+                            and entry_call.func.id == "TaskAppEntry"
+                        ):
+                            for entry_kw in entry_call.keywords:
+                                if entry_kw.arg == "modal" and isinstance(
+                                    entry_kw.value, ast.Call
+                                ):
+                                    modal_call = entry_kw.value
+                                    if (
+                                        isinstance(modal_call.func, ast.Name)
+                                        and modal_call.func.id == "ModalDeploymentConfig"
                                     ):
-                                        modal_call = entry_kw.value
-                                        if (
-                                            isinstance(modal_call.func, ast.Name)
-                                            and modal_call.func.id == "ModalDeploymentConfig"
-                                        ):
-                                            # Extract the arguments to ModalDeploymentConfig
-                                            return _build_modal_config_from_ast(modal_call)
+                                        # Extract the arguments to ModalDeploymentConfig
+                                        return _build_modal_config_from_ast(modal_call)
     except Exception:
         pass
     return None
@@ -648,35 +639,35 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfig 
         for kw in modal_call.keywords:
             if kw.arg and isinstance(kw.value, ast.Constant):
                 kwargs[kw.arg] = kw.value.value
-            elif kw.arg == "pip_packages" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "pip_packages" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle pip_packages list/tuple
                 packages = []
                 for elt in kw.value.elts:
                     if isinstance(elt, ast.Constant):
                         packages.append(elt.value)
                 kwargs[kw.arg] = tuple(packages)
-            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle extra_local_dirs list/tuple of tuples
                 dirs = []
                 for elt in kw.value.elts:
-                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                    if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
                         src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                         dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                         if src and dst:
                             dirs.append((src, dst))
                 kwargs[kw.arg] = tuple(dirs)
-            elif kw.arg == "secret_names" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "secret_names" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle secret_names list/tuple
                 secrets = []
                 for elt in kw.value.elts:
                     if isinstance(elt, ast.Constant):
                         secrets.append(elt.value)
                 kwargs[kw.arg] = tuple(secrets)
-            elif kw.arg == "volume_mounts" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "volume_mounts" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle volume_mounts list/tuple of tuples
                 mounts = []
                 for elt in kw.value.elts:
-                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                    if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
                         name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                         mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                         if name and mount:
@@ -724,8 +715,8 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
         click.echo(_format_choice(choice, idx))
     try:
         response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
-    except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
-        raise click.ClickException("Task app selection cancelled by user")
+    except (click.exceptions.Abort, EOFError, KeyboardInterrupt) as exc:
+        raise click.ClickException("Task app selection cancelled by user") from exc
     if not response.isdigit():
         raise click.ClickException("Selection must be a number")
     index = int(response)
@@ -870,7 +861,11 @@ def _load_entry_from_path(
             continue
         if isinstance(attr, TaskAppConfig) and attr.app_id == app_id:
             config_obj = attr
-            factory_callable = lambda cfg=attr: cfg
+
+            def _return_config(cfg: TaskAppConfig = attr) -> TaskAppConfig:
+                return cfg
+
+            factory_callable = _return_config
             break
 
     if factory_callable is None:
@@ -904,10 +899,10 @@ def _load_entry_from_path(
                 continue
             if isinstance(result, TaskAppConfig) and result.app_id == app_id:
                 # Bind attr to a local and close over it without exposing parameters
-                _bound_func: Callable[[], TaskAppConfig] = cast(Callable[[], TaskAppConfig], attr)  # type: ignore[assignment]
+                bound_func: Callable[[], TaskAppConfig] = cast(Callable[[], TaskAppConfig], attr)  # type: ignore[assignment]
 
-                def _factory_noargs() -> TaskAppConfig:
-                    return _bound_func()
+                def _factory_noargs(func: Callable[[], TaskAppConfig] = bound_func) -> TaskAppConfig:
+                    return func()
 
                 factory_callable = _factory_noargs
                 config_obj = result
@@ -919,10 +914,10 @@ def _load_entry_from_path(
             # Check if the app was registered in the registry
             entry = registry.get(app_id)
             return entry
-        except KeyError:
+        except KeyError as exc:
             raise click.ClickException(
                 f"Could not locate TaskAppConfig for '{app_id}' in {resolved}."
-            )
+            ) from exc
 
     modal_cfg: ModalDeploymentConfig | None = None
     for attr_name in dir(module):
@@ -1062,13 +1057,13 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
             backend_base = backend_base + "/api"
         synth_key = os.environ.get("SYNTH_API_KEY") or ""
         env_api_key = (
-            os.environ.get("ENVIRONMENT_API_KEY")
-            or os.environ.get("dev_environment_api_key")
-            or os.environ.get("DEV_ENVIRONMENT_API_KEY")
-            or ""
-        )
+        os.environ.get("ENVIRONMENT_API_KEY")
+        or os.environ.get("DEV_ENVIRONMENT_API_KEY")
+        or ""
+    )
         if synth_key and env_api_key:
             import base64
+
             import httpx
 
             click.echo(f"[preflight] backend={backend_base}")
@@ -1131,12 +1126,12 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                 except Exception as e:
                     error_msg = f"Failed to encrypt/upload ENVIRONMENT_API_KEY: {e}"
                     if crash_on_failure:
-                        raise click.ClickException(f"[CRITICAL] {error_msg}")
+                        raise click.ClickException(f"[CRITICAL] {error_msg}") from e
                     click.echo(f"[WARN] {error_msg}; proceeding anyway")
     except Exception as e:
         error_msg = f"Backend preflight for ENVIRONMENT_API_KEY failed: {e}"
         if crash_on_failure:
-            raise click.ClickException(f"[CRITICAL] {error_msg}")
+            raise click.ClickException(f"[CRITICAL] {error_msg}") from e
         click.echo(f"[WARN] {error_msg}; proceeding anyway")
 
 
@@ -1508,6 +1503,7 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
     """Fetch Task App /task_info with authentication and print JSON."""
     import json as _json
     import os as _os
+
     import requests as _requests
 
     base = (base_url or _os.getenv("TASK_APP_BASE_URL") or "http://127.0.0.1:8001").rstrip("/")
@@ -1542,10 +1538,8 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
         ct = r.headers.get("content-type", "")
         detail = r.text
         if ct.startswith("application/json"):
-            try:
+            with contextlib.suppress(Exception):
                 detail = _json.dumps(r.json(), indent=2)
-            except Exception:
-                pass
         raise click.ClickException(f"{url} returned {r.status_code}:\n{detail}")
 
     data = (
@@ -1709,7 +1703,7 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
         try:
             os.kill(int(pid), signal.SIGTERM)
         except Exception as exc:
-            raise click.ClickException(f"Failed to terminate PID {pid}: {exc}")
+            raise click.ClickException(f"Failed to terminate PID {pid}: {exc}") from exc
 
     time.sleep(0.5)
 
@@ -1721,7 +1715,7 @@ def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
             try:
                 os.kill(int(pid), signal.SIGKILL)
             except Exception as exc:
-                raise click.ClickException(f"Failed to force terminate PID {pid}: {exc}")
+                raise click.ClickException(f"Failed to force terminate PID {pid}: {exc}") from exc
         time.sleep(0.5)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -1813,17 +1807,15 @@ def _print_demo_next_steps_if_applicable() -> None:
         demo_dir = load_demo_dir()
 
         # Check if we're in the demo directory
-        if demo_dir and Path(demo_dir).resolve() == cwd:
-            # Check if this looks like the crafter demo (has run_local_rollout_traced.py)
-            if (cwd / "run_local_rollout_traced.py").exists():
-                click.echo("\n" + "=" * 60)
-                click.echo("Next step: Collect traced rollouts")
-                click.echo("=" * 60)
-                click.echo("\nIn another terminal, run:")
-                click.echo(f"  cd {cwd}")
-                click.echo("  uv run python run_local_rollout_traced.py")
-                click.echo("\nRun this 5-10 times to collect diverse traces.")
-                click.echo("=" * 60 + "\n")
+        if demo_dir and Path(demo_dir).resolve() == cwd and (cwd / "run_local_rollout_traced.py").exists():
+            click.echo("\n" + "=" * 60)
+            click.echo("Next step: Collect traced rollouts")
+            click.echo("=" * 60)
+            click.echo("\nIn another terminal, run:")
+            click.echo(f"  cd {cwd}")
+            click.echo("  uv run python run_local_rollout_traced.py")
+            click.echo("\nRun this 5-10 times to collect diverse traces.")
+            click.echo("=" * 60 + "\n")
     except Exception:
         # Silently fail - this is just a helpful printout
         pass
@@ -2190,11 +2182,13 @@ def fastapi_app():
     return create_task_app(config)
 """
 
-    tmp = tempfile.NamedTemporaryFile("w", suffix=f"_{entry.app_id}_modal.py", delete=False)
-    tmp.write(script)
-    tmp.flush()
-    tmp.close()
-    return Path(tmp.name)
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=f"_{entry.app_id}_modal.py", delete=False
+    ) as tmp:
+        tmp.write(script)
+        tmp.flush()
+        name = tmp.name
+    return Path(name)
 
 
 def register(cli: click.Group) -> None:
@@ -2249,12 +2243,9 @@ def eval_command(
             parsed = _toml.loads(data.decode("utf-8"))
             if isinstance(parsed, dict):
                 section = parsed.get("eval")
-                if isinstance(section, dict):
-                    cfg = dict(section)
-                else:
-                    cfg = dict(parsed)
+                cfg = dict(section) if isinstance(section, dict) else dict(parsed)
         except Exception as exc:
-            raise click.ClickException(f"Failed to parse TOML '{config_path}': {exc}")
+            raise click.ClickException(f"Failed to parse TOML '{config_path}': {exc}") from exc
 
     app_id = app_id or (cfg.get("app_id") if isinstance(cfg.get("app_id"), str) else None)  # type: ignore
 
@@ -2264,10 +2255,8 @@ def eval_command(
     if cfg.get("seeds") and seeds == "0,1,2,3,4":
         val = cfg["seeds"]
         if isinstance(val, list):
-            try:
+            with contextlib.suppress(Exception):
                 seeds = ",".join(str(int(x)) for x in val)
-            except Exception:
-                pass
         elif isinstance(val, str):
             seeds = val
         elif isinstance(val, int):
@@ -2368,8 +2357,8 @@ def eval_command(
 
     try:
         seed_values = [int(s.strip()) for s in seeds.split(",") if s.strip()]
-    except Exception:
-        raise click.ClickException("Invalid --seeds; expected comma-separated integers")
+    except Exception as exc:
+        raise click.ClickException("Invalid --seeds; expected comma-separated integers") from exc
 
     import httpx
 
@@ -2396,10 +2385,8 @@ def eval_command(
     else:
         client = httpx.Client(base_url=task_app_url, timeout=60.0, headers=headers)
     with client as client:
-        try:
+        with contextlib.suppress(Exception):
             client.get("/task_info")
-        except Exception:
-            pass
         # Precompute optional policy overrides from TOML
         policy_overrides: dict[str, Any] = {}
         try:
@@ -2477,10 +2464,8 @@ def eval_command(
                                 summary.append(f"tool_calls={len(tool_calls)}")
                     click.echo(" ".join(summary))
                     # Print the full response JSON (trace, trajectories, metrics)
-                    try:
+                    with contextlib.suppress(Exception):
                         click.echo(json.dumps(data, indent=2))
-                    except Exception:
-                        pass
                 else:
                     click.echo(" ".join(summary))
             except Exception as exc:

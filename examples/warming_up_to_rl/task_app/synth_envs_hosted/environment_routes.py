@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import logging
-from typing import Any, Dict, List, Optional
+import contextlib
 import json
+import logging
+from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-
-from uuid import uuid4
 
 # Import the actual classes from synth-ai
 from synth_ai.environments.examples.crafter_classic.environment import (
@@ -98,41 +98,41 @@ async def validate_environment_observation(observation: Any, context: str) -> No
 
 class EnvCreateRequest(BaseModel):
     env_name: str
-    config: Dict[str, Any] = {}
-    seed: Optional[int] = None
-    parent_env_id: Optional[str] = None
+    config: dict[str, Any] = {}
+    seed: int | None = None
+    parent_env_id: str | None = None
     rl_run_id: str
 
 
 class EnvCreateResponse(BaseModel):
     env_id: str
-    observation: Dict[str, Any]
-    info: Optional[Dict[str, Any]] = None
+    observation: dict[str, Any]
+    info: dict[str, Any] | None = None
     step_idx: int
 
 
 class EnvResetRequest(BaseModel):
     env_id: str
-    seed: Optional[int] = None
+    seed: int | None = None
 
 
 class EnvResetResponse(BaseModel):
-    observation: Dict[str, Any]
-    info: Optional[Dict[str, Any]] = None
+    observation: dict[str, Any]
+    info: dict[str, Any] | None = None
     step_idx: int
 
 
 class EnvStepRequest(BaseModel):
     env_id: str
-    tool_calls: List[Dict[str, Any]]
+    tool_calls: list[dict[str, Any]]
 
 
 class EnvStepResponse(BaseModel):
-    observation: Dict[str, Any]
+    observation: dict[str, Any]
     done: bool
-    info: Optional[Dict[str, Any]] = None
-    reward: Optional[float] = None
-    truncated: Optional[bool] = None
+    info: dict[str, Any] | None = None
+    reward: float | None = None
+    truncated: bool | None = None
     step_idx: int
 
 
@@ -153,8 +153,8 @@ class EnvRestoreRequest(BaseModel):
 
 class EnvRestoreResponse(BaseModel):
     env_id: str
-    observation: Dict[str, Any]
-    info: Optional[Dict[str, Any]] = None
+    observation: dict[str, Any]
+    info: dict[str, Any] | None = None
     step_idx: int
 
 
@@ -213,7 +213,8 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             # Log a world signature for sanity: seed + starting public state hash
             try:
                 pub_state = base_env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
-                import hashlib, json as _json
+                import hashlib
+                import json as _json
 
                 sig_src = {
                     "player_position": list(pub_state.player_position),
@@ -268,23 +269,23 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
         elif env_name_lower == "wordle":
             # Defer imports to avoid hard dependency when not used
             try:
+                from synth_ai.environments.examples.wordle.environment import (
+                    WordleEnvironment,
+                )
                 from synth_ai.environments.examples.wordle.taskset import (
                     WordleTaskInstance,
                     WordleTaskInstanceMetadata,
                 )
-                from synth_ai.environments.examples.wordle.environment import (
-                    WordleEnvironment,
-                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
 
             # Lazy import of wrapper within branch
             try:
-                from .envs.wordle.environment import (
-                    WordleEnvironmentWrapper as _WordleWrapper,
-                )
+                from .envs.wordle.environment import WordleEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}") from e
+            else:
+                wordle_wrapper_cls = WordleEnvironmentWrapper
 
             cfg = request.config or {}
             word_length = int(cfg.get("word_length", 5))
@@ -312,7 +313,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             # Try to preserve the exact puzzle snapshot for reproducibility
             init_snap = getattr(instance, "initial_engine_snapshot", None)
 
-            wrapper = _WordleWrapper(
+            wrapper = wordle_wrapper_cls(
                 env=base_env,
                 seed=request.seed,
                 word_length=word_length,
@@ -356,23 +357,21 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
 
         elif env_name_lower == "sokoban":
             try:
+                from synth_ai.environments.examples.sokoban.environment import (
+                    SokobanEnvironment,
+                )
                 from synth_ai.environments.examples.sokoban.taskset import (
                     SokobanTaskInstance,
                     SokobanTaskInstanceMetadata,
                 )
-                from synth_ai.environments.examples.sokoban.environment import (
-                    SokobanEnvironment,
-                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
 
             # Lazy import of wrapper within branch
             try:
-                from .envs.sokoban.environment import (
-                    SokobanEnvironmentWrapper as _SokobanWrapper,
-                )
+                from .envs.sokoban.environment import SokobanEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}") from e
 
             cfg = request.config or {}
             difficulty = cfg.get("difficulty", "easy")
@@ -395,7 +394,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             )
             base_env = SokobanEnvironment(task_instance=instance)
 
-            wrapper = _SokobanWrapper(env=base_env, seed=request.seed, config=cfg)
+            wrapper = SokobanEnvironmentWrapper(env=base_env, seed=request.seed, config=cfg)
             result = await wrapper.initialize()
 
             # Handle the observation structure consistently for Sokoban
@@ -431,13 +430,11 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
             cfg = request.config or {}
             # Lazy import of wrapper within branch
             try:
-                from .envs.math.environment import (
-                    MathEnvironmentWrapper as _MathWrapper,
-                )
+                from .envs.math.environment import MathEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Math wrapper unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Math wrapper unavailable: {e}") from e
 
-            wrapper = _MathWrapper(
+            wrapper = MathEnvironmentWrapper(
                 seed=request.seed,
                 problem_id=cfg.get("problem_id"),
                 problem_text=cfg.get("problem_text"),
@@ -477,7 +474,7 @@ async def create_environment(request: EnvCreateRequest) -> EnvCreateResponse:
 
     except Exception as e:
         logger.error(f"Failed to create environment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # --- Compatibility routes for existing eval scripts that expect CrafterClassic paths ---
@@ -572,27 +569,26 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
 
         elif True:
             # Try to dynamically import Wordle wrapper and check instance safely
-            try:
-                from .envs.wordle.environment import (
-                    WordleEnvironmentWrapper as _WordleWrapper,
-                )
-            except Exception:
-                _WordleWrapper = None  # type: ignore
+            wordle_wrapper_cls = None
+            with contextlib.suppress(Exception):
+                from .envs.wordle.environment import WordleEnvironmentWrapper
 
-            if _WordleWrapper is not None and isinstance(wrapper, _WordleWrapper):
+                wordle_wrapper_cls = WordleEnvironmentWrapper  # type: ignore[assignment]
+
+            if wordle_wrapper_cls is not None and isinstance(wrapper, wordle_wrapper_cls):
                 # Rebuild Wordle env with the same configuration; if we have a preserved
                 # initial_engine_snapshot, prefer constructing the instance directly.
                 try:
-                    from synth_ai.environments.examples.wordle.taskset import (
-                        create_wordle_taskset,
-                        WordleTaskInstance,
-                        WordleTaskInstanceMetadata,
-                    )
                     from synth_ai.environments.examples.wordle.environment import (
                         WordleEnvironment,
                     )
+                    from synth_ai.environments.examples.wordle.taskset import (
+                        WordleTaskInstance,
+                        WordleTaskInstanceMetadata,
+                        create_wordle_taskset,
+                    )
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
+                    raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
 
                 init_snap = getattr(wrapper, "initial_engine_snapshot", None)
                 if init_snap is not None:
@@ -630,16 +626,16 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
             # Rebuild Wordle env with the same configuration; if we have a preserved
             # initial_engine_snapshot, prefer constructing the instance directly.
             try:
-                from synth_ai.environments.examples.wordle.taskset import (
-                    create_wordle_taskset,
-                    WordleTaskInstance,
-                    WordleTaskInstanceMetadata,
-                )
                 from synth_ai.environments.examples.wordle.environment import (
                     WordleEnvironment,
                 )
+                from synth_ai.environments.examples.wordle.taskset import (
+                    WordleTaskInstance,
+                    WordleTaskInstanceMetadata,
+                    create_wordle_taskset,
+                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
 
             init_snap = getattr(wrapper, "initial_engine_snapshot", None)
             if init_snap is not None:
@@ -675,25 +671,24 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
 
         elif True:
             # Try to dynamically import Sokoban wrapper and check instance safely
-            try:
-                from .envs.sokoban.environment import (
-                    SokobanEnvironmentWrapper as _SokobanWrapper,
-                )
-            except Exception:
-                _SokobanWrapper = None  # type: ignore
+            sokoban_wrapper_cls = None
+            with contextlib.suppress(Exception):
+                from .envs.sokoban.environment import SokobanEnvironmentWrapper
 
-            if _SokobanWrapper is not None and isinstance(wrapper, _SokobanWrapper):
+                sokoban_wrapper_cls = SokobanEnvironmentWrapper  # type: ignore[assignment]
+
+            if sokoban_wrapper_cls is not None and isinstance(wrapper, sokoban_wrapper_cls):
                 # Rebuild Sokoban env using stored config snapshot
                 try:
+                    from synth_ai.environments.examples.sokoban.environment import (
+                        SokobanEnvironment,
+                    )
                     from synth_ai.environments.examples.sokoban.taskset import (
                         SokobanTaskInstance,
                         SokobanTaskInstanceMetadata,
                     )
-                    from synth_ai.environments.examples.sokoban.environment import (
-                        SokobanEnvironment,
-                    )
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
+                    raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
 
                 cfg = dict(wrapper.config or {})
                 metadata = SokobanTaskInstanceMetadata(
@@ -718,15 +713,15 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
                 pass
             # Rebuild Sokoban env using stored config snapshot
             try:
+                from synth_ai.environments.examples.sokoban.environment import (
+                    SokobanEnvironment,
+                )
                 from synth_ai.environments.examples.sokoban.taskset import (
                     SokobanTaskInstance,
                     SokobanTaskInstanceMetadata,
                 )
-                from synth_ai.environments.examples.sokoban.environment import (
-                    SokobanEnvironment,
-                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
 
             cfg = dict(wrapper.config or {})
             metadata = SokobanTaskInstanceMetadata(
@@ -753,7 +748,8 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
         try:
             base_env = handle.env.env  # type: ignore[attr-defined]
             pub_state = base_env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
-            import hashlib, json as _json
+            import hashlib
+            import json as _json
 
             sig_src = {
                 "player_position": list(pub_state.player_position),
@@ -786,7 +782,7 @@ async def reset_environment(request: EnvResetRequest) -> EnvResetResponse:
 
     except Exception as e:
         logger.error(f"Failed to reset environment {request.env_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/step", response_model=EnvStepResponse)
@@ -799,16 +795,15 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
     try:
         # Execute the step, pre-normalizing invalid Wordle guesses to avoid hard failures
         wrapper = handle.env
-        try:
-            from .envs.wordle.environment import (
-                WordleEnvironmentWrapper as _WordleWrapper,
-            )
-        except Exception:
-            _WordleWrapper = None  # type: ignore
+        wordle_wrapper_cls = None
+        with contextlib.suppress(Exception):
+            from .envs.wordle.environment import WordleEnvironmentWrapper
 
-        if _WordleWrapper is not None and isinstance(wrapper, _WordleWrapper):
+            wordle_wrapper_cls = WordleEnvironmentWrapper  # type: ignore[assignment]
+
+        if wordle_wrapper_cls is not None and isinstance(wrapper, wordle_wrapper_cls):
             expected_len = int(getattr(wrapper, "word_length", 5))
-            normalized: List[Dict[str, Any]] = []
+            normalized: list[dict[str, Any]] = []
             for tc in request.tool_calls or []:
                 tool = tc.get("tool") or tc.get("tool_name") or tc.get("name") or "interact"
                 args = tc.get("arguments") or tc.get("args") or {}
@@ -880,14 +875,16 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
         logger.error(f"Failed to step environment {request.env_id}: {e}")
         # Fallback for Wordle: convert invalid guesses into 'invalid_guess' tool calls and retry once
         try:
-            from .envs.wordle.environment import (
-                WordleEnvironmentWrapper as _WordleWrapper,
-            )
+            wordle_wrapper_cls = None
+            with contextlib.suppress(Exception):
+                from .envs.wordle.environment import WordleEnvironmentWrapper
+
+                wordle_wrapper_cls = WordleEnvironmentWrapper  # type: ignore[assignment]
 
             wrapper = handle.env
-            if isinstance(wrapper, _WordleWrapper):
+            if wordle_wrapper_cls is not None and isinstance(wrapper, wordle_wrapper_cls):
                 expected_len = int(getattr(wrapper, "word_length", 5))
-                normalized: List[Dict[str, Any]] = []
+                normalized: list[dict[str, Any]] = []
                 for tc in request.tool_calls or []:
                     tool = tc.get("tool") or tc.get("tool_name") or tc.get("name") or "interact"
                     args = tc.get("arguments") or tc.get("args") or {}
@@ -941,7 +938,7 @@ async def step_environment(request: EnvStepRequest) -> EnvStepResponse:
             # Ignore fallback errors; fall through to generic error
             pass
 
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}") from e
 
 
 @router.post("/snapshot", response_model=EnvSnapshotResponse)
@@ -980,7 +977,7 @@ async def snapshot_environment(request: EnvSnapshotRequest) -> EnvSnapshotRespon
 
     except Exception as e:
         logger.error(f"Failed to snapshot environment {request.env_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/restore", response_model=EnvRestoreResponse)
@@ -1060,16 +1057,16 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
             )
         elif name_lower == "wordle":
             try:
-                from synth_ai.environments.examples.wordle.taskset import (
-                    create_wordle_taskset,
-                    WordleTaskInstance,
-                    WordleTaskInstanceMetadata,
-                )
                 from synth_ai.environments.examples.wordle.environment import (
                     WordleEnvironment,
                 )
+                from synth_ai.environments.examples.wordle.taskset import (
+                    WordleTaskInstance,
+                    WordleTaskInstanceMetadata,
+                    create_wordle_taskset,
+                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Wordle modules unavailable: {e}") from e
 
             cfg = state_dict.get("config", {}) or {}
             word_length = int(cfg.get("word_length", 5))
@@ -1100,12 +1097,10 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
                 base_env = WordleEnvironment(task_instance=instance)
             # Lazy import of wrapper only when needed
             try:
-                from .envs.wordle.environment import (
-                    WordleEnvironmentWrapper as _WordleWrapper,
-                )
+                from .envs.wordle.environment import WordleEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}")
-            wrapper = await _WordleWrapper.deserialize(payload=state_dict, env=base_env)
+                raise HTTPException(status_code=500, detail=f"Wordle wrapper unavailable: {e}") from e
+            wrapper = await WordleEnvironmentWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(
                 env=wrapper,
@@ -1126,15 +1121,15 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
 
         elif name_lower == "sokoban":
             try:
+                from synth_ai.environments.examples.sokoban.environment import (
+                    SokobanEnvironment,
+                )
                 from synth_ai.environments.examples.sokoban.taskset import (
                     SokobanTaskInstance,
                     SokobanTaskInstanceMetadata,
                 )
-                from synth_ai.environments.examples.sokoban.environment import (
-                    SokobanEnvironment,
-                )
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}")
+                raise HTTPException(status_code=500, detail=f"Sokoban modules unavailable: {e}") from e
 
             cfg = state_dict.get("config", {}) or {}
             metadata = SokobanTaskInstanceMetadata(difficulty=cfg.get("difficulty", "easy"))
@@ -1153,12 +1148,10 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
             base_env = SokobanEnvironment(task_instance=instance)
             # Lazy import of wrapper only when needed
             try:
-                from .envs.sokoban.environment import (
-                    SokobanEnvironmentWrapper as _SokobanWrapper,
-                )
+                from .envs.sokoban.environment import SokobanEnvironmentWrapper
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}")
-            wrapper = await _SokobanWrapper.deserialize(payload=state_dict, env=base_env)
+                raise HTTPException(status_code=500, detail=f"Sokoban wrapper unavailable: {e}") from e
+            wrapper = await SokobanEnvironmentWrapper.deserialize(payload=state_dict, env=base_env)
 
             env_id = registry.register_env(
                 env=wrapper,
@@ -1185,7 +1178,7 @@ async def restore_environment(request: EnvRestoreRequest) -> EnvRestoreResponse:
 
     except Exception as e:
         logger.error(f"Failed to restore environment from snapshot {request.snapshot_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/terminate", response_model=EnvTerminateResponse)
@@ -1206,4 +1199,4 @@ async def terminate_environment(request: EnvTerminateRequest) -> EnvTerminateRes
 
     except Exception as e:
         logger.error(f"Failed to terminate environment {request.env_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

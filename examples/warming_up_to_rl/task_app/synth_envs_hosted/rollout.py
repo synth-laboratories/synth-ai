@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import logging
+import contextlib
 import json
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
-from fastapi import APIRouter, HTTPException, Request, status
+import logging
 import os
 import time as _time
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 from synth_ai.lm.vendors.base import BaseLMResponse
-from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.task.tracing_utils import unique_sft_path
 from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
 from synth_ai.tracing_v3.llm_call_record_helpers import create_llm_call_record_from_response
-from synth_ai.task.tracing_utils import unique_sft_path
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 
 from .registry import registry
 
@@ -22,48 +22,38 @@ logger = logging.getLogger(__name__)
 
 
 # --- Seeding utilities (robust, optional deps) ---
-def _set_global_seed(seed_value: int) -> Dict[str, Any]:
+def _set_global_seed(seed_value: int) -> dict[str, Any]:
     """Set global RNG seeds across common libraries; return details for logging/restoration.
 
     Returns a dict containing which libraries were seeded and prior states if obtainable.
     """
-    seeded: Dict[str, Any] = {"seed": int(seed_value), "libs": []}
-    try:
+    seeded: dict[str, Any] = {"seed": int(seed_value), "libs": []}
+    with contextlib.suppress(Exception):
         import random as _random  # type: ignore
 
         _random.seed(seed_value)
         seeded["libs"].append("random")
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         import numpy as _np  # type: ignore
 
         _np.random.seed(seed_value)
         seeded["libs"].append("numpy")
-    except Exception:
-        pass
-    try:
+    with contextlib.suppress(Exception):
         import torch as _torch  # type: ignore
 
         if hasattr(_torch, "manual_seed"):
             _torch.manual_seed(seed_value)
             seeded["libs"].append("torch")
         # Make CUDA deterministic if present (best-effort)
-        try:
+        with contextlib.suppress(Exception):
             if getattr(_torch, "cuda", None) and _torch.cuda.is_available():
                 _torch.cuda.manual_seed_all(seed_value)
                 seeded.setdefault("cuda", True)
-        except Exception:
-            pass
         # CUDNN deterministic flags (optional)
-        try:
+        with contextlib.suppress(Exception):
             if getattr(_torch, "backends", None) and getattr(_torch.backends, "cudnn", None):
                 _torch.backends.cudnn.deterministic = True  # type: ignore[attr-defined]
                 _torch.backends.cudnn.benchmark = False  # type: ignore[attr-defined]
-        except Exception:
-            pass
-    except Exception:
-        pass
     return seeded
 
 
@@ -71,39 +61,35 @@ def _clear_seed_side_effects() -> None:
     """Best-effort cleanup to avoid global deterministic side-effects between requests."""
     # We cannot truly restore prior RNG states without capturing them; we just avoid
     # leaving aggressive deterministic flags enabled where it matters.
-    try:
+    with contextlib.suppress(Exception):
         import torch as _torch  # type: ignore
 
-        try:
+        with contextlib.suppress(Exception):
             if getattr(_torch, "backends", None) and getattr(_torch.backends, "cudnn", None):
                 # Re-enable cudnn.benchmark default True only if it was True; safest is False -> leave as is.
                 # We'll keep deterministic False to avoid global impact; benchmark left False for stability.
                 _torch.backends.cudnn.deterministic = False  # type: ignore[attr-defined]
-        except Exception:
-            pass
-    except Exception:
-        pass
 
 
 router = APIRouter()
 
 
 class RolloutEnvSpec(BaseModel):
-    env_id: Optional[str] = None
-    env_name: Optional[str] = None
-    config: Dict[str, Any] = {}
-    seed: Optional[int] = None
+    env_id: str | None = None
+    env_name: str | None = None
+    config: dict[str, Any] = {}
+    seed: int | None = None
 
 
 class RolloutPolicySpec(BaseModel):
-    policy_id: Optional[str] = None
-    policy_name: Optional[str] = None
-    config: Dict[str, Any] = {}
+    policy_id: str | None = None
+    policy_name: str | None = None
+    config: dict[str, Any] = {}
 
 
 class RolloutBranchConfig(BaseModel):
     branch_every_n_steps: int = 0
-    branch_on_condition: Optional[str] = None
+    branch_on_condition: str | None = None
     max_branches: int = 0
     branch_policy: bool = False
     branch_env: bool = False
@@ -126,43 +112,43 @@ class RolloutRequest(BaseModel):
     run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    ops: List[str]  # ["agent", "env", ...]
+    ops: list[str]  # ["agent", "env", ...]
     record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"  # "reset" | "terminate"
-    branch: Optional[RolloutBranchConfig] = None
+    branch: RolloutBranchConfig | None = None
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     # Optional run/session context
-    training_session_id: Optional[str] = None
-    synth_base_url: Optional[str] = None
+    training_session_id: str | None = None
+    synth_base_url: str | None = None
 
 
 class RolloutStep(BaseModel):
-    obs: Dict[str, Any]
-    tool_calls: List[Dict[str, Any]]
-    reward: Optional[float] = None
+    obs: dict[str, Any]
+    tool_calls: list[dict[str, Any]]
+    reward: float | None = None
     done: bool = False
-    truncated: Optional[bool] = None
-    logprob: Optional[float] = None
-    value: Optional[float] = None
-    info: Optional[Dict[str, Any]] = None
+    truncated: bool | None = None
+    logprob: float | None = None
+    value: float | None = None
+    info: dict[str, Any] | None = None
 
 
 class RolloutTrajectory(BaseModel):
     env_id: str
     policy_id: str
-    steps: List[RolloutStep]
-    final: Optional[Dict[str, Any]] = None
+    steps: list[RolloutStep]
+    final: dict[str, Any] | None = None
     length: int
-    decision_samples: Optional[List[Dict[str, Any]]] = None
+    decision_samples: list[dict[str, Any]] | None = None
 
 
 def compute_stepwise_reward(
-    prev_achievements: Dict[str, bool],
-    new_achievements: Dict[str, bool],
+    prev_achievements: dict[str, bool],
+    new_achievements: dict[str, bool],
     decision_index: int,
-    actions_summary: List[Dict[str, Any]],
+    actions_summary: list[dict[str, Any]],
     indicator_lambda: float,
-) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, float]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, float]]:
     """Compute stepwise reward metadata given achievement states before/after a decision."""
 
     prev_map = prev_achievements or {}
@@ -193,7 +179,7 @@ def compute_stepwise_reward(
 
 
 class RolloutMetrics(BaseModel):
-    episode_returns: List[float]
+    episode_returns: list[float]
     mean_return: float
     num_steps: int
     num_episodes: int = 0
@@ -201,12 +187,12 @@ class RolloutMetrics(BaseModel):
 
 class RolloutResponse(BaseModel):
     run_id: str
-    trajectories: List[RolloutTrajectory]
-    branches: Dict[str, List[str]] = {}
+    trajectories: list[RolloutTrajectory]
+    branches: dict[str, list[str]] = {}
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
-    trace: Dict[str, Any] | None = None
+    trace: dict[str, Any] | None = None
 
 
 class RolloutTracingContext:
@@ -488,10 +474,10 @@ class RolloutTracingContext:
         self,
         *,
         env_handle: Any,
-        prev_obs: Dict[str, Any] | None,
+        prev_obs: dict[str, Any] | None,
         env_response: Any,
-        next_obs: Dict[str, Any] | None,
-        metadata: Dict[str, Any] | None = None,
+        next_obs: dict[str, Any] | None,
+        metadata: dict[str, Any] | None = None,
     ) -> int | None:
         if not self.enabled or self.tracer is None:
             return None
@@ -540,7 +526,7 @@ class RolloutTracingContext:
         self,
         *,
         event_id: int | None,
-        decision_meta: Dict[str, Any] | None,
+        decision_meta: dict[str, Any] | None,
     ) -> None:
         decision_meta = decision_meta or {}
         ach_delta = int(decision_meta.get("ach_delta", 0))
@@ -588,7 +574,7 @@ class RolloutTracingContext:
         self,
         *,
         total_reward: float,
-        achievement_state: Dict[str, bool] | None,
+        achievement_state: dict[str, bool] | None,
         total_steps: int,
     ) -> Any:
         final_achievements = [key for key, val in (achievement_state or {}).items() if val]
@@ -610,10 +596,8 @@ class RolloutTracingContext:
             except Exception as exc:
                 logger.debug("TRACING_END_SESSION_FAIL: %s", exc)
                 self.session_trace = None
-            try:
+            with contextlib.suppress(Exception):
                 await self.tracer.close()
-            except Exception:
-                pass
 
         if self.sft_records and self.sft_output_dir:
             self.write_sft_records()
@@ -639,7 +623,7 @@ class RolloutTracingContext:
         finally:
             self.sft_records.clear()
 
-    def build_trace_payload(self, session_trace: Any) -> Dict[str, Any] | None:
+    def build_trace_payload(self, session_trace: Any) -> dict[str, Any] | None:
         if not self.return_trace or session_trace is None:
             return None
         if self.trace_format == "full":
@@ -660,32 +644,33 @@ class RolloutTracingContext:
 
 
 def _summarize_observation_for_storage(
-    env_handle: Any, observation: Dict[str, Any]
-) -> Dict[str, Any]:
+    env_handle: Any, observation: dict[str, Any]
+) -> dict[str, Any]:
     """Return a compact dict for trajectory storage instead of the raw observation.
 
     - For Crafter, use the same summary used for the policy user prompt
     - For others, keep a minimal subset or plain text preview
     """
     # Try Crafter-specific formatter
-    try:
-        from .envs.crafter.environment import CrafterEnvironmentWrapper as _CrafterWrapper  # type: ignore
-    except Exception:
-        _CrafterWrapper = None  # type: ignore
+    crafter_wrapper = None
+    with contextlib.suppress(Exception):
+        from .envs.crafter.environment import (
+            CrafterEnvironmentWrapper as _CrafterWrapper,  # type: ignore
+        )
 
-    if _CrafterWrapper is not None and isinstance(
-        getattr(env_handle, "env", None), _CrafterWrapper
+        crafter_wrapper = _CrafterWrapper  # type: ignore[assignment]
+
+    if crafter_wrapper is not None and isinstance(
+        getattr(env_handle, "env", None), crafter_wrapper
     ):
-        try:
+        with contextlib.suppress(Exception):
             from .envs.crafter.shared import format_observation as _fmt  # type: ignore
 
             text = _fmt(observation or {})
             return {"text": text}
-        except Exception:
-            pass
 
     # Generic fallback: extract a few small fields if present; avoid huge arrays
-    try:
+    with contextlib.suppress(Exception):
         inv = observation.get("inventory") if isinstance(observation, dict) else None
         ach = observation.get("achievements_status") if isinstance(observation, dict) else None
         pos = observation.get("player_position") if isinstance(observation, dict) else None
@@ -695,16 +680,14 @@ def _summarize_observation_for_storage(
         summary = {
             "position": pos,
             "health": health,
-            "inventory_keys": sorted([k for k, v in (inv or {}).items() if v])[:10]
+            "inventory_keys": sorted(k for k, v in (inv or {}).items() if v)[:10]
             if isinstance(inv, dict)
             else None,
-            "achievements_unlocked": sorted([k for k, v in (ach or {}).items() if v])[:10]
+            "achievements_unlocked": sorted(k for k, v in (ach or {}).items() if v)[:10]
             if isinstance(ach, dict)
             else None,
         }
         return {"text": json.dumps(summary, ensure_ascii=False)}
-    except Exception:
-        pass
 
     # Last resort: plain string preview
     try:
@@ -726,7 +709,7 @@ class RunStatusResponse(BaseModel):
     run_id: str
     status: str
     started_at: datetime
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
 
 
 @router.post("/rollout", response_model=RolloutResponse)
@@ -749,32 +732,30 @@ async def execute_rollout(
                 "error": "invalid_env_params",
                 "message": f"Invalid or missing env_params.max_steps_per_episode: {_mse}",
             },
-        )
+        ) from _mse
     # Truncate incoming ops to the enforced cap (each step is [agent, env])
-    ops_seq: List[str] = list(request.ops or [])
+    ops_seq: list[str] = list(request.ops or [])
     allowed_ops = max(0, int(max_steps_per_episode) * 2)
     if len(ops_seq) > allowed_ops:
-        try:
+        with contextlib.suppress(Exception):
             logger.info(
                 "ROLL_OUT: truncating ops to cap: requested_ops=%s allowed_ops=%s",
                 str(len(ops_seq)),
                 str(allowed_ops),
             )
-        except Exception:
-            pass
         ops_seq = ops_seq[:allowed_ops]
     # Simple API key auth for inbound rollout
     header_key = req.headers.get("x-api-key")
     env_key = os.getenv("ENVIRONMENT_API_KEY")
-    dev_key = os.getenv("dev_environment_api_key")
-    # Accept either ENVIRONMENT_API_KEY or dev_environment_api_key
+    dev_key = os.getenv("DEV_ENVIRONMENT_API_KEY")
+    # Accept either ENVIRONMENT_API_KEY or DEV_ENVIRONMENT_API_KEY
     expected_keys = [k for k in (env_key, dev_key) if k]
     if not expected_keys:
         missing = []
         if not env_key:
             missing.append("ENVIRONMENT_API_KEY")
         if not dev_key:
-            missing.append("dev_environment_api_key")
+            missing.append("DEV_ENVIRONMENT_API_KEY")
         msg = f"Auth not configured: missing {', '.join(missing)} in task service environment"
         logger.error(msg)
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=msg)
@@ -800,23 +781,19 @@ async def execute_rollout(
         logger.info(f"ROLL_OUT: synth_base_url={request.synth_base_url}")
 
     # Log masked OpenAI API key presence for diagnostics
-    try:
+    with contextlib.suppress(Exception):
         _oa = os.getenv("OPENAI_API_KEY")
         if _oa:
             _pref = (_oa[:6] + "…") if len(_oa) >= 6 else "set"
             logger.info(f"ROLL_OUT: OPENAI_API_KEY present (prefix={_pref})")
         else:
             logger.warning("ROLL_OUT: OPENAI_API_KEY missing")
-    except Exception:
-        pass
 
     # Make synth_base_url available for outbound calls in this app
-    try:
+    with contextlib.suppress(Exception):
         task_app = req.app.state.task_app
         if request.synth_base_url:
-            setattr(task_app, "synth_base_url", request.synth_base_url)
-    except Exception:
-        pass
+            task_app.synth_base_url = request.synth_base_url
 
     tracer_factory = getattr(req.app.state, "session_tracer_factory", None)
     tracer_instance = None
@@ -838,7 +815,7 @@ async def execute_rollout(
 
     try:
         # Initialize deterministic seed early for the entire rollout
-        seed_value: Optional[int] = None
+        seed_value: int | None = None
         try:
             if request.env and request.env.seed is not None:
                 seed_value = int(request.env.seed)
@@ -857,14 +834,12 @@ async def execute_rollout(
                 seed_value = 42
 
         _seed_info = _set_global_seed(int(seed_value))
-        try:
+        with contextlib.suppress(Exception):
             logger.info(
                 "ROLL_OUT: RNG seeded seed=%s libs=%s",
                 str(_seed_info.get("seed")),
                 ",".join(_seed_info.get("libs", [])),
             )
-        except Exception:
-            pass
         # Resolve or create environment
         if request.env.env_id:
             env_handle = registry.get_env(request.env.env_id)
@@ -876,7 +851,7 @@ async def execute_rollout(
             env_id = request.env.env_id
         else:
             # Create new environment
-            from .environment_routes import create_environment, EnvCreateRequest
+            from .environment_routes import EnvCreateRequest, create_environment
 
             if not request.env.env_name:
                 raise ValueError("FATAL: env_name is required - NO FALLBACKS!")
@@ -910,7 +885,7 @@ async def execute_rollout(
             policy_id = request.policy.policy_id
         else:
             # Create new policy
-            from .policy_routes import create_policy, PolicyCreateRequest
+            from .policy_routes import PolicyCreateRequest, create_policy
 
             if not request.policy.policy_name:
                 raise ValueError("FATAL: policy_name is required - NO FALLBACKS!")
@@ -954,12 +929,12 @@ async def execute_rollout(
         total_reward = 0.0
         ops_executed = 0
         last_agent_response_ts: float | None = None
-        last_policy_meta: Dict[str, Any] | None = None
+        last_policy_meta: dict[str, Any] | None = None
         last_env_step_ms: float | None = None
         last_env_step_completed_ts: float | None = None
 
         # Stepwise reward configuration (Crafter shaping; gate on explicit enable)
-        step_rewards_cfg_raw: Dict[str, Any] = {}
+        step_rewards_cfg_raw: dict[str, Any] = {}
         try:
             if isinstance(request.policy.config, dict):
                 step_rewards_cfg_raw = dict(request.policy.config.get("step_rewards") or {})
@@ -986,7 +961,7 @@ async def execute_rollout(
             step_rewards_beta = 0.0
         step_rewards_active = step_rewards_enabled and step_rewards_mode == "decision_stepwise"
 
-        def _extract_achievements(obs: Any) -> Dict[str, bool]:
+        def _extract_achievements(obs: Any) -> dict[str, bool]:
             if not isinstance(obs, dict):
                 return {}
             ach = obs.get("achievements_status")
@@ -994,7 +969,7 @@ async def execute_rollout(
                 return {str(k): bool(v) for k, v in ach.items()}
             return {}
 
-        def _summarize_tool_calls(tool_calls: Any) -> List[Dict[str, Any]]:
+        def _summarize_tool_calls(tool_calls: Any) -> list[dict[str, Any]]:
             if not tool_calls:
                 return []
             try:
@@ -1005,7 +980,7 @@ async def execute_rollout(
                 )
             except Exception:
                 return []
-            summary: List[Dict[str, Any]] = []
+            summary: list[dict[str, Any]] = []
             for tc in items:
                 tool_name = None
                 args: Any = {}
@@ -1024,16 +999,16 @@ async def execute_rollout(
                 summary.append({"tool": tool_name, "args": args})
             return summary
 
-        decision_samples: List[Dict[str, Any]] = []
+        decision_samples: list[dict[str, Any]] = []
         decision_index = 0
         decision_open = False
         session_trace = None
         finalized = False
         prev_achievements = _extract_achievements(current_obs)
         # Track episode-level achievements that have been seen as true at any point so far
-        episode_seen_achievements: set[str] = set(
-            [k for k, v in (prev_achievements or {}).items() if bool(v)]
-        )
+        episode_seen_achievements: set[str] = {
+            k for k, v in (prev_achievements or {}).items() if bool(v)
+        }
         stepwise_indicator_sum = 0.0
         stepwise_reward_sum = 0.0
         stepwise_new_achievements_total = 0
@@ -1053,7 +1028,7 @@ async def execute_rollout(
 
             if op == "agent":
                 # Policy step
-                from .policy_routes import step_policy, PolicyStepRequest
+                from .policy_routes import PolicyStepRequest, step_policy
 
                 if not decision_open:
                     await tracing_context.start_decision(decision_index)
@@ -1061,7 +1036,7 @@ async def execute_rollout(
 
                 agent_request_start = _time.perf_counter()
                 if last_agent_response_ts is not None and last_policy_meta is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         timing_prev = last_policy_meta.setdefault("timing", {})
                         decision_ms = max(
                             0.0,
@@ -1080,7 +1055,7 @@ async def execute_rollout(
                         # Also backfill the last appended trajectory step so the trainer
                         # can always see decision_ms without relying on shared dict refs.
                         if trajectory_steps:
-                            try:
+                            with contextlib.suppress(Exception):
                                 _last = trajectory_steps[-1]
                                 _info = dict(_last.info or {})
                                 _meta = dict(_info.get("meta") or {})
@@ -1097,10 +1072,6 @@ async def execute_rollout(
                                 _meta["timing"] = _timing
                                 _info["meta"] = _meta
                                 _last.info = _info
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
                 last_env_step_ms = None
                 last_env_step_completed_ts = None
 
@@ -1123,37 +1094,26 @@ async def execute_rollout(
                     }
 
                 # Log compact metadata summary to confirm history threading
-                try:
-                    _prev_calls = (
-                        metadata["prev_tool_calls"]
-                        if isinstance(metadata, dict) and "prev_tool_calls" in metadata
-                        else None
-                    )
+                with contextlib.suppress(Exception):
+                    _prev_calls = metadata.get("prev_tool_calls")
                     _count = len(_prev_calls) if isinstance(_prev_calls, list) else 0
                     _first_guess = None
                     if _count > 0 and isinstance(_prev_calls[0], dict):
-                        _args = (
-                            _prev_calls[0]["arguments"] if "arguments" in _prev_calls[0] else None
-                        )
+                        _args = _prev_calls[0].get("arguments", None)
                         if isinstance(_args, str):
                             import json as _json
 
-                            try:
+                            with contextlib.suppress(Exception):
                                 _args = _json.loads(_args)
-                            except Exception:
-                                _args = {}
-                        if isinstance(_args, dict):
-                            _first_guess = (_args["guess"] if "guess" in _args else None) or (
-                                _args["word"] if "word" in _args else None
-                            )
+                        if not isinstance(_args, dict):
+                            _args = {}
+                        _first_guess = _args.get("guess") or _args.get("word")
                     logger.info(
                         "POLICY_METADATA: prev_tool_calls=%d first_guess=%r has_prev_env_result=%s",
                         _count,
                         _first_guess,
                         str("prev_env_result" in metadata),
                     )
-                except Exception:
-                    pass
 
                 try:
                     policy_response = await step_policy(
@@ -1166,15 +1126,13 @@ async def execute_rollout(
                     )
                 except Exception as _pe:
                     # Do not 500 the rollout; finalize with partial trajectory
-                    try:
+                    with contextlib.suppress(Exception):
                         logger.warning(
                             "POLICY_STEP_FAIL: terminating episode early run_id=%s op_idx=%s err=%s",
                             request.run_id,
                             str(op_idx),
                             str(_pe),
                         )
-                    except Exception:
-                        pass
 
                     # Build partial trajectory and return HTTP 200
                     trajectory = RolloutTrajectory(
@@ -1222,12 +1180,12 @@ async def execute_rollout(
 
                 agent_response_ts = _time.perf_counter()
                 if isinstance(policy_response.meta, dict):
-                    try:
+                    with contextlib.suppress(Exception):
                         timing_cur = policy_response.meta.setdefault("timing", {})
                         timing_cur["agent_request_start_s"] = agent_request_start
                         timing_cur["agent_response_s"] = agent_response_ts
                         if "inference_ms" in policy_response.meta:
-                            try:
+                            with contextlib.suppress(Exception):
                                 timing_cur.setdefault(
                                     "inference_ms",
                                     float(policy_response.meta["inference_ms"]),
@@ -1236,10 +1194,6 @@ async def execute_rollout(
                                     "inference_s",
                                     float(policy_response.meta["inference_ms"]) / 1000.0,
                                 )
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
                     last_policy_meta = policy_response.meta
                 else:
                     last_policy_meta = None
@@ -1252,14 +1206,12 @@ async def execute_rollout(
             elif op == "env":
                 if not pending_tool_calls:
                     # Treat absence of tool calls as a soft terminal condition; yield partial trajectory
-                    try:
+                    with contextlib.suppress(Exception):
                         logger.warning(
                             "NO_TOOL_CALLS: terminating episode early run_id=%s op_idx=%s",
                             request.run_id,
                             str(op_idx),
                         )
-                    except Exception:
-                        pass
                     term_step = RolloutStep(
                         obs=current_obs,
                         tool_calls=[],
@@ -1315,7 +1267,7 @@ async def execute_rollout(
                     )
 
                 # Environment step
-                from .environment_routes import step_environment, EnvStepRequest
+                from .environment_routes import EnvStepRequest, step_environment
 
                 env_step_error: Exception | None = None
                 env_response = None
@@ -1334,24 +1286,20 @@ async def execute_rollout(
                 last_env_step_ms = env_step_duration_ms
                 last_env_step_completed_ts = env_step_end
                 if last_policy_meta is not None:
-                    try:
+                    with contextlib.suppress(Exception):
                         timing_env = last_policy_meta.setdefault("timing", {})
                         timing_env["env_step_ms"] = env_step_duration_ms
                         timing_env["env_step_end_s"] = env_step_end
-                    except Exception:
-                        pass
 
                 if env_step_error is not None:
                     # Invalid action or environment rejection — terminate episode early with partial trajectory
-                    try:
+                    with contextlib.suppress(Exception):
                         logger.warning(
                             "ENV_STEP_FAIL: terminating episode early run_id=%s op_idx=%s err=%s",
                             request.run_id,
                             str(op_idx),
                             str(env_step_error),
                         )
-                    except Exception:
-                        pass
 
                     term_step = RolloutStep(
                         obs=current_obs,
@@ -1394,7 +1342,7 @@ async def execute_rollout(
                         and last_agent_response_ts is not None
                         and "decision_ms" not in last_policy_meta.get("timing", {})
                     ):
-                        try:
+                        with contextlib.suppress(Exception):
                             timing_last = last_policy_meta.setdefault("timing", {})
                             decision_ms = max(
                                 0.0,
@@ -1404,8 +1352,6 @@ async def execute_rollout(
                             timing_last.setdefault(
                                 "overhead_ms", max(0.0, decision_ms - env_step_duration_ms)
                             )
-                        except Exception:
-                            pass
                     if decision_open:
                         await tracing_context.end_decision()
                         decision_open = False
@@ -1433,15 +1379,13 @@ async def execute_rollout(
                 # Record step, including policy meta if present for timing/tokens observability
                 _info = env_response.info if isinstance(env_response.info, dict) else {}
                 # Attach policy meta from the immediately preceding agent step
-                try:
+                with contextlib.suppress(Exception):
                     prev_meta = {}
                     if "policy_response" in locals() and isinstance(policy_response.meta, dict):  # type: ignore[name-defined]
                         prev_meta = policy_response.meta
                     if prev_meta:
                         _info = dict(_info)
                         _info["meta"] = prev_meta
-                except Exception:
-                    pass
 
                 event_metadata = {
                     "op_index": op_idx,
@@ -1462,7 +1406,7 @@ async def execute_rollout(
                 )
                 indicator_val = 0
                 reward_stepwise = 0.0
-                decision_rewards_meta: Dict[str, Any] | None = None
+                decision_rewards_meta: dict[str, Any] | None = None
                 if step_rewards_active:
                     decision_actions = _summarize_tool_calls(pending_tool_calls)
                     stepwise_info, decision_record, stats = compute_stepwise_reward(
@@ -1477,20 +1421,17 @@ async def execute_rollout(
                     stepwise_indicator_sum += float(stats.get("indicator", 0.0))
                     stepwise_reward_sum += reward_stepwise
                     stepwise_new_achievements_total += int(stats.get("new_achievements_count", 0.0))
-                    if not isinstance(_info, dict):
-                        _info = {}
-                    else:
-                        _info = dict(_info)
+                    _info = {} if not isinstance(_info, dict) else dict(_info)
                     _info["stepwise"] = stepwise_info
                     # Compute decision-level rewards (absolute vs unique) and attach to metadata
-                    try:
+                    with contextlib.suppress(Exception):
                         turned_true = set(stepwise_info.get("new_achievements") or [])
                         seen_before = set(episode_seen_achievements)
-                        new_unique = sorted(list(turned_true - seen_before))
+                        new_unique = sorted(turned_true - seen_before)
                         ach_delta = int(len(turned_true))
                         unique_delta = int(len(new_unique))
                         # Prepare stable lists for logging/metadata
-                        all_list = sorted(list(turned_true))
+                        all_list = sorted(turned_true)
                         # Ensure nested meta exists
                         meta_block = (
                             _info.get("meta") if isinstance(_info.get("meta"), dict) else {}
@@ -1507,9 +1448,6 @@ async def execute_rollout(
                         _info["meta"] = meta_block
                         # Update episode-level seen set after attributing uniqueness to this decision
                         episode_seen_achievements.update(turned_true)
-                    except Exception:
-                        # Best-effort; do not block rollout on metadata computation
-                        pass
                     decision_samples.append(decision_record)
                 prev_achievements = new_achievement_state
 
@@ -1541,8 +1479,8 @@ async def execute_rollout(
                     if request.on_done == "reset":
                         # Reset environment
                         from .environment_routes import (
-                            reset_environment,
                             EnvResetRequest,
+                            reset_environment,
                         )
 
                         reset_response = await reset_environment(EnvResetRequest(env_id=env_id))
@@ -1564,7 +1502,7 @@ async def execute_rollout(
             and isinstance(last_policy_meta["timing"], dict)
             and "decision_ms" not in last_policy_meta["timing"]
         ):
-            try:
+            with contextlib.suppress(Exception):
                 final_now = last_env_step_completed_ts or _time.perf_counter()
                 final_decision_ms = max(0.0, (final_now - float(last_agent_response_ts)) * 1000.0)
                 timing_final = last_policy_meta.setdefault("timing", {})
@@ -1577,8 +1515,6 @@ async def execute_rollout(
                     )
                 else:
                     timing_final.setdefault("overhead_ms", 0.0)
-            except Exception:
-                pass
 
         # Build trajectory
         trajectory = RolloutTrajectory(
@@ -1601,18 +1537,23 @@ async def execute_rollout(
         # Environment-specific: Log summary if available
         try:
             # Check if this is a Wordle environment and use Wordle helpers (lazy import)
+            wordle_wrapper_cls = None
             try:
-                from .envs.wordle.environment import WordleEnvironmentWrapper as _WordleWrapper
+                from .envs.wordle.environment import WordleEnvironmentWrapper
                 from .envs.wordle.helpers import (
                     get_wordle_rollout_summary,
                     log_wordle_rollout_summary,
                 )
+
+                wordle_wrapper_cls = WordleEnvironmentWrapper
             except Exception:
-                _WordleWrapper = None  # type: ignore
+                wordle_wrapper_cls = None  # type: ignore[assignment]
                 get_wordle_rollout_summary = None  # type: ignore
                 log_wordle_rollout_summary = None  # type: ignore
 
-            is_wordle = _WordleWrapper is not None and isinstance(env_handle.env, _WordleWrapper)
+            is_wordle = wordle_wrapper_cls is not None and isinstance(
+                env_handle.env, wordle_wrapper_cls  # type: ignore[arg-type]
+            )
             if is_wordle:
                 # Convert trajectory steps to expected format
                 formatted_steps = []
@@ -1661,27 +1602,24 @@ async def execute_rollout(
         logger.error(f"Rollout failed for run {request.run_id}: {e}")
         registry.abort_run(request.run_id)
         if decision_open:
-            try:
+            with contextlib.suppress(Exception):
                 await tracing_context.end_decision()
-            except Exception:
-                pass
             decision_open = False
         if not finalized:
-            try:
+            session_trace = None
+            with contextlib.suppress(Exception):
                 session_trace = await tracing_context.finalize(
                     total_reward=total_reward,
                     achievement_state=prev_achievements,
                     total_steps=len(trajectory_steps),
                 )
-            except Exception:
-                session_trace = None
             finalized = True
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         # Ensure any environment created for this rollout is terminated (no reuse across rollouts)
         try:
             if created_env_id:
-                from .environment_routes import terminate_environment, EnvTerminateRequest
+                from .environment_routes import EnvTerminateRequest, terminate_environment
 
                 await terminate_environment(EnvTerminateRequest(env_id=created_env_id))
                 logger.info(
@@ -1690,44 +1628,37 @@ async def execute_rollout(
                     str(env_seed_used) if env_seed_used is not None else "unknown",
                 )
                 # Verify removal from registry
-                try:
+                with contextlib.suppress(Exception):
                     _post = registry.get_env(created_env_id)
                     logger.info(
                         "ROLL_OUT: env_killed=%s (post_lookup=%s)",
                         str(_post is None),
                         str(_post),
                     )
-                except Exception:
-                    pass
         except Exception as _te:
             logger.warning(f"ROLL_OUT: failed to terminate environment {created_env_id}: {_te}")
 
         # Best-effort policy cleanup if we created one (avoid reuse across rollouts)
-        try:
+        with contextlib.suppress(Exception):
             if created_policy_id:
-                from .policy_routes import terminate_policy, PolicyTerminateRequest
+                from .policy_routes import PolicyTerminateRequest, terminate_policy
 
                 await terminate_policy(PolicyTerminateRequest(policy_id=created_policy_id))
                 logger.info("ROLL_OUT: terminated policy policy_id=%s", str(created_policy_id))
-        except Exception:
-            pass
 
         if not finalized:
-            try:
+            session_trace = None
+            with contextlib.suppress(Exception):
                 session_trace = await tracing_context.finalize(
                     total_reward=total_reward,
                     achievement_state=prev_achievements,
                     total_steps=len(trajectory_steps),
                 )
-            except Exception:
-                session_trace = None
             finalized = True
 
-        try:
+        with contextlib.suppress(Exception):
             _clear_seed_side_effects()
             logger.info("ROLL_OUT: RNG seed terminated/cleared before conclusion")
-        except Exception:
-            pass
 
 
 @router.post("/run/abort", response_model=RunAbortResponse)

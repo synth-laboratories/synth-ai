@@ -89,9 +89,9 @@ class HookManager:
         self,
         event: str,
         callback: Callable,
-        name: str = None,
+        name: str | None = None,
         priority: int = 0,
-        event_types: list[str] = None,
+        event_types: list[str] | None = None,
     ) -> Hook:
         """Register a new hook.
 
@@ -115,7 +115,7 @@ class HookManager:
             raise ValueError(f"Unknown hook event: {event}")
 
         hook = Hook(
-            name=name or callback.__name__,
+            name=name or getattr(callback, '__name__', 'unknown'),
             callback=callback,
             event_types=event_types,
             priority=priority,

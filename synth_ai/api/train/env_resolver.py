@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable, Iterable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, MutableMapping
 
 import click
 

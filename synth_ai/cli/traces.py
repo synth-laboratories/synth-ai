@@ -74,9 +74,9 @@ def register(cli):
                         system_counts = (
                             {
                                 str(r["system_type"] or "-"): int(r["c"] or 0)
-                                for _, r in (systems_df or []).iterrows()
+                                for _, r in systems_df.iterrows()
                             }
-                            if systems_df is not None and not systems_df.empty
+                            if systems_df is not None and hasattr(systems_df, 'iterrows') and not systems_df.empty
                             else {}
                         )
                     except Exception:

@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 """Catalog of Synth-hosted base models and helpers for discovery."""
 
-from dataclasses import dataclass
-from typing import Iterable, Iterator, Sequence
+from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Sequence
+from dataclasses import dataclass
 
 QWEN3_MODELS: list[str] = [
     "Qwen/Qwen3-0.6B",

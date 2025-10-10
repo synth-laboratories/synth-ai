@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import Optional
 
 
-def _parse_public_url_from_log(log_path: str) -> Optional[str]:
+def _parse_public_url_from_log(log_path: str) -> str | None:
     try:
         with open(log_path) as fh:
             for line in fh:
@@ -16,7 +15,7 @@ def _parse_public_url_from_log(log_path: str) -> Optional[str]:
     return None
 
 
-def deploy(script_path: Optional[str] = None, *, env_api_key: Optional[str] = None) -> str:
+def deploy(script_path: str | None = None, *, env_api_key: str | None = None) -> str:
     """
     Deploy the Math Task App to Modal and return the public URL.
 
@@ -55,4 +54,4 @@ def deploy(script_path: Optional[str] = None, *, env_api_key: Optional[str] = No
         raise RuntimeError(
             f"No deploy script provided and Python-based deploy failed: {e}. "
             "Pass --script /path/to/deploy_task_app.sh to demo.deploy."
-        )
+        ) from e

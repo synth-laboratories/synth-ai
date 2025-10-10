@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
 from abc import ABC, abstractmethod
+from typing import Any
+
 from .react_agent import CrafterReActAgent
 from .tools import TOOLS_SCHEMA
 
@@ -12,15 +13,15 @@ class Policy(ABC):
 
     @abstractmethod
     def prepare_inference_request(
-        self, observation: Dict[str, Any], history: List[Dict[str, Any]] = None
-    ) -> Tuple[List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+        self, observation: dict[str, Any], history: list[dict[str, Any]] = None
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None]:
         """Prepare an inference request."""
         pass
 
     @abstractmethod
     def parse_model_response(
-        self, response: str, observation: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, response: str, observation: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Parse model response into tool calls."""
         pass
 
@@ -39,23 +40,23 @@ class CrafterPolicy(Policy):
 
     name: str = "crafter-react"
 
-    def __init__(self, inference_url: str, model: Optional[str] = None) -> None:
+    def __init__(self, inference_url: str, model: str | None = None) -> None:
         self.inference_url = inference_url
         self.model = model
         self.use_tools = True
         # Sampling parameters (populated via initialize(config))
-        self.temperature: Optional[float] = None
-        self.top_p: Optional[float] = None
-        self.max_tokens: Optional[int] = None
+        self.temperature: float | None = None
+        self.top_p: float | None = None
+        self.max_tokens: int | None = None
         # Thinking controls (populated via initialize(config))
-        self.thinking_mode: Optional[str] = None
-        self.thinking_budget: Optional[int] = None
+        self.thinking_mode: str | None = None
+        self.thinking_budget: int | None = None
         # Rolling conversation and action history for non-Markov policies
-        self.history_messages: List[Dict[str, str]] = []  # chat-style without system
+        self.history_messages: list[dict[str, str]] = []  # chat-style without system
         self.turn_index: int = 0
-        self.trajectory_history: List[Dict[str, Any]] = []  # env/policy step records
+        self.trajectory_history: list[dict[str, Any]] = []  # env/policy step records
 
-    async def initialize(self, config: Dict[str, Any]) -> None:
+    async def initialize(self, config: dict[str, Any]) -> None:
         if "inference_url" in config:
             self.inference_url = config["inference_url"]
         if "model" in config:
@@ -91,15 +92,15 @@ class CrafterPolicy(Policy):
 
     def _append_assistant_turn(
         self,
-        assistant_text: Optional[str],
-        tool_calls: Optional[List[Dict[str, Any]]],
-        env_result: Optional[Dict[str, Any]],
+        assistant_text: str | None,
+        tool_calls: list[dict[str, Any]] | None,
+        env_result: dict[str, Any] | None,
     ) -> None:
         # Record assistant content (if any)
         if assistant_text is not None:
             self.history_messages.append({"role": "assistant", "content": assistant_text})
         # Keep structured step record for training/analysis
-        record: Dict[str, Any] = {"turn": self.turn_index}
+        record: dict[str, Any] = {"turn": self.turn_index}
         if tool_calls is not None:
             record["tool_calls"] = tool_calls
         if env_result is not None:
@@ -109,13 +110,13 @@ class CrafterPolicy(Policy):
     def build_inference_request(
         self,
         observation_text: str,
-        history: Optional[List[Dict[str, str]]] = None,
-        turn: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        history: list[dict[str, str]] | None = None,
+        turn: int | None = None,
+    ) -> dict[str, Any]:
         messages = CrafterReActAgent.build_messages(
             observation=observation_text, history=history, turn=turn
         )
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "messages": messages,
         }
         if self.model is not None:
@@ -150,9 +151,9 @@ class CrafterPolicy(Policy):
 
     @staticmethod
     def parse_response_to_tool_calls(
-        response: Dict[str, Any],
+        response: dict[str, Any],
         use_tools: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Turn an inference response into environment tool calls.
 
         - If tools were used, expect tool_calls-compatible output and forward as-is
@@ -162,7 +163,7 @@ class CrafterPolicy(Policy):
         """
         # First check if we got actual tool calls
         choices = response.get("choices", [])
-        tool_calls: List[Dict[str, Any]] = []
+        tool_calls: list[dict[str, Any]] = []
 
         for choice in choices:
             msg = choice.get("message", {})
@@ -192,7 +193,7 @@ class CrafterPolicy(Policy):
         if tool_calls:
             # Normalize common degenerate pattern ["move_right", "do"] when nothing is nearby.
             # If previous env_result indicates no interaction target, drop trailing 'do'.
-            normalized: List[Dict[str, Any]] = []
+            normalized: list[dict[str, Any]] = []
             for tc in tool_calls:
                 if tc and isinstance(tc, dict) and tc.get("tool_name") == "interact_many":
                     args = tc.get("arguments")
@@ -242,9 +243,9 @@ class CrafterPolicy(Policy):
     async def step(
         self,
         observation_text: str,
-        state: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        state: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Stateful step: update policy history and prepare inference request.
 
         Inputs (via metadata, optional):
@@ -261,9 +262,9 @@ class CrafterPolicy(Policy):
         """
         # If caller provided results from previous cycle, record them first
         if metadata is not None:
-            prev_assistant_text: Optional[str] = None
-            prev_tool_calls: Optional[List[Dict[str, Any]]] = None
-            prev_env_result: Optional[Dict[str, Any]] = None
+            prev_assistant_text: str | None = None
+            prev_tool_calls: list[dict[str, Any]] | None = None
+            prev_env_result: dict[str, Any] | None = None
             if "prev_assistant_text" in metadata:
                 prev_assistant_text = metadata["prev_assistant_text"]
             if "prev_tool_calls" in metadata:
@@ -283,7 +284,7 @@ class CrafterPolicy(Policy):
         # Build user message by combining the current observation text
         # (formatted surroundings/inventory) with the previous 3 tool calls as context.
         # Most recent first.
-        lines: List[str] = []
+        lines: list[str] = []
 
         def _format_tool_call_line_for_context(
             tool_name: str, arguments: Any, max_chars: int = 500
@@ -291,7 +292,7 @@ class CrafterPolicy(Policy):
             import json as _json
 
             # Render arguments compactly, then clip to max_chars
-            if isinstance(arguments, (dict, list)):
+            if isinstance(arguments, dict | list):
                 try:
                     rendered = _json.dumps(arguments, ensure_ascii=False, separators=(",", ":"))
                 except Exception:
@@ -321,7 +322,7 @@ class CrafterPolicy(Policy):
 
         # If trajectory history is empty (first few turns), fall back to metadata once
         if not lines and metadata is not None and metadata.get("prev_tool_calls"):
-            calls: List[Dict[str, Any]] = metadata["prev_tool_calls"]
+            calls: list[dict[str, Any]] = metadata["prev_tool_calls"]
             for call in reversed(calls):
                 if len(lines) >= 3:
                     break
@@ -352,19 +353,19 @@ class CrafterPolicy(Policy):
         }
         return [], meta_out
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             "turn_index": self.turn_index,
             "history_messages": self.history_messages,
             "trajectory_history": self.trajectory_history,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.turn_index = int(state["turn_index"])
         self.history_messages = state["history_messages"]
         self.trajectory_history = state["trajectory_history"]
 
-    async def serialize(self) -> Dict[str, Any]:
+    async def serialize(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "config": {
@@ -376,7 +377,7 @@ class CrafterPolicy(Policy):
         }
 
     @classmethod
-    async def deserialize(cls, payload: Dict[str, Any]) -> "CrafterPolicy":
+    async def deserialize(cls, payload: dict[str, Any]) -> CrafterPolicy:
         config = payload["config"]
         state = payload["state"]
         policy = cls(
@@ -391,8 +392,8 @@ class CrafterPolicy(Policy):
         return None
 
     def prepare_inference_request(
-        self, observation: Dict[str, Any], history: List[Dict[str, Any]] = None
-    ) -> Tuple[List[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+        self, observation: dict[str, Any], history: list[dict[str, Any]] = None
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]] | None]:
         """Prepare an inference request (implementing abstract method)."""
         # Format observation with rich contextual information
         observation_text = self._format_observation_for_llm(observation)
@@ -406,7 +407,7 @@ class CrafterPolicy(Policy):
         tools = TOOLS_SCHEMA if self.use_tools else None
         return messages, tools
 
-    def _format_observation_for_llm(self, observation: Dict[str, Any]) -> str:
+    def _format_observation_for_llm(self, observation: dict[str, Any]) -> str:
         """Format observation with rich contextual information for the LLM using the shared formatter."""
         from .shared import format_observation
 
@@ -423,17 +424,19 @@ class CrafterPolicy(Policy):
 
         # Get additional info from the observation wrapper
         info = observation.get("info", {})
-        if isinstance(info, dict):
-            # Merge health from info into obs_data for the formatter
-            if "health" in info and "health" not in obs_data:
-                obs_data = dict(obs_data)  # Make a copy
-                obs_data["health"] = info["health"]
+        if (
+            isinstance(info, dict)
+            and "health" in info
+            and "health" not in obs_data
+        ):
+            obs_data = dict(obs_data)  # Make a copy
+            obs_data["health"] = info["health"]
 
         return format_observation(obs_data, step_count=step_idx, max_steps=max_steps)
 
     def parse_model_response(
-        self, response: str, observation: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, response: str, observation: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Parse model response into tool calls (implementing abstract method).
 
         Note: Despite the type hint, vLLM actually returns a dict response,

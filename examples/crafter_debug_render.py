@@ -12,9 +12,10 @@ Run:
 """
 
 import argparse
+import contextlib
 import math
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 import httpx
 
@@ -37,21 +38,19 @@ def try_import_crafter_mapping():
                 id_to_item[ind] = label.lower()
             return id_to_item
         finally:
-            try:
+            with contextlib.suppress(Exception):
                 env.close()
-            except Exception:
-                pass
     except Exception:
         return None
 
 
-def format_semantic_map_view(obs: Dict[str, Any], view_size: int = 7) -> str:
+def format_semantic_map_view(obs: dict[str, Any], view_size: int = 7) -> str:
     sem = obs.get("semantic_map") or obs.get("sem_map") or obs.get("map")
     if sem is None:
         return "No semantic map available"
 
     # Normalize to 2D grid
-    grid: List[List[int]]
+    grid: list[list[int]]
     if isinstance(sem, list) and sem and isinstance(sem[0], list):
         grid = sem
     elif isinstance(sem, list):
@@ -82,10 +81,10 @@ def format_semantic_map_view(obs: Dict[str, Any], view_size: int = 7) -> str:
         px, py = rows // 2, cols // 2
 
     half = max(1, view_size // 2)
-    lines: List[str] = []
+    lines: list[str] = []
     visible: set[str] = set()
     for dy in range(-half, half + 1):
-        row_cells: List[str] = []
+        row_cells: list[str] = []
         for dx in range(-half, half + 1):
             x = px + dx
             y = py + dy
@@ -175,12 +174,10 @@ async def main():
         print(format_semantic_map_view(sobs, view_size=7))
 
         # Cleanup
-        try:
+        with contextlib.suppress(Exception):
             await client.post(
                 f"{args.base_url}/env/CrafterClassic/terminate", json={"env_id": env_id}
             )
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

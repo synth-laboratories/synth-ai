@@ -14,7 +14,7 @@ class StatefulEngine(Engine):
         pass
 
     @classmethod
-    async def deserialize(self, engine_snapshot: StatefulEngineSnapshot):
+    async def deserialize(cls, engine_snapshot: StatefulEngineSnapshot):
         pass
 
     async def _step_engine(self):

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
 import logging
+from typing import Any
 
-from synth_ai.environments.stateful.core import StatefulEnvironment
 from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.stateful.core import StatefulEnvironment
 
 from ...utils import convert_numpy_to_python
-from .tools import TOOLS_SCHEMA
 from .shared import CRAFTER_ACTIONS, _format_semantic_map_view
-
+from .tools import TOOLS_SCHEMA
 
 logger = logging.getLogger(__name__)
 
@@ -25,20 +24,20 @@ class CrafterEnvironmentWrapper:
       - snapshot()/restore() handled at route level; this wrapper exposes checkpoint via synth-ai
     """
 
-    def __init__(self, env: StatefulEnvironment, seed: Optional[int] = None) -> None:
+    def __init__(self, env: StatefulEnvironment, seed: int | None = None) -> None:
         self.env = env
         self.seed = seed
         self.step_idx = 0
-        self.last_observation: Optional[Dict[str, Any]] = None
-        self.last_info: Optional[Dict[str, Any]] = None
+        self.last_observation: dict[str, Any] | None = None
+        self.last_info: dict[str, Any] | None = None
 
-    async def initialize(self) -> Dict[str, Any]:
+    async def initialize(self) -> dict[str, Any]:
         obs = await self.env.initialize()
         # synth-ai InternalObservation expected to expose .observation (dict-like)
         self.step_idx = 0
         self.last_observation = getattr(obs, "observation", obs)  # tolerate dict-like
         self.last_info = getattr(obs, "info", None)
-        out_obs: Dict[str, Any] = convert_numpy_to_python(self.last_observation) or {}
+        out_obs: dict[str, Any] = convert_numpy_to_python(self.last_observation) or {}
         # Attach a 7x7 semantic map patch centered on player for client-side rendering
         try:
             pub = self.env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
@@ -47,13 +46,13 @@ class CrafterEnvironmentWrapper:
             size = 7
             half = size // 2
             patch = []
-            H = len(sem) if hasattr(sem, "__len__") else 0
-            W = len(sem[0]) if H and hasattr(sem[0], "__len__") else 0
+            height = len(sem) if hasattr(sem, "__len__") else 0
+            width = len(sem[0]) if height and hasattr(sem[0], "__len__") else 0
             for dy in range(-half, half + 1):
                 row = []
                 for dx in range(-half, half + 1):
                     x, y = int(px) + dx, int(py) + dy
-                    if 0 <= x < H and 0 <= y < W:
+                    if 0 <= x < height and 0 <= y < width:
                         row.append(int(sem[x][y]))
                     else:
                         row.append(0)
@@ -68,7 +67,7 @@ class CrafterEnvironmentWrapper:
             "step_idx": self.step_idx,
         }
 
-    async def step(self, tool_calls: List[Dict[str, Any]] | List[EnvToolCall]) -> Dict[str, Any]:
+    async def step(self, tool_calls: list[dict[str, Any]] | list[EnvToolCall]) -> dict[str, Any]:
         # Normalize JSON tool_calls into EnvToolCall instances if needed
         # Underlying synth-ai environment expects only tool="interact" with args={"action": <action_name>}.
         # LLM may emit:
@@ -79,9 +78,9 @@ class CrafterEnvironmentWrapper:
         allowed_actions = set(
             TOOLS_SCHEMA[0]["function"]["parameters"]["properties"]["actions"]["items"]["enum"]
         )
-        normalized: List[EnvToolCall] = []
+        normalized: list[EnvToolCall] = []
 
-        def _action_to_int(action: Any) -> Optional[int]:
+        def _action_to_int(action: Any) -> int | None:
             # Handle invalid actions gracefully instead of failing
             if isinstance(action, int):
                 return action
@@ -153,10 +152,8 @@ class CrafterEnvironmentWrapper:
                         if isinstance(args, dict) and "action" in args:
                             candidate_action = args["action"]
                         # If the caller provided a numeric action id, accept it directly
-                        action_int: Optional[int]
-                        if isinstance(candidate_action, int):
-                            action_int = _action_to_int(candidate_action)
-                        elif (
+                        action_int: int | None
+                        if isinstance(candidate_action, int) or (
                             isinstance(candidate_action, str)
                             and candidate_action in allowed_actions
                         ):
@@ -175,7 +172,7 @@ class CrafterEnvironmentWrapper:
             normalized.append(EnvToolCall(tool="interact", args={"action": 0}))  # noop action
 
         # Pre-step logging: capture current public state and print concise summary
-        before_state: Optional[Dict[str, Any]] = None
+        before_state: dict[str, Any] | None = None
         try:
             pub_before = self.env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
             before_state = {
@@ -231,7 +228,7 @@ class CrafterEnvironmentWrapper:
         ach_added_latest: list[str] | None = None
         try:
             pub_after = self.env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
-            after_dict: Dict[str, Any] = {
+            after_dict: dict[str, Any] = {
                 "inventory": pub_after.inventory,
                 "achievements_status": pub_after.achievements_status,
                 "player_position": list(pub_after.player_position),
@@ -255,8 +252,8 @@ class CrafterEnvironmentWrapper:
                     # Position delta
                     pb = before_state.get("player_position", [0, 0])
                     pa = after_dict.get("player_position", [0, 0])
-                    pb_t = (int(pb[0]), int(pb[1])) if isinstance(pb, (list, tuple)) else (0, 0)
-                    pa_t = (int(pa[0]), int(pa[1])) if isinstance(pa, (list, tuple)) else (0, 0)
+                    pb_t = (int(pb[0]), int(pb[1])) if isinstance(pb, list | tuple) else (0, 0)
+                    pa_t = (int(pa[0]), int(pa[1])) if isinstance(pa, list | tuple) else (0, 0)
                     delta = (pa_t[0] - pb_t[0], pa_t[1] - pb_t[1])
 
                     # Inventory changes
@@ -280,9 +277,9 @@ class CrafterEnvironmentWrapper:
                     ach_a = {
                         k for k, v in (after_dict.get("achievements_status", {}) or {}).items() if v
                     }
-                    ach_added = sorted(list(ach_a - ach_b))
+                    ach_added = sorted(ach_a - ach_b)
                     ach_added_latest = ach_added
-                    ach_removed = sorted(list(ach_b - ach_a))
+                    ach_removed = sorted(ach_b - ach_a)
 
                     logger.info(
                         "Changes: pos %s->%s Δ=%s | inv %s | ach +%s -%s",
@@ -312,7 +309,7 @@ class CrafterEnvironmentWrapper:
             )
         except Exception as _:
             pass
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "observation": convert_numpy_to_python(observation),
             "step_idx": self.step_idx,
             "done": bool(done) if done is not None else False,  # Ensure boolean
@@ -325,13 +322,13 @@ class CrafterEnvironmentWrapper:
             size = 7
             half = size // 2
             patch = []
-            H = len(sem) if hasattr(sem, "__len__") else 0
-            W = len(sem[0]) if H and hasattr(sem[0], "__len__") else 0
+            height = len(sem) if hasattr(sem, "__len__") else 0
+            width = len(sem[0]) if height and hasattr(sem[0], "__len__") else 0
             for dy in range(-half, half + 1):
                 row = []
                 for dx in range(-half, half + 1):
                     x, y = px + dx, py + dy
-                    if 0 <= x < H and 0 <= y < W:
+                    if 0 <= x < height and 0 <= y < width:
                         row.append(int(sem[x][y]))
                     else:
                         row.append(0)
@@ -341,10 +338,7 @@ class CrafterEnvironmentWrapper:
                 obs_out["semantic_map_patch7"] = patch
         except Exception:
             pass
-        if info is not None:
-            result_info = convert_numpy_to_python(info)
-        else:
-            result_info = {}
+        result_info = convert_numpy_to_python(info) if info is not None else {}
         # Attach achievements delta for downstream metrics if useful
         if ach_added_latest is not None:
             try:
@@ -406,7 +400,7 @@ class CrafterEnvironmentWrapper:
             pass
         return result
 
-    async def checkpoint(self) -> Dict[str, Any]:
+    async def checkpoint(self) -> dict[str, Any]:
         obs = await self.env.checkpoint()
         observation = getattr(obs, "observation", obs)
         info = getattr(obs, "info", None)
@@ -416,7 +410,7 @@ class CrafterEnvironmentWrapper:
             "step_idx": self.step_idx,
         }
 
-    async def terminate(self) -> Dict[str, Any]:
+    async def terminate(self) -> dict[str, Any]:
         obs = await self.env.terminate()
         observation = getattr(obs, "observation", obs)
         info = getattr(obs, "info", None)
@@ -426,7 +420,7 @@ class CrafterEnvironmentWrapper:
             "step_idx": self.step_idx,
         }
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {
             "seed": self.seed,
             "step_idx": self.step_idx,
@@ -434,13 +428,13 @@ class CrafterEnvironmentWrapper:
             "last_info": self.last_info,
         }
 
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: dict[str, Any]) -> None:
         self.seed = state["seed"]
         self.step_idx = int(state["step_idx"])
         self.last_observation = state["last_observation"]
         self.last_info = state["last_info"]
 
-    async def serialize(self) -> Dict[str, Any]:
+    async def serialize(self) -> dict[str, Any]:
         return {
             "name": "crafter",
             "config": {"seed": self.seed},
@@ -450,9 +444,9 @@ class CrafterEnvironmentWrapper:
     @classmethod
     async def deserialize(
         cls,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         env: StatefulEnvironment,
-    ) -> "CrafterEnvironmentWrapper":
+    ) -> CrafterEnvironmentWrapper:
         seed = payload["config"]["seed"]
         wrapper = cls(env=env, seed=seed)
         wrapper.load_state_dict(payload["state"])

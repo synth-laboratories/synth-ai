@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 # Optional pandas import: fall back to records (list[dict]) if unavailable
@@ -47,6 +47,7 @@ from ..abstractions import (
     SessionTrace,
 )
 from ..config import CONFIG
+from ..storage.base import TraceStorage
 from .models import (
     Base,
     analytics_views,
@@ -76,7 +77,7 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-class AsyncSQLTraceManager:
+class AsyncSQLTraceManager(TraceStorage):
     """Async trace storage manager using SQLAlchemy and Turso/sqld.
 
     Handles all database operations for the tracing system. Designed to work
@@ -594,7 +595,7 @@ class AsyncSQLTraceManager:
                 return
             row = DBSessionTrace(
                 session_id=session_id,
-                created_at=created_at or datetime.utcnow(),
+                created_at=created_at or datetime.now(UTC),
                 num_timesteps=0,
                 num_events=0,
                 num_messages=0,
@@ -629,7 +630,7 @@ class AsyncSQLTraceManager:
                 step_id=step_id,
                 step_index=step_index,
                 turn_number=turn_number,
-                started_at=started_at or datetime.utcnow(),
+                started_at=started_at or datetime.now(UTC),
                 completed_at=completed_at,
                 num_events=0,
                 num_messages=0,

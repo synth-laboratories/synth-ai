@@ -2,21 +2,22 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import click
+from synth_ai.config.base_url import get_backend_from_env
 
-from .builders import RLBuildResult, SFTBuildResult, build_rl_payload, build_sft_payload
+from .builders import build_rl_payload, build_sft_payload
 from .config_finder import discover_configs, prompt_for_config
 from .env_resolver import KeySpec, resolve_env
 from .pollers import RLJobPoller, SFTJobPoller
 from .task_app import check_task_app_health
 from .utils import (
-    TrainError,
     REPO_ROOT,
+    TrainError,
     ensure_api_base,
-    http_post,
     http_get,
+    http_post,
     limit_jsonl_examples,
     mask_value,
     post_multipart,
@@ -24,7 +25,6 @@ from .utils import (
     sleep,
     validate_sft_jsonl,
 )
-from synth_ai.config.base_url import get_backend_from_env
 
 
 def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Path]:
@@ -305,7 +305,7 @@ def _wait_for_training_file(
                 error_body = resp.json()
             except Exception:
                 error_body = resp.text[:400]
-            click.echo(f"\n[ERROR] Authentication failed when checking training file:")
+            click.echo("\n[ERROR] Authentication failed when checking training file:")
             click.echo(f"  URL: {url}")
             click.echo(f"  Status: {resp.status_code}")
             click.echo(f"  Response: {error_body}")
@@ -346,7 +346,7 @@ def handle_rl(
     poll_timeout: float,
     poll_interval: float,
 ) -> None:
-    overrides: Dict[str, Any] = {
+    overrides: dict[str, Any] = {
         "backend": backend_base,
         "task_url": task_url_override,
         "model": model_override,
@@ -373,7 +373,7 @@ def handle_rl(
         raise click.ClickException(
             f"Task app verification call failed: {type(_ve).__name__}: {_ve}"
         ) from _ve
-    if vresp.status_code >= 400:
+    if vresp.status_code is not None and vresp.status_code >= 400:
         click.echo("Task app verification error:\n" + preview_json(vjs, limit=800))
         raise click.ClickException(f"Verification failed with status {vresp.status_code}")
     if not bool(vjs.get("any_ok")):
@@ -474,7 +474,7 @@ def handle_sft(
             validate_sft_jsonl(build.validation_file)
 
         upload_url = f"{backend_base}/learning/files"
-        click.echo(f"\n=== Uploading Training Data ===")
+        click.echo("\n=== Uploading Training Data ===")
         click.echo(f"Dataset: {build.train_file}")
         click.echo(f"Destination: {upload_url}")
         if dry_run:
@@ -490,8 +490,8 @@ def handle_sft(
                 if resp.headers.get("content-type", "").startswith("application/json")
                 else {}
             )
-            if resp.status_code >= 400 or "id" not in js:
-                click.echo(f"\n[ERROR] Training file upload failed:")
+            if resp.status_code is not None and resp.status_code >= 400 or "id" not in js:
+                click.echo("\n[ERROR] Training file upload failed:")
                 click.echo(f"  URL: {upload_url}")
                 click.echo(f"  Status: {resp.status_code}")
                 click.echo(f"  Response: {js or resp.text[:400]}")
@@ -515,7 +515,7 @@ def handle_sft(
                     if vresp.headers.get("content-type", "").startswith("application/json")
                     else {}
                 )
-                if vresp.status_code < 400 and "id" in vjs:
+                if vresp.status_code is not None and vresp.status_code < 400 and "id" in vjs:
                     val_file_id = vjs["id"]
                     click.echo(f"✓ Validation file uploaded (id={val_file_id})")
                 else:
@@ -529,13 +529,13 @@ def handle_sft(
                 "data", {}
             )["validation_files"] = [val_file_id]
 
-        click.echo(f"\n=== Checking File Processing Status ===")
+        click.echo("\n=== Checking File Processing Status ===")
         try:
             _wait_for_training_file(backend_base, synth_key, train_file_id)
         except click.ClickException as exc:
             raise click.ClickException(f"Training file {train_file_id} not ready: {exc}") from exc
 
-        click.echo(f"\n=== Creating Training Job ===")
+        click.echo("\n=== Creating Training Job ===")
         click.echo("Job payload preview:")
         click.echo(preview_json(payload, limit=800))
         if dry_run:
@@ -552,7 +552,7 @@ def handle_sft(
             else {}
         )
         if resp.status_code not in (200, 201):
-            click.echo(f"\n[ERROR] Job creation failed:")
+            click.echo("\n[ERROR] Job creation failed:")
             click.echo(f"  URL: {create_url}")
             click.echo(f"  Status: {resp.status_code}")
             click.echo(f"  Response: {preview_json(js, limit=600)}")
@@ -562,14 +562,14 @@ def handle_sft(
             raise click.ClickException("Response missing job id")
         click.echo(f"✓ Job created (id={job_id})")
 
-        click.echo(f"\n=== Starting Training Job ===")
+        click.echo("\n=== Starting Training Job ===")
         start_url = f"{backend_base}/learning/jobs/{job_id}/start"
         click.echo(f"POST {start_url}")
         start_resp = http_post(start_url, headers=headers, json_body={})
         if start_resp.status_code not in (200, 201):
             click.echo(f"[WARN] Job start returned status {start_resp.status_code}")
         else:
-            click.echo(f"✓ Job started")
+            click.echo("✓ Job started")
 
         if not poll:
             click.echo(f"Started job {job_id} (polling disabled)")

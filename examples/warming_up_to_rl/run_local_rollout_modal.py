@@ -7,14 +7,12 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-import sys
-
 import httpx
 from dotenv import load_dotenv
-
 from synth_ai.task import (
     RolloutEnvSpec,
     RolloutPolicySpec,
@@ -122,7 +120,7 @@ async def main() -> None:
     base_url = args.base_url
     if args.base_url == "http://localhost:8010":
         print("\nTask app configuration:")
-        base_url_input = input(f"Task app base URL [http://localhost:8001]: ").strip()
+        base_url_input = input("Task app base URL [http://localhost:8001]: ").strip()
         base_url = base_url_input if base_url_input else "http://localhost:8001"
 
     model = args.model

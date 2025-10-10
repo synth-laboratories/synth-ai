@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-import os
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from contextlib import suppress
+from typing import Any
 
 from synth_ai.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
 )
+
 from ...http import AsyncHttpClient, HTTPError, sleep
 
 
@@ -50,11 +52,11 @@ class RlClient:
         *,
         model: str,
         task_app_url: str,
-        trainer: Dict[str, Any],
-        trainer_id: Optional[str] = None,
-        job_config_id: Optional[str] = None,
-        inline_config: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        trainer: dict[str, Any],
+        trainer_id: str | None = None,
+        job_config_id: str | None = None,
+        inline_config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         try:
             normalized_model = normalize_model_identifier(model)
         except UnsupportedModelError as exc:
@@ -84,7 +86,7 @@ class RlClient:
             )
         return js
 
-    async def start_job_if_supported(self, job_id: str) -> Optional[Dict[str, Any]]:
+    async def start_job_if_supported(self, job_id: str) -> dict[str, Any] | None:
         path = f"{_api_base(self._base_url)}/rl/jobs/{job_id}/start"
         try:
             async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
@@ -94,13 +96,13 @@ class RlClient:
                 return None
             raise
 
-    async def get_job(self, job_id: str) -> Dict[str, Any]:
+    async def get_job(self, job_id: str) -> dict[str, Any]:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             return await http.get(f"{_api_base(self._base_url)}/learning/jobs/{job_id}")
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 200
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         params = {"since_seq": since_seq, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             try:
@@ -108,12 +110,10 @@ class RlClient:
                     f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events", params=params
                 )
             except HTTPError as he:
-                try:
+                with suppress(Exception):
                     print(
                         f"[poll] events HTTPError status={he.status} url={he.url} since_seq={since_seq} body={(he.body_snippet or '')[:200]}"
                     )
-                except Exception:
-                    pass
                 raise
         if isinstance(js, dict):
             evs = js.get("events") or js.get("data")
@@ -123,7 +123,7 @@ class RlClient:
 
     async def get_metrics(
         self, job_id: str, *, after_step: int = -1, limit: int = 200
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         params = {"after_step": after_step, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             js = await http.get(
@@ -141,77 +141,65 @@ class RlClient:
         max_seconds: float | None = None,
         empty_polls_threshold: int = 5,
         startup_deadline_s: int = 45,
-        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
-        on_metric: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
-        last_seq_by_stream: Dict[str, int] = {}
-        events_job_id: Optional[str] = None
-        last_status: Optional[str] = None
-        last_step_by_name: Dict[str, int] = {}
+        on_event: Callable[[dict[str, Any]], None] | None = None,
+        on_metric: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        last_seq_by_stream: dict[str, int] = {}
+        events_job_id: str | None = None
+        last_status: str | None = None
+        last_step_by_name: dict[str, int] = {}
         empty_polls = 0
         saw_any_event = False
         start_t = time.time()
         terminal = {"succeeded", "failed", "cancelled", "canceled", "error", "completed"}
 
         while True:
-            status_data: Optional[Dict[str, Any]] = None
+            status_data: dict[str, Any] | None = None
             try:
                 status_data = await self.get_job(job_id)
             except Exception:
                 status_data = None
             if status_data is None:
-                try:
+                with suppress(Exception):
                     print(f"[poll] get_job returned None base={self._base_url} job_id={job_id}")
-                except Exception:
-                    pass
             status = str((status_data or {}).get("status") or "").lower()
             if status_data:
                 linked = status_data.get("linked_job_id")
                 if isinstance(linked, str) and linked and linked != events_job_id:
                     events_job_id = linked
-                    try:
+                    with suppress(Exception):
                         print(f"[poll] discovered linked_job_id stream={events_job_id}")
-                    except Exception:
-                        pass
             if status and status != last_status:
                 last_status = status
                 if on_event:
-                    try:
+                    with suppress(Exception):
                         on_event({"type": "rl.status", "message": status})
-                    except Exception:
-                        pass
 
             stream_ids = [job_id]
             if events_job_id and events_job_id not in stream_ids:
                 stream_ids.append(events_job_id)
-            try:
+            with suppress(Exception):
                 print(
                     f"[poll] streams={stream_ids} intervals={interval_seconds}s since_map={last_seq_by_stream} empty_polls={empty_polls}"
                 )
-            except Exception:
-                pass
             total_events_this_cycle = 0
             terminal_event_seen = False
-            terminal_event_status: Optional[str] = None
+            terminal_event_status: str | None = None
             for ev_id in stream_ids:
                 since = last_seq_by_stream.get(ev_id, 0)
                 try:
                     events = await self.get_events(ev_id, since_seq=since, limit=200)
                 except HTTPError as he:
-                    try:
+                    with suppress(Exception):
                         print(
                             f"[poll] get_events error status={he.status} url={he.url} since={since} body={(he.body_snippet or '')[:200]}"
                         )
-                    except Exception:
-                        pass
                     events = []
                 except Exception as e:
-                    try:
+                    with suppress(Exception):
                         print(
                             f"[poll] get_events unexpected error ev_id={ev_id} since={since} err={type(e).__name__}: {e}"
                         )
-                    except Exception:
-                        pass
                     events = []
                 total_events_this_cycle += len(events)
                 if events:
@@ -222,10 +210,8 @@ class RlClient:
                         continue
                     last_seq_by_stream[ev_id] = seq_val
                     if on_event:
-                        try:
+                        with suppress(Exception):
                             on_event(e)
-                        except Exception:
-                            pass
                     et = str(e.get("type") or e.get("event_type") or "").lower()
                     if et in ("rl.job.completed", "workflow.completed", "rl.train.completed"):
                         terminal_event_seen = True
@@ -244,10 +230,8 @@ class RlClient:
                         continue
                     last_step_by_name[name] = step
                     if on_metric:
-                        try:
+                        with suppress(Exception):
                             on_metric(p)
-                        except Exception:
-                            pass
             except Exception:
                 pass
 
@@ -261,23 +245,19 @@ class RlClient:
             else:
                 empty_polls = 0
             if empty_polls >= max(1, int(empty_polls_threshold)):
-                try:
+                with suppress(Exception):
                     print(
                         f"[poll] threshold hit: empty_polls={empty_polls} >= {empty_polls_threshold} streams={stream_ids} last_seq_map={last_seq_by_stream}"
                     )
-                except Exception:
-                    pass
                 raise AssertionError(
                     f"No new events detected for {empty_polls_threshold} consecutive polls. Check event ingestion."
                 )
 
             if not saw_any_event and (time.time() - start_t) > int(startup_deadline_s):
-                try:
+                with suppress(Exception):
                     print(
                         f"[poll] startup window exceeded: {startup_deadline_s}s base={self._base_url} job={job_id} streams={stream_ids} last_seq_map={last_seq_by_stream}"
                     )
-                except Exception:
-                    pass
                 raise AssertionError(
                     f"No events observed within startup window ({startup_deadline_s}s). Investigate event streaming."
                 )

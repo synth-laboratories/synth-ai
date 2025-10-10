@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
 from collections import Counter
 from pathlib import Path
@@ -13,15 +12,13 @@ from statistics import mean, median
 from typing import Any
 
 from dotenv import load_dotenv
-
-from synth_ai.task import TaskAppClient
-
 from synth_ai.task import (
     RolloutEnvSpec,
     RolloutPolicySpec,
     RolloutRecordConfig,
     RolloutRequest,
     RolloutSafetyConfig,
+    TaskAppClient,
 )
 
 
