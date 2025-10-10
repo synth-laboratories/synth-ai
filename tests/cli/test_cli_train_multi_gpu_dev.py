@@ -6,7 +6,7 @@ import subprocess
 import textwrap
 import time
 from pathlib import Path
-from typing import Any, Awaitable
+from typing import Any, Coroutine
 
 import pytest
 
@@ -108,6 +108,69 @@ def _write_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path:
         variant = \"H100-4x\"
 
         [training]
+        mode = \"lora\"
+        use_qlora = false
+
+        [training.validation]
+        enabled = false
+        evaluation_strategy = \"steps\"
+        eval_steps = 100
+        save_best_model_at_end = false
+        metric_for_best_model = \"val.loss\"
+        greater_is_better = false
+
+        [hyperparameters]
+        n_epochs = 1
+        train_kind = \"peft\"
+        per_device_batch = 1
+        gradient_accumulation_steps = 16
+        sequence_length = 4096
+        learning_rate = 5e-6
+        warmup_ratio = 0.03
+        global_batch = 64
+
+        [hyperparameters.parallelism]
+        fsdp = false
+        fsdp_sharding_strategy = \"full_shard\"
+        fsdp_auto_wrap_policy = \"transformer_block\"
+        fsdp_use_orig_params = true
+        tensor_parallel_size = 1
+        pipeline_parallel_size = 1
+        bf16 = true
+        fp16 = false
+        use_deepspeed = true
+        deepspeed_stage = 2
+        activation_checkpointing = true
+        """
+    ).strip()
+    config_path.write_text(text + "\n", encoding="utf-8")
+    return config_path.resolve()
+
+
+def _write_fft_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path:
+    config_path = tmp_dir / f"multi_gpu_fft_{gpu_count}.toml"
+    variant = f"H100-{gpu_count}x"
+    text = textwrap.dedent(
+        f"""
+        [job]
+        model = \"Qwen/Qwen3-32B\"
+        data = \"{dataset_path.as_posix()}\"
+
+        [compute]
+        gpu_type = \"H100\"
+        gpu_count = {gpu_count}
+        nodes = 1
+        variant = \"{variant}\"
+        gpus_per_node = {gpu_count}
+
+        [data.topology]
+        container_count = {gpu_count}
+        gpus_per_node = {gpu_count}
+        total_gpus = {gpu_count}
+        nodes = 1
+        variant = \"{variant}\"
+
+        [training]
         mode = \"full_finetune\"
         use_qlora = false
 
@@ -134,12 +197,12 @@ def _write_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path:
         fsdp_sharding_strategy = \"full_shard\"
         fsdp_auto_wrap_policy = \"transformer_block\"
         fsdp_use_orig_params = true
+        activation_checkpointing = true
         tensor_parallel_size = 1
         pipeline_parallel_size = 1
         bf16 = true
         fp16 = false
         use_deepspeed = false
-        activation_checkpointing = true
         """
     ).strip()
     config_path.write_text(text + "\n", encoding="utf-8")
@@ -159,7 +222,7 @@ def _extract_job_id(stdout: str) -> str:
     return match.group(1).strip()
 
 
-def _run_async(coro: Awaitable[Any]) -> Any:
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
     try:
         return asyncio.run(coro)
     except RuntimeError as exc:  # pragma: no cover - safety net for nested loops
@@ -258,7 +321,7 @@ def test_cli_train_multi_gpu(tmp_path: Path, gpu_count: int) -> None:
 
     assert "✓ Job created" in proc.stdout
     assert "Qwen/Qwen3-32B" in proc.stdout
-    assert "\"fsdp\": true" in proc.stdout
+    assert "\"use_deepspeed\": true" in proc.stdout
     assert f"gpu_count = {gpu_count}" in config_path.read_text(encoding="utf-8")
 
     job_id = _extract_job_id(proc.stdout)
@@ -278,6 +341,100 @@ def test_cli_train_multi_gpu(tmp_path: Path, gpu_count: int) -> None:
     compute = metadata.get("compute", {})
     assert compute.get("gpu_type") == "H100"
     assert compute.get("gpu_count") == gpu_count
-    assert compute.get("variant") == "H100-4x"
+    variant = compute.get("variant")
+    if variant is not None:
+        assert variant == "H100-4x"
+    parallelism = (final.get("hyperparameters") or {}).get("parallelism", {})
+    assert parallelism.get("use_deepspeed") is True
+
+
+@pytest.mark.parametrize("gpu_count", (8,))
+def test_cli_train_multi_gpu_fft(tmp_path: Path, gpu_count: int) -> None:
+    backend_base, api_key = _resolve_backend_and_key()
+
+    dataset_path = _write_dataset(tmp_path)
+    config_path = _write_fft_config(tmp_path, dataset_path, gpu_count)
+    env_file = _write_env_file(tmp_path, api_key)
+
+    poll_timeout = os.getenv("SYNTH_TRAIN_TEST_POLL_TIMEOUT", "900")
+    poll_interval = os.getenv("SYNTH_TRAIN_TEST_POLL_INTERVAL", "10")
+    try:
+        poll_timeout_s = float(poll_timeout)
+    except ValueError:
+        poll_timeout_s = 900.0
+    try:
+        poll_interval_s = float(poll_interval)
+    except ValueError:
+        poll_interval_s = 10.0
+    timeout_buffer = int(poll_timeout_s) + 120
+
+    cmd = [
+        "uvx",
+        "synth-ai",
+        "train",
+        "--type",
+        "sft",
+        "--config",
+        str(config_path),
+        "--dataset",
+        str(dataset_path),
+        "--env-file",
+        str(env_file),
+        "--backend",
+        backend_base,
+        "--poll-timeout",
+        poll_timeout,
+        "--poll-interval",
+        poll_interval,
+        "--no-poll",
+    ]
+
+    env = os.environ.copy()
+    env.setdefault("SYNTH_GPU_TYPE", f"H100-{gpu_count}x")
+
+    proc = subprocess.run(
+        cmd,
+        cwd=str(REPO_ROOT),
+        text=True,
+        capture_output=True,
+        env=env,
+        timeout=timeout_buffer,
+    )
+
+    if proc.returncode != 0:
+        pytest.fail(
+            "CLI train command failed\n"
+            f"Command: {' '.join(cmd)}\n"
+            f"Exit code: {proc.returncode}\n"
+            f"STDOUT:\n{proc.stdout}\n"
+            f"STDERR:\n{proc.stderr}\n"
+        )
+
+    assert "✓ Job created" in proc.stdout
+    assert "Qwen/Qwen3-32B" in proc.stdout
+    assert "\"use_deepspeed\": false" in proc.stdout
+    assert f"gpu_count = {gpu_count}" in config_path.read_text(encoding="utf-8")
+
+    job_id = _extract_job_id(proc.stdout)
+
+    final = _run_async(
+        _wait_for_job_success(
+            backend_base,
+            api_key,
+            job_id,
+            timeout_s=poll_timeout_s,
+            interval_s=poll_interval_s,
+        )
+    )
+    assert str(final.get("status", "")).lower() in {"succeeded", "completed"}
+    assert final.get("model_id") == "Qwen/Qwen3-32B"
+    metadata = (final.get("metadata") or {}).get("effective_config", {})
+    compute = metadata.get("compute", {})
+    assert compute.get("gpu_type") == "H100"
+    assert compute.get("gpu_count") == gpu_count
+    variant = compute.get("variant")
+    if variant is not None:
+        assert variant == f"H100-{gpu_count}x"
     parallelism = (final.get("hyperparameters") or {}).get("parallelism", {})
     assert parallelism.get("fsdp") is True
+    assert parallelism.get("use_deepspeed") is False
