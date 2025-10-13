@@ -1,0 +1,45 @@
+[job]
+model = "Qwen/Qwen3-0.6B"
+# Optionally set here, but prefer passing --dataset at runtime
+# data = "examples/sft/ft_data/crafter_traces.jsonl"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 1
+nodes = 1
+
+[data]
+# Forwarded into metadata.effective_config
+topology = {}
+# Optional validation set if you have one locally
+# validation_path = "examples/sft/ft_data/crafter_traces.val.jsonl"
+
+[training]
+mode = "lora"
+use_qlora = true
+
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 50
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "peft"
+per_device_batch = 2
+gradient_accumulation_steps = 32
+sequence_length = 4096
+learning_rate = 5e-6
+warmup_ratio = 0.03
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true
+

@@ -109,7 +109,7 @@ def _write_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path:
 
         [training]
         mode = \"lora\"
-        use_qlora = false
+        use_qlora = true
 
         [training.validation]
         enabled = false
@@ -258,7 +258,7 @@ async def _wait_for_job_success(
 
 
 @pytest.mark.parametrize("gpu_count", (4,))
-def test_cli_train_multi_gpu(tmp_path: Path, gpu_count: int) -> None:
+def test_cli_train_multi_gpu_qlora(tmp_path: Path, gpu_count: int) -> None:
     backend_base, api_key = _resolve_backend_and_key()
 
     dataset_path = _write_dataset(tmp_path)

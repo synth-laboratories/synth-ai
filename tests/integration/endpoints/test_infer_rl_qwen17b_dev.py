@@ -45,7 +45,7 @@ async def test_infer_rl_qwen17b_dev() -> None:
         except Exception:
             pass
 
-    # Resolve a single dev endpoint: POST /api/v1/chat/completions
+    # Resolve a single dev endpoint: POST /api/inference/v1/chat/completions (proxy)
     dev_backend = os.getenv("DEV_BACKEND_URL")
     api_key = os.getenv("DEV_ACTIONS_SYNTH_API_KEY") or os.getenv("SYNTH_API_KEY")
 
@@ -53,10 +53,10 @@ async def test_infer_rl_qwen17b_dev() -> None:
         pytest.skip("DEV_ACTIONS_SYNTH_API_KEY/SYNTH_API_KEY and DEV_BACKEND_URL required for RL dev test")
 
     base = dev_backend.rstrip("/")
-    # Normalize to root (strip trailing /api if present), then use /api/v1
+    # Normalize to root (strip trailing /api if present), then use /api/inference/v1
     if base.endswith("/api"):
         base = base[:-4]
-    candidates = [f"{base}/api/v1/chat/completions"]
+    candidates = [f"{base}/api/inference/v1/chat/completions"]
 
     print("[DEV RL TEST] Request candidates (in order):")
     for u in candidates:

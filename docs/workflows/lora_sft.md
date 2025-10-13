@@ -1,4 +1,4 @@
-### QLoRA SFT
+### LoRA SFT
 
 Train larger models on constrained hardware by enabling QLoRA while keeping the same SFT flow and payload schema.
 

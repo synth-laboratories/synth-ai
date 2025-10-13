@@ -67,6 +67,8 @@ dev = [
     "twine>=4.0.0",
     "keyring>=24.0.0",
     "pytest>=8.3.3",
+    "pytest-xdist>=3.6.1",
+    "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
     "pyright>=1.1.350",
@@ -150,7 +152,7 @@ addopts = "--durations=10"
 
 [tool.coverage.run]
 source = ["synth_ai"]
-omit = ["*/tests/*", "*/test_*"]
+omit = ["*/tests/*", "*/test_*", "synth_ai/v0/*"]
 
 [tool.coverage.report]
 precision = 2
@@ -159,7 +161,7 @@ skip_covered = false
 
 [tool.pyright]
 include = ["synth_ai", "tests"]
-exclude = ["**/__pycache__"]
+exclude = ["**/__pycache__", "synth_ai/v0"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingImports = true
@@ -196,6 +198,8 @@ ignore = ["E501", "B008"]
 [dependency-groups]
 dev = [
     "pytest>=8.3.3",
+    "pytest-xdist>=3.6.1",
+    "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",

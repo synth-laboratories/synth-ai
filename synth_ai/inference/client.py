@@ -30,5 +30,5 @@ class InferenceClient:
         if "thinking_budget" not in body:
             body["thinking_budget"] = 256
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            # Public learning-v2 inference path mounted under /api/v1
-            return await http.post_json("/api/v1/chat/completions", json=body)
+            # Route through backend inference proxy to Modal
+            return await http.post_json("/api/inference/v1/chat/completions", json=body)
