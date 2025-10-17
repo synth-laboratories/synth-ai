@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from collections.abc import Iterable, Sequence
@@ -23,14 +24,95 @@ from synth_ai.task.tracing_utils import (
 )
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-TASK_APP_ROOT = REPO_ROOT / "examples" / "warming_up_to_rl" / "task_app"
-SYNTH_ENVS_HOSTED_ROOT = TASK_APP_ROOT / "synth_envs_hosted"
+logger = logging.getLogger(__name__)
 
-for path in [REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT]:
-    path_str = str(path)
-    if path_str not in sys.path:
-        sys.path.insert(0, path_str)
+DEFAULT_ALIAS_OPS: list[str] = ["agent", "env"] * 10
+DEFAULT_ALIAS_STEP_REWARDS: dict[str, Any] = {
+    "enabled": True,
+    "mode": "decision_stepwise",
+    "indicator_lambda": 1.0,
+    "step_beta": 0.0,
+}
+
+_HERE = Path(__file__).resolve()
+
+
+def _resolve_repo_root() -> Path:
+    """Best-effort detection of the Synth AI repo root across local and Modal mounts."""
+
+    candidates: list[Path] = []
+    env_root = os.getenv("SYNTH_AI_REPO_ROOT")
+    if env_root:
+        candidates.append(Path(env_root).expanduser())
+    candidates.append(Path("/opt/synth_ai_repo"))
+    candidates.extend(parent for parent in [_HERE.parent, *_HERE.parents])
+
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except Exception:
+            continue
+        if not resolved.exists():
+            continue
+        if (resolved / "pyproject.toml").exists() or (resolved / "uv.lock").exists():
+            return resolved
+        if (resolved / "synth_ai").is_dir():
+            return resolved
+
+    try:
+        return _HERE.parents[3]
+    except IndexError:
+        return _HERE.parent
+
+
+def _resolve_task_app_root(repo_root: Path) -> Path:
+    """Locate the task_app directory even when the module is copied to a temp mount."""
+
+    preferred = (repo_root / "examples" / "warming_up_to_rl" / "task_app").resolve()
+    if preferred.is_dir():
+        return preferred
+
+    local_parent = _HERE.parent.resolve()
+    if (local_parent / "synth_envs_hosted").is_dir():
+        return local_parent
+
+    for parent in _HERE.parents:
+        candidate = parent.resolve()
+        if (candidate / "synth_envs_hosted").is_dir():
+            return candidate
+
+    fallback = Path("/opt/synth_ai_repo/examples/warming_up_to_rl/task_app")
+    if fallback.is_dir():
+        return fallback.resolve()
+
+    return local_parent
+
+
+REPO_ROOT = _resolve_repo_root()
+TASK_APP_ROOT = _resolve_task_app_root(REPO_ROOT)
+SYNTH_ENVS_HOSTED_ROOT = (TASK_APP_ROOT / "synth_envs_hosted").resolve()
+
+EXAMPLES_ROOT = (REPO_ROOT / "examples").resolve()
+
+for path in (REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT, EXAMPLES_ROOT):
+    try:
+        resolved = path.resolve()
+    except Exception:
+        resolved = path
+    if resolved.exists():
+        path_str = str(resolved)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+
+# Fallback: explicitly add Modal mount path for 'examples' if REPO_ROOT detection fails
+try:
+    _hard_examples = Path("/opt/synth_ai_repo/examples")
+    if _hard_examples.exists():
+        _hard_examples_str = str(_hard_examples.resolve())
+        if _hard_examples_str not in sys.path:
+            sys.path.insert(0, _hard_examples_str)
+except Exception:
+    pass
 
 HAS_HOSTED = True
 try:
@@ -360,6 +442,82 @@ def _normalise_op(op_value: Any, index: int) -> str:
     raise ValueError(f"Unsupported op type '{candidate}' at index {index}")
 
 
+def _coerce_math_to_crafter(request: RolloutRequest) -> RolloutRequest:
+    """Map legacy math env/policy names to crafter and enrich rollout defaults."""
+
+    def _needs_crafter(name: str | None) -> bool:
+        if not name:
+            return False
+        lowered = str(name).strip().lower()
+        return lowered.startswith("math")
+
+    env_updates: dict[str, Any] = {}
+    policy_updates: dict[str, Any] = {}
+    alias_applied = False
+
+    if _needs_crafter(request.env.env_name):
+        env_updates["env_name"] = "crafter"
+        alias_applied = True
+    if request.env.env_id and _needs_crafter(request.env.env_id):
+        env_updates["env_id"] = None
+        alias_applied = True
+    if _needs_crafter(request.policy.policy_name):
+        policy_updates["policy_name"] = "crafter-react"
+        alias_applied = True
+    if request.policy.policy_id and _needs_crafter(request.policy.policy_id):
+        policy_updates["policy_id"] = None
+        alias_applied = True
+
+    if not alias_applied:
+        return request
+
+    updated_env = request.env.model_copy(update=env_updates) if env_updates else request.env
+    updated_policy = (
+        request.policy.model_copy(update=policy_updates) if policy_updates else request.policy
+    )
+
+    env_cfg = dict(updated_env.config or {})
+    env_cfg.setdefault("difficulty", "normal")
+    env_cfg.setdefault("step_rewards", dict(DEFAULT_ALIAS_STEP_REWARDS))
+    env_cfg.setdefault("env_params", {"max_steps_per_episode": 200})
+    updated_env = updated_env.model_copy(update={"config": env_cfg})
+
+    policy_cfg = dict(updated_policy.config or {})
+    policy_cfg.setdefault("max_llm_calls", 10)
+    policy_cfg.setdefault("max_completion_tokens", 1024)
+    policy_cfg.setdefault("temperature", 0.2)
+    policy_cfg.setdefault("step_rewards", dict(DEFAULT_ALIAS_STEP_REWARDS))
+    updated_policy = updated_policy.model_copy(update={"config": policy_cfg})
+
+    ops_override = request.ops
+    if not ops_override or len(ops_override) < len(DEFAULT_ALIAS_OPS):
+        ops_override = list(DEFAULT_ALIAS_OPS)
+
+    coerced = request.model_copy(update={"env": updated_env, "policy": updated_policy, "ops": ops_override})
+
+    try:
+        print(
+            "[rollout] remapped math request -> crafter "
+            f"(env={request.env.env_name!r}→{coerced.env.env_name!r}, "
+            f"policy={request.policy.policy_name!r}→{coerced.policy.policy_name!r})",
+            flush=True,
+        )
+    except Exception:
+        pass
+    try:
+        logger.info(
+            "ROLLOUT_ALIAS: remapped math env/policy to crafter (env=%s→%s, policy=%s→%s)",
+            request.env.env_name,
+            coerced.env.env_name,
+            request.policy.policy_name,
+            coerced.policy.policy_name,
+        )
+    except Exception:
+        pass
+
+    return coerced
+
+
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
     # If hosted env service code is not bundled, return a no-op rollout response compatible with contracts
     if not HAS_HOSTED:
@@ -379,19 +537,49 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
             trace=None,
         )
 
+    request = _coerce_math_to_crafter(request)
+
+    policy_cfg = dict(request.policy.config or {})
+    try:
+        max_llm_calls = int(policy_cfg.get("max_llm_calls") or 10)
+    except Exception:
+        max_llm_calls = 10
+    policy_cfg.setdefault("max_llm_calls", max_llm_calls)
+    policy_cfg.setdefault("max_tokens", 512)
+    policy_cfg.setdefault("max_completion_tokens", 512)
+    policy_cfg.setdefault("temperature", 0.2)
+    policy_cfg.setdefault("top_p", 0.95)
+
+    env_cfg = dict(request.env.config or {})
+    env_params = dict(env_cfg.get("env_params") or {})
+    try:
+        max_steps_episode = int(env_params.get("max_steps_per_episode") or max_llm_calls)
+    except Exception:
+        max_steps_episode = max_llm_calls
+    desired_steps = max(max_llm_calls, max_steps_episode)
+    env_params["max_steps_per_episode"] = int(desired_steps)
+    env_cfg["env_params"] = env_params
+
+    updated_policy = request.policy.model_copy(update={"config": policy_cfg})
+    updated_env = request.env.model_copy(update={"config": env_cfg})
+    request = request.model_copy(update={"policy": updated_policy, "env": updated_env})
+
     converted_ops: list[str] = [_normalise_op(op, idx) for idx, op in enumerate(request.ops)]
+    max_ops_allowed = max_llm_calls * 2 if max_llm_calls > 0 else len(converted_ops)
+    if max_ops_allowed and len(converted_ops) > max_ops_allowed:
+        converted_ops = converted_ops[:max_ops_allowed]
     legacy_request = LegacyRolloutRequest(
         run_id=request.run_id,
         env=LegacyRolloutEnvSpec(
             env_id=request.env.env_id,
             env_name=request.env.env_name,
-            config=request.env.config or {},
+            config=env_cfg,
             seed=request.env.seed,
         ),
         policy=LegacyRolloutPolicySpec(
             policy_id=request.policy.policy_id,
             policy_name=request.policy.policy_name,
-            config=request.policy.config or {},
+            config=policy_cfg,
         ),
         ops=converted_ops,
         record=LegacyRolloutRecordConfig(**request.record.model_dump()),
@@ -498,10 +686,12 @@ register_task_app(
                 "crafter",
             ),
             extra_local_dirs=(
+                # Mount repo root so local modules resolve when deployed on Modal
+                (str(REPO_ROOT), "/opt/synth_ai_repo"),
                 (str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),
                 (str(TASK_APP_ROOT), "/opt/synth_ai_repo/examples/warming_up_to_rl/task_app"),
             ),
-            secret_names=("crafter-environment-sdk", "groq-api-key", "openai-api-key"),
+            secret_names=("groq-api-key", "openai-api-key"),
             memory=16384,
             cpu=4.0,
             max_containers=10,

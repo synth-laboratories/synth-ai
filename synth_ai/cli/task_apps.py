@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import contextlib
 import hashlib
 import importlib
@@ -13,6 +14,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import textwrap
 import types
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
@@ -986,6 +988,103 @@ def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) ->
     return [env_candidates[choice - 1]]
 
 
+def _modal_command_prefix(modal_cli: str) -> list[str]:
+    """Resolve a command prefix for invoking the Modal CLI within the active environment."""
+    if modal_cli == "modal" and importlib.util.find_spec("modal") is not None:
+        return [sys.executable, "-m", "synth_ai.cli._modal_wrapper"]
+
+    modal_path = shutil.which(modal_cli)
+    if modal_path is not None:
+        return [modal_path]
+
+    if modal_cli == "modal":
+        raise click.ClickException(
+            "Modal CLI not found. Install the 'modal' package in this environment or pass "
+            "--modal-cli with an explicit path."
+        )
+    raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
+
+
+def _build_modal_app_wrapper(original_script: Path) -> tuple[Path, Path]:
+    source_dir = original_script.parent.resolve()
+    repo_root = REPO_ROOT
+    synth_src = (repo_root / "synth_ai").resolve()
+    temp_root = Path(tempfile.mkdtemp(prefix="synth_modal_app_"))
+
+    wrapper_source = textwrap.dedent(
+        f"""
+        from importlib import util as _util
+        from pathlib import Path as _Path
+        import sys as _sys
+
+        _source_dir = _Path({str(source_dir)!r}).resolve()
+        _module_path = _source_dir / {original_script.name!r}
+        _package_name = _source_dir.name
+        _repo_root = _Path({str(repo_root)!r}).resolve()
+        _synth_dir = _repo_root / "synth_ai"
+
+        for _path in (str(_source_dir), str(_source_dir.parent), str(_repo_root)):
+            if _path not in _sys.path:
+                _sys.path.insert(0, _path)
+
+        _spec = _util.spec_from_file_location("_synth_modal_target", str(_module_path))
+        if _spec is None or _spec.loader is None:
+            raise SystemExit("Unable to load modal task app from {original_script}")
+        _module = _util.module_from_spec(_spec)
+        _sys.modules.setdefault("_synth_modal_target", _module)
+        _spec.loader.exec_module(_module)
+
+        try:
+            from modal import App as _ModalApp
+            from modal import Image as _ModalImage
+        except Exception:
+            _ModalApp = None  # type: ignore[assignment]
+            _ModalImage = None  # type: ignore[assignment]
+
+        def _apply_local_mounts(image):
+            if _ModalImage is None or not isinstance(image, _ModalImage):
+                return image
+            mounts = [
+                (str(_source_dir), f"/root/{{_package_name}}"),
+                (str(_synth_dir), "/root/synth_ai"),
+            ]
+            for local_path, remote_path in mounts:
+                try:
+                    image = image.add_local_dir(local_path, remote_path=remote_path)
+                except Exception:
+                    pass
+            return image
+
+        if hasattr(_module, "image"):
+            _module.image = _apply_local_mounts(getattr(_module, "image"))
+
+        _candidate = getattr(_module, "app", None)
+        if _ModalApp is None or not isinstance(_candidate, _ModalApp):
+            candidate_modal_app = getattr(_module, "modal_app", None)
+            if _ModalApp is not None and isinstance(candidate_modal_app, _ModalApp):
+                _candidate = candidate_modal_app
+                setattr(_module, "app", _candidate)
+
+        if _ModalApp is not None and not isinstance(_candidate, _ModalApp):
+            raise SystemExit(
+                "Modal task app must expose an 'app = modal.App(...)' (or modal_app) attribute."
+            )
+
+        for remote_path in ("/root/synth_ai", f"/root/{{_package_name}}"):
+            if remote_path not in _sys.path:
+                _sys.path.insert(0, remote_path)
+
+        globals().update({{k: v for k, v in vars(_module).items() if not k.startswith("__")}})
+        app = getattr(_module, "app")
+        """
+    ).strip()
+
+    wrapper_path = temp_root / "__modal_wrapper__.py"
+    wrapper_path.write_text(wrapper_source + "\n", encoding="utf-8")
+    return wrapper_path, temp_root
+
+
+
 def _run_modal_script(
     script_path: Path,
     modal_cli: str,
@@ -995,55 +1094,92 @@ def _run_modal_script(
     modal_name: str | None = None,
     dry_run: bool = False,
 ) -> None:
-    modal_path = shutil.which(modal_cli)
-    if modal_path is None:
-        raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
-
     env_paths_list = [Path(p).resolve() for p in env_paths]
     path_strings = [str(p) for p in env_paths_list]
     _load_env_files_into_process(path_strings)
     _ensure_env_values(env_paths_list, script_path.parent)
     _load_env_values(env_paths_list)
+    # Ensure ENVIRONMENT_API_KEY is uploaded to backend for this org (matches registry path behavior)
+    try:
+        _preflight_env_key(env_paths_list, crash_on_failure=True)
+    except Exception as _pf_err:
+        raise click.ClickException(str(_pf_err))
 
-    cmd = [modal_path, command, str(script_path)]
-    if modal_name:
+    proc_env = os.environ.copy()
+    pythonpath_entries: list[str] = []
+    script_dir = script_path.parent.resolve()
+    pythonpath_entries.append(str(script_dir))
+    if (script_dir / "__init__.py").exists():
+        # Script lives inside a package; ensure the parent package directory is importable.
+        pythonpath_entries.append(str(script_dir.parent.resolve()))
+    pythonpath_entries.append(str(REPO_ROOT))
+    existing_pp = proc_env.get("PYTHONPATH")
+    if existing_pp:
+        pythonpath_entries.append(existing_pp)
+    unique_paths = list(dict.fromkeys(pythonpath_entries))
+    proc_env["PYTHONPATH"] = os.pathsep.join(unique_paths)
+
+    wrapper_info: tuple[Path, Path] | None = None
+    target_script = script_path
+    if command in {"serve", "deploy"}:
+        wrapper_path, temp_root = _build_modal_app_wrapper(script_path)
+        wrapper_info = (wrapper_path, temp_root)
+        target_script = wrapper_path
+
+        # Ensure the wrapper has access to the Synth AI source for intra-repo imports
+        if "PYTHONPATH" in proc_env:
+            proc_env["PYTHONPATH"] = os.pathsep.join(
+                [str(REPO_ROOT)] + proc_env["PYTHONPATH"].split(os.pathsep)
+            )
+        else:
+            proc_env["PYTHONPATH"] = str(REPO_ROOT)
+
+    cmd = [*_modal_command_prefix(modal_cli), command, str(target_script)]
+    if modal_name and command == "deploy":
         cmd.extend(["--name", modal_name])
     if dry_run:
         click.echo("Dry run: " + " ".join(cmd))
         return
     try:
-        # Capture output to extract URL
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        # Print output as it would normally appear
-        if result.stdout:
-            click.echo(result.stdout, nl=False)
-        if result.stderr:
-            click.echo(result.stderr, nl=False, err=True)
-
-        # Extract and save task app URL from output
+        # Stream output live for better diagnostics
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=proc_env,
+        )
         task_app_url = None
-        for line in result.stdout.splitlines():
-            # Look for lines containing modal.run URLs
-            if "modal.run" in line and "=>" in line:
-                # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            click.echo(line, nl=False)
+            if task_app_url is None and ("modal.run" in line and "=>" in line):
                 parts = line.split("=>")
                 if len(parts) >= 2:
                     task_app_url = parts[-1].strip()
-                    break
-
-        # Save URL to .env file if found
-        if task_app_url and env_paths_list:
-            env_file = env_paths_list[0]  # Use the first .env file
-            _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL: {task_app_url}")
-
+                    if task_app_url and env_paths_list:
+                        env_file = env_paths_list[0]
+                        _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
+                        click.echo(f"\n✓ Task app URL: {task_app_url}\n")
+        rc = proc.wait()
+        if rc != 0:
+            raise subprocess.CalledProcessError(rc, cmd)
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(
             f"modal {command} failed with exit code {exc.returncode}"
         ) from exc
+    finally:
+        if wrapper_info is not None:
+            wrapper_path, temp_root = wrapper_info
+            try:
+                wrapper_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            shutil.rmtree(temp_root, ignore_errors=True)
 
 
-def _preflight_env_key(crash_on_failure: bool = False) -> None:
+def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_failure: bool = False) -> None:
     try:
         raw_backend = (
             os.environ.get("BACKEND_BASE_URL")
@@ -1056,7 +1192,42 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
         synth_key = os.environ.get("SYNTH_API_KEY") or ""
         env_api_key = (
             os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get("DEV_ENVIRONMENT_API_KEY") or ""
-        )
+        ).strip()
+
+        def _preview(value: str) -> str:
+            if len(value) <= 10:
+                return value
+            return f"{value[:6]}...{value[-4:]}"
+
+        minted = False
+        if not env_api_key:
+            try:
+                from synth_ai.learning.rl.secrets import mint_environment_api_key
+
+                env_api_key = mint_environment_api_key()
+                os.environ["ENVIRONMENT_API_KEY"] = env_api_key
+                os.environ.setdefault("DEV_ENVIRONMENT_API_KEY", env_api_key)
+                minted = True
+                click.echo(
+                    f"[preflight] minted ENVIRONMENT_API_KEY ({_preview(env_api_key)})"
+                )
+            except Exception as mint_err:
+                if crash_on_failure:
+                    raise click.ClickException(
+                        f"[CRITICAL] Failed to mint ENVIRONMENT_API_KEY: {mint_err}"
+                    ) from mint_err
+                click.echo(
+                    f"[WARN] Failed to mint ENVIRONMENT_API_KEY automatically ({mint_err}); proceeding without upload"
+                )
+
+        if env_api_key and not os.environ.get("ENVIRONMENT_API_KEY"):
+            os.environ["ENVIRONMENT_API_KEY"] = env_api_key
+        if env_api_key and not os.environ.get("DEV_ENVIRONMENT_API_KEY"):
+            os.environ["DEV_ENVIRONMENT_API_KEY"] = env_api_key
+
+        if minted:
+            _persist_env_api_key(env_api_key, env_paths)
+
         if synth_key and env_api_key:
             import base64
 
@@ -1071,10 +1242,50 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                 try:
                     from nacl.public import PublicKey, SealedBox
 
-                    pub = PublicKey(base64.b64decode(pk, validate=True))
+                    # Decode public key and build sealed box
+                    pk_bytes = base64.b64decode(pk, validate=True)
+                    pub = PublicKey(pk_bytes)
                     sb = SealedBox(pub)
+
+                    # Encrypt plaintext key
                     ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode("utf-8"))).decode()
                     payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
+
+                    # Emit diagnostic logging (safe previews + hashes only)
+                    try:
+                        import hashlib as _hash
+
+                        # Backend URL context
+                        click.echo(f"[preflight] posting to {backend_base.rstrip('/')}/v1/env-keys")
+
+                        # Public key diagnostics
+                        pk_sha256 = _hash.sha256(pk_bytes).hexdigest()
+                        click.echo(
+                            f"[preflight] public_key: b64_len={len(pk)} sha256={pk_sha256} head={pk[:16]} tail={pk[-16:]}"
+                        )
+
+                        # Plaintext diagnostics (never print full secret)
+                        _plain = env_api_key
+                        _plen = len(_plain)
+                        _ppref = (_plain[:6] + "…") if _plen > 10 else _plain
+                        _psuf = ("…" + _plain[-4:]) if _plen > 10 else ""
+                        _has_ws = any(ch.isspace() for ch in _plain)
+                        click.echo(
+                            f"[preflight] plaintext: len={_plen} preview={_ppref}{_psuf} has_ws={bool(_has_ws)}"
+                        )
+
+                        # Ciphertext diagnostics
+                        try:
+                            _ct_bytes = base64.b64decode(ct_b64, validate=True)
+                            _ct_sha256 = _hash.sha256(_ct_bytes).hexdigest()
+                            click.echo(
+                                f"[preflight] ciphertext: b64_len={len(ct_b64)} sha256={_ct_sha256} head={ct_b64[:16]} tail={ct_b64[-16:]}"
+                            )
+                        except Exception:
+                            click.echo("[preflight] ciphertext: invalid base64 (unexpected)")
+                    except Exception:
+                        # Best-effort logging only
+                        pass
                     with httpx.Client(
                         timeout=15.0,
                         headers={
@@ -1084,15 +1295,18 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                     ) as c:
                         click.echo("[preflight] upserting env key…")
                         up = c.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
-                        click.echo(f"[preflight] upsert status={up.status_code}")
+                        body_snip = ""
+                        try:
+                            body_snip = up.text[:400] if up.text else ""
+                        except Exception:
+                            body_snip = ""
+                        click.echo(f"[preflight] upsert status={up.status_code}{(' body='+body_snip) if body_snip else ''}")
 
                         # If upload succeeded (2xx), consider it successful even if verification fails
                         # This handles cases where verification endpoint has issues
                         if 200 <= up.status_code < 300:
                             key_preview = (
-                                f"{env_api_key[:5]}...{env_api_key[-5:]}"
-                                if len(env_api_key) > 10
-                                else env_api_key
+                                _preview(env_api_key)
                             )
                             click.echo(
                                 f"✅ ENVIRONMENT_API_KEY uploaded successfully ({key_preview})"
@@ -1115,6 +1329,7 @@ def _preflight_env_key(crash_on_failure: bool = False) -> None:
                         else:
                             error_msg = (
                                 f"ENVIRONMENT_API_KEY upload failed with status {up.status_code}"
+                                + (f" body={body_snip}" if body_snip else "")
                             )
                             if crash_on_failure:
                                 raise click.ClickException(f"[CRITICAL] {error_msg}")
@@ -1142,17 +1357,33 @@ def _run_modal_with_entry(
     dry_run: bool = False,
     original_path: Path | None = None,
 ) -> None:
-    modal_path = shutil.which(modal_cli)
-    if modal_path is None:
-        raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
-
     env_paths_list = [Path(p).resolve() for p in env_paths]
     dotenv_paths = [str(p) for p in env_paths_list]
     _load_env_files_into_process(dotenv_paths)
     fallback_dir = env_paths_list[0].parent if env_paths_list else Path.cwd()
     _ensure_env_values(env_paths_list, fallback_dir)
     _load_env_values(env_paths_list)
-    _preflight_env_key(crash_on_failure=True)
+    _preflight_env_key(env_paths_list, crash_on_failure=True)
+
+    inline_secret_values: dict[str, str] = {}
+    env_key = os.environ.get("ENVIRONMENT_API_KEY", "").strip()
+    if env_key:
+        inline_secret_values["ENVIRONMENT_API_KEY"] = env_key
+        inline_secret_values.setdefault("DEV_ENVIRONMENT_API_KEY", env_key)
+    aliases = os.environ.get("ENVIRONMENT_API_KEY_ALIASES", "").strip()
+    if aliases:
+        inline_secret_values["ENVIRONMENT_API_KEY_ALIASES"] = aliases
+    for vendor_key in ("GROQ_API_KEY", "OPENAI_API_KEY"):
+        val = os.environ.get(vendor_key, "").strip()
+        if val:
+            inline_secret_values[vendor_key] = val
+
+    if inline_secret_values:
+        preview = inline_secret_values.get("ENVIRONMENT_API_KEY", "")
+        shown = f"{preview[:6]}...{preview[-4:]}" if preview and len(preview) > 10 else preview
+        click.echo(f"[deploy] inline ENVIRONMENT_API_KEY prepared ({shown})")
+    else:
+        click.echo("[deploy] no inline ENVIRONMENT_API_KEY found; relying on Modal secrets/dotenv")
 
     script_path = _write_modal_entrypoint(
         entry,
@@ -1160,8 +1391,22 @@ def _run_modal_with_entry(
         modal_name,
         dotenv_paths=dotenv_paths,
         original_path=original_path,
+        inline_secret_values=inline_secret_values,
     )
-    cmd = [modal_path, command, str(script_path)]
+    cmd = [*_modal_command_prefix(modal_cli), command, str(script_path)]
+
+    if modal_name and command == "deploy":
+        cmd.extend(["--name", modal_name])
+
+    proc_env = os.environ.copy()
+    pythonpath_entries: list[str] = [str(REPO_ROOT)]
+    if original_path is not None:
+        source_dir = Path(original_path).resolve().parent
+        pythonpath_entries.insert(0, str(source_dir))
+    existing_pp = proc_env.get("PYTHONPATH")
+    if existing_pp:
+        pythonpath_entries.append(existing_pp)
+    proc_env["PYTHONPATH"] = os.pathsep.join(list(dict.fromkeys(pythonpath_entries)))
 
     if dry_run:
         click.echo("Dry run: " + " ".join(cmd))
@@ -1169,31 +1414,33 @@ def _run_modal_with_entry(
         return
 
     try:
-        # Capture output to extract URL
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        # Print output as it would normally appear
-        if result.stdout:
-            click.echo(result.stdout, nl=False)
-        if result.stderr:
-            click.echo(result.stderr, nl=False, err=True)
-
-        # Extract and save task app URL from output
+        # Stream output live for better diagnostics
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=proc_env,
+        )
         task_app_url = None
-        for line in result.stdout.splitlines():
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            # Echo lines as they arrive
+            click.echo(line, nl=False)
             # Look for lines containing modal.run URLs
-            if "modal.run" in line and "=>" in line:
-                # Extract URL from lines like: "└── 🔨 Created web function fastapi_app => https://...modal.run"
+            if task_app_url is None and ("modal.run" in line and "=>" in line):
                 parts = line.split("=>")
                 if len(parts) >= 2:
                     task_app_url = parts[-1].strip()
-                    break
-
-        # Save URL to .env file if found
-        if task_app_url and env_paths_list:
-            env_file = env_paths_list[0]  # Use the first .env file
-            _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
-            click.echo(f"\n✓ Task app URL: {task_app_url}")
-
+                    # Save URL immediately for convenience
+                    if task_app_url and env_paths_list:
+                        env_file = env_paths_list[0]
+                        _save_to_env_file(env_file, "TASK_APP_BASE_URL", task_app_url)
+                        click.echo(f"\n✓ Task app URL: {task_app_url}\n")
+        rc = proc.wait()
+        if rc != 0:
+            raise subprocess.CalledProcessError(rc, cmd)
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(
             f"modal {command} failed with exit code {exc.returncode}"
@@ -1729,6 +1976,8 @@ def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
         existing_lines = []
         if env_path.exists():
             existing_lines = env_path.read_text().splitlines()
+        else:
+            env_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Check if key already exists and update it
         key_updated = False
@@ -1754,9 +2003,31 @@ def _save_to_env_file(env_path: Path, key: str, value: str) -> None:
                     # Add newline before appending
                     f.write("\n")
                 f.write(f"{key}={value}\n")
-            click.echo(f"Saved {key} to {env_path}")
+        click.echo(f"Saved {key} to {env_path}")
     except Exception as e:
         click.echo(f"Warning: Could not save {key} to .env: {e}", err=True)
+
+
+def _persist_env_api_key(env_api_key: str, env_paths: Sequence[Path] | None) -> None:
+    """Persist ENVIRONMENT_API_KEY to provided env files (or default .env)."""
+    targets: list[Path] = []
+    seen: set[Path] = set()
+    for path in env_paths or ():
+        try:
+            resolved = Path(path).resolve()
+        except Exception:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        targets.append(resolved)
+
+    if not targets:
+        demo_dir = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+        targets.append((demo_dir / ".env").resolve())
+
+    for target in targets:
+        _save_to_env_file(target, "ENVIRONMENT_API_KEY", env_api_key)
 
 
 def _validate_required_env_keys() -> None:
@@ -1876,7 +2147,8 @@ def _serve_entry(
     _ensure_port_free(port, host, force=force)
 
     _validate_required_env_keys()
-    _preflight_env_key()
+    env_path_objs = [Path(p) for p in env_files if p]
+    _preflight_env_key(env_path_objs)
 
     # Print next steps if in demo context
     if trace_enabled:
@@ -1975,6 +2247,7 @@ def _write_modal_entrypoint(
     *,
     dotenv_paths: Sequence[str] | None = None,
     original_path: Path | None = None,
+    inline_secret_values: dict[str, str] | None = None,
 ) -> Path:
     modal_name = override_name or modal_cfg.app_name
 
@@ -2050,6 +2323,7 @@ def _write_modal_entrypoint(
             local_dirs.append((discovered_dir, mount_dst))
     secret_names = list(modal_cfg.secret_names)
     volume_mounts = [(name, mount) for name, mount in modal_cfg.volume_mounts]
+    inline_secret_values = {k: v for k, v in (inline_secret_values or {}).items() if v}
 
     script = f"""from __future__ import annotations
 
@@ -2072,6 +2346,7 @@ MODAL_APP_NAME = {modal_name!r}
 MODULE_NAME = {module_name!r}
 MODULE_FILE = {guaranteed_file_str or remote_file_str!r}
 DOTENV_PATHS = {dotenv_paths!r}
+INLINE_SECRET_VALUES = {inline_secret_values!r}
 
 image = Image.debian_slim(python_version={modal_cfg.python_version!r})
 
@@ -2114,6 +2389,9 @@ for local_src, remote_dst in local_dirs:
 
 secrets = {secret_names!r}
 secret_objs = [Secret.from_name(name) for name in secrets]
+
+if INLINE_SECRET_VALUES:
+    secret_objs.append(Secret.from_dict(INLINE_SECRET_VALUES))
 
 if DOTENV_PATHS:
     secret_objs.extend(Secret.from_dotenv(path) for path in DOTENV_PATHS)
@@ -2382,7 +2660,7 @@ def eval_command(
         )
     else:
         client = httpx.Client(base_url=task_app_url, timeout=60.0, headers=headers)
-    with client as client:
+    try:
         with contextlib.suppress(Exception):
             client.get("/task_info")
         # Precompute optional policy overrides from TOML
@@ -2469,6 +2747,24 @@ def eval_command(
             except Exception as exc:
                 failures += 1
                 click.echo(f"seed={seed_val} error={exc}")
+
+    finally:
+        try:
+            client.close()
+        except AttributeError:
+            transport_obj = getattr(client, "_transport", None)
+            if transport_obj and hasattr(transport_obj, "aclose"):
+                try:
+                    asyncio.run(transport_obj.aclose())
+                except RuntimeError:
+                    # Fallback when already inside a running loop (rare for CLI).
+                    new_loop = asyncio.new_event_loop()
+                    try:
+                        new_loop.run_until_complete(transport_obj.aclose())
+                    finally:
+                        new_loop.close()
+        except Exception:
+            pass
 
     click.echo(
         f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}"

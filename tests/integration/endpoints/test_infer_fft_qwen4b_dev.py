@@ -41,7 +41,7 @@ async def test_fft_qwen4b_chat_completion_smoke() -> None:
         except Exception:
             pass
 
-    # Resolve a single dev endpoint: POST /api/v1/chat/completions
+    # Resolve a single dev endpoint: POST /api/inference/v1/chat/completions (proxy)
     dev_backend = os.getenv("DEV_BACKEND_URL")
     api_key = os.getenv("DEV_ACTIONS_SYNTH_API_KEY") or os.getenv("SYNTH_API_KEY")
 
@@ -51,7 +51,7 @@ async def test_fft_qwen4b_chat_completion_smoke() -> None:
     base = dev_backend.rstrip("/")
     if base.endswith("/api"):
         base = base[:-4]
-    candidates = [f"{base}/api/v1/chat/completions"]
+    candidates = [f"{base}/api/inference/v1/chat/completions"]
 
     print("[DEV TEST] Request candidates (in order):")
     for u in candidates:

@@ -1,0 +1,58 @@
+# Qwen3 Coder LoRA SFT – all-linear adapters
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
+
+[job]
+# Smallest supported Qwen3 base; replace with the smallest Coder variant when available
+model = "Qwen/Qwen3-1.7B"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 1
+nodes = 1
+
+[data]
+topology = {}
+# Optional validation set
+# validation_path = "examples/sft/ft_data/coder_traces.val.jsonl"
+
+[training]
+mode = "lora"
+use_qlora = true
+
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 100
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "peft"
+per_device_batch = 2
+gradient_accumulation_steps = 32
+sequence_length = 4096
+learning_rate = 5e-6
+warmup_ratio = 0.03
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true
+
+# LoRA target selection for coder models: apply to all linear projections
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["all-linear"]
+
+

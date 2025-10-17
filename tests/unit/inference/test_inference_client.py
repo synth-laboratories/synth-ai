@@ -44,7 +44,7 @@ async def test_create_chat_completion_valid_model(monkeypatch: pytest.MonkeyPatc
     assert response == {"id": "chatcmpl-123"}
     assert dummy_clients, "HTTP client should be instantiated"
     url, payload = dummy_clients[0].calls[0]
-    assert url == "/api/v1/chat/completions"
+    assert url == "/api/inference/v1/chat/completions"
     assert payload["model"] == "Qwen/Qwen3-0.6B"
     assert payload["messages"] == [{"role": "user", "content": "hi"}]
     assert payload["thinking_budget"] == 256

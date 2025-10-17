@@ -1,0 +1,22 @@
+[
+  {
+    "instance_id": "sample__p0",
+    "problem_statement": "Fix the bug where the greeter returns `None` when the name is empty. Update the handler so it returns `'Hello, world!'` by default and keep the CLI help accurate.",
+    "instructions": "Repository: sample-app\nPrimary file: app/greeter.py\nTests: tests/test_greeter.py\n\nAcceptance criteria:\n- `python -m pytest tests/test_greeter.py` passes\n- Calling `python -m app.greeter --name ''` prints `Hello, world!`\n- Update README instructions if they mention the default greeting.",
+    "metadata": {
+      "repo": "https://github.com/example/sample-app",
+      "base_commit": "HEAD",
+      "image_name": "docker.io/library/python:3.11-slim"
+    }
+  },
+  {
+    "instance_id": "sample__p1",
+    "problem_statement": "The HTTP health endpoint returns status 500 when the database is unavailable. Implement a fallback that returns status 200 with a degraded flag and add logging.",
+    "instructions": "Repository: sample-app\nFile of interest: app/routes.py\nAdd tests under tests/test_routes.py covering the degraded mode.",
+    "metadata": {
+      "repo": "https://github.com/example/sample-app",
+      "image_name": "docker.io/library/python:3.11-slim"
+    }
+  }
+]
+

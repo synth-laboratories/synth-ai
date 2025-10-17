@@ -17,6 +17,13 @@ except Exception:
     # dotenv is optional at runtime; proceed if unavailable
     pass
 
+try:
+    from ._typer_patch import patch_typer_make_metavar
+
+    patch_typer_make_metavar()
+except Exception:
+    pass
+
 
 from .root import cli  # new canonical CLI entrypoint
 

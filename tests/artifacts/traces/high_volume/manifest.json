@@ -1,0 +1,20 @@
+{
+  "description": "Single session with the highest number of events to stress high-throughput paths.",
+  "source": "/Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db",
+  "session_ids": [
+    "session_29e0874d2f4b"
+  ],
+  "counts": {
+    "session_traces": 1,
+    "session_timesteps": 88,
+    "events": 336,
+    "messages": 248,
+    "event_rewards": 248,
+    "outcome_rewards": 1,
+    "systems": 0
+  },
+  "hashes": {
+    "synth_ai.db": "2689f28841ecf9b93d6e89e7ce3ef8b89762fe35b711f86dfa379a0192ecf830",
+    "trace_export.jsonl": "b0bb856396c62dffab23be802b0a1aaddebdbc8e73941db3e95d62b76a826b88"
+  }
+}

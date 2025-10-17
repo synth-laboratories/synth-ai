@@ -130,8 +130,23 @@ def _default_backend() -> str:
 )
 @click.option("--backend", default=_default_backend, help="Backend base URL")
 @click.option("--model", default=None, help="Override model identifier")
+@click.option(
+    "--allow-experimental",
+    "allow_experimental",
+    is_flag=True,
+    flag_value=True,
+    default=None,
+    help="Allow experimental models (overrides SDK_EXPERIMENTAL env)",
+)
+@click.option(
+    "--no-allow-experimental",
+    "allow_experimental",
+    is_flag=True,
+    flag_value=False,
+    help="Disallow experimental models (overrides SDK_EXPERIMENTAL env)",
+)
 @click.option("--idempotency", default=None, help="Idempotency-Key header for job creation")
-@click.option("--dry-run", is_flag=True, help="Preview payload without submitting")
+@click.option("--dry-run", is_flag=True, hidden=True, help="Deprecated: no-op")
 @click.option("--poll/--no-poll", default=True, help="Poll job status until terminal state")
 @click.option(
     "--poll-timeout", default=3600.0, type=float, help="Maximum seconds to poll before timing out"
@@ -152,6 +167,7 @@ def train_command(
     dataset_path: str | None,
     backend: str,
     model: str | None,
+    allow_experimental: bool | None,
     idempotency: str | None,
     dry_run: bool,
     poll: bool,
@@ -245,6 +261,7 @@ def train_command(
             task_url_override=task_url,
             model_override=model,
             idempotency=idempotency,
+            allow_experimental=allow_experimental,
             dry_run=dry_run,
             poll=poll,
             poll_timeout=poll_timeout,
@@ -257,6 +274,7 @@ def train_command(
             backend_base=backend_base,
             synth_key=synth_key,
             dataset_override=dataset_override_path,
+            allow_experimental=allow_experimental,
             dry_run=dry_run,
             poll=poll,
             poll_timeout=poll_timeout,
@@ -341,6 +359,7 @@ def handle_rl(
     task_url_override: str | None,
     model_override: str | None,
     idempotency: str | None,
+    allow_experimental: bool | None,
     dry_run: bool,
     poll: bool,
     poll_timeout: float,
@@ -356,6 +375,7 @@ def handle_rl(
         task_url=task_url_override or os.environ.get("TASK_APP_URL", ""),
         overrides=overrides,
         idempotency=idempotency,
+        allow_experimental=allow_experimental,
     )
 
     # Backend-side verification: try ALL org environment keys against /health and /task_info
@@ -409,9 +429,6 @@ def handle_rl(
 
     click.echo(f"POST {create_url}")
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
-    if dry_run:
-        click.echo("Dry run enabled; skipping submission")
-        return
 
     resp = http_post(create_url, headers=headers, json_body=build.payload)
     try:
@@ -441,6 +458,7 @@ def handle_sft(
     backend_base: str,
     synth_key: str,
     dataset_override: Path | None,
+    allow_experimental: bool | None,
     dry_run: bool,
     poll: bool,
     poll_timeout: float,
@@ -451,7 +469,11 @@ def handle_sft(
 
     while True:
         try:
-            build = build_sft_payload(config_path=cfg_path, dataset_override=dataset_path)
+            build = build_sft_payload(
+                config_path=cfg_path,
+                dataset_override=dataset_path,
+                allow_experimental=allow_experimental,
+            )
             break
         except TrainError as exc:
             click.echo(str(exc))
@@ -477,51 +499,46 @@ def handle_sft(
         click.echo("\n=== Uploading Training Data ===")
         click.echo(f"Dataset: {build.train_file}")
         click.echo(f"Destination: {upload_url}")
-        if dry_run:
-            click.echo("Dry run: skipping upload")
-            train_file_id = "dry-run-train"
-            val_file_id = None
-        else:
-            resp = post_multipart(
-                upload_url, api_key=synth_key, file_field="file", file_path=build.train_file
+        resp = post_multipart(
+            upload_url, api_key=synth_key, file_field="file", file_path=build.train_file
+        )
+        js = (
+            resp.json()
+            if resp.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
+        if resp.status_code is not None and resp.status_code >= 400 or "id" not in js:
+            click.echo("\n[ERROR] Training file upload failed:")
+            click.echo(f"  URL: {upload_url}")
+            click.echo(f"  Status: {resp.status_code}")
+            click.echo(f"  Response: {js or resp.text[:400]}")
+            click.echo(f"  File: {build.train_file}")
+            raise click.ClickException(
+                f"Training file upload failed with status {resp.status_code}"
             )
-            js = (
-                resp.json()
-                if resp.headers.get("content-type", "").startswith("application/json")
+        train_file_id = js["id"]
+        click.echo(f"✓ Training file uploaded (id={train_file_id})")
+        val_file_id = None
+        if build.validation_file:
+            click.echo(f"Uploading validation dataset: {build.validation_file}")
+            vresp = post_multipart(
+                upload_url,
+                api_key=synth_key,
+                file_field="file",
+                file_path=build.validation_file,
+            )
+            vjs = (
+                vresp.json()
+                if vresp.headers.get("content-type", "").startswith("application/json")
                 else {}
             )
-            if resp.status_code is not None and resp.status_code >= 400 or "id" not in js:
-                click.echo("\n[ERROR] Training file upload failed:")
-                click.echo(f"  URL: {upload_url}")
-                click.echo(f"  Status: {resp.status_code}")
-                click.echo(f"  Response: {js or resp.text[:400]}")
-                click.echo(f"  File: {build.train_file}")
-                raise click.ClickException(
-                    f"Training file upload failed with status {resp.status_code}"
+            if vresp.status_code is not None and vresp.status_code < 400 and "id" in vjs:
+                val_file_id = vjs["id"]
+                click.echo(f"✓ Validation file uploaded (id={val_file_id})")
+            else:
+                click.echo(
+                    f"[WARN] Validation upload failed ({vresp.status_code}): {vjs or vresp.text[:200]}"
                 )
-            train_file_id = js["id"]
-            click.echo(f"✓ Training file uploaded (id={train_file_id})")
-            val_file_id = None
-            if build.validation_file:
-                click.echo(f"Uploading validation dataset: {build.validation_file}")
-                vresp = post_multipart(
-                    upload_url,
-                    api_key=synth_key,
-                    file_field="file",
-                    file_path=build.validation_file,
-                )
-                vjs = (
-                    vresp.json()
-                    if vresp.headers.get("content-type", "").startswith("application/json")
-                    else {}
-                )
-                if vresp.status_code is not None and vresp.status_code < 400 and "id" in vjs:
-                    val_file_id = vjs["id"]
-                    click.echo(f"✓ Validation file uploaded (id={val_file_id})")
-                else:
-                    click.echo(
-                        f"[WARN] Validation upload failed ({vresp.status_code}): {vjs or vresp.text[:200]}"
-                    )
         payload = dict(build.payload)
         payload["training_file_id"] = train_file_id
         if val_file_id:
@@ -538,9 +555,6 @@ def handle_sft(
         click.echo("\n=== Creating Training Job ===")
         click.echo("Job payload preview:")
         click.echo(preview_json(payload, limit=800))
-        if dry_run:
-            click.echo("Dry run: skipping job submission")
-            return
 
         create_url = f"{backend_base}/learning/jobs"
         headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}

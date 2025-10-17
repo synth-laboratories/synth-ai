@@ -3,8 +3,9 @@
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-0.2.4.dev9-orange)](https://pypi.org/project/synth-ai/)
-![Coverage](https://img.shields.io/badge/coverage-0.0%25-red)
-![Tests](https://img.shields.io/badge/tests-17%2F17%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-9.09%25-red)
+![Tests](https://img.shields.io/badge/tests-37%2F38%20passing-brightgreen)
+![Blacksmith CI](https://img.shields.io/badge/CI-Blacksmith%20Worker-blue)
 
 Docs: [Synth‑AI Documentation](https://docs.usesynth.ai/welcome/introduction)
 

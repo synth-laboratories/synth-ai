@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -10,6 +11,7 @@ from typing import Any
 from .abstractions import (
     BaseEvent,
     SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
     SessionTimeStep,
     SessionTrace,
     TimeRecord,
@@ -17,7 +19,9 @@ from .abstractions import (
 from .config import CONFIG
 from .decorators import set_session_id, set_session_tracer, set_turn_number
 from .hooks import GLOBAL_HOOKS, HookManager
-from .turso.manager import AsyncSQLTraceManager
+from .storage.base import TraceStorage
+from .storage.config import StorageConfig
+from .storage.factory import create_storage
 from .utils import generate_session_id
 
 
@@ -29,6 +33,8 @@ class SessionTracer:
         hooks: HookManager | None = None,
         db_url: str | None = None,
         auto_save: bool = True,
+        storage: TraceStorage | None = None,
+        storage_config: StorageConfig | None = None,
     ):
         """Initialize session tracer.
 
@@ -41,7 +47,8 @@ class SessionTracer:
         self._current_trace: SessionTrace | None = None
         self._lock = asyncio.Lock()
         self.db_url = db_url or CONFIG.db_url
-        self.db: AsyncSQLTraceManager | None = None
+        self._storage_config = storage_config
+        self.db: TraceStorage | None = storage
         self.auto_save = auto_save
         self._current_step: SessionTimeStep | None = None
 
@@ -58,7 +65,8 @@ class SessionTracer:
     async def initialize(self):
         """Initialize the database connection."""
         if self.db is None:
-            self.db = AsyncSQLTraceManager(self.db_url)
+            config = self._storage_config or StorageConfig(connection_string=self.db_url)
+            self.db = create_storage(config)
             await self.db.initialize()
 
     async def start_session(
@@ -262,7 +270,7 @@ class SessionTracer:
 
     async def record_message(
         self,
-        content: str,
+        content: Any,
         message_type: str,
         event_time: float | None = None,
         message_time: int | None = None,
@@ -280,8 +288,10 @@ class SessionTracer:
         if self._current_trace is None:
             raise RuntimeError("No active session")
 
+        normalised_content, content_str = self._normalise_message_content(content)
+
         msg = SessionEventMarkovBlanketMessage(
-            content=content,
+            content=normalised_content,
             message_type=message_type,
             time_record=TimeRecord(
                 event_time=event_time or datetime.now(UTC).timestamp(), message_time=message_time
@@ -318,13 +328,29 @@ class SessionTracer:
                 self._current_trace.session_id,
                 timestep_db_id=timestep_db_id,
                 message_type=message_type,
-                content=content,
+                content=content_str,
                 event_time=msg.time_record.event_time,
                 message_time=msg.time_record.message_time,
                 metadata=msg.metadata,
             )
             return message_id
         return None
+
+    @staticmethod
+    def _normalise_message_content(content: Any) -> tuple[SessionMessageContent, str]:
+        if isinstance(content, SessionMessageContent):
+            return content, content.as_text()
+        if isinstance(content, str):
+            payload = SessionMessageContent(text=content)
+            return payload, payload.as_text()
+        try:
+            serialized = json.dumps(content, ensure_ascii=False)
+            payload = SessionMessageContent(json_payload=serialized)
+            return payload, serialized
+        except (TypeError, ValueError):
+            text = str(content)
+            payload = SessionMessageContent(text=text)
+            return payload, text
 
     async def end_session(self, save: bool | None = None) -> SessionTrace:
         """End the current session.

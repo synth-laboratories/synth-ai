@@ -13,6 +13,7 @@ include = [
 ]
 exclude = [
   "**/migrations/**",
+  "synth_ai/v0/**",
 ]
 
 # Note: For ignoring false positives, use CLI flags:

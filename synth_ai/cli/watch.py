@@ -16,6 +16,12 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
+from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
+
+
+def _open_db(db_url: str):
+    return create_storage(StorageConfig(connection_string=db_url))
+
 
 class _State:
     def __init__(self):
@@ -48,9 +54,7 @@ def _format_int(value: Any) -> str:
 
 
 async def _fetch_experiments(db_url: str):
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
-    db = AsyncSQLTraceManager(db_url)
+    db = _open_db(db_url)
     await db.initialize()
     try:
         df = await db.query_traces(
@@ -114,9 +118,7 @@ def _experiments_table(df, limit: int | None = None) -> Table:
 
 
 async def _experiment_detail(db_url: str, experiment_id: str) -> dict[str, Any]:
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
-    db = AsyncSQLTraceManager(db_url)
+    db = _open_db(db_url)
     await db.initialize()
     try:
         exp_df = await db.query_traces(
@@ -253,9 +255,7 @@ def register(cli):
         console = Console()
 
         async def _run():
-            from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
-            db = AsyncSQLTraceManager(db_url)
+            db = _open_db(db_url)
             await db.initialize()
             try:
                 df = await db.get_model_usage(model_name=model_name)
@@ -396,9 +396,7 @@ def _parse_hours(args: list[str]) -> float | None:
 
 
 async def _usage_table(db_url: str, model_name: str | None):
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
-    db = AsyncSQLTraceManager(db_url)
+    db = _open_db(db_url)
     await db.initialize()
     try:
         df = await db.get_model_usage(model_name=model_name)
@@ -418,9 +416,7 @@ async def _usage_table(db_url: str, model_name: str | None):
 
 
 async def _traces_table(db_url: str, limit: int):
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
-    db = AsyncSQLTraceManager(db_url)
+    db = _open_db(db_url)
     await db.initialize()
     try:
         df = await db.query_traces("SELECT * FROM session_summary ORDER BY created_at DESC")
@@ -453,10 +449,8 @@ async def _recent_table(db_url: str, hours: float, limit: int):
     # Inline the recent query to avoid cross-module coupling
     from datetime import timedelta
 
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
-
     start_time = datetime.now() - timedelta(hours=hours)
-    db = AsyncSQLTraceManager(db_url)
+    db = _open_db(db_url)
     await db.initialize()
     try:
         query = """

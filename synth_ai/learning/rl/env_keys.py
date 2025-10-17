@@ -90,10 +90,41 @@ def setup_environment_api_key(
     if alg is not None and alg != _ALGORITHM:
         raise RuntimeError(f"unsupported sealed box algorithm: {alg}")
 
+    # Diagnostics: safe previews and hashes to correlate with backend logs
+    try:
+        import hashlib as _hash
+
+        pk_bytes = base64.b64decode(pubkey, validate=True)
+        pk_sha256 = _hash.sha256(pk_bytes).hexdigest()
+        print(
+            f"[env-keys] public_key: b64_len={len(pubkey)} sha256={pk_sha256} head={pubkey[:16]} tail={pubkey[-16:]}"
+        )
+        _plen = len(plaintext)
+        _ppref = (plaintext[:6] + "…") if _plen > 10 else plaintext
+        _psuf = ("…" + plaintext[-4:]) if _plen > 10 else ""
+        _has_ws = any(ch.isspace() for ch in plaintext)
+        print(
+            f"[env-keys] plaintext: len={_plen} preview={_ppref}{_psuf} has_ws={bool(_has_ws)}"
+        )
+    except Exception:
+        pass
+
     ciphertext_b64 = encrypt_for_backend(pubkey, token_bytes)
 
     body = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ciphertext_b64}
     post_url = f"{backend}/api/v1/env-keys"
+    # Ciphertext diagnostics
+    try:
+        import hashlib as _hash
+
+        _ct_bytes = base64.b64decode(ciphertext_b64, validate=True)
+        _ct_sha = _hash.sha256(_ct_bytes).hexdigest()
+        print(
+            f"[env-keys] ciphertext: b64_len={len(ciphertext_b64)} sha256={_ct_sha} head={ciphertext_b64[:16]} tail={ciphertext_b64[-16:]}"
+        )
+    except Exception:
+        pass
+
     response2 = requests.post(
         post_url,
         headers={**headers, "Content-Type": "application/json"},
