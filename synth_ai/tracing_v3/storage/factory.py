@@ -1,6 +1,6 @@
 """Factory for creating storage instances."""
 
-from ..turso.manager import AsyncSQLTraceManager
+from ..turso.native_manager import NativeLibsqlTraceManager
 from .base import TraceStorage
 from .config import StorageBackend, StorageConfig
 
@@ -22,13 +22,16 @@ def create_storage(config: StorageConfig | None = None) -> TraceStorage:
 
         config = STORAGE_CONFIG
 
-    if config.backend == StorageBackend.TURSO:
-        # Turso uses the AsyncSQLTraceManager
-        return AsyncSQLTraceManager(db_url=config.get_connection_string())
+    connection_string = config.get_connection_string()
+
+    if config.backend == StorageBackend.TURSO_NATIVE:
+        backend_config = config.get_backend_config()
+        return NativeLibsqlTraceManager(
+            db_url=connection_string,
+            auth_token=backend_config.get("auth_token"),
+        )
     elif config.backend == StorageBackend.SQLITE:
-        # For pure SQLite, we can still use AsyncSQLTraceManager
-        # but with a file-based URL
-        return AsyncSQLTraceManager(db_url=config.get_connection_string())
+        return NativeLibsqlTraceManager(db_url=connection_string)
     elif config.backend == StorageBackend.POSTGRES:
         # Future: PostgreSQL implementation
         raise NotImplementedError("PostgreSQL backend not yet implemented")

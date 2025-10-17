@@ -26,7 +26,7 @@ def register(cli):
         console = Console()
 
         async def _run():
-            from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+            from synth_ai.tracing_v3.storage.factory import create_storage, StorageConfig
 
             # Discover DBs under ./synth_ai.db/dbs (or override via env)
             root = os.getenv("SYNTH_TRACES_ROOT", "./synth_ai.db/dbs")
@@ -58,7 +58,7 @@ def register(cli):
 
             async def db_counts(db_dir: str) -> tuple[int, dict[str, int], int, str | None, int]:
                 data_file = os.path.join(db_dir, "data")
-                mgr = AsyncSQLTraceManager(f"sqlite+aiosqlite:///{data_file}")
+                mgr = create_storage(StorageConfig(connection_string=f"sqlite+aiosqlite:///{data_file}"))
                 await mgr.initialize()
                 try:
                     traces_df = await mgr.query_traces("SELECT COUNT(*) AS c FROM session_traces")

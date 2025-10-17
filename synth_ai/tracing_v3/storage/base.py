@@ -88,6 +88,91 @@ class TraceStorage(ABC):
         """Close the storage connection."""
         pass
 
+    # Incremental helpers -------------------------------------------------
+
+    @abstractmethod
+    async def ensure_session(
+        self,
+        session_id: str,
+        *,
+        created_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Ensure a session row exists for the given session id."""
+        pass
+
+    @abstractmethod
+    async def ensure_timestep(
+        self,
+        session_id: str,
+        *,
+        step_id: str,
+        step_index: int,
+        turn_number: int | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
+        """Ensure a timestep row exists and return its database id."""
+        pass
+
+    @abstractmethod
+    async def insert_event_row(
+        self,
+        session_id: str,
+        *,
+        timestep_db_id: int | None,
+        event: Any,
+        metadata_override: dict[str, Any] | None = None,
+    ) -> int:
+        """Insert an event and return its database id."""
+        pass
+
+    @abstractmethod
+    async def insert_message_row(
+        self,
+        session_id: str,
+        *,
+        timestep_db_id: int | None,
+        message_type: str,
+        content: Any,
+        event_time: float | None = None,
+        message_time: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> int:
+        """Insert a message row linked to a session/timestep."""
+        pass
+
+    @abstractmethod
+    async def insert_outcome_reward(
+        self,
+        session_id: str,
+        *,
+        total_reward: int,
+        achievements_count: int,
+        total_steps: int,
+        reward_metadata: dict | None = None,
+    ) -> int:
+        """Record an outcome reward for a session."""
+        pass
+
+    @abstractmethod
+    async def insert_event_reward(
+        self,
+        session_id: str,
+        *,
+        event_id: int,
+        message_id: int | None = None,
+        turn_number: int | None = None,
+        reward_value: float = 0.0,
+        reward_type: str | None = None,
+        key: str | None = None,
+        annotation: dict[str, Any] | None = None,
+        source: str | None = None,
+    ) -> int:
+        """Record a reward tied to a specific event."""
+        pass
+
     # Optional experiment management methods
     async def create_experiment(
         self,

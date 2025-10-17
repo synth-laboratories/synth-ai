@@ -45,6 +45,5 @@ def test_build_sft_payload_rejects_legacy_train_schema(tmp_path: Path) -> None:
 
     with pytest.raises(TrainError):
         # Should fail because dataset is not in [job].data or --dataset override
-        build_sft_payload(config_path=cfg_path, dataset_override=None)
-
+        build_sft_payload(config_path=cfg_path, dataset_override=None, allow_experimental=None)
 

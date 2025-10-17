@@ -23,7 +23,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _maybe_load_env() -> None:
-    if os.getenv("SYNTH_API_KEY") and os.getenv("DEV_BACKEND_URL"):
+    if os.getenv("SYNTH_API_KEY") and (
+        os.getenv("PROD_BACKEND_URL") or os.getenv("BACKEND_BASE_URL") or os.getenv("SYNTH_BASE_URL")
+    ):
         return
     env_candidates = [
         ".env.test.dev",
@@ -50,10 +52,11 @@ def _resolve_backend_and_key() -> tuple[str, str]:
     _maybe_load_env()
     backend = (
         os.getenv("BACKEND_OVERRIDE")
-        or os.getenv("DEV_BACKEND_URL")
+        or os.getenv("PROD_BACKEND_URL")
         or os.getenv("BACKEND_BASE_URL")
         or os.getenv("SYNTH_BACKEND_BASE_URL")
         or os.getenv("SYNTH_BASE_URL")
+        or os.getenv("DEV_BACKEND_URL")
     )
     api_key = os.getenv("SYNTH_API_KEY")
     if not backend or not api_key:
@@ -89,6 +92,11 @@ def _write_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path:
     config_path = tmp_dir / f"multi_gpu_{gpu_count}.toml"
     text = textwrap.dedent(
         f"""
+        [algorithm]
+        type = "offline"
+        method = "sft"
+        variety = "fft"
+
         [job]
         model = \"Qwen/Qwen3-32B\"
         data = \"{dataset_path.as_posix()}\"
@@ -152,6 +160,11 @@ def _write_fft_config(tmp_dir: Path, dataset_path: Path, gpu_count: int) -> Path
     variant = f"H100-{gpu_count}x"
     text = textwrap.dedent(
         f"""
+        [algorithm]
+        type = "offline"
+        method = "sft"
+        variety = "fft"
+
         [job]
         model = \"Qwen/Qwen3-32B\"
         data = \"{dataset_path.as_posix()}\"

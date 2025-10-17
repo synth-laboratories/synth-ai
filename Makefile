@@ -14,3 +14,6 @@ coverage:
 coverage-ci:
 	@python scripts/coverage_summary.py --no-readme
 
+.PHONY: verify-trace-fixtures
+verify-trace-fixtures:
+	@python scripts/build_trace_fixtures.py --source traces/v3/synth_ai.db --dest tests/artifacts/traces --overwrite

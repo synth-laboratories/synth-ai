@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import base64
 import logging
+from io import BytesIO
 from typing import Any
+
+import numpy as np
+from PIL import Image
 
 from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.stateful.core import StatefulEnvironment
@@ -11,6 +16,40 @@ from .shared import CRAFTER_ACTIONS, _format_semantic_map_view
 from .tools import TOOLS_SCHEMA
 
 logger = logging.getLogger(__name__)
+
+
+def _encode_image_to_base64(image_array: Any) -> dict[str, Any] | None:
+    """Encode an RGB ndarray into a base64 PNG payload with metadata."""
+
+    if not isinstance(image_array, np.ndarray):
+        return None
+    if image_array.ndim != 3 or image_array.shape[-1] not in (1, 3, 4):
+        return None
+    try:
+        # Ensure uint8 for PIL compatibility
+        array_uint8 = (
+            image_array.astype("uint8")
+            if image_array.dtype != np.uint8
+            else image_array  # pragma: no cover - fast path
+        )
+        mode = "L" if array_uint8.shape[-1] == 1 else "RGB"
+        if array_uint8.shape[-1] == 4:
+            mode = "RGBA"
+        img = Image.fromarray(array_uint8, mode=mode)
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        width = int(array_uint8.shape[1])
+        height = int(array_uint8.shape[0])
+        return {
+            "format": "png",
+            "width": width,
+            "height": height,
+            "data": encoded,
+            "data_url": f"data:image/png;base64,{encoded}",
+        }
+    except Exception:
+        return None
 
 
 class CrafterEnvironmentWrapper:
@@ -37,7 +76,7 @@ class CrafterEnvironmentWrapper:
         self.step_idx = 0
         self.last_observation = getattr(obs, "observation", obs)  # tolerate dict-like
         self.last_info = getattr(obs, "info", None)
-        out_obs: dict[str, Any] = convert_numpy_to_python(self.last_observation) or {}
+        out_obs = self._prepare_observation(self.last_observation)
         # Attach a 7x7 semantic map patch centered on player for client-side rendering
         try:
             pub = self.env.engine._get_public_state_from_env()  # type: ignore[attr-defined]
@@ -310,7 +349,7 @@ class CrafterEnvironmentWrapper:
         except Exception as _:
             pass
         result: dict[str, Any] = {
-            "observation": convert_numpy_to_python(observation),
+            "observation": self._prepare_observation(observation),
             "step_idx": self.step_idx,
             "done": bool(done) if done is not None else False,  # Ensure boolean
         }
@@ -398,7 +437,35 @@ class CrafterEnvironmentWrapper:
             )
         except Exception:
             pass
+
         return result
+
+    def _prepare_observation(self, observation: Any) -> dict[str, Any]:
+        """Convert raw observation into a JSON-serializable dict with encoded image."""
+
+        obs_dict: dict[str, Any]
+        image_payload: dict[str, Any] | None = None
+
+        if isinstance(observation, dict):
+            image_payload = _encode_image_to_base64(observation.get("observation_image"))
+            # Work on a shallow copy to avoid mutating engine state
+            sanitized = dict(observation)
+            sanitized.pop("observation_image", None)
+            obs_dict = convert_numpy_to_python(sanitized) or {}
+        else:
+            obs_dict = convert_numpy_to_python(observation) or {}
+
+        if not isinstance(obs_dict, dict):
+            obs_dict = {"value": obs_dict}
+
+        if image_payload:
+            obs_dict["observation_image_base64"] = image_payload["data"]
+            obs_dict["observation_image_format"] = image_payload["format"]
+            obs_dict["observation_image_width"] = image_payload["width"]
+            obs_dict["observation_image_height"] = image_payload["height"]
+            obs_dict["observation_image_data_url"] = image_payload["data_url"]
+
+        return obs_dict
 
     async def checkpoint(self) -> dict[str, Any]:
         obs = await self.env.checkpoint()

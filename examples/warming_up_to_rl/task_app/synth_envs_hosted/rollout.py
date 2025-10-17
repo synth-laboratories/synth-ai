@@ -216,6 +216,8 @@ class RolloutTracingContext:
         self.sft_records: list[dict[str, Any]] = []
         self.latest_system_messages: list[str] = []
         self.latest_user_messages: list[str] = []
+        self.latest_system_prompt_content: list[Any] = []
+        self.latest_user_prompt_content: list[Any] = []
         self.trace_format = (
             getattr(request.record, "trace_format", "compact") or "compact"
         ).lower()
@@ -284,26 +286,32 @@ class RolloutTracingContext:
 
     async def record_policy_prompts(
         self,
-        system_messages: list[str],
-        user_messages: list[str],
+        system_messages: list[Any],
+        user_messages: list[Any],
     ) -> None:
-        self.latest_system_messages = list(system_messages)
-        self.latest_user_messages = list(user_messages)
+        self.latest_system_messages = [self._prompt_text(entry) for entry in system_messages]
+        self.latest_user_messages = [self._prompt_text(entry) for entry in user_messages]
+        self.latest_system_prompt_content = [
+            self._prompt_content(entry, role="system") for entry in system_messages
+        ]
+        self.latest_user_prompt_content = [
+            self._prompt_content(entry, role="user") for entry in user_messages
+        ]
         if not self.enabled or self.tracer is None:
             return
-        for msg in system_messages:
+        for entry in system_messages:
             try:
                 await self.tracer.record_message(
-                    content=msg,
+                    content=self._prompt_payload(entry, role="system"),
                     message_type="policy_system_prompt",
                     metadata=self._message_metadata(),
                 )
             except Exception as exc:
                 logger.debug("TRACING_SYSTEM_MSG_FAIL: %s", exc)
-        for msg in user_messages:
+        for entry in user_messages:
             try:
                 await self.tracer.record_message(
-                    content=msg,
+                    content=self._prompt_payload(entry, role="user"),
                     message_type="policy_user_prompt",
                     metadata=self._message_metadata(),
                 )
@@ -324,6 +332,49 @@ class RolloutTracingContext:
         if content is None:
             return ""
         return str(content)
+
+    def _prompt_text(self, entry: Any) -> str:
+        if isinstance(entry, dict):
+            text = entry.get("text")
+            if isinstance(text, str):
+                return text
+            content = entry.get("content")
+            return self._content_to_text(content)
+        return self._content_to_text(entry)
+
+    def _prompt_payload(self, entry: Any, *, role: str) -> dict[str, Any]:
+        if isinstance(entry, dict):
+            payload = dict(entry)
+            payload.setdefault("role", role)
+            return payload
+        return {
+            "role": role,
+            "text": self._prompt_text(entry),
+            "content": entry,
+        }
+
+    def _prompt_content(self, entry: Any, *, role: str) -> Any:
+        payload = self._prompt_payload(entry, role=role)
+        return payload.get("content", payload.get("text"))
+
+    def _content_has_image(self, content: Any) -> bool:
+        if isinstance(content, list):
+            return any(
+                isinstance(seg, dict)
+                and seg.get("type") in {"image", "image_url"}
+                for seg in content
+            )
+        if isinstance(content, dict):
+            if content.get("type") in {"image", "image_url"}:
+                return True
+            inner = content.get("content")
+            if isinstance(inner, list):
+                return any(
+                    isinstance(seg, dict)
+                    and seg.get("type") in {"image", "image_url"}
+                    for seg in inner
+                )
+        return False
 
     def _safe_json(self, payload: Any, limit: int = 4000) -> str:
         try:
@@ -450,21 +501,44 @@ class RolloutTracingContext:
         )
 
         if self.sft_output_dir is not None:
+            assistant_structured = assistant_content if assistant_content is not None else ""
             assistant_text = self._content_to_text(assistant_content)
+            dialogue_structured: list[dict[str, Any]] = []
+            for content in self.latest_system_prompt_content:
+                if content is None:
+                    continue
+                dialogue_structured.append({"role": "system", "content": content})
+            for content in self.latest_user_prompt_content:
+                if content is None:
+                    continue
+                dialogue_structured.append({"role": "user", "content": content})
+            dialogue_text = (
+                [{"role": "system", "content": s} for s in self.latest_system_messages]
+                + [{"role": "user", "content": u} for u in self.latest_user_messages]
+            )
+            user_has_image = any(
+                self._content_has_image(content) for content in self.latest_user_prompt_content
+            )
+            assistant_has_image = self._content_has_image(assistant_structured)
             record = {
                 "run_id": self.run_id,
                 "turn": self.current_turn,
                 "model": model_name,
                 "provider": provider,
-                "dialogue": (
-                    [{"role": "system", "content": s} for s in self.latest_system_messages]
-                    + [{"role": "user", "content": u} for u in self.latest_user_messages]
-                ),
+                "dialogue": dialogue_structured,
+                "dialogue_text": dialogue_text,
                 "assistant": {
-                    "content": assistant_text,
+                    "content": assistant_structured,
+                    "content_text": assistant_text,
                     "tool_calls": assistant_message.get("tool_calls")
                     if isinstance(assistant_message, dict)
                     else [],
+                    "has_image": assistant_has_image,
+                },
+                "metadata": {
+                    "user_has_image": user_has_image,
+                    "assistant_has_image": assistant_has_image,
+                    "has_image": user_has_image or assistant_has_image,
                 },
                 "timestamp": datetime.utcnow().isoformat(),
             }
@@ -718,6 +792,13 @@ async def execute_rollout(
     req: Request,
 ) -> RolloutResponse:
     """Execute a rollout with coordinated environment and policy steps."""
+    # Emit rollout identifier early for correlation
+    with contextlib.suppress(Exception):
+        _rid = getattr(request, "run_id", None)
+        _pol = getattr(request.policy, "policy_name", None) or getattr(request.policy, "policy_id", None)
+        _env = getattr(request.env, "env_name", None) or getattr(request.env, "env_id", None)
+        logger.info("ROLLOUT_BEGIN: run_id=%s policy=%s env=%s", _rid, _pol, _env)
+        print(f"[rollout] begin run_id={_rid} policy={_pol} env={_env}", flush=True)
     # Enforce per-episode step cap via env-specific parameters; default to 20 if omitted
     try:
         _env_params = {}
@@ -796,14 +877,23 @@ async def execute_rollout(
             task_app.synth_base_url = request.synth_base_url
 
     tracer_factory = getattr(req.app.state, "session_tracer_factory", None)
-    tracer_instance = None
+    tracer_instance: SessionTracer | None = None
     if callable(tracer_factory):
         try:
-            tracer_instance = tracer_factory()
+            inst = tracer_factory()
+            tracer_instance = inst if isinstance(inst, SessionTracer) else None
         except Exception as exc:
             logger.debug(f"TRACER_FACTORY_FAIL: {exc}")
     tracing_context = RolloutTracingContext(tracer_instance, request, req)
     await tracing_context.start_session()
+    # Print whether tracing is active for this rollout
+    try:
+        print(
+            f"[rollout] tracing enabled={bool(tracing_context.enabled)} run_id={request.run_id}",
+            flush=True,
+        )
+    except Exception:
+        pass
 
     # Register run
     registry.register_run(request.run_id)
@@ -812,6 +902,21 @@ async def execute_rollout(
     created_env_id: str | None = None
     created_policy_id: str | None = None
     env_seed_used: int | None = None
+    trajectory_steps: list[RolloutStep] = []
+    decision_samples: list[dict[str, Any]] = []
+    pending_tool_calls: Any = None
+    current_obs: Any = {}
+    total_reward: float = 0.0
+    ops_executed = 0
+    last_agent_response_ts: float | None = None
+    last_policy_meta: dict[str, Any] | None = None
+    last_env_step_ms: float | None = None
+    last_env_step_completed_ts: float | None = None
+    decision_open = False
+    finalized = False
+    prev_achievements: dict[str, bool] = {}
+    session_trace = None
+    step_rewards_active = False
 
     try:
         # Initialize deterministic seed early for the entire rollout
@@ -921,17 +1026,16 @@ async def execute_rollout(
         except Exception:
             env_seed_used = None
         tracing_context.update_metadata(env_seed=env_seed_used)
-
         # Initialize trajectory
         trajectory_steps = []
         pending_tool_calls = None
         current_obs = env_handle.last_observation
         total_reward = 0.0
         ops_executed = 0
-        last_agent_response_ts: float | None = None
-        last_policy_meta: dict[str, Any] | None = None
-        last_env_step_ms: float | None = None
-        last_env_step_completed_ts: float | None = None
+        last_agent_response_ts = None
+        last_policy_meta = None
+        last_env_step_ms = None
+        last_env_step_completed_ts = None
 
         # Stepwise reward configuration (Crafter shaping; gate on explicit enable)
         step_rewards_cfg_raw: dict[str, Any] = {}
@@ -1102,7 +1206,6 @@ async def execute_rollout(
                         _args = _prev_calls[0].get("arguments", None)
                         if isinstance(_args, str):
                             import json as _json
-
                             with contextlib.suppress(Exception):
                                 _args = _json.loads(_args)
                         if not isinstance(_args, dict):
@@ -1199,7 +1302,45 @@ async def execute_rollout(
                     last_policy_meta = None
                 last_agent_response_ts = agent_response_ts
 
+                # Diagnostic: summarize policy step target and tool calls
+                try:
+                    model_name = None
+                    target_url = None
+                    if isinstance(policy_response.meta, dict):
+                        req_body = policy_response.meta.get("inference_request") or {}
+                        model_name = req_body.get("model")
+                        target_url = policy_response.meta.get("inference_url")
+                    _tc = policy_response.tool_calls or []
+                    print(
+                        {
+                            "rollout.policy_step": True,
+                            "run_id": request.run_id,
+                            "model": model_name,
+                            "inference_url": target_url,
+                            "tool_calls_count": len(_tc) if isinstance(_tc, list) else 0,
+                        },
+                        flush=True,
+                    )
+                except Exception:
+                    pass
+
                 pending_tool_calls = policy_response.tool_calls
+                # Log summarized agent tool calls
+                with contextlib.suppress(Exception):
+                    _tc = pending_tool_calls or []
+                    _summary = []
+                    for _item in (_tc if isinstance(_tc, list) else []):
+                        try:
+                            if isinstance(_item, dict):
+                                _tool = _item.get("tool")
+                                _args = _item.get("args")
+                                _keys = list(_args.keys()) if isinstance(_args, dict) else []
+                                _summary.append({"tool": _tool, "args_keys": _keys})
+                        except Exception:
+                            continue
+                    _rid = getattr(request, "run_id", None)
+                    logger.info("AGENT_TOOL_CALLS: run_id=%s count=%d summary=%s", _rid, len(_tc), _summary)
+                    print(f"[rollout] agent tool_calls run_id={_rid} count={len(_tc)} summary={_summary}", flush=True)
                 await tracing_context.record_tool_invocation(pending_tool_calls)
                 ops_executed += 1
 
@@ -1211,6 +1352,10 @@ async def execute_rollout(
                             "NO_TOOL_CALLS: terminating episode early run_id=%s op_idx=%s",
                             request.run_id,
                             str(op_idx),
+                        )
+                        print(
+                            f"[rollout] no tool_calls; terminating early run_id={request.run_id} op_idx={op_idx}",
+                            flush=True,
                         )
                     term_step = RolloutStep(
                         obs=current_obs,
@@ -1464,6 +1609,32 @@ async def execute_rollout(
                     truncated=env_response.truncated,
                     info=_info,
                 )
+                # Log summarized env application of tool calls and immediate reward/done
+                with contextlib.suppress(Exception):
+                    _tc = pending_tool_calls or []
+                    _summary = []
+                    for _item in (_tc if isinstance(_tc, list) else []):
+                        try:
+                            if isinstance(_item, dict):
+                                _tool = _item.get("tool")
+                                _args = _item.get("args")
+                                _keys = list(_args.keys()) if isinstance(_args, dict) else []
+                                _summary.append({"tool": _tool, "args_keys": _keys})
+                        except Exception:
+                            continue
+                    _rid = getattr(request, "run_id", None)
+                    logger.info(
+                        "ENV_APPLY: run_id=%s tool_calls=%d reward=%s done=%s summary=%s",
+                        _rid,
+                        len(_tc),
+                        str(env_response.reward),
+                        str(env_response.done),
+                        _summary,
+                    )
+                    print(
+                        f"[rollout] env apply run_id={_rid} tool_calls={len(_tc)} reward={env_response.reward} done={env_response.done} summary={_summary}",
+                        flush=True,
+                    )
                 trajectory_steps.append(step)
 
                 if env_response.reward is not None:

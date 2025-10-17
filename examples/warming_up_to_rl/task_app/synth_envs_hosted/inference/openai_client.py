@@ -92,9 +92,25 @@ class OpenAIClient:
                 try:
                     tools = fixed_request.get("tools")
                     if isinstance(tools, list) and tools:
+                        # Choose the first provided function name from tools schema (e.g., run_command)
+                        func_name = None
+                        for t in tools:
+                            try:
+                                cand = None
+                                if isinstance(t, dict):
+                                    f = t.get("function")
+                                    if isinstance(f, dict):
+                                        cand = f.get("name")
+                                if isinstance(cand, str) and cand:
+                                    func_name = cand
+                                    break
+                            except Exception:
+                                continue
+                        if not func_name:
+                            func_name = "run_command"
                         fixed_request["tool_choice"] = {
                             "type": "function",
-                            "function": {"name": "interact_many"},
+                            "function": {"name": func_name},
                         }
                         fixed_request["parallel_tool_calls"] = False
                 except Exception:
@@ -282,7 +298,7 @@ class OpenAIClient:
                                         processed_request.pop(k, None)
                                     # Force structured tool choice
                                     if processed_request.get("tool_choice") == "required":
-                                        func_name = "interact_many"
+                                        func_name = "run_command"
                                         try:
                                             tools_arr = processed_request.get("tools") or []
                                             if isinstance(tools_arr, list) and tools_arr:

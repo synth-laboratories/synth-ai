@@ -61,6 +61,23 @@ class TimeRecord:
     message_time: int | None = None
 
 
+@dataclass(frozen=True)
+class SessionMessageContent:
+    """Normalized payload stored alongside session messages."""
+
+    text: str | None = None
+    json_payload: str | None = None
+
+    def as_text(self) -> str:
+        return self.text or (self.json_payload or "")
+
+    def has_json(self) -> bool:
+        return self.json_payload is not None
+
+    def __str__(self) -> str:  # pragma: no cover - convenience for logging
+        return self.as_text()
+
+
 @dataclass
 class SessionEventMarkovBlanketMessage:
     """Message crossing Markov blanket boundaries between systems in a session.
@@ -97,7 +114,7 @@ class SessionEventMarkovBlanketMessage:
                   - 'causal_influence': Direction of causal flow
     """
 
-    content: str
+    content: SessionMessageContent
     message_type: str
     time_record: TimeRecord
     metadata: dict[str, Any] = field(default_factory=dict)

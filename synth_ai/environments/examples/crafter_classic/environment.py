@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import dataclasses
 import logging
 import time
+from io import BytesIO
 from typing import Any, Dict, List, Optional, Union
+
+import numpy as np
+from PIL import Image
 
 # Import tracing abstractions
 from synth_ai.tracing_v3.abstractions import (
@@ -41,6 +46,51 @@ from synth_ai.environments.examples.crafter_classic.engine import (
 from synth_ai.environments.examples.crafter_classic.taskset import CrafterTaskInstance
 from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
 from synth_ai.environments.stateful.core import StatefulEnvironment
+
+
+def _convert_numpy_to_python(obj: Any) -> Any:
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _convert_numpy_to_python(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_convert_numpy_to_python(item) for item in obj]
+    return obj
+
+
+def _encode_image_to_base64(image_array: Any) -> dict[str, Any] | None:
+    if not isinstance(image_array, np.ndarray):
+        return None
+    if image_array.ndim != 3 or image_array.shape[-1] not in (1, 3, 4):
+        return None
+    try:
+        array_uint8 = (
+            image_array.astype("uint8")
+            if image_array.dtype != np.uint8
+            else image_array  # pragma: no cover - fast path
+        )
+        mode = "L" if array_uint8.shape[-1] == 1 else "RGB"
+        if array_uint8.shape[-1] == 4:
+            mode = "RGBA"
+        img = Image.fromarray(array_uint8, mode=mode)
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+        width = int(array_uint8.shape[1])
+        height = int(array_uint8.shape[0])
+        return {
+            "format": "png",
+            "width": width,
+            "height": height,
+            "data": encoded,
+            "data_url": f"data:image/png;base64,{encoded}",
+        }
+    except Exception:
+        return None
 
 
 # --- Tool Definition ---
@@ -362,7 +412,8 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
         state_before = {"private_state": priv, "public_state": pub}
 
         active_obs_cb = obs_cb or SynthCrafterObservationCallable()
-        observation = await active_obs_cb.get_observation(pub, priv)
+        raw_observation = await active_obs_cb.get_observation(pub, priv)
+        observation = self._prepare_observation(raw_observation)
         if extra_obs and isinstance(observation, dict):
             observation.update(extra_obs)
 
@@ -384,6 +435,30 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             self.session_tracer.current_session.add_event(runtime_obs_event)
 
         return observation
+
+    def _prepare_observation(self, observation: Any) -> dict[str, Any]:
+        obs_dict: dict[str, Any]
+        image_payload: dict[str, Any] | None = None
+
+        if isinstance(observation, dict):
+            image_payload = _encode_image_to_base64(observation.get("observation_image"))
+            sanitized = dict(observation)
+            sanitized.pop("observation_image", None)
+            obs_dict = _convert_numpy_to_python(sanitized) or {}
+        else:
+            obs_dict = _convert_numpy_to_python(observation) or {}
+
+        if not isinstance(obs_dict, dict):
+            obs_dict = {"value": obs_dict}
+
+        if image_payload:
+            obs_dict["observation_image_base64"] = image_payload["data"]
+            obs_dict["observation_image_format"] = image_payload["format"]
+            obs_dict["observation_image_width"] = image_payload["width"]
+            obs_dict["observation_image_height"] = image_payload["height"]
+            obs_dict["observation_image_data_url"] = image_payload["data_url"]
+
+        return obs_dict
 
     # ────────────────────────────────────────────────────────────────────
     # ReproducibleEnvironment plumbing

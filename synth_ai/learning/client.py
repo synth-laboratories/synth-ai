@@ -44,6 +44,7 @@ class LearningClient:
         training_file_id: str,
         hyperparameters: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
+        validation_file: str | None = None,
     ) -> dict[str, Any]:
         lower_type = (training_type or "").strip().lower()
         require_base = (
@@ -65,6 +66,7 @@ class LearningClient:
                 hyperparameters=hyperparameters,
                 metadata=metadata,
                 training_type=training_type or "sft_offline",
+                validation_file=validation_file,
                 training_file_field="training_file_id",
                 require_training_file=True,
             )

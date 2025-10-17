@@ -7,6 +7,8 @@ utilities to keep a single parser.
 
 from __future__ import annotations
 
+from typing import Any
+
 from .shared import parse_actions
 
 
@@ -79,15 +81,23 @@ class CrafterReActAgent:
 
     @staticmethod
     def build_messages(
-        observation: str, history: list[dict[str, str]] | None = None, turn: int | None = None
-    ) -> list[dict[str, str]]:
+        observation: str,
+        history: list[dict[str, Any]] | None = None,
+        turn: int | None = None,
+        image_parts: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         """Construct OpenAI-style messages list for vLLM generation."""
-        msgs: list[dict[str, str]] = [
+        msgs: list[dict[str, Any]] = [
             {"role": "system", "content": CrafterReActAgent.get_system_prompt()}
         ]
         if history:
             msgs.extend(history)
-        msgs.append({"role": "user", "content": observation})
+        user_content: Any
+        if image_parts:
+            user_content = [{"type": "text", "text": observation}] + list(image_parts)
+        else:
+            user_content = observation
+        msgs.append({"role": "user", "content": user_content})
         return msgs
 
     @staticmethod

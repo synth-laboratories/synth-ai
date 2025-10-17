@@ -1,0 +1,44 @@
+[job]
+model = "openai/gpt-4o-mini-2024-07-18"
+modalities = ["text", "image"]
+# data = "examples/vlm/output/crafter_vlm_dataset.jsonl"
+description = "Crafter VLM SFT (text + image prompts)"
+
+[compute]
+gpu_type = "A100"
+gpu_count = 1
+nodes = 1
+
+[data]
+topology = {}
+# validation_path = "examples/vlm/output/crafter_vlm_dataset.val.jsonl"
+
+[training]
+mode = "sft_offline"
+use_qlora = false
+
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 50
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "fft"
+per_device_batch = 1
+gradient_accumulation_steps = 32
+sequence_length = 4096
+learning_rate = 1e-5
+warmup_ratio = 0.03
+weight_decay = 0.01
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true

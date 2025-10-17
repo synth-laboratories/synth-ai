@@ -110,11 +110,15 @@ class CrafterPolicy(Policy):
     def build_inference_request(
         self,
         observation_text: str,
-        history: list[dict[str, str]] | None = None,
+        history: list[dict[str, Any]] | None = None,
         turn: int | None = None,
+        image_parts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         messages = CrafterReActAgent.build_messages(
-            observation=observation_text, history=history, turn=turn
+            observation=observation_text,
+            history=history,
+            turn=turn,
+            image_parts=image_parts,
         )
         payload: dict[str, Any] = {
             "messages": messages,
@@ -339,10 +343,18 @@ class CrafterPolicy(Policy):
         # Combine observation with context so the model always sees surroundings/inventory
         combined_text = f"{observation_text}\n\n{context_text}"
 
+        raw_observation: dict[str, Any] | None = None
+        if metadata is not None:
+            raw_candidate = metadata.get("raw_observation")
+            if isinstance(raw_candidate, dict):
+                raw_observation = raw_candidate
+        image_parts = self._extract_image_parts(raw_observation)
+
         payload = self.build_inference_request(
             combined_text,
             history=[],  # no prior user/assistant history
             turn=self.turn_index,
+            image_parts=image_parts,
         )
         # print("Debugging only:; ", payload)
         meta_out = {
@@ -397,10 +409,14 @@ class CrafterPolicy(Policy):
         """Prepare an inference request (implementing abstract method)."""
         # Format observation with rich contextual information
         observation_text = self._format_observation_for_llm(observation)
+        image_parts = self._extract_image_parts(observation)
 
         # Build messages (observation_text already formatted; no raw matrices)
         messages = CrafterReActAgent.build_messages(
-            observation=observation_text, history=history, turn=self.turn_index
+            observation=observation_text,
+            history=history,
+            turn=self.turn_index,
+            image_parts=image_parts,
         )
 
         # Return messages and tools schema
@@ -429,6 +445,13 @@ class CrafterPolicy(Policy):
             obs_data["health"] = info["health"]
 
         return format_observation(obs_data, step_count=step_idx, max_steps=max_steps)
+
+    def _extract_image_parts(
+        self, observation: dict[str, Any] | None
+    ) -> list[dict[str, Any]]:
+        """Crafter policy uses text-only prompts; do not attach image parts."""
+
+        return []
 
     def parse_model_response(
         self, response: str, observation: dict[str, Any]

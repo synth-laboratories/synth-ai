@@ -5,9 +5,18 @@ from pathlib import Path
 from typing import Any
 
 import click
-from synth_ai.api.models.supported import UnsupportedModelError, normalize_model_identifier
+from synth_ai.api.models.supported import (
+    UnsupportedModelError,
+    ensure_allowed_model,
+    normalize_model_identifier,
+)
 from synth_ai.learning.sft.config import prepare_sft_job_payload
 
+from .supported_algos import (
+    AlgorithmValidationError,
+    ensure_model_supported_for_algorithm,
+    validate_algorithm_config,
+)
 from .utils import TrainError, ensure_api_base, load_toml
 
 
@@ -31,8 +40,13 @@ def build_rl_payload(
     task_url: str,
     overrides: dict[str, Any],
     idempotency: str | None,
+    allow_experimental: bool | None = None,
 ) -> RLBuildResult:
     data = load_toml(config_path)
+    try:
+        spec = validate_algorithm_config(data.get("algorithm"), expected_family="rl")
+    except AlgorithmValidationError as exc:
+        raise click.ClickException(str(exc)) from exc
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
     model_cfg = data.get("model") if isinstance(data.get("model"), dict) else {}
 
@@ -47,17 +61,29 @@ def build_rl_payload(
             "Task app URL required (provide --task-url or set services.task_url in TOML)"
         )
 
-    model_source = str(
-        model_cfg.get("source") if isinstance(model_cfg, dict) else None or ""
-    ).strip()
-    model_base = str(model_cfg.get("base") if isinstance(model_cfg, dict) else None or "").strip()
+    raw_source = model_cfg.get("source") if isinstance(model_cfg, dict) else ""
+    model_source = str(raw_source or "").strip()
+    raw_base = model_cfg.get("base") if isinstance(model_cfg, dict) else ""
+    model_base = str(raw_base or "").strip()
     override_model = (overrides.get("model") or "").strip()
     if override_model:
         model_source = override_model
         model_base = ""
     if bool(model_source) == bool(model_base):
+        details = (
+            f"Config: {config_path}\n"
+            f"[model].source={model_source!r} | [model].base={model_base!r}"
+        )
+        hint = (
+            "Set exactly one: [model].base for a base model (e.g. 'Qwen/Qwen3-1.7B') "
+            "or [model].source for a fine-tuned model id. Also remove any conflicting "
+            "'[policy].model' entries."
+        )
         raise click.ClickException(
-            "Model section must specify exactly one of [model].source or [model].base"
+            "Invalid model config: exactly one of [model].source or [model].base is required.\n"
+            + details
+            + "\nHint: "
+            + hint
         )
 
     try:
@@ -67,6 +93,25 @@ def build_rl_payload(
             model_base = normalize_model_identifier(model_base, allow_finetuned_prefixes=False)
     except UnsupportedModelError as exc:
         raise click.ClickException(str(exc)) from exc
+
+    base_model_for_training: str | None = None
+    if model_source:
+        base_model_for_training = ensure_allowed_model(
+            model_source,
+            allow_finetuned_prefixes=True,
+            allow_experimental=allow_experimental,
+        )
+    elif model_base:
+        base_model_for_training = ensure_allowed_model(
+            model_base,
+            allow_finetuned_prefixes=False,
+            allow_experimental=allow_experimental,
+        )
+    if base_model_for_training:
+        try:
+            ensure_model_supported_for_algorithm(base_model_for_training, spec)
+        except AlgorithmValidationError as exc:
+            raise click.ClickException(str(exc)) from exc
 
     # Force TOML services.task_url to the effective endpoint to avoid split URLs
     try:
@@ -102,8 +147,13 @@ def build_sft_payload(
     *,
     config_path: Path,
     dataset_override: Path | None,
+    allow_experimental: bool | None,
 ) -> SFTBuildResult:
     data = load_toml(config_path)
+    try:
+        spec = validate_algorithm_config(data.get("algorithm"), expected_family="sft")
+    except AlgorithmValidationError as exc:
+        raise TrainError(str(exc)) from exc
     job_cfg = data.get("job") if isinstance(data.get("job"), dict) else {}
     data_cfg = data.get("data") if isinstance(data.get("data"), dict) else {}
     hp_cfg = data.get("hyperparameters") if isinstance(data.get("hyperparameters"), dict) else {}
@@ -204,6 +254,20 @@ def build_sft_payload(
     ).strip()
     if not raw_model:
         raise TrainError("Model not specified; set [job].model or [model].base in the config")
+
+    try:
+        base_model = ensure_allowed_model(
+            raw_model,
+            allow_finetuned_prefixes=False,
+            allow_experimental=allow_experimental,
+        )
+    except UnsupportedModelError as exc:
+        raise TrainError(str(exc)) from exc
+    try:
+        ensure_model_supported_for_algorithm(base_model, spec)
+    except AlgorithmValidationError as exc:
+        raise TrainError(str(exc)) from exc
+
     try:
         payload = prepare_sft_job_payload(
             model=raw_model,

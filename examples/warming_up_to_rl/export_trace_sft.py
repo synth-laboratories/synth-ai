@@ -211,18 +211,64 @@ def parse_event_filters(specs: list[str] | None) -> list[tuple[str, float]]:
     return filters
 
 
-def _collect_text(parts: Iterable[dict[str, Any]] | None) -> str:
-    texts: list[str] = []
+def _collect_content(
+    parts: Iterable[dict[str, Any]] | None,
+) -> tuple[Any, bool]:
+    """Normalise multimodal content parts into OpenAI-style segments."""
+
     if not parts:
-        return ""
+        return "", False
+
+    segments: list[dict[str, Any]] = []
+    has_image = False
+
     for part in parts:
         if not isinstance(part, dict):
             continue
-        if part.get("type") == "text":
+        ptype = part.get("type")
+        if ptype == "text":
             text = part.get("text")
-            if isinstance(text, str) and text:
-                texts.append(text)
-    return "\n".join(texts)
+            if isinstance(text, str):
+                segments.append({"type": "text", "text": text})
+        elif ptype == "image":
+            uri = part.get("uri")
+            mime_type = part.get("mime_type") or "image/png"
+            data_url = None
+            if isinstance(uri, str) and uri.startswith("data:"):
+                data_url = uri
+            else:
+                source = part.get("data") or part.get("source")
+                if isinstance(source, dict):
+                    base64_data = source.get("data")
+                    media_type = source.get("media_type") or mime_type
+                    if isinstance(base64_data, str) and base64_data:
+                        data_url = f"data:{media_type};base64,{base64_data}"
+            if data_url:
+                has_image = True
+                segments.append({"type": "image_url", "image_url": {"url": data_url}})
+        elif ptype == "image_url":
+            image_url = part.get("image_url", {})
+            if isinstance(image_url, dict):
+                url = image_url.get("url")
+                if isinstance(url, str) and url:
+                    has_image = True
+                    segments.append({"type": "image_url", "image_url": {"url": url}})
+
+    if not segments:
+        return "", False
+    if not has_image and len(segments) == 1 and segments[0]["type"] == "text":
+        return segments[0]["text"], False
+    return segments, has_image
+
+
+def _normalise_output_content(content: Any) -> tuple[Any, bool]:
+    if isinstance(content, list):
+        return _collect_content(content)
+    if isinstance(content, str):
+        return content, False
+    if content is None:
+        return "", False
+    return str(content), False
 
 
 def _normalise_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -330,14 +376,18 @@ def build_sft_dataset(
 
         for record in call_records:
             messages: list[dict[str, Any]] = []
+            input_has_image = False
             for message in record.get("input_messages", []):
                 role = message.get("role", "unknown")
-                content = _collect_text(message.get("parts"))
-                if not content:
+                content, has_image = _collect_content(message.get("parts"))
+                if (content == "" or content is None) and not has_image:
                     continue
+                if has_image and role == "user":
+                    input_has_image = True
                 messages.append({"role": role, "content": content})
 
-            assistant_content = ""
+            assistant_content_value: Any = ""
+            assistant_has_image = False
             assistant_tool_calls: list[dict[str, Any]] = []
 
             output_text = record.get("output_text")
@@ -352,7 +402,9 @@ def build_sft_dataset(
                 choices = parsed_response.get("choices") or []
                 if choices:
                     message = choices[0].get("message") or {}
-                    assistant_content = message.get("content") or ""
+                    assistant_content_value, assistant_has_image = _normalise_output_content(
+                        message.get("content")
+                    )
                     assistant_tool_calls = _normalise_tool_calls(message.get("tool_calls"))
 
             if not assistant_tool_calls:
@@ -360,12 +412,13 @@ def build_sft_dataset(
 
             assistant_message: dict[str, Any] = {
                 "role": "assistant",
-                "content": assistant_content or "",
+                "content": assistant_content_value,
             }
             if assistant_tool_calls:
                 assistant_message["tool_calls"] = assistant_tool_calls
 
-            if assistant_message.get("content") == "" and not assistant_message.get("tool_calls"):
+            content_empty = assistant_message.get("content") in ("", None)
+            if content_empty and not assistant_message.get("tool_calls"):
                 continue
 
             messages.append(assistant_message)
@@ -386,6 +439,9 @@ def build_sft_dataset(
                     "turned_true": achievements.get("all", []),
                     "cumulative_unique": cumulative_unique[session_id],
                 },
+                "user_has_image": input_has_image,
+                "assistant_has_image": assistant_has_image,
+                "has_image": input_has_image or assistant_has_image,
             }
 
             dataset.append({"messages": messages, "metadata": metadata})

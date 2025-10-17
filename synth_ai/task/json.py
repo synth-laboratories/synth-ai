@@ -19,7 +19,13 @@ def _mask_numpy_array(arr: Any) -> str:
     return f"<ndarray shape={shape} dtype={dtype}>"
 
 
-def to_jsonable(value: Any) -> Any:
+def to_jsonable(
+    value: Any,
+    *,
+    _visited: set[int] | None = None,
+    _depth: int = 0,
+    _max_depth: int = 32,
+) -> Any:
     """Convert `value` into structures compatible with JSON serialisation.
 
     - numpy scalars are converted to their Python counterparts
@@ -28,6 +34,12 @@ def to_jsonable(value: Any) -> Any:
     - sets and tuples are converted to lists
     - non-serialisable objects fall back to `repr`
     """
+
+    if _visited is None:
+        _visited = set()
+
+    if _depth > _max_depth:
+        return f"<max_depth type={type(value).__name__}>"
 
     if value is None or isinstance(value, str | bool | int | float):
         return value
@@ -44,10 +56,12 @@ def to_jsonable(value: Any) -> Any:
             return _mask_numpy_array(value)
 
     if isinstance(value, Enum):
-        return to_jsonable(value.value)
+        return to_jsonable(value.value, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
 
     if is_dataclass(value):
-        return to_jsonable(asdict(value))
+        return to_jsonable(
+            asdict(value), _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth
+        )
 
     # pydantic BaseModel / attrs objects
     for attr in ("model_dump", "dict", "to_dict", "to_json"):
@@ -56,21 +70,42 @@ def to_jsonable(value: Any) -> Any:
                 dumped = getattr(value, attr)()  # type: ignore[misc]
             except TypeError:
                 dumped = getattr(value, attr)(exclude_none=False)  # pragma: no cover
-            return to_jsonable(dumped)
+            return to_jsonable(
+                dumped, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth
+            )
+
+    obj_id = id(value)
+    if obj_id in _visited:
+        return f"<circular type={type(value).__name__}>"
 
     if isinstance(value, Mapping):
-        return {str(k): to_jsonable(v) for k, v in value.items()}
+        _visited.add(obj_id)
+        return {
+            str(k): to_jsonable(v, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
+            for k, v in value.items()
+        }
 
     if isinstance(value, set | tuple):
-        return [to_jsonable(v) for v in value]
+        _visited.add(obj_id)
+        return [
+            to_jsonable(v, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
+            for v in value
+        ]
 
     if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
-        return [to_jsonable(v) for v in value]
+        _visited.add(obj_id)
+        return [
+            to_jsonable(v, _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth)
+            for v in value
+        ]
 
     if isinstance(value, bytes | bytearray):
         return f"<bytes len={len(value)}>"
 
     if hasattr(value, "__dict__"):
-        return to_jsonable(vars(value))
+        _visited.add(obj_id)
+        return to_jsonable(
+            vars(value), _visited=_visited, _depth=_depth + 1, _max_depth=_max_depth
+        )
 
     return repr(value)

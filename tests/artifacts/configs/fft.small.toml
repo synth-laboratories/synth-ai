@@ -1,3 +1,8 @@
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
+
 [job]
 model = "Qwen/Qwen3-4B"
 data = "tests/artifacts/datasets/crafter_reject_sft.small.jsonl"
