@@ -85,15 +85,6 @@ def main() -> None:
     env = load_env_file(Path(args.env_path))
 
     # Secrets used by the task app
-    env_secret = {
-        k: v
-        for k, v in {
-            "ENVIRONMENT_API_KEY": env.get("ENVIRONMENT_API_KEY", ""),
-            "dev_environment_api_key": env.get("ENVIRONMENT_API_KEY", ""),
-        }.items()
-        if v
-    }
-
     groq_secret = {
         k: v
         for k, v in {
@@ -117,7 +108,12 @@ def main() -> None:
         {"SYNTH_API_KEY": env.get("SYNTH_API_KEY", "")} if env.get("SYNTH_API_KEY") else {}
     )
 
-    ensure_secret("crafter-environment-sdk", env_secret)
+    env_key = env.get("ENVIRONMENT_API_KEY", "")
+    if env_key:
+        print(
+            "Skipping Modal secret 'crafter-environment-sdk'; the task app now expects "
+            "ENVIRONMENT_API_KEY via --env-file so the CLI-minted value stays in sync."
+        )
     ensure_secret("groq-api-key", groq_secret)
     ensure_secret("openai-api-key", openai_secret)
     if synth_secret:

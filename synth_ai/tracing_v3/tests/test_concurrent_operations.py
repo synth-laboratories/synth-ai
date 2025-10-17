@@ -26,7 +26,7 @@ from synth_ai.tracing_v3.abstractions import (
 )
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
@@ -80,7 +80,7 @@ class TestConcurrentOperations:
         actual_db_file = os.path.join(db_path, "dbs", "default", "data")
         db_url = f"sqlite+aiosqlite:///{actual_db_file}"
 
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
         await manager.close()
 
@@ -172,7 +172,7 @@ class TestConcurrentOperations:
         assert all(r["success"] for r in results), f"Some insertions failed: {failures}"
 
         # Verify all sessions were inserted
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
 
         df = await manager.query_traces("SELECT COUNT(*) as count FROM session_traces")
@@ -242,7 +242,7 @@ class TestConcurrentOperations:
         assert set(completed_ids) == set(range(num_workers))
 
         # Verify data integrity
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
 
         # Check session count
@@ -268,7 +268,7 @@ class TestConcurrentOperations:
 
         async def create_experiment_with_sessions(exp_num: int):
             """Create an experiment and link multiple sessions."""
-            manager = AsyncSQLTraceManager(db_url=db_url)
+            manager = NativeLibsqlTraceManager(db_url=db_url)
             await manager.initialize()
 
             # Create experiment
@@ -313,7 +313,7 @@ class TestConcurrentOperations:
         exp_results = await asyncio.gather(*exp_tasks)
 
         # Verify all experiments and sessions were created
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
 
         # Check experiment count
@@ -374,7 +374,7 @@ class TestConcurrentOperations:
         assert len(completed) == num_workers
 
         # Verify all operations completed
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
 
         df = await manager.query_traces("SELECT COUNT(*) as count FROM session_traces")
@@ -418,7 +418,7 @@ class TestConcurrentOperations:
         assert len(exceptions) == 0, f"Got exceptions: {exceptions}"
 
         # Verify only one session was inserted
-        manager = AsyncSQLTraceManager(db_url=db_url)
+        manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
 
         df = await manager.query_traces(

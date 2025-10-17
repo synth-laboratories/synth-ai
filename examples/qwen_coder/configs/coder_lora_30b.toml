@@ -1,0 +1,61 @@
+# Qwen3 Coder 30B LoRA SFT – all-linear adapters
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
+
+[job]
+model = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 1
+nodes = 1
+
+[data]
+topology = {}
+# Optional validation set
+# validation_path = "examples/qwen_coder/ft_data/coder_sft.small.val.jsonl"
+
+[metadata]
+# Effective config hints consumed by the backend
+effective_config = { compute = { gpu_type = "H200", gpu_count = 1, nodes = 1 } }
+
+[training]
+mode = "lora"
+use_qlora = true
+
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 100
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "peft"
+per_device_batch = 1
+gradient_accumulation_steps = 64
+sequence_length = 4096
+learning_rate = 5e-6
+warmup_ratio = 0.03
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true
+
+# LoRA target selection for coder models: apply to all linear projections
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["all-linear"]
+
+

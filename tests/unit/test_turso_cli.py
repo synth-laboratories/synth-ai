@@ -60,9 +60,15 @@ def test_turso_installs_when_missing(monkeypatch):
     monkeypatch.setattr(root_module.subprocess, "run", fake_run)
     monkeypatch.setattr(root_module.subprocess, "Popen", lambda *a, **k: PopenStub())
 
-    # Avoid creating real temp files
+    # Avoid creating real temp files; provide NamedTemporaryFile-like API
     class Tmp:
         name = "/tmp/synth_sqld_test.db"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
 
         def close(self):
             return None

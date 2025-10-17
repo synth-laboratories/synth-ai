@@ -25,8 +25,12 @@ uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
 
 Requirements:
 - Modal CLI installed and authenticated (`modal token new`).
-- Secrets `crafter-environment-sdk`, `groq-api-key`, and `openai-api-key`
-  available in your Modal account.
+- Either provide an `.env` with `ENVIRONMENT_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY`
+  (recommended; pass via `--env-file`). The deploy command injects these values via an inline
+  Modal secret plus `Secret.from_dotenv`, so the minted environment key stays in sync with
+  what the CLI sends.
+- Or ensure Modal secrets `groq-api-key` and `openai-api-key` exist and continue to supply
+  model vendor credentials that way.
 
 The CLI generates a Modal entrypoint on the fly using the shared
 `TaskAppConfig`, ensuring the container matches the local FastAPI behavior.

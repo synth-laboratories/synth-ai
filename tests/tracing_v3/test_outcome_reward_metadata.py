@@ -1,6 +1,4 @@
-import asyncio
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -59,23 +57,14 @@ async def test_manager_insert_outcome_reward_accepts_reward_metadata(tmp_path: P
     db_url = f"sqlite+aiosqlite:///{db_path}"
     monkeypatch.setenv("TURSO_LOCAL_DB_URL", db_url)
 
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager  # type: ignore
-    from synth_ai.tracing_v3.abstractions import SessionTrace  # type: ignore
-    from sqlalchemy import text
+    from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager  # type: ignore
     from datetime import datetime
 
-    mgr = AsyncSQLTraceManager(db_url)
+    mgr = NativeLibsqlTraceManager(db_url)
     await mgr.initialize()
 
     # Create a minimal session row for FK
-    async with mgr.session() as sess:
-        await sess.execute(
-            text(
-                "INSERT INTO session_traces (session_id, created_at, num_timesteps, num_events, num_messages, metadata) VALUES (:sid, :created_at, 0, 0, 0, '{}')"
-            ),
-            {"sid": "sess_test", "created_at": datetime.utcnow()},
-        )
-        await sess.commit()
+    await mgr.ensure_session("sess_test", created_at=datetime.utcnow(), metadata={})
 
     # Act: insert outcome with reward_metadata
     oid = await mgr.insert_outcome_reward(
@@ -101,5 +90,3 @@ async def test_manager_insert_outcome_reward_accepts_reward_metadata(tmp_path: P
         assert md["achievements"] == ["collect_wood"]
     finally:
         conn.close()
-
-

@@ -130,7 +130,7 @@ Key points:
 
 - Validates dataset path existence and JSONL records
 - Uploads files to `/api/learning/files`, then creates/starts job under `/api/learning/jobs`
-- Payload mapping is identical to QLoRA SFT: hyperparameters + `metadata.effective_config` (compute, data.topology, training)
+- Payload mapping is identical to LoRA SFT: hyperparameters + `metadata.effective_config` (compute, data.topology, training)
 
 ### Multi‑GPU guidance (FFT)
 

@@ -294,6 +294,11 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
             }
         )
 
+    @app.post("/done", dependencies=[Depends(auth_dependency)])
+    async def done() -> Mapping[str, Any]:
+        # Coordination endpoint for tests and automation; indicates app is reachable
+        return to_jsonable({"ok": True, "service": cfg.app_id})
+
     @app.get("/info", dependencies=[Depends(auth_dependency)])
     async def info() -> Mapping[str, Any]:
         dataset_meta = cfg.base_task_info.dataset

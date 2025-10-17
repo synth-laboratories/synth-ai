@@ -14,9 +14,9 @@ from rich.table import Table
 
 
 async def _db_stats(db_url: str) -> dict:
-    from synth_ai.tracing_v3.turso.manager import AsyncSQLTraceManager
+    from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
 
-    db = AsyncSQLTraceManager(db_url)
+    db = create_storage(StorageConfig(connection_string=db_url))
     await db.initialize()
     try:
         out: dict = {}

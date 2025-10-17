@@ -228,3 +228,4 @@ def test_inference_client_accepts_supported_model():
         assert len(MockHTTP().calls) == 0  # HTTP client was mocked, no actual calls
     finally:
         synth_ai.inference.client.AsyncHttpClient = original_client
+

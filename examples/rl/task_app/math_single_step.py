@@ -743,6 +743,34 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         details={"status": status, "correct": correct},
     )
 
+    # Include a minimal trace when requested or tracing is enabled via env
+    include_trace = bool(
+        (request.record and getattr(request.record, "return_trace", False))
+        or os.getenv("TASKAPP_TRACING_ENABLED")
+    )
+    trace_payload = None
+    if include_trace:
+        try:
+            # Minimal structured trace for assertions
+            trace_payload = {
+                "session_id": str(uuid.uuid4()),
+                "events_count": 1,
+                "decision_rewards": [reward],
+                "lm_calls": (
+                    [{"prompt": str(observation.get("problem", "")), "response": str(tool_calls)}]
+                    if tool_calls
+                    else []
+                ),
+                "metadata": {
+                    "env": "math_single_step",
+                    "split": sample["split"],
+                    "index": sample["index"],
+                    "status": status,
+                },
+            }
+        except Exception:
+            trace_payload = None
+
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -750,7 +778,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         metrics=metrics,
         aborted=False,
         ops_executed=2,
-        trace=None,
+        trace=trace_payload,
     )
 
 

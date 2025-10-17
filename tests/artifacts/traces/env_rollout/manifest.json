@@ -1,0 +1,21 @@
+{
+  "description": "Two sessions rich in environment events for rollout validation.",
+  "source": "/Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db",
+  "session_ids": [
+    "session_29e0874d2f4b",
+    "session_648e85fcd11a"
+  ],
+  "counts": {
+    "session_traces": 2,
+    "session_timesteps": 166,
+    "events": 661,
+    "messages": 495,
+    "event_rewards": 495,
+    "outcome_rewards": 2,
+    "systems": 0
+  },
+  "hashes": {
+    "synth_ai.db": "df69b7d74868a0ee4b7c68eff4d7a7a2086b1e57c1dc66d72eac7d96067b28ad",
+    "trace_export.jsonl": "2a123e6edb75b2b6b096942977b9c76b7d1ae1181a1f1cb780ee06f077c2207d"
+  }
+}

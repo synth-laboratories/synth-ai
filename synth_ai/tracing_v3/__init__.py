@@ -75,6 +75,7 @@ from .abstractions import (
     EnvironmentEvent,
     RuntimeEvent,
     SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
     SessionTimeStep,
     SessionTrace,
     TimeRecord,
@@ -90,6 +91,7 @@ __all__ = [
     "RuntimeEvent",
     "EnvironmentEvent",
     "SessionEventMarkovBlanketMessage",
+    "SessionMessageContent",
     "TimeRecord",
     "TursoConfig",
 ]

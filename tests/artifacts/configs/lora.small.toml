@@ -1,0 +1,58 @@
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "lora"
+
+[job]
+model = "Qwen/Qwen3-0.6B"
+data = "tests/artifacts/datasets/crafter_reject_sft.small.jsonl"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 1
+nodes = 1
+variant = "H100-1x"
+gpus_per_node = 1
+
+[data.topology]
+container_count = 1
+gpus_per_node = 1
+total_gpus = 1
+nodes = 1
+variant = "H100-1x"
+
+[training]
+mode = "lora"
+use_qlora = false
+
+[training.validation]
+enabled = false
+evaluation_strategy = "steps"
+eval_steps = 100
+save_best_model_at_end = false
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "peft"
+per_device_batch = 1
+gradient_accumulation_steps = 1
+sequence_length = 1024
+learning_rate = 5e-6
+warmup_ratio = 0.03
+global_batch = 4
+
+[hyperparameters.parallelism]
+fsdp = false
+fsdp_sharding_strategy = "full_shard"
+fsdp_auto_wrap_policy = "transformer_block"
+fsdp_use_orig_params = true
+tensor_parallel_size = 1
+pipeline_parallel_size = 1
+bf16 = true
+fp16 = false
+use_deepspeed = true
+activation_checkpointing = true
+
+

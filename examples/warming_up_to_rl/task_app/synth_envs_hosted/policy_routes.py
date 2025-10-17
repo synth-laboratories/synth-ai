@@ -91,14 +91,23 @@ async def create_policy(
 ) -> PolicyCreateResponse:
     """Create a new policy instance."""
     try:
-        task_app = req.app.state.task_app
+        task_app = getattr(req.app.state, "task_app", None)
 
-        # Set defaults from TaskApp if not provided
-        config = request.config.copy()
-        if "inference_url" not in config:
-            config["inference_url"] = task_app.vllm_base_url
-        if "model" not in config and task_app.default_model:
-            config["model"] = task_app.default_model
+        # Set defaults from TaskApp / environment if not provided
+        config = dict(request.config or {})
+        if "inference_url" not in config and task_app is not None:
+            base_url = getattr(task_app, "vllm_base_url", None)
+            if base_url:
+                config["inference_url"] = base_url
+        if "model" not in config and task_app is not None:
+            default_model = getattr(task_app, "default_model", None)
+            if default_model:
+                config["model"] = default_model
+        if "inference_url" not in config or "model" not in config:
+            raise HTTPException(
+                status_code=422,
+                detail="Policy configuration must include 'inference_url' and 'model'.",
+            )
 
         # Create policy instance based on name
         pname = request.policy_name.lower()
@@ -182,13 +191,16 @@ async def step_policy(
         policy = handle.policy
         tracing_context = getattr(req.state, "rollout_tracing", None)
 
-        # Format observation text conditionally for each env
+        obs_text = request.observation
         if isinstance(request.observation, dict):
             if isinstance(policy, CrafterPolicy):
                 from .envs.crafter.shared import format_observation as format_crafter
 
                 obs_text = format_crafter(request.observation)
-            elif True:
+            else:
+                formatted: str | None = None
+
+                # Wordle formatting
                 try:
                     from .envs.wordle.policy import WordlePolicy
                 except Exception:
@@ -196,62 +208,86 @@ async def step_policy(
                 else:
                     wordle_policy_cls = WordlePolicy
 
-                if wordle_policy_cls is not None and isinstance(policy, wordle_policy_cls):
+                if formatted is None and wordle_policy_cls is not None and isinstance(
+                    policy, wordle_policy_cls
+                ):
                     from .envs.wordle.shared import format_observation_wordle
 
-                # ASSERTION: Validate observation structure
-                assert request.observation is not None, "request.observation cannot be None"
-                assert isinstance(request.observation, dict), (
-                    f"request.observation must be dict, got {type(request.observation)}"
-                )
+                    # ASSERTION: Validate observation structure
+                    assert request.observation is not None, "request.observation cannot be None"
+                    assert isinstance(request.observation, dict), (
+                        f"request.observation must be dict, got {type(request.observation)}"
+                    )
 
-                # Required keys for Wordle observation
-                required_keys = {
-                    "text",
-                    "status",
-                    "remaining_guesses",
-                    "guesses",
-                    "feedback",
-                    "reward_last",
-                    "total_reward",
-                    "terminated",
-                }
-                missing_keys = required_keys - set(request.observation.keys())
-                assert not missing_keys, f"Wordle observation missing required keys: {missing_keys}"
+                    required_keys = {
+                        "text",
+                        "status",
+                        "remaining_guesses",
+                        "guesses",
+                        "feedback",
+                        "reward_last",
+                        "total_reward",
+                        "terminated",
+                    }
+                    missing_keys = required_keys - set(request.observation.keys())
+                    assert (
+                        not missing_keys
+                    ), f"Wordle observation missing required keys: {missing_keys}"
 
-                print("DEBUG POLICY_ROUTES: About to format Wordle observation")
-                print(f"DEBUG POLICY_ROUTES: Observation type: {type(request.observation)}")
-                print(f"DEBUG POLICY_ROUTES: Observation keys: {list(request.observation.keys())}")
-                feedback_val = request.observation["feedback"]
-                print(f"DEBUG POLICY_ROUTES: Observation feedback: {feedback_val}")
-                print(f"DEBUG POLICY_ROUTES: Observation guesses: {request.observation['guesses']}")
-                print(
-                    f"DEBUG POLICY_ROUTES: Observation text length: {len(request.observation['text'])}"
-                )
+                    print("DEBUG POLICY_ROUTES: About to format Wordle observation")
+                    print(f"DEBUG POLICY_ROUTES: Observation type: {type(request.observation)}")
+                    print(
+                        f"DEBUG POLICY_ROUTES: Observation keys: {list(request.observation.keys())}"
+                    )
+                    feedback_val = request.observation["feedback"]
+                    print(f"DEBUG POLICY_ROUTES: Observation feedback: {feedback_val}")
+                    print(
+                        f"DEBUG POLICY_ROUTES: Observation guesses: {request.observation['guesses']}"
+                    )
+                    print(
+                        "DEBUG POLICY_ROUTES: Observation text length: "
+                        f"{len(request.observation['text'])}"
+                    )
 
-                # ASSERTION: Validate feedback data
-                guesses = request.observation["guesses"]
-                feedback = request.observation["feedback"]
-                assert isinstance(guesses, list), f"guesses must be list, got {type(guesses)}"
-                assert isinstance(feedback, list), f"feedback must be list, got {type(feedback)}"
-                # Note: We don't assert equal lengths here since the environment is broken
+                    guesses = request.observation["guesses"]
+                    feedback = request.observation["feedback"]
+                    assert isinstance(guesses, list), f"guesses must be list, got {type(guesses)}"
+                    assert isinstance(
+                        feedback, list
+                    ), f"feedback must be list, got {type(feedback)}"
 
-                obs_text = format_observation_wordle(request.observation)
+                    formatted = format_observation_wordle(request.observation)
 
-                # ASSERTION: Validate formatted output
-                assert isinstance(obs_text, str), f"obs_text must be string, got {type(obs_text)}"
-                assert len(obs_text) > 0, "obs_text cannot be empty"
-                assert "WORDLE" in obs_text, "obs_text must contain 'WORDLE' header"
-                assert "Respond with a single tool call" in obs_text, (
-                    "obs_text must contain instruction text"
-                )
+                    assert isinstance(formatted, str), (
+                        f"obs_text must be string, got {type(formatted)}"
+                    )
+                    assert len(formatted) > 0, "obs_text cannot be empty"
+                    assert "WORDLE" in formatted, "obs_text must contain 'WORDLE' header"
+                    assert "Respond with a single tool call" in formatted, (
+                        "obs_text must contain instruction text"
+                    )
 
-                print(f"DEBUG POLICY_ROUTES: Formatted obs_text length: {len(obs_text)}")
-                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟩: {'🟩' in obs_text}")
-                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains 🟨: {'🟨' in obs_text}")
-                print(f"DEBUG POLICY_ROUTES: Formatted obs_text contains ⬛: {'⬛' in obs_text}")
-                print(f"DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: {obs_text[:200]}")
-            elif True:
+                    print(
+                        f"DEBUG POLICY_ROUTES: Formatted obs_text length: {len(formatted)}"
+                    )
+                    print(
+                        "DEBUG POLICY_ROUTES: Formatted obs_text contains 🟩: "
+                        f"{'🟩' in formatted}"
+                    )
+                    print(
+                        "DEBUG POLICY_ROUTES: Formatted obs_text contains 🟨: "
+                        f"{'🟨' in formatted}"
+                    )
+                    print(
+                        "DEBUG POLICY_ROUTES: Formatted obs_text contains ⬛: "
+                        f"{'⬛' in formatted}"
+                    )
+                    print(
+                        "DEBUG POLICY_ROUTES: Formatted obs_text first 200 chars: "
+                        f"{formatted[:200]}"
+                    )
+
+                # Sokoban formatting
                 try:
                     from .envs.sokoban.policy import SokobanPolicy
                 except Exception:
@@ -259,36 +295,61 @@ async def step_policy(
                 else:
                     sokoban_policy_cls = SokobanPolicy
 
-                if sokoban_policy_cls is not None and isinstance(policy, sokoban_policy_cls):
+                if formatted is None and sokoban_policy_cls is not None and isinstance(
+                    policy, sokoban_policy_cls
+                ):
                     from .envs.sokoban.shared import format_observation_sokoban
 
-                    obs_text = format_observation_sokoban(request.observation)
-            elif True:
+                    formatted = format_observation_sokoban(request.observation)
+
+                # Math formatting
                 try:
                     from .envs.math.policy import MathPolicy
                 except Exception:
                     math_policy_cls = None  # type: ignore[assignment]
                 else:
                     math_policy_cls = MathPolicy
-                if math_policy_cls is not None and isinstance(policy, math_policy_cls):
-                    # Simple extraction of problem text
+
+                if formatted is None and math_policy_cls is not None and isinstance(
+                    policy, math_policy_cls
+                ):
                     try:
-                        obs_text = str(
+                        formatted = str(
                             request.observation.get("problem_text") or request.observation
                         )
                     except Exception:
-                        obs_text = str(request.observation)
-            else:
-                obs_text = str(request.observation)
-        else:
-            obs_text = request.observation
+                        formatted = str(request.observation)
+
+                if formatted is None:
+                    formatted = str(request.observation)
+
+                obs_text = formatted
+
+        # Merge metadata with raw observation for multimodal policies
+        step_metadata: dict[str, Any] = dict(request.metadata or {})
+        step_metadata["raw_observation"] = request.observation
 
         # Execute policy step to get inference request
         tool_calls, meta = await policy.step(
             observation_text=obs_text,
             state=request.state,
-            metadata=request.metadata,
+            metadata=step_metadata,
         )
+        # Compact tool call summary
+        with contextlib.suppress(Exception):
+            _summary: list[dict[str, Any]] = []
+            _tc = tool_calls or []
+            for _item in (_tc if isinstance(_tc, list) else []):
+                if isinstance(_item, dict):
+                    _tool = _item.get("tool")
+                    _args = _item.get("args")
+                    _keys = list(_args.keys()) if isinstance(_args, dict) else []
+                    _summary.append({"tool": _tool, "args_keys": _keys})
+            logger.info(
+                "POLICY_STEP: tool_calls=%d summary=%s",
+                len(_tc),
+                _summary,
+            )
 
         # If not dry run, perform inference
         if not request.dry_run and "inference_request" in meta:
@@ -324,7 +385,6 @@ async def step_policy(
                         raise ValueError(
                             f"PROMPT MISMATCH: Crafter policy {policy_name} received Wordle system prompt: {sys_text[:200]}..."
                         )
-
                 elif policy_name in ("sokoban-react", "sokoban"):
                     if "Sokoban" not in sys_text:
                         raise ValueError(
@@ -363,37 +423,54 @@ async def step_policy(
                         return "".join(parts)
                     return str(content)
 
-                system_messages: list[str] = []
-                user_messages: list[str] = []
+                system_prompt_records: list[dict[str, Any]] = []
+                user_prompt_records: list[dict[str, Any]] = []
                 for message in msgs:
                     role = message.get("role")
-                    content = _as_text(message.get("content"))
+                    raw_content = message.get("content")
+                    content = _as_text(raw_content)
+                    record = {"role": role, "text": content, "content": raw_content}
                     if role == "system":
-                        system_messages.append(content)
+                        system_prompt_records.append(record)
                     elif role == "user":
-                        user_messages.append(content)
+                        user_prompt_records.append(record)
 
-                if system_messages:
+                logger.info(
+                    "PROMPTS: system_msgs=%d user_msgs=%d last_user_chars=%d",
+                    len(system_prompt_records),
+                    len(user_prompt_records),
+                    len(user_prompt_records[-1].get("text", "")) if user_prompt_records else 0,
+                )
+
+                if system_prompt_records:
                     logger.info("PROMPT_DUMP_SYSTEM_BEGIN")
-                    for idx, smsg in enumerate(system_messages):
+                    for idx, rec in enumerate(system_prompt_records):
+                        smsg = rec.get("text", "")
                         logger.info(f"SYSTEM[{idx}]\n{smsg}")
                     logger.info("PROMPT_DUMP_SYSTEM_END")
 
-                if user_messages:
+                if user_prompt_records:
                     logger.info("PROMPT_DUMP_USER_BEGIN")
-                    for idx, umsg in enumerate(user_messages):
+                    for idx, rec in enumerate(user_prompt_records):
+                        umsg = rec.get("text", "")
                         logger.info(f"USER[{idx}]\n{umsg}")
                     logger.info("PROMPT_DUMP_USER_END")
                     # Print concise preview for visibility in standard logs
                     with contextlib.suppress(Exception):
-                        last_user = user_messages[-1] if user_messages else ""
+                        last_user = (
+                            user_prompt_records[-1].get("text", "")
+                            if user_prompt_records
+                            else ""
+                        )
                         print(f"[task:crafter] user prompt: {last_user}", flush=True)
             except Exception as e:
                 logger.warning(f"PROMPT_DUMP_FAILED: {e}")
 
             if tracing_context is not None:
                 try:
-                    await tracing_context.record_policy_prompts(system_messages, user_messages)
+                    await tracing_context.record_policy_prompts(
+                        system_prompt_records, user_prompt_records
+                    )
                 except Exception as exc:
                     logger.debug(f"TRACING_PROMPTS_FAIL: {exc}")
 
@@ -416,11 +493,14 @@ async def step_policy(
 
                 if isinstance(target_url, str):
                     low_url = target_url.lower()
-                    if "openai.com" in low_url:
+                    # Proxy endpoints should not receive a bearer; the server-side proxy holds the vendor key
+                    if "/proxy/groq" in low_url or "/proxy/openai" in low_url:
+                        api_key_override = None
+                    elif "openai.com" in low_url:
                         api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(
                             task_app, "openai_api_key", None
                         )
-                    elif "groq.com" in low_url:
+                    elif "groq.com" in low_url or "/proxy/groq" in low_url:
                         api_key_override = _os.getenv("GROQ_API_KEY")
                     else:
                         api_key_override = (
@@ -751,6 +831,39 @@ async def step_policy(
                         if "temperature" not in req_body:
                             req_body["temperature"] = 0.1
                         meta["inference_request"] = req_body
+
+                # Strip image parts: Crafter policy currently only uses text prompts.
+                # Some providers reject image_url payloads entirely, so always flatten to plain text.
+                req_body2 = meta.get("inference_request", {})
+                if isinstance(req_body2, dict):
+                    msgs = req_body2.get("messages")
+                    if isinstance(msgs, list):
+                        new_msgs = []
+                        changed = False
+                        for m in msgs:
+                            try:
+                                if isinstance(m, dict):
+                                    content = m.get("content")
+                                    if isinstance(content, list):
+                                        parts: list[str] = []
+                                        for seg in content:
+                                            if isinstance(seg, dict):
+                                                txt = seg.get("text") or seg.get("content")
+                                                if isinstance(txt, str) and txt:
+                                                    parts.append(txt)
+                                        m2 = dict(m)
+                                        m2["content"] = "\n".join(parts)
+                                        new_msgs.append(m2)
+                                        changed = True
+                                    else:
+                                        new_msgs.append(m)
+                                else:
+                                    new_msgs.append(m)
+                            except Exception:
+                                new_msgs.append(m)
+                        if changed:
+                            req_body2["messages"] = new_msgs
+                            meta["inference_request"] = req_body2
 
             _t_start = _t.time()
             call_started_at = datetime.utcnow()
