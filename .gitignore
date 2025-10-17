@@ -39,6 +39,8 @@ traces_*/
 crafter_traces/
 synth_ai/environments/examples/crafter_classic/agent_demos/traces/
 synth_ai/environments/examples/crafter_custom/agent_demos/traces/
+!tests/artifacts/traces/
+!tests/artifacts/traces/**
 
 # Test traces
 test_traces/
@@ -56,6 +58,7 @@ env_states/
 training_data*.json
 ft_data*/
 ft_dataset/
+!tests/artifacts/traces/**/*.jsonl
 
 # Evaluation outputs
 last_evaluation.txt
@@ -105,6 +108,7 @@ examples/finetuning/synth_qwen_v1/state.json
 *.db
 *.db-shm
 *.db-wal
+!tests/artifacts/traces/**/*.db
 *.sqlite
 *.sqlite3
 
@@ -137,3 +141,14 @@ node_modules/
 
 uv.lock
 local-trace_trace.json
+
+# Generated rollout artifacts and logs
+rollout_output.json
+groq_rollout.json
+latest_rollout.json
+last_rollout.json
+swe_mini_task_app.log.bak
+
+# Large vendor/test data accidentally committed
+astropy/
+_math_cache/
