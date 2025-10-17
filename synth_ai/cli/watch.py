@@ -16,7 +16,7 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
-from synth_ai.tracing_v3.storage.factory import create_storage, StorageConfig
+from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
 
 
 def _open_db(db_url: str):

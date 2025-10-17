@@ -1,7 +1,7 @@
 """Storage configuration for tracing v3."""
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 

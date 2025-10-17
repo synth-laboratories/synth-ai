@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import random
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
-
 
 PROMPT_TEMPLATES: dict[str, list[str]] = {
     "python": [

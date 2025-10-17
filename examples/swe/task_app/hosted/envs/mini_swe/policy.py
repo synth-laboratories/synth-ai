@@ -7,14 +7,14 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from jinja2 import StrictUndefined, Template
+from minisweagent.agents.default import FormatError
 
-from minisweagent.agents.default import AgentConfig, FormatError
 from .shared import (
     DEFAULT_ACTION_TEMPLATE,
     DEFAULT_INSTANCE_TEMPLATE,
     DEFAULT_SYSTEM_TEMPLATE,
 )
-from .tools import TOOLS_SCHEMA, RUN_COMMAND_TOOL, SUBMIT_TOOL
+from .tools import RUN_COMMAND_TOOL, SUBMIT_TOOL, TOOLS_SCHEMA
 
 logger = logging.getLogger(__name__)
 

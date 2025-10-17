@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
@@ -45,13 +46,13 @@ try:
         RolloutRecordConfig as LegacyRolloutRecordConfig,
     )
     from examples.swe.task_app.hosted.rollout import (
-        RolloutSafetyConfig as LegacyRolloutSafetyConfig,
-    )
-    from examples.swe.task_app.hosted.rollout import (
         RolloutRequest as LegacyRolloutRequest,
     )
     from examples.swe.task_app.hosted.rollout import (
         RolloutResponse as LegacyRolloutResponse,
+    )
+    from examples.swe.task_app.hosted.rollout import (
+        RolloutSafetyConfig as LegacyRolloutSafetyConfig,
     )
     from examples.swe.task_app.hosted.rollout import (
         execute_rollout as legacy_execute_rollout,
@@ -78,13 +79,13 @@ except Exception:
             RolloutRecordConfig as LegacyRolloutRecordConfig,
         )
         from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
-            RolloutSafetyConfig as LegacyRolloutSafetyConfig,
-        )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
             RolloutRequest as LegacyRolloutRequest,
         )
         from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
             RolloutResponse as LegacyRolloutResponse,
+        )
+        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+            RolloutSafetyConfig as LegacyRolloutSafetyConfig,
         )
         from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
             execute_rollout as legacy_execute_rollout,

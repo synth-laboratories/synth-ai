@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from synth_ai.api.models.supported import (
     RL_SUPPORTED_MODELS,
     SFT_SUPPORTED_MODELS,
     training_modes_for_model,
 )
+
 
 @dataclass(frozen=True)
 class AlgorithmSpec:

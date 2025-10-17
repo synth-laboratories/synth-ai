@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from pathlib import Path
 from typing import Any
 
 from examples.qwen_coder._shared import resolve_infer_output_path, resolve_model_id_path

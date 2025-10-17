@@ -14,7 +14,7 @@ from rich.table import Table
 
 
 async def _db_stats(db_url: str) -> dict:
-    from synth_ai.tracing_v3.storage.factory import create_storage, StorageConfig
+    from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
 
     db = create_storage(StorageConfig(connection_string=db_url))
     await db.initialize()

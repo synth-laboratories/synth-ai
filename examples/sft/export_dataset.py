@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-from typing import Any
 
 from examples.warming_up_to_rl.export_trace_sft import (
-    AchievementMap,
     build_sft_dataset,
     connect,
     fetch_achievement_data,

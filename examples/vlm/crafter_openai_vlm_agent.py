@@ -25,22 +25,20 @@ import base64
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from uuid import uuid4
-
-from openai import OpenAI
 
 from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.environment import (
     CrafterEnvironmentWrapper,
 )
 from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.policy import CrafterPolicy
+from openai import OpenAI
 from synth_ai.environments.examples.crafter_classic.environment import CrafterClassicEnvironment
 from synth_ai.environments.examples.crafter_classic.taskset import (
     CrafterTaskInstance,
     CrafterTaskInstanceMetadata,
 )
 from synth_ai.environments.tasks.core import Impetus, Intent
-
 
 DEFAULT_OUTPUT = Path("examples/vlm/temp")
 FRAME_SUBDIR = "openai_agent_frames"

@@ -14,7 +14,13 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from synth_ai.task import RolloutEnvSpec, RolloutPolicySpec, RolloutRecordConfig, RolloutRequest, TaskAppClient
+from synth_ai.task import (
+    RolloutEnvSpec,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    TaskAppClient,
+)
 
 
 @dataclass(slots=True)

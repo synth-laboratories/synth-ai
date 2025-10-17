@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import inspect
-from typing import Type
 from click import Parameter
 
 

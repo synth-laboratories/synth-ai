@@ -13,7 +13,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from minisweagent.environments import get_environment
 from synth_ai.environments.environment.tools import EnvToolCall
@@ -57,7 +57,7 @@ class MiniSweEnvironmentState:
     history: list[dict[str, Any]] = field(default_factory=list)
     step_idx: int = 0
     submitted: bool = False
-    submission_success: Optional[bool] = None
+    submission_success: bool | None = None
 
 
 class MiniSweEnvironmentWrapper:
@@ -978,7 +978,11 @@ class MiniSweEnvironmentWrapper:
         instance_id: str,
     ) -> dict[str, Any]:
         try:
-            from swebench.harness.constants import LOG_REPORT, LOG_TEST_OUTPUT, RUN_EVALUATION_LOG_DIR
+            from swebench.harness.constants import (
+                LOG_REPORT,
+                LOG_TEST_OUTPUT,
+                RUN_EVALUATION_LOG_DIR,
+            )
         except Exception:  # pragma: no cover - dependency missing
             return {
                 "completed": False,
@@ -1049,7 +1053,7 @@ class MiniSweEnvironmentWrapper:
         return asyncio.run(coro)
 
     @staticmethod
-    def _namespace_from_image(image_name: str) -> Optional[str]:
+    def _namespace_from_image(image_name: str) -> str | None:
         if not image_name:
             return None
         parts = image_name.split("/")
@@ -1058,7 +1062,7 @@ class MiniSweEnvironmentWrapper:
         return None
 
     @staticmethod
-    def _image_tag_from_name(image_name: str) -> Optional[str]:
+    def _image_tag_from_name(image_name: str) -> str | None:
         if not image_name or ":" not in image_name:
             return None
         return image_name.rsplit(":", 1)[-1] or None

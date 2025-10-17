@@ -20,8 +20,9 @@ import asyncio
 import base64
 import json
 import random
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from uuid import uuid4
 
 from synth_ai.environments.environment.tools import EnvToolCall

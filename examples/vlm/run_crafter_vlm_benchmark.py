@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from enum import Enum
@@ -23,13 +24,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-import os
-from openai import AsyncOpenAI
-
 from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.environment import (
     CrafterEnvironmentWrapper,
 )
 from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.policy import CrafterPolicy
+from openai import AsyncOpenAI
 from synth_ai.environments.examples.crafter_classic.environment import CrafterClassicEnvironment
 from synth_ai.environments.examples.crafter_classic.taskset import (
     CrafterTaskInstance,

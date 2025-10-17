@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import ast
+import asyncio
 import contextlib
 import hashlib
 import importlib
@@ -1242,10 +1242,50 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
                 try:
                     from nacl.public import PublicKey, SealedBox
 
-                    pub = PublicKey(base64.b64decode(pk, validate=True))
+                    # Decode public key and build sealed box
+                    pk_bytes = base64.b64decode(pk, validate=True)
+                    pub = PublicKey(pk_bytes)
                     sb = SealedBox(pub)
+
+                    # Encrypt plaintext key
                     ct_b64 = base64.b64encode(sb.encrypt(env_api_key.encode("utf-8"))).decode()
                     payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ct_b64}
+
+                    # Emit diagnostic logging (safe previews + hashes only)
+                    try:
+                        import hashlib as _hash
+
+                        # Backend URL context
+                        click.echo(f"[preflight] posting to {backend_base.rstrip('/')}/v1/env-keys")
+
+                        # Public key diagnostics
+                        pk_sha256 = _hash.sha256(pk_bytes).hexdigest()
+                        click.echo(
+                            f"[preflight] public_key: b64_len={len(pk)} sha256={pk_sha256} head={pk[:16]} tail={pk[-16:]}"
+                        )
+
+                        # Plaintext diagnostics (never print full secret)
+                        _plain = env_api_key
+                        _plen = len(_plain)
+                        _ppref = (_plain[:6] + "…") if _plen > 10 else _plain
+                        _psuf = ("…" + _plain[-4:]) if _plen > 10 else ""
+                        _has_ws = any(ch.isspace() for ch in _plain)
+                        click.echo(
+                            f"[preflight] plaintext: len={_plen} preview={_ppref}{_psuf} has_ws={bool(_has_ws)}"
+                        )
+
+                        # Ciphertext diagnostics
+                        try:
+                            _ct_bytes = base64.b64decode(ct_b64, validate=True)
+                            _ct_sha256 = _hash.sha256(_ct_bytes).hexdigest()
+                            click.echo(
+                                f"[preflight] ciphertext: b64_len={len(ct_b64)} sha256={_ct_sha256} head={ct_b64[:16]} tail={ct_b64[-16:]}"
+                            )
+                        except Exception:
+                            click.echo("[preflight] ciphertext: invalid base64 (unexpected)")
+                    except Exception:
+                        # Best-effort logging only
+                        pass
                     with httpx.Client(
                         timeout=15.0,
                         headers={

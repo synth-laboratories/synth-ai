@@ -26,7 +26,7 @@ def register(cli):
         console = Console()
 
         async def _run():
-            from synth_ai.tracing_v3.storage.factory import create_storage, StorageConfig
+            from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
 
             # Discover DBs under ./synth_ai.db/dbs (or override via env)
             root = os.getenv("SYNTH_TRACES_ROOT", "./synth_ai.db/dbs")

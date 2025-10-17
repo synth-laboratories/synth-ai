@@ -7,7 +7,6 @@ from typing import Any
 
 import numpy as np
 from PIL import Image
-
 from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.stateful.core import StatefulEnvironment
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Iterable
 
 TRAIN_DATA_PATH = Path("examples/qwen_coder/ft_data/coder_sft.small.jsonl")
 VAL_DATA_PATH = Path("examples/qwen_coder/ft_data/coder_sft.small.val.jsonl")
