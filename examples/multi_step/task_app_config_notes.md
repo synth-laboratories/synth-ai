@@ -167,3 +167,170 @@ These are the first ten batch rewards printed at RL start:
 ```
 - INFO - All batch rewards: [0.0625, 0.0625, 0.125, 0.0625, 0.0625, 0.3125, 0.375, 0.4375, 0.5, 0.9375]
 ```
+
+---
+
+## Enable stepwise during EVALS and compare vs final
+
+We can enable stepwise shaping for evaluation-only runs and compare “stepwise” vs “final (outcome)” returns.
+
+Two evaluation paths exist today:
+
+- Backend evaluator endpoint (preferred for hosted):
+```1114:1136:monorepo/backend/app/routes/clustered_training/core/routes.py
+class RlEvaluateRequest(BaseModel):
+    model: str
+    seeds: list[int]
+    rollouts_per_seed: int = 1
+    env_name: str
+    env_config: Dict[str, Any] = Field(default_factory=dict)
+    policy_name: str
+    thinking_mode: str
+    thinking_budget: int | None = None
+    max_steps_per_episode: int = 100
+    max_concurrent_rollouts: int = 8
+    on_done: str = "terminate"
+    task_service_url: str | None = None
+    vllm_url: str | None = None
+    vllm_public_url: str | None = None
+```
+
+Pass `env_config.step_rewards` here to turn on stepwise shaping during evals (no trainer changes needed). The evaluator will forward `env_config` into each rollout:
+```383:396:monorepo/backend/app/routes/clustered_training/core/algorithms/gspo/evaluation/evaluator.py
+payload = {
+  "env": {"env_name": env_name, "config": env_config, ...},
+  "policy": {"policy_name": policy_name, "config": policy_config},
+  ...
+}
+```
+
+Task app already computes and attaches:
+- Per-decision metadata at `step.info.meta.decision_rewards`
+- Aggregates we can expose (see below) for stepwise vs final
+
+Recommended enhancement (small change in task app): include a summary under `response.metrics.details.stepwise` so eval clients don’t need to parse per-step:
+```python
+metrics.details["stepwise"] = {
+  "indicator_sum": stepwise_indicator_sum,
+  "reward_sum": stepwise_reward_sum,
+  "new_achievements_total": stepwise_new_achievements_total,
+}
+```
+
+For local SDK evals (without backend), call the `/rollout` endpoint directly with the same `env.config.step_rewards` block.
+
+Example payload fragment:
+```json
+{
+  "env": {
+    "env_name": "crafter",
+    "config": {
+      "step_rewards": { "enabled": true, "mode": "decision_stepwise", "indicator_lambda": 1.0 }
+    },
+    "seed": 0
+  },
+  "policy": { "policy_name": "crafter-react", "config": {"temperature": 0.2} },
+  "ops": ["agent", "env"]
+}
+```
+
+---
+
+## Simple vs Complex stepwise modes (proposal)
+
+Add a `strategy` under the existing `step_rewards` block:
+
+```toml
+[rollout.env_config.step_rewards]
+enabled = true
+mode = "decision_stepwise"        # gate remains the same
+strategy = "simple"                # "simple" | "complex"
+indicator_lambda = 1.0
+
+# Complex-only (optional)
+weights = { collect_sapling = 0.1, craft_wood_pickaxe = 0.3, collect_diamond = 1.0 }
+k_limits = { collect_sapling = 1, craft_wood_pickaxe = 2, collect_diamond = 3 }
+```
+
+Behaviour:
+- strategy="simple": reward 1.0×indicator_lambda if any new achievement unlocked at that decision, else 0. (Current logic already does this; just make it explicit.)
+- strategy="complex":
+  - Maintain per-episode `achieve_count[name]`.
+  - For each achievement newly unlocked at the decision, if `achieve_count[name] < k_limits.get(name, 1)`, add `weights.get(name, 1.0)` to the stepwise reward and increment the count.
+  - The uniqueness baseline should be the “turned true this decision” set; combining with episode-level uniqueness is optional if we intend multiple rewards up to K.
+
+Minimal code touch points:
+- synth-ai task app (hosted Crafter rollout):
+  - Extend `compute_stepwise_reward(prev_achievements, new_achievements, decision_index, actions_summary, indicator_lambda)` to optionally take `strategy`, `weights`, `k_limits`, and a `counts` dict.
+  - Thread an `episode_ach_counts: Dict[str, int]` through the rollout loop (similar to `episode_seen_achievements`).
+  - Build `reward_stepwise` as per strategy; keep existing `decision_rewards` metadata (ach/unique deltas) unchanged.
+  - Add `metrics.details["stepwise"]` summary (indicator_sum, reward_sum, new_achievements_total).
+
+- monorepo backend (evals):
+  - No contract change: pass the same `env_config.step_rewards` in `RlEvaluateRequest.env_config`.
+  - For convenience, surface stepwise summary in any eval aggregation/CSV if present under `metrics.details.stepwise`.
+
+Open choice:
+- Either keep `mode="decision_stepwise"` and add `strategy`, or introduce `mode` values `{ "simple_stepwise", "complex_stepwise" }`. The former is backward compatible and clearer.
+
+Testing plan:
+- Unit-test `compute_stepwise_reward` for both strategies with synthetic prev/new achievement maps.
+- Smoke eval over a few seeds with `strategy=simple` and `strategy=complex` to compare `metrics.details.stepwise.reward_sum` vs `metrics.mean_return`.
+
+I'll scan both repos for Crafter RL, policy/task app config, rollout calls, and backend RL endpoints, then draft notes under `examples/multi_step/`.
+
+[5 tools called]
+
+I'll open the Crafter task app implementation to inspect rubrics and where stepwise reward configuration is applied, then check the RL evaluator to see how env/policy config is passed to the task app.
+
+[11 tools called]
+
+I scanned both repos to map how stepwise rewards already work in the Crafter task app and how rollout configs flow from the RL TOML into the task app. I’ll add a detailed notes document under `examples/multi_step/` with findings, code references, and a concrete config proposal.
+
+[6 tools called]
+
+- I researched Crafter RL and documented how to toggle dense stepwise rewards and flow the config end-to-end.
+- Notes added at `synth-ai/examples/multi_step/task_app_config_notes.md` with exact code references and a TOML example.
+
+Key points:
+- Use `rollout.env_config.step_rewards` in the RL TOML; task app already reads `policy.config.step_rewards` first, then `env.config.step_rewards`.
+- Enable with:
+```toml
+[rollout.env_config.step_rewards]
+enabled = true
+mode = "decision_stepwise"
+indicator_lambda = 1.0
+step_beta = 0.0
+```
+- Backend already forwards `env_config` and `policy_config` in rollout requests; no wire change needed. Ensure trainer populates `env_config` when present.
+- Task app attaches per-turn `decision_rewards` and returns `decision_samples`; consider consuming these in credit assignment.
+
+References:
+- Task contracts and rollout schema:
+```51:87:synth-ai/synth_ai/task/contracts.py
+class RolloutEnvSpec(BaseModel):
+    ...
+    config: dict[str, Any] = Field(default_factory=dict)
+...
+class RolloutPolicySpec(BaseModel):
+    ...
+    config: dict[str, Any] = Field(default_factory=dict)
+```
+- Crafter stepwise config reading and reward metadata:
+```1041:1067:synth-ai/examples/warming_up_to_rl/task_app/synth_envs_hosted/rollout.py
+# Stepwise reward configuration ...
+```
+```1554:1596:synth-ai/examples/warming_up_to_rl/task_app/synth_envs_hosted/rollout.py
+# Compute decision-level rewards ...
+```
+- Backend rollout payload shape:
+```456:470:monorepo/backend/app/routes/clustered_training/core/algorithms/gspo/evaluation/evaluator.py
+payload = {
+  "run_id": run_id,
+  "env": {"env_name": env_name, "config": env_config, "seed": seed},
+  "policy": {"policy_name": policy_name, "config": policy_config},
+  ...
+}
+```
+
+Status: Notes committed on branch `friday-cleanup` and pushed.
