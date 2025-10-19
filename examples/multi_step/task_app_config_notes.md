@@ -277,6 +277,109 @@ Testing plan:
 - Unit-test `compute_stepwise_reward` for both strategies with synthetic prev/new achievement maps.
 - Smoke eval over a few seeds with `strategy=simple` and `strategy=complex` to compare `metrics.details.stepwise.reward_sum` vs `metrics.mean_return`.
 
+---
+
+## Eval script scope: Groq Qwen/Qwen3-32B stepwise vs outcome
+
+Objective: run many Crafter rollouts against Groq `Qwen/Qwen3-32B` and compare distributions and correlations between stepwise rewards and final (outcome) rewards, for both simple and complex stepwise strategies.
+
+Inputs/flags:
+- `--task-url` Task app base URL (Modal deployment)
+- `--env-key` ENVIRONMENT_API_KEY (or from `.env`)
+- `--model` default `Qwen/Qwen3-32B`
+- `--seeds` list or `--num-seeds` N (use 0..N-1)
+- `--rollouts-per-seed` default 3
+- `--max-turns` default 10
+- `--strategy` `simple|complex|both` (default both)
+- `--weights-json` optional JSON path for complex weighting
+- `--k-limits-json` optional JSON path for complex K-limits
+- `--out` output directory for CSV/plots
+
+What it does:
+1) Builds rollout payloads for each seed and strategy variant.
+2) For each rollout, passes `env.config.step_rewards` with:
+   - common: `{ enabled: true, mode: "decision_stepwise" }`
+   - simple: `strategy: "simple", indicator_lambda: 1.0`
+   - complex: `strategy: "complex", weights, k_limits`
+3) Uses policy config to route inference to Groq with the requested model.
+4) Collects per-rollout summary:
+   - `final_return = response.metrics.mean_return`
+   - `step_indicator_sum`, `step_reward_sum`, `new_achievements_total` from `metrics.details.stepwise` (or compute from steps if absent)
+   - counts like `num_steps`, `tool_calls_total`
+5) Writes a wide CSV with one row per rollout, including seed, strategy, and the above fields.
+6) Visualizes:
+   - Histogram of `step_reward_sum` by strategy
+   - Scatter: `step_reward_sum` vs `final_return`, per strategy (with Pearson/Spearman r)
+   - Optional ECDFs for indicator_sum
+
+Data schema (CSV):
+```
+seed,int | rollout_idx,int | strategy,str | final_return,float | step_reward_sum,float |
+step_indicator_sum,float | new_achievements_total,int | num_steps,int | tool_calls_total,int |
+model,str | max_turns,int | timestamp,iso
+```
+
+Pseudocode (Python):
+```python
+import os, json, csv, time, math, statistics
+import httpx
+
+TASK_URL = os.environ.get("TASK_APP_URL")
+ENV_KEY = os.environ.get("ENVIRONMENT_API_KEY")
+
+def build_step_cfg(strategy, weights=None, k_limits=None):
+    cfg = {"enabled": True, "mode": "decision_stepwise", "strategy": strategy, "indicator_lambda": 1.0}
+    if strategy == "complex":
+        if weights: cfg["weights"] = weights
+        if k_limits: cfg["k_limits"] = k_limits
+    return cfg
+
+async def run_rollout(seed, strategy, model, max_turns, weights, k_limits):
+    step_cfg = build_step_cfg(strategy, weights, k_limits)
+    payload = {
+        "run_id": f"eval-{seed}-{strategy}-{int(time.time())}",
+        "env": {"env_name": "crafter", "seed": seed, "config": {"step_rewards": step_cfg, "env_params": {"max_steps_per_episode": max_turns}}},
+        "policy": {"policy_name": "crafter-react", "config": {"inference_url": "https://groq.synth-ai.internal/proxy", "model": model, "temperature": 0.2, "top_p": 0.95, "max_tokens": 512}},
+        "ops": ["agent", "env"] * max_turns,
+        "record": {"trajectories": True},
+        "on_done": "terminate",
+    }
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        r = await client.post(f"{TASK_URL}/rollout", headers={"X-API-Key": ENV_KEY}, json=payload)
+        r.raise_for_status()
+        resp = r.json()
+    met = resp.get("metrics", {})
+    details = met.get("details", {})
+    step = details.get("stepwise", {})
+    final_return = float(met.get("mean_return") or 0.0)
+    step_reward_sum = float(step.get("reward_sum") or 0.0)
+    step_indicator_sum = float(step.get("indicator_sum") or 0.0)
+    new_ach_total = int(step.get("new_achievements_total") or 0)
+    num_steps = int(met.get("num_steps") or 0)
+    tool_calls_total = sum(len(s.get("tool_calls", [])) for s in (resp.get("trajectories", [{}])[0].get("steps", []))) if resp.get("trajectories") else 0
+    return {
+        "seed": seed, "strategy": strategy, "final_return": final_return,
+        "step_reward_sum": step_reward_sum, "step_indicator_sum": step_indicator_sum,
+        "new_achievements_total": new_ach_total, "num_steps": num_steps,
+        "tool_calls_total": tool_calls_total,
+    }
+```
+
+CLI example:
+```bash
+uv run python tools/eval_stepwise_vs_final.py \
+  --task-url $TASK_APP_URL \
+  --env-key $ENVIRONMENT_API_KEY \
+  --model "Qwen/Qwen3-32B" \
+  --num-seeds 100 --rollouts-per-seed 3 --max-turns 10 \
+  --strategy both --out results/qwen32b
+```
+
+Notes:
+- The correlation/plots can be produced with `matplotlib` or `plotly`; write PNG + HTML.
+- If `metrics.details.stepwise` is not yet populated by the task app, compute `indicator_sum` and `reward_sum` on the client by scanning `steps[].info.meta.decision_rewards`.
+- Link reference: [Tweet context](https://x.com/avaricum777/status/1980015533669163303).
+
 I'll scan both repos for Crafter RL, policy/task app config, rollout calls, and backend RL endpoints, then draft notes under `examples/multi_step/`.
 
 [5 tools called]
