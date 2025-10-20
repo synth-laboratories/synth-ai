@@ -17,6 +17,12 @@ try:
 except Exception:
     AsyncOpenAI = OpenAI = None  # type: ignore
 
+# For LLMs
+try:
+    from .main import SynthAI
+except Exception:
+    SynthAI = None
+
 # Legacy tracing v1 is not required for v3 usage and can be unavailable in minimal envs.
 tracing = None  # type: ignore
 EventPartitionElement = RewardSignal = SystemTrace = TrainingQuestion = None  # type: ignore
@@ -49,4 +55,5 @@ __all__ = [
     "AsyncAnthropic",
     "environments",
     "help",
+    "SynthAI"
 ]  # Explicitly define public API (v1 tracing omitted in minimal env)
