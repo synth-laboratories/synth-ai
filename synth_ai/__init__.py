@@ -39,7 +39,7 @@ def help() -> str:
     """Return the docs-first directive for the Synth-AI SDK."""
     return SDK_HELP
 
-__version__ = "0.2.9.dev11"
+__version__ = "0.2.9.dev14"
 __all__ = [
     "LM",
     "OpenAI",
