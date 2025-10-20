@@ -90,7 +90,7 @@ analytics = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/synth-laboratories/synth-ai"
+Homepage = "https://usesynth.ai"
 Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
