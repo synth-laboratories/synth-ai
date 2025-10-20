@@ -92,6 +92,7 @@ analytics = [
 [project.urls]
 Homepage = "https://usesynth.ai"
 Documentation = "https://docs.usesynth.ai/sdk/get-started"
+Changelog = "https://docs.usesynth.ai/changelog"
 Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
