@@ -1,6 +1,20 @@
-"""
-Synth AI - Software for aiding the best and multiplying the will.
-"""
+SDK_HELP = """
+Synth-AI SDK
+
+Quickstart:
+    pip install synth-ai
+    import synth_ai
+    uvx synth-ai setup
+
+Docs → https://docs.usesynth.ai/sdk/get-started
+""".strip()
+
+__doc__ = SDK_HELP
+
+
+def help() -> str:
+    """Return a concise quickstart for the Synth-AI SDK."""
+    return SDK_HELP
 
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
@@ -34,4 +48,5 @@ __all__ = [
     "Anthropic",
     "AsyncAnthropic",
     "environments",
+    "help",
 ]  # Explicitly define public API (v1 tracing omitted in minimal env)

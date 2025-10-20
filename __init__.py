@@ -1,14 +1,8 @@
-__doc__ = """
-Synth-AI SDK
+from synth_ai import help as _sdk_help
 
-Quickstart:
-    pip install synth-ai
-    import synth_ai
-    uvx synth-ai setup
-
-Docs → https://docs.usesynth.ai/sdk/get-started
-"""
+__doc__ = _sdk_help()
 
 
 def help() -> str:
-    return __doc__
+    """Return a concise quickstart for the Synth-AI SDK."""
+    return _sdk_help()
