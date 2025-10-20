@@ -1,6 +1,14 @@
-from synth_ai import help as _sdk_help
+_HELP_TEXT = """Synth-AI SDK
+
+Quickstart:
+    pip install synth-ai
+    import synth_ai
+    uvx synth-ai setup
+
+Docs → https://docs.usesynth.ai/sdk/get-started
+"""
 
 raise ImportError(
     "No module named 'synth'. Did you mean 'synth_ai'?\n\n"
-    f"{_sdk_help()}"
+    f"{_HELP_TEXT}"
 )

@@ -1,8 +1,8 @@
-from synth_ai import help as sdk_help
+import synth_ai
 
 
 def main() -> None:
-    print(sdk_help())
+    print(synth_ai.help())
 
 
 if __name__ == "__main__":
