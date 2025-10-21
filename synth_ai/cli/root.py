@@ -34,18 +34,27 @@ except Exception:
         from synth_ai import __version__ as __pkg_version__  # type: ignore
     except Exception:
         __pkg_version__ = "unknown"
+        
 
-
+EQ_SIGN_DIVIDER = f"\n{'=' * 75}\n"
+nl = "\n"
 HELP_MESSAGE = f"""
-Synth AI v{__pkg_version__} - SDK for Reinforcement Learning and Supervised Fine-Tuning\n
+{EQ_SIGN_DIVIDER}
+Synth AI SDK
+{nl}
+Version {__pkg_version__}
+{EQ_SIGN_DIVIDER}
+{EQ_SIGN_DIVIDER}
+🚀 Get started:
 
-Documentation walkthroughs:\n
-  • Supervised Fine-Tuning guide →
-    https://docs.usesynth.ai/sdk/examples/fine-tuning-demo\n
-  • Reinforcement Learning workflow →
-    https://docs.usesynth.ai/sdk/examples/math-rl-demo\n
+   - Guide for Fine-Tuning →
+     https://docs.usesynth.ai/sdk/examples/fine-tuning-demo
 
-For full SDK docs, see https://docs.usesynth.ai/sdk
+   - Guide for Reinforcement Learning →
+     https://docs.usesynth.ai/sdk/examples/math-rl-demo
+
+For all SDK docs, go to https://docs.usesynth.ai/sdk
+{EQ_SIGN_DIVIDER}
 """
 
 
