@@ -36,6 +36,19 @@ except Exception:
         __pkg_version__ = "unknown"
 
 
+HELP_MESSAGE = f"""
+Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will.\n
+
+Documentation walkthroughs:\n
+  • Supervised Fine-Tuning guide →
+    https://docs.usesynth.ai/sdk/examples/fine-tuning-demo\n
+  • Reinforcement Learning workflow →
+    https://docs.usesynth.ai/sdk/examples/math-rl-demo\n
+
+For full SDK docs, see https://docs.usesynth.ai/sdk
+"""
+
+
 SQLD_VERSION = "v0.26.2"
 
 
@@ -149,7 +162,7 @@ def install_sqld() -> str:
 
 
 @click.group(
-    help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will."
+    help=HELP_MESSAGE
 )
 @click.version_option(version=__pkg_version__, prog_name="synth-ai")
 def cli():
