@@ -37,7 +37,7 @@ except Exception:
 
 
 HELP_MESSAGE = f"""
-Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will.\n
+Synth AI v{__pkg_version__} - SDK for Reinforcement Learning and Supervised Fine-Tuning\n
 
 Documentation walkthroughs:\n
   • Supervised Fine-Tuning guide →
