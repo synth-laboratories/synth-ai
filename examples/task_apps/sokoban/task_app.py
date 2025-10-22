@@ -732,7 +732,22 @@ async def _rollout_with_openai(
     }
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
-        for _ in range(max_steps):
+        # Process ops array - each "policy" op triggers one LLM call
+        ops_to_process = request.ops or []
+        if not ops_to_process:
+            # If no ops provided, default to max_steps policy calls
+            ops_to_process = ["policy"] * max_steps
+        
+        for op_idx, op in enumerate(ops_to_process):
+            # Debug: log what we received
+            print(f"[sokoban:rollout] Processing op {op_idx}: {op!r} (type={type(op).__name__})", flush=True)
+            
+            # Only process "policy" ops, skip explicit actions for now
+            if op != "policy" and not (isinstance(op, str) and op.lower() == "policy"):
+                print(f"[sokoban:rollout] Skipping non-policy op: {op!r}", flush=True)
+                continue
+            
+            print(f"[sokoban:rollout] Calling LLM for policy op {op_idx}", flush=True)
             user_prompt = _format_sokoban_prompt(observation, last_actions)
             messages = [
                 {"role": "system", "content": SOKOBAN_SYSTEM_PROMPT},
@@ -785,8 +800,22 @@ async def _rollout_with_openai(
                         continue
                     raise
 
+            # Debug: log response structure
+            choices = response.get("choices", [])
+            print(f"[sokoban:rollout] Response has {len(choices)} choices", flush=True)
+            if choices:
+                msg = choices[0].get("message", {})
+                print(f"[sokoban:rollout] Message keys: {list(msg.keys())}", flush=True)
+                tool_calls = msg.get("tool_calls")
+                content = msg.get("content", "")
+                print(f"[sokoban:rollout] Tool calls: {tool_calls}", flush=True)
+                print(f"[sokoban:rollout] Content: {content[:200] if content else 'None'}", flush=True)
+                print(f"[sokoban:rollout] Refusal: {msg.get('refusal')}", flush=True)
+            
             actions = _extract_actions_from_response(response, actions_per_call)
+            print(f"[sokoban:rollout] Extracted {len(actions) if actions else 0} actions: {actions}", flush=True)
             if not actions:
+                print(f"[sokoban:rollout] No actions extracted, breaking loop", flush=True)
                 break
 
             aggregated_actions: list[int] = []
