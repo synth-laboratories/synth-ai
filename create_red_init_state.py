@@ -31,9 +31,20 @@ def main():
         emulator.tick()
         print(f"  Pressed {button} for {frames_to_hold} frames")
     
-    # Let the game settle
-    print("Letting game settle...")
-    for _ in range(300):
+    # Let the game settle and clear any remaining text/menus
+    print("Letting game settle and clearing text boxes...")
+    # Press B multiple times to close any menus/text
+    for _ in range(30):
+        emulator.button_press("b")
+        for _ in range(25):
+            emulator.tick()
+        emulator.button_release("b")
+        for _ in range(15):
+            emulator.tick()
+    
+    # Final settle
+    print("Final settle...")
+    for _ in range(180):
         emulator.tick()
     
     # Save state

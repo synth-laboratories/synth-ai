@@ -52,21 +52,21 @@ async def main():
             "run_id": "gpt5nano_test_001",
             "env": {"instance_id": "pallet_town_01"},
             "ops": [
-                {"button": "DOWN", "frames": 20},  # Move downstairs
-                {"button": "DOWN", "frames": 20},  # Continue to door
-                {"button": "DOWN", "frames": 20},  # Exit house
-                {"button": "UP", "frames": 30},    # Walk toward lab
-                {"button": "UP", "frames": 30},    # Continue to lab
-                {"button": "UP", "frames": 20},    # Enter lab
-                {"button": "A", "frames": 30},     # Talk to Oak
-                {"button": "A", "frames": 30},     # Advance dialogue
-                {"button": "A", "frames": 30},     # Continue
-                {"button": "DOWN", "frames": 20},  # Move to Pokeball
-                {"button": "A", "frames": 30},     # Choose starter
-                {"button": "A", "frames": 30},     # Confirm
-                {"button": "A", "frames": 30},     # Battle starts
-                {"button": "A", "frames": 30},     # Attack in battle
-                {"button": "A", "frames": 30},     # Attack again
+                {"button": "DOWN", "frames": 30},  # Move toward stairs (1)
+                {"button": "DOWN", "frames": 30},  # Continue DOWN (2)
+                {"button": "DOWN", "frames": 30},  # Should go downstairs (3)
+                {"button": "DOWN", "frames": 30},  # Navigate to door (4)
+                {"button": "DOWN", "frames": 30},  # Exit house (5)
+                {"button": "LEFT", "frames": 30},  # Navigate town (6)
+                {"button": "UP", "frames": 40},    # Head to lab (7)
+                {"button": "UP", "frames": 40},    # Continue to lab (8)
+                {"button": "RIGHT", "frames": 30}, # Align to door (9)
+                {"button": "UP", "frames": 30},    # Enter lab (10)
+                {"button": "A", "frames": 30},     # Talk/interact (11)
+                {"button": "A", "frames": 30},     # Continue (12)
+                {"button": "A", "frames": 30},     # Continue (13)
+                {"button": "A", "frames": 30},     # Continue (14)
+                {"button": "A", "frames": 30},     # Continue (15)
             ],
             "policy": {
                 "config": {}
