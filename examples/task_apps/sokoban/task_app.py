@@ -375,12 +375,18 @@ def _format_sokoban_prompt(observation: dict[str, Any], last_actions: list[int])
 def _extract_actions_from_response(
     response: dict[str, Any], max_actions: int
 ) -> list[int]:
+    import json as json_lib
+    print(f"[extract] FULL RESPONSE:", flush=True)
+    print(json_lib.dumps(response, indent=2)[:2000], flush=True)
+    
     actions: list[int] = []
     choices = response.get("choices") or []
     print(f"[extract] {len(choices)} choices", flush=True)
     if choices:
         msg = choices[0].get("message", {})
-        print(f"[extract] tool_calls: {msg.get('tool_calls')}, content: {msg.get('content')[:100] if msg.get('content') else None}", flush=True)
+        print(f"[extract] tool_calls: {msg.get('tool_calls')}", flush=True)
+        print(f"[extract] content: {msg.get('content')}", flush=True)
+        print(f"[extract] finish_reason: {choices[0].get('finish_reason')}", flush=True)
     for choice in choices:
         message = choice.get("message") or {}
         tool_calls = message.get("tool_calls") or []

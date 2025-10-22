@@ -75,7 +75,8 @@ VERILOG_SYSTEM_PROMPT = (
     "{\"tool\": \"<tool_name>\", \"args\": { ... }}. "
     "You may wrap the JSON inside a ```json``` block but MUST NOT include any other prose outside it. "
     "When editing files, rewrite the entire file content. Compile after code changes, simulate to verify behavior, "
-    "and submit only after the tests pass."
+    "and submit only after the tests pass. If compilation reports errors (missing ports, mismatched interfaces, etc.), "
+    "fix the design with write_file before compiling again—never repeat compile without modifying the source first."
 )
 
 
@@ -204,6 +205,7 @@ def _format_observation_text(
     step_index: int,
     instructions: str | None,
     action_feedback: str | None,
+    guidance: str | None = None,
 ) -> str:
     lines: list[str] = []
     if step_index == 0 and instructions:
@@ -245,6 +247,9 @@ def _format_observation_text(
     lines.append(
         "Respond with JSON only: {\"tool\": \"<tool_name>\", \"args\": {...}}."
     )
+    if guidance:
+        lines.append("")
+        lines.append(guidance.strip())
     return "\n".join(lines)
 
 
@@ -314,6 +319,8 @@ def _parse_tool_json(text: str) -> list[dict[str, Any]]:
         if tool_name == "write_file":
             if "file_path" in normalized_args and "path" not in normalized_args:
                 normalized_args["path"] = normalized_args.pop("file_path")
+            if "file" in normalized_args and "path" not in normalized_args:
+                normalized_args["path"] = normalized_args.pop("file")
             if "contents" in normalized_args and "content" not in normalized_args:
                 normalized_args["content"] = normalized_args.pop("contents")
         return [{"tool": tool_name, "args": normalized_args}]
@@ -361,12 +368,14 @@ class VerilogLLMAgent:
         observation: dict[str, Any],
         step_index: int,
         action_feedback: str | None,
+        guidance: str | None = None,
     ) -> str:
         text = _format_observation_text(
             observation=observation,
             step_index=step_index,
             instructions=self.instructions if step_index == 0 else None,
             action_feedback=action_feedback,
+            guidance=guidance,
         )
         self.messages.append({"role": "user", "content": text})
         self.history.append({"role": "user", "content": text})
@@ -543,6 +552,7 @@ async def rollout_executor(
     else:
         resolved_inference = os.getenv("VERILOG_INFERENCE_URL", DEFAULT_INFERENCE_URL)
 
+    instructions = getattr(getattr(instance, "impetus", None), "instructions", "")
     agent = VerilogLLMAgent(
         instructions=getattr(getattr(instance, "impetus", None), "instructions", ""),
         inference_url=resolved_inference,
@@ -562,13 +572,35 @@ async def rollout_executor(
     total_reward = 0.0
     final_observation: dict[str, Any] | None = None
     truncated_due_to_limit = False
+    code_dirty = False
+    last_compile_success = False
+    simulate_since_last_compile = False
+    last_compile_failed = False
+    needs_design_update = False
+
+    def _build_guidance(step_idx: int) -> str | None:
+        hints: list[str] = []
+        if step_idx == 0 and not last_compile_success:
+            hints.append("Begin by using write_file to implement TopModule according to the problem instructions before compiling.")
+        if last_compile_failed or needs_design_update:
+            hints.append("Compilation failed; update the design with write_file to match the required ports and behavior before compiling again.")
+        if code_dirty and not last_compile_success:
+            hints.append("Source was modified; run compile before simulate or submit.")
+        if (not code_dirty) and last_compile_success and not simulate_since_last_compile:
+            hints.append("Compilation succeeded; run simulate to verify before other actions.")
+        if (not code_dirty) and last_compile_success and simulate_since_last_compile:
+            hints.append("Simulation already ran after the latest compile; submit if the checks passed or make new edits first.")
+        return " ".join(hints) if hints else None
 
     try:
         initial_raw_observation = await env.initialize()
         current_observation = _normalise_observation(initial_raw_observation)
         final_observation = current_observation
         agent.append_observation(
-            observation=current_observation, step_index=0, action_feedback=None
+            observation=current_observation,
+            step_index=0,
+            action_feedback=None,
+            guidance=_build_guidance(0),
         )
 
         total_reward = float(current_observation.get("total_reward") or 0.0)
@@ -586,28 +618,79 @@ async def rollout_executor(
             if not already_done:
                 for step_index in range(1, max_steps + 1):
                     assistant_text, tool_calls, raw_response, request_payload = await agent.invoke(client)
+                    override_info: dict[str, Any] | None = None
                     if not tool_calls:
                         fallback_tool = (
                             "submit" if current_observation.get("task_completed") else "compile"
                         )
                         tool_calls = [{"tool": fallback_tool, "args": {}}]
 
-                    primary_call = tool_calls[0]
+                    primary_call = dict(tool_calls[0])
+                    tool_name_raw = str(primary_call.get("tool", ""))
+                    normalized_tool = tool_name_raw.strip().lower()
+                    if normalized_tool == "compile":
+                        if (not code_dirty) and last_compile_success and not simulate_since_last_compile:
+                            override_info = {
+                                "from": dict(primary_call),
+                                "reason": "compile_after_success_without_changes",
+                            }
+                            primary_call = {"tool": "simulate", "args": {}}
+                            tool_calls = [primary_call]
+                            override_info["to"] = dict(primary_call)
                     env_call = EnvToolCall(tool=primary_call["tool"], args=primary_call["args"])
 
                     try:
-                        step_observation = await env.step(env_call)
-                        current_observation = _normalise_observation(step_observation)
-                        final_observation = current_observation
-                        reward_last = float(current_observation.get("reward_last") or 0.0)
-                        total_reward = float(
-                            current_observation.get("total_reward") or (total_reward + reward_last)
+                        skip_env_step = (
+                            normalized_tool == "compile"
+                            and needs_design_update
+                            and not code_dirty
                         )
-                        done_flag = bool(
-                            current_observation.get("terminated")
-                            or current_observation.get("task_completed")
-                        )
-                        truncated_flag = bool(current_observation.get("truncated"))
+                        if skip_env_step:
+                            reward_last = -0.01
+                            total_reward += reward_last
+                            current_observation = dict(current_observation)
+                            current_observation["reward_last"] = reward_last
+                            current_observation["total_reward"] = total_reward
+                            final_observation = current_observation
+                            done_flag = False
+                            truncated_flag = False
+                        else:
+                            step_observation = await env.step(env_call)
+                            current_observation = _normalise_observation(step_observation)
+                            final_observation = current_observation
+                            reward_last = float(current_observation.get("reward_last") or 0.0)
+                            total_reward = float(
+                                current_observation.get("total_reward") or (total_reward + reward_last)
+                            )
+                            done_flag = bool(
+                                current_observation.get("terminated")
+                                or current_observation.get("task_completed")
+                            )
+                            truncated_flag = bool(current_observation.get("truncated"))
+
+                        executed_tool_name = str(primary_call["tool"])
+                        normalized_executed_tool = executed_tool_name.strip().lower()
+
+                        if normalized_executed_tool == "write_file":
+                            code_dirty = True
+                            last_compile_success = False
+                            simulate_since_last_compile = False
+                            last_compile_failed = False
+                            needs_design_update = False
+                        elif normalized_executed_tool == "compile":
+                            compile_status_text = str(current_observation.get("compile_status") or "")
+                            if "success" in compile_status_text.lower():
+                                code_dirty = False
+                                last_compile_success = True
+                                simulate_since_last_compile = False
+                                last_compile_failed = False
+                                needs_design_update = False
+                            else:
+                                last_compile_success = False
+                                last_compile_failed = True
+                                needs_design_update = True
+                        elif normalized_executed_tool == "simulate":
+                            simulate_since_last_compile = True
 
                         tool_call_records = [
                             {"tool_name": call["tool"], "arguments": call["args"]}
@@ -618,6 +701,13 @@ async def rollout_executor(
                             "model_response": raw_response,
                             "llm_request": request_payload,
                         }
+                        if override_info:
+                            step_info["auto_override"] = override_info
+                        if normalized_tool == "compile" and skip_env_step:
+                            step_info["compile_blocked"] = {
+                                "reason": "design_requires_update_before_compile",
+                                "hint": "Use write_file to match required ports/behavior before compiling again.",
+                            }
                         steps.append(
                             RolloutStep(
                                 obs=current_observation,
@@ -629,13 +719,19 @@ async def rollout_executor(
                             )
                         )
 
-                        action_feedback = _summarize_action_feedback(
-                            primary_call["tool"], primary_call["args"], current_observation, reward_last
-                        )
+                        if normalized_tool == "compile" and skip_env_step:
+                            action_feedback = (
+                                "Compilation blocked: update the design with write_file (declare required ports and logic) before compiling again."
+                            )
+                        else:
+                            action_feedback = _summarize_action_feedback(
+                                primary_call["tool"], primary_call["args"], current_observation, reward_last
+                            )
                         agent.append_observation(
                             observation=current_observation,
                             step_index=step_index,
                             action_feedback=action_feedback,
+                            guidance=_build_guidance(step_index),
                         )
 
                         if done_flag:
