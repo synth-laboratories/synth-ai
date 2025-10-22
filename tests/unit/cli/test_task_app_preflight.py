@@ -6,8 +6,7 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-
-from synth_ai.cli.task_apps import _preflight_env_key
+from synth_ai.cli.lib.task_app_env import preflight_env_key
 from synth_ai.learning.rl.secrets import mint_environment_api_key
 
 
@@ -108,7 +107,7 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tm
     monkeypatch.setattr(nacl.public, "PublicKey", FakePublicKey)
     monkeypatch.setattr(nacl.public, "SealedBox", FakeSealedBox)
 
-    _preflight_env_key([env_file], crash_on_failure=True)
+    preflight_env_key([env_file], crash_on_failure=True)
 
     assert mint_calls == ["called"]
     assert os.environ["ENVIRONMENT_API_KEY"] == minted_value
@@ -118,8 +117,12 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tm
 
     assert FakeSealedBox.last_plaintext == minted_value.encode("utf-8")
 
-    assert len(FakeClient.instances) == 2
-    upload_client = FakeClient.instances[1]
+    assert FakeClient.instances, "Expected HTTP client usage during preflight"
+    upload_client = FakeClient.instances[-1]
+    get_calls = [entry for entry in upload_client.requests if entry[0] == "GET"]
+    assert any(
+        entry[1].endswith("/v1/crypto/public-key") for entry in get_calls
+    ), "Expected public key fetch via GET"
     post_calls = [entry for entry in upload_client.requests if entry[0] == "POST"]
     assert post_calls, "Expected an upload POST request"
     payload = post_calls[0][2]["json"]

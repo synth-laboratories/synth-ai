@@ -389,22 +389,22 @@ def build_config() -> TaskAppConfig:
 
     hosted_task_app = None
     if HAS_HOSTED:
-        HostedTaskAppCls = None
+        hosted_task_app_cls = None
         try:
             from examples.swe.task_app.hosted.hosted_app import (  # type: ignore
                 TaskApp as HostedTaskApp,
             )
-            HostedTaskAppCls = HostedTaskApp
+            hosted_task_app_cls = HostedTaskApp
         except Exception:
             try:
                 from examples.warming_up_to_rl.task_app.synth_envs_hosted.hosted_app import (  # type: ignore
                     TaskApp as HostedTaskApp,
                 )
-                HostedTaskAppCls = HostedTaskApp
+                hosted_task_app_cls = HostedTaskApp
             except Exception as exc:  # pragma: no cover - optional dependency path
                 logger.warning("Unable to import HostedTaskApp for swe-mini: %s", exc)
-        if HostedTaskAppCls is not None:
-            hosted_task_app = HostedTaskAppCls(
+        if hosted_task_app_cls is not None:
+            hosted_task_app = hosted_task_app_cls(
                 service_base_url=os.getenv("SWE_MINI_SERVICE_BASE_URL"),
                 vllm_base_url=os.getenv(
                     "SWE_MINI_VLLM_BASE_URL",

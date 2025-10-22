@@ -24,6 +24,7 @@ import asyncio
 import base64
 import json
 import os
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -62,7 +63,7 @@ class EpisodeResult:
                 if unlocked:
                     self.achievements.add(str(name))
         reward = obs.get("reward_last_step")
-        if isinstance(reward, (int, float)):
+        if isinstance(reward, int | float):
             self.total_reward += float(reward)
 
 
@@ -107,11 +108,8 @@ def _decode_and_save_image(observation: dict[str, Any], path: Path) -> None:
     if not isinstance(base64_data, str) or not base64_data:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    try:
+    with suppress(Exception):
         path.write_bytes(base64.b64decode(base64_data))
-    except Exception:
-        # Best-effort; corrupted frames should not halt rollout
-        pass
 
 
 def _normalise_openai_request(payload: dict[str, Any], model: str, temperature: float) -> dict[str, Any]:
