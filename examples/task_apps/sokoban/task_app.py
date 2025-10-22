@@ -526,7 +526,6 @@ async def _rollout_with_groq(
     executed = 0
 
     tool_items_enum = sorted(set(ACTION_TOKEN_TO_ID.keys()))
-
     tool_schema = {
         "type": "function",
         "function": {
@@ -554,51 +553,17 @@ async def _rollout_with_groq(
             messages = [
                 {"role": "system", "content": SOKOBAN_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
-            ]    payload_base = {
-        "model": model,
-        "messages": messages,
-        "max_completion_tokens": completion_tokens,
-        "tools": [tool_schema],
-        "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
-    }
-    if config.get("temperature") is not None:
-        payload_base["temperature"] = float(config.get("temperature"))
-    if config.get("top_p") is not None:
-        payload_base["top_p"] = float(config.get("top_p"))
-    vendor_attempts: list[dict[str, Any]] = []
-    attempt_payload = dict(payload_base)
-    while True:
-        attempt_record: dict[str, Any] = {"request": dict(attempt_payload)}
-        try:
-            response, response_meta = await _call_openai_chat(client, api_key, attempt_payload)
-            attempt_record["response"] = response_meta
-            vendor_attempts.append(attempt_record)
-            break
-        except HTTPException as exc:
-            detail = exc.detail
-            if isinstance(detail, dict):
-                attempt_record["error"] = detail
-            else:
-                attempt_record["error"] = {"message": str(detail)}
-            vendor_attempts.append(attempt_record)
-            handled = False
-            body = detail.get("body") if isinstance(detail, dict) else None
-            error_info = body.get("error") if isinstance(body, dict) else None
-            code = error_info.get("code") if isinstance(error_info, dict) else None
-            param = error_info.get("param") if isinstance(error_info, dict) else None
-            if code in {"unsupported_parameter", "unsupported_value"}:
-                if param == "temperature" and "temperature" in attempt_payload:
-                    attempt_payload = dict(attempt_payload)
-                    attempt_payload.pop("temperature", None)
-                    handled = True
-                elif param == "top_p" and "top_p" in attempt_payload:
-                    attempt_payload = dict(attempt_payload)
-                    attempt_payload.pop("top_p", None)
-                    handled = True
-            if handled:
-                continue
-            raise
-
+            ]
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens,
+                "tools": [tool_schema],
+                "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
+            }
+            vendor_attempts: list[dict[str, Any]] = []
             try:
                 response, response_meta = await _call_groq_chat(client, api_key, payload)
                 vendor_attempts.append({"request": payload, "response": response_meta})
@@ -607,8 +572,9 @@ async def _rollout_with_groq(
                 if isinstance(detail, dict):
                     vendor_attempts.append({"request": payload, "error": detail})
                 else:
-                    vendor_attempts.append({"request": payload, "error": {"message": detail}})
+                    vendor_attempts.append({"request": payload, "error": {"message": str(detail)}})
                 raise
+
             actions = _extract_actions_from_response(response, actions_per_call)
             if not actions:
                 break
@@ -765,7 +731,7 @@ async def _rollout_with_openai(
         },
     }
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
         for _ in range(max_steps):
             user_prompt = _format_sokoban_prompt(observation, last_actions)
             messages = [
@@ -779,10 +745,12 @@ async def _rollout_with_openai(
                 "tools": [tool_schema],
                 "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
             }
-            if temperature_cfg is not None:
+            # GPT-5 models don't support temperature/top_p (only default value of 1)
+            is_gpt5 = "gpt-5" in model.lower()
+            if temperature_cfg is not None and not is_gpt5:
                 with contextlib.suppress(Exception):
                     payload_base["temperature"] = float(temperature_cfg)
-            if top_p_cfg is not None:
+            if top_p_cfg is not None and not is_gpt5:
                 with contextlib.suppress(Exception):
                     payload_base["top_p"] = float(top_p_cfg)
 
@@ -872,6 +840,8 @@ async def _rollout_with_openai(
                     "vendor_attempts": vendor_attempts,
                     "openai_attempts": vendor_attempts,
                     "max_completion_tokens": completion_tokens,
+                    "temperature_requested": temperature_cfg,
+                    "top_p_requested": top_p_cfg,
                 },
             )
             steps.append(step)
