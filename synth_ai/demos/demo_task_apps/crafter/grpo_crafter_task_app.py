@@ -24,7 +24,7 @@ def _load_build_config():
     """Load the example's build_config, preferring package import with file fallback."""
     # First try to import by package name (installed 'examples' package)
     try:
-        module = importlib.import_module("examples.warming_up_to_rl.task_app.grpo_crafter")
+        module = importlib.import_module("examples.task_apps.crafter.task_app.grpo_crafter")
         return module.build_config  # type: ignore[attr-defined]
     except Exception:
         # Fallback: locate the file within the installed synth_ai distribution and exec it
@@ -42,7 +42,7 @@ def _load_build_config():
             )
 
         spec = importlib.util.spec_from_file_location(
-            "examples.warming_up_to_rl.task_app.grpo_crafter", module_path
+            "examples.task_apps.crafter.task_app.grpo_crafter", module_path
         )
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load task app module at {module_path}")

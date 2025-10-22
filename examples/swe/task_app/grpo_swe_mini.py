@@ -60,34 +60,55 @@ try:
     HAS_HOSTED = True
 except Exception:
     try:  # pragma: no cover - optional dependency path
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.branching import (  # type: ignore
-            router as branching_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.branching import (  # type: ignore
+            BranchingEnvironmentConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.environment_routes import (  # type: ignore # noqa: E501
-            router as environment_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.environment_routes import (  # type: ignore # noqa: E501
+            CrafterEnvironmentRoutes,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.policy_routes import (  # type: ignore
-            router as policy_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.policy_routes import (  # type: ignore
+            PolicyRoutes,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (  # type: ignore
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (  # type: ignore
+            RolloutPayload,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            EnvironmentConfig,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            PolicyConfig,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RolloutRequest,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RolloutResponse,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RunSpec,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            ToolUse,
+        )
+        from examples.task_apps.crafter.task_app.hosted.rollout import (  # type: ignore
             RolloutEnvSpec as LegacyRolloutEnvSpec,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutPolicySpec as LegacyRolloutPolicySpec,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutRecordConfig as LegacyRolloutRecordConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutRequest as LegacyRolloutRequest,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutResponse as LegacyRolloutResponse,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutSafetyConfig as LegacyRolloutSafetyConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             execute_rollout as legacy_execute_rollout,
         )
         HAS_HOSTED = True
@@ -397,10 +418,10 @@ def build_config() -> TaskAppConfig:
             HostedTaskAppCls = HostedTaskApp
         except Exception:
             try:
-                from examples.warming_up_to_rl.task_app.synth_envs_hosted.hosted_app import (  # type: ignore
-                    TaskApp as HostedTaskApp,
+                from examples.task_apps.crafter.task_app.synth_envs_hosted.hosted_app import (  # type: ignore
+                    create_app,
                 )
-                HostedTaskAppCls = HostedTaskApp
+                HostedTaskAppCls = create_app
             except Exception as exc:  # pragma: no cover - optional dependency path
                 logger.warning("Unable to import HostedTaskApp for swe-mini: %s", exc)
         if HostedTaskAppCls is not None:

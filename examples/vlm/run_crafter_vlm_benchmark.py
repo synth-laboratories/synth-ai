@@ -24,10 +24,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.environment import (
-    CrafterEnvironmentWrapper,
+from examples.task_apps.crafter.task_app.synth_envs_hosted.envs.crafter.environment import (
+    CrafterEnvironment,
 )
-from examples.warming_up_to_rl.task_app.synth_envs_hosted.envs.crafter.policy import CrafterPolicy
+from examples.task_apps.crafter.task_app.synth_envs_hosted.envs.crafter.policy import CrafterPolicy
 from openai import AsyncOpenAI
 from synth_ai.environments.examples.crafter_classic.environment import CrafterClassicEnvironment
 from synth_ai.environments.examples.crafter_classic.taskset import (
@@ -142,7 +142,7 @@ async def _run_episode(
     async with semaphore:
         task_instance = _build_task_instance(seed)
         env = CrafterClassicEnvironment(task_instance)
-        wrapper = CrafterEnvironmentWrapper(env, seed=seed)
+        wrapper = CrafterEnvironment(env, seed=seed)
 
         policy = CrafterPolicy(inference_url="openai://chat-completions", model=model)
         await policy.initialize({"use_tools": True, "model": model})
