@@ -183,7 +183,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         ) or demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
         # Intentionally suppress task app health print
     else:
-        print("\nSet your task app URL by running:\nuvx synth-ai rl_demo deploy\n")
+        print("\nSet your task app URL by running:\nuvx synth-ai demo deploy\n")
 
     # Omit uv version print to keep output concise
 
@@ -648,7 +648,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     env_key = (env.env_api_key or "").strip()
     if not env_key:
         raise RuntimeError(
-            f"[{label}] ENVIRONMENT_API_KEY missing. Run `uvx synth-ai rl_demo deploy` first."
+            f"[{label}] ENVIRONMENT_API_KEY missing. Run `uvx synth-ai demo deploy` first."
         )
 
     task_url = env.task_app_base_url
@@ -1035,9 +1035,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         print(f"Deploy error: {e}")
         return 2
 
-    print(
-        "`rl_demo configure` prepares environment and secrets; `synth-ai run` now handles launches."
-    )
+    print("`demo configure` prepares environment and secrets; `synth-ai run` now handles launches.")
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -1503,7 +1501,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "config": inline_cfg,
         "config_toml": toml_text,
         "config_source": "toml_inline",
-        "metadata": {"source": "synth-ai rl_demo", "cwd": os.getcwd()},
+        "metadata": {"source": "synth-ai demo", "cwd": os.getcwd()},
     }
     if env.env_api_key:
         data_fragment["environment_api_key"] = env.env_api_key
@@ -1697,7 +1695,7 @@ def main(argv: list[str] | None = None) -> int:
             configure(parser)
 
     _add_parser(
-        ["rl_demo.setup", "demo.setup"],
+        ["demo.setup"],
         configure=lambda parser: parser.set_defaults(func=cmd_setup),
     )
 
@@ -1708,7 +1706,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         parser.set_defaults(func=cmd_init)
 
-    _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)
+    _add_parser(["demo.init"], configure=_init_opts)
 
     # (prepare command removed)
 
@@ -1725,10 +1723,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         parser.set_defaults(func=cmd_deploy)
 
-    _add_parser(["rl_demo.deploy", "demo.deploy"], configure=_deploy_opts)
+    _add_parser(["demo.deploy"], configure=_deploy_opts)
 
     _add_parser(
-        ["rl_demo.configure", "demo.configure"],
+        ["demo.configure"],
         configure=lambda parser: parser.set_defaults(func=cmd_run),
     )
 
@@ -1743,7 +1741,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument("--dry-run", action="store_true", help="Print request body and exit")
         parser.set_defaults(func=cmd_run)
 
-    _add_parser(["run", "rl_demo.run", "demo.run"], configure=_run_opts)
+    _add_parser(["run", "demo.run"], configure=_run_opts)
 
     args = p.parse_args(argv)
     if not hasattr(args, "func"):
