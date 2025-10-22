@@ -30,8 +30,12 @@ def _wait_for_server(base_url: str, timeout: float = 60.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
+            # Try /info first (no auth required if --insecure)
             resp = requests.get(f"{base_url}/info", timeout=2.0)
             if resp.status_code == 200:
+                return
+            # If 400/401, server is up but needs auth - that's OK
+            if resp.status_code in (400, 401):
                 return
         except Exception:
             time.sleep(0.5)

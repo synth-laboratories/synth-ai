@@ -4,6 +4,9 @@ import pytest
 
 requests = pytest.importorskip("requests")
 
+# Use the actual ENVIRONMENT_API_KEY from .env
+AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
+
 
 def test_verilog_manual_rollout(verilog_server: str) -> None:
     """Test a manual Verilog rollout with explicit write/compile/simulate/submit actions."""
@@ -39,7 +42,7 @@ endmodule
     resp = requests.post(
         f"{verilog_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=60.0,
     )
     
@@ -79,7 +82,7 @@ def test_verilog_policy_rollout(verilog_server: str) -> None:
     resp = requests.post(
         f"{verilog_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=120.0,
     )
     

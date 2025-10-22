@@ -4,6 +4,9 @@ import pytest
 
 requests = pytest.importorskip("requests")
 
+# Use the actual ENVIRONMENT_API_KEY from .env
+AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
+
 
 def test_sokoban_manual_rollout(sokoban_server: str) -> None:
     """Test a manual Sokoban rollout with explicit movement actions."""
@@ -21,7 +24,7 @@ def test_sokoban_manual_rollout(sokoban_server: str) -> None:
     resp = requests.post(
         f"{sokoban_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=30.0,
     )
     
@@ -67,7 +70,7 @@ def test_sokoban_policy_rollout_with_openai(sokoban_server: str) -> None:
     resp = requests.post(
         f"{sokoban_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=180.0,  # GPT-5-mini can be slow
     )
     
@@ -93,7 +96,7 @@ def test_sokoban_difficulty_levels(sokoban_server: str) -> None:
         resp = requests.post(
             f"{sokoban_server}/rollout",
             json=rollout_payload,
-            headers={"Authorization": "Bearer sk_env_test"},
+            headers=AUTH_HEADER,
             timeout=30.0,
         )
         
@@ -118,7 +121,7 @@ def test_sokoban_max_steps_limit(sokoban_server: str) -> None:
     resp = requests.post(
         f"{sokoban_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=30.0,
     )
     
@@ -150,7 +153,7 @@ def test_sokoban_completion_detection(sokoban_server: str) -> None:
     resp = requests.post(
         f"{sokoban_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=30.0,
     )
     

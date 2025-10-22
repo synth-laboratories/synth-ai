@@ -4,6 +4,9 @@ import pytest
 
 requests = pytest.importorskip("requests")
 
+# Use the actual ENVIRONMENT_API_KEY from .env
+AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
+
 
 def test_enron_manual_rollout(enron_server: str) -> None:
     """Test a manual Enron rollout with explicit search/read/answer actions."""
@@ -33,7 +36,7 @@ def test_enron_manual_rollout(enron_server: str) -> None:
     resp = requests.post(
         f"{enron_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=60.0,
     )
     
@@ -80,7 +83,7 @@ def test_enron_policy_rollout(enron_server: str) -> None:
     resp = requests.post(
         f"{enron_server}/rollout",
         json=rollout_payload,
-        headers={"Authorization": "Bearer sk_env_test"},
+        headers=AUTH_HEADER,
         timeout=180.0,  # Enron can be slow with multiple tool calls
     )
     
