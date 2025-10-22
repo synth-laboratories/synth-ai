@@ -46,57 +46,128 @@ async def main():
             print("   Start it with: uv run -m synth_ai task-app serve pokemon_red --port 8913")
             return
         
-        # Build rollout request with MANY actions to progress through game
-        # This simulates an extended gameplay session
-        actions = []
+        # Build rollout request with BATCHED actions (5-10 per sequence)
+        # This simulates efficient gameplay with fewer tool calls
+        sequences = []
         
         # Phase 1: Navigate to stairs and go downstairs (bedroom -> house)
-        for _ in range(8):
-            actions.append({"button": "DOWN", "frames": 30})
-        for _ in range(3):
-            actions.append({"button": "LEFT", "frames": 30})
-        for _ in range(5):
-            actions.append({"button": "DOWN", "frames": 30})
+        sequences.append({
+            "actions": [
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+            ]
+        })
+        sequences.append({
+            "actions": [
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+            ]
+        })
         
         # Phase 2: Navigate to door and exit house (house -> pallet town)
-        for _ in range(8):
-            actions.append({"button": "DOWN", "frames": 30})
+        sequences.append({
+            "actions": [
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+                {"button": "DOWN", "frames": 30},
+            ]
+        })
         
         # Phase 3: Navigate Pallet Town to Oak's Lab
-        for _ in range(5):
-            actions.append({"button": "LEFT", "frames": 30})
-        for _ in range(10):
-            actions.append({"button": "UP", "frames": 30})
-        for _ in range(5):
-            actions.append({"button": "RIGHT", "frames": 30})
-        for _ in range(5):
-            actions.append({"button": "UP", "frames": 30})
+        sequences.append({
+            "actions": [
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "LEFT", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+            ]
+        })
+        sequences.append({
+            "actions": [
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+            ]
+        })
+        sequences.append({
+            "actions": [
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+            ]
+        })
         
-        # Phase 4: Enter lab and interact
-        for _ in range(20):
-            actions.append({"button": "A", "frames": 30})
-        
-        # Phase 5: Navigate within lab
-        for _ in range(3):
-            actions.append({"button": "UP", "frames": 30})
-        for _ in range(3):
-            actions.append({"button": "RIGHT", "frames": 30})
-        
-        # Phase 6: More interactions (talk to Oak, get Pokemon, battle)
-        for _ in range(30):
-            actions.append({"button": "A", "frames": 30})
+        # Phase 4-6: Enter lab and interact extensively
+        sequences.append({
+            "actions": [{"button": "A", "frames": 30} for _ in range(10)]
+        })
+        sequences.append({
+            "actions": [{"button": "A", "frames": 30} for _ in range(10)]
+        })
+        sequences.append({
+            "actions": [
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "UP", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+                {"button": "RIGHT", "frames": 30},
+            ]
+        })
+        sequences.append({
+            "actions": [{"button": "A", "frames": 30} for _ in range(10)]
+        })
+        sequences.append({
+            "actions": [{"button": "A", "frames": 30} for _ in range(10)]
+        })
+        sequences.append({
+            "actions": [{"button": "A", "frames": 30} for _ in range(10)]
+        })
         
         rollout_request = {
-            "run_id": "gpt5nano_test_001",
+            "run_id": "gpt5nano_batched_test",
             "env": {"instance_id": "pallet_town_01"},
-            "ops": actions,
+            "ops": sequences,
             "policy": {
                 "config": {}
             },
         }
         
-        print("🎮 Starting extended rollout with explicit button actions...")
-        print(f"   Total actions: {len(actions)}")
+        total_actions = sum(len(seq["actions"]) for seq in sequences)
+        print("🎮 Starting BATCHED rollout with action sequences...")
+        print(f"   Total sequences: {len(sequences)} (was 105 separate calls)")
+        print(f"   Total actions: {total_actions}")
+        print(f"   Actions per sequence: ~{total_actions // len(sequences)}")
+        print()
         print("   Phase 1: Navigate bedroom to stairs")
         print("   Phase 2: Exit house to Pallet Town")
         print("   Phase 3: Navigate to Oak's Lab")

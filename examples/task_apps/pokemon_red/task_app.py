@@ -33,6 +33,13 @@ def _base_task_info() -> TaskInfo:
                 {
                     "name": "press_button",
                     "schema": {"button": "string", "frames": "int"},
+                },
+                {
+                    "name": "execute_sequence",
+                    "description": "Execute multiple button presses in sequence. More efficient than separate calls. Recommended: 5-10 actions per call.",
+                    "schema": {
+                        "actions": "array",  # Array of {button: string, frames: int}
+                    },
                 }
             ],
             "max_calls": 1,
@@ -258,50 +265,109 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             macro = op.get("action") or op
 
         if isinstance(macro, dict):
-            button = macro.get("button") or "A"
-            frames = int(macro.get("frames") or 1)
-            obs1 = await env.step(EnvToolCall(tool="press_button", args={"button": button, "frames": frames}))
-            
-            # Calculate step reward
-            current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
-            action_context = _build_action_context(prev_state, current_state)
-            step_reward = await reward_fn.score(current_state, action_context)
-            total_reward += step_reward
-            
-            # Track reward components if non-zero
-            step_info: dict[str, Any] = {"step_type": "action", "step_idx": step_idx}
-            if step_reward > 0:
-                reward_component = {
-                    "step": step_idx + 1,
-                    "reward": step_reward,
-                    "button": button,
-                    "map_id": current_state.get("map_id"),
-                    "position": f"({current_state.get('player_x')},{current_state.get('player_y')})",
-                }
-                all_reward_components.append(reward_component)
-                step_info["reward_component"] = reward_component
+            # Check if this is an execute_sequence call
+            if "actions" in macro:
+                # Handle execute_sequence: multiple actions in one call
+                actions_list = macro.get("actions", [])
+                sequence_reward = 0.0
+                sequence_tool_calls = []
                 
-                # Track milestone events
-                milestone_events.append({
-                    "type": "milestone",
-                    "step": step_idx + 1,
-                    "reward": step_reward,
-                    "description": _describe_milestone(current_state, prev_state, step_reward),
-                })
-            
-            step_info["cumulative_reward"] = total_reward
-            
-            steps.append(
-                RolloutStep(
-                    obs=obs1,
-                    tool_calls=[{"tool": "press_button", "args": {"button": button, "frames": frames}}],
-                    reward=step_reward,
-                    done=False,
-                    info=step_info,
+                for action_item in actions_list:
+                    button = action_item.get("button", "A")
+                    frames = int(action_item.get("frames", 1))
+                    
+                    obs1 = await env.step(EnvToolCall(tool="press_button", args={"button": button, "frames": frames}))
+                    current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
+                    action_context = _build_action_context(prev_state, current_state)
+                    step_reward = await reward_fn.score(current_state, action_context)
+                    
+                    sequence_reward += step_reward
+                    sequence_tool_calls.append({"tool": "press_button", "args": {"button": button, "frames": frames}})
+                    
+                    if step_reward > 0:
+                        reward_component = {
+                            "step": step_idx + 1,
+                            "reward": step_reward,
+                            "button": button,
+                            "map_id": current_state.get("map_id"),
+                            "position": f"({current_state.get('player_x')},{current_state.get('player_y')})",
+                        }
+                        all_reward_components.append(reward_component)
+                        milestone_events.append({
+                            "type": "milestone",
+                            "step": step_idx + 1,
+                            "reward": step_reward,
+                            "description": _describe_milestone(current_state, prev_state, step_reward),
+                        })
+                    
+                    final_obs = obs1
+                    prev_state = current_state
+                
+                total_reward += sequence_reward
+                step_info = {
+                    "step_type": "sequence",
+                    "step_idx": step_idx,
+                    "actions_count": len(actions_list),
+                    "cumulative_reward": total_reward,
+                }
+                if sequence_reward > 0:
+                    step_info["sequence_reward"] = sequence_reward
+                
+                steps.append(
+                    RolloutStep(
+                        obs=final_obs,
+                        tool_calls=sequence_tool_calls,
+                        reward=sequence_reward,
+                        done=False,
+                        info=step_info,
+                    )
                 )
-            )
-            final_obs = obs1
-            prev_state = current_state
+            else:
+                # Handle single press_button call
+                button = macro.get("button") or "A"
+                frames = int(macro.get("frames") or 1)
+                obs1 = await env.step(EnvToolCall(tool="press_button", args={"button": button, "frames": frames}))
+                
+                # Calculate step reward
+                current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
+                action_context = _build_action_context(prev_state, current_state)
+                step_reward = await reward_fn.score(current_state, action_context)
+                total_reward += step_reward
+                
+                # Track reward components if non-zero
+                step_info: dict[str, Any] = {"step_type": "action", "step_idx": step_idx}
+                if step_reward > 0:
+                    reward_component = {
+                        "step": step_idx + 1,
+                        "reward": step_reward,
+                        "button": button,
+                        "map_id": current_state.get("map_id"),
+                        "position": f"({current_state.get('player_x')},{current_state.get('player_y')})",
+                    }
+                    all_reward_components.append(reward_component)
+                    step_info["reward_component"] = reward_component
+                    
+                    # Track milestone events
+                    milestone_events.append({
+                        "type": "milestone",
+                        "step": step_idx + 1,
+                        "reward": step_reward,
+                        "description": _describe_milestone(current_state, prev_state, step_reward),
+                    })
+                
+                step_info["cumulative_reward"] = total_reward
+                
+                steps.append(
+                    RolloutStep(
+                        obs=obs1,
+                        tool_calls=[{"tool": "press_button", "args": {"button": button, "frames": frames}}],
+                        reward=step_reward,
+                        done=False,
+                        info=step_info,
+                    )
+                )
+                final_obs = obs1
+                prev_state = current_state
         else:
             # Attempt policy-driven step if policy.config present
             policy_cfg = request.policy.config or {}
@@ -393,7 +459,9 @@ def build_config() -> TaskAppConfig:
             enable_openai=True,
             enable_groq=True,
             system_hint=(
-                "You control Pokémon Red. Respond with a single 'press_button' tool call."
+                "You control Pokémon Red. Use 'execute_sequence' with 5-10 actions to play efficiently. "
+                "Plan ahead: navigate rooms, advance dialogue, battle strategically. "
+                "Example: {\"tool\": \"execute_sequence\", \"args\": {\"actions\": [{\"button\": \"DOWN\", \"frames\": 30}, ...]}}"
             ),
         ),
         app_state={},
