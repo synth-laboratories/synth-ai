@@ -258,6 +258,9 @@ def fastapi_app():
     return create_task_app(build_task_app_config())
 
 
+app = fastapi_app()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the Crafter task app locally")
     parser.add_argument("--host", default="0.0.0.0")
