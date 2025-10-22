@@ -33,9 +33,9 @@ class LeaveBedroomReward(RewardComponent):
         prev_map = action.get("prev_map_id", -1)
         current_map = state.get("map_id", -1)
 
-        # Detect moving from bedroom (map 1/0x01) to downstairs (map 2/0x02)
-        # In Red's house, bedroom is map 1, downstairs is map 2
-        if prev_map == 1 and current_map == 2:
+        # Detect moving from bedroom (map 38/0x26) to downstairs (map 37/0x25)
+        # In Red's house, bedroom is map 38, downstairs is map 37
+        if prev_map == 38 and current_map == 37:
             self.triggered = True
             return 20.0
         return 0.0
@@ -59,8 +59,9 @@ class ExitHouseFirstTimeReward(RewardComponent):
         prev_map = action.get("prev_map_id", -1)
         current_map = state.get("map_id", -1)
 
-        # Exit from house (map 2) to Pallet Town (map 0)
-        if prev_map == 2 and current_map == 0:
+        # Exit from house (map 37) to Pallet Town (likely map 0-36 range)
+        # Detect leaving house interior to outdoor area
+        if prev_map == 37 and current_map != 37 and current_map != 38:
             self.triggered = True
             return 30.0
         return 0.0

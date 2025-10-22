@@ -46,35 +46,61 @@ async def main():
             print("   Start it with: uv run -m synth_ai task-app serve pokemon_red --port 8913")
             return
         
-        # Build rollout request with explicit manual actions
-        # This simulates what a policy would do - navigate and interact
+        # Build rollout request with MANY actions to progress through game
+        # This simulates an extended gameplay session
+        actions = []
+        
+        # Phase 1: Navigate to stairs and go downstairs (bedroom -> house)
+        for _ in range(8):
+            actions.append({"button": "DOWN", "frames": 30})
+        for _ in range(3):
+            actions.append({"button": "LEFT", "frames": 30})
+        for _ in range(5):
+            actions.append({"button": "DOWN", "frames": 30})
+        
+        # Phase 2: Navigate to door and exit house (house -> pallet town)
+        for _ in range(8):
+            actions.append({"button": "DOWN", "frames": 30})
+        
+        # Phase 3: Navigate Pallet Town to Oak's Lab
+        for _ in range(5):
+            actions.append({"button": "LEFT", "frames": 30})
+        for _ in range(10):
+            actions.append({"button": "UP", "frames": 30})
+        for _ in range(5):
+            actions.append({"button": "RIGHT", "frames": 30})
+        for _ in range(5):
+            actions.append({"button": "UP", "frames": 30})
+        
+        # Phase 4: Enter lab and interact
+        for _ in range(20):
+            actions.append({"button": "A", "frames": 30})
+        
+        # Phase 5: Navigate within lab
+        for _ in range(3):
+            actions.append({"button": "UP", "frames": 30})
+        for _ in range(3):
+            actions.append({"button": "RIGHT", "frames": 30})
+        
+        # Phase 6: More interactions (talk to Oak, get Pokemon, battle)
+        for _ in range(30):
+            actions.append({"button": "A", "frames": 30})
+        
         rollout_request = {
             "run_id": "gpt5nano_test_001",
             "env": {"instance_id": "pallet_town_01"},
-            "ops": [
-                {"button": "DOWN", "frames": 30},  # Move toward stairs (1)
-                {"button": "DOWN", "frames": 30},  # Continue DOWN (2)
-                {"button": "DOWN", "frames": 30},  # Should go downstairs (3)
-                {"button": "DOWN", "frames": 30},  # Navigate to door (4)
-                {"button": "DOWN", "frames": 30},  # Exit house (5)
-                {"button": "LEFT", "frames": 30},  # Navigate town (6)
-                {"button": "UP", "frames": 40},    # Head to lab (7)
-                {"button": "UP", "frames": 40},    # Continue to lab (8)
-                {"button": "RIGHT", "frames": 30}, # Align to door (9)
-                {"button": "UP", "frames": 30},    # Enter lab (10)
-                {"button": "A", "frames": 30},     # Talk/interact (11)
-                {"button": "A", "frames": 30},     # Continue (12)
-                {"button": "A", "frames": 30},     # Continue (13)
-                {"button": "A", "frames": 30},     # Continue (14)
-                {"button": "A", "frames": 30},     # Continue (15)
-            ],
+            "ops": actions,
             "policy": {
                 "config": {}
             },
         }
         
-        print("🎮 Starting rollout with explicit button actions...")
-        print("   This will execute 15 pre-planned actions")
+        print("🎮 Starting extended rollout with explicit button actions...")
+        print(f"   Total actions: {len(actions)}")
+        print("   Phase 1: Navigate bedroom to stairs")
+        print("   Phase 2: Exit house to Pallet Town")
+        print("   Phase 3: Navigate to Oak's Lab")
+        print("   Phase 4-6: Interact, get Pokemon, battle")
         print()
         
         try:

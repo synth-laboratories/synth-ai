@@ -102,15 +102,29 @@ def _format_tool_calls(tool_calls: Sequence[Dict[str, Any]] | None) -> str:
     formatted: list[str] = []
     for call in tool_calls:
         args = call.get("args") if isinstance(call, dict) else None
-        action = None
-        if isinstance(args, dict):
-            action = args.get("action")
+        if not isinstance(args, dict):
+            continue
+        if "actions" in args and isinstance(args["actions"], list):
+            parts: list[str] = []
+            for item in args["actions"]:
+                try:
+                    val = int(item)
+                except Exception:
+                    token = str(item).strip().lower()
+                    val = ACTION_TOKEN_TO_ID.get(token)
+                name = ACTION_ID_TO_NAME.get(val, str(item)) if val is not None else str(item)
+                parts.append(str(name))
+            if parts:
+                formatted.append("[" + ", ".join(parts) + "]")
+            continue
+        action = args.get("action")
         if action is None:
             continue
         try:
             action = int(action)
         except Exception:
-            pass
+            token = str(action).strip().lower()
+            action = ACTION_TOKEN_TO_ID.get(token, action)
         name = ACTION_ID_TO_NAME.get(action, str(action))
         formatted.append(str(name))
     return ", ".join(formatted) if formatted else "<noop>"
@@ -519,31 +533,59 @@ async def _rollout_with_groq(
             if not actions:
                 break
 
-            last_actions = []
+            aggregated_actions: list[int] = []
+            aggregated_reward = 0.0
+            done = False
+            truncated = False
+            intermediate_rewards: list[float] = []
+            if executed >= max_steps:
+                break
+
             for action in actions:
                 if executed >= max_steps:
                     break
-                last_actions.append(action)
-                observation = await env.step(EnvToolCall(tool="interact", args={"action": int(action)}))
+                aggregated_actions.append(int(action))
+                observation = await env.step(
+                    EnvToolCall(tool="interact", args={"action": int(action)})
+                )
                 current_total = float(observation.get("total_reward") or total_reward)
                 reward_delta = current_total - total_reward
                 total_reward = current_total
+                aggregated_reward += reward_delta
+                intermediate_rewards.append(reward_delta)
                 done = bool(observation.get("terminated"))
                 truncated = bool(observation.get("truncated"))
-                step = RolloutStep(
-                    obs=observation,
-                    tool_calls=[{"tool": "interact", "args": {"action": int(action)}, "source": "groq"}],
-                    reward=reward_delta,
-                    done=done,
-                    truncated=truncated if truncated else None,
-                    info={"provider": "groq", "model": model},
-                )
-                steps.append(step)
                 executed += 1
                 if done or truncated:
                     break
 
-            if steps and (steps[-1].done or (steps[-1].truncated or False)):
+            if not aggregated_actions:
+                continue
+
+            last_actions = aggregated_actions
+            step = RolloutStep(
+                obs=observation,
+                tool_calls=[
+                    {
+                        "tool": "interact_many",
+                        "args": {"actions": [int(a) for a in aggregated_actions]},
+                        "source": "groq",
+                    }
+                ],
+                reward=aggregated_reward,
+                done=done,
+                truncated=truncated if truncated else None,
+                info={
+                    "provider": "groq",
+                    "model": model,
+                    "actions_executed": aggregated_actions,
+                    "prompt": user_prompt,
+                    "reward_deltas": intermediate_rewards,
+                },
+            )
+            steps.append(step)
+
+            if step.done or (step.truncated or False):
                 break
 
     final = {"observation": observation, "reward": total_reward}
