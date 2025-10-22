@@ -1,0 +1,20 @@
+# Verilog Eval Config for Groq Qwen3-32B
+
+[task_app]
+url = "http://localhost:8103"  # Verilog task app port
+
+[eval]
+num_episodes = 5
+seeds = [0, 1, 2, 3, 4]
+max_steps = 10
+
+[policy]
+provider = "groq"
+model = "qwen/qwen3-32b"
+temperature = 0.2
+max_tokens = 768
+inference_url = "https://api.groq.com/openai/v1/chat/completions"
+
+[env]
+difficulty = "medium"  # Can be "easy", "medium", or "hard"
+

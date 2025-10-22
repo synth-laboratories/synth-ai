@@ -815,6 +815,24 @@ async def rollout_executor(
         decision_samples=None,
     )
 
+    # Build trace payload
+    trace_payload = {
+        "session_trace": {
+            "session_id": request.run_id,
+            "created_at": None,
+            "metadata": {
+                "task": "verilog",
+                "provider": "groq",
+                "model": policy_model,
+                "total_reward": final_total_reward,
+                "task_completed": bool(final_observation.get("task_completed")),
+            },
+            "session_time_steps": [],
+            "event_history": [],
+            "markov_blanket_message_history": [],
+        }
+    }
+    
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -822,7 +840,7 @@ async def rollout_executor(
         metrics=metrics,
         aborted=False,
         ops_executed=len(steps),
-        trace=None,
+        trace=trace_payload,
     )
 
 
