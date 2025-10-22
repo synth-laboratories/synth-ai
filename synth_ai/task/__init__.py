@@ -23,7 +23,6 @@ from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
 from .json import to_jsonable
 from .proxy import (
-    INTERACT_TOOL_SCHEMA,
     extract_message_text,
     inject_system_hint,
     parse_tool_call_from_text,
@@ -75,7 +74,6 @@ __all__ = [
     "normalize_vendor_keys",
     "get_openai_key_or_503",
     "get_groq_key_or_503",
-    "INTERACT_TOOL_SCHEMA",
     "prepare_for_openai",
     "prepare_for_groq",
     "inject_system_hint",

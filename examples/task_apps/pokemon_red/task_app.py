@@ -38,7 +38,23 @@ def _base_task_info() -> TaskInfo:
                     "name": "execute_sequence",
                     "description": "Execute multiple button presses in sequence. More efficient than separate calls. Recommended: 5-10 actions per call.",
                     "schema": {
-                        "actions": "array",  # Array of {button: string, frames: int}
+                        "type": "object",
+                        "properties": {
+                            "actions": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "button": {"type": "string", "enum": ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "START", "SELECT"]},
+                                        "frames": {"type": "integer", "minimum": 1, "maximum": 120}
+                                    },
+                                    "required": ["button", "frames"]
+                                },
+                                "minItems": 1,
+                                "maxItems": 20
+                            }
+                        },
+                        "required": ["actions"]
                     },
                 }
             ],
@@ -191,12 +207,49 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 {
                     "type": "function",
                     "function": {
-                        "name": "press_button",
-                        "description": "Press a Game Boy button for N frames",
+                        "name": "execute_sequence",
+                        "description": "Execute multiple button presses in sequence. More efficient than separate calls. Recommended: 5-10 actions per call.",
                         "parameters": {
                             "type": "object",
                             "properties": {
-                                "button": {"type": "string"},
+                                "actions": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "button": {
+                                                "type": "string",
+                                                "enum": ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "START", "SELECT"],
+                                                "description": "Game Boy button to press"
+                                            },
+                                            "frames": {
+                                                "type": "integer",
+                                                "minimum": 1,
+                                                "maximum": 120,
+                                                "description": "Number of frames to hold the button (30 frames = 0.5 seconds)"
+                                            }
+                                        },
+                                        "required": ["button", "frames"]
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 20,
+                                    "description": "Sequence of button presses to execute"
+                                }
+                            },
+                            "required": ["actions"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "press_button",
+                        "description": "Press a single Game Boy button for N frames (use execute_sequence for multiple actions)",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "button": {"type": "string", "enum": ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "START", "SELECT"]},
                                 "frames": {"type": "integer", "minimum": 1, "maximum": 120},
                             },
                             "required": ["button"],
@@ -205,10 +258,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                     },
                 }
             ],
-            "tool_choice": {"type": "function", "function": {"name": "press_button"}},
+            "tool_choice": {"type": "function", "function": {"name": "execute_sequence"}},
             "temperature": float(policy_cfg.get("temperature") or 0.0),
             "top_p": float(policy_cfg.get("top_p") or 1.0),
-            "max_tokens": int(policy_cfg.get("max_tokens") or 64),
+            "max_tokens": int(policy_cfg.get("max_tokens") or 500),
         }
         inference_url = str(policy_cfg.get("inference_url") or "").rstrip("/")
         if not inference_url:
@@ -231,13 +284,20 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         if not raw_calls:
             return {}
         f = raw_calls[0].get("function") or {}
+        tool_name = f.get("name", "")
         args = f.get("arguments")
         import json as _json
         try:
             parsed_args = _json.loads(args) if isinstance(args, str) else dict(args or {})
         except Exception:
             parsed_args = {}
-        return {"button": parsed_args.get("button"), "frames": int(parsed_args.get("frames") or 1)}
+        
+        # Handle execute_sequence tool
+        if tool_name == "execute_sequence":
+            return {"actions": parsed_args.get("actions", [])}
+        
+        # Handle press_button tool (legacy single action)
+        return {"button": parsed_args.get("button"), "frames": int(parsed_args.get("frames") or 30)}
     
     # Initialize reward function
     reward_fn = PalletTownProgressionCompositeReward()

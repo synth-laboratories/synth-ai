@@ -423,7 +423,7 @@ async def _call_groq_chat(
     client: httpx.AsyncClient,
     api_key: str,
     payload: dict[str, Any],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], dict[str, Any]]:
     try:
         response = await client.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -431,13 +431,23 @@ async def _call_groq_chat(
             headers={"Authorization": f"Bearer {api_key}"},
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        return data, {
+            "status": response.status_code,
+            "headers": dict(response.headers),
+            "body": data,
+        }
     except httpx.HTTPStatusError as exc:
-        detail = exc.response.text
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=f"Groq chat completion failed: {detail}",
-        ) from exc
+        try:
+            body = exc.response.json()
+        except Exception:
+            body = {"raw": exc.response.text}
+        error_detail = {
+            "status": exc.response.status_code,
+            "body": body,
+            "headers": dict(exc.response.headers),
+        }
+        raise HTTPException(status_code=exc.response.status_code, detail=error_detail) from exc
     except httpx.RequestError as exc:
         raise HTTPException(status_code=502, detail=f"Groq request error: {exc}") from exc
 
@@ -514,21 +524,17 @@ async def _rollout_with_groq(
                 "tools": [tool_schema],
                 "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
             }
+            vendor_attempts: list[dict[str, Any]] = []
             try:
-                response = await _call_groq_chat(client, api_key, payload)
+                response, response_meta = await _call_groq_chat(client, api_key, payload)
+                vendor_attempts.append({"request": payload, "response": response_meta})
             except HTTPException as exc:
-                detail = str(getattr(exc, "detail", ""))
-                if "tool_use_failed" in detail:
-                    text_payload = {
-                        "model": model,
-                        "messages": messages,
-                        "temperature": temperature,
-                        "top_p": top_p,
-                        "max_tokens": max_tokens,
-                    }
-                    response = await _call_groq_chat(client, api_key, text_payload)
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    vendor_attempts.append({"request": payload, "error": detail})
                 else:
-                    raise
+                    vendor_attempts.append({"request": payload, "error": {"message": detail}})
+                raise
             actions = _extract_actions_from_response(response, actions_per_call)
             if not actions:
                 break
@@ -581,6 +587,7 @@ async def _rollout_with_groq(
                     "actions_executed": aggregated_actions,
                     "prompt": user_prompt,
                     "reward_deltas": intermediate_rewards,
+                    "groq_attempts": vendor_attempts,
                 },
             )
             steps.append(step)
