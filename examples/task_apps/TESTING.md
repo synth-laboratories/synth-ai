@@ -100,6 +100,7 @@ pytest examples/task_apps/*/tests/ -v -m "not slow"
 - Server startup
 - Health/info endpoints
 - Full evaluation runs
+- **Rollout execution** (manual and policy-driven)
 
 **Characteristics**:
 - Slower (30-300 seconds)
@@ -109,54 +110,63 @@ pytest examples/task_apps/*/tests/ -v -m "not slow"
 
 **Examples**:
 - `test_verilog_eval.py`: Starts server, runs Groq eval with Qwen3-32B
+- `test_verilog_rollout.py`: **Manual & policy rollouts via /rollout endpoint**
 - `test_enron_eval.py`: Starts server, runs Groq eval
+- `test_enron_rollout.py`: **Manual & policy rollouts, auth testing**
 - `test_sokoban_eval.py`: Starts server, tests manual rollout
+- `test_sokoban_rollout.py`: **6 rollout tests (manual, policy, difficulties, limits)**
 
 ## What Each Test Validates
 
 ### Verilog Tests
 
-**Unit Tests**:
+**Unit Tests** (4 tests):
 - ✅ Compile success gives +0.1 reward
 - ✅ Simulation pass gives +1.0 reward
 - ✅ Submit success gives +10.0 reward
 - ✅ Submit checks last simulation output correctly
 
-**Integration Tests**:
+**Integration Tests** (5 tests):
 - ✅ Server starts and responds to /health
 - ✅ /task_info returns valid Verilog task metadata
 - ✅ Full eval with Qwen3-32B completes successfully
-- ✅ Outcome scores are reported correctly
+- ✅ **Manual rollout** with explicit write/compile/simulate/submit
+- ✅ **Policy rollout** using Groq/Qwen3-32B (verifies LLM integration)
 
 ### Enron Tests
 
-**Unit Tests**:
+**Unit Tests** (3 tests):
 - ✅ search_emails tool works correctly
 - ✅ answer_question tool calculates rewards
 - ✅ Exact answer match gives high reward (>0.9)
 - ✅ Partial answer match gives medium reward (>0.5)
 - ✅ Wrong answer gives low reward (<0.5)
 
-**Integration Tests**:
+**Integration Tests** (6 tests):
 - ✅ Server starts and responds to /health
 - ✅ /task_info returns valid Enron task metadata
 - ✅ Full eval with Qwen3-32B completes successfully
-- ✅ Official scores are reported correctly
+- ✅ **Manual rollout** with explicit search/read/answer actions
+- ✅ **Policy rollout** using Groq/Qwen3-32B
+- ✅ **Authentication** enforcement (rejects requests without auth header)
 
 ### Sokoban Tests
 
-**Unit Tests**:
-- ✅ Environment initializes with valid observation
-- ✅ All 4 actions (left, up, right, down) work
-- ✅ Reward system is hooked up
-- ✅ Completion is detected correctly
-- ✅ Max steps truncation works
-- ✅ All difficulty levels (easy, medium, hard) initialize
+**Unit Tests** (3 tests):
+- ✅ Module imports work correctly
+- ✅ Reward components exist (goal achieved, step penalty)
+- ✅ Engine creation with different difficulty levels
 
-**Integration Tests**:
+**Integration Tests** (9 tests):
 - ✅ Server starts and responds to /health
 - ✅ /task_info returns valid Sokoban task metadata
-- ✅ Manual rollout with explicit actions works
+- ✅ **Manual rollout** with movement actions (left/right/up/down)
+- ✅ **Policy rollout** with OpenAI GPT-5-mini (may skip if slow)
+- ✅ **All difficulty levels** (easy/medium/hard) work correctly
+- ✅ **Max steps limit** enforcement (stops at configured limit)
+- ✅ **Puzzle completion detection** (terminated=True when solved)
+- ✅ Truncation on max_steps
+- ✅ Response structure validation
 
 ## Debugging Test Failures
 
