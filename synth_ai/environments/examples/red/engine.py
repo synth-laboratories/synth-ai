@@ -123,6 +123,13 @@ class GameSystemState:
     menu_state: int
     text_box_active: bool
     warp_flag: int
+    # Battle-specific data
+    enemy_hp_current: int = 0
+    enemy_hp_max: int = 0
+    enemy_hp_percentage: float = 0.0
+    enemy_level: int = 0
+    enemy_species_id: int = 0
+    battle_turn: int = 0
     # TODO: Add when available
     # current_menu_type: str = ""
     # dialogue_speaker: str = ""
@@ -543,6 +550,12 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
                     menu_state=int(current_state.get("menu_state", 0)),
                     text_box_active=bool(current_state.get("text_box_active", False)),
                     warp_flag=int(current_state.get("warp_flag", 0)),
+                    enemy_hp_current=int(current_state.get("enemy_hp_current", 0)),
+                    enemy_hp_max=int(current_state.get("enemy_hp_max", 0)),
+                    enemy_hp_percentage=float(current_state.get("enemy_hp_percentage", 0.0)),
+                    enemy_level=int(current_state.get("enemy_level", 0)),
+                    enemy_species_id=int(current_state.get("enemy_species_id", 0)),
+                    battle_turn=int(current_state.get("battle_turn", 0)),
                 ),
             )
 

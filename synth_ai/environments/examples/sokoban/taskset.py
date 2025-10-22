@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import logging
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, fields
 from typing import List, Tuple
 from uuid import UUID, uuid4
@@ -18,6 +21,7 @@ from synth_ai.environments.tasks.core import (
     TaskInstanceMetadataFilter,
     TaskInstanceSet,
 )
+from synth_ai.task.contracts import TaskInfo
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +98,118 @@ class SokobanTaskInstance(TaskInstance):
         filtered_data = {k: v for k, v in data.items() if k in constructor_field_names}
 
         return cls(**filtered_data)
+
+
+def _base_task_info_template() -> TaskInfo:
+    return TaskInfo(
+        task={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
+        environments=["sokoban"],
+        action_space={
+            "type": "tool_call",
+            "tools": [{"name": "interact", "schema": {"action": "int"}}],
+            "max_calls": 1,
+        },
+        observation={"summary": "Sokoban grid observation", "keys": ["grid", "player"]},
+        dataset={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
+        rubric={"version": "1", "criteria_count": 1, "source": "inline"},
+        inference={"supports_proxy": False},
+        capabilities={"supports_rollout": True, "supports_env_lifecycle": True},
+        limits={"max_turns": 200},
+    )
+
+
+class SokobanTaskSet:
+    """Minimal helper compatible with Task App expectations."""
+
+    def __init__(self) -> None:
+        self._taskset: TaskInstanceSet | None = None
+        self._seed_index: dict[int, SokobanTaskInstance] = {}
+        self._base_info = _base_task_info_template()
+
+    async def _ensure_loaded(self) -> TaskInstanceSet:
+        if self._taskset is None:
+            dataset = await create_sokoban_taskset()
+            self._taskset = dataset
+            self._seed_index.clear()
+            for inst in dataset.instances:
+                try:
+                    seed_value = int(getattr(inst.metadata, "seed"))
+                except Exception:
+                    continue
+                # Keep the first instance encountered for a seed
+                self._seed_index.setdefault(seed_value, inst)
+        return self._taskset
+
+    def describe(self) -> dict[str, object]:
+        if not self._taskset:
+            return {"id": "sokoban", "name": "Sokoban"}
+        return {
+            "id": "sokoban",
+            "name": self._taskset.name,
+            "description": self._taskset.description,
+            "instance_count": len(self._taskset.instances),
+        }
+
+    async def provide_task_instances(self, seeds: Sequence[int]) -> Iterable[TaskInfo]:
+        await self._ensure_loaded()
+        if not seeds:
+            return []
+
+        infos: list[TaskInfo] = []
+        for raw_seed in seeds:
+            try:
+                seed_value = int(raw_seed)
+            except Exception:
+                continue
+
+            instance = self._seed_index.get(seed_value)
+            if instance is None:
+                # Attempt to construct on the fly; try configured difficulties in order
+                for difficulty in DIFFICULTY_CONFIGS:
+                    try:
+                        instance = await create_task_instance_from_seed(difficulty, seed_value)
+                        break
+                    except Exception:
+                        continue
+                if instance is None:
+                    continue
+                self._seed_index[seed_value] = instance
+
+            metadata = getattr(instance, "metadata", None)
+            base_info = self._base_info.model_copy(deep=True)
+
+            observation = dict(base_info.observation)
+            dataset_info = dict(base_info.dataset)
+            task_metadata = {"seed": seed_value}
+
+            if metadata is not None:
+                for key in ("difficulty", "num_boxes", "dim_room", "max_steps", "shortest_path_length"):
+                    value = getattr(metadata, key, None)
+                    if value is not None:
+                        observation[key] = value
+                        task_metadata[key] = value
+                dataset_info.update(
+                    {
+                        "seed": getattr(metadata, "seed", seed_value),
+                        "difficulty": getattr(metadata, "difficulty", None),
+                        "num_boxes": getattr(metadata, "num_boxes", None),
+                        "dim_room": getattr(metadata, "dim_room", None),
+                    }
+                )
+                generation_params = getattr(metadata, "generation_params", None)
+                if generation_params is not None:
+                    task_metadata["generation_params"] = generation_params
+
+            infos.append(
+                base_info.model_copy(
+                    update={
+                        "observation": observation,
+                        "dataset": dataset_info,
+                        "task_metadata": task_metadata,
+                    }
+                )
+            )
+        return infos
 
 
 async def create_sokoban_taskset() -> TaskInstanceSet:

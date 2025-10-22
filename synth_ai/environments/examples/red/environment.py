@@ -228,6 +228,30 @@ class PokemonRedEnvironment(StatefulEnvironment, ReproducibleEnvironment[Pokemon
         """Convert states to observation using the specified callback"""
         active_obs_cb = obs_cb or PokemonRedObservationCallable()
         observation = await active_obs_cb.get_observation(pub, priv)
+        
+        # Include raw state fields for reward calculation
+        if isinstance(observation, dict):
+            observation["map_id"] = pub.world.map_id if pub.world else None
+            observation["player_x"] = pub.world.player_x if pub.world else None
+            observation["player_y"] = pub.world.player_y if pub.world else None
+            observation["party_count"] = len(pub.party) if pub.party else 0
+            observation["party_pokemon"] = [
+                {
+                    "species_id": p.species_id,
+                    "level": p.level,
+                    "hp_current": p.hp_current,
+                    "hp_max": p.hp_max,
+                    "hp_percentage": (p.hp_current / p.hp_max * 100) if p.hp_max > 0 else 0,
+                }
+                for p in (pub.party or [])
+            ]
+            observation["in_battle"] = pub.system.in_battle if pub.system else False
+            observation["battle_outcome"] = pub.system.battle_outcome if pub.system else 0
+            observation["text_box_active"] = pub.system.text_box_active if pub.system else False
+            observation["enemy_hp_current"] = pub.system.enemy_hp_current if pub.system else 0
+            observation["enemy_hp_max"] = pub.system.enemy_hp_max if pub.system else 0
+            observation["enemy_hp_percentage"] = pub.system.enemy_hp_percentage if pub.system else 0.0
+            observation["badges"] = pub.progress.badges if pub.progress else 0
         # Attach latest PNG frame for VLM agents if available
         try:
             emulator = getattr(self.engine, "emulator", None)

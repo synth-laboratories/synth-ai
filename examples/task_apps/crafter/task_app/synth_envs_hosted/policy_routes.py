@@ -97,10 +97,32 @@ async def create_policy(
 
         # Set defaults from TaskApp / environment if not provided
         config = dict(request.config or {})
+        provider_raw = config.get("provider") or config.get("vendor")
+        provider = str(provider_raw).strip().lower() if provider_raw else None
+
+        # Resolve base URL for proxy endpoints (strip trailing slash)
+        base_url = str(req.base_url).rstrip("/")
+
+        if provider == "groq":
+            # Route through in-app Groq proxy by default
+            config.setdefault("inference_url", f"{base_url}/proxy/groq")
+            # Default to a recent Groq-hosted Qwen unless caller overrides
+            preferred_model = "qwen/qwen3-32b"
+            config.setdefault("model", preferred_model)
+            # Groq Qwen defaults tuned for deterministic tool use
+            config.setdefault("temperature", 0.0)
+            config.setdefault("top_p", 0.95)
+            config.setdefault("max_tokens", 256)
+            # Avoid leaking provider in downstream policy if unset
+            config["provider"] = "groq"
+        elif provider == "openai":
+            config.setdefault("inference_url", f"{base_url}/proxy")
+            config["provider"] = "openai"
+
         if "inference_url" not in config and task_app is not None:
-            base_url = getattr(task_app, "vllm_base_url", None)
-            if base_url:
-                config["inference_url"] = base_url
+            task_base_url = getattr(task_app, "vllm_base_url", None)
+            if task_base_url:
+                config["inference_url"] = task_base_url
         if "model" not in config and task_app is not None:
             default_model = getattr(task_app, "default_model", None)
             if default_model:

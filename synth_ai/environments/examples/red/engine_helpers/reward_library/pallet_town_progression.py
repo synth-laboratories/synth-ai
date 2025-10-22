@@ -31,7 +31,7 @@ class LeaveBedroomReward(RewardComponent):
             return 0.0
 
         prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
+        current_map = state.get("map_id", -1)
 
         # Detect moving from bedroom (map 1/0x01) to downstairs (map 2/0x02)
         # In Red's house, bedroom is map 1, downstairs is map 2
@@ -57,7 +57,7 @@ class ExitHouseFirstTimeReward(RewardComponent):
             return 0.0
 
         prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
+        current_map = state.get("map_id", -1)
 
         # Exit from house (map 2) to Pallet Town (map 0)
         if prev_map == 2 and current_map == 0:
@@ -82,7 +82,7 @@ class FindOakLabReward(RewardComponent):
             return 0.0
 
         prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
+        current_map = state.get("map_id", -1)
 
         # Entering Oak's lab (map 3/0x03) from Pallet Town (map 0)
         if prev_map == 0 and current_map == 3:
@@ -107,7 +107,7 @@ class TalkToOakReward(RewardComponent):
             return 0.0
 
         # Detect first dialogue in Oak's lab
-        if state["map_id"] == 3 and state["text_box_active"]:
+        if state.get("map_id", -1) == 3 and state.get("text_box_active", False):
             prev_text_active = action.get("prev_text_box_active", False)
             if not prev_text_active:
                 self.oak_talked_to = True
@@ -132,11 +132,11 @@ class ReceiveStarterPokemonReward(RewardComponent):
 
         # Detect receiving first Pokemon
         prev_party_count = action.get("prev_party_count", 0)
-        current_party_count = state["party_count"]
+        current_party_count = state.get("party_count", 0)
 
         if prev_party_count == 0 and current_party_count == 1:
             # Verify we're in Oak's lab
-            if state["map_id"] == 3:
+            if state.get("map_id", -1) == 3:
                 self.starter_received = True
                 return 100.0
         return 0.0
@@ -159,11 +159,11 @@ class EnterFirstBattleReward(RewardComponent):
 
         # Detect entering battle for the first time
         prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
+        current_in_battle = state.get("in_battle", False)
 
         if not prev_in_battle and current_in_battle:
             # Verify we're in Oak's lab (rival battle)
-            if state["map_id"] == 3:
+            if state.get("map_id", -1) == 3:
                 self.first_battle_entered = True
                 return 75.0
         return 0.0
@@ -187,8 +187,8 @@ class DealDamageToRivalReward(RewardComponent):
             return 0.0
 
         # Track damage during battle
-        if state["in_battle"]:
-            current_enemy_hp = state["enemy_hp_current"]
+        if state.get("in_battle", False):
+            current_enemy_hp = state.get("enemy_hp_current", 0)
             prev_enemy_hp = action.get("prev_enemy_hp_current", current_enemy_hp)
 
             # Detect HP decrease (damage dealt)
@@ -216,8 +216,8 @@ class ReduceEnemyHPByHalfReward(RewardComponent):
         if self.half_hp_achieved:
             return 0.0
 
-        if state["in_battle"]:
-            enemy_hp_pct = state["enemy_hp_percentage"]
+        if state.get("in_battle", False):
+            enemy_hp_pct = state.get("enemy_hp_percentage", 0.0)
             prev_enemy_hp_pct = action.get("prev_enemy_hp_percentage", 100.0)
 
             # Detect crossing below 50% threshold
@@ -243,8 +243,8 @@ class ReduceEnemyHPToLowReward(RewardComponent):
         if self.low_hp_achieved:
             return 0.0
 
-        if state["in_battle"]:
-            enemy_hp_pct = state["enemy_hp_percentage"]
+        if state.get("in_battle", False):
+            enemy_hp_pct = state.get("enemy_hp_percentage", 0.0)
             prev_enemy_hp_pct = action.get("prev_enemy_hp_percentage", 100.0)
 
             # Detect crossing below 25% threshold
@@ -272,13 +272,13 @@ class WinFirstBattleReward(RewardComponent):
 
         # Detect winning a battle (transition from in_battle to not in_battle with win outcome)
         prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
-        battle_outcome = state["battle_outcome"]
+        current_in_battle = state.get("in_battle", False)
+        battle_outcome = state.get("battle_outcome", 0)
 
         # battle_outcome: 0=ongoing, 1=win, 2=lose
         if prev_in_battle and not current_in_battle and battle_outcome == 1:
             # Verify it's in Oak's lab (the rival battle)
-            if state["map_id"] == 3:
+            if state.get("map_id", -1) == 3:
                 self.first_battle_won = True
                 return 150.0
 
@@ -301,12 +301,12 @@ class ExitLabAfterBattleReward(RewardComponent):
             return 0.0
 
         prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
+        current_map = state.get("map_id", -1)
 
         # Exit from lab (map 3) to town (map 0)
         if prev_map == 3 and current_map == 0:
             # Verify we have at least one Pokemon
-            if state["party_count"] > 0:
+            if state.get("party_count", 0) > 0:
                 self.exited_with_pokemon = True
                 return 60.0
 
@@ -330,16 +330,16 @@ class FirstBattleEfficiencyReward(RewardComponent):
             return 0.0
 
         # Track turn count during battle
-        if state["in_battle"]:
+        if state.get("in_battle", False):
             self.max_turns_seen = max(self.max_turns_seen, state.get("battle_turn", 0))
 
         # When battle ends with a win, assess efficiency
         prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
-        battle_outcome = state["battle_outcome"]
+        current_in_battle = state.get("in_battle", False)
+        battle_outcome = state.get("battle_outcome", 0)
 
         if prev_in_battle and not current_in_battle and battle_outcome == 1:
-            if state["map_id"] == 3:  # Rival battle in lab
+            if state.get("map_id", -1) == 3:  # Rival battle in lab
                 self.efficiency_rewarded = True
                 if self.max_turns_seen <= 5:
                     return 20.0
@@ -366,14 +366,14 @@ class KeepPokemonHealthyReward(RewardComponent):
 
         # Check health status when battle ends
         prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
-        battle_outcome = state["battle_outcome"]
+        current_in_battle = state.get("in_battle", False)
+        battle_outcome = state.get("battle_outcome", 0)
 
         if prev_in_battle and not current_in_battle and battle_outcome == 1:
-            if state["map_id"] == 3:  # Rival battle in lab
+            if state.get("map_id", -1) == 3:  # Rival battle in lab
                 # Check if first Pokemon has >50% HP
                 if len(state.get("party_pokemon", [])) > 0:
-                    first_pokemon = state["party_pokemon"][0]
+                    first_pokemon = state.get("party_pokemon", [])[0]
                     hp_pct = first_pokemon.get("hp_percentage", 0)
                     if hp_pct > 50.0:
                         self.health_bonus_given = True
@@ -404,10 +404,10 @@ class NavigationSpeedReward(RewardComponent):
 
         # Check if sequence is complete (exited lab with Pokemon after battle)
         prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
+        current_map = state.get("map_id", -1)
 
         if prev_map == 3 and current_map == 0:  # Exiting lab
-            if state["party_count"] > 0:  # Have Pokemon
+            if state.get("party_count", 0) > 0:  # Have Pokemon
                 self.sequence_complete = True
                 self.reward_given = True
 

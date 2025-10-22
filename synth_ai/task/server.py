@@ -70,7 +70,7 @@ class TaskAppConfig:
     provide_task_instances: InstanceProvider
     rollout: RolloutExecutor
     dataset_registry: TaskDatasetRegistry | None = None
-    rubrics: RubricBundle = field(default_factory=RubricBundle)
+    rubrics: RubricBundle | None = field(default_factory=RubricBundle)
     proxy: ProxyConfig | None = None
     routers: Sequence[APIRouter] = field(default_factory=tuple)
     middleware: Sequence[Middleware] = field(default_factory=tuple)
@@ -93,7 +93,7 @@ class TaskAppConfig:
             provide_task_instances=self.provide_task_instances,
             rollout=self.rollout,
             dataset_registry=self.dataset_registry,
-            rubrics=self.rubrics,
+            rubrics=self.rubrics or RubricBundle(),
             proxy=self.proxy,
             routers=tuple(self.routers),
             middleware=tuple(self.middleware),
@@ -221,6 +221,7 @@ def _auth_dependency_factory(config: TaskAppConfig) -> Callable[[Request], None]
 
 def create_task_app(config: TaskAppConfig) -> FastAPI:
     cfg = config.clone()
+    cfg.rubrics = cfg.rubrics or RubricBundle()
     app = FastAPI(title=cfg.name, description=cfg.description)
 
     for key, value in cfg.app_state.items():

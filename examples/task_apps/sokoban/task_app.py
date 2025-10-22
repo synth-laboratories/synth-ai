@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import httpx
@@ -20,11 +22,11 @@ from synth_ai.environments.examples.sokoban.taskset import (
 )
 from synth_ai.task.apps import TaskAppEntry, register_task_app
 from synth_ai.task.contracts import (
+    RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
     RolloutStep,
     RolloutTrajectory,
-    RolloutMetrics,
     TaskInfo,
 )
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
@@ -62,6 +64,178 @@ Valid action tokens are digits 0/1/2/3 or their direction words (left/up/right/d
 Mapping: 0=left, 1=up, 2=right, 3=down. Avoid undoing progress and focus on pushing boxes onto targets."""
 
 
+def _short_text(value: Any, *, limit: int = 280) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        text = value.strip()
+        return text if len(text) <= limit else text[: limit - 1] + "…"
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+    try:
+        text = json.dumps(value, ensure_ascii=False)
+    except Exception:
+        text = str(value)
+    text = text.strip()
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _summarize_observation(observation: Any) -> str:
+    if isinstance(observation, dict):
+        for key in ("room_text", "observation", "grid"):
+            value = observation.get(key)
+            if isinstance(value, str) and value.strip():
+                return _short_text(value, limit=512)
+        preview = {
+            key: observation.get(key)
+            for key in ("player_position", "boxes_on_target", "num_boxes", "steps_taken")
+            if key in observation
+        }
+        if preview:
+            return _short_text(preview, limit=512)
+    return _short_text(observation, limit=512)
+
+
+def _format_tool_calls(tool_calls: Sequence[Dict[str, Any]] | None) -> str:
+    if not tool_calls:
+        return "<noop>"
+    formatted: list[str] = []
+    for call in tool_calls:
+        args = call.get("args") if isinstance(call, dict) else None
+        action = None
+        if isinstance(args, dict):
+            action = args.get("action")
+        if action is None:
+            continue
+        try:
+            action = int(action)
+        except Exception:
+            pass
+        name = ACTION_ID_TO_NAME.get(action, str(action))
+        formatted.append(str(name))
+    return ", ".join(formatted) if formatted else "<noop>"
+
+
+def _build_trace_payload(
+    request: RolloutRequest,
+    steps: Sequence[RolloutStep],
+    metrics: RolloutMetrics,
+    *,
+    difficulty: str,
+    initial_observation: Any,
+    provider: str = "local",
+) -> Dict[str, Any]:
+    created_at = datetime.now(timezone.utc)
+    base_time = time.time()
+    event_history: list[dict[str, Any]] = []
+    markov_messages: list[dict[str, Any]] = []
+    session_steps: list[dict[str, Any]] = []
+
+    if not steps:
+        observation_text = _summarize_observation(initial_observation)
+        event_time = base_time
+        observation_msg = {
+            "content": {"text": observation_text},
+            "message_type": "observation",
+            "time_record": {"event_time": event_time},
+            "metadata": {"step_index": 0},
+        }
+        markov_messages.append(observation_msg)
+        event_history.append(
+            {
+                "system_instance_id": "sokoban.step.0",
+                "time_record": {"event_time": event_time},
+                "reward": 0.0,
+                "terminated": True,
+                "truncated": False,
+                "metadata": {
+                    "tool_calls": [],
+                },
+            }
+        )
+        session_steps.append(
+            {
+                "step_id": "step_0",
+                "step_index": 0,
+                "events": [event_history[-1]],
+                "markov_blanket_messages": markov_messages[-1:],
+                "step_metadata": {"reward": 0.0, "done": True, "truncated": False},
+            }
+        )
+    else:
+        for idx, step in enumerate(steps):
+            event_time = base_time + idx * 0.01
+            observation_text = _summarize_observation(step.obs)
+            action_text = _format_tool_calls(step.tool_calls)
+            observation_msg = {
+                "content": {"text": observation_text},
+                "message_type": "observation",
+                "time_record": {"event_time": event_time},
+                "metadata": {"step_index": idx},
+            }
+            action_msg = {
+                "content": {"text": action_text},
+                "message_type": "action",
+                "time_record": {"event_time": event_time + 0.0005},
+                "metadata": {"step_index": idx},
+            }
+            markov_messages.extend([observation_msg, action_msg])
+            reward_val = float(step.reward or 0.0)
+            event_history.append(
+                {
+                    "system_instance_id": f"sokoban.step.{idx}",
+                    "time_record": {"event_time": event_time},
+                    "reward": reward_val,
+                    "terminated": bool(step.done),
+                    "truncated": bool(step.truncated),
+                    "metadata": {
+                        "tool_calls": step.tool_calls,
+                        "info": step.info or {},
+                    },
+                }
+            )
+            session_steps.append(
+                {
+                    "step_id": f"step_{idx}",
+                    "step_index": idx,
+                    "events": [event_history[-1]],
+                    "markov_blanket_messages": [observation_msg, action_msg],
+                    "step_metadata": {
+                        "reward": reward_val,
+                        "done": bool(step.done),
+                        "truncated": bool(step.truncated),
+                    },
+                }
+            )
+
+    session_trace = {
+        "session_id": str(request.run_id),
+        "created_at": created_at.isoformat(),
+        "metadata": {
+            "task": "sokoban",
+            "difficulty": difficulty,
+            "seed": request.env.seed,
+            "provider": provider,
+            "env": request.env.model_dump(),
+            "policy": request.policy.model_dump(),
+        },
+        "session_time_steps": session_steps,
+        "event_history": event_history,
+        "markov_blanket_message_history": markov_messages,
+    }
+
+    return {
+        "version": 3,
+        "session_trace": session_trace,
+        "run_id": request.run_id,
+        "policy_id": request.policy.policy_id or request.policy.policy_name,
+        "reward": metrics.mean_return,
+        "episode_returns": metrics.episode_returns,
+        "mean_return": metrics.mean_return,
+        "num_steps": metrics.num_steps,
+    }
+
+
 
 def _task_info() -> TaskInfo:
     return TaskInfo(
@@ -97,6 +271,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     instance: SokobanTaskInstance = await create_task_instance_from_seed(str(difficulty), int(seed))
     env = SokobanEnvironment(instance)
     obs = await env.initialize()
+    initial_observation = obs
 
     tool_calls: List[Dict[str, Any]] = []
     # If a predefined action sequence is provided, execute it (evaluation-style)
@@ -139,6 +314,13 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         events_score=None,
         details={},
     )
+    trace_payload = _build_trace_payload(
+        request,
+        steps,
+        metrics,
+        difficulty=str(difficulty),
+        initial_observation=initial_observation,
+    )
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[traj],
@@ -146,6 +328,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         metrics=metrics,
         aborted=False,
         ops_executed=1 + executed,
+        trace=trace_payload,
     )
 
 
@@ -262,6 +445,7 @@ async def _rollout_with_groq(
     instance: SokobanTaskInstance = await create_task_instance_from_seed(str(difficulty), int(seed))
     env = SokobanEnvironment(instance)
     observation = await env.initialize()
+    initial_observation = observation
 
     model = config.get("model") or "qwen/qwen3-32b"
     temperature = float(config.get("temperature", 0.0) or 0.0)
@@ -379,6 +563,14 @@ async def _rollout_with_groq(
         events_score=None,
         details={"provider": "groq", "model": model},
     )
+    trace_payload = _build_trace_payload(
+        request,
+        steps,
+        metrics,
+        difficulty=str(difficulty),
+        initial_observation=initial_observation,
+        provider="groq",
+    )
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -386,6 +578,7 @@ async def _rollout_with_groq(
         metrics=metrics,
         aborted=False,
         ops_executed=executed,
+        trace=trace_payload,
     )
 
 
