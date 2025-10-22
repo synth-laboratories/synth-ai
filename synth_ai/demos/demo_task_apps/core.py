@@ -132,6 +132,25 @@ def load_demo_dir() -> str | None:
     return data.get("DEMO_DIR")
 
 
+def persist_template_id(template_id: str | None) -> None:
+    """Record the last materialised demo template id."""
+
+    data = _read_state()
+    if template_id is None:
+        data.pop("TEMPLATE_ID", None)
+    else:
+        data["TEMPLATE_ID"] = template_id
+    _write_state(data)
+
+
+def load_template_id() -> str | None:
+    """Return the stored demo template id, if any."""
+
+    data = _read_state()
+    value = data.get("TEMPLATE_ID")
+    return str(value) if isinstance(value, str) else None
+
+
 def persist_env_file_path(env_path: str) -> None:
     """Store the .env file path for subsequent commands."""
     data = _read_state()
