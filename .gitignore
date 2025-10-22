@@ -123,6 +123,7 @@ examples/finetuning/synth_qwen_v1/state.json
 synth_ai/learning/prompts/*.json
 synth_ai/learning/prompts/**/*.json
 examples/finetuning/_backup_synth_qwen/
+examples/agora_ex/
 
 # Ignore generic text and markdown files (except README.md)
 *.txt
@@ -142,6 +143,10 @@ node_modules/
 uv.lock
 local-trace_trace.json
 
+# Local CI and demo configs
+ci_local.sh
+demo_config.toml
+
 # Generated rollout artifacts and logs
 rollout_output.json
 groq_rollout.json
@@ -152,3 +157,6 @@ swe_mini_task_app.log.bak
 # Large vendor/test data accidentally committed
 astropy/
 _math_cache/
+ 
+# Customer-specific private data
+customers/
