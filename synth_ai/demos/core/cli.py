@@ -5,6 +5,8 @@ import contextlib
 import json
 import os
 import shutil
+import signal
+import socket
 import stat
 import sys
 import textwrap
@@ -178,9 +180,10 @@ def cmd_setup(_args: argparse.Namespace) -> int:
         demo_core.assert_http_ok(api + "/health", method="GET")
         # Intentionally suppress backend health print for concise output
     if env.task_app_base_url:
-        demo_core.assert_http_ok(
-            env.task_app_base_url.rstrip("/") + "/health", method="GET"
-        ) or demo_core.assert_http_ok(env.task_app_base_url.rstrip("/"), method="GET")
+        base = env.task_app_base_url.rstrip("/")
+        demo_core.assert_http_ok(base + "/health", method="GET") or demo_core.assert_http_ok(
+            base, method="GET"
+        )
         # Intentionally suppress task app health print
     else:
         print("\nSet your task app URL by running:\nuvx synth-ai demo deploy\n")
@@ -189,6 +192,7 @@ def cmd_setup(_args: argparse.Namespace) -> int:
 
     # Keep exit code neutral; not all checks are critical for pairing
     print(f"\nKeys saved to: {dotenv_path}")
+    print("\nNext step:\n$ uvx synth-ai demo deploy")
     return 0
 
 
@@ -287,6 +291,116 @@ def _popen_stream_capture(
 
 def _fmt_float(value: float) -> str:
     return f"{value:.10g}"
+
+
+def _ensure_local_port_available(host: str, port: int) -> bool:
+    """Ensure ``host:port`` is free before starting a local server."""
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        in_use = sock.connect_ex((host, port)) == 0
+    if not in_use:
+        return True
+
+    print(f"Port {port} on {host} is already in use.")
+    pids: list[int] = []
+    try:
+        import subprocess
+
+        out = subprocess.run(
+            ["lsof", "-ti", f"TCP:{port}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if out.stdout:
+            for line in out.stdout.strip().splitlines():
+                line = line.strip()
+                if line.isdigit():
+                    pids.append(int(line))
+    except Exception:
+        pass
+
+    if pids:
+        print("Found processes using this port:")
+        for pid in pids:
+            print(f"  PID {pid}")
+    else:
+        print("Could not automatically identify the owning process.")
+    try:
+        choice = (
+            input(f"Stop the existing process on port {port}? [y/N]: ").strip().lower() or "n"
+        )
+    except Exception:
+        choice = "n"
+    if not choice.startswith("y"):
+        print("Aborting deploy. Stop the running server and try again.")
+        return False
+
+    if not pids:
+        print("Please stop the existing server manually, then rerun this command.")
+        return False
+
+    terminated_any = False
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGTERM)
+            terminated_any = True
+        except Exception as exc:
+            print(f"Failed to terminate PID {pid}: {exc}")
+    if terminated_any:
+        time.sleep(1.0)
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        if sock.connect_ex((host, port)) != 0:
+            print(f"Cleared port {port}.")
+            return True
+
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            terminated_any = True
+        except Exception:
+            pass
+    if terminated_any:
+        time.sleep(0.5)
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        if sock.connect_ex((host, port)) != 0:
+            print(f"Cleared port {port}.")
+            return True
+
+    print(f"Port {port} is still in use. Stop the running server and rerun this command.")
+    return False
+
+
+def _normalize_endpoint_url(url: str) -> str:
+    """Convert loopback URLs to forms accepted by the backend."""
+
+    if not url:
+        return url
+    try:
+        from urllib.parse import urlparse, urlunparse
+
+        parsed = urlparse(url)
+        host = parsed.hostname or ""
+        if host in {"127.0.0.1", "::1"}:
+            new_host = "localhost"
+            netloc = new_host
+            if parsed.port:
+                netloc = f"{new_host}:{parsed.port}"
+            if parsed.username:
+                creds = parsed.username
+                if parsed.password:
+                    creds += f":{parsed.password}"
+                netloc = f"{creds}@{netloc}"
+            parsed = parsed._replace(netloc=netloc)
+            return urlunparse(parsed)
+    except Exception:
+        pass
+    return url
 
 
 def _find_asgi_apps(root: Path) -> list[Path]:
@@ -641,6 +755,16 @@ def _select_or_create_config(explicit: str | None, env: DemoEnv) -> str:
     return selected
 
 
+def _is_local_demo_url(url: str) -> bool:
+    try:
+        candidate = (url or "").strip().lower()
+        if not candidate:
+            return False
+        return candidate.startswith("http://127.0.0.1") or candidate.startswith("http://localhost")
+    except Exception:
+        return False
+
+
 def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEnv:
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)
@@ -651,10 +775,14 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
             f"[{label}] ENVIRONMENT_API_KEY missing. Run `uvx synth-ai demo deploy` first."
         )
 
+    template_id = demo_core.load_template_id()
+    allow_local = template_id == "crafter-local"
+
     task_url = env.task_app_base_url
-    if not task_url or not _is_modal_public_url(task_url):
+    url_ok = _is_modal_public_url(task_url) or (allow_local and _is_local_demo_url(task_url or ""))
+    if not task_url or not url_ok:
         resolved = ""
-        if env.task_app_name:
+        if env.task_app_name and not (allow_local and _is_local_demo_url(task_url or "")):
             try:
                 choice = (
                     input(f"Resolve URL from Modal for app '{env.task_app_name}'? [Y/n]: ")
@@ -683,34 +811,39 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
                             resolved = tok.strip().rstrip("/")
                             break
         if not resolved:
-            print(f"[{label}] Task app URL not configured or not a valid Modal public URL.")
-            print("Examples: https://<app-name>-fastapi-app.modal.run")
-            entered = input(
-                "Enter Task App base URL (must contain '.modal.run'), or press Enter to abort: "
-            ).strip()
-            if not entered or not _is_modal_public_url(entered):
+            hint = "Examples: https://<app-name>-fastapi-app.modal.run"
+            if allow_local:
+                hint += " or http://127.0.0.1:8001"
+            print(f"[{label}] Task app URL not configured or not a valid target.")
+            print(hint)
+            entered = input("Enter Task App base URL (or press Enter to abort): ").strip()
+            if not entered:
+                raise RuntimeError(f"[{label}] Task App URL is required.")
+            entered_clean = entered.rstrip("/")
+            if not (_is_modal_public_url(entered_clean) or (allow_local and _is_local_demo_url(entered_clean))):
                 raise RuntimeError(f"[{label}] Valid Task App URL is required.")
-            task_url = entered.rstrip("/")
+            task_url = entered_clean
         else:
             task_url = resolved
         demo_core.persist_task_url(task_url, name=(env.task_app_name or None))
 
     app_name = env.task_app_name.strip()
-    if not app_name:
+    requires_modal_name = _is_modal_public_url(task_url)
+    if requires_modal_name and not app_name:
         fallback = input("Enter Modal app name for the task app (required): ").strip()
         if not fallback:
             raise RuntimeError(f"[{label}] Task app name is required.")
         app_name = fallback
         demo_core.persist_task_url(task_url, name=app_name)
 
-    demo_core.persist_task_url(task_url, name=app_name)
-    demo_core.persist_dotenv_values(
-        {
-            "TASK_APP_BASE_URL": task_url,
-            "TASK_APP_NAME": app_name,
-            "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
-        }
-    )
+    demo_core.persist_task_url(task_url, name=app_name if requires_modal_name else None)
+    persist_values = {
+        "TASK_APP_BASE_URL": task_url,
+        "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
+    }
+    if requires_modal_name and app_name:
+        persist_values["TASK_APP_NAME"] = app_name
+    demo_core.persist_dotenv_values(persist_values)
 
     if synth_key:
         os.environ["SYNTH_API_KEY"] = synth_key
@@ -755,7 +888,7 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     updated_env = demo_core.load_env()
     updated_env.env_api_key = env_key
     updated_env.task_app_base_url = task_url
-    updated_env.task_app_name = app_name
+    updated_env.task_app_name = app_name if requires_modal_name else ""
     updated_env.task_app_secret_name = DEFAULT_TASK_APP_SECRET_NAME
     return updated_env
 
@@ -767,35 +900,89 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         os.chdir(demo_dir)
         print(f"Using demo directory: {demo_dir}")
 
+    template_id = demo_core.load_template_id()
     env = demo_core.load_env()
     os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
     cwd_env_path = os.path.join(os.getcwd(), ".env")
     local_env = demo_core.load_dotenv_file(cwd_env_path)
     url = ""
     app_name = env.task_app_name or ""
+    local_proc = None
     try:
+        is_local_template = template_id == "crafter-local"
+        if is_local_template and not args.local:
+            print("Detected Crafter demo template; defaulting to local FastAPI deployment.")
+            args.local = True
         if args.local:
             print("Starting local Task App…")
             import subprocess
 
-            subprocess.Popen(
-                [
+            cwd = os.getcwd()
+            run_env = os.environ.copy()
+            if is_local_template:
+                run_env.setdefault("TASKAPP_TRACING_ENABLED", "1")
+                traces_dir = os.path.join(cwd, "traces", "v3")
+                run_env.setdefault("TASKAPP_SFT_OUTPUT_DIR", traces_dir)
+            target = "http://127.0.0.1:8080"
+            local_cmd: list[str]
+            env_file_path = os.path.join(cwd, ".env")
+            if is_local_template:
+                task_app_path = os.path.join(cwd, "task_app.py")
+                if not os.path.isfile(task_app_path):
+                    raise FileNotFoundError(
+                        "Expected task_app.py in demo directory for Crafter template"
+                    )
+                target = "http://127.0.0.1:8001"
+                if not _ensure_local_port_available("127.0.0.1", 8001):
+                    return 1
+                local_cmd = [
+                    sys.executable,
+                    task_app_path,
+                    "--host",
+                    "0.0.0.0",
+                    "--port",
+                    "8001",
+                ]
+                if os.path.isfile(env_file_path):
+                    local_cmd.extend(["--env-file", env_file_path])
+            else:
+                if not _ensure_local_port_available("127.0.0.1", 8080):
+                    return 1
+                local_cmd = [
                     sys.executable,
                     "-c",
                     "from synth_ai.demos.demo_task_apps.math.app import run; run()",
-                ],
+                ]
+            proc = subprocess.Popen(
+                local_cmd,
                 stdout=sys.stdout,
                 stderr=sys.stderr,
+                cwd=cwd,
+                env=run_env,
             )
-            target = "http://127.0.0.1:8080"
+            print(
+                "\nLocal server is running in this terminal. Leave this window open and run the next step from a new terminal.\n"
+                "Press Ctrl+C here when you're ready to stop the server.\n"
+            )
+            local_proc = proc
             app_name = ""
-            for _ in range(30):
-                if demo_core.assert_http_ok(
-                    target + "/health", method="GET"
-                ) or demo_core.assert_http_ok(target, method="GET"):
+            for _ in range(60):
+                if proc.poll() is not None:
+                    break
+                if demo_core.assert_http_ok(target + "/health", method="GET") or demo_core.assert_http_ok(
+                    target, method="GET"
+                ):
                     url = target
                     break
                 time.sleep(1)
+            if not url:
+                print("Failed to verify local task app health. See logs above.")
+                if local_proc and local_proc.poll() is None:
+                    with contextlib.suppress(Exception):
+                        local_proc.send_signal(signal.SIGINT)
+                    with contextlib.suppress(Exception):
+                        local_proc.wait(timeout=5)
+                return 2
         else:
             # Auto-detect app path if not supplied; prompt interactively from discovered ASGI apps
             app_path = os.path.abspath(args.app) if args.app else None
@@ -1029,10 +1216,41 @@ def cmd_deploy(args: argparse.Namespace) -> int:
         if app_name:
             print(f"  export TASK_APP_NAME={app_name}")
         print(f"Persisted to {dotenv_path}")
-        print("\nNext step:\n$ uvx synth-ai run")
+        if is_local_template:
+            demo_dir = Path(os.getcwd()).resolve()
+            print("\nNext steps (local workflow):")
+            print("  # In a separate terminal:")
+            print(f"  cd {demo_dir}")
+            print("  uvx python run_local_rollout_traced.py")
+            print("  uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl")
+            print("  # Optional lighter run")
+            print("  uvx python run_local_rollout.py")
+            print("\nRemote job submission (`synth-ai demo run`) requires a publicly reachable task app.")
+        else:
+            print(
+                "\nNext step:\n$ uvx synth-ai demo run\n"
+                "(Run this in a separate terminal while leaving this server running.)"
+            )
+        if local_proc is not None:
+            print("\nPress Ctrl+C here to stop the local server and exit this command.\n")
+            try:
+                local_proc.wait()
+            except KeyboardInterrupt:
+                print("Stopping local server…")
+                with contextlib.suppress(Exception):
+                    local_proc.send_signal(signal.SIGINT)
+                try:
+                    local_proc.wait(timeout=10)
+                except Exception:
+                    with contextlib.suppress(Exception):
+                        local_proc.kill()
+                print("Local server stopped.")
         return 0
     except Exception as e:
         print(f"Deploy error: {e}")
+        if local_proc and local_proc.poll() is None:
+            with contextlib.suppress(Exception):
+                local_proc.kill()
         return 2
 
     print("`demo configure` prepares environment and secrets; `synth-ai run` now handles launches.")
@@ -1167,12 +1385,12 @@ def cmd_init(args: argparse.Namespace) -> int:
     if args.dest:
         default_dest = Path(args.dest).expanduser().resolve()
     else:
-        primary_dest = Path.cwd() / default_subdir
-        if primary_dest.exists() and any(primary_dest.iterdir()):
-            # Switch to local_demos/ automatically if primary location is occupied
-            default_dest = (Path.cwd() / "local_demos" / default_subdir).resolve()
-        else:
-            default_dest = primary_dest.resolve()
+        default_dest = (Path.cwd() / default_subdir).resolve()
+        if default_dest.exists() and any(default_dest.iterdir()):
+            print(
+                f"\nDestination {default_dest} already exists and is not empty.\n"
+                "Choose a new path or confirm overwrite when prompted."
+            )
 
     try:
         dest_input = input(f"Destination directory [{default_dest}]: ").strip()
@@ -1317,6 +1535,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         # Store demo directory for subsequent commands
         demo_core.persist_demo_dir(str(destination))
+        demo_core.persist_template_id(selected.template_id)
 
         # Store .env path if it was created
         env_file = destination / ".env"
@@ -1333,6 +1552,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             print(f"  - {selected.config_destination}")
         print("\nDemo directory stored. Subsequent commands will use this directory automatically.")
         print("Review the files, edit .env, and run any provided deploy scripts when ready.")
+        print("\nNext step:\n$ uvx synth-ai demo setup")
         return 0
     except KeyboardInterrupt:
         print("Aborted")
@@ -1495,9 +1715,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"[run] {_key_preview(sk, 'SYNTH_API_KEY')}")
     except Exception:
         pass
+    endpoint_base_url = _normalize_endpoint_url(env.task_app_base_url)
     data_fragment: dict[str, Any] = {
         "model": model_name,
-        "endpoint_base_url": env.task_app_base_url,
+        "endpoint_base_url": endpoint_base_url,
         "config": inline_cfg,
         "config_toml": toml_text,
         "config_source": "toml_inline",
@@ -1680,6 +1901,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             print("Timeout waiting for terminal state.")
             break
         time.sleep(2)
+    print("\nNext step:\n$ uvx synth-ai demo run --help")
     return 0
 
 
