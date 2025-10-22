@@ -26,20 +26,17 @@ def deploy(script_path: str | None = None, *, env_api_key: str | None = None) ->
     if env_api_key:
         envp["ENVIRONMENT_API_KEY"] = env_api_key
 
-    # Path-based deployment (preferred when a canonical script is supplied)
     if script_path:
         script_path = os.path.abspath(script_path)
         if not os.path.isfile(script_path):
             raise FileNotFoundError(f"Deploy script not found: {script_path}")
         subprocess.check_call(["bash", script_path], cwd=os.path.dirname(script_path), env=envp)
-        # Try common log names in the same directory
         for name in (".last_deploy.log", ".last_deploy.dev.log", ".last_deploy.manual.log"):
             url = _parse_public_url_from_log(os.path.join(os.path.dirname(script_path), name))
             if url:
                 return url
         raise RuntimeError("Deployed, but failed to extract Modal public URL from deploy logs.")
 
-    # Python-based deployment via examples.rl.task_app (if available)
     try:
         import importlib
 
@@ -50,8 +47,8 @@ def deploy(script_path: str | None = None, *, env_api_key: str | None = None) ->
                 raise RuntimeError("examples.rl.task_app.deploy() returned empty URL")
             return str(url).rstrip("/")
         raise RuntimeError("examples.rl.task_app.deploy() not found")
-    except Exception as e:
+    except Exception as exc:
         raise RuntimeError(
-            f"No deploy script provided and Python-based deploy failed: {e}. "
+            f"No deploy script provided and Python-based deploy failed: {exc}. "
             "Pass --script /path/to/deploy_task_app.sh to demo.deploy."
-        ) from e
+        ) from exc

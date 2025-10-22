@@ -5,7 +5,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
 ## Remote (Modal) Math Demo
 
 - Template: `math-modal` (`synth-ai demo init --template math-modal`)
-- Config: `synth_ai/demos/demo_task_apps/math/config.toml`
+- Config: `synth_ai/demos/math/config.toml`
 - Workflow:
   1. `uvx synth-ai demo init` (choose `math-modal`)
   2. `uvx synth-ai demo setup`
@@ -19,7 +19,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
 ## Local Crafter Demo
 
 - Template: `crafter-local` (`synth-ai demo init --template crafter-local`)
-- Config: `synth_ai/demos/demo_task_apps/crafter/configs/rl_from_base_qwen4b.toml`
+- Config: `synth_ai/demos/crafter/configs/rl_from_base_qwen4b.toml`
 - Workflow:
   1. `uvx synth-ai demo init` (choose `crafter-local`)
   2. `uvx synth-ai demo setup`

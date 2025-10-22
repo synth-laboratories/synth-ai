@@ -8,8 +8,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai.cli.lib.user_config import load_user_config, update_user_config
 
-DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
+DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"
 
 
 @dataclass
@@ -28,15 +29,23 @@ def _mask(value: str, keep: int = 4) -> str:
     return value[:keep] + "…" if len(value) > keep else value
 
 
-def _state_path() -> str:
-    return os.path.expanduser("~/.synth-ai/demo.json")
+_LEGACY_STATE_PATH = os.path.expanduser("~/.synth-ai/demo.json")
+_STATE_KEYS = {
+    "DEMO_DIR",
+    "TEMPLATE_ID",
+    "ENV_FILE_PATH",
+    "SYNTH_API_KEY",
+    "ENVIRONMENT_API_KEY",
+    "TASK_APP_BASE_URL",
+    "TASK_APP_NAME",
+    "TASK_APP_SECRET_NAME",
+}
 
 
-def _read_state() -> dict[str, Any]:
+def _legacy_read_state() -> dict[str, Any]:
     try:
-        path = _state_path()
-        if os.path.isfile(path):
-            with open(path) as fh:
+        if os.path.isfile(_LEGACY_STATE_PATH):
+            with open(_LEGACY_STATE_PATH) as fh:
                 data = json.load(fh) or {}
                 return data if isinstance(data, dict) else {}
     except Exception:
@@ -44,9 +53,52 @@ def _read_state() -> dict[str, Any]:
     return {}
 
 
+def _read_state() -> dict[str, Any]:
+    config = load_user_config()
+    data: dict[str, Any] = {
+        key: config[key]
+        for key in _STATE_KEYS
+        if key in config and config[key] not in (None, "")
+    }
+    if data:
+        return data
+    return _legacy_read_state()
+
+
 def _write_state(data: dict[str, Any]) -> None:
+    update_user_config({k: v for k, v in data.items() if k in _STATE_KEYS})
+
+
+def _task_app_config_path() -> str:
+    return os.path.expanduser("~/.synth-ai/task_app_config.json")
+
+
+def _read_task_app_config() -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    path = _task_app_config_path()
     try:
-        path = _state_path()
+        if os.path.isfile(path):
+            with open(path) as fh:
+                loaded = json.load(fh) or {}
+                if isinstance(loaded, dict):
+                    data.update(loaded)
+    except Exception:
+        data = {}
+
+    if data:
+        return data
+
+    # Legacy fallback: reuse values from demo.json if new config absent.
+    legacy = _read_state()
+    for key in ("TASK_APP_BASE_URL", "TASK_APP_NAME", "TASK_APP_SECRET_NAME", "ENVIRONMENT_API_KEY"):
+        if key in legacy:
+            data[key] = legacy[key]
+    return data
+
+
+def _write_task_app_config(data: dict[str, Any]) -> None:
+    try:
+        path = _task_app_config_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as fh:
             json.dump(data, fh)
@@ -114,9 +166,9 @@ def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> 
 
 
 def persist_env_api_key(key: str) -> None:
-    data = _read_state()
+    data = _read_task_app_config()
     data["ENVIRONMENT_API_KEY"] = key
-    _write_state(data)
+    _write_task_app_config(data)
 
 
 def persist_demo_dir(demo_dir: str) -> None:
@@ -133,7 +185,7 @@ def load_demo_dir() -> str | None:
 
 
 def persist_template_id(template_id: str | None) -> None:
-    """Record the last materialised demo template id."""
+    """Record the last materialized demo template id."""
 
     data = _read_state()
     if template_id is None:
@@ -234,14 +286,13 @@ def load_env() -> DemoEnv:
     cwd_env = load_dotenv_file(cwd_env_path)
 
     # Repo/package .envs (fallbacks)
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
     repo_env = load_dotenv_file(os.path.join(repo_root, ".env"))
-    pkg_env = load_dotenv_file(
-        os.path.join(repo_root, "synth_ai", "demos", "demo_task_apps", "math", ".env")
-    )
+    pkg_env = load_dotenv_file(os.path.join(repo_root, "synth_ai", "demos", "math", ".env"))
     examples_env = load_dotenv_file(os.path.join(repo_root, "examples", "rl", ".env"))
 
     state = _read_state()
+    task_state = _read_task_app_config()
 
     default_root = PROD_BASE_URL_DEFAULT.rstrip("/")
     prod_default = f"{default_root}/api"
@@ -320,7 +371,7 @@ def load_env() -> DemoEnv:
         or repo_env.get("ENVIRONMENT_API_KEY")
         or pkg_env.get("ENVIRONMENT_API_KEY")
         or examples_env.get("ENVIRONMENT_API_KEY")
-        or str(state.get("ENVIRONMENT_API_KEY") or "")
+        or str(task_state.get("ENVIRONMENT_API_KEY") or "")
     )
 
     # Task app URL
@@ -329,11 +380,11 @@ def load_env() -> DemoEnv:
         or cwd_env.get("TASK_APP_BASE_URL")
         or repo_env.get("TASK_APP_BASE_URL")
         or pkg_env.get("TASK_APP_BASE_URL")
-        or str(state.get("TASK_APP_BASE_URL") or "")
+        or str(task_state.get("TASK_APP_BASE_URL") or "")
     )
 
-    task_app_name = str(state.get("TASK_APP_NAME") or "")
-    task_app_secret_name = str(state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
+    task_app_name = str(task_state.get("TASK_APP_NAME") or "")
+    task_app_secret_name = str(task_state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
 
     env.dev_backend_url = dev_url.rstrip("/")
     env.synth_api_key = synth_api_key
@@ -342,8 +393,6 @@ def load_env() -> DemoEnv:
     env.task_app_name = task_app_name
     env.task_app_secret_name = task_app_secret_name
 
-    # Suppress environment echo by default for cleaner CLI output.
-    # If needed for debugging, set SYNTH_CLI_VERBOSE=1 to print resolved values.
     if os.getenv("SYNTH_CLI_VERBOSE", "0") == "1":
         print("ENV:")
         print(f"  DEV_BACKEND_URL={env.dev_backend_url}")
@@ -364,8 +413,6 @@ def assert_http_ok(
         import ssl
 
         req = urllib.request.Request(url, method=method)
-        # Default: disable SSL verification for local/dev convenience.
-        # Set SYNTH_SSL_VERIFY=1 to enable verification.
         ctx = ssl._create_unverified_context()  # nosec: disabled by default for dev
         if os.getenv("SYNTH_SSL_VERIFY", "0") == "1":
             ctx = None
@@ -378,11 +425,9 @@ def assert_http_ok(
 
 def deploy_modal_math(env: DemoEnv) -> str:
     """Deploy Math Task App to Modal using in-repo deploy script; return public URL."""
-    # Prefer the script colocated under demo_task_apps/math relative to this file
     this_dir = os.path.dirname(__file__)
     demo_script = os.path.join(this_dir, "math", "deploy_task_app.sh")
-    # Fallback to top-level examples path if needed (repo root heuristic)
-    repo_root = os.path.abspath(os.path.join(this_dir, "../../.."))
+    repo_root = os.path.abspath(os.path.join(this_dir, "../.."))
     fallback_script = os.path.join(repo_root, "examples", "rl", "deploy_task_app.sh")
     script = demo_script if os.path.isfile(demo_script) else fallback_script
     if not os.path.isfile(script):
@@ -394,7 +439,6 @@ def deploy_modal_math(env: DemoEnv) -> str:
     print(f"Deploying Math Task App to Modal using: {script}")
     subprocess.check_call(["bash", script], cwd=os.path.dirname(script), env=envp)
 
-    # Read last deploy log for URL
     for candidate in (".last_deploy.log", ".last_deploy.dev.log", ".last_deploy.manual.log"):
         p = os.path.join(os.path.dirname(script), candidate)
         try:
@@ -408,7 +452,7 @@ def deploy_modal_math(env: DemoEnv) -> str:
 
 
 def persist_task_url(url: str, *, name: str | None = None) -> None:
-    data = _read_state()
+    data = _read_task_app_config()
     changed: list[str] = []
     if data.get("TASK_APP_BASE_URL") != url:
         data["TASK_APP_BASE_URL"] = url
@@ -423,9 +467,9 @@ def persist_task_url(url: str, *, name: str | None = None) -> None:
     elif data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
         data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
         changed.append("TASK_APP_SECRET_NAME")
-    _write_state(data)
+    _write_task_app_config(data)
     if changed:
-        print(f"Saved {', '.join(changed)} to {_state_path()}")
+        print(f"Saved {', '.join(changed)} to {_task_app_config_path()}")
         if "TASK_APP_SECRET_NAME" in changed:
             print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
 

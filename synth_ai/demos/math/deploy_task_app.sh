@@ -7,7 +7,7 @@ rm -f "$log_file"
 
 : "${ENVIRONMENT_API_KEY:=}"
 
-repo_root="$(cd "${script_dir}/../../../.." && pwd)"
+repo_root="$(cd "${script_dir}/../../.." && pwd)"
 fallback_script="${repo_root}/examples/rl/deploy_task_app.sh"
 
 if [[ -f "${fallback_script}" ]]; then
@@ -19,4 +19,3 @@ else
 fi
 
 echo "Deploy finished. Inspect $log_file for the public URL (…modal.run)." | tee -a "$log_file"
-

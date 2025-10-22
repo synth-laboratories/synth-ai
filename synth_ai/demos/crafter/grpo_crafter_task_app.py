@@ -15,13 +15,13 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
+
 from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
 
 def _load_build_config():
-    # Find synth_ai package location to locate examples/
     import synth_ai
 
     synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
@@ -49,7 +49,6 @@ APP_ID = "grpo-crafter"
 
 
 def _build_base_config() -> TaskAppConfig:
-    # Lazily construct the base config to avoid heavy work at import time
     return build_config()
 
 
@@ -64,18 +63,13 @@ else:
 
 
 def build_task_app_config() -> TaskAppConfig:
-    """Return a fresh TaskAppConfig for this wrapper."""
-
     base = _build_base_config()
     return base.clone()
 
 
 def fastapi_app():
-    """Return the FastAPI application for Modal or other ASGI hosts."""
-
     app = create_task_app(build_task_app_config())
 
-    # Replace default health endpoints so we can permit soft auth failures and log 422s.
     filtered_routes = []
     for route in app.router.routes:
         path = getattr(route, "path", None)
@@ -159,7 +153,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    default_env = Path(__file__).resolve().parents[4] / "backend" / ".env.dev"
+    default_env = Path(__file__).resolve().parents[3] / "backend" / ".env.dev"
     env_files = [str(default_env)] if default_env.exists() else []
     env_files.extend(args.env_file or [])
 

@@ -11,11 +11,9 @@ from modal import App, Image, Secret, asgi_app
 from starlette.requests import Request
 
 try:  # Backward compatibility with older installed SDKs
-    from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME
+    from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME
 except Exception:  # pragma: no cover - occurs on older deployments
     DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-secret"
-
-# Self-contained: no external problem bank installer required
 
 
 _HERE = Path(__file__).resolve()
@@ -48,8 +46,6 @@ image = Image.debian_slim(python_version="3.11").pip_install(
 )
 if _SYNTH_HOSTED is not None:
     image = image.add_local_dir(str(_SYNTH_HOSTED), "/app/synth_envs_hosted")
-
-# No extra local dirs required; app is self-contained
 
 
 def _build_inline_secret() -> Secret:
@@ -152,7 +148,6 @@ def fastapi_app():
             candidates = _split(single + multi + bearer)
             return any(candidate == expected for candidate in candidates)
 
-    # Inline, self-contained FastAPI app (math-only)
     @lru_cache(maxsize=1)
     def _hf_split(subject: str, split: str, slice_spec: str | None = None):
         from datasets import load_dataset  # type: ignore
@@ -175,13 +170,13 @@ def fastapi_app():
     def _normalize_answer_text(s: str) -> str:
         import re as _re
 
-        return _re.sub(r"[^0-9A-Za-z.+\-/*=]", "", (s or "").strip()).lower()
+        return _re.sub(r"[^0-9A-Za-z.+\\-/*=]", "", (s or "").strip()).lower()
 
     def _extract_boxed(s: str) -> str:
         import re as _re
 
-        m = list(_re.finditer(r"\\boxed\{([^}]+)\}", s or ""))
-        return m[-1].group(1) if m else ""
+        matches = list(_re.finditer(r"\\boxed\\{([^}]+)\\}", s or ""))
+        return matches[-1].group(1) if matches else ""
 
     def _load_hendrycks_problem(seed: int, subject: str | None = None) -> tuple[str, str]:
         subj = subject or os.getenv("HENDRYCKS_MATH_CONFIG", "default")
@@ -206,7 +201,8 @@ def fastapi_app():
             raise RuntimeError("Hendrycks item missing problem text")
         return str(q), str(a)
 
-    def create_app() -> FastAPI:
+    def create_app():
+
         app = FastAPI(title="Hendrycks Math Task App", version="0.1.0")
         app.add_middleware(
             CORSMiddleware,
@@ -307,7 +303,6 @@ def fastapi_app():
                     status_code=503,
                     content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
                 )
-            # Authorize using all header variants; avoid typed Header params to prevent 422s
             authorized = is_api_key_header_authorized(request)
             if not authorized:
                 prefix = _log_env_key_prefix("health", env_key)
@@ -320,7 +315,6 @@ def fastapi_app():
                 return JSONResponse(status_code=200, content=content)
             return {"status": "healthy", "authorized": True}
 
-        # Optional rollout-specific health for CLI compatibility
         @app.get("/health/rollout")
         async def health_rollout(request: Request):
             env_keys = _resolve_env_keys()
@@ -342,11 +336,8 @@ def fastapi_app():
                 return JSONResponse(status_code=200, content=content)
             return {"ok": True, "authorized": True}
 
-        # _load_hendrycks_problem is defined at fastapi_app scope
-
         @app.get("/task_info")
         async def task_info(seed: int = 0, subject: str = "default"):
-            """Return Hendrycks MATH problem/answer and tool schema for a seed."""
             q, a = _load_hendrycks_problem(int(seed), subject=subject)
             tools = [
                 {
@@ -378,7 +369,6 @@ def fastapi_app():
 
     api = create_app()
 
-    # Always log and surface 422 validation errors with header presence snapshot
     from fastapi.exceptions import RequestValidationError
 
     @api.exception_handler(RequestValidationError)
@@ -438,6 +428,7 @@ def fastapi_app():
                 sanitized["tool_choice"] = tool_choice_force
                 sanitized["parallel_tool_calls"] = False
             return sanitized
+        return sanitized
 
     @api.post("/proxy/v1/chat/completions")
     def proxy_chat_completions(request: dict[str, object] = Body(...)):
@@ -465,7 +456,6 @@ def fastapi_app():
                 return JSONResponse(status_code=resp.status_code, content=data)
             return data
 
-    # Minimal math rollout endpoint: alternates agent/env; calls inference_url chat/completions
     @api.post("/rollout")
     def rollout(request: dict[str, object] = Body(...)):
         import json as _json
@@ -483,9 +473,7 @@ def fastapi_app():
         model = policy_cfg.get("model")
         inference_url = (policy_cfg.get("inference_url") or "").rstrip("/")
 
-        # ALWAYS derive question/answer from Hendrycks dataset using seed/subject
         env_cfg = (env or {}).get("config") or {}
-        # Prefer env.seed; fall back to env.config.seed -> default 0
         try:
             seed_val = (
                 int((env or {}).get("seed"))
@@ -506,13 +494,11 @@ def fastapi_app():
         subject = (env_cfg.get("subject") if isinstance(env_cfg, dict) else None) or os.getenv(
             "HENDRYCKS_MATH_CONFIG", "default"
         )
-        # Load real Hendrycks problem text/solution (download if necessary). Crash on failure.
         qh, ah = _load_hendrycks_problem(seed_val, subject=subject)
         question = qh
         expected_answer = ah
 
         def _prepare_payload(m: str | None, payload: dict[str, Any]) -> dict[str, Any]:
-            # Remove vendor-specific fields and force tool choice for math interaction
             sanitized = dict(payload)
             for k in ("stop_after_tool_calls", "thinking_mode", "thinking_budget", "reasoning"):
                 sanitized.pop(k, None)
@@ -521,109 +507,90 @@ def fastapi_app():
                     sanitized["max_completion_tokens"] = sanitized.pop("max_tokens")
                 else:
                     sanitized.pop("max_tokens", None)
-                for field in ("temperature", "top_p"):
-                    sanitized.pop(field, None)
-                sanitized["tool_choice"] = {
-                    "type": "function",
-                    "function": {"name": "submit_answer"},
-                }
+                sanitized["tool_choice"] = tool_choice_force
                 sanitized["parallel_tool_calls"] = False
             return sanitized
 
-        def _parse_tool_answer(resp: dict[str, Any]) -> str:
-            try:
-                choices = resp.get("choices")
-                if isinstance(choices, list) and choices:
-                    msg = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
-                    tcs = msg.get("tool_calls")
-                    if isinstance(tcs, list) and tcs:
-                        fn = tcs[0].get("function", {}) if isinstance(tcs[0], dict) else {}
-                        args = fn.get("arguments")
-                        obj: dict[str, Any] = {}
-                        if isinstance(args, str):
-                            try:
-                                obj = _json.loads(args)
-                            except Exception:
-                                obj = {}
-                        elif isinstance(args, dict):
-                            obj = args
-                        ans = obj.get("answer")
-                        if isinstance(ans, str):
-                            return ans.strip()
-            except Exception:
-                pass
+        def _parse_tool_answer(payload: dict[str, Any]) -> str:
+            choices = payload.get("choices") if isinstance(payload, dict) else None
+            if not isinstance(choices, list):
+                return ""
+            for choice in choices:
+                if not isinstance(choice, dict):
+                    continue
+                tool_calls = choice.get("tool_calls")
+                if not isinstance(tool_calls, list):
+                    continue
+                for call in tool_calls:
+                    if not isinstance(call, dict):
+                        continue
+                    function = call.get("function")
+                    if not isinstance(function, dict):
+                        continue
+                    if function.get("name") != "submit_answer":
+                        continue
+                    arguments = function.get("arguments")
+                    if isinstance(arguments, str):
+                        try:
+                            parsed = _json.loads(arguments)
+                        except Exception:
+                            parsed = {}
+                        if isinstance(parsed, dict):
+                            answer = parsed.get("answer")
+                            if isinstance(answer, str):
+                                return answer
+                    elif isinstance(arguments, dict):
+                        answer = arguments.get("answer")
+                        if isinstance(answer, str):
+                            return answer
             return ""
 
-        # Single-step rollout: one agent call followed by evaluation of the returned tool answer
-        history: list[dict[str, Any]] = []
         steps: list[dict[str, Any]] = []
+        history: list[dict[str, Any]] = []
         total_reward = 0.0
 
-        user_prompt = (
-            str(question)
-            if isinstance(question, str | int | float) and str(question).strip()
-            else "Solve the problem. Provide answer steps succinctly."
+        def _call_inference(input_messages: list[dict[str, Any]]):
+            payload = {
+                "model": model,
+                "messages": input_messages,
+                "max_completion_tokens": policy_cfg.get("max_tokens", 512),
+                "temperature": policy_cfg.get("temperature", 0.0),
+                "tool_choice": tool_choice_force,
+            }
+            body = _prepare_payload(model if isinstance(model, str) else None, payload)
+            with httpx.Client(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
+                resp = client.post(f"{inference_url}/v1/chat/completions", json=body)
+                resp.raise_for_status()
+            return resp.json()
+
+        messages = [
+            {"role": "system", "content": "You are a math expert. Solve the problem step by step."},
+            {"role": "user", "content": question},
+        ]
+
+        steps.append(
+            {
+                "obs": {"prompt": question},
+                "tool_calls": [],
+                "reward": None,
+                "done": False,
+                "truncated": False,
+                "info": None,
+            }
         )
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": user_prompt}],
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "submit_answer",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "answer": {"type": "string"},
-                            },
-                            "required": ["answer"],
-                        },
-                    },
-                }
-            ],
-            "max_tokens": 256,
-            "temperature": 0.2,
-        }
-        to_send = _prepare_payload(model if isinstance(model, str) else None, payload)
+        history.append({"question": question, "subject": subject})
 
-        try:
-            tool_names = []
-            for t in payload.get("tools") or []:
-                if isinstance(t, dict):
-                    fn = (t.get("function") or {}) if isinstance(t.get("function"), dict) else {}
-                    name = fn.get("name")
-                    if isinstance(name, str):
-                        tool_names.append(name)
-            print("[math] system: <none>", flush=True)
-            print(f"[math] user: {user_prompt}", flush=True)
-            print(f"[math] tools: {tool_names}", flush=True)
-        except Exception:
-            pass
-
-        headers = {}
-        if "/proxy" in inference_url:
-            sk = os.environ.get("SYNTH_API_KEY")
-            if sk:
-                headers["Authorization"] = f"Bearer {sk}"
-        with httpx.Client(timeout=httpx.Timeout(180.0), follow_redirects=True) as client:
-            resp = client.post(
-                f"{inference_url}/v1/chat/completions", json=to_send, headers=headers
-            )
-            try:
-                data = resp.json()
-            except Exception:
-                data = {"error": "invalid_json", "raw": resp.text[:400]}
+        data = _call_inference(messages)
 
         llm_text = None
         try:
-            _choices = data.get("choices") if isinstance(data, dict) else None
-            if isinstance(_choices, list) and _choices:
-                _msg = _choices[0].get("message", {}) if isinstance(_choices[0], dict) else {}
-                if isinstance(_msg, dict):
-                    _content = _msg.get("content")
-                    if isinstance(_content, str) and _content.strip():
-                        llm_text = _content
+            choices = data.get("choices") if isinstance(data, dict) else None
+            if isinstance(choices, list) and choices:
+                message_obj = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
+                if isinstance(message_obj, dict):
+                    content = message_obj.get("content")
+                    if isinstance(content, str) and content.strip():
+                        llm_text = content
         except Exception:
             llm_text = None
 
@@ -633,10 +600,10 @@ def fastapi_app():
             if llm_text is not None:
                 print(f"[math] llm: {llm_text}", flush=True)
             if expected_answer is not None and llm_text is not None:
-                exp = str(expected_answer).strip()
+                exp_fragment = str(expected_answer).strip()
                 got = llm_text.strip()
-                is_correct = exp and (exp in got)
-                print(f"[math] correct: {bool(is_correct)} (expected fragment: {exp})", flush=True)
+                is_correct = exp_fragment and (exp_fragment in got)
+                print(f"[math] correct: {bool(is_correct)} (expected fragment: {exp_fragment})", flush=True)
         except Exception:
             pass
 
@@ -658,7 +625,6 @@ def fastapi_app():
             }
         )
 
-        # Evaluate answer correctness using tool output (or fall back to assistant text)
         reward_val = 0.0
         candidate = tool_answer or ""
         try:
@@ -674,14 +640,11 @@ def fastapi_app():
         except Exception:
             reward_val = 0.0
 
-        # Immediate, concise rollout logging mirroring RL format
         try:
-            preview = tool_answer[:120] + (
-                "…" if isinstance(tool_answer, str) and len(tool_answer) > 120 else ""
-            )
+            preview = candidate[:120] + ("…" if len(candidate) > 120 else "")
             components = {
                 "env": float(reward_val),
-                "rubric_event": 1.0 if bool(tool_answer.strip()) else 0.0,
+                "rubric_event": 1.0 if bool(candidate.strip()) else 0.0,
                 "rubric_outcome": 1.0 if float(reward_val) > 0.0 else 0.0,
             }
             print(
