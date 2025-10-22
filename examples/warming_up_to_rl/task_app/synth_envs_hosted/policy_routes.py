@@ -9,6 +9,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from synth_ai.task.auth import allowed_environment_api_keys, normalize_environment_api_key
+
 from .envs.crafter.policy import CrafterPolicy
 from .inference.openai_client import create_inference_client
 from .registry import registry
@@ -435,34 +437,33 @@ async def step_policy(
                     elif role == "user":
                         user_prompt_records.append(record)
 
+                last_user_chars = (
+                    len(user_prompt_records[-1].get("text", "")) if user_prompt_records else 0
+                )
                 logger.info(
-                    "PROMPTS: system_msgs=%d user_msgs=%d last_user_chars=%d",
+                    "PROMPTS: system_msgs=%d user_msgs=%d last_user_chars=%d (content suppressed)",
                     len(system_prompt_records),
                     len(user_prompt_records),
-                    len(user_prompt_records[-1].get("text", "")) if user_prompt_records else 0,
+                    last_user_chars,
                 )
 
-                if system_prompt_records:
-                    logger.info("PROMPT_DUMP_SYSTEM_BEGIN")
-                    for idx, rec in enumerate(system_prompt_records):
-                        smsg = rec.get("text", "")
-                        logger.info(f"SYSTEM[{idx}]\n{smsg}")
-                    logger.info("PROMPT_DUMP_SYSTEM_END")
-
-                if user_prompt_records:
-                    logger.info("PROMPT_DUMP_USER_BEGIN")
-                    for idx, rec in enumerate(user_prompt_records):
-                        umsg = rec.get("text", "")
-                        logger.info(f"USER[{idx}]\n{umsg}")
-                    logger.info("PROMPT_DUMP_USER_END")
-                    # Print concise preview for visibility in standard logs
-                    with contextlib.suppress(Exception):
-                        last_user = (
-                            user_prompt_records[-1].get("text", "")
-                            if user_prompt_records
-                            else ""
-                        )
-                        print(f"[task:crafter] user prompt: {last_user}", flush=True)
+                log_prompt_details = (
+                    os.getenv("CRAFT_LOG_PROMPTS", "").strip().lower()
+                    in {"1", "true", "yes", "debug"}
+                )
+                if log_prompt_details:
+                    if system_prompt_records:
+                        logger.info("PROMPT_DETAILS_SYSTEM_BEGIN")
+                        for idx, rec in enumerate(system_prompt_records):
+                            smsg = rec.get("text", "")
+                            logger.info("SYSTEM[%d]: %s", idx, smsg)
+                        logger.info("PROMPT_DETAILS_SYSTEM_END")
+                    if user_prompt_records:
+                        logger.info("PROMPT_DETAILS_USER_BEGIN")
+                        for idx, rec in enumerate(user_prompt_records):
+                            umsg = rec.get("text", "")
+                            logger.info("USER[%d]: %s", idx, umsg)
+                        logger.info("PROMPT_DETAILS_USER_END")
             except Exception as e:
                 logger.warning(f"PROMPT_DUMP_FAILED: {e}")
 
@@ -524,15 +525,29 @@ async def step_policy(
                     masked = "<masked>"
                 logger.debug(f"INFERENCE_AUTH: Using bearer key {masked}")
             else:
-                logger.warning(
-                    "INFERENCE_AUTH: No API key resolved for inference request; downstream may 401"
+                logger.debug(
+                    "INFERENCE_AUTH: No bearer key resolved for inference request (expected when using in-app proxy)"
                 )
 
             client = create_inference_client(task_app, api_key=api_key_override)
 
-            # Add policy identification header for observability
+            # Add policy identification header and task auth for proxy fallback
             policy_name = getattr(policy, "name", "") or type(policy).__name__.lower()
             extra_headers = {"X-Policy-Name": policy_name}
+            try:
+                env_key = normalize_environment_api_key()
+                if not env_key:
+                    allowed_keys = allowed_environment_api_keys()
+                    if allowed_keys:
+                        env_key = next(iter(sorted(allowed_keys)))
+                if isinstance(env_key, str) and env_key:
+                    extra_headers["X-API-Key"] = env_key
+                else:
+                    logger.warning(
+                        "INFERENCE_AUTH: Failed to resolve ENVIRONMENT_API_KEY for proxy request headers"
+                    )
+            except Exception as exc:
+                logger.warning(f"INFERENCE_AUTH: Error resolving ENVIRONMENT_API_KEY: {exc}")
 
             # Apply input truncation to avoid 422 from inference server
             try:
@@ -761,26 +776,7 @@ async def step_policy(
                             }
 
             # Emit the exact prompt/messages and tools before calling the LLM (bounded preview)
-            with contextlib.suppress(Exception):
-                req_dump = meta.get("inference_request", {})
-                msgs = req_dump.get("messages")
-                tools_dump = req_dump.get("tools")
-                if isinstance(msgs, list):
-                    # Print compact messages structure and tool schema with bounded length
-                    import json as _json
-
-                    msgs_compact = _json.dumps(msgs)[:20000]
-                    tools_compact = (
-                        _json.dumps(tools_dump)[:8000] if tools_dump is not None else None
-                    )
-                    print(
-                        {
-                            "llm.call": True,
-                            "policy": str(policy_name),
-                            "messages_preview": msgs_compact,
-                            "tools_preview": tools_compact,
-                        }
-                    )
+            # Do not print prompts; only log response content later
 
             # Normalize request for non-OpenAI endpoints (strict schemas)
             with contextlib.suppress(Exception):

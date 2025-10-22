@@ -13,19 +13,19 @@ from datetime import datetime
 import pytest
 import pytest_asyncio
 
-from synth_ai.tracing_v3.config import CONFIG
-from synth_ai.tracing_v3.db_config import DatabaseConfig, set_default_db_config
-from synth_ai.tracing_v3.abstractions import (
+from ..abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
+from ..config import CONFIG
+from ..db_config import DatabaseConfig, set_default_db_config
+from ..session_tracer import SessionTracer
 
 # Import the utilities and components we want to test
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
-from synth_ai.tracing_v3.utils import calculate_cost, detect_provider, json_dumps
+from ..turso.native_manager import NativeLibsqlTraceManager
+from ..utils import calculate_cost, detect_provider, json_dumps
 
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
@@ -34,7 +34,7 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
         allow_module_level=True,
     )
 
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+from ..turso.daemon import SqldDaemon
 
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
     _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
@@ -137,7 +137,7 @@ class TestNativeTraceManager:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration."""
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -154,7 +154,7 @@ class TestNativeTraceManager:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -448,7 +448,7 @@ class TestIntegrationScenarios:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration for integration tests."""
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -465,7 +465,7 @@ class TestIntegrationScenarios:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url

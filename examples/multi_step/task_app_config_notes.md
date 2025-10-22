@@ -378,7 +378,56 @@ uv run python tools/eval_stepwise_vs_final.py \
 Notes:
 - The correlation/plots can be produced with `matplotlib` or `plotly`; write PNG + HTML.
 - If `metrics.details.stepwise` is not yet populated by the task app, compute `indicator_sum` and `reward_sum` on the client by scanning `steps[].info.meta.decision_rewards`.
-- Link reference: [Tweet context](https://x.com/avaricum777/status/1980015533669163303).
+
+### Output artifacts (JSON + Markdown)
+
+Directory layout under `--out` (example: `results/qwen32b`):
+
+- `runs/` — one JSONL file per strategy with one record per rollout
+  - `runs/simple.jsonl`
+  - `runs/complex.jsonl`
+- `summary/`
+  - `summary.json` — aggregates per strategy (mean/median/std, correlations, counts)
+  - `stats_by_seed.json` — per-seed aggregates
+  - `config_snapshot.json` — CLI args, weights, k-limits, timestamp, git SHA
+- `plots/`
+  - `hist_step_reward_simple.png`, `hist_step_reward_complex.png`
+  - `scatter_step_reward_vs_final_simple.png`, `scatter_step_reward_vs_final_complex.png`
+  - `ecdf_indicator_simple.png`, `ecdf_indicator_complex.png`
+- `report.md` — human-friendly Markdown summary linking to plots
+
+Record schema (per line in `runs/*.jsonl`):
+
+```json
+{
+  "seed": 0,
+  "rollout_idx": 1,
+  "strategy": "simple",                  // or "complex"
+  "final_return": 0.9375,
+  "step_reward_sum": 1.2,
+  "step_indicator_sum": 3.0,
+  "new_achievements_total": 3,
+  "num_steps": 10,
+  "tool_calls_total": 12,
+  "model": "Qwen/Qwen3-32B",
+  "max_turns": 10,
+  "timestamp": "2025-10-17T22:14:05Z",
+  "meta": {
+    "task_url": "...",
+    "weights": {"collect_diamond": 1.0},        // only for complex
+    "k_limits": {"collect_diamond": 3}          // only for complex
+  }
+}
+```
+
+Markdown report (`report.md`) outline:
+
+- Title, timestamp, model, config summary
+- Table of global aggregates per strategy (mean, median, std of `final_return`, `step_reward_sum`, correlations r/Pearson, ρ/Spearman)
+- Small tables per-seed (top-N seeds by return)
+- Inline images linking to `plots/*.png`
+- Pointers to raw data files and `config_snapshot.json`
+
 
 I'll scan both repos for Crafter RL, policy/task app config, rollout calls, and backend RL endpoints, then draft notes under `examples/multi_step/`.
 
@@ -437,3 +486,9 @@ payload = {
 ```
 
 Status: Notes committed on branch `friday-cleanup` and pushed.
+
+### Operational guardrails
+
+- Treat avg_turns == 0 (or a high fraction of episodes with turns == 0) as a failure condition; exit non‑zero.
+- Fail fast when the first policy step returns a 4xx/5xx from the inference target; include the HTTP status and URL in the error message.
+- CI hint: a tiny smoke run (2 seeds × 1 rollout) should see turns > 0 in healthy setups.

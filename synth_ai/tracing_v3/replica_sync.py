@@ -26,6 +26,7 @@ application to continue without blocking on sync operations.
 
 import asyncio
 import logging
+from typing import Any
 
 import libsql
 
@@ -66,8 +67,8 @@ class ReplicaSync:
         self.sync_url = sync_url or CONFIG.sync_url
         self.auth_token = auth_token or CONFIG.auth_token
         self.sync_interval = sync_interval or CONFIG.sync_interval
-        self._sync_task: asyncio.Task | None = None
-        self._conn: libsql.Connection | None = None
+        self._sync_task: asyncio.Task[Any] | None = None
+        self._conn: Any | None = None
 
     def _ensure_connection(self):
         """Ensure libsql connection is established.
@@ -113,8 +114,11 @@ class ReplicaSync:
         """
         try:
             self._ensure_connection()
+            conn = self._conn
+            if conn is None:
+                raise RuntimeError("Replica sync connection is not available after initialization")
             # Run sync in thread pool since libsql sync is blocking
-            await asyncio.to_thread(self._conn.sync)
+            await asyncio.to_thread(conn.sync)
             logger.info("Successfully synced with remote Turso database")
             return True
         except Exception as e:
@@ -146,7 +150,7 @@ class ReplicaSync:
             # Sleep until next sync interval
             await asyncio.sleep(self.sync_interval)
 
-    def start_background_sync(self) -> asyncio.Task:
+    def start_background_sync(self) -> asyncio.Task[Any]:
         """Start the background sync task.
 
         Creates an asyncio task that runs the sync loop. The task is stored

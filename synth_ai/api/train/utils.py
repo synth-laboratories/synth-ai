@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -13,7 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from synth_ai.learning.sft import collect_sft_jsonl_errors
+
+try:
+    collect_sft_jsonl_errors = importlib.import_module("synth_ai.learning.sft").collect_sft_jsonl_errors
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load SFT JSONL helpers") from exc
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

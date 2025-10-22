@@ -11,6 +11,8 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from ._storage import load_storage
+
 
 def register(cli):
     @cli.command()
@@ -26,8 +28,6 @@ def register(cli):
         console = Console()
 
         async def _run():
-            from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
-
             # Discover DBs under ./synth_ai.db/dbs (or override via env)
             root = os.getenv("SYNTH_TRACES_ROOT", "./synth_ai.db/dbs")
             if not os.path.isdir(root):
@@ -58,7 +58,8 @@ def register(cli):
 
             async def db_counts(db_dir: str) -> tuple[int, dict[str, int], int, str | None, int]:
                 data_file = os.path.join(db_dir, "data")
-                mgr = create_storage(StorageConfig(connection_string=f"sqlite+aiosqlite:///{data_file}"))
+                create_storage, storage_config = load_storage()
+                mgr = create_storage(storage_config(connection_string=f"sqlite+aiosqlite:///{data_file}"))
                 await mgr.initialize()
                 try:
                     traces_df = await mgr.query_traces("SELECT COUNT(*) AS c FROM session_traces")

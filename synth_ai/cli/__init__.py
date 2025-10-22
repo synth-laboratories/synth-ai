@@ -7,6 +7,8 @@ pyproject entry point `synth_ai.cli:cli`.
 
 from __future__ import annotations
 
+import importlib
+
 # Load environment variables from a local .env if present (repo root)
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -89,8 +91,8 @@ try:
 except Exception:
     pass
 try:
-    from synth_ai.api.train import register as _train_register
-
+    _train_module = importlib.import_module("synth_ai.api.train")
+    _train_register = _train_module.register
     _train_register(cli)
 except Exception:
     pass

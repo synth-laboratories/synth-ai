@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CLI: interactive launcher for example demos and forwarders for new RL demo.
+CLI: interactive launcher for example demos and RL demo helpers.
 
-- `synth-ai demo` (no subcommand) -> legacy examples/ runner (run_demo.sh picker)
-- `synth-ai demo deploy|configure|run` -> forwards to synth_ai.demos.core.cli
+- `synth-ai demo` (no subcommand) -> initialize RL demo files into ./synth_demo/
+- `synth-ai demo deploy|configure|run` -> invoke RL demo helpers directly.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from pathlib import Path
 
 import click
 
+from synth_ai.demos.core import cli as demo_commands
+
 
 def _find_demo_scripts(root: Path) -> list[Path]:
     if not root.exists():
@@ -21,17 +23,23 @@ def _find_demo_scripts(root: Path) -> list[Path]:
     return sorted([p for p in root.rglob("run_demo.sh") if p.is_file()])
 
 
-def _forward_to_new(args: list[str]) -> None:
-    import sys
+def _run_demo_command(func, *args, **kwargs) -> None:
+    """Invoke a demo command and exit via Click on non-zero status codes."""
 
     try:
-        from synth_ai.demos.core import cli as demo_cli  # type: ignore
-    except Exception as e:  # pragma: no cover
-        click.echo(f"Failed to import demo CLI: {e}")
-        sys.exit(1)
-    rc = int(demo_cli.main(args) or 0)
-    if rc != 0:
-        sys.exit(rc)
+        result = func(*args, **kwargs)
+    except SystemExit as exc:  # pragma: no cover - defensive
+        raise click.exceptions.Exit(exc.code or 1) from exc
+
+    if result is None:
+        return
+
+    try:
+        code = int(result)
+    except (TypeError, ValueError):
+        return
+    if code != 0:
+        raise click.exceptions.Exit(code)
 
 
 def register(cli):
@@ -92,11 +100,8 @@ def register(cli):
                 click.echo("\n🛑 Demo interrupted by user")
             return
 
-        # Default: forward to RL demo init behavior, optionally with --force
-        args: list[str] = ["rl_demo.init"]
-        if force:
-            args.append("--force")
-        _forward_to_new(args)
+        # Default: initialize RL demo files via new command
+        _run_demo_command(demo_commands.init, force=force)
 
     # (prepare command removed; configure now prepares baseline TOML)
 
@@ -122,24 +127,21 @@ def register(cli):
         help="Path to deploy_task_app.sh (optional legacy)",
     )
     def demo_deploy(local: bool, app: str | None, name: str, script: str | None):
-        args: list[str] = ["rl_demo.deploy"]
-        if local:
-            args.append("--local")
-        if app:
-            args.extend(["--app", app])
-        if name:
-            args.extend(["--name", name])
-        if script:
-            args.extend(["--script", script])
-        _forward_to_new(args)
+        _run_demo_command(
+            demo_commands.deploy,
+            local=local,
+            app=app,
+            name=name,
+            script=script,
+        )
 
     @_dg.command("configure")
     def demo_configure():
-        _forward_to_new(["rl_demo.configure"])
+        _run_demo_command(demo_commands.run)
 
     @_dg.command("setup")
     def demo_setup():
-        _forward_to_new(["rl_demo.setup"])
+        _run_demo_command(demo_commands.setup)
 
     @_dg.command("run")
     @click.option("--batch-size", type=int, default=None)
@@ -147,13 +149,15 @@ def register(cli):
     @click.option("--model", type=str, default=None)
     @click.option("--timeout", type=int, default=600)
     def demo_run(batch_size: int | None, group_size: int | None, model: str | None, timeout: int):
-        args = ["rl_demo.run"]
-        if batch_size is not None:
-            args.extend(["--batch-size", str(batch_size)])
-        if group_size is not None:
-            args.extend(["--group-size", str(group_size)])
-        if model:
-            args.extend(["--model", model])
-        if timeout:
-            args.extend(["--timeout", str(timeout)])
-        _forward_to_new(args)
+        _run_demo_command(
+            demo_commands.run,
+            batch_size=batch_size,
+            group_size=group_size,
+            model=model,
+            timeout=timeout,
+        )
+
+    @cli.command("setup")
+    def setup_alias():
+        """Perform SDK handshake and write keys to .env."""
+        _run_demo_command(demo_commands.setup)

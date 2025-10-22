@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from rubrics_dev.trace_utils import (
+from synth_ai.rubrics.trace_utils import (
     DeterministicMetrics,
     compute_deterministic_metrics,
     fetch_crafter_sessions,

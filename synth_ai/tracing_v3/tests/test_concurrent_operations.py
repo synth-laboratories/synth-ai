@@ -17,16 +17,16 @@ import uuid
 import pytest
 import pytest_asyncio
 
-from synth_ai.tracing_v3.config import CONFIG
-from synth_ai.tracing_v3.abstractions import (
+from ..abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from ..config import CONFIG
+from ..session_tracer import SessionTracer
+from ..turso.daemon import SqldDaemon
+from ..turso.native_manager import NativeLibsqlTraceManager
 
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
@@ -39,8 +39,6 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
 # environments block the process from binding to localhost, resulting in
 # `Operation not permitted` errors when the daemon launches. If we detect that
 # condition, skip the module instead of failing all tests.
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
     _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
     try:

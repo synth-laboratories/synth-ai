@@ -5,46 +5,61 @@ Safe evaluation of arithmetic expressions.
 """
 
 import ast
-import operator as op
+import operator
+from collections.abc import Callable
 
 import click
 from rich.console import Console
 
 # Supported operators
-_OPS = {
-    ast.Add: op.add,
-    ast.Sub: op.sub,
-    ast.Mult: op.mul,
-    ast.Div: op.truediv,
-    ast.FloorDiv: op.floordiv,
-    ast.Mod: op.mod,
-    ast.Pow: op.pow,
-    ast.USub: op.neg,
-    ast.UAdd: op.pos,
+_BINARY_OPS: dict[type[ast.AST], Callable[[float, float], float]] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+
+_UNARY_OPS: dict[type[ast.AST], Callable[[float], float]] = {
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
 }
 
 
 def _safe_eval(expr: str) -> float:
     node = ast.parse(expr, mode="eval")
 
-    def _eval(n):
+    def _eval(n: ast.AST) -> float:
         if isinstance(n, ast.Expression):
             return _eval(n.body)
-        if hasattr(ast, "Num") and isinstance(n, ast.Num):  # 3.8 and earlier
-            return n.n
-        if isinstance(n, ast.Constant):  # 3.8+
-            if isinstance(n.value, int | float):
-                return n.value
+        if isinstance(n, ast.Constant):
+            if isinstance(n.value, (int, float)):
+                return float(n.value)
             raise ValueError("Only numeric constants are allowed")
-        if isinstance(n, ast.BinOp) and type(n.op) in _OPS:
-            return _OPS[type(n.op)](_eval(n.left), _eval(n.right))
-        if isinstance(n, ast.UnaryOp) and type(n.op) in _OPS:
-            return _OPS[type(n.op)](_eval(n.operand))
+        num_node = getattr(ast, "Num", None)
+        if num_node is not None and isinstance(n, num_node):  # pragma: no cover
+            numeric_value = getattr(n, "n", None)
+            if isinstance(numeric_value, (int, float)):
+                return float(numeric_value)
+            raise ValueError("Only numeric constants are allowed")
+        if isinstance(n, ast.BinOp):
+            op_type = type(n.op)
+            func = _BINARY_OPS.get(op_type)
+            if func:
+                return func(_eval(n.left), _eval(n.right))
+        if isinstance(n, ast.UnaryOp):
+            op_type = type(n.op)
+            func = _UNARY_OPS.get(op_type)
+            if func:
+                return func(_eval(n.operand))
         if isinstance(n, ast.Expr):
             return _eval(n.value)
         raise ValueError("Unsupported expression")
 
-    return _eval(node)
+    result = _eval(node)
+    return float(result)
 
 
 def register(cli):

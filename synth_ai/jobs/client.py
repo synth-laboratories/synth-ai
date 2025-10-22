@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
-from synth_ai.api.models.supported import normalize_model_identifier
-from synth_ai.http import AsyncHttpClient
-from synth_ai.learning.sft.config import prepare_sft_job_payload
+try:
+    normalize_model_identifier = importlib.import_module("synth_ai.api.models.supported").normalize_model_identifier
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load supported model utilities") from exc
+
+try:
+    AsyncHttpClient = importlib.import_module("synth_ai.http").AsyncHttpClient
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load HTTP client") from exc
+
+try:
+    prepare_sft_job_payload = importlib.import_module("synth_ai.learning.sft.config").prepare_sft_job_payload
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load SFT configuration helpers") from exc
 
 
 class FilesApi:

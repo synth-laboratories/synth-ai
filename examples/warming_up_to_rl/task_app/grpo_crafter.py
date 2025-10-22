@@ -93,6 +93,7 @@ TASK_APP_ROOT = _resolve_task_app_root(REPO_ROOT)
 SYNTH_ENVS_HOSTED_ROOT = (TASK_APP_ROOT / "synth_envs_hosted").resolve()
 
 EXAMPLES_ROOT = (REPO_ROOT / "examples").resolve()
+RUBRICS_ROOT = (EXAMPLES_ROOT / "multi_step" / "rubrics").resolve()
 
 for path in (REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT, EXAMPLES_ROOT):
     try:
@@ -344,40 +345,9 @@ def _base_task_info(dataset: CrafterDataset) -> TaskInfo:
     )
 
 
-OUTCOME_RUBRIC = load_rubric(
-    {
-        "version": "1",
-        "goal_text": "Reward unlocking Crafter achievements and survival.",
-        "aggregation": "weighted_sum",
-        "criteria": [
-            {
-                "id": "achievements",
-                "description": "Unlock achievements or crafting milestones.",
-                "weight": 1.0,
-            },
-            {
-                "id": "survival",
-                "description": "Maintain health, food, and drink levels.",
-                "weight": 1.0,
-            },
-        ],
-    }
-)
+OUTCOME_RUBRIC = load_rubric(str(RUBRICS_ROOT / "crafter_outcome_rubric.json"))
 
-EVENTS_RUBRIC = load_rubric(
-    {
-        "version": "1",
-        "goal_text": "Encourage purposeful step-wise exploration and crafting.",
-        "aggregation": "weighted_sum",
-        "criteria": [
-            {
-                "id": "progress_steps",
-                "description": "Actions progress quests, crafting, or exploration.",
-                "weight": 1.0,
-            }
-        ],
-    }
-)
+EVENTS_RUBRIC = load_rubric(str(RUBRICS_ROOT / "crafter_events_rubric.json"))
 
 
 def describe_taskset(dataset: CrafterDataset) -> dict[str, Any]:

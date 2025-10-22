@@ -6,10 +6,10 @@ import logging
 import os
 import time as _time
 from datetime import datetime
-from typing import Any
+from typing import Any, Mapping
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from synth_ai.lm.vendors.base import BaseLMResponse
 from synth_ai.task.tracing_utils import unique_sft_path
 from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
@@ -142,12 +142,178 @@ class RolloutTrajectory(BaseModel):
     decision_samples: list[dict[str, Any]] | None = None
 
 
+def _normalize_step_strategy(raw_strategy: Any) -> str:
+    if not isinstance(raw_strategy, str):
+        return "consistent"
+    candidate = raw_strategy.strip().lower()
+    if not candidate:
+        return "consistent"
+    mapping = {
+        "simple": "consistent",
+        "consistent": "consistent",
+        "consistent_stepwise": "consistent",
+        "decision_consistent": "consistent",
+        "per_achievement": "per_achievement",
+        "per-achievement": "per_achievement",
+        "perachievement": "per_achievement",
+        "achievement_weighted": "per_achievement",
+        "complex": "per_achievement",
+    }
+    return mapping.get(candidate, "consistent")
+
+
+def _coerce_weights(raw_weights: Any) -> dict[str, float]:
+    weights: dict[str, float] = {}
+    if isinstance(raw_weights, dict):
+        for key, value in raw_weights.items():
+            try:
+                weights[str(key)] = float(value)
+            except Exception:
+                continue
+    return weights
+
+
+def _coerce_k_limits(raw_limits: Any) -> dict[str, int]:
+    limits: dict[str, int] = {}
+    if isinstance(raw_limits, dict):
+        for key, value in raw_limits.items():
+            try:
+                limits[str(key)] = int(value)
+            except Exception:
+                continue
+    return limits
+
+
+def _coerce_int_value(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except Exception:
+        try:
+            return int(float(value))  # type: ignore[arg-type]
+        except Exception:
+            return None
+
+
+def _compute_resource_reward(
+    prev_inventory: Mapping[str, Any] | None,
+    new_inventory: Mapping[str, Any] | None,
+    prev_counts: Mapping[str, Any] | None,
+    new_counts: Mapping[str, Any] | None,
+) -> tuple[float, list[dict[str, Any]], dict[str, int], dict[str, int]]:
+    reward_total = 0.0
+    components: list[dict[str, Any]] = []
+    inventory_deltas: dict[str, int] = {}
+    achievement_deltas: dict[str, int] = {}
+
+    resource_weights = {
+        "wood": 0.10,
+        "sapling": 0.08,
+        "stone": 0.15,
+        "coal": 0.18,
+        "iron": 0.22,
+        "plant": 0.06,
+        "meat": 0.12,
+        "drink": 0.07,
+        "food": 0.07,
+        "water": 0.07,
+        "energy": 0.04,
+    }
+    tool_weights = {
+        "wood_pickaxe": 0.40,
+        "stone_pickaxe": 0.55,
+        "iron_pickaxe": 0.75,
+        "wood_sword": 0.35,
+        "stone_sword": 0.50,
+        "iron_sword": 0.70,
+        "furnace": 0.45,
+        "table": 0.30,
+        "bow": 0.45,
+    }
+    achievement_weights = {
+        "collect_wood": 0.08,
+        "collect_sapling": 0.06,
+        "collect_stone": 0.10,
+        "collect_coal": 0.12,
+        "collect_iron": 0.14,
+        "collect_drink": 0.06,
+        "collect_food": 0.06,
+        "collect_plant": 0.06,
+    }
+    default_resource_weight = 0.05
+    default_achievement_weight = 0.05
+
+    prev_inv = prev_inventory or {}
+    new_inv = new_inventory or {}
+    for key, raw_value in new_inv.items():
+        new_val = _coerce_int_value(raw_value)
+        if new_val is None:
+            continue
+        prev_val = _coerce_int_value(prev_inv.get(key, 0)) or 0
+        delta = new_val - prev_val
+        if delta <= 0:
+            continue
+        weight = resource_weights.get(key)
+        if weight is None and key in tool_weights:
+            weight = tool_weights[key]
+        if weight is None:
+            weight = default_resource_weight
+        gain = weight * delta
+        reward_total += gain
+        inventory_deltas[str(key)] = delta
+        components.append(
+            {
+                "type": "inventory",
+                "item": str(key),
+                "delta": delta,
+                "weight": weight,
+                "reward": gain,
+            }
+        )
+
+    prev_ct = prev_counts or {}
+    new_ct = new_counts or {}
+    for key, raw_value in new_ct.items():
+        new_val = _coerce_int_value(raw_value)
+        if new_val is None:
+            continue
+        prev_val = _coerce_int_value(prev_ct.get(key, 0)) or 0
+        delta = new_val - prev_val
+        if delta <= 0:
+            continue
+        weight = achievement_weights.get(key, default_achievement_weight)
+        gain = weight * delta
+        reward_total += gain
+        achievement_deltas[str(key)] = delta
+        components.append(
+            {
+                "type": "achievement_count",
+                "name": str(key),
+                "delta": delta,
+                "weight": weight,
+                "reward": gain,
+            }
+        )
+
+    return reward_total, components, inventory_deltas, achievement_deltas
+
+
 def compute_stepwise_reward(
     prev_achievements: dict[str, bool],
     new_achievements: dict[str, bool],
     decision_index: int,
     actions_summary: list[dict[str, Any]],
     indicator_lambda: float,
+    *,
+    strategy: str | None = None,
+    weights: dict[str, float] | None = None,
+    k_limits: dict[str, int] | None = None,
+    episode_counts: dict[str, int] | None = None,
+    prev_inventory: dict[str, int] | None = None,
+    new_inventory: dict[str, int] | None = None,
+    prev_counts: dict[str, int] | None = None,
+    new_counts: dict[str, int] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, float]]:
     """Compute stepwise reward metadata given achievement states before/after a decision."""
 
@@ -155,26 +321,121 @@ def compute_stepwise_reward(
     next_map = new_achievements or {}
 
     unlocked = [name for name, value in next_map.items() if value and not prev_map.get(name, False)]
-    indicator = 1 if unlocked else 0
-    reward_value = float(indicator_lambda) * indicator
+    indicator_from_achievements = 1 if unlocked else 0
+    normalized_strategy = _normalize_step_strategy(strategy)
+    base_reward = 0.0
+    reward_components: list[dict[str, Any]] = []
+    credited: list[str] = []
+
+    if indicator_from_achievements:
+        if normalized_strategy == "per_achievement":
+            weight_map = weights or {}
+            limit_map = k_limits or {}
+            counts = episode_counts if isinstance(episode_counts, dict) else {}
+            for name in unlocked:
+                try:
+                    limit_val = int(limit_map.get(name, 1))
+                except Exception:
+                    limit_val = 1
+                # limit_val <= 0 implies unlimited rewards
+                unlimited = limit_val <= 0
+                try:
+                    prev_count = int(counts.get(name, 0))
+                except Exception:
+                    prev_count = 0
+                should_credit = unlimited or (prev_count < max(limit_val, 0))
+                if should_credit:
+                    try:
+                        weight_val = float(weight_map.get(name, 1.0))
+                    except Exception:
+                        weight_val = 1.0
+                    base_reward += weight_val
+                    reward_components.append(
+                        {
+                            "achievement": name,
+                            "weight": weight_val,
+                            "count_prior": prev_count,
+                            "count_limit": limit_val,
+                        }
+                    )
+                    credited.append(name)
+                    if episode_counts is not None:
+                        episode_counts[name] = prev_count + 1
+        else:
+            base_reward = 1.0
+            reward_components.append(
+                {
+                    "achievement": "__indicator__",
+                    "weight": 1.0,
+                    "count_prior": 0,
+                    "count_limit": 1,
+                }
+            )
+
+    resource_reward = 0.0
+    resource_components: list[dict[str, Any]] = []
+    inventory_deltas: dict[str, int] = {}
+    achievement_deltas: dict[str, int] = {}
+    if normalized_strategy == "per_achievement":
+        (
+            resource_reward,
+            resource_components,
+            inventory_deltas,
+            achievement_deltas,
+        ) = _compute_resource_reward(prev_inventory, new_inventory, prev_counts, new_counts)
+        if resource_components:
+            reward_components.extend(resource_components)
+        base_reward += resource_reward
+
+    indicator = 1 if base_reward > 0 else 0
+    if indicator == 0 and indicator_from_achievements:
+        indicator = indicator_from_achievements
+    lambda_effective = indicator_lambda if indicator_lambda not in (None, 0) else 1.0
+    reward_value = float(lambda_effective) * float(base_reward)
 
     stepwise_info = {
         "decision_index": decision_index,
         "indicator": indicator,
         "new_achievements": unlocked,
         "reward": reward_value,
+        "strategy": normalized_strategy,
+        "base_reward": float(base_reward),
     }
+    if indicator_from_achievements and not unlocked:
+        stepwise_info["indicator_from_achievements"] = indicator_from_achievements
+    if reward_components:
+        stepwise_info["components"] = reward_components
+    if credited:
+        stepwise_info["credited_achievements"] = credited
+    if resource_reward:
+        stepwise_info["resource_reward"] = float(resource_reward)
+    if inventory_deltas:
+        stepwise_info["inventory_deltas"] = inventory_deltas
+    if achievement_deltas:
+        stepwise_info["achievement_count_deltas"] = achievement_deltas
+
     decision_sample = {
         "decision_index": decision_index,
         "indicator": indicator,
         "r_i": reward_value,
+        "base": float(base_reward),
+        "strategy": normalized_strategy,
         "actions": actions_summary,
     }
+    if reward_components:
+        decision_sample["components"] = reward_components
+    if resource_reward:
+        decision_sample["resource_reward"] = float(resource_reward)
+
     stats = {
         "indicator": float(indicator),
         "reward": reward_value,
         "new_achievements_count": float(len(unlocked)),
+        "base_reward": float(base_reward),
+        "credited_achievements_count": float(len(credited)),
     }
+    if resource_reward:
+        stats["resource_reward"] = float(resource_reward)
     return stepwise_info, decision_sample, stats
 
 
@@ -183,6 +444,9 @@ class RolloutMetrics(BaseModel):
     mean_return: float
     num_steps: int
     num_episodes: int = 0
+    outcome_score: float | None = None
+    events_score: float | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class RolloutResponse(BaseModel):
@@ -254,7 +518,7 @@ class RolloutTracingContext:
                 session_id=self.run_id, metadata=dict(self.metadata_base)
             )
         except Exception as exc:
-            logger.warning("TRACING_START_FAIL: %s", exc)
+            logger.info("TRACING_START_FAIL: %s", exc)
             self.enabled = False
             self.tracer = None
 
@@ -1053,6 +1317,9 @@ async def execute_rollout(
 
         step_rewards_enabled = bool(step_rewards_cfg_raw.get("enabled", False))
         step_rewards_mode = str(step_rewards_cfg_raw.get("mode") or "off").lower()
+        step_rewards_strategy = _normalize_step_strategy(step_rewards_cfg_raw.get("strategy"))
+        step_rewards_weights = _coerce_weights(step_rewards_cfg_raw.get("weights"))
+        step_rewards_k_limits = _coerce_k_limits(step_rewards_cfg_raw.get("k_limits"))
         try:
             step_rewards_indicator_lambda = float(
                 step_rewards_cfg_raw.get("indicator_lambda") or 0.0
@@ -1072,6 +1339,34 @@ async def execute_rollout(
             if isinstance(ach, dict):
                 return {str(k): bool(v) for k, v in ach.items()}
             return {}
+
+        def _extract_inventory(obs: Any) -> dict[str, int]:
+            if not isinstance(obs, dict):
+                return {}
+            inv = obs.get("inventory")
+            if not isinstance(inv, dict):
+                return {}
+            cleaned: dict[str, int] = {}
+            for key, value in inv.items():
+                coerced = _coerce_int_value(value)
+                if coerced is None:
+                    continue
+                cleaned[str(key)] = coerced
+            return cleaned
+
+        def _extract_achievement_counts(obs: Any) -> dict[str, int]:
+            if not isinstance(obs, dict):
+                return {}
+            counts = obs.get("achievements_counts")
+            if not isinstance(counts, dict):
+                return {}
+            cleaned: dict[str, int] = {}
+            for key, value in counts.items():
+                coerced = _coerce_int_value(value)
+                if coerced is None:
+                    continue
+                cleaned[str(key)] = coerced
+            return cleaned
 
         def _summarize_tool_calls(tool_calls: Any) -> list[dict[str, Any]]:
             if not tool_calls:
@@ -1109,12 +1404,16 @@ async def execute_rollout(
         session_trace = None
         finalized = False
         prev_achievements = _extract_achievements(current_obs)
+        prev_inventory_state = _extract_inventory(current_obs)
+        prev_achievement_counts_state = _extract_achievement_counts(current_obs)
         # Track episode-level achievements that have been seen as true at any point so far
         episode_seen_achievements: set[str] = {
             k for k, v in (prev_achievements or {}).items() if bool(v)
         }
+        episode_achievement_counts: dict[str, int] = {}
         stepwise_indicator_sum = 0.0
         stepwise_reward_sum = 0.0
+        stepwise_resource_reward_sum = 0.0
         stepwise_new_achievements_total = 0
         final_achievement_count = sum(1 for v in prev_achievements.values() if v)
 
@@ -1228,58 +1527,14 @@ async def execute_rollout(
                         req,
                     )
                 except Exception as _pe:
-                    # Do not 500 the rollout; finalize with partial trajectory
-                    with contextlib.suppress(Exception):
-                        logger.warning(
-                            "POLICY_STEP_FAIL: terminating episode early run_id=%s op_idx=%s err=%s",
-                            request.run_id,
-                            str(op_idx),
-                            str(_pe),
-                        )
-
-                    # Build partial trajectory and return HTTP 200
-                    trajectory = RolloutTrajectory(
-                        env_id=env_id,
-                        policy_id=policy_id,
-                        steps=trajectory_steps,
-                        final={
-                            "observation": current_obs,
-                            "rollout_status": "partial_policy_error",
-                            "error": str(_pe),
-                            "at_op": op,
-                        },
-                        length=len(trajectory_steps),
-                        decision_samples=decision_samples if step_rewards_active else None,
+                    # Hard fail the rollout on policy step error (e.g., inference auth 4xx)
+                    logger.error(
+                        "POLICY_STEP_HARD_FAIL: run_id=%s op_idx=%s err=%s",
+                        request.run_id,
+                        str(op_idx),
+                        str(_pe),
                     )
-                    metrics = RolloutMetrics(
-                        episode_returns=[total_reward],
-                        mean_return=total_reward,
-                        num_steps=len(trajectory_steps),
-                        num_episodes=1,
-                    )
-                    aborted = registry.is_run_aborted(request.run_id)
-                    if not aborted:
-                        registry.complete_run(request.run_id)
-                    if decision_open:
-                        await tracing_context.end_decision()
-                        decision_open = False
-                    if not finalized:
-                        session_trace = await tracing_context.finalize(
-                            total_reward=total_reward,
-                            achievement_state=prev_achievements,
-                            total_steps=len(trajectory_steps),
-                        )
-                        finalized = True
-                    trace_payload = tracing_context.build_trace_payload(session_trace)
-                    return RolloutResponse(
-                        run_id=request.run_id,
-                        trajectories=[trajectory],
-                        branches={},
-                        metrics=metrics,
-                        aborted=aborted,
-                        ops_executed=ops_executed,
-                        trace=trace_payload,
-                    )
+                    raise HTTPException(status_code=500, detail=f"policy_step_failed: {str(_pe)}")
 
                 agent_response_ts = _time.perf_counter()
                 if isinstance(policy_response.meta, dict):
@@ -1346,69 +1601,15 @@ async def execute_rollout(
 
             elif op == "env":
                 if not pending_tool_calls:
-                    # Treat absence of tool calls as a soft terminal condition; yield partial trajectory
                     with contextlib.suppress(Exception):
                         logger.warning(
-                            "NO_TOOL_CALLS: terminating episode early run_id=%s op_idx=%s",
+                            "POLICY_STEP_FAIL: missing tool_calls; failing rollout run_id=%s op_idx=%s",
                             request.run_id,
                             str(op_idx),
                         )
-                        print(
-                            f"[rollout] no tool_calls; terminating early run_id={request.run_id} op_idx={op_idx}",
-                            flush=True,
-                        )
-                    term_step = RolloutStep(
-                        obs=current_obs,
-                        tool_calls=[],
-                        reward=None,
-                        done=True,
-                        truncated=False,
-                        info={
-                            "terminated": True,
-                            "reason": "no_tool_calls",
-                        },
-                    )
-                    trajectory_steps.append(term_step)
-                    trajectory = RolloutTrajectory(
-                        env_id=env_id,
-                        policy_id=policy_id,
-                        steps=trajectory_steps,
-                        final={
-                            "observation": current_obs,
-                            "rollout_status": "partial_no_tool_calls",
-                            "at_op": op,
-                        },
-                        length=len(trajectory_steps),
-                        decision_samples=decision_samples if step_rewards_active else None,
-                    )
-                    metrics = RolloutMetrics(
-                        episode_returns=[total_reward],
-                        mean_return=total_reward,
-                        num_steps=len(trajectory_steps),
-                        num_episodes=1,
-                    )
-                    aborted = registry.is_run_aborted(request.run_id)
-                    if not aborted:
-                        registry.complete_run(request.run_id)
-                    if decision_open:
-                        await tracing_context.end_decision()
-                        decision_open = False
-                    if not finalized:
-                        session_trace = await tracing_context.finalize(
-                            total_reward=total_reward,
-                            achievement_state=prev_achievements,
-                            total_steps=len(trajectory_steps),
-                        )
-                        finalized = True
-                    trace_payload = tracing_context.build_trace_payload(session_trace)
-                    return RolloutResponse(
-                        run_id=request.run_id,
-                        trajectories=[trajectory],
-                        branches={},
-                        metrics=metrics,
-                        aborted=aborted,
-                        ops_executed=ops_executed,
-                        trace=trace_payload,
+                    raise HTTPException(
+                        status_code=500,
+                        detail="policy_step_failed: missing tool_calls (no_tool_calls)",
                     )
 
                 # Environment step
@@ -1437,85 +1638,16 @@ async def execute_rollout(
                         timing_env["env_step_end_s"] = env_step_end
 
                 if env_step_error is not None:
-                    # Invalid action or environment rejection — terminate episode early with partial trajectory
                     with contextlib.suppress(Exception):
                         logger.warning(
-                            "ENV_STEP_FAIL: terminating episode early run_id=%s op_idx=%s err=%s",
+                            "ENV_STEP_FAIL: failing rollout run_id=%s op_idx=%s err=%s",
                             request.run_id,
                             str(op_idx),
                             str(env_step_error),
                         )
-
-                    term_step = RolloutStep(
-                        obs=current_obs,
-                        tool_calls=pending_tool_calls,
-                        reward=None,
-                        done=True,
-                        truncated=False,
-                        info={
-                            "terminated": True,
-                            "reason": "invalid_action",
-                            "error": str(env_step_error),
-                        },
-                    )
-                    trajectory_steps.append(term_step)
-                    # Build partial response
-                    trajectory = RolloutTrajectory(
-                        env_id=env_id,
-                        policy_id=policy_id,
-                        steps=trajectory_steps,
-                        final={
-                            "observation": current_obs,
-                            "rollout_status": "partial_invalid_action",
-                            "error": str(env_step_error),
-                            "at_op": op,
-                        },
-                        length=len(trajectory_steps),
-                        decision_samples=decision_samples if step_rewards_active else None,
-                    )
-                    metrics = RolloutMetrics(
-                        episode_returns=[total_reward],
-                        mean_return=total_reward,
-                        num_steps=len(trajectory_steps),
-                        num_episodes=1,
-                    )
-                    aborted = registry.is_run_aborted(request.run_id)
-                    if not aborted:
-                        registry.complete_run(request.run_id)
-                    if (
-                        last_policy_meta is not None
-                        and last_agent_response_ts is not None
-                        and "decision_ms" not in last_policy_meta.get("timing", {})
-                    ):
-                        with contextlib.suppress(Exception):
-                            timing_last = last_policy_meta.setdefault("timing", {})
-                            decision_ms = max(
-                                0.0,
-                                (env_step_end - float(last_agent_response_ts)) * 1000.0,
-                            )
-                            timing_last["decision_ms"] = decision_ms
-                            timing_last.setdefault(
-                                "overhead_ms", max(0.0, decision_ms - env_step_duration_ms)
-                            )
-                    if decision_open:
-                        await tracing_context.end_decision()
-                        decision_open = False
-                    if not finalized:
-                        session_trace = await tracing_context.finalize(
-                            total_reward=total_reward,
-                            achievement_state=prev_achievements,
-                            total_steps=len(trajectory_steps),
-                        )
-                        finalized = True
-                    trace_payload = tracing_context.build_trace_payload(session_trace)
-                    return RolloutResponse(
-                        run_id=request.run_id,
-                        trajectories=[trajectory],
-                        branches={},
-                        metrics=metrics,
-                        aborted=aborted,
-                        ops_executed=ops_executed,
-                        trace=trace_payload,
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"env_step_failed: {str(env_step_error)}",
                     )
 
                 # Reaching here means env step succeeded
@@ -1546,12 +1678,16 @@ async def execute_rollout(
                 decision_index += 1
                 next_obs = env_response.observation
                 new_achievement_state = _extract_achievements(next_obs)
+                new_inventory_state = _extract_inventory(next_obs)
+                new_achievement_counts_state = _extract_achievement_counts(next_obs)
                 final_achievement_count = sum(
                     1 for _, unlocked in new_achievement_state.items() if unlocked
                 )
                 indicator_val = 0
                 reward_stepwise = 0.0
                 decision_rewards_meta: dict[str, Any] | None = None
+                decision_record = None
+                _info = {} if not isinstance(_info, dict) else dict(_info)
                 if step_rewards_active:
                     decision_actions = _summarize_tool_calls(pending_tool_calls)
                     stepwise_info, decision_record, stats = compute_stepwise_reward(
@@ -1560,13 +1696,24 @@ async def execute_rollout(
                         decision_index,
                         decision_actions,
                         step_rewards_indicator_lambda,
+                        strategy=step_rewards_strategy,
+                        weights=step_rewards_weights,
+                        k_limits=step_rewards_k_limits,
+                        episode_counts=episode_achievement_counts,
+                        prev_inventory=prev_inventory_state,
+                        new_inventory=new_inventory_state,
+                        prev_counts=prev_achievement_counts_state,
+                        new_counts=new_achievement_counts_state,
                     )
                     indicator_val = int(stats.get("indicator", 0.0))
                     reward_stepwise = float(stats.get("reward", 0.0))
                     stepwise_indicator_sum += float(stats.get("indicator", 0.0))
                     stepwise_reward_sum += reward_stepwise
                     stepwise_new_achievements_total += int(stats.get("new_achievements_count", 0.0))
-                    _info = {} if not isinstance(_info, dict) else dict(_info)
+                    with contextlib.suppress(Exception):
+                        resource_component = stats.get("resource_reward")
+                        if resource_component is not None:
+                            stepwise_resource_reward_sum += float(resource_component)
                     _info["stepwise"] = stepwise_info
                     # Compute decision-level rewards (absolute vs unique) and attach to metadata
                     with contextlib.suppress(Exception):
@@ -1588,13 +1735,16 @@ async def execute_rollout(
                             "all": all_list,
                             "unique": new_unique,
                         }
-                        decision_rewards_meta = decision_rewards
-                        meta_block["decision_rewards"] = decision_rewards
-                        _info["meta"] = meta_block
-                        # Update episode-level seen set after attributing uniqueness to this decision
-                        episode_seen_achievements.update(turned_true)
+                    decision_rewards_meta = decision_rewards
+                    meta_block["decision_rewards"] = decision_rewards
+                    _info["meta"] = meta_block
+                    # Update episode-level seen set after attributing uniqueness to this decision
+                    episode_seen_achievements.update(turned_true)
+                if decision_record is not None:
                     decision_samples.append(decision_record)
                 prev_achievements = new_achievement_state
+                prev_inventory_state = new_inventory_state
+                prev_achievement_counts_state = new_achievement_counts_state
 
                 await tracing_context.record_decision_reward(
                     event_id=event_id,
@@ -1656,6 +1806,11 @@ async def execute_rollout(
 
                         reset_response = await reset_environment(EnvResetRequest(env_id=env_id))
                         current_obs = reset_response.observation
+                        prev_achievements = _extract_achievements(current_obs)
+                        episode_seen_achievements = {
+                            k for k, v in (prev_achievements or {}).items() if bool(v)
+                        }
+                        episode_achievement_counts.clear()
                     elif request.on_done == "terminate":
                         break
 
@@ -1704,6 +1859,30 @@ async def execute_rollout(
             num_steps=len(trajectory_steps),
             num_episodes=1,
         )
+        if step_rewards_active:
+            stepwise_summary: dict[str, Any] = {
+                "indicator_sum": float(stepwise_indicator_sum),
+                "reward_sum": float(stepwise_reward_sum),
+                "resource_reward": float(stepwise_resource_reward_sum),
+                "new_achievements_total": int(stepwise_new_achievements_total),
+                "mode": step_rewards_mode,
+                "strategy": step_rewards_strategy,
+                "indicator_lambda": float(step_rewards_indicator_lambda),
+            }
+            if step_rewards_beta:
+                stepwise_summary["step_beta"] = float(step_rewards_beta)
+            if step_rewards_strategy == "per_achievement":
+                if step_rewards_weights:
+                    stepwise_summary["weights"] = dict(step_rewards_weights)
+                if step_rewards_k_limits:
+                    stepwise_summary["k_limits"] = dict(step_rewards_k_limits)
+            final_achievements_list = sorted(
+                key for key, val in (prev_achievements or {}).items() if bool(val)
+            )
+            stepwise_summary["unique_achievements_total"] = int(len(episode_seen_achievements))
+            stepwise_summary["unique_achievements"] = sorted(episode_seen_achievements)
+            stepwise_summary["final_achievements"] = final_achievements_list
+            metrics.details["stepwise"] = stepwise_summary
 
         # Environment-specific: Log summary if available
         try:
@@ -1759,6 +1938,10 @@ async def execute_rollout(
             )
             finalized = True
         trace_payload = tracing_context.build_trace_payload(session_trace)
+
+        # Hard-fail if no steps executed (avg_turns == 0 scenario)
+        if metrics.num_steps <= 0:
+            raise HTTPException(status_code=500, detail="no_steps_executed: avg_turns == 0")
 
         return RolloutResponse(
             run_id=request.run_id,

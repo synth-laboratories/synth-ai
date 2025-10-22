@@ -3,6 +3,7 @@
 Synth AI CLI - Command line interface for Synth AI services.
 """
 
+import importlib
 import logging
 import os
 import shutil
@@ -12,6 +13,9 @@ import sys
 import time
 
 import click
+import requests
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import HTTPError
 
 logger = logging.getLogger(__name__)
 
@@ -140,8 +144,6 @@ def register_env(
     name: str, module_path: str, class_name: str, description: str | None, service_url: str
 ):
     """Register a new environment with the service."""
-    import requests
-
     payload = {
         "name": name,
         "module_path": module_path,
@@ -157,10 +159,10 @@ def register_env(
         result = response.json()
         click.echo(f"✅ {result['message']}")
 
-    except requests.exceptions.ConnectionError:
+    except RequestsConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
-    except requests.exceptions.HTTPError as e:
+    except HTTPError as e:
         error_detail = e.response.json().get("detail", str(e)) if e.response else str(e)
         click.echo(f"❌ Registration failed: {error_detail}")
     except Exception as e:
@@ -171,8 +173,6 @@ def register_env(
 @click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
 def list_envs(service_url: str):
     """List all registered environments."""
-    import requests
-
     try:
         response = requests.get(f"{service_url}/registry/environments", timeout=10)
         response.raise_for_status()
@@ -195,7 +195,7 @@ def list_envs(service_url: str):
                 click.echo(f"   Description: {env['description']}")
             click.echo()
 
-    except requests.exceptions.ConnectionError:
+    except RequestsConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
     except Exception as e:
@@ -207,8 +207,6 @@ def list_envs(service_url: str):
 @click.option("--service-url", default="http://localhost:8901", help="Environment service URL")
 def unregister_env(name: str, service_url: str):
     """Unregister an environment from the service."""
-    import requests
-
     try:
         response = requests.delete(f"{service_url}/registry/environments/{name}", timeout=10)
         response.raise_for_status()
@@ -216,10 +214,10 @@ def unregister_env(name: str, service_url: str):
         result = response.json()
         click.echo(f"✅ {result['message']}")
 
-    except requests.exceptions.ConnectionError:
+    except RequestsConnectionError:
         click.echo(f"❌ Could not connect to environment service at {service_url}")
         click.echo("💡 Make sure the service is running: synth-ai serve")
-    except requests.exceptions.HTTPError as e:
+    except HTTPError as e:
         if e.response.status_code == 404:
             click.echo(f"❌ Environment '{name}' not found in registry")
         else:
@@ -236,9 +234,9 @@ def unregister_env(name: str, service_url: str):
 def view(url: str):
     """Launch the interactive TUI dashboard."""
     try:
-        from .tui.dashboard import SynthDashboard
-
-        app = SynthDashboard(db_url=url)
+        module = importlib.import_module(".tui.dashboard", __package__)
+        synth_dashboard_cls = module.SynthDashboard
+        app = synth_dashboard_cls(db_url=url)
         app.run()
     except ImportError:
         click.echo("❌ Textual not installed. Install with: pip install textual", err=True)

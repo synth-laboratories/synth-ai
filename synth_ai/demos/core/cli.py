@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import contextlib
 import json
 import os
@@ -45,7 +44,7 @@ def _is_modal_public_url(u: str) -> bool:
         return False
 
 
-def cmd_setup(_args: argparse.Namespace) -> int:
+def setup() -> int:
     # Change to demo directory if stored
     demo_dir = demo_core.load_demo_dir()
     if demo_dir and os.path.isdir(demo_dir):
@@ -760,7 +759,9 @@ def _ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoE
     return updated_env
 
 
-def cmd_deploy(args: argparse.Namespace) -> int:
+def deploy(
+    local: bool = False, app: str | None = None, name: str | None = None, script: str | None = None
+) -> int:
     # Change to demo directory if stored
     demo_dir = demo_core.load_demo_dir()
     if demo_dir and os.path.isdir(demo_dir):
@@ -774,7 +775,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
     url = ""
     app_name = env.task_app_name or ""
     try:
-        if args.local:
+        if local:
             print("Starting local Task App…")
             import subprocess
 
@@ -798,7 +799,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                 time.sleep(1)
         else:
             # Auto-detect app path if not supplied; prompt interactively from discovered ASGI apps
-            app_path = os.path.abspath(args.app) if args.app else None
+            app_path = os.path.abspath(app) if app else None
             if not app_path or not os.path.isfile(app_path):
                 # First pass: look for known common filenames
                 candidates = [
@@ -828,13 +829,13 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                             choice = 1
                         choice = max(1, min(choice, len(found)))
                         app_path = str(found[choice - 1].resolve())
-            if not app_path and args.script:
+            if not app_path and script:
                 # Legacy script fallback if user supplied --script explicitly
                 from synth_ai.demos.demo_task_apps.math.deploy_modal import deploy as modal_deploy
 
-                url = modal_deploy(script_path=args.script, env_api_key=env.env_api_key)
-                if args.name:
-                    app_name = args.name
+                url = modal_deploy(script_path=script, env_api_key=env.env_api_key)
+                if name:
+                    app_name = name
             else:
                 if not app_path:
                     entered = input("Path to Modal app.py (e.g., ./task_app.py): ").strip()
@@ -845,7 +846,7 @@ def cmd_deploy(args: argparse.Namespace) -> int:
                     raise FileNotFoundError(f"App file not found: {app_path}")
                 # Surface the app path before asking for the name
                 print(f"Using task app: {app_path}")
-                existing_name = (args.name or env.task_app_name or "").strip()
+                existing_name = (name or env.task_app_name or "").strip()
                 if not existing_name:
                     existing_name = f"synth-{os.path.splitext(os.path.basename(app_path))[0]}"
                 suggested_name = existing_name
@@ -1128,7 +1129,7 @@ def _ensure_modal_installed() -> None:
         print("\n   You can deploy later after authenticating.\n")
 
 
-def cmd_init(args: argparse.Namespace) -> int:
+def init(template: str | None = None, dest: str | None = None, force: bool = False) -> int:
     """Materialise a demo task app template into the current directory."""
 
     templates = list(list_demo_templates())
@@ -1137,37 +1138,44 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     selected: DemoTemplate | None = None
-    if args.template:
-        selected = get_demo_template(args.template)
+    if template:
+        selected = get_demo_template(template)
         if selected is None:
             available = ", ".join(t.template_id for t in templates)
-            print(f"Unknown template '{args.template}'. Available: {available}")
+            print(f"Unknown template '{template}'. Available: {available}")
             return 1
     else:
-        print("Select a demo template:" + "\n")
-        for idx, template in enumerate(templates, start=1):
-            print(f"  [{idx}] {template.name} ({template.template_id})")
-            print(f"      {template.description}")
-        try:
-            choice_raw = input(f"Enter choice [1-{len(templates)}] (default 1): ").strip() or "1"
-        except Exception:
-            choice_raw = "1"
-        if not choice_raw.isdigit():
-            print("Selection must be a number.")
-            return 1
-        choice_idx = int(choice_raw)
-        if not 1 <= choice_idx <= len(templates):
-            print("Selection out of range.")
-            return 1
-        selected = templates[choice_idx - 1]
+        if force:
+            selected = templates[0]
+            print(
+                f"Using default template: {selected.name} ({selected.template_id}) "
+                f"(pass --template to choose another)"
+            )
+        else:
+            print("Select a demo template:" + "\n")
+            for idx, tpl in enumerate(templates, start=1):
+                print(f"  [{idx}] {tpl.name} ({tpl.template_id})")
+                print(f"      {tpl.description}")
+            try:
+                choice_raw = input(f"Enter choice [1-{len(templates)}] (default 1): ").strip() or "1"
+            except Exception:
+                choice_raw = "1"
+            if not choice_raw.isdigit():
+                print("Selection must be a number.")
+                return 1
+            choice_idx = int(choice_raw)
+            if not 1 <= choice_idx <= len(templates):
+                print("Selection out of range.")
+                return 1
+            selected = templates[choice_idx - 1]
 
     assert selected is not None
 
     default_subdir = selected.default_subdir or selected.template_id
 
     # Check if default destination is already occupied and switch to local_demos/ if needed
-    if args.dest:
-        default_dest = Path(args.dest).expanduser().resolve()
+    if dest:
+        default_dest = Path(dest).expanduser().resolve()
     else:
         primary_dest = Path.cwd() / default_subdir
         if primary_dest.exists() and any(primary_dest.iterdir()):
@@ -1176,10 +1184,13 @@ def cmd_init(args: argparse.Namespace) -> int:
         else:
             default_dest = primary_dest.resolve()
 
-    try:
-        dest_input = input(f"Destination directory [{default_dest}]: ").strip()
-    except Exception:
+    if force:
         dest_input = ""
+    else:
+        try:
+            dest_input = input(f"Destination directory [{default_dest}]: ").strip()
+        except Exception:
+            dest_input = ""
     destination = Path(dest_input).expanduser().resolve() if dest_input else default_dest
 
     # Track whether we should skip individual file prompts (if we already cleared the directory)
@@ -1190,15 +1201,18 @@ def cmd_init(args: argparse.Namespace) -> int:
             print(f"Destination {destination} is a file. Provide a directory path.")
             return 1
         if any(destination.iterdir()):
-            try:
-                response = (
-                    input(f"Destination {destination} is not empty. Overwrite? [y/N]: ")
-                    .strip()
-                    .lower()
-                )
-            except (EOFError, KeyboardInterrupt):
-                print("\nCancelled.")
-                return 1
+            if force:
+                response = "y"
+            else:
+                try:
+                    response = (
+                        input(f"Destination {destination} is not empty. Overwrite? [y/N]: ")
+                        .strip()
+                        .lower()
+                    )
+                except (EOFError, KeyboardInterrupt):
+                    print("\nCancelled.")
+                    return 1
             if response not in ("y", "yes"):
                 print("Cancelled. Choose another directory or delete the existing one.")
                 return 1
@@ -1236,15 +1250,18 @@ def cmd_init(args: argparse.Namespace) -> int:
             # Handle directory copying
             if src_path.is_dir():
                 if dest_path.exists() and not directory_cleared:
-                    try:
-                        response = (
-                            input(f"Directory {dest_path.name} exists. Overwrite? [y/N]: ")
-                            .strip()
-                            .lower()
-                        )
-                    except (EOFError, KeyboardInterrupt):
-                        print("\nCancelled.")
-                        return 1
+                    if force:
+                        response = "y"
+                    else:
+                        try:
+                            response = (
+                                input(f"Directory {dest_path.name} exists. Overwrite? [y/N]: ")
+                                .strip()
+                                .lower()
+                            )
+                        except (EOFError, KeyboardInterrupt):
+                            print("\nCancelled.")
+                            return 1
                     if response not in ("y", "yes"):
                         print(f"Skipping {dest_path.name}")
                         continue
@@ -1256,15 +1273,18 @@ def cmd_init(args: argparse.Namespace) -> int:
                 # Handle file copying
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 if dest_path.exists() and not directory_cleared:
-                    try:
-                        response = (
-                            input(f"File {dest_path.name} exists. Overwrite? [y/N]: ")
-                            .strip()
-                            .lower()
-                        )
-                    except (EOFError, KeyboardInterrupt):
-                        print("\nCancelled.")
-                        return 1
+                    if force:
+                        response = "y"
+                    else:
+                        try:
+                            response = (
+                                input(f"File {dest_path.name} exists. Overwrite? [y/N]: ")
+                                .strip()
+                                .lower()
+                            )
+                        except (EOFError, KeyboardInterrupt):
+                            print("\nCancelled.")
+                            return 1
                     if response not in ("y", "yes"):
                         print(f"Skipping {dest_path.name}")
                         continue
@@ -1280,11 +1300,14 @@ def cmd_init(args: argparse.Namespace) -> int:
             env_path = destination / ".env"
             should_write = True
             if env_path.exists() and not directory_cleared:
-                try:
-                    response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    print("\nCancelled.")
-                    return 1
+                if force:
+                    response = "y"
+                else:
+                    try:
+                        response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nCancelled.")
+                        return 1
                 should_write = response in ("y", "yes")
             if should_write:
                 _write_text(env_path, "\n".join(selected.env_lines) + "\n")
@@ -1296,13 +1319,16 @@ def cmd_init(args: argparse.Namespace) -> int:
             cfg_dst = (destination / selected.config_destination).resolve()
             should_copy = True
             if cfg_dst.exists() and not directory_cleared:
-                try:
-                    response = (
-                        input(f"File {cfg_dst.name} exists. Overwrite? [y/N]: ").strip().lower()
-                    )
-                except (EOFError, KeyboardInterrupt):
-                    print("\nCancelled.")
-                    return 1
+                if force:
+                    response = "y"
+                else:
+                    try:
+                        response = (
+                            input(f"File {cfg_dst.name} exists. Overwrite? [y/N]: ").strip().lower()
+                        )
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nCancelled.")
+                        return 1
                 should_copy = response in ("y", "yes")
             if should_copy:
                 cfg_dst.parent.mkdir(parents=True, exist_ok=True)
@@ -1388,7 +1414,14 @@ def _write_text(path: str, content: str) -> None:
 # Note: `prepare` command has been removed; configuration now prepares TOML
 
 
-def cmd_run(args: argparse.Namespace) -> int:
+def run(
+    config: str | None = None,
+    batch_size: int | None = None,
+    group_size: int | None = None,
+    model: str | None = None,
+    timeout: int = 600,
+    dry_run: bool = False,
+) -> int:
     # Change to demo directory if stored
     demo_dir = demo_core.load_demo_dir()
     if demo_dir and os.path.isdir(demo_dir):
@@ -1429,7 +1462,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     import tomllib
 
     try:
-        cfg_path = _select_or_create_config(getattr(args, "config", None), env)
+        cfg_path = _select_or_create_config(config, env)
     except FileNotFoundError as exc:
         print(exc)
         return 1
@@ -1451,12 +1484,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Optional: TRAINER_START_URL passthrough if already set in environment
         run_env["TRAINER_START_URL"] = run_env.get("TRAINER_START_URL", "")
         # Forward convenience knobs
-        if args.batch_size is not None:
-            run_env["RL_BATCH_SIZE"] = str(int(args.batch_size))
-        if args.group_size is not None:
-            run_env["RL_GROUP_SIZE"] = str(int(args.group_size))
-        if args.model:
-            run_env["RL_MODEL"] = args.model
+        if batch_size is not None:
+            run_env["RL_BATCH_SIZE"] = str(int(batch_size))
+        if group_size is not None:
+            run_env["RL_GROUP_SIZE"] = str(int(group_size))
+        if model:
+            run_env["RL_MODEL"] = model
         cmd = ["uv", "run", "python", launcher]
         print(f"Launching monorepo clustered runner: {' '.join(cmd)}")
         code = _popen_stream(cmd, env=run_env)
@@ -1484,11 +1517,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         inline_cfg = tomllib.load(fh)
     with open(cfg_path) as fh2:
         toml_text = fh2.read()
-    if args.batch_size is not None:
-        inline_cfg.setdefault("training", {})["batch_size"] = int(args.batch_size)
-    if args.group_size is not None:
-        inline_cfg.setdefault("training", {})["group_size"] = int(args.group_size)
-    model_name = args.model or (inline_cfg.get("model", {}) or {}).get("name", "Qwen/Qwen3-0.6B")
+    if batch_size is not None:
+        inline_cfg.setdefault("training", {})["batch_size"] = int(batch_size)
+    if group_size is not None:
+        inline_cfg.setdefault("training", {})["group_size"] = int(group_size)
+    model_name = model or (inline_cfg.get("model", {}) or {}).get("name", "Qwen/Qwen3-0.6B")
     api = env.dev_backend_url.rstrip("/") + ("" if env.dev_backend_url.endswith("/api") else "/api")
     # Print backend and key preview before request for clearer diagnostics
     try:
@@ -1678,79 +1711,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                 if name == "eval.reward_mean":
                     print(f"metric eval.reward_mean step={p.get('step')} value={p.get('value')}")
                     break
-        if time.time() - start_t > (args.timeout or 600):
+        if time.time() - start_t > (timeout or 600):
             print("Timeout waiting for terminal state.")
             break
         time.sleep(2)
     return 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="synth-ai")
-    sub = p.add_subparsers(dest="cmd")
-
-    def _add_parser(
-        names: list[str], *, configure: Callable[[argparse.ArgumentParser], None]
-    ) -> None:
-        for name in names:
-            parser = sub.add_parser(name)
-            configure(parser)
-
-    _add_parser(
-        ["rl_demo.setup", "demo.setup"],
-        configure=lambda parser: parser.set_defaults(func=cmd_setup),
-    )
-
-    def _init_opts(parser):
-        parser.add_argument("--template", type=str, default=None, help="Template id to instantiate")
-        parser.add_argument(
-            "--dest", type=str, default=None, help="Destination directory for files"
-        )
-        parser.set_defaults(func=cmd_init)
-
-    _add_parser(["rl_demo.init", "demo.init"], configure=_init_opts)
-
-    # (prepare command removed)
-
-    def _deploy_opts(parser):
-        parser.add_argument(
-            "--local", action="store_true", help="Run local FastAPI instead of Modal deploy"
-        )
-        parser.add_argument(
-            "--app", type=str, default=None, help="Path to Modal app.py for uv run modal deploy"
-        )
-        parser.add_argument("--name", type=str, default=None, help="Modal app name")
-        parser.add_argument(
-            "--script", type=str, default=None, help="Path to deploy_task_app.sh (optional legacy)"
-        )
-        parser.set_defaults(func=cmd_deploy)
-
-    _add_parser(["rl_demo.deploy", "demo.deploy"], configure=_deploy_opts)
-
-    _add_parser(
-        ["rl_demo.configure", "demo.configure"],
-        configure=lambda parser: parser.set_defaults(func=cmd_run),
-    )
-
-    def _run_opts(parser):
-        parser.add_argument(
-            "--config", type=str, default=None, help="Path to TOML config (skip prompt)"
-        )
-        parser.add_argument("--batch-size", type=int, default=None)
-        parser.add_argument("--group-size", type=int, default=None)
-        parser.add_argument("--model", type=str, default=None)
-        parser.add_argument("--timeout", type=int, default=600)
-        parser.add_argument("--dry-run", action="store_true", help="Print request body and exit")
-        parser.set_defaults(func=cmd_run)
-
-    _add_parser(["run", "rl_demo.run", "demo.run"], configure=_run_opts)
-
-    args = p.parse_args(argv)
-    if not hasattr(args, "func"):
-        p.print_help()
-        return 1
-    return int(args.func(args) or 0)
-
-
-if __name__ == "__main__":
-    sys.exit(main())

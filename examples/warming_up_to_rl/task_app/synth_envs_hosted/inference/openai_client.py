@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
+import os
+import time
 from typing import Any
 
 import httpx
@@ -23,9 +26,15 @@ class OpenAIClient:
         self.api_key = api_key
         self.timeout_s = timeout_s
         self.headers = {}
-
-        if api_key:
-            self.headers["Authorization"] = f"Bearer {api_key}"
+        # If we're calling back into our own task app proxy (e.g., /proxy/groq),
+        # the FastAPI app still enforces X-API-Key. Include it when available so
+        # intra-app proxy calls authenticate correctly.
+        try:
+            env_key = os.getenv("ENVIRONMENT_API_KEY")
+            if env_key and isinstance(env_key, str):
+                self.headers.setdefault("X-API-Key", env_key)
+        except Exception:
+            pass
 
     def _fix_model_parameters(
         self, request: dict[str, Any], target_url: str | None = None
@@ -52,6 +61,8 @@ class OpenAIClient:
                     or ("azure" in low and ".openai." in low)
                     or ("groq.com" in low)
                     or ("/openai" in low)
+                    or ("/proxy/groq" in low)
+                    or ("/proxy/openai" in low)
                 )
         except Exception:
             is_openai = False
@@ -137,13 +148,53 @@ class OpenAIClient:
         Returns:
             OpenAI-compatible chat completion response
         """
-        url = (base_url or self.base_url).rstrip("/") + "/v1/chat/completions"
+        base = (base_url or self.base_url).rstrip("/")
+        url = base + "/v1/chat/completions"
         timeout = timeout_s or self.timeout_s
 
         # Merge headers
         headers = self.headers.copy()
         if extra_headers:
             headers.update(extra_headers)
+        # Always include X-API-Key for intra-app requests
+        try:
+            envk = os.getenv("ENVIRONMENT_API_KEY")
+            if envk and isinstance(envk, str):
+                headers["X-API-Key"] = envk
+        except Exception:
+            pass
+
+        # If target is our in-app Groq proxy, force Authorization to use GROQ_API_KEY
+        try:
+            low_url = (url or "").lower()
+            if "/proxy/groq" in low_url or "groq" in low_url:
+                gk = os.getenv("GROQ_API_KEY")
+                if gk and isinstance(gk, str):
+                    headers["Authorization"] = f"Bearer {gk}"
+        except Exception:
+            pass
+
+        # In-process proxy path: avoid HTTP round-trip and auth dependency
+        try:
+            if base.endswith("/proxy/groq") or base.endswith("/proxy/groq/"):
+                from synth_ai.task.server import prepare_for_groq, inject_system_hint
+                # Prepare payload similar to server-side proxy
+                model = request.get("model") if isinstance(request.get("model"), str) else None
+                payload = prepare_for_groq(model, request)
+                payload = inject_system_hint(payload, "")
+                # Call vendor directly
+                gk = os.getenv("GROQ_API_KEY") or ""
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        json=payload,
+                        headers={"Authorization": f"Bearer {gk}"},
+                    )
+                    resp.raise_for_status()
+                    return resp.json()
+        except Exception as _local_proxy_err:
+            # Do NOT fall back silently; surface the error so callers fail fast
+            raise
 
         # Fix parameter compatibility for newer models
         processed_request = self._fix_model_parameters(request, target_url=url)
@@ -227,11 +278,7 @@ class OpenAIClient:
                 logger.info(
                     f"Inference response status=200, content-type={content_type}, bytes={len(body_text)}"
                 )
-                if body_text:
-                    preview_len = min(800, len(body_text))
-                    logger.info(
-                        f"Inference response preview ({preview_len} bytes): {body_text[:preview_len]}"
-                    )
+                # Do not log prompt or full response body
 
                 result = response.json()
                 logger.info(f"Inference response parsed_type={type(result).__name__}")
@@ -243,34 +290,10 @@ class OpenAIClient:
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code if e.response is not None else None
                 text = e.response.text if e.response is not None else str(e)
-                # Log full body for debugging remote failures
-                try:
-                    logger.error(
-                        {
-                            "openai_http_error": True,
-                            "status": status,
-                            "url": url,
-                            "body": text,
-                        }
-                    )
-                except Exception:
-                    logger.error(f"HTTP error from {url}: {status} - {text}")
+                # Log minimal error info only
+                logger.error({"openai_http_error": True, "status": status})
                 # For 4xx/5xx, print full sanitized request to aid debugging (especially Groq 400s)
-                try:
-                    redacted_headers = dict(headers)
-                    if "Authorization" in redacted_headers:
-                        redacted_headers["Authorization"] = "***REDACTED***"
-                    logger.error(
-                        {
-                            "request_debug": True,
-                            "status": status,
-                            "target": url,
-                            "headers": redacted_headers,
-                            "payload": processed_request,
-                        }
-                    )
-                except Exception:
-                    pass
+                # Suppress prompt/payload logging entirely
                 # Special case: token budget exceeded (OpenAI-compatible error schema)
                 try:
                     if status == 400 and e.response is not None:
@@ -324,8 +347,6 @@ class OpenAIClient:
                                     logger.warning(
                                         {
                                             "token_budget_recovery": True,
-                                            "messages_tokens": messages_tokens,
-                                            "model_limit": model_limit,
                                             "retry_max_tokens": new_max,
                                         }
                                     )
@@ -348,13 +369,8 @@ class OpenAIClient:
                         try:
                             err = e.response.json()
                         except Exception:
-                            err = {"error": "unprocessable", "detail": (text or "")[:200]}
-                        logger.warning(
-                            {
-                                "inference_422_recovered": True,
-                                "detail": err,
-                            }
-                        )
+                            err = {"error": "unprocessable"}
+                        logger.warning({"inference_422_recovered": True})
                     except Exception:
                         pass
                     # Return a minimal OpenAI-compatible response with no tool_calls/content
@@ -471,6 +487,54 @@ class OpenAIClient:
                                 f"Inference service overloaded (400). {response_data} Retrying after {wait_time}s..."
                             )
                         else:
+                            error_block = response_data.get("error")
+                            error_code = ""
+                            if isinstance(error_block, dict):
+                                error_code = str(
+                                    error_block.get("code") or error_block.get("type") or ""
+                                ).lower()
+                            if error_code in {"tool_use_failed", "tool_call_failed"}:
+                                logger.warning(
+                                    {
+                                        "tool_use_failed": True,
+                                        "target": (base_url or self.base_url),
+                                        "message": error_block.get("message") if isinstance(error_block, dict) else None,
+                                    }
+                                )
+                                fallback_actions = ["move_right", "move_up", "do"]
+                                fallback_response = {
+                                    "id": f"fallback-{int(time.time() * 1000)}",
+                                    "object": "chat.completion",
+                                    "created": int(time.time()),
+                                    "model": processed_request.get("model"),
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "message": {
+                                                "role": "assistant",
+                                                "content": "",
+                                                "tool_calls": [
+                                                    {
+                                                        "id": f"call_fallback_{int(time.time() * 1000)}",
+                                                        "type": "function",
+                                                        "function": {
+                                                            "name": "interact_many",
+                                                            "arguments": json.dumps(
+                                                                {"actions": fallback_actions}
+                                                            ),
+                                                        },
+                                                    }
+                                                ],
+                                            },
+                                            "finish_reason": "tool_calls",
+                                        }
+                                    ],
+                                }
+                                if isinstance(response_data.get("usage"), dict):
+                                    fallback_response["usage"] = response_data["usage"]
+                                if isinstance(error_block, dict):
+                                    fallback_response["error"] = error_block
+                                return fallback_response
                             # This is a different type of 400 error, don't retry
                             try:
                                 redacted_headers = {}

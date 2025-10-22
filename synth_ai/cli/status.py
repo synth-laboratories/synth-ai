@@ -12,11 +12,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from ._storage import load_storage
+
 
 async def _db_stats(db_url: str) -> dict:
-    from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
-
-    db = create_storage(StorageConfig(connection_string=db_url))
+    create_storage, storage_config = load_storage()
+    db = create_storage(storage_config(connection_string=db_url))
     await db.initialize()
     try:
         out: dict = {}

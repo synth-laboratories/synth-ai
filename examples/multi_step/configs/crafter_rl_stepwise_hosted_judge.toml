@@ -1,0 +1,186 @@
+# Crafter RL experiment – stepwise shaping with hosted judge rubrics
+#
+# This configuration extends the stepwise LoRA baseline by wiring the Synth judge
+# service so evaluation rolls combine dense step rewards with hosted rubric scoring.
+
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[services]
+# Replace with the Modal URL printed by `uvx synth-ai modal-serve grpo-crafter`
+task_url = "https://YOUR-MODAL-TASK-APP.modal.run"
+# Point at the Synth backend (or compatible service) that exposes /api/judge/v1/*
+judge_url = "https://synth-backend-dev-docker.onrender.com/api"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 2
+
+[topology]
+type = "single_node_split"
+gpus_for_vllm = 1
+gpus_for_training = 1
+gpus_for_ref = 0
+tensor_parallel = 1
+
+[vllm]
+tensor_parallel_size = 1
+max_model_len = 8192
+
+[reference]
+placement = "none"
+
+[model]
+base = "Qwen/Qwen3-4B"
+trainer_mode = "lora"
+label = "crafter-rl-stepwise-hosted-judge"
+
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["all-linear"]
+
+[rollout]
+env_name = "crafter"
+max_turns = 10
+episodes_per_batch = 4
+policy_name = "crafter-react"
+max_concurrent_rollouts = 8
+batches_per_step = 2
+ops = ["agent", "env"]
+
+  [rollout.env_config]
+  difficulty = "easy"
+
+    [rollout.env_config.step_rewards]
+    enabled = true
+    mode = "decision_stepwise"
+    strategy = "consistent"       # +1 for each decision that unlocks a new achievement
+    indicator_lambda = 1.0
+    step_beta = 0.0
+
+  [rollout.policy_config]
+  temperature = 0.2
+  top_p = 0.95
+  max_tokens = 512
+
+[evaluation]
+instances = 16
+every_n_iters = 8
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+[training]
+num_epochs = 1
+iterations_per_epoch = 16
+gradient_accumulation_steps = 1
+max_accumulated_minibatch = 1
+max_turns = 10
+batch_size = 4
+group_size = 4
+learning_rate = 5e-5
+log_interval = 1
+weight_sync_interval = 1
+event_rewards_kind = "unique"
+
+# Enable dense decision rewards in the trainer to mirror env_config step rewards.
+step_rewards_enabled = true
+step_rewards_mode = "decision_stepwise"
+step_rewards_indicator_lambda = 1.0
+step_rewards_beta = 0.0
+step_rewards_strategy = "consistent"
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+mode = "direct"
+direct = true
+verify_every_k = 0
+
+[rubric]
+enabled = true
+model = "openai/gpt-oss-120b"
+api_base = "https://synth-backend-dev-docker.onrender.com/api/judge"
+api_key_env = "OPENAI_API_KEY"
+# Blend the hosted judge scores with environment returns inside the trainer.
+[rubric.weights]
+env = 0.2
+event = 0.4
+outcome = 0.4
+
+[rubric.event]
+# Hosted judge rubric for per-decision progress scoring.
+rubric_id = "crafter/event@v1"
+criteria = [
+  { key = "progress.unique_achievements", weight = 0.9, description = "Return 1 when this decision explicitly unlocks a brand-new Crafter achievement (inventory or status text confirms it this turn). Otherwise return 0.", aggregation = "weighted_sum" },
+  { key = "process.intent_alignment", weight = 0.1, description = "Use at most 0.3 to acknowledge tightly coupled setup that finishes the last prerequisite; keep ≤0.1 when the agent only repositions or gathers without an imminent unlock.", aggregation = "weighted_sum" },
+]
+
+[rubric.outcome]
+# Hosted judge rubric for final trajectory scoring.
+rubric_id = "crafter/outcome@v1"
+criteria = [
+  { key = "outcome.goal_completion", weight = 0.6, description = "Full credit when the agent ends with strong survival metrics and a clear crafted milestone (e.g., iron tools, furnace).", aggregation = "weighted_sum" },
+  { key = "outcome.achievement_depth", weight = 0.4, description = "Partial credit for intermediate achievements (saplings, wood/stone tools) that set up future success.", aggregation = "weighted_sum" },
+]
+
+[judge]
+type = "gemini"                            # or "groq" when routing to Groq-hosted judges
+timeout_s = 45
+
+  [judge.options]
+  event = true
+  outcome = true
+  provider = "openai"
+  model = "openai/gpt-oss-120b"
+  rubric_id = "crafter/bundle@v1"
+  max_concurrency = 6
+  tracks = ["process", "reasoning", "progress", "outcome"]
+
+    [judge.options.rubric_overrides]
+
+      [judge.options.rubric_overrides.event]
+      goal_text = """
+Treat each decision as a check for new Crafter achievements.
+Award the top score only when the log shows a fresh achievement unlock or an immediately verifiable deterministic completion.
+Keep otherwise useful setup actions in a narrow low band so non-achievement turns stay near zero."""
+      aggregation = "weighted_sum"
+
+        [[judge.options.rubric_overrides.event.criteria]]
+        id = "progress.unique_achievements"
+        weight = 0.9
+        scale = "binary"
+        description = "Return 1 when this decision explicitly unlocks a brand-new Crafter achievement (inventory or status text confirms it this turn). Otherwise return 0."
+
+        [[judge.options.rubric_overrides.event.criteria]]
+        id = "process.intent_alignment"
+        weight = 0.1
+        scale = "bounded"
+        description = "Use at most 0.3 to acknowledge tightly coupled setup that finishes the last prerequisite; keep ≤0.1 when the agent only repositions or gathers without an imminent unlock."
+
+      [judge.options.rubric_overrides.outcome]
+      goal_text = """
+Summarise the episode outcome in relation to Crafter’s win condition:
+survive, accumulate resources, and craft advanced tools or structures.
+Highlight notable achievements, safety failures, and preparedness for future exploration."""
+      aggregation = "weighted_sum"
+
+        [[judge.options.rubric_overrides.outcome.criteria]]
+        id = "outcome.goal_completion"
+        weight = 0.6
+        scale = "binary"
+        description = "Full credit when the agent ends with strong survival metrics and a clear crafted milestone (e.g., iron tools, furnace)."
+
+        [[judge.options.rubric_overrides.outcome.criteria]]
+        id = "outcome.achievement_depth"
+        weight = 0.4
+        scale = "bounded"
+        description = "Partial credit for intermediate achievements (saplings, wood/stone tools) that set up future success."
+
+    [judge.options.weights]
+    process = 0.05
+    reasoning = 0.15
+    progress = 0.30
+    outcome = 0.50

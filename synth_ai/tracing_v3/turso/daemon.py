@@ -6,6 +6,7 @@ import subprocess
 import time
 
 import requests
+from requests import RequestException
 
 from ..config import CONFIG
 
@@ -79,7 +80,7 @@ class SqldDaemon:
                 response = requests.get(health_url, timeout=1)
                 if response.status_code == 200:
                     return
-            except requests.exceptions.RequestException:
+            except RequestException:
                 pass
 
             # Check if process crashed

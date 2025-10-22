@@ -21,25 +21,36 @@ from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
 
 def _load_build_config():
-    # Find synth_ai package location to locate examples/
-    import synth_ai
+    """Load the example's build_config, preferring package import with file fallback."""
+    # First try to import by package name (installed 'examples' package)
+    try:
+        module = importlib.import_module("examples.warming_up_to_rl.task_app.grpo_crafter")
+        return module.build_config  # type: ignore[attr-defined]
+    except Exception:
+        # Fallback: locate the file within the installed synth_ai distribution and exec it
+        import synth_ai
+        import sys as _sys
 
-    synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
-    module_path = synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
-
-    if not module_path.exists():
-        raise ImportError(
-            f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository."
+        synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
+        module_path = (
+            synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
         )
 
-    spec = importlib.util.spec_from_file_location(
-        "warming_up_to_rl.task_app.grpo_crafter", module_path
-    )
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load task app module at {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.build_config
+        if not module_path.exists():
+            raise ImportError(
+                f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository."
+            )
+
+        spec = importlib.util.spec_from_file_location(
+            "examples.warming_up_to_rl.task_app.grpo_crafter", module_path
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load task app module at {module_path}")
+
+        module = importlib.util.module_from_spec(spec)
+        _sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module.build_config  # type: ignore[attr-defined]
 
 
 build_config = _load_build_config()

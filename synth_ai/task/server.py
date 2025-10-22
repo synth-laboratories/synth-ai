@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import os
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,10 @@ from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendo
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
 InstanceProvider = Callable[[Sequence[int]], Iterable[TaskInfo] | Awaitable[Iterable[TaskInfo]]]
 RolloutExecutor = Callable[[RolloutRequest, Request], Any | Awaitable[Any]]
+
+
+def _default_app_state() -> dict[str, Any]:
+    return {}
 
 
 @dataclass(slots=True)
@@ -69,7 +74,7 @@ class TaskAppConfig:
     proxy: ProxyConfig | None = None
     routers: Sequence[APIRouter] = field(default_factory=tuple)
     middleware: Sequence[Middleware] = field(default_factory=tuple)
-    app_state: Mapping[str, Any] = field(default_factory=dict)
+    app_state: MutableMapping[str, Any] = field(default_factory=_default_app_state)
     require_api_key: bool = True
     expose_debug_env: bool = True
     cors_origins: Sequence[str] | None = None
@@ -260,17 +265,19 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
             return _maybe_await(hook(app))  # type: ignore[misc]
         return _maybe_await(hook())
 
-    @app.on_event("startup")
-    async def _startup() -> None:  # pragma: no cover - FastAPI lifecycle
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
         normalize_environment_api_key()
         normalize_vendor_keys()
         for hook in cfg.startup_hooks:
             await _call_hook(hook)
+        try:
+            yield
+        finally:
+            for hook in cfg.shutdown_hooks:
+                await _call_hook(hook)
 
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:  # pragma: no cover - FastAPI lifecycle
-        for hook in cfg.shutdown_hooks:
-            await _call_hook(hook)
+    app.router.lifespan_context = lifespan
 
     @app.get("/")
     async def root() -> Mapping[str, Any]:

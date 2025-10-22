@@ -2963,7 +2963,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.9.dev5"
+version = "0.2.13.dev1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -2983,6 +2983,7 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "greenlet" },
     { name = "groq" },
+    { name = "httpx" },
     { name = "jsonschema" },
     { name = "langfuse" },
     { name = "libsql" },
@@ -3076,6 +3077,7 @@ requires-dist = [
     { name = "google-generativeai", specifier = ">=0.8.5" },
     { name = "greenlet", specifier = ">=3.2.3" },
     { name = "groq", specifier = ">=0.30.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "jsonschema", specifier = ">=4.23.0" },
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "langfuse", specifier = ">=2.53.9,<3.0.0" },

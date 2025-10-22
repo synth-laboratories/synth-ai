@@ -3,8 +3,8 @@
 import asyncio
 import functools
 import time
-from collections.abc import Callable
-from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -18,9 +18,9 @@ def retry_async(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0)
         backoff: Backoff multiplier for each retry
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             last_exception: Exception | None = None
             current_delay = delay
 
@@ -171,13 +171,14 @@ STORAGE_METRICS = StorageMetrics()
 def track_metrics(operation: str):
     """Decorator to track storage operation metrics."""
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[..., Awaitable[T]] | Callable[..., T]) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         @functools.wraps(func)
-        async def async_wrapper(*args, **kwargs):
+        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
             start_time = time.time()
             success = False
             try:
-                result = await func(*args, **kwargs)
+                async_func = cast(Callable[..., Awaitable[T]], func)
+                result = await async_func(*args, **kwargs)
                 success = True
                 return result
             finally:
@@ -185,11 +186,12 @@ def track_metrics(operation: str):
                 STORAGE_METRICS.record_operation(operation, duration, success)
 
         @functools.wraps(func)
-        def sync_wrapper(*args, **kwargs):
+        def sync_wrapper(*args: Any, **kwargs: Any) -> T:
             start_time = time.time()
             success = False
             try:
-                result = func(*args, **kwargs)
+                sync_func = cast(Callable[..., T], func)
+                result = sync_func(*args, **kwargs)
                 success = True
                 return result
             finally:

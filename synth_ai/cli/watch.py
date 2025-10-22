@@ -16,11 +16,12 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 
-from synth_ai.tracing_v3.storage.factory import StorageConfig, create_storage
+from ._storage import load_storage
 
 
 def _open_db(db_url: str):
-    return create_storage(StorageConfig(connection_string=db_url))
+    create_storage, storage_config = load_storage()
+    return create_storage(storage_config(connection_string=db_url))
 
 
 class _State:

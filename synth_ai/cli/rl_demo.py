@@ -17,18 +17,25 @@ from __future__ import annotations
 
 import click
 
+from synth_ai.demos.core import cli as demo_commands
 
-def _forward(args: list[str]) -> None:
-    import sys
+
+def _run_demo_command(func, *args, **kwargs) -> None:
+    """Invoke a demo command and exit via Click on non-zero status codes."""
 
     try:
-        from synth_ai.demos.core import cli as demo_cli  # type: ignore
-    except Exception as e:  # pragma: no cover
-        click.echo(f"Failed to import RL demo CLI: {e}")
-        sys.exit(1)
-    rc = int(demo_cli.main(args) or 0)
-    if rc != 0:
-        sys.exit(rc)
+        result = func(*args, **kwargs)
+    except SystemExit as exc:  # pragma: no cover - defensive
+        raise click.exceptions.Exit(exc.code or 1) from exc
+
+    if result is None:
+        return
+    try:
+        code = int(result)
+    except (TypeError, ValueError):
+        return
+    if code != 0:
+        raise click.exceptions.Exit(code)
 
 
 def register(cli):
@@ -44,7 +51,7 @@ def register(cli):
 
     @_rlg.command("setup")
     def rl_setup():
-        _forward(["rl_demo.setup"])  # primary setup command
+        _run_demo_command(demo_commands.setup)
 
     # (prepare command removed; consolidated into configure)
 
@@ -64,34 +71,29 @@ def register(cli):
         help="Path to deploy_task_app.sh (optional legacy)",
     )
     def rl_deploy(local: bool, app: str | None, name: str, script: str | None):
-        args: list[str] = ["rl_demo.deploy"]
-        if local:
-            args.append("--local")
-        if app:
-            args.extend(["--app", app])
-        if name:
-            args.extend(["--name", name])
-        if script:
-            args.extend(["--script", script])
-        _forward(args)
+        _run_demo_command(
+            demo_commands.deploy,
+            local=local,
+            app=app,
+            name=name,
+            script=script,
+        )
 
     @_rlg.command("configure")
     def rl_configure():
-        _forward(["rl_demo.configure"])
+        _run_demo_command(demo_commands.run)
 
     @_rlg.command("init")
     @click.option("--template", type=str, default=None, help="Template id to instantiate")
     @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
     @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
     def rl_init(template: str | None, dest: str | None, force: bool):
-        args = ["rl_demo.init"]
-        if template:
-            args.extend(["--template", template])
-        if dest:
-            args.extend(["--dest", dest])
-        if force:
-            args.append("--force")
-        _forward(args)
+        _run_demo_command(
+            demo_commands.init,
+            template=template,
+            dest=dest,
+            force=force,
+        )
 
     @_rlg.command("run")
     @click.option(
@@ -110,29 +112,24 @@ def register(cli):
         timeout: int,
         dry_run: bool,
     ):
-        args = ["rl_demo.run"]
-        if config:
-            args.extend(["--config", config])
-        if batch_size is not None:
-            args.extend(["--batch-size", str(batch_size)])
-        if group_size is not None:
-            args.extend(["--group-size", str(group_size)])
-        if model:
-            args.extend(["--model", model])
-        if timeout is not None:
-            args.extend(["--timeout", str(timeout)])
-        if dry_run:
-            args.append("--dry-run")
-        _forward(args)
+        _run_demo_command(
+            demo_commands.run,
+            config=config,
+            batch_size=batch_size,
+            group_size=group_size,
+            model=model,
+            timeout=timeout,
+            dry_run=dry_run,
+        )
 
     # Dotted aliases (top-level): legacy check → setup
     @cli.command("rl_demo.check")
     def rl_check_alias():
-        _forward(["rl_demo.setup"])
+        _run_demo_command(demo_commands.setup)
 
     @cli.command("rl_demo.setup")
     def rl_setup_alias():
-        _forward(["rl_demo.setup"])
+        _run_demo_command(demo_commands.setup)
 
     # (prepare alias removed)
 
@@ -152,34 +149,29 @@ def register(cli):
         help="Path to deploy_task_app.sh (optional legacy)",
     )
     def rl_deploy_alias(local: bool, app: str | None, name: str, script: str | None):
-        args: list[str] = ["rl_demo.deploy"]
-        if local:
-            args.append("--local")
-        if app:
-            args.extend(["--app", app])
-        if name:
-            args.extend(["--name", name])
-        if script:
-            args.extend(["--script", script])
-        _forward(args)
+        _run_demo_command(
+            demo_commands.deploy,
+            local=local,
+            app=app,
+            name=name,
+            script=script,
+        )
 
     @cli.command("rl_demo.configure")
     def rl_configure_alias():
-        _forward(["rl_demo.configure"])
+        _run_demo_command(demo_commands.run)
 
     @cli.command("rl_demo.init")
     @click.option("--template", type=str, default=None, help="Template id to instantiate")
     @click.option("--dest", type=click.Path(), default=None, help="Destination directory for files")
     @click.option("--force", is_flag=True, help="Overwrite existing files in destination")
     def rl_init_alias(template: str | None, dest: str | None, force: bool):
-        args = ["rl_demo.init"]
-        if template:
-            args.extend(["--template", template])
-        if dest:
-            args.extend(["--dest", dest])
-        if force:
-            args.append("--force")
-        _forward(args)
+        _run_demo_command(
+            demo_commands.init,
+            template=template,
+            dest=dest,
+            force=force,
+        )
 
     @cli.command("rl_demo.run")
     @click.option(
@@ -198,20 +190,15 @@ def register(cli):
         timeout: int,
         dry_run: bool,
     ):
-        args = ["rl_demo.run"]
-        if config:
-            args.extend(["--config", config])
-        if batch_size is not None:
-            args.extend(["--batch-size", str(batch_size)])
-        if group_size is not None:
-            args.extend(["--group-size", str(group_size)])
-        if model:
-            args.extend(["--model", model])
-        if timeout is not None:
-            args.extend(["--timeout", str(timeout)])
-        if dry_run:
-            args.append("--dry-run")
-        _forward(args)
+        _run_demo_command(
+            demo_commands.run,
+            config=config,
+            batch_size=batch_size,
+            group_size=group_size,
+            model=model,
+            timeout=timeout,
+            dry_run=dry_run,
+        )
 
     # Top-level convenience alias: `synth-ai deploy`
     @cli.command("demo-deploy")
@@ -230,16 +217,13 @@ def register(cli):
         help="Path to deploy_task_app.sh (optional legacy)",
     )
     def deploy_demo(local: bool, app: str | None, name: str, script: str | None):
-        args: list[str] = ["rl_demo.deploy"]
-        if local:
-            args.append("--local")
-        if app:
-            args.extend(["--app", app])
-        if name:
-            args.extend(["--name", name])
-        if script:
-            args.extend(["--script", script])
-        _forward(args)
+        _run_demo_command(
+            demo_commands.deploy,
+            local=local,
+            app=app,
+            name=name,
+            script=script,
+        )
 
     @cli.command("run")
     @click.option(
@@ -258,17 +242,12 @@ def register(cli):
         timeout: int,
         dry_run: bool,
     ):
-        args = ["run"]
-        if config:
-            args.extend(["--config", config])
-        if batch_size is not None:
-            args.extend(["--batch-size", str(batch_size)])
-        if group_size is not None:
-            args.extend(["--group-size", str(group_size)])
-        if model:
-            args.extend(["--model", model])
-        if timeout is not None:
-            args.extend(["--timeout", str(timeout)])
-        if dry_run:
-            args.append("--dry-run")
-        _forward(args)
+        _run_demo_command(
+            demo_commands.run,
+            config=config,
+            batch_size=batch_size,
+            group_size=group_size,
+            model=model,
+            timeout=timeout,
+            dry_run=dry_run,
+        )

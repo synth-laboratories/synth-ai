@@ -1,6 +1,6 @@
 # Math Demo Workflow
 
-The math demo provides a curated end-to-end experience for new users. All commands proxy into `synth_ai.demos.core.cli`, which prints contextual next steps (`synth_ai/cli/root.py:75`).
+The math demo provides a curated end-to-end experience for new users. All commands now call helper functions in `synth_ai.demos.core.cli`, which print contextual next steps (`synth_ai/cli/root.py:75`).
 
 ## Steps at a glance
 
@@ -24,4 +24,3 @@ The math demo provides a curated end-to-end experience for new users. All comman
 ## Roadmap
 
 The public RL example will migrate from Crafter to this math task app using FFT checkpoints. Once the new configs land under `examples/rl/`, this page will include cross-links and updated command snippets.
-

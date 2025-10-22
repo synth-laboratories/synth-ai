@@ -1,23 +1,29 @@
 from __future__ import annotations
 
+import argparse
 import ast
 import asyncio
 import contextlib
+import functools
 import hashlib
 import importlib
 import importlib.util
 import inspect
 import json
 import os
+import shlex
+import sqlite3
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import time
 import textwrap
 import types
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
@@ -28,10 +34,73 @@ except Exception:  # pragma: no cover - fallback
 import uuid
 
 import click
+from click.exceptions import Abort
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
-from synth_ai.task.server import create_task_app, run_task_app
+# ---------------------------------------------------------------------------
+# Dynamic imports to avoid hard dependencies during type checking.
+# ---------------------------------------------------------------------------
+ModalDeploymentConfigType = TaskAppConfigType = TaskAppEntryType = Any
+
+try:  # Resolve base URL defaults lazily
+    _config_module = importlib.import_module("synth_ai.config.base_url")
+    PROD_BASE_URL_DEFAULT = cast(str, _config_module.PROD_BASE_URL_DEFAULT)
+except Exception:  # pragma: no cover - fallback
+    PROD_BASE_URL_DEFAULT = "https://agent-learning.onrender.com"
+
+try:
+    _task_apps_module = importlib.import_module("synth_ai.task.apps")
+    ModalDeploymentConfig = cast(
+        type[ModalDeploymentConfigType], _task_apps_module.ModalDeploymentConfig
+    )
+    TaskAppConfig = cast(type[TaskAppConfigType], _task_apps_module.TaskAppConfig)
+    TaskAppEntry = cast(type[TaskAppEntryType], _task_apps_module.TaskAppEntry)
+    registry = _task_apps_module.registry
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load task app registry") from exc
+
+try:
+    _task_server_module = importlib.import_module("synth_ai.task.server")
+    create_task_app = _task_server_module.create_task_app
+    run_task_app = _task_server_module.run_task_app
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load task app server utilities") from exc
+
+from synth_ai.tracing_v3 import (
+    BaseEvent,
+    EnvironmentEvent,
+    RuntimeEvent,
+    SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
+    SessionTimeStep,
+    SessionTracer,
+    SessionTrace as V3SessionTrace,
+    TimeRecord,
+)
+
+
+def _load_demo_directory() -> Path | None:
+    """Return the demo task apps directory if available."""
+
+    try:
+        module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        loader = module.load_demo_dir
+        demo_dir = loader()
+        if isinstance(demo_dir, (str, Path)):
+            demo_path = Path(demo_dir)
+            if demo_path.exists():
+                return demo_path.resolve()
+    except Exception:
+        return None
+    return None
+
+
+def _maybe_import(name: str) -> Any:
+    """Safely import a module by name and return it, or None on failure."""
+
+    try:
+        return importlib.import_module(name)
+    except Exception:
+        return None
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -54,6 +123,25 @@ DEFAULT_SEARCH_RELATIVE = (
 )
 
 
+def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
+    if len(xs) != len(ys) or len(xs) < 2:
+        return None
+    mean_x = sum(xs) / len(xs)
+    mean_y = sum(ys) / len(ys)
+    num = 0.0
+    denom_x = 0.0
+    denom_y = 0.0
+    for x, y in zip(xs, ys):
+        dx = x - mean_x
+        dy = y - mean_y
+        num += dx * dy
+        denom_x += dx * dx
+        denom_y += dy * dy
+    if denom_x <= 0 or denom_y <= 0:
+        return None
+    return num / (denom_x ** 0.5 * denom_y ** 0.5)
+
+
 @dataclass
 class AppChoice:
     app_id: str
@@ -62,12 +150,12 @@ class AppChoice:
     source: str
     description: str | None = None
     aliases: tuple[str, ...] = ()
-    entry: TaskAppEntry | None = None
-    entry_loader: Callable[[], TaskAppEntry] | None = None
+    entry: TaskAppEntryType | None = None
+    entry_loader: Callable[[], TaskAppEntryType] | None = None
     modal_script: Path | None = None
     lineno: int | None = None
 
-    def ensure_entry(self) -> TaskAppEntry:
+    def ensure_entry(self) -> TaskAppEntryType:
         if self.entry is not None:
             return self.entry
         if self.entry_loader is None:
@@ -76,6 +164,171 @@ class AppChoice:
         self.entry = entry
         return entry
 
+
+@dataclass
+class JudgeSpec:
+    name: str
+    fn: Callable[..., Any]
+    kwargs: dict[str, Any]
+
+
+def _parse_datetime_for_trace(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        value = value.replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(value)
+        except ValueError:
+            try:
+                dt = datetime.fromtimestamp(float(value), tz=timezone.utc)
+            except Exception:
+                return None
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+    return None
+
+
+def _time_record_from_dict(payload: dict[str, Any] | None) -> TimeRecord:
+    payload = payload or {}
+    event_time = payload.get("event_time")
+    if not isinstance(event_time, (int, float)):
+        try:
+            event_time = float(event_time)
+        except Exception:
+            event_time = float(time.time())
+    message_time = payload.get("message_time")
+    if message_time is not None:
+        try:
+            message_time = int(message_time)
+        except Exception:
+            message_time = None
+    return TimeRecord(event_time=event_time, message_time=message_time)
+
+
+def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
+    base_kwargs = {
+        "system_instance_id": payload.get("system_instance_id", ""),
+        "time_record": _time_record_from_dict(payload.get("time_record")),
+        "metadata": payload.get("metadata") or {},
+        "event_metadata": payload.get("event_metadata"),
+    }
+    if "actions" in payload:
+        return RuntimeEvent(actions=payload.get("actions") or [], **base_kwargs)
+    if any(key in payload for key in ("reward", "terminated", "truncated")):
+        return EnvironmentEvent(
+            reward=float(payload.get("reward", 0.0) or 0.0),
+            terminated=bool(payload.get("terminated", False)),
+            truncated=bool(payload.get("truncated", False)),
+            system_state_before=payload.get("system_state_before"),
+            system_state_after=payload.get("system_state_after"),
+            **base_kwargs,
+        )
+    return BaseEvent(**base_kwargs)
+
+
+def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlanketMessage:
+    content_payload = payload.get("content") or {}
+    content = SessionMessageContent(
+        text=content_payload.get("text"),
+        json_payload=content_payload.get("json_payload"),
+    )
+    raw_type = (payload.get("message_type") or "").lower()
+    if raw_type == "observation":
+        normalized_type = "system"
+    elif raw_type == "action":
+        normalized_type = "assistant"
+    elif raw_type in {"user", "assistant", "system", "tool_use", "tool_result"}:
+        normalized_type = raw_type
+    else:
+        normalized_type = "system"
+
+    return SessionEventMarkovBlanketMessage(
+        content=content,
+        message_type=normalized_type,
+        time_record=_time_record_from_dict(payload.get("time_record")),
+        metadata=payload.get("metadata") or {},
+    )
+
+
+def _step_from_dict(payload: dict[str, Any]) -> SessionTimeStep:
+    events = [
+        _event_from_dict(event)
+        for event in payload.get("events", [])
+        if isinstance(event, dict)
+    ]
+    messages = [
+        _markov_message_from_dict(msg)
+        for msg in payload.get("markov_blanket_messages", [])
+        if isinstance(msg, dict)
+    ]
+    timestamp = _parse_datetime_for_trace(payload.get("timestamp")) or datetime.now(timezone.utc)
+    completed_at = _parse_datetime_for_trace(payload.get("completed_at"))
+    return SessionTimeStep(
+        step_id=payload.get("step_id", ""),
+        step_index=int(payload.get("step_index", 0) or 0),
+        timestamp=timestamp,
+        turn_number=payload.get("turn_number"),
+        events=events,
+        markov_blanket_messages=messages,
+        step_metadata=payload.get("step_metadata") or {},
+        completed_at=completed_at,
+    )
+
+
+def _session_trace_from_dict(payload: dict[str, Any]) -> V3SessionTrace | None:
+    if not isinstance(payload, dict):
+        return None
+    steps = [
+        _step_from_dict(step)
+        for step in payload.get("session_time_steps", [])
+        if isinstance(step, dict)
+    ]
+    events = [
+        _event_from_dict(event)
+        for event in payload.get("event_history", [])
+        if isinstance(event, dict)
+    ]
+    markov_history = [
+        _markov_message_from_dict(msg)
+        for msg in payload.get("markov_blanket_message_history", [])
+        if isinstance(msg, dict)
+    ]
+    created_at = _parse_datetime_for_trace(payload.get("created_at")) or datetime.now(timezone.utc)
+    metadata = payload.get("metadata") or {}
+    session_metadata = payload.get("session_metadata")
+    return V3SessionTrace(
+        session_id=payload.get("session_id", ""),
+        created_at=created_at,
+        session_time_steps=steps,
+        event_history=events,
+        markov_blanket_message_history=markov_history,
+        metadata=metadata,
+        session_metadata=session_metadata,
+    )
+
+
+async def _store_trace(
+    tracer: SessionTracer | None,
+    trace_namespace: dict[str, Any] | None,
+    extra_metadata: dict[str, Any] | None = None,
+):
+    if tracer is None or not isinstance(trace_namespace, dict):
+        return
+    session_payload = trace_namespace.get("session_trace")
+    if not isinstance(session_payload, dict):
+        return
+    trace_obj = _session_trace_from_dict(session_payload)
+    if trace_obj is None:
+        return
+    if tracer.db is None:
+        await tracer.initialize()
+    meta = dict(trace_obj.metadata or {})
+    if extra_metadata:
+        meta.update(extra_metadata)
+    trace_obj.metadata = meta
+    await tracer.db.insert_session_trace(trace_obj)
 
 def _temporary_sys_path(paths: Sequence[Path]):
     """Context manager to prepend entries to sys.path temporarily."""
@@ -152,17 +405,9 @@ def _candidate_search_roots() -> list[Path]:
     """Only search for task apps in the current working directory and subdirectories."""
     roots: list[Path] = []
 
-    # Prioritize demo directory if it exists
-    try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-        demo_dir = load_demo_dir()
-        if demo_dir:
-            demo_path = Path(demo_dir)
-            if demo_path.exists() and demo_path.is_dir():
-                roots.append(demo_path.resolve())
-    except Exception:
-        pass
+    demo_path = _load_demo_directory()
+    if demo_path is not None and demo_path.is_dir():
+        roots.append(demo_path)
 
     # Allow explicit search paths via environment variable
     env_paths = os.environ.get("SYNTH_TASK_APP_SEARCH_PATH")
@@ -359,7 +604,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
 
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        import synth_ai.demos.demo_task_apps  # noqa: F401
+        _maybe_import("synth_ai.demos.demo_task_apps")
     # Only use discovered task apps, not registered ones (since we moved them to examples)
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
@@ -515,16 +760,9 @@ def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, st
 
     # Further prioritize apps in the demo directory if one is set
     demo_rank = 1
-    try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-        demo_dir = load_demo_dir()
-        if demo_dir:
-            demo_path = Path(demo_dir).resolve()
-            if choice.path.is_relative_to(demo_path):
-                demo_rank = 0
-    except Exception:
-        pass
+    demo_dir = _load_demo_directory()
+    if demo_dir and choice.path.is_relative_to(demo_dir):
+        demo_rank = 0
 
     modal_rank = 1 if choice.modal_script else 0
 
@@ -598,7 +836,7 @@ def _has_modal_support_in_file(path: Path) -> bool:
     return False
 
 
-def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
+def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfigType | None:
     """Extract ModalDeploymentConfig from a file by parsing the AST."""
     try:
         source = path.read_text(encoding="utf-8")
@@ -629,7 +867,7 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfig | None:
     return None
 
 
-def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfig | None:
+def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigType | None:
     """Build a ModalDeploymentConfig from an AST Call node."""
     try:
         # Extract keyword arguments
@@ -637,43 +875,40 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfig 
         for kw in modal_call.keywords:
             if kw.arg and isinstance(kw.value, ast.Constant):
                 kwargs[kw.arg] = kw.value.value
-            elif kw.arg == "pip_packages" and isinstance(kw.value, ast.List | ast.Tuple):
+            elif kw.arg == "pip_packages" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle pip_packages list/tuple
-                packages = []
+                packages: list[str] = []
                 for elt in kw.value.elts:
                     if isinstance(elt, ast.Constant):
                         packages.append(elt.value)
                 kwargs[kw.arg] = tuple(packages)
-            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, ast.List | ast.Tuple):
+            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle extra_local_dirs list/tuple of tuples
                 dirs = []
                 for elt in kw.value.elts:
-                    if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
+                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
                         src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                         dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                         if src and dst:
                             dirs.append((src, dst))
                 kwargs[kw.arg] = tuple(dirs)
-            elif kw.arg == "secret_names" and isinstance(kw.value, ast.List | ast.Tuple):
+            elif kw.arg == "secret_names" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle secret_names list/tuple
                 secrets = []
                 for elt in kw.value.elts:
                     if isinstance(elt, ast.Constant):
                         secrets.append(elt.value)
                 kwargs[kw.arg] = tuple(secrets)
-            elif kw.arg == "volume_mounts" and isinstance(kw.value, ast.List | ast.Tuple):
+            elif kw.arg == "volume_mounts" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle volume_mounts list/tuple of tuples
                 mounts = []
                 for elt in kw.value.elts:
-                    if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
+                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
                         name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                         mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                         if name and mount:
                             mounts.append((name, mount))
                 kwargs[kw.arg] = tuple(mounts)
-
-        # Create ModalDeploymentConfig with extracted arguments
-        from synth_ai.task.apps import ModalDeploymentConfig
 
         return ModalDeploymentConfig(**kwargs)
     except Exception:
@@ -713,7 +948,7 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
         click.echo(_format_choice(choice, idx))
     try:
         response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
-    except (click.exceptions.Abort, EOFError, KeyboardInterrupt) as exc:
+    except (Abort, EOFError, KeyboardInterrupt) as exc:
         raise click.ClickException("Task app selection cancelled by user") from exc
     if not response.isdigit():
         raise click.ClickException("Selection must be a number")
@@ -745,6 +980,9 @@ def _select_app_choice(app_id: str | None, purpose: str) -> AppChoice:
         if not matches:
             available = ", ".join(sorted({c.app_id for c in filtered}))
             raise click.ClickException(f"Task app '{app_id}' not found. Available: {available}")
+        exact_matches = [c for c in matches if c.app_id == app_id]
+        if len(exact_matches) == 1:
+            return exact_matches[0]
         if len(matches) == 1:
             return matches[0]
         # Prefer entries with modal support when required
@@ -796,9 +1034,70 @@ def _import_task_app_module(
     return module
 
 
+@contextlib.contextmanager
+def _safe_import_context() -> Iterator[None]:
+    """Guard module imports against argparse/uvicorn side effects."""
+
+    original_argv = sys.argv[:]
+    sys.argv = [original_argv[0]] if original_argv else ["python"]
+
+    parser_cls = argparse.ArgumentParser
+    old_parse_args = parser_cls.parse_args
+
+    def _parse_noargs(self, args=None, namespace=None):  # type: ignore[override]
+        if args is None:
+            args = []
+        if namespace is None:
+            namespace = argparse.Namespace()
+        try:
+            return old_parse_args(self, args, namespace)
+        except SystemExit:
+            return namespace
+
+    parser_cls.parse_args = _parse_noargs  # type: ignore[assignment]
+
+    uvicorn_run = None
+    run_task_app_orig = None
+    try:
+        import uvicorn  # type: ignore
+
+        uvicorn_run = uvicorn.run
+        uvicorn.run = lambda *args, **kwargs: None  # type: ignore[assignment]
+    except Exception:
+        uvicorn_run = None
+
+    try:
+        from synth_ai.task import server as _task_server
+
+        run_task_app_orig = _task_server.run_task_app
+        _task_server.run_task_app = lambda *args, **kwargs: None  # type: ignore[assignment]
+    except Exception:
+        run_task_app_orig = None
+
+    try:
+        yield
+    finally:
+        sys.argv = original_argv
+        parser_cls.parse_args = old_parse_args  # type: ignore[assignment]
+        if uvicorn_run is not None:
+            try:
+                import uvicorn  # type: ignore
+
+                uvicorn.run = uvicorn_run  # type: ignore[assignment]
+            except Exception:
+                pass
+        if run_task_app_orig is not None:
+            try:
+                from synth_ai.task import server as _task_server
+
+                _task_server.run_task_app = run_task_app_orig  # type: ignore[assignment]
+            except Exception:
+                pass
+
+
 def _load_entry_from_path(
     path: Path, app_id: str, module_search_roots: Sequence[Path] | None = None
-) -> TaskAppEntry:
+) -> TaskAppEntryType:
     resolved = path.resolve()
     search_roots: list[Path] = []
     seen_roots: set[Path] = set()
@@ -823,13 +1122,14 @@ def _load_entry_from_path(
 
     for module_name, namespace_root in _possible_module_names(resolved, search_roots):
         try:
-            module = _import_task_app_module(
-                resolved,
-                module_name,
-                namespace_root=namespace_root,
-                sys_path_roots=search_roots,
-                ensure_namespace=True,
-            )
+            with _safe_import_context():
+                module = _import_task_app_module(
+                    resolved,
+                    module_name,
+                    namespace_root=namespace_root,
+                    sys_path_roots=search_roots,
+                    ensure_namespace=True,
+                )
             break
         except Exception as exc:  # pragma: no cover - best-effort fallbacks
             last_error = exc
@@ -838,19 +1138,20 @@ def _load_entry_from_path(
     if module is None:
         hashed_name = f"_synth_task_app_{hashlib.md5(str(resolved).encode(), usedforsecurity=False).hexdigest()}"
         try:
-            module = _import_task_app_module(
-                resolved,
-                hashed_name,
-                namespace_root=None,
-                sys_path_roots=search_roots,
-                ensure_namespace=False,
-            )
+            with _safe_import_context():
+                module = _import_task_app_module(
+                    resolved,
+                    hashed_name,
+                    namespace_root=None,
+                    sys_path_roots=search_roots,
+                    ensure_namespace=False,
+                )
         except Exception as exc:  # pragma: no cover - propagate meaningful error
             detail = last_error or exc
             raise click.ClickException(f"Failed to import {resolved}: {detail}") from detail
 
-    config_obj: TaskAppConfig | None = None
-    factory_callable: Callable[[], TaskAppConfig] | None = None
+    config_obj: TaskAppConfigType | None = None
+    factory_callable: Callable[[], TaskAppConfigType] | None = None
 
     for attr_name in dir(module):
         try:
@@ -860,7 +1161,7 @@ def _load_entry_from_path(
         if isinstance(attr, TaskAppConfig) and attr.app_id == app_id:
             config_obj = attr
 
-            def _return_config(cfg: TaskAppConfig = attr) -> TaskAppConfig:
+            def _return_config(cfg: TaskAppConfigType = attr) -> TaskAppConfigType:
                 return cfg
 
             factory_callable = _return_config
@@ -892,7 +1193,10 @@ def _load_entry_from_path(
             if has_required:
                 continue
             try:
-                result = attr()
+                with _safe_import_context():
+                    result = attr()
+            except SystemExit:
+                continue
             except Exception:
                 continue
             if isinstance(result, TaskAppConfig) and result.app_id == app_id:
@@ -900,8 +1204,8 @@ def _load_entry_from_path(
                 bound_func: Callable[[], TaskAppConfig] = cast(Callable[[], TaskAppConfig], attr)  # type: ignore[assignment]
 
                 def _factory_noargs(
-                    func: Callable[[], TaskAppConfig] = bound_func,
-                ) -> TaskAppConfig:
+                    func: Callable[[], TaskAppConfigType] = bound_func,
+                ) -> TaskAppConfigType:
                     return func()
 
                 factory_callable = _factory_noargs
@@ -919,7 +1223,7 @@ def _load_entry_from_path(
                 f"Could not locate TaskAppConfig for '{app_id}' in {resolved}."
             ) from exc
 
-    modal_cfg: ModalDeploymentConfig | None = None
+    modal_cfg: ModalDeploymentConfigType | None = None
     for attr_name in dir(module):
         try:
             attr = getattr(module, attr_name)
@@ -988,27 +1292,175 @@ def _resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) ->
     return [env_candidates[choice - 1]]
 
 
+def _path_is_within(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except Exception:
+        return False
+
+
+@functools.lru_cache(maxsize=16)
+def _is_modal_shim(path_str: str) -> bool:
+    """Return True if the candidate CLI path refers to the synth-ai shim."""
+
+    path = Path(path_str)
+    try:
+        resolved = path.resolve(strict=True)
+    except Exception:
+        resolved = path
+
+    if not resolved.exists() or resolved.is_dir():
+        return False
+
+    snippet = ""
+    try:
+        snippet = resolved.read_bytes()[:4096].decode("utf-8", errors="ignore")
+    except Exception:
+        snippet = ""
+
+    shim_markers = (
+        "synth_ai.cli._modal_wrapper",
+        "from modal.__main__ import main",
+        "import modal.__main__",
+        "run_module('modal.__main__'",
+    )
+    if snippet and any(marker in snippet for marker in shim_markers):
+        return True
+
+    try:
+        size = resolved.stat().st_size
+    except Exception:
+        size = None
+
+    if size is not None and size < 2048 and "python" in (snippet.splitlines() or [""])[0]:
+        if "modal.__main__" in snippet or "modal.__main__" in snippet.replace(" ", ""):
+            return True
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        if _path_is_within(resolved, Path(virtual_env)):
+            return True
+
+    if _path_is_within(resolved, REPO_ROOT):
+        return True
+
+    uv_tools_dir = Path.home() / ".local" / "share" / "uv" / "tools"
+    if uv_tools_dir.exists() and _path_is_within(resolved, uv_tools_dir):
+        return True
+
+    return False
+
+
+def _find_modal_executable(modal_cli: str) -> tuple[str | None, str | None]:
+    """Return the first non-shim executable and the first shim discovered on PATH."""
+
+    if not modal_cli:
+        modal_cli = "modal"
+
+    candidate_path = Path(modal_cli).expanduser()
+    if candidate_path.is_absolute() or len(candidate_path.parts) > 1:
+        resolved_candidate = candidate_path
+        if not resolved_candidate.is_absolute():
+            resolved_candidate = (Path.cwd() / resolved_candidate).resolve()
+        else:
+            resolved_candidate = resolved_candidate.resolve()
+        if not resolved_candidate.exists():
+            raise click.ClickException(f"--modal-cli path does not exist: {resolved_candidate}")
+        if not os.access(resolved_candidate, os.X_OK):
+            raise click.ClickException(f"--modal-cli is not executable: {resolved_candidate}")
+        return str(resolved_candidate), None
+
+    path_env = os.environ.get("PATH", "")
+    if not path_env:
+        return None, None
+
+    seen_dirs: set[str] = set()
+    seen_candidates: set[str] = set()
+    shim_path: str | None = None
+
+    for raw_entry in path_env.split(os.pathsep):
+        if not raw_entry:
+            continue
+        try:
+            resolved_entry = str(Path(raw_entry).resolve())
+        except Exception:
+            resolved_entry = os.path.normpath(raw_entry)
+        if resolved_entry in seen_dirs:
+            continue
+        seen_dirs.add(resolved_entry)
+
+        candidate = shutil.which(modal_cli, path=raw_entry)
+        if candidate is None:
+            continue
+        if candidate in seen_candidates:
+            continue
+        seen_candidates.add(candidate)
+
+        if _is_modal_shim(candidate):
+            if shim_path is None:
+                shim_path = candidate
+            continue
+        return candidate, shim_path
+
+    return None, shim_path
+
+
 def _modal_command_prefix(modal_cli: str) -> list[str]:
     """Resolve a command prefix for invoking the Modal CLI within the active environment."""
-    if modal_cli == "modal" and importlib.util.find_spec("modal") is not None:
+
+    force_wrapper_env = os.environ.get("SYNTH_FORCE_MODAL_WRAPPER", "").strip().lower()
+    if force_wrapper_env in {"1", "true", "yes"}:
+        click.secho(
+            "[modal-prefix] SYNTH_FORCE_MODAL_WRAPPER=1 -> using in-process wrapper",
+            fg="yellow",
+        )
         return [sys.executable, "-m", "synth_ai.cli._modal_wrapper"]
 
-    modal_path = shutil.which(modal_cli)
-    if modal_path is not None:
-        return [modal_path]
+    lookup = modal_cli or "modal"
+    spec = importlib.util.find_spec("modal") if lookup == "modal" else None
 
-    if modal_cli == "modal":
-        raise click.ClickException(
-            "Modal CLI not found. Install the 'modal' package in this environment or pass "
-            "--modal-cli with an explicit path."
+    preferred, shim_candidate = _find_modal_executable(lookup)
+    if preferred is not None:
+        detail = f"[modal-prefix] modal_cli={lookup} selected={preferred}"
+        if lookup == "modal":
+            detail += f" spec={'yes' if spec else 'no'}"
+        click.secho(detail, fg="cyan")
+        return [preferred]
+
+    if lookup != "modal":
+        raise click.ClickException(f"Modal CLI not found (looked for '{lookup}')")
+
+    if spec is not None:
+        warning = "[modal-prefix] Using synth-ai modal shim; pass --modal-cli /path/to/modal to override."
+        if shim_candidate is not None:
+            warning = (
+                f"[modal-prefix] Using synth-ai modal shim at {shim_candidate}; "
+                "pass --modal-cli /path/to/modal to override."
+            )
+        click.secho(warning, fg="yellow")
+        click.secho(
+            "[modal-prefix] modal_cli=modal selected=module-wrapper spec=yes",
+            fg="yellow",
         )
-    raise click.ClickException(f"Modal CLI not found (looked for '{modal_cli}')")
+        return [sys.executable, "-m", "synth_ai.cli._modal_wrapper"]
+
+    if shim_candidate is not None:
+        raise click.ClickException(
+            "Modal CLI resolution found the synth-ai shim but the 'modal' package "
+            "is not importable in this environment. Install the official Modal CLI "
+            "or pass --modal-cli with its path."
+        )
+
+    raise click.ClickException(
+        "Modal CLI not found. Install the 'modal' package in this environment or pass "
+        "--modal-cli with an explicit path."
+    )
 
 
 def _build_modal_app_wrapper(original_script: Path) -> tuple[Path, Path]:
     source_dir = original_script.parent.resolve()
     repo_root = REPO_ROOT
-    synth_src = (repo_root / "synth_ai").resolve()
     temp_root = Path(tempfile.mkdtemp(prefix="synth_modal_app_"))
 
     wrapper_source = textwrap.dedent(
@@ -1103,7 +1555,7 @@ def _run_modal_script(
     try:
         _preflight_env_key(env_paths_list, crash_on_failure=True)
     except Exception as _pf_err:
-        raise click.ClickException(str(_pf_err))
+        raise click.ClickException(str(_pf_err)) from _pf_err
 
     proc_env = os.environ.copy()
     pythonpath_entries: list[str] = []
@@ -1138,8 +1590,15 @@ def _run_modal_script(
     if modal_name and command == "deploy":
         cmd.extend(["--name", modal_name])
     if dry_run:
-        click.echo("Dry run: " + " ".join(cmd))
+        click.echo(
+            "Dry run: " + " ".join(shlex.quote(component) for component in cmd),
+            err=False,
+        )
         return
+    click.secho(
+        "[modal-exec] " + " ".join(shlex.quote(component) for component in cmd),
+        fg="cyan",
+    )
     try:
         # Stream output live for better diagnostics
         proc = subprocess.Popen(
@@ -1172,10 +1631,8 @@ def _run_modal_script(
     finally:
         if wrapper_info is not None:
             wrapper_path, temp_root = wrapper_info
-            try:
+            with contextlib.suppress(Exception):
                 wrapper_path.unlink(missing_ok=True)
-            except Exception:
-                pass
             shutil.rmtree(temp_root, ignore_errors=True)
 
 
@@ -1201,10 +1658,12 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
 
         minted = False
         if not env_api_key:
+            secrets_module = _maybe_import("synth_ai.learning.rl.secrets")
             try:
-                from synth_ai.learning.rl.secrets import mint_environment_api_key
-
-                env_api_key = mint_environment_api_key()
+                if secrets_module is None:
+                    raise RuntimeError("secrets module unavailable")
+                mint_env_key = secrets_module.mint_environment_api_key
+                env_api_key = mint_env_key()
                 os.environ["ENVIRONMENT_API_KEY"] = env_api_key
                 os.environ.setdefault("DEV_ENVIRONMENT_API_KEY", env_api_key)
                 minted = True
@@ -1347,8 +1806,8 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
 
 
 def _run_modal_with_entry(
-    entry: TaskAppEntry,
-    modal_cfg: ModalDeploymentConfig,
+    entry: TaskAppEntryType,
+    modal_cfg: ModalDeploymentConfigType,
     modal_cli: str,
     modal_name: str | None,
     env_paths: list[Path],
@@ -1394,7 +1853,6 @@ def _run_modal_with_entry(
         inline_secret_values=inline_secret_values,
     )
     cmd = [*_modal_command_prefix(modal_cli), command, str(script_path)]
-
     if modal_name and command == "deploy":
         cmd.extend(["--name", modal_name])
 
@@ -1409,9 +1867,13 @@ def _run_modal_with_entry(
     proc_env["PYTHONPATH"] = os.pathsep.join(list(dict.fromkeys(pythonpath_entries)))
 
     if dry_run:
-        click.echo("Dry run: " + " ".join(cmd))
+        click.echo("Dry run: " + " ".join(shlex.quote(component) for component in cmd))
         script_path.unlink(missing_ok=True)
         return
+    click.secho(
+        "[modal-exec] " + " ".join(shlex.quote(component) for component in cmd),
+        fg="cyan",
+    )
 
     try:
         # Stream output live for better diagnostics
@@ -1496,6 +1958,10 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 
 
 def _interactive_fill_env(env_path: Path) -> Path | None:
+    if not sys.stdin.isatty():
+        raise click.ClickException(
+            "ENVIRONMENT_API_KEY missing. Provide --env-file or run `synth-ai setup` in an interactive shell to create one."
+        )
     existing = _parse_env_file(env_path) if env_path.exists() else {}
 
     def _prompt(label: str, *, default: str = "", required: bool) -> str | None:
@@ -1504,7 +1970,7 @@ def _interactive_fill_env(env_path: Path) -> Path | None:
                 value = click.prompt(
                     label, default=default, show_default=bool(default) or not required
                 ).strip()
-            except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
+            except (Abort, EOFError, KeyboardInterrupt):
                 click.echo("Aborted env creation.")
                 return None
             if value or not required:
@@ -1535,6 +2001,10 @@ def _ensure_env_values(env_paths: list[Path], fallback_dir: Path) -> None:
     if (os.environ.get("ENVIRONMENT_API_KEY") or "").strip():
         return
     target = env_paths[0] if env_paths else (fallback_dir / ".env").resolve()
+    click.echo(
+        "⚠️  ENVIRONMENT_API_KEY not set. Run `uvx synth-ai setup`, "
+        "or pass --env-file pointing at a .env with ENVIRONMENT_API_KEY."
+    )
     result = _interactive_fill_env(target)
     if result is None:
         raise click.ClickException("ENVIRONMENT_API_KEY required to continue")
@@ -1545,7 +2015,7 @@ def _ensure_env_values(env_paths: list[Path], fallback_dir: Path) -> None:
 
 
 def _deploy_entry(
-    entry: TaskAppEntry,
+    entry: TaskAppEntryType,
     modal_name: str | None,
     dry_run: bool,
     modal_cli: str,
@@ -1558,7 +2028,7 @@ def _deploy_entry(
             f"Task app '{entry.app_id}' does not define Modal deployment settings"
         )
 
-    env_paths = _determine_env_files(entry, env_file)
+    env_paths = _determine_env_files(entry, env_file, original_path=original_path)
     click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
     _run_modal_with_entry(
         entry,
@@ -1573,7 +2043,7 @@ def _deploy_entry(
 
 
 def _modal_serve_entry(
-    entry: TaskAppEntry,
+    entry: TaskAppEntryType,
     modal_name: str | None,
     modal_cli: str,
     env_file: Sequence[str],
@@ -1585,7 +2055,7 @@ def _modal_serve_entry(
             f"Task app '{entry.app_id}' does not define Modal deployment settings"
         )
 
-    env_paths = _determine_env_files(entry, env_file)
+    env_paths = _determine_env_files(entry, env_file, original_path=original_path)
     click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
     _run_modal_with_entry(
         entry,
@@ -1673,20 +2143,15 @@ def serve_command(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    # Change to demo directory if stored (REQUIRED for demo isolation)
-    from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-    demo_dir = load_demo_dir()
-    if demo_dir:
-        demo_path = Path(demo_dir)
-        if not demo_path.is_dir():
+    demo_dir_path = _load_demo_directory()
+    if demo_dir_path:
+        if not demo_dir_path.is_dir():
             raise click.ClickException(
-                f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo."
+                f"Demo directory not found: {demo_dir_path}\nRun 'synth-ai setup' to create a demo."
             )
-        os.chdir(demo_dir)
-        click.echo(f"Using demo directory: {demo_dir}\n")
-        # Store demo directory for path resolution
-        os.environ["SYNTH_DEMO_DIR"] = str(demo_path.resolve())
+        os.chdir(demo_dir_path)
+        click.echo(f"Using demo directory: {demo_dir_path}\n")
+        os.environ["SYNTH_DEMO_DIR"] = str(demo_dir_path.resolve())
 
     # Prompt for port if not provided
     if port is None:
@@ -1752,9 +2217,10 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
     base = (base_url or _os.getenv("TASK_APP_BASE_URL") or "http://127.0.0.1:8001").rstrip("/")
 
     # Resolve API key, permitting dev fallbacks
-    try:
-        from synth_ai.task.auth import normalize_environment_api_key as _norm_key
-    except Exception:
+    auth_module = _maybe_import("synth_ai.task.auth")
+    if auth_module is not None:
+        _norm_key = getattr(auth_module, "normalize_environment_api_key", lambda: _os.getenv("ENVIRONMENT_API_KEY"))
+    else:
         _norm_key = lambda: _os.getenv("ENVIRONMENT_API_KEY")  # noqa: E731
     key = (api_key or _norm_key() or "").strip()
     if not key:
@@ -1831,20 +2297,15 @@ def serve_task_group(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    # Change to demo directory if stored (REQUIRED for demo isolation)
-    from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-    demo_dir = load_demo_dir()
-    if demo_dir:
-        demo_path = Path(demo_dir)
-        if not demo_path.is_dir():
+    demo_dir_path = _load_demo_directory()
+    if demo_dir_path:
+        if not demo_dir_path.is_dir():
             raise click.ClickException(
-                f"Demo directory not found: {demo_dir}\nRun 'synth-ai setup' to create a demo."
+                f"Demo directory not found: {demo_dir_path}\nRun 'synth-ai setup' to create a demo."
             )
-        os.chdir(demo_dir)
-        click.echo(f"Using demo directory: {demo_dir}\n")
-        # Store demo directory for path resolution
-        os.environ["SYNTH_DEMO_DIR"] = str(demo_path.resolve())
+        os.chdir(demo_dir_path)
+        click.echo(f"Using demo directory: {demo_dir_path}\n")
+        os.environ["SYNTH_DEMO_DIR"] = str(demo_dir_path.resolve())
 
     # Prompt for port if not provided
     if port is None:
@@ -1881,7 +2342,9 @@ def serve_task_group(
     )
 
 
-def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> list[Path]:
+def _determine_env_files(
+    entry: TaskAppEntryType, user_env_files: Sequence[str], *, original_path: Path | None = None
+) -> list[Path]:
     resolved: list[Path] = []
     for candidate in user_env_files:
         p = Path(candidate).expanduser()
@@ -1891,30 +2354,46 @@ def _determine_env_files(entry: TaskAppEntry, user_env_files: Sequence[str]) -> 
     if resolved:
         return resolved
 
-    # Always prompt for env file selection instead of auto-loading defaults
-    # Look for env files in current working directory first, then repo root
-    cwd = Path.cwd()
-    env_candidates = []
+    declared: list[Path] = []
+    for candidate in getattr(entry, "env_files", ()) or ():
+        try:
+            p = Path(candidate).expanduser()
+        except Exception:
+            continue
+        if p.exists() and p.is_file():
+            declared.append(p)
+    if declared:
+        return declared
 
-    # Add CWD env files first (prioritized)
-    cwd_env_files = sorted(cwd.glob("**/*.env"))
-    env_candidates.extend(cwd_env_files)
+    def _append_candidate(collection: list[Path], candidate: Path) -> None:
+        if candidate.exists() and candidate.is_file() and candidate not in collection:
+            collection.append(candidate)
 
-    # Add repo root env files
-    repo_env_files = sorted(REPO_ROOT.glob("**/*.env"))
-    # Avoid duplicates
-    for repo_file in repo_env_files:
-        if repo_file not in env_candidates:
-            env_candidates.append(repo_file)
+    auto_candidates: list[Path] = []
 
-    if not env_candidates:
-        raise click.ClickException("No env file found. Pass --env-file explicitly.")
+    search_dirs: list[Path] = []
+    if original_path is not None:
+        search_dirs.append(original_path.parent.resolve())
+        for parent in original_path.parent.resolve().parents:
+            search_dirs.append(parent)
+    cwd = Path.cwd().resolve()
+    if cwd not in search_dirs:
+        search_dirs.append(cwd)
+    repo_root = REPO_ROOT.resolve()
+    if repo_root not in search_dirs:
+        search_dirs.append(repo_root)
 
-    click.echo("Select env file to load:")
-    for idx, path in enumerate(env_candidates, start=1):
-        click.echo(f"  {idx}) {path.resolve()}")
-    choice = click.prompt("Enter choice", type=click.IntRange(1, len(env_candidates)), default=1)
-    return [env_candidates[choice - 1]]
+    for directory in search_dirs:
+        _append_candidate(auto_candidates, directory / ".env")
+        for candidate in sorted(directory.glob("*.env")):
+            _append_candidate(auto_candidates, candidate)
+
+    if auto_candidates:
+        return [auto_candidates[0]]
+
+    raise click.ClickException(
+        "No .env file discovered automatically. Pass --env-file /path/to/.env or generate one with `uvx synth-ai setup`."
+    )
 
 
 def _ensure_port_free(port: int, host: str, *, force: bool) -> None:
@@ -2068,17 +2547,10 @@ def _validate_required_env_keys() -> None:
 def _print_demo_next_steps_if_applicable() -> None:
     """Print next steps if currently in a demo directory."""
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
         cwd = Path.cwd().resolve()
-        demo_dir = load_demo_dir()
+        demo_dir = _load_demo_directory()
 
-        # Check if we're in the demo directory
-        if (
-            demo_dir
-            and Path(demo_dir).resolve() == cwd
-            and (cwd / "run_local_rollout_traced.py").exists()
-        ):
+        if demo_dir and demo_dir == cwd and (cwd / "run_local_rollout_traced.py").exists():
             click.echo("\n" + "=" * 60)
             click.echo("Next step: Collect traced rollouts")
             click.echo("=" * 60)
@@ -2088,12 +2560,11 @@ def _print_demo_next_steps_if_applicable() -> None:
             click.echo("\nRun this 5-10 times to collect diverse traces.")
             click.echo("=" * 60 + "\n")
     except Exception:
-        # Silently fail - this is just a helpful printout
         pass
 
 
 def _serve_entry(
-    entry: TaskAppEntry,
+    entry: TaskAppEntryType,
     host: str,
     port: int,
     env_file: Sequence[str],
@@ -2134,13 +2605,13 @@ def _serve_entry(
             os.environ["SQLD_DB_PATH"] = str(db_path)
             os.environ["TURSO_LOCAL_DB_URL"] = db_url
             click.echo(f"Tracing DB path set to {db_path}")
-        from synth_ai.tracing_v3.config import CONFIG as TRACE_CONFIG
-
-        # Use the explicitly set URL if available
-        new_db_url = os.getenv("TURSO_LOCAL_DB_URL") or TRACE_CONFIG.db_url
-        TRACE_CONFIG.db_url = new_db_url
-        if new_db_url:
-            click.echo(f"Tracing DB URL resolved to {new_db_url}")
+        tracing_config_module = _maybe_import("synth_ai.tracing_v3.config")
+        if tracing_config_module is not None:
+            trace_config = tracing_config_module.CONFIG
+            new_db_url = os.getenv("TURSO_LOCAL_DB_URL") or trace_config.db_url
+            trace_config.db_url = new_db_url
+            if new_db_url:
+                click.echo(f"Tracing DB URL resolved to {new_db_url}")
     elif os.getenv("TASKAPP_TRACING_ENABLED"):
         click.echo("Tracing enabled via environment variables")
 
@@ -2183,18 +2654,14 @@ def deploy_app(
 ) -> None:
     """Deploy a task app to Modal."""
 
-    # Change to demo directory if stored (for consistent discovery)
-    from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-    demo_dir = load_demo_dir()
-    if demo_dir:
-        demo_path = Path(demo_dir)
-        if not demo_path.is_dir():
+    demo_dir_path = _load_demo_directory()
+    if demo_dir_path:
+        if not demo_dir_path.is_dir():
             raise click.ClickException(
-                f"Demo directory not found: {demo_dir}\nRun 'synth-ai demo' to create a demo."
+                f"Demo directory not found: {demo_dir_path}\nRun 'synth-ai demo' to create a demo."
             )
-        os.chdir(demo_dir)
-        click.echo(f"Using demo directory: {demo_dir}\n")
+        os.chdir(demo_dir_path)
+        click.echo(f"Using demo directory: {demo_dir_path}\n")
 
     choice = _select_app_choice(app_id, purpose="deploy")
 
@@ -2228,7 +2695,14 @@ def deploy_app(
 def modal_serve_app(
     app_id: str | None, modal_cli: str, modal_name: str | None, env_file: Sequence[str]
 ) -> None:
-    choice = _select_app_choice(app_id, purpose="modal-serve")
+    click.echo(f"[modal-serve] requested app_id={app_id or '(auto)'} modal_cli={modal_cli}")
+    try:
+        choice = _select_app_choice(app_id, purpose="modal-serve")
+    except SystemExit as exc:  # bubble up with context (legacy argparse would trigger this)
+        raise click.ClickException(
+            f"Legacy CLI intercepted modal-serve (exit {exc.code}). "
+            "Make sure you're running the Click CLI (synth_ai.cli:cli)."
+        ) from exc
 
     if choice.modal_script:
         env_paths = _resolve_env_paths_for_script(choice.modal_script, env_file)
@@ -2237,12 +2711,13 @@ def modal_serve_app(
         return
 
     entry = choice.ensure_entry()
+    click.echo(f"[modal-serve] serving entry {entry.app_id} from {choice.path}")
     _modal_serve_entry(entry, modal_name, modal_cli, env_file, original_path=choice.path)
 
 
 def _write_modal_entrypoint(
-    entry: TaskAppEntry,
-    modal_cfg: ModalDeploymentConfig,
+    entry: TaskAppEntryType,
+    modal_cfg: ModalDeploymentConfigType,
     override_name: str | None,
     *,
     dotenv_paths: Sequence[str] | None = None,
@@ -2291,30 +2766,25 @@ def _write_modal_entrypoint(
     pip_packages = list(modal_cfg.pip_packages)
     # Ensure synth-ai (matching host version if available) is installed in the container
     synth_pkg = "synth-ai"
-    try:
-        import synth_ai as _host_synth
-
-        host_ver = getattr(_host_synth, "__version__", None)
+    host_synth = _maybe_import("synth_ai")
+    if host_synth is not None:
+        host_ver = getattr(host_synth, "__version__", None)
         if host_ver:
             synth_pkg = f"synth-ai=={host_ver}"
-    except Exception:
-        pass
     if not any(str(p).startswith("synth-ai") for p in pip_packages):
         pip_packages.insert(0, synth_pkg)
 
     local_dirs = [(str(Path(src)), dst) for src, dst in modal_cfg.extra_local_dirs]
     # Also mount the host synth_ai source if available to ensure latest code is used
-    try:
-        import synth_ai as _host_synth
-
-        host_synth_dir = Path(_host_synth.__file__).resolve().parent
-        # host_synth_dir points to .../synth_ai; mount that directory
-        sy_dst = "/opt/synth_ai_repo/synth_ai"
-        candidate = (str(host_synth_dir), sy_dst)
-        if candidate not in local_dirs:
-            local_dirs.insert(0, candidate)
-    except Exception:
-        pass
+    if host_synth is not None:
+        try:
+            host_synth_dir = Path(host_synth.__file__).resolve().parent
+            sy_dst = "/opt/synth_ai_repo/synth_ai"
+            candidate = (str(host_synth_dir), sy_dst)
+            if candidate not in local_dirs:
+                local_dirs.insert(0, candidate)
+        except Exception:
+            pass
     # Ensure the discovered app directory is mounted, regardless of modal_cfg
     if original_path:
         discovered_dir = str(Path(original_path).resolve().parent)
@@ -2471,6 +2941,7 @@ def register(cli: click.Group) -> None:
     cli.add_command(serve_command)
     cli.add_command(task_app_group)
     cli.add_command(eval_command)
+    cli.add_command(filter_command)
 
 
 @click.command("eval")
@@ -2487,6 +2958,22 @@ def register(cli: click.Group) -> None:
 @click.option("--split", default="train", show_default=True, help="Dataset split to use")
 @click.option("--model", default=None, help="Model identifier (prompted if omitted)")
 @click.option("--env-file", multiple=True, type=click.Path(), help="Env file(s) for keys")
+@click.option(
+    "--trace-db",
+    default="traces/v3/eval_traces.db",
+    show_default=True,
+    help="Path or database URL for storing rollout traces (set to 'none' to disable)",
+)
+@click.option(
+    "--metadata",
+    multiple=True,
+    help="Filter tasks by key=value metadata (e.g., --metadata difficulty=easy)",
+)
+@click.option(
+    "--metadata-sql",
+    default=None,
+    help="SQLite query that returns seeds to evaluate (e.g., SELECT seed FROM tasks WHERE difficulty='easy' LIMIT 5)",
+)
 def eval_command(
     app_id: str | None,
     config: str | None,
@@ -2495,6 +2982,9 @@ def eval_command(
     split: str,
     model: str | None,
     env_file: Sequence[str],
+    trace_db: str,
+    metadata: Sequence[str],
+    metadata_sql: str | None,
 ) -> None:
     """Run local rollouts against a task app using in-process ASGI and summarize results."""
     cfg: dict[str, Any] = {}
@@ -2525,6 +3015,50 @@ def eval_command(
 
     app_id = app_id or (cfg.get("app_id") if isinstance(cfg.get("app_id"), str) else None)  # type: ignore
 
+    metadata_filters: dict[str, str] = {}
+    cfg_metadata = cfg.get("metadata")
+    if isinstance(cfg_metadata, dict):
+        for key, value in cfg_metadata.items():
+            metadata_filters[str(key)] = str(value)
+    elif isinstance(cfg_metadata, list):
+        for item in cfg_metadata:
+            if isinstance(item, str) and "=" in item:
+                key, value = item.split("=", 1)
+                metadata_filters[key.strip()] = value.strip()
+
+    for item in metadata or ():
+        if "=" not in item:
+            raise click.ClickException(f"Metadata filters must be key=value (got: {item})")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            raise click.ClickException(f"Invalid metadata filter: {item}")
+        metadata_filters[key] = value
+
+    metadata_sql_query: str | None = None
+    cfg_metadata_sql = cfg.get("metadata_sql")
+    if isinstance(cfg_metadata_sql, dict):
+        metadata_sql_query = cfg_metadata_sql.get("query") or cfg_metadata_sql.get("sql")
+    elif isinstance(cfg_metadata_sql, str):
+        metadata_sql_query = cfg_metadata_sql
+
+    if metadata_sql:
+        metadata_sql_query = metadata_sql
+    if metadata_sql_query is not None:
+        metadata_sql_query = str(metadata_sql_query)
+
+    trace_db_url: str | None = None
+    trace_db = (trace_db or "").strip()
+    if trace_db and trace_db.lower() not in {"none", "off", "disable"}:
+        if "://" in trace_db:
+            trace_db_url = trace_db
+        else:
+            trace_path = Path(trace_db).expanduser()
+            trace_path.parent.mkdir(parents=True, exist_ok=True)
+            trace_db_url = f"sqlite+aiosqlite:///{trace_path}"
+    trace_tracer: SessionTracer | None = SessionTracer(db_url=trace_db_url, auto_save=True) if trace_db_url else None
+
     # Determine selection params (CLI takes precedence; TOML only fills unset model/seeds/env)
     if cfg.get("model") and not model:
         model = str(cfg["model"])  # type: ignore[index]
@@ -2544,14 +3078,16 @@ def eval_command(
         elif isinstance(ef, list):
             env_file = tuple(str(x) for x in ef)  # type: ignore[assignment]
 
-    entry: TaskAppEntry | None = None
+    choice_for_env: AppChoice | None = None
+    entry: TaskAppEntryType | None = None
     if task_app_url is None:
-        choice = _select_app_choice(app_id, purpose="eval")
-        entry = choice.ensure_entry()
+        choice_for_env = _select_app_choice(app_id, purpose="eval")
+        entry = choice_for_env.ensure_entry()
 
     env_paths: list[Path] = []
     if entry is not None:
-        env_paths = _determine_env_files(entry, env_file)
+        original_env_path = choice_for_env.path if choice_for_env is not None else None
+        env_paths = _determine_env_files(entry, env_file, original_path=original_env_path)
     else:
         if not env_file:
             raise click.ClickException("--env-file is required when using --url")
@@ -2643,70 +3179,347 @@ def eval_command(
     if api_key:
         headers["X-API-Key"] = api_key
 
+    # Precompute optional policy overrides from TOML
+    policy_overrides: dict[str, Any] = {}
+    try:
+        # Accept [eval.policy] table or top-level keys for convenience
+        if isinstance(cfg.get("policy"), dict):
+            policy_overrides.update(dict(cfg["policy"]))
+        # Back-compat: allow temperature/max_tokens at top level
+        for k in (
+            "temperature",
+            "max_tokens",
+            "reasoning_effort",
+            "system_hint",
+            "tool_choice",
+            "inference_url",
+        ):
+            if k in cfg and k not in policy_overrides:
+                policy_overrides[k] = cfg.get(k)
+    except Exception:
+        policy_overrides = {}
+
+    raw_concurrency = cfg.get("concurrency")
+    try:
+        concurrency_limit = int(raw_concurrency) if raw_concurrency is not None else 1
+    except Exception:
+        concurrency_limit = 1
+    if concurrency_limit <= 0:
+        concurrency_limit = 1
+    concurrency_limit = min(concurrency_limit, max(1, len(seed_values)))
+
+    judge_specs: list[JudgeSpec] = []
+
+    def _register_judge(name_hint: str | None, judge_cfg: dict[str, Any]) -> None:
+        if not judge_cfg:
+            return
+        judge_module = judge_cfg.get("module")
+        judge_path = judge_cfg.get("path")
+        judge_callable_name = judge_cfg.get("callable") or judge_cfg.get("function")
+        if judge_module and judge_path:
+            raise click.ClickException("Judge config cannot set both 'module' and 'path'")
+        if not judge_module and not judge_path:
+            raise click.ClickException("Judge config requires 'module' or 'path'")
+        try:
+            if judge_module:
+                module = importlib.import_module(str(judge_module))
+            else:
+                path = Path(str(judge_path)).expanduser()
+                if not path.exists():
+                    raise click.ClickException(f"Judge module path not found: {path}")
+                spec = importlib.util.spec_from_file_location(
+                    f"_eval_judge_{path.stem}", path
+                )
+                if not spec or not spec.loader:
+                    raise click.ClickException(f"Failed to load judge module from {path}")
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                spec.loader.exec_module(module)
+        except click.ClickException:
+            raise
+        except Exception as exc:
+            raise click.ClickException(f"Unable to load judge module: {exc}") from exc
+
+        if judge_callable_name:
+            try:
+                judge_fn = getattr(module, str(judge_callable_name))
+            except AttributeError as exc:
+                raise click.ClickException(
+                    f"Judge callable '{judge_callable_name}' not found in module"
+                ) from exc
+        else:
+            if hasattr(module, "judge"):
+                judge_fn = getattr(module, "judge")
+            else:
+                raise click.ClickException("Judge module must expose 'judge' callable")
+
+        if not callable(judge_fn):
+            raise click.ClickException("Judge callable is not callable")
+
+        judge_kwargs = {
+            k: v
+            for k, v in judge_cfg.items()
+            if k not in {"module", "path", "callable", "function", "name"}
+        }
+        display_name = str(
+            judge_cfg.get("name")
+            or name_hint
+            or f"judge{len(judge_specs) + 1}"
+        )
+        judge_specs.append(JudgeSpec(display_name, judge_fn, judge_kwargs))
+
+    raw_judge_cfg = cfg.get("judge")
+    if isinstance(raw_judge_cfg, dict) and raw_judge_cfg:
+        direct_keys = {"module", "path", "callable", "function", "name"}
+        has_direct_keys = any(key in raw_judge_cfg for key in direct_keys)
+        nested_candidates = [
+            (key, value)
+            for key, value in raw_judge_cfg.items()
+            if isinstance(value, dict)
+        ]
+        if has_direct_keys and not nested_candidates:
+            _register_judge(None, raw_judge_cfg)
+        else:
+            for sub_name, sub_cfg in nested_candidates:
+                _register_judge(sub_name, sub_cfg)
+
+    raw_judges_list = cfg.get("judges")
+    if isinstance(raw_judges_list, list):
+        for index, entry in enumerate(raw_judges_list, start=1):
+            if isinstance(entry, dict):
+                _register_judge(entry.get("name") or f"judge{len(judge_specs) + 1}", entry)
+
+    records: list[dict[str, Any]] = []
+
     successes = 0
     failures = 0
     # Aggregate outcome stats across successful seeds
     outcome_sum: float = 0.0
     outcome_count: int = 0
     outcome_correct: int = 0
-    if task_app_url is None:
-        transport = httpx.ASGITransport(app=app)  # type: ignore[name-defined]
-        # Newer httpx types consider ASGITransport under httpx._transports; cast to satisfy type checker
-        client = httpx.Client(
-            transport=cast(Any, transport),
-            base_url="http://eval.local",
-            timeout=60.0,
-            headers=headers,
-        )
-    else:
-        client = httpx.Client(base_url=task_app_url, timeout=60.0, headers=headers)
-    try:
-        with contextlib.suppress(Exception):
-            client.get("/task_info")
-        # Precompute optional policy overrides from TOML
-        policy_overrides: dict[str, Any] = {}
-        try:
-            # Accept [eval.policy] table or top-level keys for convenience
-            if isinstance(cfg.get("policy"), dict):
-                policy_overrides.update(dict(cfg["policy"]))
-            # Back-compat: allow temperature/max_tokens at top level
-            for k in (
-                "temperature",
-                "max_tokens",
-                "reasoning_effort",
-                "system_hint",
-                "tool_choice",
-            ):
-                if k in cfg and k not in policy_overrides:
-                    policy_overrides[k] = cfg.get(k)
-        except Exception:
-            policy_overrides = {}
 
-        for seed_val in seed_values:
-            body = {
-                "run_id": str(uuid.uuid4()),
-                "env": {"config": {"split": split, "index": seed_val}, "seed": seed_val},
-                "policy": {
-                    "policy_name": selected_model,
-                    "config": {"model": selected_model, **policy_overrides},
-                },
-                "ops": [],
+    def _build_task_rows(taskset: Any) -> dict[int, dict[str, Any]]:
+        rows: dict[int, dict[str, Any]] = {}
+        if not isinstance(taskset, dict):
+            return rows
+
+        scenario_ids = taskset.get("scenario_ids") or []
+        loop_ids = taskset.get("loop_ids") or []
+        thread_ids = taskset.get("thread_ids") or []
+        difficulty_map = taskset.get("difficulty_map") or {}
+
+        max_len = max(len(scenario_ids), len(loop_ids), len(thread_ids))
+        for seed in range(max_len):
+            scenario_id = scenario_ids[seed] if seed < len(scenario_ids) else None
+            loop_id = loop_ids[seed] if seed < len(loop_ids) else None
+            thread_id = thread_ids[seed] if seed < len(thread_ids) else None
+            difficulty = None
+            if isinstance(difficulty_map, dict):
+                if scenario_id and scenario_id in difficulty_map:
+                    difficulty = difficulty_map.get(scenario_id)
+                elif str(seed) in difficulty_map:
+                    difficulty = difficulty_map.get(str(seed))
+
+            rows[seed] = {
+                "seed": seed,
+                "scenario_id": scenario_id,
+                "loop_id": loop_id,
+                "thread_id": thread_id,
+                "difficulty": difficulty,
             }
+        return rows
+
+    def _apply_metadata_filters(
+        rows: dict[int, dict[str, Any]], seeds_list: list[int], filters: dict[str, str]
+    ) -> list[int]:
+        if not filters:
+            return seeds_list
+        filtered: list[int] = []
+        for seed in seeds_list:
+            row = rows.get(seed)
+            if not row:
+                continue
+            include = True
+            for key, expected in filters.items():
+                actual = row.get(key)
+                if actual is None:
+                    include = False
+                    break
+                if str(actual).lower() != expected.lower():
+                    include = False
+                    break
+            if include:
+                filtered.append(seed)
+        return filtered
+
+    def _apply_metadata_sql(
+        rows: dict[int, dict[str, Any]], seeds_list: list[int], query: str
+    ) -> list[int]:
+        """Return seeds that satisfy an arbitrary SQL query.
+
+        The query is executed against an in-memory SQLite table named `tasks`
+        with columns (seed INTEGER, scenario_id TEXT, loop_id TEXT, thread_id TEXT, difficulty TEXT).
+        Any rows whose `seed` value (or first column if `seed` is absent) appear in the result set are retained.
+        """
+        if not query:
+            return seeds_list
+        conn = sqlite3.connect(":memory:")
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "CREATE TABLE tasks (seed INTEGER, scenario_id TEXT, loop_id TEXT, thread_id TEXT, difficulty TEXT)"
+            )
+            insert_stmt = (
+                "INSERT INTO tasks (seed, scenario_id, loop_id, thread_id, difficulty) VALUES (?,?,?,?,?)"
+            )
+            for seed in seeds_list:
+                row = rows.get(seed, {})
+                cur.execute(
+                    insert_stmt,
+                    [
+                        seed,
+                        row.get("scenario_id"),
+                        row.get("loop_id"),
+                        row.get("thread_id"),
+                        row.get("difficulty"),
+                    ],
+                )
+
+            result = cur.execute(query)
+            fetched = result.fetchall()
+            if not fetched:
+                return []
+            description = result.description or []
+            col_names = [col[0] for col in description]
+            seeds_out: list[int] = []
+            for entry in fetched:
+                value = entry[col_names.index("seed")] if "seed" in col_names else entry[0]
+                try:
+                    seeds_out.append(int(value))
+                except Exception as exc:
+                    raise click.ClickException(
+                        "metadata SQL query must return seed integers"
+                    ) from exc
+            seeds_set = set(seeds_out)
+            return [seed for seed in seeds_list if seed in seeds_set]
+        except sqlite3.Error as exc:
+            raise click.ClickException(f"Failed to execute metadata SQL query: {exc}") from exc
+        finally:
+            conn.close()
+
+    async def _run_eval() -> None:
+        nonlocal successes, failures, outcome_sum, outcome_count, outcome_correct, records, seed_values
+
+        if trace_tracer is not None and trace_tracer.db is None:
+            await trace_tracer.initialize()
+
+        if task_app_url is None:
+            transport = httpx.ASGITransport(app=app)  # type: ignore[name-defined]
+            async_client = httpx.AsyncClient(
+                transport=cast(Any, transport),
+                base_url="http://eval.local",
+                timeout=300.0,
+                follow_redirects=True,
+                headers=headers,
+            )
+        else:
+            async_client = httpx.AsyncClient(
+                base_url=task_app_url,
+                timeout=300.0,
+                follow_redirects=True,
+                headers=headers,
+            )
+
+        try:
+            taskset_payload: dict[str, Any] | None = None
             try:
-                resp = client.post("/rollout", json=body)
-                ok = 200 <= resp.status_code < 300
+                task_info_response = await async_client.get("/task_info")
+            except Exception:
+                task_info_response = None
+            if task_info_response is not None and task_info_response.status_code == 200:
+                with contextlib.suppress(Exception):
+                    payload_json = task_info_response.json()
+                if isinstance(payload_json, dict) and "taskset" in payload_json:
+                    taskset_payload = payload_json.get("taskset")
+                    if not isinstance(taskset_payload, dict):
+                        taskset_payload = None
+                elif isinstance(payload_json, dict):
+                    taskset_payload = payload_json
+
+            available_seeds = list(seed_values)
+            if metadata_sql_query or metadata_filters:
+                if not taskset_payload:
+                    raise click.ClickException(
+                        "Task metadata filters require the task app to expose /task_info metadata"
+                    )
+                rows = _build_task_rows(taskset_payload)
+                if metadata_sql_query:
+                    available_seeds = _apply_metadata_sql(rows, available_seeds, metadata_sql_query)
+                if metadata_filters:
+                    available_seeds = _apply_metadata_filters(rows, available_seeds, metadata_filters)
+                if not available_seeds:
+                    raise click.ClickException("No seeds match the provided metadata filters")
+                seed_values = available_seeds
+
+            semaphore = asyncio.Semaphore(concurrency_limit)
+
+            async def _run_seed(seed_val: int) -> None:
+                nonlocal successes, failures, outcome_sum, outcome_count, outcome_correct, records
+                body = {
+                    "run_id": str(uuid.uuid4()),
+                    "env": {"config": {"split": split, "index": seed_val}, "seed": seed_val},
+                    "policy": {
+                        "policy_name": selected_model,
+                        "config": {"model": selected_model, **policy_overrides},
+                    },
+                    "ops": [],
+                }
+                rollout_elapsed: float | None = None
+                rollout_start = time.perf_counter()
+                try:
+                    async with semaphore:
+                        response = await async_client.post("/rollout", json=body)
+                    rollout_elapsed = time.perf_counter() - rollout_start
+                except Exception as exc:
+                    failures += 1
+                    click.echo(f"seed={seed_val} error={exc}")
+                    return
+
+                ok = 200 <= response.status_code < 300
                 if ok:
                     successes += 1
                 else:
                     failures += 1
 
-                # Print summary with any available metrics/tool calls
-                summary = [f"seed={seed_val}", f"status={resp.status_code}"]
+                summary = [f"seed={seed_val}", f"status={response.status_code}"]
+                data: Any
                 try:
-                    data = resp.json()
+                    data = response.json()
                 except Exception:
                     data = None
+
+                metrics: dict[str, Any] | None = None
+                completion: str | None = None
+                prompt_index: int | None = None
+                prompt_text: str | None = None
+                task_id: str | None = None
+                task_split: str | None = None
+                task_rubric_id: str | None = None
+
+                trace_namespace: dict[str, Any] | None = None
+                session_trace_dict: dict[str, Any] | None = None
+
                 if isinstance(data, dict):
+                    trace_namespace = data.get("trace")
+                    if not isinstance(trace_namespace, dict):
+                        raise RuntimeError(
+                            "rollout response missing trace payload; task app must return tracing_v3 data"
+                        )
+                    session_trace_dict = trace_namespace.get("session_trace")
+                    if not isinstance(session_trace_dict, dict):
+                        raise RuntimeError(
+                            "rollout response trace missing 'session_trace'; ensure the task app is serving the tracing_v3 build"
+                        )
                     metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else None
                     if metrics:
                         mean_return = metrics.get("mean_return") or metrics.get("total_reward")
@@ -2715,7 +3528,6 @@ def eval_command(
                             summary.append(f"mean_return={mean_return}")
                         if outcome is not None:
                             summary.append(f"outcome={outcome}")
-                            # Aggregate outcome stats
                             try:
                                 val = float(outcome)
                                 outcome_sum += val
@@ -2724,7 +3536,6 @@ def eval_command(
                                     outcome_correct += 1
                             except Exception:
                                 pass
-                    # Try to infer tool call count from first trajectory step
                     trajs = (
                         data.get("trajectories")
                         if isinstance(data.get("trajectories"), list)
@@ -2738,44 +3549,425 @@ def eval_command(
                             tool_calls = step0.get("tool_calls") or step0.get("tools") or []
                             if isinstance(tool_calls, list):
                                 summary.append(f"tool_calls={len(tool_calls)}")
+                            obs = step0.get("obs") if isinstance(step0, dict) else None
+                            if isinstance(obs, dict):
+                                idx_val = obs.get("prompt_index")
+                                if isinstance(idx_val, int):
+                                    prompt_index = idx_val
+                                prompt_raw = obs.get("prompt")
+                                if isinstance(prompt_raw, str):
+                                    prompt_text = prompt_raw
+                                if task_id is None:
+                                    candidate_id = obs.get("task_id")
+                                    if isinstance(candidate_id, str) and candidate_id:
+                                        task_id = candidate_id
+                                if task_split is None:
+                                    candidate_split = obs.get("task_split")
+                                    if isinstance(candidate_split, str) and candidate_split:
+                                        task_split = candidate_split
+                                if task_rubric_id is None:
+                                    candidate_rid = obs.get("task_rubric_id")
+                                    if isinstance(candidate_rid, str) and candidate_rid:
+                                        task_rubric_id = candidate_rid
+                        final = first.get("final") if isinstance(first, dict) else None
+                        if isinstance(final, dict):
+                            final_obs = final.get("observation")
+                            if isinstance(final_obs, dict):
+                                comp_val = final_obs.get("completion")
+                                if isinstance(comp_val, str):
+                                    completion = comp_val
+                                if task_id is None:
+                                    candidate_id = final_obs.get("task_id")
+                                    if isinstance(candidate_id, str) and candidate_id:
+                                        task_id = candidate_id
+                                if task_split is None:
+                                    candidate_split = final_obs.get("task_split")
+                                    if isinstance(candidate_split, str) and candidate_split:
+                                        task_split = candidate_split
+                                if task_rubric_id is None:
+                                    candidate_rid = final_obs.get("task_rubric_id")
+                                    if isinstance(candidate_rid, str) and candidate_rid:
+                                        task_rubric_id = candidate_rid
+                            final_info = final.get("info")
+                            if isinstance(final_info, dict):
+                                if task_id is None:
+                                    candidate_id = final_info.get("task_id")
+                                    if isinstance(candidate_id, str) and candidate_id:
+                                        task_id = candidate_id
+                                if task_split is None:
+                                    candidate_split = final_info.get("task_split")
+                                    if isinstance(candidate_split, str) and candidate_split:
+                                        task_split = candidate_split
+                                if task_rubric_id is None:
+                                    candidate_rid = final_info.get("task_rubric_id")
+                                    if isinstance(candidate_rid, str) and candidate_rid:
+                                        task_rubric_id = candidate_rid
+                    if task_id:
+                        summary.append(f"task_id={task_id}")
                     click.echo(" ".join(summary))
-                    # Print the full response JSON (trace, trajectories, metrics)
                     with contextlib.suppress(Exception):
                         click.echo(json.dumps(data, indent=2))
                 else:
                     click.echo(" ".join(summary))
-            except Exception as exc:
-                failures += 1
-                click.echo(f"seed={seed_val} error={exc}")
 
-    finally:
-        try:
-            client.close()
-        except AttributeError:
-            transport_obj = getattr(client, "_transport", None)
-            if transport_obj and hasattr(transport_obj, "aclose"):
-                try:
-                    asyncio.run(transport_obj.aclose())
-                except RuntimeError:
-                    # Fallback when already inside a running loop (rare for CLI).
-                    new_loop = asyncio.new_event_loop()
+                official_score = None
+                if isinstance(metrics, dict):
+                    for key in ("mean_return", "total_reward", "outcome_score"):
+                        val = metrics.get(key)
+                        if isinstance(val, (int, float)):
+                            official_score = float(val)
+                            break
+                if official_score is None and isinstance(data, dict):
                     try:
-                        new_loop.run_until_complete(transport_obj.aclose())
-                    finally:
-                        new_loop.close()
-        except Exception:
-            pass
+                        reward_val = data["trajectories"][0]["steps"][0].get("reward")
+                        if isinstance(reward_val, (int, float)):
+                            official_score = float(reward_val)
+                    except Exception:
+                        pass
+
+                if official_score is not None:
+                    if official_score < 0.0:
+                        official_score = 0.0
+                    elif official_score > 1.0:
+                        official_score = min(1.0, official_score)
+
+                judge_scores: dict[str, float | None] = {}
+                timings: dict[str, Any] = {"rollout_s": rollout_elapsed, "judges": {}}
+                if judge_specs:
+                    for spec in judge_specs:
+                        score_value: float | None = None
+                        judge_elapsed: float | None = None
+                        if completion is not None:
+                            judge_payload = {
+                                "seed": seed_val,
+                                "prompt_index": prompt_index,
+                                "prompt": prompt_text,
+                                "completion": completion,
+                                "metrics": metrics,
+                                "response": data,
+                                "trace": trace_namespace,
+                            }
+                            try:
+                                judge_start = time.perf_counter()
+                                result = spec.fn(judge_payload, **spec.kwargs)
+                                judge_elapsed = time.perf_counter() - judge_start
+                                if isinstance(result, (int, float)):
+                                    score_value = float(result)
+                            except Exception as exc:
+                                if judge_elapsed is None:
+                                    judge_elapsed = time.perf_counter() - judge_start
+                                click.echo(f"seed={seed_val} judge[{spec.name}]_error={exc}")
+                        timings["judges"][spec.name] = judge_elapsed
+                        judge_scores[spec.name] = score_value
+
+                if trace_tracer is not None and trace_namespace:
+                    storage_metadata = {
+                        "eval_seed": seed_val,
+                        "prompt_index": prompt_index,
+                        "task_id": task_id,
+                        "task_split": task_split,
+                        "task_rubric_id": task_rubric_id,
+                        "official_score": official_score,
+                        "judge_scores": judge_scores,
+                        "model": selected_model,
+                        "prompt": prompt_text,
+                        "completion": completion,
+                    }
+                    await _store_trace(trace_tracer, trace_namespace, storage_metadata)
+
+                records.append(
+                    {
+                        "seed": seed_val,
+                        "prompt_index": prompt_index,
+                        "task_id": task_id,
+                        "task_split": task_split,
+                        "task_rubric_id": task_rubric_id,
+                        "official_score": official_score,
+                        "judge_scores": judge_scores,
+                        "timings": timings,
+                    }
+                )
+
+            await asyncio.gather(*[_run_seed(seed_val) for seed_val in seed_values])
+        finally:
+            await async_client.aclose()
+
+    try:
+        asyncio.run(_run_eval())
+    finally:
+        if trace_tracer is not None and trace_tracer.db is not None:
+            asyncio.run(trace_tracer.db.close())
 
     click.echo(
         f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}"
     )
-    # Print outcome summary if any successes
+
     if outcome_count > 0:
         mean_outcome = outcome_sum / float(outcome_count)
         frac_right = outcome_correct / float(outcome_count)
         click.echo(
             f"Outcome summary: correct={outcome_correct}/{outcome_count} ({frac_right:.2%}), mean_outcome={mean_outcome:.3f}"
         )
+
+    if records:
+        judge_specs = judge_specs or []  # ensure iterable
+        official_scores = [
+            r["official_score"] for r in records if r["official_score"] is not None
+        ]
+        if official_scores:
+            click.echo(f"  Official mean: {sum(official_scores) / len(official_scores):.3f}")
+        else:
+            click.echo("  Official mean: n/a")
+
+        for spec in judge_specs:
+            spec_scores = [
+                record["judge_scores"].get(spec.name)
+                for record in records
+                if record["judge_scores"].get(spec.name) is not None
+            ]
+            if spec_scores:
+                mean_spec = sum(spec_scores) / len(spec_scores)
+                click.echo(f"  [{spec.name}] mean: {mean_spec:.3f}")
+            else:
+                click.echo(f"  [{spec.name}] mean: n/a")
+
+            paired = [
+                (
+                    record["official_score"],
+                    record["judge_scores"].get(spec.name),
+                )
+                for record in records
+                if record["official_score"] is not None
+                and record["judge_scores"].get(spec.name) is not None
+            ]
+            if len(paired) >= 2:
+                corr = _pearson(
+                    [p[0] for p in paired if p[0] is not None],
+                    [p[1] for p in paired if p[1] is not None],
+                )
+                if corr is not None:
+                    click.echo(f"    Pearson r: {corr:.3f}")
+                else:
+                    click.echo("    Pearson r: undefined (zero variance)")
+            else:
+                click.echo("    Pearson r: n/a (need ≥2 paired scores)")
+
+        header = ["Seed", "Prompt", "Official"]
+        header.extend(spec.name for spec in judge_specs)
+        rows: list[list[str]] = []
+        for record in sorted(records, key=lambda r: (r["seed"], r.get("prompt_index") or -1)):
+            seed_val = str(record["seed"])
+            prompt_idx = (
+                str(record["prompt_index"])
+                if record["prompt_index"] is not None
+                else "-"
+            )
+            official_val = (
+                f"{record['official_score']:.3f}"
+                if record["official_score"] is not None
+                else "-"
+            )
+            row = [seed_val, prompt_idx, official_val]
+            for spec in judge_specs:
+                score_val = record["judge_scores"].get(spec.name)
+                row.append(f"{score_val:.3f}" if isinstance(score_val, (int, float)) else "-")
+            rows.append(row)
+
+        widths = [len(col) for col in header]
+        for row in rows:
+            for idx, cell in enumerate(row):
+                widths[idx] = max(widths[idx], len(cell))
+
+        click.echo("")
+        click.echo("  ".join(h.ljust(widths[idx]) for idx, h in enumerate(header)))
+        click.echo("  ".join("-" * widths[idx] for idx in range(len(header))))
+        for row in rows:
+            click.echo("  ".join(cell.ljust(widths[idx]) for idx, cell in enumerate(row)))
+
+
+
+@click.command("filter")
+@click.option("--config", "config_path", type=click.Path(), required=True, help="Path to TOML config with filters")
+def filter_command(config_path: str) -> None:
+    if _toml is None:
+        raise click.ClickException("TOML parser not available; install tomli or use Python 3.11+")
+
+    cfg_path = Path(config_path)
+    if not cfg_path.exists():
+        raise click.ClickException(f"Filter config not found: {cfg_path}")
+
+    try:
+        config_data = _toml.loads(cfg_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise click.ClickException(f"Failed to parse TOML '{cfg_path}': {exc}") from exc
+
+    filter_cfg = config_data.get("filter") if isinstance(config_data, dict) else None
+    if not isinstance(filter_cfg, dict):
+        raise click.ClickException("Config must contain a [filter] table")
+
+    db_value = str(filter_cfg.get("db", "traces/v3/eval_traces.db")).strip()
+    if not db_value:
+        raise click.ClickException("filter.db must be provided")
+    if "://" in db_value:
+        db_url = db_value
+    else:
+        db_path = Path(db_value).expanduser()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        db_url = f"sqlite+aiosqlite:///{db_path}"
+
+    output_value = filter_cfg.get("output")
+    if not output_value:
+        raise click.ClickException("filter.output must be provided")
+    output_path = Path(str(output_value)).expanduser()
+
+    splits = set(filter_cfg.get("splits", []) or [])
+    task_ids = set(filter_cfg.get("task_ids", []) or [])
+    models = set(filter_cfg.get("models", []) or [])
+    min_official = filter_cfg.get("min_official_score")
+    max_official = filter_cfg.get("max_official_score")
+    if min_official is not None:
+        try:
+            min_official = float(min_official)
+        except Exception:
+            raise click.ClickException("filter.min_official_score must be numeric")
+    if max_official is not None:
+        try:
+            max_official = float(max_official)
+        except Exception:
+            raise click.ClickException("filter.max_official_score must be numeric")
+    min_judge_scores = filter_cfg.get("min_judge_scores", {}) or {}
+    max_judge_scores = filter_cfg.get("max_judge_scores", {}) or {}
+    try:
+        min_judge_scores = {k: float(v) for k, v in min_judge_scores.items()}
+    except Exception:
+        raise click.ClickException("filter.min_judge_scores values must be numeric")
+    try:
+        max_judge_scores = {k: float(v) for k, v in max_judge_scores.items()}
+    except Exception:
+        raise click.ClickException("filter.max_judge_scores values must be numeric")
+    min_created = _parse_datetime_for_trace(filter_cfg.get("min_created_at"))
+    max_created = _parse_datetime_for_trace(filter_cfg.get("max_created_at"))
+    limit = filter_cfg.get("limit")
+    if limit is not None:
+        try:
+            limit = int(limit)
+        except Exception:
+            raise click.ClickException("filter.limit must be an integer")
+
+    def _score_ok(value: Any, min_val: Any, max_val: Any) -> bool:
+        try:
+            if value is None:
+                return False if min_val is not None else True
+            value = float(value)
+        except Exception:
+            return False
+        if min_val is not None and value < float(min_val):
+            return False
+        if max_val is not None and value > float(max_val):
+            return False
+        return True
+
+    async def _run_filter() -> None:
+        tracer = SessionTracer(db_url=db_url, auto_save=False)
+        await tracer.initialize()
+
+        df = await tracer.db.query_traces(
+            "SELECT session_id, created_at, metadata FROM session_traces ORDER BY created_at"
+        )
+        if getattr(df, "empty", True):
+            raise click.ClickException("No traces found in database")
+
+        sessions = df.to_dict("records")
+        accepted: list[dict[str, Any]] = []
+
+        for row in sessions:
+            metadata_raw = row.get("metadata")
+            if isinstance(metadata_raw, str):
+                try:
+                    metadata = json.loads(metadata_raw)
+                except Exception:
+                    metadata = {}
+            elif isinstance(metadata_raw, dict):
+                metadata = dict(metadata_raw)
+            else:
+                metadata = {}
+
+            created_at_raw = row.get("created_at")
+            created_at_dt = _parse_datetime_for_trace(created_at_raw)
+
+            session_id = row.get("session_id")
+
+            if splits and metadata.get("task_split") not in splits:
+                continue
+            if task_ids and metadata.get("task_id") not in task_ids:
+                continue
+            if models and metadata.get("model") not in models:
+                continue
+
+            if min_created and (created_at_dt is None or created_at_dt < min_created):
+                continue
+            if max_created and (created_at_dt is None or created_at_dt > max_created):
+                continue
+
+            if not _score_ok(metadata.get("official_score"), min_official, max_official):
+                continue
+
+            judge_scores = metadata.get("judge_scores") or {}
+            include = True
+            for judge_name, threshold in (min_judge_scores or {}).items():
+                if not _score_ok(judge_scores.get(judge_name), threshold, None):
+                    include = False
+                    break
+            if not include:
+                continue
+            for judge_name, threshold in (max_judge_scores or {}).items():
+                if not _score_ok(judge_scores.get(judge_name), None, threshold):
+                    include = False
+                    break
+            if not include:
+                continue
+
+            prompt = metadata.get("prompt") or ""
+            completion = metadata.get("completion") or ""
+            if not prompt or not completion:
+                continue
+
+            record = {
+                "messages": [
+                    {"role": "user", "content": str(prompt)},
+                    {"role": "assistant", "content": str(completion)},
+                ],
+                "metadata": {
+                    "session_id": session_id,
+                    "task_id": metadata.get("task_id"),
+                    "task_split": metadata.get("task_split"),
+                    "task_rubric_id": metadata.get("task_rubric_id"),
+                    "official_score": metadata.get("official_score"),
+                    "judge_scores": judge_scores,
+                    "model": metadata.get("model"),
+                    "created_at": created_at_dt.isoformat() if created_at_dt else created_at_raw,
+                    "prompt": prompt,
+                    "completion": completion,
+                },
+            }
+            accepted.append(record)
+
+        if not accepted:
+            raise click.ClickException("No sessions matched the provided filters")
+
+        if limit is not None and limit > 0:
+            accepted = accepted[:limit]
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as handle:
+            for item in accepted:
+                handle.write(json.dumps(item, ensure_ascii=False))
+                handle.write("\n")
+
+        click.echo(f"Wrote {len(accepted)} examples -> {output_path}")
+        await tracer.db.close()
+
+    asyncio.run(_run_filter())
 
 
 def register_eval(cli: click.Group) -> None:

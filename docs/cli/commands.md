@@ -143,4 +143,4 @@ uvx synth-ai demo run --batch-size 4 --group-size 16 --model Qwen/Qwen3-0.6B
 uvx synth-ai run --config demo_config.toml
 ```
 
-The demo commands proxy into `synth_ai.demos.core.cli`, which prints the next recommended step after each action (e.g., `uvx synth-ai run` once deployment is complete).
+The demo commands invoke helpers from `synth_ai.demos.core.cli` directly, which continue to print the next recommended step after each action (e.g., `uvx synth-ai run` once deployment is complete).

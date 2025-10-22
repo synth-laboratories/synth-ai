@@ -11,17 +11,13 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import libsql
 from sqlalchemy.engine import make_url
-
-try:  # pragma: no cover - exercised only when pandas present
-    import pandas as pd  # type: ignore
-except Exception:  # pragma: no cover
-    pd = None  # type: ignore[assignment]
 
 from ..abstractions import (
     EnvironmentEvent,
@@ -33,6 +29,24 @@ from ..abstractions import (
 from ..config import CONFIG
 from ..storage.base import TraceStorage
 from .models import analytics_views
+
+if TYPE_CHECKING:
+    from sqlite3 import Connection as LibsqlConnection
+else:  # pragma: no cover - runtime fallback for typing only
+    LibsqlConnection = Any  # type: ignore[assignment]
+
+_LIBSQL_CONNECT_ATTR = getattr(libsql, "connect", None)
+if _LIBSQL_CONNECT_ATTR is None:  # pragma: no cover - defensive guard
+    raise RuntimeError("libsql.connect is required for NativeLibsqlTraceManager")
+_libsql_connect: Callable[..., LibsqlConnection] = cast(
+    Callable[..., LibsqlConnection],
+    _LIBSQL_CONNECT_ATTR,
+)
+
+try:  # pragma: no cover - exercised only when pandas present
+    import pandas as pd  # type: ignore
+except Exception:  # pragma: no cover
+    pd = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +80,8 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
         parsed = make_url(url)
-        if parsed.drivername.startswith("sqlite"):
-            if parsed.database:
-                return _ConnectionTarget(database=parsed.database, auth_token=auth_token)
+        if parsed.drivername.startswith("sqlite") and parsed.database:
+            return _ConnectionTarget(database=parsed.database, auth_token=auth_token)
         if parsed.drivername.startswith("libsql"):
             database = parsed.render_as_string(hide_password=False)
             return _ConnectionTarget(database=database, sync_url=database, auth_token=auth_token)
@@ -314,12 +327,12 @@ class NativeLibsqlTraceManager(TraceStorage):
     ):
         self._config_auth_token = auth_token
         self._target = _resolve_connection_target(db_url, auth_token)
-        self._conn: libsql.Connection | None = None
+        self._conn: LibsqlConnection | None = None
         self._conn_lock = asyncio.Lock()
         self._op_lock = asyncio.Lock()
         self._initialized = False
 
-    def _open_connection(self) -> libsql.Connection:
+    def _open_connection(self) -> LibsqlConnection:
         """Open a libsql connection for the resolved target."""
         kwargs: dict[str, Any] = {}
         if self._target.sync_url and self._target.sync_url.startswith("libsql://"):
@@ -329,7 +342,7 @@ class NativeLibsqlTraceManager(TraceStorage):
         # Disable automatic background sync; ReplicaSync drives this explicitly.
         kwargs.setdefault("sync_interval", 0)
         logger.debug("Opening libsql connection to %s", self._target.database)
-        return libsql.connect(self._target.database, **kwargs)
+        return _libsql_connect(self._target.database, **kwargs)
 
     async def initialize(self):
         """Initialise the backend."""
@@ -493,7 +506,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 return None
 
             session_columns = ["session_id", "created_at", "num_timesteps", "num_events", "num_messages", "metadata"]
-            session_data = dict(zip(session_columns, session_row))
+            session_data = dict(zip(session_columns, session_row, strict=True))
 
             timestep_cursor = conn.execute(
                 """
@@ -608,10 +621,10 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         if not rows:
             if pd is not None:
-                return pd.DataFrame(columns=[col for col in columns])
+                return pd.DataFrame(columns=list(columns))
             return []
 
-        records = [dict(zip(columns, row)) for row in rows]
+        records = [dict(zip(columns, row, strict=True)) for row in rows]
         if pd is not None:
             return pd.DataFrame(records)
         return records

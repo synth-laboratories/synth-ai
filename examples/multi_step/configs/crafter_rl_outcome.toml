@@ -1,0 +1,74 @@
+# Crafter RL experiment – outcome rewards only (step rewards disabled)
+
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[services]
+# Replace with the Modal URL printed by `uvx synth-ai modal-serve grpo-crafter`
+task_url = "https://YOUR-MODAL-TASK-APP.modal.run"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 2
+
+[topology]
+type = "single_node_split"
+gpus_for_vllm = 1
+gpus_for_training = 1
+gpus_for_ref = 0
+tensor_parallel = 1
+
+[vllm]
+tensor_parallel_size = 1
+max_model_len = 8192
+
+[reference]
+placement = "none"
+
+[model]
+base = "Qwen/Qwen3-4B"
+trainer_mode = "lora"
+label = "crafter-rl-outcome"
+
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["all-linear"]
+
+[rollout]
+env_name = "crafter"
+max_turns = 10
+episodes_per_batch = 4
+policy_name = "crafter-react"
+max_concurrent_rollouts = 12
+batches_per_step = 2
+ops = ["agent", "env"]
+
+[evaluation]
+instances = 10
+every_n_iters = 5
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[training]
+num_epochs = 1
+iterations_per_epoch = 20
+gradient_accumulation_steps = 1
+max_accumulated_minibatch = 1
+max_turns = 8
+batch_size = 3
+group_size = 4
+learning_rate = 5e-5
+log_interval = 1
+weight_sync_interval = 1
+step_rewards_enabled = false
+event_rewards_kind = "unique"
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+mode = "direct"
+direct = true
+verify_every_k = 0

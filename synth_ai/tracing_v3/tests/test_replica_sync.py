@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import pytest_asyncio
 
-from synth_ai.tracing_v3.config import CONFIG
-from synth_ai.tracing_v3.replica_sync import (
+from ..config import CONFIG
+from ..replica_sync import (
     ReplicaSync,
     get_replica_sync,
     start_replica_sync,
@@ -110,7 +110,7 @@ class TestReplicaSync:
                 db_path=temp_db,
                 sync_url="libsql://test.turso.io",
                 auth_token="test-token",
-                sync_interval=0.1,  # Short interval for testing
+                sync_interval=1,  # Short interval for testing
             )
 
             # Start background sync
@@ -146,7 +146,7 @@ class TestReplicaSync:
         """Test stopping sync task and closing connection."""
         with patch("libsql.connect", return_value=mock_libsql_connection):
             sync = ReplicaSync(
-                db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=0.1
+                db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=1
             )
 
             # Start and establish connection
@@ -206,7 +206,7 @@ class TestReplicaSync:
 
         with patch("libsql.connect", return_value=mock_libsql_connection):
             sync = ReplicaSync(
-                db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=0.05
+                db_path=temp_db, sync_url="libsql://test.turso.io", sync_interval=1
             )
 
             # Start background sync

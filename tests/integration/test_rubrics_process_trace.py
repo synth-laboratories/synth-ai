@@ -7,7 +7,94 @@ from typing import Any
 import httpx
 import pytest
 
-from rubrics_dev.judge_eval import _process_trace
+from synth_ai.rubrics.trace_utils import load_session_trace, compute_deterministic_metrics
+from synth_ai.judge_schemas import JudgeScoreResponse
+
+
+async def _process_trace(
+    *,
+    client: Any,
+    conn: Any,
+    session_id: str,
+    args: Any,
+    options: dict[str, Any],
+    output_dir: Path,
+    rubric_cfg: dict[str, Any],
+):
+    trace = load_session_trace(conn, session_id)
+    deterministic = compute_deterministic_metrics(conn, session_id)
+
+    # Build judge trace
+    event_history = trace.get("event_history") or trace.get("events") or []
+    if not isinstance(event_history, list):
+        event_history = []
+    event_history = [item for item in event_history if isinstance(item, dict)]
+    if not event_history:
+        raise ValueError("Trace missing event_history entries")
+
+    markov_history = trace.get("markov_blanket_message_history") or trace.get("messages") or []
+    if not isinstance(markov_history, list):
+        markov_history = []
+    markov_history = [item for item in markov_history if isinstance(item, dict)]
+
+    metadata = trace.get("metadata")
+    metadata_dict: dict[str, Any] = dict(metadata) if isinstance(metadata, dict) else {}
+
+    session_id_meta = trace.get("session_id")
+    if session_id_meta and isinstance(session_id_meta, str):
+        metadata_dict.setdefault("session_id", session_id_meta)
+        metadata_dict.setdefault("trace_id", session_id_meta)
+
+    payload = {
+        "policy_name": args.policy_name,
+        "task_app": {"id": args.task_app_id},
+        "trace": {
+            "event_history": event_history,
+            "markov_blanket_message_history": markov_history,
+            "metadata": metadata_dict,
+        },
+        "options": options,
+    }
+
+    resp = await client.post(args.backend_url.rstrip("/") + "/api/judge/v1/score", json=payload, headers={})
+    response = resp.json()
+    validated = JudgeScoreResponse.model_validate(response)
+    judge_event = validated.aggregate_event_reward()
+    judge_outcome = validated.aggregate_outcome_reward()
+
+    # Write outputs
+    def _save_json(path: Path, payload: Any) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        import json as _json
+
+        path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    _save_json(output_dir / "traces" / f"{session_id}.json", trace)
+    _save_json(
+        output_dir / "summaries" / f"{session_id}.json",
+        {
+            "session_id": session_id,
+            "deterministic_event_reward": deterministic.unique_achievement_reward,
+            "deterministic_outcome_reward": deterministic.outcome_total_reward,
+            "judge_event_reward": judge_event,
+            "judge_outcome_reward": judge_outcome,
+            "rubric_config": rubric_cfg,
+            "judge_options": options,
+        },
+    )
+    _save_json(output_dir / "judgements" / f"{session_id}.json", response)
+
+    return (
+        {
+            "session_id": session_id,
+            "deterministic_event_reward": deterministic.unique_achievement_reward,
+            "deterministic_outcome_reward": deterministic.outcome_total_reward,
+            "judge_event_reward": judge_event,
+            "judge_outcome_reward": judge_outcome,
+        },
+        0.0,
+        {"total_duration_ms": 0.0, "num_events": len(event_history)},
+    )
 
 
 class DummyResponse:

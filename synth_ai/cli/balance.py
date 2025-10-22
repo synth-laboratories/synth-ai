@@ -5,7 +5,9 @@ CLI: check remaining credit balance from Synth backend.
 
 from __future__ import annotations
 
+import importlib
 import os
+from collections.abc import Callable
 
 import click
 import requests
@@ -14,8 +16,18 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env
 
+def _load_base_url_module() -> tuple[str, Callable[[], tuple[str, str]]]:
+    try:
+        module = importlib.import_module("synth_ai.config.base_url")
+        default = module.PROD_BASE_URL_DEFAULT
+        getter = module.get_backend_from_env
+        return str(default), getter
+    except Exception:
+        return "https://agent-learning.onrender.com", lambda: ("https://agent-learning.onrender.com", "")
+
+
+PROD_BASE_URL_DEFAULT, _get_backend_from_env = _load_base_url_module()
 PROD_BACKEND_BASE = f"{PROD_BASE_URL_DEFAULT.rstrip('/')}/api/v1"
 
 
@@ -25,7 +37,7 @@ def _get_default_base_url() -> str:
         val = os.getenv(var)
         if val:
             return val
-    base, _ = get_backend_from_env()
+    base, _ = _get_backend_from_env()
     base = base.rstrip("/")
     if base.endswith("/api"):
         base = base[: -len("/api")]

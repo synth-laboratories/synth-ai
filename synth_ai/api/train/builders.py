@@ -1,23 +1,33 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
-from synth_ai.api.models.supported import (
-    UnsupportedModelError,
-    ensure_allowed_model,
-    normalize_model_identifier,
-)
-from synth_ai.learning.sft.config import prepare_sft_job_payload
+from pydantic import ValidationError
+
+try:
+    _models_module = importlib.import_module("synth_ai.api.models.supported")
+    UnsupportedModelError = _models_module.UnsupportedModelError
+    ensure_allowed_model = _models_module.ensure_allowed_model
+    normalize_model_identifier = _models_module.normalize_model_identifier
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load supported model helpers") from exc
+
+try:
+    prepare_sft_job_payload = importlib.import_module("synth_ai.learning.sft.config").prepare_sft_job_payload
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load SFT payload helpers") from exc
 
 from .supported_algos import (
     AlgorithmValidationError,
     ensure_model_supported_for_algorithm,
     validate_algorithm_config,
 )
-from .utils import TrainError, ensure_api_base, load_toml
+from .utils import TrainError, ensure_api_base
+from .configs import RLConfig, SFTConfig
 
 
 @dataclass(slots=True)
@@ -34,6 +44,16 @@ class SFTBuildResult:
     validation_file: Path | None
 
 
+def _format_validation_error(path: Path, exc: ValidationError) -> str:
+    lines: list[str] = []
+    for error in exc.errors():
+        loc = ".".join(str(part) for part in error.get("loc", ()))
+        msg = error.get("msg", "invalid value")
+        lines.append(f"{loc or '<root>'}: {msg}")
+    details = "\n".join(f"  - {line}" for line in lines) or "  - Invalid configuration"
+    return f"Config validation failed ({path}):\n{details}"
+
+
 def build_rl_payload(
     *,
     config_path: Path,
@@ -42,13 +62,30 @@ def build_rl_payload(
     idempotency: str | None,
     allow_experimental: bool | None = None,
 ) -> RLBuildResult:
-    data = load_toml(config_path)
     try:
-        spec = validate_algorithm_config(data.get("algorithm"), expected_family="rl")
+        rl_cfg = RLConfig.from_path(config_path)
+    except ValidationError as exc:
+        raise click.ClickException(_format_validation_error(config_path, exc)) from exc
+
+    data = rl_cfg.to_dict()
+    # Ensure required [reference] section for backend validators
+    try:
+        ref_cfg = data.get("reference") if isinstance(data, dict) else None
+        if not isinstance(ref_cfg, dict):
+            data["reference"] = {"placement": "none"}
+        else:
+            ref_cfg.setdefault("placement", "none")
+    except Exception:
+        # Defensive: never fail builder due to optional defaults
+        data["reference"] = {"placement": "none"}
+    try:
+        spec = validate_algorithm_config(
+            rl_cfg.algorithm.model_dump(), expected_family="rl"
+        )
     except AlgorithmValidationError as exc:
         raise click.ClickException(str(exc)) from exc
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
-    model_cfg = data.get("model") if isinstance(data.get("model"), dict) else {}
+    model_cfg = rl_cfg.model
 
     final_task_url = (
         overrides.get("task_url")
@@ -61,10 +98,8 @@ def build_rl_payload(
             "Task app URL required (provide --task-url or set services.task_url in TOML)"
         )
 
-    raw_source = model_cfg.get("source") if isinstance(model_cfg, dict) else ""
-    model_source = str(raw_source or "").strip()
-    raw_base = model_cfg.get("base") if isinstance(model_cfg, dict) else ""
-    model_base = str(raw_base or "").strip()
+    model_source = (model_cfg.source or "").strip()
+    model_base = (model_cfg.base or "").strip()
     override_model = (overrides.get("model") or "").strip()
     if override_model:
         model_source = override_model
@@ -122,23 +157,26 @@ def build_rl_payload(
     except Exception:
         pass
 
+    payload_data: dict[str, Any] = {
+        "endpoint_base_url": final_task_url.rstrip("/"),
+        "config": data,
+    }
     payload: dict[str, Any] = {
         "job_type": "rl",
         "compute": data.get("compute", {}),
-        "data": {
-            "endpoint_base_url": final_task_url.rstrip("/"),
-            "config": data,
-        },
+        "data": payload_data,
         "tags": {"source": "train-cli"},
     }
     if model_source:
-        payload["data"]["model"] = model_source
+        payload_data["model"] = model_source
     if model_base:
-        payload["data"]["base_model"] = model_base
+        payload_data["base_model"] = model_base
 
     backend = overrides.get("backend")
     if backend:
-        payload.setdefault("metadata", {})["backend_base_url"] = ensure_api_base(str(backend))
+        metadata_default: dict[str, Any] = {}
+        metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
+        metadata["backend_base_url"] = ensure_api_base(str(backend))
 
     return RLBuildResult(payload=payload, task_url=final_task_url, idempotency=idempotency)
 
@@ -149,22 +187,23 @@ def build_sft_payload(
     dataset_override: Path | None,
     allow_experimental: bool | None,
 ) -> SFTBuildResult:
-    data = load_toml(config_path)
     try:
-        spec = validate_algorithm_config(data.get("algorithm"), expected_family="sft")
+        sft_cfg = SFTConfig.from_path(config_path)
+    except ValidationError as exc:
+        raise TrainError(_format_validation_error(config_path, exc)) from exc
+
+    data = sft_cfg.to_dict()
+    try:
+        algo_mapping = sft_cfg.algorithm.model_dump() if sft_cfg.algorithm else None
+        spec = validate_algorithm_config(algo_mapping, expected_family="sft")
     except AlgorithmValidationError as exc:
         raise TrainError(str(exc)) from exc
-    job_cfg = data.get("job") if isinstance(data.get("job"), dict) else {}
     data_cfg = data.get("data") if isinstance(data.get("data"), dict) else {}
     hp_cfg = data.get("hyperparameters") if isinstance(data.get("hyperparameters"), dict) else {}
     train_cfg = data.get("training") if isinstance(data.get("training"), dict) else {}
     compute_cfg = data.get("compute") if isinstance(data.get("compute"), dict) else {}
 
-    raw_dataset = (
-        dataset_override
-        or (job_cfg.get("data") if isinstance(job_cfg, dict) else None)
-        or (job_cfg.get("data_path") if isinstance(job_cfg, dict) else None)
-    )
+    raw_dataset = dataset_override or sft_cfg.job.data or sft_cfg.job.data_path
     if not raw_dataset:
         raise TrainError("Dataset not specified; pass --dataset or set [job].data")
     dataset_path = Path(raw_dataset)
@@ -249,9 +288,11 @@ def build_sft_payload(
             "enabled": bool(validation_cfg.get("enabled", True))
         }
 
-    raw_model = str(
-        job_cfg.get("model") if isinstance(job_cfg, dict) else None or data.get("model") or ""
-    ).strip()
+    raw_model = (sft_cfg.job.model or "").strip()
+    if not raw_model:
+        model_block = data.get("model")
+        if isinstance(model_block, str):
+            raw_model = model_block.strip()
     if not raw_model:
         raise TrainError("Model not specified; set [job].model or [model].base in the config")
 

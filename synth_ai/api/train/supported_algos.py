@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import importlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from synth_ai.api.models.supported import (
-    RL_SUPPORTED_MODELS,
-    SFT_SUPPORTED_MODELS,
-    training_modes_for_model,
-)
+try:
+    _models_module = importlib.import_module("synth_ai.api.models.supported")
+    RL_SUPPORTED_MODELS = _models_module.RL_SUPPORTED_MODELS
+    SFT_SUPPORTED_MODELS = _models_module.SFT_SUPPORTED_MODELS
+    training_modes_for_model = _models_module.training_modes_for_model
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load supported model metadata") from exc
 
 
 @dataclass(frozen=True)

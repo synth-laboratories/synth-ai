@@ -5,40 +5,45 @@ CLI: experiments active in the last K hours with summary stats.
 
 import asyncio
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any
 
 import click
 from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from ._storage import load_storage
 
-def _fmt_int(v) -> str:
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    import pandas as pd
+else:
+    pd = Any  # type: ignore[assignment]
+def _fmt_int(v: Any) -> str:
     try:
         return f"{int(v):,}"
     except Exception:
         return "0"
 
 
-def _fmt_money(v) -> str:
+def _fmt_money(v: Any) -> str:
     try:
         return f"${float(v or 0.0):.4f}"
     except Exception:
         return "$0.0000"
 
 
-def _fmt_time(v) -> str:
+def _fmt_time(v: Any) -> str:
     try:
         return str(v)
     except Exception:
         return "-"
 
 
-async def _fetch_recent(db_url: str, hours: float):
-from synth_ai.tracing_v3.storage.factory import create_storage, StorageConfig
-
+async def _fetch_recent(db_url: str, hours: float) -> "pd.DataFrame":
     start_time = datetime.now() - timedelta(hours=hours)
 
-    db = create_storage(StorageConfig(connection_string=db_url))
+    create_storage, storage_config = load_storage()
+    db: Any = create_storage(storage_config(connection_string=db_url))
     await db.initialize()
     try:
         query = """

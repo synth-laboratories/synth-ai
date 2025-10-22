@@ -28,8 +28,8 @@ import asyncio
 import contextvars
 import functools
 import time
-from collections.abc import Callable
-from typing import Any, TypeVar
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, TypeVar, cast, overload
 
 from .abstractions import LMCAISEvent, TimeRecord
 from .utils import calculate_cost, detect_provider
@@ -88,6 +88,16 @@ def get_session_tracer() -> Any:
 T = TypeVar("T")
 
 
+@overload
+def with_session(require: bool = True) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    ...
+
+
+@overload
+def with_session(require: bool = True) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    ...
+
+
 def with_session(require: bool = True):
     """Decorator that ensures a session is active.
 
@@ -109,29 +119,31 @@ def with_session(require: bool = True):
         ```
     """
 
-    def decorator(fn: Callable[..., T]) -> Callable[..., T]:
+    def decorator(fn: Callable[..., Awaitable[T]] | Callable[..., T]) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         if asyncio.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> T:
                 session_id = get_session_id()
                 if require and session_id is None:
                     raise RuntimeError(
                         f"No active session for {getattr(fn, '__name__', 'unknown')}"
                     )
-                return await fn(*args, **kwargs)
+                async_fn = cast(Callable[..., Awaitable[T]], fn)
+                return await async_fn(*args, **kwargs)
 
             return async_wrapper
         else:
 
             @functools.wraps(fn)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: Any, **kwargs: Any) -> T:
                 session_id = get_session_id()
                 if require and session_id is None:
                     raise RuntimeError(
                         f"No active session for {getattr(fn, '__name__', 'unknown')}"
                     )
-                return fn(*args, **kwargs)
+                sync_fn = cast(Callable[..., T], fn)
+                return sync_fn(*args, **kwargs)
 
             return sync_wrapper
 
@@ -172,31 +184,36 @@ def trace_llm_call(
         ```
     """
 
-    def decorator(fn: Callable[..., T]) -> Callable[..., T]:
+    def decorator(fn: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         if asyncio.iscoroutinefunction(fn):
+            async_fn: Callable[..., Awaitable[T]] = fn
 
             @functools.wraps(fn)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> T:
                 tracer = get_session_tracer()
                 if not tracer:
-                    return await fn(*args, **kwargs)
+                    return await async_fn(*args, **kwargs)
 
                 start_time = time.time()
                 system_state_before = kwargs.get("state_before", {})
 
                 try:
-                    result = await fn(*args, **kwargs)
+                    result = await async_fn(*args, **kwargs)
 
                     # Extract metrics from result - this assumes the result follows
                     # common LLM API response formats (OpenAI, Anthropic, etc.)
-                    if extract_tokens and isinstance(result, dict):
-                        input_tokens = result.get("usage", {}).get("prompt_tokens")
-                        output_tokens = result.get("usage", {}).get("completion_tokens")
-                        total_tokens = result.get("usage", {}).get("total_tokens")
-                        actual_model = result.get("model", model_name)
-                    else:
-                        input_tokens = output_tokens = total_tokens = None
-                        actual_model = model_name
+                    input_tokens = output_tokens = total_tokens = None
+                    actual_model = model_name
+                    if extract_tokens and isinstance(result, Mapping):
+                        result_mapping = cast(Mapping[str, Any], result)
+                        usage = result_mapping.get("usage")
+                        if isinstance(usage, Mapping):
+                            input_tokens = usage.get("prompt_tokens")
+                            output_tokens = usage.get("completion_tokens")
+                            total_tokens = usage.get("total_tokens")
+                        value = result_mapping.get("model")
+                        if isinstance(value, str):
+                            actual_model = value
 
                     latency_ms = int((time.time() - start_time) * 1000)
 
@@ -272,19 +289,26 @@ def trace_method(event_type: str = "runtime", system_id: str | None = None):
         ```
     """
 
-    def decorator(fn: Callable[..., T]) -> Callable[..., T]:
+    def decorator(
+        fn: Callable[..., Awaitable[T]] | Callable[..., T]
+    ) -> Callable[..., Awaitable[T]] | Callable[..., T]:
         if asyncio.iscoroutinefunction(fn):
+            async_fn = cast(Callable[..., Awaitable[T]], fn)
 
             @functools.wraps(fn)
-            async def async_wrapper(self, *args, **kwargs):
+            async def async_wrapper(*args: Any, **kwargs: Any) -> T:
                 tracer = get_session_tracer()
                 if not tracer:
-                    return await fn(self, *args, **kwargs)
+                    return await async_fn(*args, **kwargs)
 
                 from .abstractions import RuntimeEvent
 
                 # Use class name as system_id if not provided
-                actual_system_id = system_id or self.__class__.__name__
+                self_obj = args[0] if args else None
+                inferred_system_id = (
+                    self_obj.__class__.__name__ if self_obj is not None else "unknown"
+                )
+                actual_system_id = system_id or inferred_system_id
 
                 event = RuntimeEvent(
                     system_instance_id=actual_system_id,
@@ -298,17 +322,18 @@ def trace_method(event_type: str = "runtime", system_id: str | None = None):
                 )
 
                 await tracer.record_event(event)
-                return await fn(self, *args, **kwargs)
+                return await async_fn(*args, **kwargs)
 
             return async_wrapper
         else:
 
             @functools.wraps(fn)
-            def sync_wrapper(self, *args, **kwargs):
+            def sync_wrapper(*args: Any, **kwargs: Any) -> T:
                 # For sync methods, we can't easily trace without blocking
                 # the event loop. This is a limitation of the async-first design.
                 # Consider converting to async or using a different approach
-                return fn(self, *args, **kwargs)
+                sync_fn = cast(Callable[..., T], fn)
+                return sync_fn(*args, **kwargs)
 
             return sync_wrapper
 
