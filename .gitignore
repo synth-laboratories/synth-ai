@@ -163,3 +163,6 @@ customers/
 
 # Outputs directory (local artifacts only)
 outputs/
+ 
+# Temporary workspace and embedded repos
+.tmp/
