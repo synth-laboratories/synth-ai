@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 from uuid import UUID, uuid4
 
 from datasets import load_dataset
+import httpx
+
+from fastapi import HTTPException
 
 from synth_ai.environments.examples.enron.environment import EnronEnvironment
 from synth_ai.environments.examples.enron.taskset import (
@@ -28,6 +34,7 @@ from synth_ai.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
+    RolloutStep,
     RolloutTrajectory,
     TaskInfo,
 )
@@ -41,6 +48,7 @@ from synth_ai.task.tracing_utils import (
     tracing_env_enabled,
 )
 from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.environments.environment.tools import EnvToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +70,165 @@ HF_CACHE_DIR = os.path.join(
 )
 
 TOOLS = ["search_emails", "read_email", "answer_question", "terminate"]
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+DEFAULT_GROQ_MODEL = "qwen/qwen3-32b"
+ENRON_SYSTEM_PROMPT = (
+    "You are an Enron investigations analyst. Answer the user's question by reading emails. "
+    "You can call tools to search the corpus, read specific messages, and submit a final answer. "
+    "Use the tools deliberately, gather evidence before answering, and when confident call "
+    "answer_question with your final answer. If you cannot find the answer after thorough search, "
+    "answer_question with your best attempt noting uncertainty."
+)
+
+
+def _simplify(obj: Any) -> Any:
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _simplify(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_simplify(v) for v in obj]
+    return str(obj)
+
+
+def _render_search_results(results: list[dict[str, Any]]) -> str:
+    if not results:
+        return "No search results."
+    lines = []
+    for item in results[:5]:
+        message_id = item.get("message_id") or item.get("id") or "<unknown>"
+        snippet = (item.get("snippet") or item.get("snip") or "").strip()
+        lines.append(f"- {message_id}: {snippet[:280]}")
+    return "\n".join(lines)
+
+
+def _render_email(email: dict[str, Any] | None) -> str:
+    if not email:
+        return "No email loaded."
+    subject = email.get("subject", "<no subject>")
+    from_addr = email.get("from_address") or email.get("from_addr") or "<unknown>"
+    date = email.get("date", "<unknown date>")
+    snippet = (email.get("body") or "")[:600]
+    return f"Subject: {subject}\nFrom: {from_addr}\nDate: {date}\nBody Preview:\n{snippet}"
+
+
+def _render_observation(obs: dict[str, Any]) -> str:
+    lines = [
+        f"Question: {obs.get('question', '')}",
+        f"Already answered: {bool(obs.get('already_answered'))}",
+        f"Available tools: {', '.join(obs.get('tools') or [])}",
+        f"Inbox address: {obs.get('inbox_address', '<unknown>')}",
+        f"Reward Δ: {obs.get('reward_last', 0)}   Total Reward: {obs.get('total_reward', 0)}",
+    ]
+    tool_error = obs.get("tool_error")
+    if tool_error:
+        lines.append(f"Last tool error: {tool_error}")
+    search_results = obs.get("search_results") or []
+    if search_results:
+        lines.append("Search Results:")
+        lines.append(_render_search_results(search_results))
+    email = obs.get("email")
+    if email:
+        lines.append("Email Content:")
+        lines.append(_render_email(email))
+    gold = obs.get("gold_answer")
+    if gold and obs.get("terminated"):
+        lines.append(f"Gold Answer: {gold}")
+    return "\n".join(lines)
+
+
+def _conversation_message(role: str, content: Any, **metadata: Any) -> dict[str, Any]:
+    if isinstance(content, (dict, list)):
+        rendered = json.dumps(_simplify(content), ensure_ascii=False)
+    else:
+        rendered = str(content)
+    message: dict[str, Any] = {"role": role, "content": rendered}
+    message.update({k: v for k, v in metadata.items() if v is not None})
+    return message
+
+
+def _build_trace_payload_enron(
+    run_id: str,
+    request: RolloutRequest,
+    steps: list[RolloutStep],
+    metrics: RolloutMetrics,
+    *,
+    provider: str,
+    model: str,
+    conversation: list[dict[str, Any]],
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    created_at = datetime.now(timezone.utc)
+    event_time = time.time()
+    session_steps: list[dict[str, Any]] = []
+    event_history: list[dict[str, Any]] = []
+    markov_history: list[dict[str, Any]] = []
+    for msg in conversation:
+        event_time += 0.005
+        markov_history.append(
+            {
+                "content": {"text": msg.get("content", "")},
+                "message_type": msg.get("role", "system"),
+                "time_record": {"event_time": event_time},
+                "metadata": _simplify({k: v for k, v in msg.items() if k not in {"role", "content"}}),
+            }
+        )
+
+    session_trace = {
+        "session_id": run_id,
+        "created_at": created_at.isoformat(),
+        "metadata": {
+            "task": "enron_email_qa",
+            "provider": provider,
+            "model": model,
+            "policy": _simplify(request.policy.model_dump() if request.policy else {}),
+            "env": _simplify(request.env.model_dump() if request.env else {}),
+            **(_simplify(metadata or {})),
+        },
+        "session_time_steps": session_steps,
+        "event_history": event_history,
+        "markov_blanket_message_history": markov_history,
+    }
+
+    return {
+        "version": 3,
+        "session_trace": session_trace,
+        "run_id": run_id,
+        "policy_id": request.policy.policy_id or request.policy.policy_name,
+        "reward": metrics.mean_return,
+        "episode_returns": metrics.episode_returns,
+        "mean_return": metrics.mean_return,
+        "num_steps": metrics.num_steps,
+    }
+
+
+async def _call_groq_chat(
+    client: httpx.AsyncClient,
+    api_key: str,
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    response = await client.post(
+        GROQ_CHAT_URL,
+        json=payload,
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    if response.status_code >= 400:
+        try:
+            body = response.json()
+        except Exception:
+            body = {"raw": response.text}
+        detail = {
+            "status": response.status_code,
+            "body": body,
+            "headers": dict(response.headers),
+        }
+        raise HTTPException(status_code=response.status_code, detail=detail)
+    data = response.json()
+    return data, {
+        "status": response.status_code,
+        "headers": dict(response.headers),
+        "body": data,
+    }
 
 
 def _load_taskset_blocking() -> TaskInstanceSet:
@@ -281,14 +448,18 @@ def _normalise_observation(value: Any) -> dict[str, Any]:
     return {"text": str(value)}
 
 
-async def rollout_executor(
-    request: RolloutRequest, fastapi_request
-) -> RolloutResponse:
+async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
+    policy_cfg = dict(request.policy.config or {})
+    provider = str(policy_cfg.get("provider") or "").strip().lower()
+    if provider == "groq":
+        return await _rollout_with_groq(request, fastapi_request, policy_cfg)
+
+    # Fallback: return initial observation but include minimal trace payload
     dataset = _ensure_dataset_from_state(fastapi_request, RUNTIME_DATASET)
     env_seed = getattr(request.env, "seed", None) if request and request.env else None
     instance = dataset.instance_by_seed(env_seed)
     env = EnronEnvironment(task_instance=instance)
-    initial_observation: Any
+    env.custom_obs = None
     try:
         initial_observation = await env.initialize()
     finally:
@@ -296,26 +467,44 @@ async def rollout_executor(
             await env.terminate()
 
     obs_dict = _normalise_observation(initial_observation)
-
+    step = RolloutStep(
+        obs=obs_dict,
+        tool_calls=[],
+        reward=0.0,
+        done=True,
+        truncated=None,
+        info={"note": "No rollout executed; provider unset."},
+    )
     trajectory = RolloutTrajectory(
         env_id=request.env.env_id or "enron",
         policy_id=request.policy.policy_id or request.policy.policy_name or "noop-policy",
-        steps=[],
+        steps=[step],
         final={"observation": obs_dict},
-        length=0,
+        length=1,
         decision_samples=None,
     )
-
     metrics = RolloutMetrics(
         episode_returns=[0.0],
         mean_return=0.0,
-        num_steps=0,
+        num_steps=1,
         num_episodes=1,
         outcome_score=None,
         events_score=None,
-        details={"note": "Rollout captures only the initial observation."},
+        details={"note": "Provider not configured; returning initial state."},
     )
-
+    trace_payload = _build_trace_payload_enron(
+        request.run_id,
+        request,
+        [step],
+        metrics,
+        provider="local",
+        model=policy_cfg.get("model") or "noop",
+        conversation=[
+            _conversation_message("system", ENRON_SYSTEM_PROMPT),
+            _conversation_message("user", _render_observation(obs_dict)),
+        ],
+        metadata={"mode": "noop"},
+    )
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -323,7 +512,307 @@ async def rollout_executor(
         metrics=metrics,
         aborted=False,
         ops_executed=0,
-        trace=None,
+        trace=trace_payload,
+    )
+
+
+def _prepare_tool_call(
+    tool_name: str,
+    raw_args: dict[str, Any],
+    current_obs: dict[str, Any],
+) -> EnvToolCall:
+    if tool_name == "search_emails":
+        keywords = raw_args.get("keywords")
+        if isinstance(keywords, str):
+            keywords = [k.strip() for k in keywords.split(",") if k.strip()]
+        if not isinstance(keywords, list) or not keywords:
+            raise ValueError("search_emails requires a non-empty list of keywords.")
+        inbox = raw_args.get("inbox") or current_obs.get("inbox_address") or "investigator@enron.com"
+        args = {
+            "inbox": str(inbox),
+            "keywords": [str(k) for k in keywords],
+            "from_addr": raw_args.get("from_addr"),
+            "to_addr": raw_args.get("to_addr"),
+            "sent_after": raw_args.get("sent_after"),
+            "sent_before": raw_args.get("sent_before"),
+            "max_results": int(raw_args.get("max_results") or 5),
+        }
+        return EnvToolCall(tool="search_emails", args=args)
+
+    if tool_name == "read_email":
+        message_id = raw_args.get("message_id")
+        if not message_id:
+            raise ValueError("read_email requires 'message_id'.")
+        return EnvToolCall(tool="read_email", args={"message_id": str(message_id)})
+
+    if tool_name == "answer_question":
+        answer = raw_args.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("answer_question requires a non-empty 'answer'.")
+        return EnvToolCall(tool="answer_question", args={"answer": answer.strip()})
+
+    if tool_name == "terminate":
+        return EnvToolCall(tool="terminate", args={})
+
+    raise ValueError(f"Unsupported tool '{tool_name}'")
+
+
+async def _rollout_with_groq(
+    request: RolloutRequest,
+    fastapi_request,
+    config: dict[str, Any],
+) -> RolloutResponse:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="GROQ_API_KEY environment variable is required for Groq rollouts.",
+        )
+
+    dataset = _ensure_dataset_from_state(fastapi_request, RUNTIME_DATASET)
+    env_seed = getattr(request.env, "seed", None) if request and request.env else None
+    instance = dataset.instance_by_seed(env_seed)
+    env = EnronEnvironment(task_instance=instance)
+    env.custom_obs = None
+
+    metadata_extra = {
+        "split": getattr(instance.metadata, "split", None),
+        "email_count": getattr(instance.metadata, "email_count", None),
+        "message_ids": list(getattr(instance.metadata, "message_ids", []))[:10],
+    }
+
+    model = config.get("model") or DEFAULT_GROQ_MODEL
+    temperature = float(config.get("temperature", 0.2) or 0.2)
+    top_p = float(config.get("top_p", 0.8) or 0.8)
+    max_tokens = int(config.get("max_tokens", 768) or 768)
+    max_turns = int(config.get("max_turns", config.get("max_steps", 12)) or 12)
+
+    tool_schemas = [
+        {
+            "type": "function",
+            "function": {
+                "name": "search_emails",
+                "description": "Search the Enron corpus for emails matching keywords.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "inbox": {"type": "string", "description": "Email address performing the search."},
+                        "keywords": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 1,
+                            "description": "Keywords to include in the search.",
+                        },
+                        "from_addr": {"type": "string"},
+                        "to_addr": {"type": "string"},
+                        "sent_after": {"type": "string", "description": "YYYY-MM-DD"},
+                        "sent_before": {"type": "string", "description": "YYYY-MM-DD"},
+                        "max_results": {"type": "integer", "minimum": 1, "maximum": 10},
+                    },
+                    "required": ["keywords"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "read_email",
+                "description": "Read the full contents of an email by message_id.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"message_id": {"type": "string"}},
+                    "required": ["message_id"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "answer_question",
+                "description": "Submit the final answer to the investigation question.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"answer": {"type": "string"}},
+                    "required": ["answer"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "terminate",
+                "description": "Terminate the investigation without answering.",
+                "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+            },
+        },
+    ]
+
+    steps: list[RolloutStep] = []
+    conversation: list[dict[str, Any]] = []
+    executed = 0
+    try:
+        observation = await env.initialize()
+        obs_dict = _normalise_observation(observation)
+        conversation.append(_conversation_message("system", ENRON_SYSTEM_PROMPT))
+        conversation.append(_conversation_message("user", _render_observation(obs_dict)))
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            for turn in range(max_turns):
+                payload = {
+                    "model": model,
+                    "messages": conversation,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "max_tokens": max_tokens,
+                    "tools": tool_schemas,
+                    "tool_choice": "auto",
+                }
+                vendor_attempts: list[dict[str, Any]] = []
+                response, response_meta = await _call_groq_chat(client, api_key, payload)
+                vendor_attempts.append({"request": payload, "response": response_meta})
+
+                choices = response.get("choices") or []
+                if not choices:
+                    break
+                message = choices[0].get("message") or {}
+                tool_calls = message.get("tool_calls") or []
+                assistant_msg_meta = {"tool_calls": _simplify(tool_calls)} if tool_calls else {}
+                conversation.append(
+                    _conversation_message("assistant", message.get("content") or "", **assistant_msg_meta)
+                )
+
+                tool_call_records: list[dict[str, Any]] = []
+                step_reward = 0.0
+                done = False
+                truncated = False
+
+                if not tool_calls:
+                    final_answer = (message.get("content") or "").strip()
+                    if final_answer:
+                        env_call = EnvToolCall(tool="answer_question", args={"answer": final_answer})
+                        observation = await env.step(env_call)
+                        executed += 1
+                        obs_dict = _normalise_observation(observation)
+                        step_reward += float(obs_dict.get("reward_last") or 0.0)
+                        done = bool(obs_dict.get("terminated"))
+                        truncated = bool(obs_dict.get("truncated"))
+                        tool_call_records.append({"tool": "answer_question", "args": env_call.args})
+                        conversation.append(
+                            _conversation_message(
+                                "tool",
+                                {"result": "answer_submitted", "observation": obs_dict},
+                                name="answer_question",
+                            )
+                        )
+                    else:
+                        break
+                else:
+                    for call in tool_calls:
+                        func = call.get("function") or {}
+                        name = func.get("name")
+                        raw_args = func.get("arguments")
+                        if isinstance(raw_args, str):
+                            try:
+                                parsed_args = json.loads(raw_args)
+                            except json.JSONDecodeError:
+                                parsed_args = {}
+                        elif isinstance(raw_args, dict):
+                            parsed_args = raw_args
+                        else:
+                            parsed_args = {}
+
+                        env_call = _prepare_tool_call(name, parsed_args, obs_dict)
+                        observation = await env.step(env_call)
+                        executed += 1
+                        obs_dict = _normalise_observation(observation)
+                        reward_delta = float(obs_dict.get("reward_last") or 0.0)
+                        step_reward += reward_delta
+                        done = bool(obs_dict.get("terminated"))
+                        truncated = bool(obs_dict.get("truncated"))
+                        tool_call_records.append({"tool": env_call.tool, "args": env_call.args})
+                        conversation.append(
+                            _conversation_message(
+                                "tool",
+                                {
+                                    "tool": env_call.tool,
+                                    "args": env_call.args,
+                                    "reward_delta": reward_delta,
+                                    "observation": obs_dict,
+                                },
+                                name=env_call.tool,
+                                tool_call_id=call.get("id"),
+                            )
+                        )
+                        if done or truncated:
+                            break
+
+                conversation.append(_conversation_message("user", _render_observation(obs_dict)))
+
+                step = RolloutStep(
+                    obs=obs_dict,
+                    tool_calls=tool_call_records,
+                    reward=step_reward,
+                    done=done,
+                    truncated=truncated if truncated else None,
+                    info={
+                        "provider": "groq",
+                        "model": model,
+                        "vendor_attempts": vendor_attempts,
+                        "turn": turn,
+                    },
+                )
+                steps.append(step)
+
+                if done or truncated:
+                    break
+    finally:
+        with contextlib.suppress(Exception):
+            await env.terminate()
+
+    if steps:
+        final_obs = steps[-1].obs
+        total_reward = float(final_obs.get("total_reward") or 0.0)
+    else:
+        total_reward = 0.0
+
+    metrics = RolloutMetrics(
+        episode_returns=[total_reward],
+        mean_return=total_reward if steps else 0.0,
+        num_steps=len(steps),
+        num_episodes=1,
+        outcome_score=None,
+        events_score=None,
+        details={"provider": "groq", "model": model},
+    )
+    trajectory = RolloutTrajectory(
+        env_id=request.env.env_id or "enron",
+        policy_id=request.policy.policy_id or request.policy.policy_name or "enron-groq",
+        steps=steps,
+        final={"observation": steps[-1].obs if steps else {}},
+        length=len(steps),
+        decision_samples=None,
+    )
+    trace_payload = _build_trace_payload_enron(
+        request.run_id,
+        request,
+        steps,
+        metrics,
+        provider="groq",
+        model=model,
+        conversation=conversation,
+        metadata=metadata_extra,
+    )
+    return RolloutResponse(
+        run_id=request.run_id,
+        trajectories=[trajectory],
+        branches={},
+        metrics=metrics,
+        aborted=False,
+        ops_executed=executed,
+        trace=trace_payload,
     )
 
 

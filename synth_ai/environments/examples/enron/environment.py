@@ -9,6 +9,7 @@ from synth_ai.environments.environment.shared_engine import (
     InternalObservation,
 )
 from synth_ai.environments.environment.tools import (
+    AbstractTool,
     TOOL_REGISTRY,
     EnvToolCall,
     ToolResult,
@@ -63,6 +64,73 @@ class AnswerQuestion(EnvToolCall):
 class Terminate(EnvToolCall):
     def __init__(self):
         self.action = (ACTION_ANSWER, "")
+
+
+class TerminateArgs(BaseModel):
+    pass
+
+
+class SearchEmailsTool(AbstractTool):
+    name = "search_emails"
+    call_schema = SearchEmailsArgs
+
+    def __init__(self, engine: EnronEngine):
+        self.engine = engine
+
+    async def __call__(self, call: EnvToolCall) -> ToolResult:
+        try:
+            args = self.call_schema.model_validate(call.args or {})
+            results = await self.engine.search_emails_action(args.model_dump())
+            return ToolResult(ok=True, payload={"search_results": results})
+        except Exception as exc:  # pragma: no cover - runtime safety
+            return ToolResult(ok=False, error=str(exc))
+
+
+class ReadEmailTool(AbstractTool):
+    name = "read_email"
+    call_schema = ReadEmailArgs
+
+    def __init__(self, engine: EnronEngine):
+        self.engine = engine
+
+    async def __call__(self, call: EnvToolCall) -> ToolResult:
+        try:
+            args = self.call_schema.model_validate(call.args or {})
+            email = await self.engine.read_email_action(args.message_id)
+            return ToolResult(ok=True, payload={"email": email})
+        except Exception as exc:  # pragma: no cover
+            return ToolResult(ok=False, error=str(exc))
+
+
+class AnswerQuestionTool(AbstractTool):
+    name = "answer_question"
+    call_schema = AnswerQuestionArgs
+
+    def __init__(self, engine: EnronEngine):
+        self.engine = engine
+
+    async def __call__(self, call: EnvToolCall) -> ToolResult:
+        try:
+            args = self.call_schema.model_validate(call.args or {})
+            await self.engine.answer_question_action(args.answer)
+            return ToolResult(ok=True, payload={"status": "answer_recorded"})
+        except Exception as exc:  # pragma: no cover
+            return ToolResult(ok=False, error=str(exc))
+
+
+class TerminateTool(AbstractTool):
+    name = "terminate"
+    call_schema = TerminateArgs
+
+    def __init__(self, engine: EnronEngine):
+        self.engine = engine
+
+    async def __call__(self, call: EnvToolCall) -> ToolResult:
+        try:
+            await self.engine.answer_question_action("")
+            return ToolResult(ok=True, payload={"status": "terminated"})
+        except Exception as exc:  # pragma: no cover
+            return ToolResult(ok=False, error=str(exc))
 
 
 # -------- observation callable (optional for formatted observations)

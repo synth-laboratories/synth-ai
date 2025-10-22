@@ -7,7 +7,7 @@ Sokoban is a classic puzzle game where the player must push boxes onto target lo
 ## Features
 
 - 🎮 Multiple difficulty levels (easy, medium, hard)
-- 🤖 LLM policy support (GPT-4, GPT-5-mini, Qwen)
+- 🤖 LLM policy support (GPT-5-mini, Qwen)
 - 📊 Supports both RL training and evaluation rollouts
 - 🎯 Rich observations with ASCII grid visualization
 - ⚡ Batched actions (up to 8 actions per LLM call)
@@ -27,59 +27,7 @@ The server will be available at `http://localhost:8911`.
 
 ### 2. Run a Test Rollout
 
-#### Option A: Using GPT-4-turbo (Recommended - Fast)
-
-```bash
-export OPENAI_API_KEY="your-api-key"
-
-python3 << 'EOF'
-import httpx
-import asyncio
-
-async def test_sokoban():
-    async with httpx.AsyncClient(timeout=300.0) as client:
-        response = await client.post(
-            "http://localhost:8911/rollout",
-            json={
-                "run_id": "test_gpt4",
-                "env": {
-                    "seed": 123,
-                    "config": {
-                        "difficulty": "easy",
-                        "max_steps": 100
-                    }
-                },
-                "ops": ["policy"] * 10,  # 10 policy calls
-                "policy": {
-                    "config": {
-                        "provider": "openai",
-                        "model": "gpt-4-turbo",
-                        "max_actions_per_call": 8
-                    }
-                }
-            },
-            headers={"Authorization": "Bearer sk_env_your_key_here"}
-        )
-        
-        result = response.json()
-        traj = result["trajectories"][0]
-        final = traj["final"]["observation"]
-        
-        boxes = final["boxes_on_target"]
-        total = final["num_boxes"]
-        steps = final["steps_taken"]
-        
-        print(f"Result: {'✅ SOLVED!' if boxes == total else '❌ Not solved'}")
-        print(f"Boxes: {boxes}/{total}")
-        print(f"Steps: {steps}")
-        print(f"\nFinal board:")
-        print(final["room_text"])
-
-asyncio.run(test_sokoban())
-EOF
-```
-
-#### Option B: Using GPT-5-mini (Slower but works)
+#### Option A: Using GPT-5-mini
 
 ```bash
 export OPENAI_API_KEY="your-api-key"
@@ -120,7 +68,7 @@ asyncio.run(test_gpt5mini())
 EOF
 ```
 
-#### Option C: Using Qwen via Groq (Fast & Cheap)
+#### Option B: Using Qwen via Groq (Fast & Cheap)
 
 ```bash
 export GROQ_API_KEY="your-groq-key"
@@ -178,7 +126,7 @@ EOF
 ```python
 {
     "provider": "openai",           # "openai" or "groq"
-    "model": "gpt-4-turbo",         # Model name
+    "model": "gpt-5-mini",          # Model name
     "max_actions_per_call": 8,      # Actions per policy call (1-8)
     "temperature": 0.7,             # Temperature (optional)
     "max_completion_tokens": 4000   # Max tokens (optional)
@@ -189,8 +137,7 @@ EOF
 
 | Model | Status | Speed | Notes |
 |-------|--------|-------|-------|
-| **gpt-4-turbo** | ✅ Recommended | Fast | Best balance of speed and capability |
-| **gpt-5-mini** | ✅ Works | Slow (30-50s/call) | Uses 1500-2750 reasoning tokens per call |
+| **gpt-5-mini** | ✅ Recommended | Slow (30-50s/call) | Uses 1500-2750 reasoning tokens per call |
 | **gpt-5** | ❌ Not supported | N/A | Doesn't support tool calling |
 | **gpt-5-nano** | ❌ Not supported | N/A | Doesn't support tool calling |
 | **qwen-2.5-7b** (Groq) | ✅ Works | Very fast | Cheap and fast alternative |
@@ -318,7 +265,7 @@ tail -f nohup_sokoban.log | grep -E "extract|debug|error"
 ## Troubleshooting
 
 ### Empty responses from LLM
-- **GPT-5/GPT-5-nano**: These models don't support tool calling reliably. Use GPT-5-mini or GPT-4-turbo instead.
+- **GPT-5/GPT-5-nano**: These models don't support tool calling reliably. Use GPT-5-mini instead.
 - **Timeout errors**: GPT-5-mini is slow. Increase client timeout to 600+ seconds or use fewer policy calls.
 
 ### Puzzle not solving
