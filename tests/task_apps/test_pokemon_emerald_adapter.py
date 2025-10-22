@@ -11,6 +11,12 @@ from examples.task_apps.pokemon_emerald.task_app.pokemon_emerald import (
 
 pytest.importorskip("mgba.core", reason="mGBA emulator bindings are required for this test.")
 
+_DEFAULT_SPEEDRUN_ROOT = (
+    Path("examples/task_apps/dev/pokemon_emerald/external/pokeagent-speedrun").resolve()
+)
+if "POKEAGENT_SPEEDRUN_ROOT" not in os.environ and _DEFAULT_SPEEDRUN_ROOT.exists():
+    os.environ["POKEAGENT_SPEEDRUN_ROOT"] = str(_DEFAULT_SPEEDRUN_ROOT)
+
 
 def _resolve_rom(scenario: dict[str, object]) -> Path | None:
     candidates: list[Path] = []

@@ -30,8 +30,8 @@ async def main():
     print(f"Server: http://127.0.0.1:8913")
     print()
     
-    # Create output directory
-    output_dir = Path("pokemon_gpt5nano_rollout_frames")
+    # Create output directory under the pokemon_emerald artifacts tree
+    output_dir = Path("examples/task_apps/dev/pokemon_emerald/artifacts/pokemon_gpt5nano_rollout_frames")
     output_dir.mkdir(exist_ok=True)
     
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -268,4 +268,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

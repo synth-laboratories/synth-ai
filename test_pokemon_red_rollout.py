@@ -12,7 +12,7 @@ import httpx
 BUTTONS = ["A", "B", "UP", "DOWN", "LEFT", "RIGHT", "START", "SELECT"]
 
 async def main():
-    output_dir = Path("pokemon_red_rollout_frames")
+    output_dir = Path("examples/task_apps/dev/pokemon_emerald/artifacts/pokemon_red_rollout_frames")
     output_dir.mkdir(exist_ok=True)
     
     base_url = "http://127.0.0.1:8913"
@@ -78,4 +78,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
