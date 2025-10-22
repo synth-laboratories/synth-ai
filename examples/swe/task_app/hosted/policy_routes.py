@@ -343,8 +343,6 @@ async def step_policy(
             inf_req = meta["inference_request"]
             msgs = inf_req["messages"]
             model_name = inf_req.get("model") or getattr(policy, "model", None) or ""
-            system_messages: list[str] = []
-            user_messages: list[str] = []
             if msgs and len(msgs) > 0 and msgs[0]["role"] == "system":
                 sys_text = msgs[0]["content"]
                 policy_name = getattr(policy, "name", "") or type(policy).__name__.lower()
