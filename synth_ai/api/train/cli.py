@@ -231,12 +231,12 @@ def train_command(
     ]
     if missing_keys:
         try:
-            from synth_ai.cli.task_apps import _interactive_fill_env
+            from synth_ai.cli.lib.task_app_env import interactive_fill_env
         except Exception as exc:  # pragma: no cover - protective fallback
             raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
 
         target_dir = cfg_path.parent
-        generated = _interactive_fill_env(target_dir / ".env")
+        generated = interactive_fill_env(target_dir / ".env")
         if generated is None:
             raise click.ClickException("Required environment values missing; aborting.")
         env_path, env_values = resolve_env(
