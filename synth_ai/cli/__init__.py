@@ -1,8 +1,7 @@
 """CLI subcommands for Synth AI.
 
-This package hosts modular commands (watch, traces, recent, calc, status)
-and exposes a top-level Click group named `cli` compatible with the
-pyproject entry point `synth_ai.cli:cli`.
+This package exposes a top-level Click group named ``cli`` compatible with the
+pyproject entry point ``synth_ai.cli:cli``.
 """
 
 from __future__ import annotations
@@ -35,24 +34,6 @@ try:
 except Exception:
     pass
 try:
-    from . import balance as _balance
-
-    _balance.register(cli)
-except Exception:
-    pass
-try:
-    from . import man as _man
-
-    _man.register(cli)
-except Exception:
-    pass
-try:
-    from . import traces as _traces
-
-    _traces.register(cli)
-except Exception:
-    pass
-try:
     from . import recent as _recent
 
     _recent.register(cli)
@@ -62,12 +43,6 @@ try:
     from . import calc as _calc
 
     _calc.register(cli)
-except Exception:
-    pass
-try:
-    from . import status as _status
-
-    _status.register(cli)
 except Exception:
     pass
 try:
@@ -83,33 +58,22 @@ try:
 except Exception:
     pass
 try:
-    from . import rl_demo as _rl_demo
-
-    _rl_demo.register(cli)
-except Exception:
-    pass
-try:
     from synth_ai.api.train import register as _train_register
 
     _train_register(cli)
 except Exception:
     pass
 
+from importlib import import_module
 
+from .task_app_serve import serve_command
 from .task_apps import task_app_group
 
+import_module(".task_app_list", __name__)
+import_module(".task_app_deploy", __name__)
+import_module(".task_app_modal_serve", __name__)
+
+cli.add_command(serve_command)
 cli.add_command(task_app_group, name="task-app")
-
-
-try:
-    from . import task_apps as _task_apps
-
-    _task_apps.register(cli)
-except Exception:
-    pass
-
-cli.add_command(task_app_group.commands["serve"], name="serve")
 cli.add_command(task_app_group.commands["deploy"], name="deploy")
-
 cli.add_command(task_app_group.commands["modal-serve"], name="modal-serve")
-cli.add_command(task_app_group.commands["info"], name="info")

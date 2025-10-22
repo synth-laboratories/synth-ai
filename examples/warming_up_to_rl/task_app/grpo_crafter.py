@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from collections.abc import Iterable, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -495,16 +496,14 @@ def _coerce_math_to_crafter(request: RolloutRequest) -> RolloutRequest:
 
     coerced = request.model_copy(update={"env": updated_env, "policy": updated_policy, "ops": ops_override})
 
-    try:
+    with suppress(Exception):
         print(
             "[rollout] remapped math request -> crafter "
             f"(env={request.env.env_name!r}→{coerced.env.env_name!r}, "
             f"policy={request.policy.policy_name!r}→{coerced.policy.policy_name!r})",
             flush=True,
         )
-    except Exception:
-        pass
-    try:
+    with suppress(Exception):
         logger.info(
             "ROLLOUT_ALIAS: remapped math env/policy to crafter (env=%s→%s, policy=%s→%s)",
             request.env.env_name,
@@ -512,8 +511,6 @@ def _coerce_math_to_crafter(request: RolloutRequest) -> RolloutRequest:
             request.policy.policy_name,
             coerced.policy.policy_name,
         )
-    except Exception:
-        pass
 
     return coerced
 
