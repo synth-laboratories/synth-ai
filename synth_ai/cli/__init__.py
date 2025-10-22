@@ -85,12 +85,6 @@ try:
 except Exception:
     pass
 try:
-    from . import rl_demo as _rl_demo
-
-    _rl_demo.register(cli)
-except Exception:
-    pass
-try:
     _train_module = importlib.import_module("synth_ai.api.train")
     _train_register = _train_module.register
     _train_register(cli)
