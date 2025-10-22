@@ -67,6 +67,16 @@ class VerilogStepPenaltyComponent(RewardComponent):
         return self.penalty
 
 
+class VerilogSubmitSuccessComponent(RewardComponent):
+    """Reward for successful submission (tests passed)."""
+    async def score(self, state: VerilogPublicState, action: Any) -> float:
+        if hasattr(action, "get") and action.get("type") == "submit":
+            # Check if submission passed
+            if action.get("passed", False):
+                return 10.0  # Large reward for completing the task correctly
+        return 0.0
+
+
 class VerilogEngine(StatefulEngine):
     """
     Stateful Verilog evaluation engine with persistent artifact snapshots.
@@ -81,6 +91,7 @@ class VerilogEngine(StatefulEngine):
             components=[
                 VerilogCompileSuccessComponent(),
                 VerilogSimulationPassComponent(),
+                VerilogSubmitSuccessComponent(),
                 VerilogStepPenaltyComponent(penalty=-0.01),
             ]
         )
@@ -284,13 +295,28 @@ class VerilogEngine(StatefulEngine):
 
     async def submit(self) -> Dict[str, Any]:
         """Submit solution for grading."""
-        # For now, simple check based on last simulation
-        # In a full implementation, this would call the task's verify method
+        # Check if the last simulation passed
+        # Parse the last simulation output to determine if tests passed
+        passed = False
+        detail = "No simulation run yet"
+        
+        if self._last_simulate_output:
+            stdout = self._last_simulate_output
+            passed = (
+                "ALL_TESTS_PASSED" in stdout
+                or ("Mismatches: 0 " in stdout and "samples" in stdout)
+                or ("no mismatches" in stdout.lower() and "errors" not in stdout.lower())
+            )
+            if passed:
+                detail = "All tests passed"
+            else:
+                detail = "Tests failed - please review simulation output"
+        
         return {
             "ok": True,
             "type": "submit",
-            "passed": True,  # Placeholder
-            "detail": "Submission processed",
+            "passed": passed,
+            "detail": detail,
             "submitted": True,
         }
 
