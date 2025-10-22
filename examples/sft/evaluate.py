@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -102,10 +103,8 @@ async def main() -> None:
     for r in results:
         ers = r.get("episode_returns") or []
         if isinstance(ers, list) and ers:
-            try:
+            with suppress(Exception):
                 flat_returns.append(float(ers[0]))
-            except Exception:
-                pass
     if flat_returns:
         mean_ret = sum(flat_returns) / len(flat_returns)
         print(f"mean_return={mean_ret:.3f} over {len(flat_returns)} episodes")
@@ -113,5 +112,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 

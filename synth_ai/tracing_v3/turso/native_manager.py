@@ -66,9 +66,8 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
         parsed = make_url(url)
-        if parsed.drivername.startswith("sqlite"):
-            if parsed.database:
-                return _ConnectionTarget(database=parsed.database, auth_token=auth_token)
+        if parsed.drivername.startswith("sqlite") and parsed.database:
+            return _ConnectionTarget(database=parsed.database, auth_token=auth_token)
         if parsed.drivername.startswith("libsql"):
             database = parsed.render_as_string(hide_password=False)
             return _ConnectionTarget(database=database, sync_url=database, auth_token=auth_token)
@@ -104,7 +103,7 @@ def _maybe_datetime(value: Any) -> Any:
 
 
 def _load_json(value: Any) -> Any:
-    if value is None or isinstance(value, (dict, list)):
+    if value is None or isinstance(value, dict | list):
         return value or {}
     if isinstance(value, str):
         try:
@@ -493,7 +492,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 return None
 
             session_columns = ["session_id", "created_at", "num_timesteps", "num_events", "num_messages", "metadata"]
-            session_data = dict(zip(session_columns, session_row))
+            session_data = dict(zip(session_columns, session_row, strict=False))
 
             timestep_cursor = conn.execute(
                 """
@@ -571,7 +570,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 raise ValueError("No named parameters found in query for provided mapping")
             values = tuple(params[key] for key in keys)
             return new_query, values
-        if isinstance(params, (list, tuple)):
+        if isinstance(params, list | tuple):
             return query, tuple(params)
         raise TypeError("Unsupported parameter type for query execution")
 
@@ -608,10 +607,10 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         if not rows:
             if pd is not None:
-                return pd.DataFrame(columns=[col for col in columns])
+                return pd.DataFrame(columns=list(columns))
             return []
 
-        records = [dict(zip(columns, row)) for row in rows]
+        records = [dict(zip(columns, row, strict=False)) for row in rows]
         if pd is not None:
             return pd.DataFrame(records)
         return records
@@ -868,7 +867,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        if not isinstance(event, (EnvironmentEvent, LMCAISEvent, RuntimeEvent)):
+        if not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
             raise TypeError(f"Unsupported event type for native manager: {type(event)!r}")
 
         metadata_json = metadata_override or event.metadata or {}

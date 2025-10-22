@@ -776,7 +776,7 @@ class MiniSweEnvironmentWrapper:
             or os.getenv("SWE_REX_MODAL_SANDBOX_KWARGS")
         )
         modal_kwargs: dict[str, Any] = {}
-        if isinstance(modal_kwargs_raw, (dict, list)):
+        if isinstance(modal_kwargs_raw, dict | list):
             modal_kwargs = dict(modal_kwargs_raw or {})
         elif isinstance(modal_kwargs_raw, str) and modal_kwargs_raw.strip():
             try:
@@ -841,9 +841,9 @@ class MiniSweEnvironmentWrapper:
             instance_image_tag=instance_image_tag,
             env_image_tag=env_image_tag,
             model_name=model_name,
-            Command=Command,
-            WriteFileRequest=WriteFileRequest,
-            ReadFileRequest=ReadFileRequest,
+            command_cls=Command,
+            write_file_request_cls=WriteFileRequest,
+            read_file_request_cls=ReadFileRequest,
         )
         try:
             return self._run_coroutine_blocking(coro)
@@ -867,9 +867,9 @@ class MiniSweEnvironmentWrapper:
         instance_image_tag: str,
         env_image_tag: str,
         model_name: str,
-        Command,
-        WriteFileRequest,
-        ReadFileRequest,
+        command_cls,
+        write_file_request_cls,
+        read_file_request_cls,
     ) -> dict[str, Any]:
         deployment = deployment_config.get_deployment()
         await deployment.start()
@@ -880,7 +880,7 @@ class MiniSweEnvironmentWrapper:
 
             # Ensure working directory exists.
             mkdir_resp = await runtime.execute(
-                Command(command=["mkdir", "-p", remote_root], timeout=60, shell=False)
+                command_cls(command=["mkdir", "-p", remote_root], timeout=60, shell=False)
             )
             if mkdir_resp.exit_code not in (0, None):
                 logger.warning("Failed to ensure remote directory %s (exit=%s)", remote_root, mkdir_resp.exit_code)
@@ -888,8 +888,8 @@ class MiniSweEnvironmentWrapper:
             # Upload dataset & predictions.
             dataset_blob = json.dumps([instance], ensure_ascii=False)
             predictions_blob = json.dumps({instance_id: prediction}, ensure_ascii=False)
-            await runtime.write_file(WriteFileRequest(path=dataset_remote_path, content=dataset_blob))
-            await runtime.write_file(WriteFileRequest(path=predictions_remote_path, content=predictions_blob))
+            await runtime.write_file(write_file_request_cls(path=dataset_remote_path, content=dataset_blob))
+            await runtime.write_file(write_file_request_cls(path=predictions_remote_path, content=predictions_blob))
 
             eval_cmd = [
                 "python",
@@ -921,7 +921,7 @@ class MiniSweEnvironmentWrapper:
 
             command_timeout = max(eval_timeout + 900, 1200)
             response = await runtime.execute(
-                Command(
+                command_cls(
                     command=eval_cmd,
                     timeout=command_timeout,
                     cwd=remote_root,
@@ -945,7 +945,7 @@ class MiniSweEnvironmentWrapper:
                 for filename in ("report.json", "test_output.txt", "run_instance.log", "patch.diff"):
                     remote_path = f"{remote_log_dir}/{filename}"
                     try:
-                        content = await runtime.read_file(ReadFileRequest(path=remote_path))
+                        content = await runtime.read_file(read_file_request_cls(path=remote_path))
                     except Exception:
                         continue
                     if getattr(content, "content", None):
@@ -1073,7 +1073,7 @@ class MiniSweEnvironmentWrapper:
             return value
         if isinstance(value, str):
             return value.strip().lower() in {"1", "true", "yes", "on"}
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return bool(value)
         return False  # pragma: no cover - defensive default
 
