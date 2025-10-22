@@ -37,7 +37,7 @@ To walk through kicking off your first RL run, see the [Synth‑AI Documentation
 
 ### What `setup` does now
 
-When you run `uvx synth-ai setup` (or the legacy `uvx synth-ai rl_demo setup`), the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
+When you run `uvx synth-ai setup`, the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
 
 - Detect your current user and organization
 - Ensure both API keys exist for that user+org
