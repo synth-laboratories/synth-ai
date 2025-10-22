@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -278,12 +279,21 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
 
     def _get_rom_path(self) -> Path:
         """Get path to Pokemon Red ROM file"""
+        # Highest priority: explicit environment variable
+        env_rom = os.getenv("POKEMON_RED_ROM")
+        if env_rom:
+            p = Path(env_rom).expanduser()
+            if p.exists():
+                return p
+
         # Check several possible locations
         possible_paths = [
             Path(__file__).parent / "roms" / "pokemon_red.gb",
             Path(__file__).parent / "roms" / "PokemonRed.gb",
             Path(__file__).parent / "vendor" / "pokemon_red.gb",
             Path.home() / "Games" / "pokemon_red.gb",
+            # Common example location where users may drop the ROM
+            Path(__file__).resolve().parents[5] / "examples" / "task_apps" / "pokemon_red" / "Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb",
         ]
 
         for path in possible_paths:

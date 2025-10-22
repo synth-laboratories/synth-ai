@@ -1,0 +1,530 @@
+from __future__ import annotations
+
+import json
+import os
+import re
+from typing import Any, Dict, List, Mapping, Optional, Sequence
+
+import httpx
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
+from synth_ai.environments.environment.tools import EnvToolCall
+from synth_ai.environments.examples.sokoban.environment import SokobanEnvironment
+from synth_ai.environments.examples.sokoban.taskset import (
+    SokobanTaskInstance,
+    SokobanTaskSet,
+    create_task_instance_from_seed,
+)
+from synth_ai.task.apps import TaskAppEntry, register_task_app
+from synth_ai.task.contracts import (
+    RolloutRequest,
+    RolloutResponse,
+    RolloutStep,
+    RolloutTrajectory,
+    RolloutMetrics,
+    TaskInfo,
+)
+from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
+from synth_ai.task.server import TaskAppConfig, create_task_app
+
+
+ACTION_ID_TO_NAME = {0: "left", 1: "up", 2: "right", 3: "down"}
+ACTION_TOKEN_TO_ID = {
+    "0": 0,
+    "1": 1,
+    "2": 2,
+    "3": 3,
+    "left": 0,
+    "move_left": 0,
+    "west": 0,
+    "l": 0,
+    "up": 1,
+    "move_up": 1,
+    "north": 1,
+    "u": 1,
+    "right": 2,
+    "move_right": 2,
+    "east": 2,
+    "r": 2,
+    "down": 3,
+    "move_down": 3,
+    "south": 3,
+    "d": 3,
+}
+
+SOKOBAN_SYSTEM_PROMPT = """You are an agent playing Sokoban.
+The grid uses characters: '#' wall, '_' floor, 'O' box, '√' box on target, 'X' target, 'P' player.
+Always respond with a single tool call named interact_many containing 1-5 actions.
+Valid action tokens are digits 0/1/2/3 or their direction words (left/up/right/down).
+Mapping: 0=left, 1=up, 2=right, 3=down. Avoid undoing progress and focus on pushing boxes onto targets."""
+
+
+
+def _task_info() -> TaskInfo:
+    return TaskInfo(
+        task={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
+        environments=["sokoban"],
+        action_space={
+            "type": "tool_call",
+            "tools": [{"name": "interact", "schema": {"action": "int"}}],
+            "max_calls": 1,
+        },
+        observation={"summary": "Sokoban grid observation", "keys": ["grid", "player"]},
+        dataset={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
+        rubric={"version": "1", "criteria_count": 1, "source": "inline"},
+        inference={"supports_proxy": False},
+        capabilities={"supports_rollout": True, "supports_env_lifecycle": True},
+        limits={"max_turns": 200},
+    )
+
+
+router = APIRouter()
+
+
+async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+    policy_cfg = dict(request.policy.config or {})
+    provider = str(policy_cfg.get("provider") or "").strip().lower()
+    if provider == "groq":
+        return await _rollout_with_groq(request, fastapi_request, policy_cfg)
+
+    taskset: SokobanTaskSet = fastapi_request.app.state.sokoban_taskset
+    seed = request.env.seed or 0
+    difficulty = (request.env.config or {}).get("difficulty") or "easy"
+    # Create deterministic instance from seed
+    instance: SokobanTaskInstance = await create_task_instance_from_seed(str(difficulty), int(seed))
+    env = SokobanEnvironment(instance)
+    obs = await env.initialize()
+
+    tool_calls: List[Dict[str, Any]] = []
+    # If a predefined action sequence is provided, execute it (evaluation-style)
+    actions: Optional[Sequence[int]] = None
+    try:
+        cfg = request.policy.config or {}
+        if isinstance(cfg.get("actions"), list):
+            actions = [int(a) for a in cfg["actions"]]
+    except Exception:
+        actions = None
+
+    last_obs: Any = obs
+    steps: List[RolloutStep] = []
+    max_steps = int((request.env.config or {}).get("max_steps") or 50)
+    executed = 0
+    if actions:
+        for a in actions[:max_steps]:
+            last_obs = await env.step(EnvToolCall(tool="interact", args={"action": int(a)}))
+            executed += 1
+            steps.append(
+                RolloutStep(obs=last_obs, tool_calls=[{"tool": "interact", "args": {"action": int(a)}}], reward=0.0, done=False, info={})
+            )
+    # Mark episode end (single-episode trajectory)
+    final = {"observation": last_obs, "reward": 0.0}
+    if not steps:
+        steps = [RolloutStep(obs=last_obs, tool_calls=[], reward=0.0, done=True, info={})]
+    traj = RolloutTrajectory(
+        env_id="sokoban",
+        policy_id=request.policy.policy_id or "policy",
+        steps=steps,
+        final=final,
+        length=len(steps),
+    )
+    metrics = RolloutMetrics(
+        episode_returns=[final.get("reward", 0.0) or 0.0],
+        mean_return=final.get("reward", 0.0) or 0.0,
+        num_steps=len(steps),
+        num_episodes=1,
+        outcome_score=None,
+        events_score=None,
+        details={},
+    )
+    return RolloutResponse(
+        run_id=request.run_id,
+        trajectories=[traj],
+        branches={},
+        metrics=metrics,
+        aborted=False,
+        ops_executed=1 + executed,
+    )
+
+
+def _format_sokoban_prompt(observation: dict[str, Any], last_actions: list[int]) -> str:
+    grid = observation.get("room_text", "")
+    boxes = observation.get("boxes_on_target", 0)
+    total_boxes = observation.get("num_boxes", boxes)
+    position = observation.get("player_position", ())
+    reward_last = observation.get("reward_last", 0.0)
+    steps_taken = observation.get("steps_taken", 0)
+    max_steps = observation.get("max_steps", 0)
+    last_str = (
+        ", ".join(ACTION_ID_TO_NAME.get(a, str(a)) for a in last_actions) if last_actions else "none"
+    )
+    return (
+        f"Step {steps_taken} / {max_steps}\n"
+        f"Player position: {position}\n"
+        f"Boxes on target: {boxes} / {total_boxes}\n"
+        f"Last reward: {reward_last}\n"
+        f"Previous actions: {last_str}\n"
+        "Grid:\n"
+        f"{grid}\n"
+        "Select up to five next actions via the interact_many tool."
+    )
+
+
+def _extract_actions_from_response(
+    response: dict[str, Any], max_actions: int
+) -> list[int]:
+    actions: list[int] = []
+    choices = response.get("choices") or []
+    for choice in choices:
+        message = choice.get("message") or {}
+        tool_calls = message.get("tool_calls") or []
+        for tool_call in tool_calls:
+            function = tool_call.get("function") or {}
+            arguments = function.get("arguments")
+            payload: dict[str, Any] | None = None
+            if isinstance(arguments, str):
+                try:
+                    payload = json.loads(arguments)
+                except json.JSONDecodeError:
+                    payload = None
+            elif isinstance(arguments, dict):
+                payload = arguments
+            if not payload:
+                continue
+            raw_actions = payload.get("actions")
+            if isinstance(raw_actions, list):
+                for item in raw_actions:
+                    if isinstance(item, int) and item in ACTION_ID_TO_NAME:
+                        actions.append(int(item))
+                        continue
+                    if isinstance(item, str):
+                        token = item.strip().lower()
+                        if token in ACTION_TOKEN_TO_ID:
+                            actions.append(ACTION_TOKEN_TO_ID[token])
+            if actions:
+                break
+        if actions:
+            break
+
+    if not actions and choices:
+        # Fallback: parse tokens from assistant text
+        text = choices[0].get("message", {}).get("content") or ""
+        tokens = re.findall(r"[0-3a-zA-Z_]+", text)
+        for tok in tokens:
+            token = tok.strip().lower()
+            if token in ACTION_TOKEN_TO_ID:
+                actions.append(ACTION_TOKEN_TO_ID[token])
+
+    if len(actions) > max_actions:
+        return actions[:max_actions]
+    return actions
+
+
+async def _call_groq_chat(
+    client: httpx.AsyncClient,
+    api_key: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    try:
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Groq chat completion failed: {detail}",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"Groq request error: {exc}") from exc
+
+
+async def _rollout_with_groq(
+    request: RolloutRequest,
+    fastapi_request: Request,
+    config: dict[str, Any],
+) -> RolloutResponse:
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="GROQ_API_KEY environment variable is required for Groq rollouts.",
+        )
+
+    seed = request.env.seed or 0
+    difficulty = (request.env.config or {}).get("difficulty") or "easy"
+    instance: SokobanTaskInstance = await create_task_instance_from_seed(str(difficulty), int(seed))
+    env = SokobanEnvironment(instance)
+    observation = await env.initialize()
+
+    model = config.get("model") or "qwen/qwen3-32b"
+    temperature = float(config.get("temperature", 0.0) or 0.0)
+    top_p = float(config.get("top_p", 0.95) or 0.95)
+    max_tokens = int(config.get("max_tokens", 128) or 128)
+    actions_per_call = int(config.get("max_actions_per_call", 4) or 4)
+    actions_per_call = max(1, min(8, actions_per_call))
+
+    max_steps = int((request.env.config or {}).get("max_steps") or 50)
+
+    steps: List[RolloutStep] = []
+    last_actions: list[int] = []
+    total_reward = float(observation.get("total_reward") or 0.0)
+    executed = 0
+
+    tool_items_enum = sorted(set(ACTION_TOKEN_TO_ID.keys()))
+
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "interact_many",
+            "description": "Execute a short sequence of Sokoban moves in order.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": tool_items_enum},
+                        "minItems": 1,
+                        "maxItems": actions_per_call,
+                    }
+                },
+                "required": ["actions"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        for _ in range(max_steps):
+            user_prompt = _format_sokoban_prompt(observation, last_actions)
+            messages = [
+                {"role": "system", "content": SOKOBAN_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+            payload = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens,
+                "tools": [tool_schema],
+                "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
+            }
+            try:
+                response = await _call_groq_chat(client, api_key, payload)
+            except HTTPException as exc:
+                detail = str(getattr(exc, "detail", ""))
+                if "tool_use_failed" in detail:
+                    text_payload = {
+                        "model": model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "max_tokens": max_tokens,
+                    }
+                    response = await _call_groq_chat(client, api_key, text_payload)
+                else:
+                    raise
+            actions = _extract_actions_from_response(response, actions_per_call)
+            if not actions:
+                break
+
+            last_actions = []
+            for action in actions:
+                if executed >= max_steps:
+                    break
+                last_actions.append(action)
+                observation = await env.step(EnvToolCall(tool="interact", args={"action": int(action)}))
+                current_total = float(observation.get("total_reward") or total_reward)
+                reward_delta = current_total - total_reward
+                total_reward = current_total
+                done = bool(observation.get("terminated"))
+                truncated = bool(observation.get("truncated"))
+                step = RolloutStep(
+                    obs=observation,
+                    tool_calls=[{"tool": "interact", "args": {"action": int(action)}, "source": "groq"}],
+                    reward=reward_delta,
+                    done=done,
+                    truncated=truncated if truncated else None,
+                    info={"provider": "groq", "model": model},
+                )
+                steps.append(step)
+                executed += 1
+                if done or truncated:
+                    break
+
+            if steps and (steps[-1].done or (steps[-1].truncated or False)):
+                break
+
+    final = {"observation": observation, "reward": total_reward}
+    trajectory = RolloutTrajectory(
+        env_id=request.env.env_id or request.env.env_name or "sokoban",
+        policy_id=request.policy.policy_id or request.policy.policy_name or "sokoban-groq",
+        steps=steps,
+        final=final,
+        length=len(steps),
+    )
+    metrics = RolloutMetrics(
+        episode_returns=[total_reward],
+        mean_return=total_reward if steps else 0.0,
+        num_steps=len(steps),
+        num_episodes=1,
+        outcome_score=None,
+        events_score=None,
+        details={"provider": "groq", "model": model},
+    )
+    return RolloutResponse(
+        run_id=request.run_id,
+        trajectories=[trajectory],
+        branches={},
+        metrics=metrics,
+        aborted=False,
+        ops_executed=executed,
+    )
+
+
+def build_config() -> TaskAppConfig:
+    taskset = SokobanTaskSet()
+    base = _task_info()
+    app_state: dict[str, Any] = {"sokoban_taskset": taskset, "sokoban_envs": {}}
+    config = TaskAppConfig(
+        app_id="sokoban",
+        name="Sokoban Task App",
+        description="Sokoban environment exposed as a Synth task app.",
+        base_task_info=base,
+        describe_taskset=lambda: {"id": "sokoban", "name": "Sokoban"},
+        provide_task_instances=lambda seeds: taskset.provide_task_instances(seeds),
+        rollout=rollout_executor,
+        dataset_registry=None,
+        rubrics=None,
+        proxy=None,
+        routers=(router,),
+        app_state=app_state,
+        cors_origins=["*"],
+    )
+    return config
+
+
+# --- Health routes (auth-tolerant) ---
+def fastapi_app():
+    app = create_task_app(build_config())
+
+    # Replace default health handlers to log expected ENVIRONMENT_API_KEY when unauthorized
+    filtered_routes = []
+    for route in app.router.routes:
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set()) or set()
+        if path in {"/health", "/health/rollout"} and "GET" in methods:
+            continue
+        filtered_routes.append(route)
+    app.router.routes = filtered_routes
+
+    def _key_prefix() -> Optional[str]:
+        key = normalize_environment_api_key()
+        return key[: max(1, len(key) // 2)] if key else None
+
+    @app.get("/health")
+    async def health(request: Request):
+        env_key = normalize_environment_api_key()
+        if not env_key:
+            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+        if not is_api_key_header_authorized(request):
+            content: Dict[str, Any] = {"status": "healthy", "authorized": False}
+            prefix = _key_prefix()
+            if prefix:
+                content["expected_api_key_prefix"] = prefix
+            return JSONResponse(status_code=200, content=content)
+        return {"status": "healthy", "authorized": True}
+
+    @app.get("/health/rollout")
+    async def health_rollout(request: Request):
+        env_key = normalize_environment_api_key()
+        if not env_key:
+            return JSONResponse(status_code=503, content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"})
+        if not is_api_key_header_authorized(request):
+            content: Dict[str, Any] = {"status": "healthy", "authorized": False}
+            prefix = _key_prefix()
+            if prefix:
+                content["expected_api_key_prefix"] = prefix
+            return JSONResponse(status_code=200, content=content)
+        return {"ok": True, "authorized": True}
+
+    # Basic env lifecycle routes (for local eval only)
+    @app.post("/env/sokoban/initialize")
+    async def initialize_env(request: Request, payload: Dict[str, Any]):
+        difficulty = str((payload.get("config") or {}).get("difficulty") or "easy")
+        seed = payload.get("seed")
+        try:
+            instance: SokobanTaskInstance = await create_task_instance_from_seed(difficulty, int(seed) if seed is not None else 0)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        env = SokobanEnvironment(instance)
+        obs = await env.initialize()
+        envs: Dict[str, SokobanEnvironment] = request.app.state.sokoban_envs
+        env_id = f"{difficulty}:{seed or 0}"
+        envs[env_id] = env
+        return {"env_id": env_id, "observation": obs}
+
+    @app.post("/env/sokoban/step")
+    async def step_env(request: Request, payload: Dict[str, Any]):
+        env_id = str(payload.get("env_id") or "")
+        if not env_id:
+            raise HTTPException(status_code=400, detail="env_id required")
+        envs: Dict[str, SokobanEnvironment] = request.app.state.sokoban_envs
+        env = envs.get(env_id)
+        if not env:
+            raise HTTPException(status_code=404, detail="Unknown env_id")
+
+        action = None
+        tool_calls = payload.get("tool_calls") or []
+        if tool_calls:
+            try:
+                first = tool_calls[0] or {}
+                args = first.get("args") or {}
+                action = int(args.get("action")) if "action" in args else None
+            except Exception:
+                action = None
+        if action is None and "action" in payload:
+            try:
+                action = int(payload.get("action"))
+            except Exception:
+                action = None
+        if action is None:
+            raise HTTPException(status_code=400, detail="action required")
+        obs = await env.step(EnvToolCall(tool="interact", args={"action": int(action)}))
+        return {"observation": obs}
+
+    @app.post("/env/sokoban/terminate")
+    async def terminate_env(request: Request, payload: Dict[str, Any]):
+        env_id = str(payload.get("env_id") or "")
+        envs: Dict[str, SokobanEnvironment] = request.app.state.sokoban_envs
+        env = envs.pop(env_id, None)
+        if env:
+            obs = await env.terminate()
+        else:
+            obs = {"terminated": True}
+        return {"ok": True, "observation": obs}
+
+    @app.exception_handler(RequestValidationError)
+    async def _on_validation_error(_request: Request, exc: RequestValidationError):
+        return JSONResponse(status_code=422, content={"status": "invalid", "detail": exc.errors()[:5]})
+
+    return app
+
+
+register_task_app(
+    entry=TaskAppEntry(
+        app_id="sokoban",
+        description="Sokoban task app",
+        config_factory=build_config,
+        aliases=("sokoban-rl",),
+        env_files=(),
+        modal=None,
+    )
+)
