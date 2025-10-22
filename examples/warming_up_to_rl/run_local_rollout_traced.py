@@ -448,6 +448,12 @@ async def main() -> None:
             print(
                 "Tip: export TASKAPP_TRACING_ENABLED=1 and optionally TASKAPP_SFT_OUTPUT_DIR before running `uvx synth-ai serve …` to persist traces/SFT."
             )
+            print("\nWhat's next:")
+            if not args.no_trace_file:
+                path_hint = args.trace_path or Path(f"{args.run_id}_trace.json")
+                print(f"  open {path_hint}")
+            print("  Explore ./traces/ for SFT-ready data")
+            print("  Stop the local server with Ctrl+C in the deploy terminal")
         except httpx.HTTPStatusError as exc:
             detail = (
                 exc.response.json()
