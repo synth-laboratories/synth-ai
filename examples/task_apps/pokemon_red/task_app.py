@@ -434,7 +434,66 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             if policy_cfg:
                 try:
                     action = await _call_inference(policy_cfg, final_obs if isinstance(final_obs, Mapping) else {})
-                    if action.get("button"):
+                    
+                    # Handle execute_sequence from policy
+                    if "actions" in action:
+                        actions_list = action.get("actions", [])
+                        sequence_reward = 0.0
+                        sequence_tool_calls = []
+                        
+                        for action_item in actions_list:
+                            button = action_item.get("button", "A")
+                            frames = int(action_item.get("frames", 30))
+                            
+                            obs1 = await env.step(EnvToolCall(tool="press_button", args={"button": button, "frames": frames}))
+                            current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
+                            action_context = _build_action_context(prev_state, current_state)
+                            step_reward = await reward_fn.score(current_state, action_context)
+                            
+                            sequence_reward += step_reward
+                            sequence_tool_calls.append({"tool": "press_button", "args": {"button": button, "frames": frames}})
+                            
+                            if step_reward > 0:
+                                reward_component = {
+                                    "step": step_idx + 1,
+                                    "reward": step_reward,
+                                    "button": button,
+                                    "map_id": current_state.get("map_id"),
+                                    "position": f"({current_state.get('player_x')},{current_state.get('player_y')})",
+                                }
+                                all_reward_components.append(reward_component)
+                                milestone_events.append({
+                                    "type": "milestone",
+                                    "step": step_idx + 1,
+                                    "reward": step_reward,
+                                    "description": _describe_milestone(current_state, prev_state, step_reward),
+                                })
+                            
+                            final_obs = obs1
+                            prev_state = current_state
+                        
+                        total_reward += sequence_reward
+                        step_info = {
+                            "step_type": "policy_sequence",
+                            "step_idx": step_idx,
+                            "actions_count": len(actions_list),
+                            "cumulative_reward": total_reward,
+                        }
+                        if sequence_reward > 0:
+                            step_info["sequence_reward"] = sequence_reward
+                        
+                        steps.append(
+                            RolloutStep(
+                                obs=final_obs,
+                                tool_calls=sequence_tool_calls,
+                                reward=sequence_reward,
+                                done=False,
+                                info=step_info,
+                            )
+                        )
+                    
+                    # Handle single button press from policy
+                    elif action.get("button"):
                         obs1 = await env.step(EnvToolCall(tool="press_button", args=action))
                         
                         # Calculate step reward

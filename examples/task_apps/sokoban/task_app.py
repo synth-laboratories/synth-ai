@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import contextlib
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence
@@ -277,6 +278,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     provider = str(policy_cfg.get("provider") or "").strip().lower()
     if provider == "groq":
         return await _rollout_with_groq(request, fastapi_request, policy_cfg)
+    if provider == "openai":
+        return await _rollout_with_openai(request, fastapi_request, policy_cfg)
 
     taskset: SokobanTaskSet = fastapi_request.app.state.sokoban_taskset
     seed = request.env.seed or 0
@@ -452,6 +455,43 @@ async def _call_groq_chat(
         raise HTTPException(status_code=502, detail=f"Groq request error: {exc}") from exc
 
 
+async def _call_openai_chat(
+    client: httpx.AsyncClient,
+    api_key: str,
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    try:
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data, {
+            "status": response.status_code,
+            "headers": dict(response.headers),
+            "body": data,
+        }
+    except httpx.HTTPStatusError as exc:
+        try:
+            body = exc.response.json()
+        except Exception:
+            body = {"raw": exc.response.text}
+        error_detail = {
+            "status": exc.response.status_code,
+            "body": body,
+            "headers": dict(exc.response.headers),
+        }
+        try:
+            print("[openai:error]", error_detail, flush=True)
+        except Exception:
+            pass
+        raise HTTPException(status_code=exc.response.status_code, detail=error_detail) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(status_code=502, detail=f"OpenAI request error: {exc}") from exc
+
+
 async def _rollout_with_groq(
     request: RolloutRequest,
     fastapi_request: Request,
@@ -514,17 +554,51 @@ async def _rollout_with_groq(
             messages = [
                 {"role": "system", "content": SOKOBAN_SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
-            ]
-            payload = {
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": top_p,
-                "max_tokens": max_tokens,
-                "tools": [tool_schema],
-                "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
-            }
-            vendor_attempts: list[dict[str, Any]] = []
+            ]    payload_base = {
+        "model": model,
+        "messages": messages,
+        "max_completion_tokens": completion_tokens,
+        "tools": [tool_schema],
+        "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
+    }
+    if config.get("temperature") is not None:
+        payload_base["temperature"] = float(config.get("temperature"))
+    if config.get("top_p") is not None:
+        payload_base["top_p"] = float(config.get("top_p"))
+    vendor_attempts: list[dict[str, Any]] = []
+    attempt_payload = dict(payload_base)
+    while True:
+        attempt_record: dict[str, Any] = {"request": dict(attempt_payload)}
+        try:
+            response, response_meta = await _call_openai_chat(client, api_key, attempt_payload)
+            attempt_record["response"] = response_meta
+            vendor_attempts.append(attempt_record)
+            break
+        except HTTPException as exc:
+            detail = exc.detail
+            if isinstance(detail, dict):
+                attempt_record["error"] = detail
+            else:
+                attempt_record["error"] = {"message": str(detail)}
+            vendor_attempts.append(attempt_record)
+            handled = False
+            body = detail.get("body") if isinstance(detail, dict) else None
+            error_info = body.get("error") if isinstance(body, dict) else None
+            code = error_info.get("code") if isinstance(error_info, dict) else None
+            param = error_info.get("param") if isinstance(error_info, dict) else None
+            if code in {"unsupported_parameter", "unsupported_value"}:
+                if param == "temperature" and "temperature" in attempt_payload:
+                    attempt_payload = dict(attempt_payload)
+                    attempt_payload.pop("temperature", None)
+                    handled = True
+                elif param == "top_p" and "top_p" in attempt_payload:
+                    attempt_payload = dict(attempt_payload)
+                    attempt_payload.pop("top_p", None)
+                    handled = True
+            if handled:
+                continue
+            raise
+
             try:
                 response, response_meta = await _call_groq_chat(client, api_key, payload)
                 vendor_attempts.append({"request": payload, "response": response_meta})
@@ -587,6 +661,7 @@ async def _rollout_with_groq(
                     "actions_executed": aggregated_actions,
                     "prompt": user_prompt,
                     "reward_deltas": intermediate_rewards,
+                    "vendor_attempts": vendor_attempts,
                     "groq_attempts": vendor_attempts,
                 },
             )
@@ -619,6 +694,215 @@ async def _rollout_with_groq(
         difficulty=str(difficulty),
         initial_observation=initial_observation,
         provider="groq",
+    )
+    return RolloutResponse(
+        run_id=request.run_id,
+        trajectories=[trajectory],
+        branches={},
+        metrics=metrics,
+        aborted=False,
+        ops_executed=executed,
+        trace=trace_payload,
+    )
+
+
+async def _rollout_with_openai(
+    request: RolloutRequest,
+    fastapi_request: Request,
+    config: dict[str, Any],
+) -> RolloutResponse:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="OPENAI_API_KEY environment variable is required for OpenAI rollouts.",
+        )
+
+    seed = request.env.seed or 0
+    difficulty = (request.env.config or {}).get("difficulty") or "easy"
+    instance: SokobanTaskInstance = await create_task_instance_from_seed(str(difficulty), int(seed))
+    env = SokobanEnvironment(instance)
+    observation = await env.initialize()
+    initial_observation = observation
+
+    model = config.get("model") or "gpt-5"
+    temperature_cfg = config.get("temperature")
+    top_p_cfg = config.get("top_p")
+    completion_tokens = int(
+        config.get("max_completion_tokens")
+        or config.get("max_tokens")
+        or 4000
+    )
+    actions_per_call = int(config.get("max_actions_per_call", 4) or 4)
+    actions_per_call = max(1, min(8, actions_per_call))
+
+    max_steps = int((request.env.config or {}).get("max_steps") or 50)
+
+    steps: List[RolloutStep] = []
+    last_actions: list[int] = []
+    total_reward = float(observation.get("total_reward") or 0.0)
+    executed = 0
+
+    tool_items_enum = sorted(set(ACTION_TOKEN_TO_ID.keys()))
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "interact_many",
+            "description": "Execute a short sequence of Sokoban moves in order.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": tool_items_enum},
+                        "minItems": 1,
+                        "maxItems": actions_per_call,
+                    }
+                },
+                "required": ["actions"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+        for _ in range(max_steps):
+            user_prompt = _format_sokoban_prompt(observation, last_actions)
+            messages = [
+                {"role": "system", "content": SOKOBAN_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ]
+            payload_base: dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+                "max_completion_tokens": completion_tokens,
+                "tools": [tool_schema],
+                "tool_choice": {"type": "function", "function": {"name": "interact_many"}},
+            }
+            if temperature_cfg is not None:
+                with contextlib.suppress(Exception):
+                    payload_base["temperature"] = float(temperature_cfg)
+            if top_p_cfg is not None:
+                with contextlib.suppress(Exception):
+                    payload_base["top_p"] = float(top_p_cfg)
+
+            vendor_attempts: list[dict[str, Any]] = []
+            attempt_payload = dict(payload_base)
+            while True:
+                attempt_record: dict[str, Any] = {"request": dict(attempt_payload)}
+                try:
+                    response, response_meta = await _call_openai_chat(client, api_key, attempt_payload)
+                    attempt_record["response"] = response_meta
+                    vendor_attempts.append(attempt_record)
+                    break
+                except HTTPException as exc:
+                    detail = exc.detail
+                    attempt_record["error"] = detail if isinstance(detail, dict) else {"message": str(detail)}
+                    vendor_attempts.append(attempt_record)
+                    handled = False
+                    body = detail.get("body") if isinstance(detail, dict) else None
+                    error_info = body.get("error") if isinstance(body, dict) else None
+                    code = error_info.get("code") if isinstance(error_info, dict) else None
+                    param = error_info.get("param") if isinstance(error_info, dict) else None
+                    if code in {"unsupported_parameter", "unsupported_value"}:
+                        if param == "temperature" and "temperature" in attempt_payload:
+                            attempt_payload = dict(attempt_payload)
+                            attempt_payload.pop("temperature", None)
+                            handled = True
+                        elif param == "top_p" and "top_p" in attempt_payload:
+                            attempt_payload = dict(attempt_payload)
+                            attempt_payload.pop("top_p", None)
+                            handled = True
+                    if handled:
+                        continue
+                    raise
+
+            actions = _extract_actions_from_response(response, actions_per_call)
+            if not actions:
+                break
+
+            aggregated_actions: list[int] = []
+            aggregated_reward = 0.0
+            done = False
+            truncated = False
+            intermediate_rewards: list[float] = []
+            if executed >= max_steps:
+                break
+
+            for action in actions:
+                if executed >= max_steps:
+                    break
+                aggregated_actions.append(int(action))
+                observation = await env.step(
+                    EnvToolCall(tool="interact", args={"action": int(action)})
+                )
+                current_total = float(observation.get("total_reward") or total_reward)
+                reward_delta = current_total - total_reward
+                total_reward = current_total
+                aggregated_reward += reward_delta
+                intermediate_rewards.append(reward_delta)
+                done = bool(observation.get("terminated"))
+                truncated = bool(observation.get("truncated"))
+                executed += 1
+                if done or truncated:
+                    break
+
+            if not aggregated_actions:
+                continue
+
+            last_actions = aggregated_actions
+            step = RolloutStep(
+                obs=observation,
+                tool_calls=[
+                    {
+                        "tool": "interact_many",
+                        "args": {"actions": [int(a) for a in aggregated_actions]},
+                        "source": "openai",
+                    }
+                ],
+                reward=aggregated_reward,
+                done=done,
+                truncated=truncated if truncated else None,
+                info={
+                    "provider": "openai",
+                    "model": model,
+                    "actions_executed": aggregated_actions,
+                    "prompt": user_prompt,
+                    "reward_deltas": intermediate_rewards,
+                    "vendor_attempts": vendor_attempts,
+                    "openai_attempts": vendor_attempts,
+                    "max_completion_tokens": completion_tokens,
+                },
+            )
+            steps.append(step)
+
+            if step.done or (step.truncated or False):
+                break
+
+    final = {"observation": observation, "reward": total_reward}
+    trajectory = RolloutTrajectory(
+        env_id=request.env.env_id or request.env.env_name or "sokoban",
+        policy_id=request.policy.policy_id or request.policy.policy_name or "sokoban-openai",
+        steps=steps,
+        final=final,
+        length=len(steps),
+    )
+    metrics = RolloutMetrics(
+        episode_returns=[total_reward],
+        mean_return=total_reward if steps else 0.0,
+        num_steps=len(steps),
+        num_episodes=1,
+        outcome_score=None,
+        events_score=None,
+        details={"provider": "openai", "model": model},
+    )
+    trace_payload = _build_trace_payload(
+        request,
+        steps,
+        metrics,
+        difficulty=str(difficulty),
+        initial_observation=initial_observation,
+        provider="openai",
     )
     return RolloutResponse(
         run_id=request.run_id,

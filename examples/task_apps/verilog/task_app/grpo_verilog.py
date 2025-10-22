@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Optional, Sequence
 
+import httpx
+
+from synth_ai.environments.environment.tools import EnvToolCall
 from synth_ai.environments.examples.verilog.environment import VerilogEnvironment
 from synth_ai.environments.examples.verilog.taskset import (
     VerilogTaskInstance,
@@ -23,6 +28,7 @@ from synth_ai.task.contracts import (
     RolloutRequest,
     RolloutResponse,
     RolloutTrajectory,
+    RolloutStep,
     TaskInfo,
 )
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
@@ -52,6 +58,25 @@ DATASET_SPEC = TaskDatasetSpec(
 
 MAX_INSTANCES = int(os.getenv("VERILOG_MAX_INSTANCES", "10"))
 TOOLS = ["write_file", "compile", "simulate", "submit"]
+DEFAULT_INFERENCE_URL = os.getenv(
+    "VERILOG_INFERENCE_URL", "https://api.groq.com/openai/v1/chat/completions"
+)
+DEFAULT_MODEL = os.getenv("VERILOG_DEFAULT_MODEL", "qwen/qwen3-32b")
+DEFAULT_TEMPERATURE = float(os.getenv("VERILOG_DEFAULT_TEMPERATURE", "0.2"))
+DEFAULT_MAX_TOKENS = int(os.getenv("VERILOG_DEFAULT_MAX_TOKENS", "768"))
+DEFAULT_MAX_STEPS = int(os.getenv("VERILOG_DEFAULT_MAX_STEPS", "10"))
+FILE_PREVIEW_CHARS = int(os.getenv("VERILOG_FILE_PREVIEW_CHARS", "600"))
+HTTP_TIMEOUT_SECONDS = float(os.getenv("VERILOG_INFERENCE_TIMEOUT", "90"))
+
+VERILOG_SYSTEM_PROMPT = (
+    "You are an expert digital design engineer helping with Verilog spec-to-RTL tasks. "
+    "Choose between these tools: write_file, compile, simulate, submit. "
+    "Always respond with a JSON object describing exactly one tool call in the form "
+    "{\"tool\": \"<tool_name>\", \"args\": { ... }}. "
+    "You may wrap the JSON inside a ```json``` block but MUST NOT include any other prose outside it. "
+    "When editing files, rewrite the entire file content. Compile after code changes, simulate to verify behavior, "
+    "and submit only after the tests pass."
+)
 
 
 def _load_taskset_blocking(max_instances: int) -> TaskInstanceSet:
@@ -124,8 +149,11 @@ def _base_task_info(dataset: VerilogDataset) -> TaskInfo:
             "aggregation": "weighted_sum",
         },
         inference={
-            "supports_proxy": False,
-            "endpoints": {},
+            "supports_proxy": True,
+            "endpoints": {
+                "openai": "/proxy/v1/chat/completions",
+                "groq": "/proxy/groq/v1/chat/completions",
+            },
             "tool": {"name": "verilog_tools", "parallel_tool_calls": False},
         },
         capabilities={
@@ -136,6 +164,241 @@ def _base_task_info(dataset: VerilogDataset) -> TaskInfo:
         limits={"max_ops": 0, "max_time_s": 3600},
     )
 
+
+def _normalize_inference_url(url: str | None) -> str:
+    candidate = (url or DEFAULT_INFERENCE_URL).strip()
+    if not candidate:
+        candidate = DEFAULT_INFERENCE_URL
+    if candidate.endswith("/v1/chat/completions"):
+        return candidate
+    if candidate.endswith("/chat/completions"):
+        return candidate
+    if candidate.endswith("/v1"):
+        return f"{candidate.rstrip('/')}/chat/completions"
+    if candidate.endswith("/v1/"):
+        return f"{candidate.rstrip('/')}/chat/completions"
+    if candidate.endswith("/chat"):
+        return f"{candidate.rstrip('/')}/completions"
+    if candidate.endswith("/chat/"):
+        return f"{candidate.rstrip('/')}/completions"
+    return f"{candidate.rstrip('/')}/v1/chat/completions"
+
+
+def _format_file_previews(files: dict[str, str]) -> str:
+    if not files:
+        return "No files in the workspace yet."
+
+    sections: list[str] = []
+    for name in sorted(files.keys()):
+        content = files[name] or ""
+        snippet = content.strip()
+        if len(snippet) > FILE_PREVIEW_CHARS:
+            snippet = snippet[:FILE_PREVIEW_CHARS] + "\n..."
+        sections.append(f"{name}:\n{snippet}")
+    return "\n\n".join(sections)
+
+
+def _format_observation_text(
+    *,
+    observation: dict[str, Any],
+    step_index: int,
+    instructions: str | None,
+    action_feedback: str | None,
+) -> str:
+    lines: list[str] = []
+    if step_index == 0 and instructions:
+        lines.append("Task instructions:")
+        lines.append(instructions.strip())
+        lines.append("")
+
+    lines.append(f"Step {step_index} status:")
+    reward_last = observation.get("reward_last")
+    total_reward = observation.get("total_reward")
+    if reward_last is not None or total_reward is not None:
+        lines.append(
+            f"- reward_last={reward_last!r}, total_reward={total_reward!r}"
+        )
+    lines.append(f"- task_completed={bool(observation.get('task_completed'))}")
+    compile_status = observation.get("compile_status")
+    if compile_status:
+        lines.append(f"- compile_status: {compile_status}")
+    simulate_status = observation.get("simulate_status")
+    if simulate_status:
+        lines.append(f"- simulate_status: {simulate_status}")
+    build_dir = observation.get("build_dir")
+    if build_dir:
+        lines.append(f"- build_directory: {build_dir}")
+
+    if action_feedback:
+        lines.append("")
+        lines.append(action_feedback)
+
+    files = observation.get("files")
+    lines.append("")
+    lines.append("Workspace files:")
+    lines.append(_format_file_previews(files or {}))
+
+    lines.append("")
+    lines.append(
+        "Select the single most helpful tool for the next step (write_file, compile, simulate, submit)."
+    )
+    lines.append(
+        "Respond with JSON only: {\"tool\": \"<tool_name>\", \"args\": {...}}."
+    )
+    return "\n".join(lines)
+
+
+def _summarize_action_feedback(
+    tool_name: str, args: dict[str, Any], observation: dict[str, Any], reward: float
+) -> str:
+    argument_preview = json.dumps(args, ensure_ascii=False)
+    parts = [
+        f"Previous action: {tool_name}({argument_preview})",
+        f"Reward delta: {reward:.4f}",
+    ]
+    compile_status = observation.get("compile_status")
+    if compile_status:
+        parts.append(f"Compile status: {compile_status}")
+    simulate_status = observation.get("simulate_status")
+    if simulate_status:
+        parts.append(f"Simulation status: {simulate_status}")
+    if observation.get("task_completed"):
+        parts.append("Task completed ✅")
+    total_reward = observation.get("total_reward")
+    if total_reward is not None:
+        parts.append(f"Total reward: {total_reward}")
+    return "\n".join(parts)
+
+
+JSON_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+
+
+def _parse_tool_json(text: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            candidates.append(parsed)
+    except Exception:
+        pass
+
+    if not candidates:
+        for match in JSON_BLOCK_PATTERN.finditer(text):
+            snippet = match.group(1)
+            try:
+                parsed = json.loads(snippet)
+            except Exception:
+                continue
+            if isinstance(parsed, dict):
+                candidates.append(parsed)
+
+    if not candidates:
+        brace_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if brace_match:
+            try:
+                parsed = json.loads(brace_match.group(0))
+                if isinstance(parsed, dict):
+                    candidates.append(parsed)
+            except Exception:
+                pass
+
+    for candidate in candidates:
+        tool_name = candidate.get("tool") if isinstance(candidate, dict) else None
+        if not isinstance(tool_name, str):
+            continue
+        raw_args = candidate.get("args") if isinstance(candidate, dict) else None
+        args = raw_args if isinstance(raw_args, dict) else {}
+        return [{"tool": tool_name, "args": args}]
+
+    return []
+
+
+class VerilogLLMAgent:
+    """Minimal ReAct-style agent that communicates with a chat-completions API."""
+
+    def __init__(
+        self,
+        *,
+        instructions: str,
+        inference_url: str | None,
+        model: str | None,
+        temperature: float,
+        max_tokens: int,
+    ) -> None:
+        self.instructions = instructions.strip()
+        self.inference_url = _normalize_inference_url(inference_url)
+        self.model = model or DEFAULT_MODEL
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.messages: list[dict[str, Any]] = [{"role": "system", "content": VERILOG_SYSTEM_PROMPT}]
+        self.headers: dict[str, str] = {"Content-Type": "application/json"}
+
+        lowered = self.inference_url.lower()
+        if "groq" in lowered:
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                raise RuntimeError("GROQ_API_KEY is not configured for Verilog inference.")
+            self.headers["Authorization"] = f"Bearer {api_key.strip()}"
+        elif "openai" in lowered:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise RuntimeError("OPENAI_API_KEY is not configured for Verilog inference.")
+            self.headers["Authorization"] = f"Bearer {api_key.strip()}"
+
+        self.history: list[dict[str, Any]] = []
+
+    def append_observation(
+        self,
+        *,
+        observation: dict[str, Any],
+        step_index: int,
+        action_feedback: str | None,
+    ) -> str:
+        text = _format_observation_text(
+            observation=observation,
+            step_index=step_index,
+            instructions=self.instructions if step_index == 0 else None,
+            action_feedback=action_feedback,
+        )
+        self.messages.append({"role": "user", "content": text})
+        self.history.append({"role": "user", "content": text})
+        return text
+
+    async def invoke(
+        self, client: httpx.AsyncClient
+    ) -> tuple[str, list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": self.messages,
+            "temperature": self.temperature,
+        }
+        if self.max_tokens > 0:
+            payload["max_tokens"] = self.max_tokens
+
+        try:
+            response = await client.post(self.inference_url, json=payload, headers=self.headers)
+        except Exception as exc:  # pragma: no cover - network failure
+            raise RuntimeError(f"Failed to reach inference endpoint: {exc}") from exc
+
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:  # pragma: no cover - inference error
+            preview = exc.response.text[:2000]
+            raise RuntimeError(
+                f"Inference call failed with status {exc.response.status_code}: {preview}"
+            ) from exc
+
+        data = response.json()
+        choices = data.get("choices") or []
+        message = choices[0].get("message", {}) if choices else {}
+        assistant_text = message.get("content") or ""
+        self.messages.append({"role": "assistant", "content": assistant_text})
+        self.history.append({"role": "assistant", "content": assistant_text})
+
+        parsed_calls = _parse_tool_json(assistant_text)
+
+        return assistant_text, parsed_calls, data, payload
 
 OUTCOME_RUBRIC = load_rubric(
     {
@@ -235,32 +498,218 @@ async def rollout_executor(
     env_seed = getattr(request.env, "seed", None) if request and request.env else None
     instance = dataset.instance_by_seed(env_seed)
     env = VerilogEnvironment(task_instance=instance)
-    initial_observation: Any
+
+    policy_config_raw = getattr(request.policy, "config", {}) if request.policy else {}
+    policy_config = dict(policy_config_raw) if isinstance(policy_config_raw, dict) else {}
+
+    policy_model = policy_config.get("model")
+    if not isinstance(policy_model, str) or not policy_model.strip():
+        policy_model = getattr(request.policy, "policy_name", None) or DEFAULT_MODEL
+    policy_model = policy_model.strip()
+
+    temperature = policy_config.get("temperature", DEFAULT_TEMPERATURE)
     try:
-        initial_observation = await env.initialize()
+        temperature = float(temperature)
+    except (TypeError, ValueError):
+        temperature = DEFAULT_TEMPERATURE
+
+    max_tokens = policy_config.get("max_tokens", DEFAULT_MAX_TOKENS)
+    try:
+        max_tokens = int(max_tokens)
+    except (TypeError, ValueError):
+        max_tokens = DEFAULT_MAX_TOKENS
+
+    max_steps_candidate = (
+        policy_config.get("max_steps")
+        or policy_config.get("max_llm_calls")
+        or DEFAULT_MAX_STEPS
+    )
+    try:
+        max_steps = int(max_steps_candidate)
+    except (TypeError, ValueError):
+        max_steps = DEFAULT_MAX_STEPS
+    max_steps = max(1, min(25, max_steps))
+
+    inference_url = policy_config.get("inference_url")
+    if isinstance(inference_url, str) and inference_url.strip():
+        resolved_inference = inference_url.strip()
+    else:
+        resolved_inference = os.getenv("VERILOG_INFERENCE_URL", DEFAULT_INFERENCE_URL)
+
+    agent = VerilogLLMAgent(
+        instructions=getattr(getattr(instance, "impetus", None), "instructions", ""),
+        inference_url=resolved_inference,
+        model=policy_model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+    policy_id = (
+        getattr(request.policy, "policy_id", None)
+        or getattr(request.policy, "policy_name", None)
+        or policy_model
+    )
+    env_id = getattr(request.env, "env_id", None) or getattr(request.env, "env_name", None) or "verilog"
+
+    steps: list[RolloutStep] = []
+    total_reward = 0.0
+    final_observation: dict[str, Any] | None = None
+    truncated_due_to_limit = False
+
+    try:
+        initial_raw_observation = await env.initialize()
+        current_observation = _normalise_observation(initial_raw_observation)
+        final_observation = current_observation
+        agent.append_observation(
+            observation=current_observation, step_index=0, action_feedback=None
+        )
+
+        total_reward = float(current_observation.get("total_reward") or 0.0)
+        already_done = bool(
+            current_observation.get("terminated") or current_observation.get("task_completed")
+        )
+
+        timeout = httpx.Timeout(
+            HTTP_TIMEOUT_SECONDS,
+            connect=HTTP_TIMEOUT_SECONDS,
+            read=HTTP_TIMEOUT_SECONDS,
+        )
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            if not already_done:
+                for step_index in range(1, max_steps + 1):
+                    assistant_text, tool_calls, raw_response, request_payload = await agent.invoke(client)
+                    if not tool_calls:
+                        fallback_tool = (
+                            "submit" if current_observation.get("task_completed") else "compile"
+                        )
+                        tool_calls = [{"tool": fallback_tool, "args": {}}]
+
+                    primary_call = tool_calls[0]
+                    env_call = EnvToolCall(tool=primary_call["tool"], args=primary_call["args"])
+
+                    try:
+                        step_observation = await env.step(env_call)
+                        current_observation = _normalise_observation(step_observation)
+                        final_observation = current_observation
+                        reward_last = float(current_observation.get("reward_last") or 0.0)
+                        total_reward = float(
+                            current_observation.get("total_reward") or (total_reward + reward_last)
+                        )
+                        done_flag = bool(
+                            current_observation.get("terminated")
+                            or current_observation.get("task_completed")
+                        )
+                        truncated_flag = bool(current_observation.get("truncated"))
+
+                        tool_call_records = [
+                            {"tool_name": call["tool"], "arguments": call["args"]}
+                            for call in tool_calls
+                        ]
+                        step_info = {
+                            "assistant_message": assistant_text,
+                            "model_response": raw_response,
+                            "llm_request": request_payload,
+                        }
+                        steps.append(
+                            RolloutStep(
+                                obs=current_observation,
+                                tool_calls=tool_call_records,
+                                reward=reward_last,
+                                done=done_flag,
+                                truncated=truncated_flag,
+                                info=step_info,
+                            )
+                        )
+
+                        action_feedback = _summarize_action_feedback(
+                            primary_call["tool"], primary_call["args"], current_observation, reward_last
+                        )
+                        agent.append_observation(
+                            observation=current_observation,
+                            step_index=step_index,
+                            action_feedback=action_feedback,
+                        )
+
+                        if done_flag:
+                            break
+
+                        if step_index == max_steps:
+                            truncated_due_to_limit = True
+                            break
+                    except Exception as exc:  # pragma: no cover - defensive path
+                        error_text = str(exc)
+                        logger.exception("Verilog environment step failed: %s", exc)
+                        failure_observation = dict(current_observation)
+                        failure_observation["error"] = error_text
+                        final_observation = failure_observation
+                        tool_call_records = [
+                            {"tool_name": primary_call["tool"], "arguments": primary_call["args"]}
+                        ]
+                        step_info = {
+                            "assistant_message": assistant_text,
+                            "model_response": raw_response,
+                            "llm_request": request_payload,
+                            "error": error_text,
+                        }
+                        steps.append(
+                            RolloutStep(
+                                obs=failure_observation,
+                                tool_calls=tool_call_records,
+                                reward=0.0,
+                                done=True,
+                                truncated=True,
+                                info=step_info,
+                            )
+                        )
+                        truncated_due_to_limit = True
+                        break
     finally:
         with contextlib.suppress(Exception):
             await env.terminate()
 
-    obs_dict = _normalise_observation(initial_observation)
+    if final_observation is None:
+        final_observation = {}
 
-    trajectory = RolloutTrajectory(
-        env_id=request.env.env_id or "verilog",
-        policy_id=request.policy.policy_id or request.policy.policy_name or "noop-policy",
-        steps=[],
-        final={"observation": obs_dict},
-        length=0,
-        decision_samples=None,
+    final_total_reward = float(final_observation.get("total_reward") or total_reward)
+    final_done = bool(
+        final_observation.get("terminated") or final_observation.get("task_completed")
     )
+    final_truncated = truncated_due_to_limit or bool(final_observation.get("truncated"))
 
     metrics = RolloutMetrics(
-        episode_returns=[0.0],
-        mean_return=0.0,
-        num_steps=0,
+        episode_returns=[final_total_reward],
+        mean_return=final_total_reward,
+        num_steps=len(steps),
         num_episodes=1,
-        outcome_score=None,
+        outcome_score=final_total_reward,
         events_score=None,
-        details={"note": "Rollout captures only the initial observation."},
+        details={
+            "task_completed": bool(final_observation.get("task_completed")),
+            "total_reward": final_total_reward,
+            "steps": len(steps),
+            "truncated": final_truncated,
+        },
+    )
+
+    trajectory = RolloutTrajectory(
+        env_id=str(env_id),
+        policy_id=str(policy_id),
+        steps=steps,
+        final={
+            "observation": final_observation,
+            "reward": final_total_reward,
+            "done": final_done,
+            "truncated": final_truncated,
+            "info": {
+                "total_reward": final_total_reward,
+                "task_completed": bool(final_observation.get("task_completed")),
+                "policy_model": policy_model,
+                "inference_url": agent.inference_url,
+            },
+        },
+        length=len(steps),
+        decision_samples=None,
     )
 
     return RolloutResponse(
@@ -269,7 +718,7 @@ async def rollout_executor(
         branches={},
         metrics=metrics,
         aborted=False,
-        ops_executed=0,
+        ops_executed=len(steps),
         trace=None,
     )
 
@@ -314,7 +763,11 @@ def build_config() -> TaskAppConfig:
         rollout=rollout_executor,
         dataset_registry=registry,
         rubrics=RubricBundle(outcome=OUTCOME_RUBRIC, events=EVENTS_RUBRIC),
-        proxy=ProxyConfig(enable_openai=False, enable_groq=False),
+        proxy=ProxyConfig(
+            enable_openai=True,
+            enable_groq=True,
+            system_hint=VERILOG_SYSTEM_PROMPT,
+        ),
         routers=(),
         app_state=app_state,
         cors_origins=["*"],

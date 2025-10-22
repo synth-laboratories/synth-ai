@@ -12,5 +12,5 @@ provider = "openai"
 model = "gpt-5"
 temperature = 0.2
 top_p = 0.9
-max_tokens = 4000
+max_completion_tokens = 4000
 max_actions_per_call = 4

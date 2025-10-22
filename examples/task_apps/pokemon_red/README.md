@@ -237,14 +237,89 @@ uv run -m synth_ai task-app serve pokemon_red --port 8914
 
 ## Examples
 
-### Test Script (Random Actions)
+### 1. Policy Evaluation with GPT-5-nano
+
+Evaluate a GPT-5-nano policy across 10 episodes (10 policy calls each):
+
+```bash
+# From synth-ai root
+cd /Users/joshpurtell/Documents/GitHub/synth-ai
+
+# 1. Make sure OpenAI API key is in .env
+echo "OPENAI_API_KEY=sk-..." >> .env
+
+# 2. Start the task app server (in background)
+nohup sh -c 'printf "n\n" | uv run -m synth_ai task-app serve pokemon_red --port 8913 --no-reload' > nohup_pokemon.log 2>&1 &
+
+# Wait for startup
+sleep 8
+
+# 3. Run the evaluation
+uv run python examples/task_apps/pokemon_red/eval_pokemon_red_policy.py
+```
+
+**Expected Output:**
+```
+================================================================================
+POKÉMON RED - POLICY EVALUATION
+================================================================================
+
+Task: Pallet Town Progression
+Policy: gpt-5-nano
+Episodes: 10
+Max steps per episode: 10
+
+✓ Server is healthy
+✓ API key loaded
+
+🎮 Running 10 episodes in parallel...
+
+================================================================================
+RESULTS SUMMARY
+================================================================================
+
++-----------+----------+---------+-------------+---------+----------+--------------+
+|   Episode |   Reward |   Steps | Final Map   |   Party |   Badges |   Milestones |
++===========+==========+=========+=============+=========+==========+==============+
+|         1 |        0 |      10 | Map38       |       0 |        0 |            0 |
+|         2 |        0 |       9 | Map38       |       0 |        0 |            0 |
+|         9 |       20 |      10 | Map38       |       0 |        0 |            1 |
++-----------+----------+---------+-------------+---------+----------+--------------+
+
+Statistics:
+  Mean reward: 2.00
+  Max reward: 20.00
+  Success rate: 10% reached first milestone
+  
+Best Episode (#9):
+  Total reward: 20.0
+  Milestones achieved:
+    Step 5: Moved from Map38 to Map37 (+20.0)
+```
+
+**Key Features:**
+- ✅ **Action Batching**: Each policy call returns 5-10 actions via `execute_sequence` tool
+- ✅ **Parallel Execution**: All 10 episodes run concurrently
+- ✅ **Rich Metrics**: Rewards, steps, maps, party status, milestones tracked
+- ✅ **Fast Evaluation**: ~2-3 minutes for 10 episodes (vs 50+ min without batching)
+
+**Customize the Evaluation:**
+
+```python
+# In eval_pokemon_red_policy.py
+NUM_EPISODES = 10              # Number of episodes to run
+MAX_STEPS_PER_EPISODE = 10     # Policy calls per episode (each returns 5-10 actions)
+MODEL = "gpt-5-nano"           # Or "gpt-4-turbo", "qwen-2.5-7b", etc.
+```
+
+### 2. Test Script (Random Actions)
 
 ```bash
 cd /Users/joshpurtell/Documents/GitHub/synth-ai
 uv run python test_pokemon_red_rollout.py
 ```
 
-### Reward Function Demo
+### 3. Reward Function Demo
 
 ```bash
 uv run python examples/task_apps/pokemon_red/test_pallet_town_rewards.py

@@ -18,7 +18,7 @@ load_dotenv()
 # Configuration
 TASK_APP_URL = "http://127.0.0.1:8913"
 NUM_EPISODES = 10
-MAX_STEPS_PER_EPISODE = 100  # Policy will be called up to 100 times
+MAX_STEPS_PER_EPISODE = 10  # 10 policy calls per episode (each may return 5-10 actions)
 MODEL = "gpt-5-nano"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
