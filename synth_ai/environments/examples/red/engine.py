@@ -623,6 +623,10 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
                         "prev_in_battle": bool(prev_state.get("in_battle", False)),
                         "prev_party_level": int(prev_state.get("party_level", 0)),
                         "prev_party_xp": int(prev_state.get("party_xp", 0)),
+                        "prev_party_count": int(prev_state.get("party_count", 0)),
+                        "prev_text_box_active": bool(prev_state.get("text_box_active", False)),
+                        "prev_enemy_hp_current": int(prev_state.get("enemy_hp_current", 0)),
+                        "prev_enemy_hp_percentage": float(prev_state.get("enemy_hp_percentage", 0.0)),
                     },
                 )
             except Exception as e:
