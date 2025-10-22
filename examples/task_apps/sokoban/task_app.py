@@ -377,6 +377,10 @@ def _extract_actions_from_response(
 ) -> list[int]:
     actions: list[int] = []
     choices = response.get("choices") or []
+    print(f"[extract] {len(choices)} choices", flush=True)
+    if choices:
+        msg = choices[0].get("message", {})
+        print(f"[extract] tool_calls: {msg.get('tool_calls')}, content: {msg.get('content')[:100] if msg.get('content') else None}", flush=True)
     for choice in choices:
         message = choice.get("message") or {}
         tool_calls = message.get("tool_calls") or []
@@ -807,6 +811,7 @@ async def _rollout_with_openai(
             if executed >= max_steps:
                 break
 
+            print(f"[debug] Processing {len(actions)} actions from LLM", flush=True)
             for action in actions:
                 if executed >= max_steps:
                     break
@@ -825,6 +830,7 @@ async def _rollout_with_openai(
                 if done or truncated:
                     break
 
+                print(f"[debug] After action {action}: done={done}, trunc={truncated}, exec={executed}", flush=True)
             if not aggregated_actions:
                 continue
 

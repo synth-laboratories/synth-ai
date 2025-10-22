@@ -309,7 +309,14 @@ def _parse_tool_json(text: str) -> list[dict[str, Any]]:
             continue
         raw_args = candidate.get("args") if isinstance(candidate, dict) else None
         args = raw_args if isinstance(raw_args, dict) else {}
-        return [{"tool": tool_name, "args": args}]
+        tool_name = tool_name.strip()
+        normalized_args: dict[str, Any] = dict(args)
+        if tool_name == "write_file":
+            if "file_path" in normalized_args and "path" not in normalized_args:
+                normalized_args["path"] = normalized_args.pop("file_path")
+            if "contents" in normalized_args and "content" not in normalized_args:
+                normalized_args["content"] = normalized_args.pop("contents")
+        return [{"tool": tool_name, "args": normalized_args}]
 
     return []
 
