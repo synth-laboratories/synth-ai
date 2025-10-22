@@ -886,14 +886,6 @@ async def execute_rollout(
             logger.debug(f"TRACER_FACTORY_FAIL: {exc}")
     tracing_context = RolloutTracingContext(tracer_instance, request, req)
     await tracing_context.start_session()
-    # Print whether tracing is active for this rollout
-    try:
-        print(
-            f"[rollout] tracing enabled={bool(tracing_context.enabled)} run_id={request.run_id}",
-            flush=True,
-        )
-    except Exception:
-        pass
 
     # Register run
     registry.register_run(request.run_id)
