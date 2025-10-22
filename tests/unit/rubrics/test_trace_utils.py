@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -95,6 +96,10 @@ def _create_schema(conn: sqlite3.Connection) -> None:
 
 
 def _seed_minimal_session(conn: sqlite3.Connection, session_id: str = "s1") -> None:
+    unique_reward_annotation = json.dumps({"new_unique": ["A"]})
+    regular_reward_annotation = json.dumps({})
+    outcome_reward_metadata = json.dumps({"achievements": ["A", "B"]})
+
     conn.execute(
         "INSERT INTO session_traces(session_id, created_at, metadata) VALUES (?, ?, ?)",
         (session_id, "2025-01-01T00:00:00Z", '{"episode_id": 123, "run_id": "r1"}'),
@@ -113,16 +118,25 @@ def _seed_minimal_session(conn: sqlite3.Connection, session_id: str = "s1") -> N
     )
     # One unique achievement delta and one regular achievement
     conn.execute(
-        "INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at) VALUES (?, 1, 1, 1.5, 'unique_achievement_delta', 'k', '{"new_unique": ["A"]}', 'test', 't0')",
-        (session_id,),
+        """
+        INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at)
+        VALUES (?, 1, 1, 1.5, 'unique_achievement_delta', 'k', ?, 'test', 't0')
+        """,
+        (session_id, unique_reward_annotation),
     )
     conn.execute(
-        "INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at) VALUES (?, 1, 1, 2.0, 'achievement_delta', 'k', '{}', 'test', 't0')",
-        (session_id,),
+        """
+        INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at)
+        VALUES (?, 1, 1, 2.0, 'achievement_delta', 'k', ?, 'test', 't0')
+        """,
+        (session_id, regular_reward_annotation),
     )
     conn.execute(
-        "INSERT INTO outcome_rewards(session_id, total_reward, reward_metadata, created_at) VALUES (?, 3.5, '{"achievements": ["A", "B"]}', 't0')",
-        (session_id,),
+        """
+        INSERT INTO outcome_rewards(session_id, total_reward, reward_metadata, created_at)
+        VALUES (?, 3.5, ?, 't0')
+        """,
+        (session_id, outcome_reward_metadata),
     )
     conn.commit()
 
@@ -159,5 +173,4 @@ def test_load_session_trace_and_metrics() -> None:
     assert metrics.outcome_total_reward == pytest.approx(3.5)
     assert metrics.unique_achievement_count == 1
     assert metrics.final_achievement_count == 2
-
 
