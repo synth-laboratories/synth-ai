@@ -224,7 +224,7 @@ async def _run_episode(
                         if unlocked:
                             achievements.add(str(name))
                 reward = obs.get("reward_last_step")
-                if isinstance(reward, (int, float)):
+                if isinstance(reward, int | float):
                     total_reward += float(reward)
 
             _save_observation_frame(env_response, frames_dir / f"step_{step_idx + 1:03d}.png")
@@ -263,7 +263,7 @@ def _summarise(results: list[EpisodeResult]) -> dict[str, Any]:
             "mean_steps": round(mean_steps, 2),
             "mean_achievements": round(mean_achievements, 2),
             "total_tool_calls": sum(r.tool_calls for r in mode_results),
-            "achievements": {name: count for name, count in sorted(achievement_counts.items())},
+            "achievements": dict(sorted(achievement_counts.items())),
         }
     return summary
 
