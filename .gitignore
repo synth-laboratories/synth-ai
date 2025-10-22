@@ -160,3 +160,6 @@ _math_cache/
  
 # Customer-specific private data
 customers/
+
+# Outputs directory (local artifacts only)
+outputs/
