@@ -14,10 +14,13 @@ def test_sokoban_manual_rollout(sokoban_server: str) -> None:
     rollout_payload = {
         "run_id": "test_manual_sokoban",
         "env": {"seed": 0, "config": {"difficulty": "easy", "max_steps": 20}},
-        "ops": [0, 2, 2, 3, 3, 0],  # left, right, right, down, down, left
+        "ops": [],  # Not used for manual actions in Sokoban
         "policy": {
             "policy_name": "manual",
-            "config": {"provider": "noop"},
+            "config": {
+                "provider": "noop",
+                "actions": [0, 2, 2, 3, 3, 0],  # Pass actions via policy.config
+            },
         },
     }
     
@@ -89,8 +92,13 @@ def test_sokoban_difficulty_levels(sokoban_server: str) -> None:
         rollout_payload = {
             "run_id": f"test_difficulty_{difficulty}",
             "env": {"seed": 0, "config": {"difficulty": difficulty, "max_steps": 10}},
-            "ops": [2, 3, 0],  # right, down, left
-            "policy": {"config": {"provider": "noop"}},
+            "ops": [],
+            "policy": {
+                "config": {
+                    "provider": "noop",
+                    "actions": [2, 3, 0],  # right, down, left
+                },
+            },
         }
         
         resp = requests.post(
@@ -114,8 +122,13 @@ def test_sokoban_max_steps_limit(sokoban_server: str) -> None:
     rollout_payload = {
         "run_id": "test_max_steps",
         "env": {"seed": 0, "config": {"difficulty": "easy", "max_steps": max_steps}},
-        "ops": [0] * 20,  # Try to take 20 actions, but should be limited
-        "policy": {"config": {"provider": "noop"}},
+        "ops": [],
+        "policy": {
+            "config": {
+                "provider": "noop",
+                "actions": [0] * 20,  # Try to take 20 actions, but should be limited
+            },
+        },
     }
     
     resp = requests.post(
@@ -146,8 +159,13 @@ def test_sokoban_completion_detection(sokoban_server: str) -> None:
     rollout_payload = {
         "run_id": "test_completion",
         "env": {"seed": 0, "config": {"difficulty": "easy", "max_steps": 50}},
-        "ops": [2, 3, 0, 1, 2],  # Random moves
-        "policy": {"config": {"provider": "noop"}},
+        "ops": [],
+        "policy": {
+            "config": {
+                "provider": "noop",
+                "actions": [2, 3, 0, 1, 2],  # Random moves
+            },
+        },
     }
     
     resp = requests.post(
