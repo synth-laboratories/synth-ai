@@ -126,6 +126,11 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    # Load local .env automatically so keys are available without extra flags
+    default_env = Path.cwd() / ".env"
+    if default_env.exists():
+        load_dotenv(default_env, override=False)
+
     if args.env_file:
         env_path = Path(args.env_file).expanduser()
         if not env_path.exists():
@@ -136,6 +141,34 @@ async def main() -> None:
     api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
     if not api_key:
         parser.error("Missing --api-key (or ENVIRONMENT_API_KEY not set)")
+
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    needs_openai = "openai" in (args.inference_url or "").lower()
+    if needs_openai and not openai_key:
+        try:
+            openai_key = (
+                input(
+                    "OPENAI_API_KEY not found. Enter your OpenAI API key (required for local rollouts):\n> "
+                )
+                .strip()
+            )
+        except (KeyboardInterrupt, EOFError):
+            openai_key = ""
+    if needs_openai and not openai_key:
+        parser.error("OPENAI_API_KEY is required. Set it in your .env or provide it when prompted.")
+    if openai_key:
+        os.environ["OPENAI_API_KEY"] = openai_key
+        env_path = Path.cwd() / ".env"
+        try:
+            existing = env_path.read_text().splitlines() if env_path.exists() else []
+            if not any(line.startswith("OPENAI_API_KEY=") for line in existing):
+                if existing and existing[-1].strip():
+                    existing.append("")
+                existing.append(f"OPENAI_API_KEY={openai_key}")
+                env_path.write_text("\n".join(existing) + "\n")
+                print(f"[INFO] Saved OPENAI_API_KEY to {env_path}")
+        except Exception as exc:
+            print(f"[WARN] Could not persist OPENAI_API_KEY to {env_path}: {exc}")
 
     extra_headers: dict[str, str] | None = None
     synth_key = os.getenv("SYNTH_API_KEY")
@@ -204,6 +237,10 @@ async def main() -> None:
             print(json.dumps(summary, indent=2))
             print(f"Ops executed: {ops}")
             print("Tip: use --max-llm-calls N for agent/env pairs or --ops for manual control.")
+            print("\nWhat's next:")
+            print("  uvx python run_local_rollout_traced.py")
+            print("  Inspect trace outputs under ./traces/")
+            print("  Stop the local server with Ctrl+C in the deploy terminal")
         except httpx.HTTPStatusError as exc:
             detail = (
                 exc.response.json()
