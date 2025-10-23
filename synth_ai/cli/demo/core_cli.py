@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 
+from synth_ai.cli.task_app_deploy import deploy_command as deploy_click_command
+
 from .. import setup
-from . import configure, deploy, init, run
+from . import configure, init, run
 
 
 def _add_parser(
@@ -37,13 +39,22 @@ def main(argv: list[str] | None = None) -> int:
     _add_parser(sub, ["init", "demo.init"], _init_opts)
 
     def _deploy_opts(p: argparse.ArgumentParser) -> None:
+        p.add_argument("app_id", nargs="?", default=None, help="Task app id to deploy")
         p.add_argument("--local", action="store_true", help="Run local FastAPI instead of Modal deploy")
-        p.add_argument("--app", type=str, default=None, help="Path to Modal app.py for uv run modal deploy")
-        p.add_argument("--name", type=str, default=None, help="Modal app name")
+        p.add_argument("--app", type=str, default=None, help="Path to Modal app.py for manual deploy")
         p.add_argument("--script", type=str, default=None, help="Path to deploy_task_app.sh (optional legacy)")
+        p.add_argument("--name", type=str, default=None, help="Modal app name")
+        p.add_argument("--dry-run", action="store_true", help="Print Modal command without executing")
+        p.add_argument("--modal-cli", type=str, default="modal", help="Path to Modal CLI executable")
         p.set_defaults(
-            func=lambda args: deploy.run_deploy(
-                local=args.local, app=args.app, name=args.name, script=args.script
+            func=lambda args: deploy_click_command.callback(
+                args.app_id,
+                args.local,
+                args.app,
+                args.script,
+                args.name,
+                args.dry_run,
+                args.modal_cli,
             )
         )
 

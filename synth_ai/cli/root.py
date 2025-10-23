@@ -6,12 +6,11 @@ Canonical CLI entrypoint for Synth AI (moved from synth_ai/cli.py).
 from __future__ import annotations
 
 import click
-
 from synth_ai.cli.demo.configure import run_configure
-from synth_ai.cli.demo.deploy import run_deploy
 from synth_ai.cli.demo.init import run_init
 from synth_ai.cli.demo.run import run_job
 from synth_ai.cli.setup import setup
+from synth_ai.cli.task_app_deploy import deploy_command as main_deploy_command
 
 try:
     from importlib.metadata import PackageNotFoundError
@@ -40,7 +39,7 @@ def cli():
 
 @cli.command(name="setup")
 def setup_command():
-    """Perform SDK handshake and write keys to .env."""
+    """Perform SDK handshake and persist keys to user_config.json."""
     code = setup()
     if code:
         raise click.exceptions.Exit(code)
@@ -53,28 +52,6 @@ def setup_command():
 def init_command(template: str | None, dest: str | None, force: bool):
     """Materialise a demo task app template into the current directory."""
     code = run_init(template=template, dest=dest, force=force)
-    if code:
-        raise click.exceptions.Exit(code)
-
-
-@cli.command(name="deploy")
-@click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")
-@click.option(
-    "--app",
-    type=click.Path(),
-    default=None,
-    help="Path to Modal app.py for uv run modal deploy",
-)
-@click.option("--name", type=str, default=None, help="Modal app name")
-@click.option(
-    "--script",
-    type=click.Path(),
-    default=None,
-    help="Path to deploy_task_app.sh (optional legacy)",
-)
-def deploy_command(local: bool, app: str | None, name: str | None, script: str | None):
-    """Deploy the currently configured demo task app."""
-    code = run_deploy(local=local, app=app, name=name or "synth-math-demo", script=script)
     if code:
         raise click.exceptions.Exit(code)
 
@@ -113,3 +90,6 @@ def configure_command():
     code = run_configure()
     if code:
         raise click.exceptions.Exit(code)
+
+
+cli.add_command(main_deploy_command, name="deploy")

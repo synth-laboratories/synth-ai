@@ -15,7 +15,6 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-
 from synth_ai.task.apps import ModalDeploymentConfig, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
@@ -56,10 +55,8 @@ try:
     _REGISTERED_ENTRY = registry.get(APP_ID)
 except Exception:  # pragma: no cover - registry unavailable in some contexts
     MODAL_DEPLOYMENT: ModalDeploymentConfig | None = None
-    ENV_FILES: tuple[str, ...] = ()
 else:
     MODAL_DEPLOYMENT = _REGISTERED_ENTRY.modal
-    ENV_FILES = tuple(_REGISTERED_ENTRY.env_files)
 
 
 def build_task_app_config() -> TaskAppConfig:
@@ -145,22 +142,11 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8001)
     parser.add_argument("--reload", action="store_true", help="Enable uvicorn autoreload")
-    parser.add_argument(
-        "--env-file",
-        action="append",
-        default=[],
-        help="Additional .env files to load before startup",
-    )
     args = parser.parse_args()
-
-    default_env = Path(__file__).resolve().parents[3] / "backend" / ".env.dev"
-    env_files = [str(default_env)] if default_env.exists() else []
-    env_files.extend(args.env_file or [])
 
     run_task_app(
         build_task_app_config,
         host=args.host,
         port=args.port,
         reload=args.reload,
-        env_files=env_files,
     )

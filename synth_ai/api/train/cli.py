@@ -113,13 +113,6 @@ def _default_backend() -> str:
     help="Path to training TOML (repeatable)",
 )
 @click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft"]), default="auto")
-@click.option(
-    "--env-file",
-    "env_files",
-    multiple=True,
-    type=click.Path(),
-    help=".env file(s) to preload (skips selection prompt)",
-)
 @click.option("--task-url", default=None, help="Override task app base URL (RL only)")
 @click.option(
     "--dataset",
@@ -162,7 +155,6 @@ def _default_backend() -> str:
 def train_command(
     config_paths: tuple[str, ...],
     train_type: str,
-    env_files: tuple[str, ...],
     task_url: str | None,
     dataset_path: str | None,
     backend: str,
@@ -218,33 +210,13 @@ def train_command(
     else:  # sft
         required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
 
-    env_path, env_values = resolve_env(
+    _, env_values = resolve_env(
         config_path=cfg_path,
-        explicit_env_paths=env_files,
+        explicit_env_paths=(),
         required_keys=required_keys,
     )
 
-    missing_keys = [
-        spec.name
-        for spec in required_keys
-        if not spec.optional and not (env_values.get(spec.name) or os.environ.get(spec.name))
-    ]
-    if missing_keys:
-        try:
-            from synth_ai.cli.lib.task_app_env import interactive_fill_env
-        except Exception as exc:  # pragma: no cover - protective fallback
-            raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
-
-        target_dir = cfg_path.parent
-        generated = interactive_fill_env(target_dir / ".env")
-        if generated is None:
-            raise click.ClickException("Required environment values missing; aborting.")
-        env_path, env_values = resolve_env(
-            config_path=cfg_path,
-            explicit_env_paths=(str(generated),),
-            required_keys=required_keys,
-        )
-    click.echo(f"Using env file: {env_path}")
+    click.echo("Environment credentials loaded.")
 
     synth_key = env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")
     if not synth_key:

@@ -11,7 +11,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
   2. `uvx synth-ai demo setup`
   3. `uvx synth-ai demo deploy`
   4. `uvx synth-ai demo run`
-- Required env vars (written to `.env` during setup/deploy):
+- Required env vars (persisted to `~/.synth-ai/user_config.json` during setup/deploy):
   - `SYNTH_API_KEY`
   - `ENVIRONMENT_API_KEY`
   - `TASK_APP_BASE_URL` (Modal HTTPS URL)

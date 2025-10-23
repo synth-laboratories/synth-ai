@@ -94,22 +94,11 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8101)
     parser.add_argument("--reload", action="store_true", help="Enable uvicorn autoreload")
-    parser.add_argument(
-        "--env-file",
-        action="append",
-        default=[],
-        help="Additional .env files to load before startup",
-    )
     args = parser.parse_args()
-
-    default_env = Path(__file__).resolve().parents[2] / ".env"
-    env_files = [str(default_env)] if default_env.exists() else []
-    env_files.extend(args.env_file or [])
 
     run_task_app(
         build_config,
         host=args.host,
         port=args.port,
         reload=args.reload,
-        env_files=env_files,
     )

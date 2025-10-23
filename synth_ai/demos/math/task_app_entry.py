@@ -31,7 +31,6 @@ register_task_app(
         app_id="hendrycks-math-demo",
         description="Demo math task app (Modal-focused) shipping with synth-ai demos.",
         config_factory=build_config,
-        env_files=("examples/rl/.env",),
         modal=DEMO_MODAL_CONFIG,
     )
 )

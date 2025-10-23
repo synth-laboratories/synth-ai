@@ -7,7 +7,6 @@ import inspect
 import os
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -375,36 +374,14 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     return app
 
 
-def _load_env_files(env_files: Sequence[str]) -> list[str]:
-    loaded: list[str] = []
-    if not env_files:
-        return loaded
-    try:
-        import dotenv
-    except Exception:  # pragma: no cover - optional dep
-        return loaded
-    for path_str in env_files:
-        path = Path(path_str)
-        if not path.is_file():
-            continue
-        dotenv.load_dotenv(path, override=False)
-        loaded.append(str(path))
-    return loaded
-
-
 def run_task_app(
     config_factory: Callable[[], TaskAppConfig],
     *,
     host: str = "0.0.0.0",
     port: int = 8001,
     reload: bool = False,
-    env_files: Sequence[str] = (),
 ) -> None:
     """Run the provided Task App configuration with uvicorn."""
-
-    loaded_files = _load_env_files(env_files)
-    if loaded_files:
-        print(f"[task:server] Loaded environment from: {', '.join(loaded_files)}", flush=True)
 
     config = config_factory()
     # Defensive: ensure the factory produced a valid TaskAppConfig to avoid

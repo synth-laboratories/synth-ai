@@ -8,7 +8,7 @@ underlying FastAPI plumbing.
 ```bash
 uvx synth-ai serve grpo-crafter --port 8001
 # Optional extras:
-#   --env-file path/to/.env    # load additional environment variables
+#   (environment variables are loaded from ~/.synth-ai/user_config.json)
 #   --reload                   # enable uvicorn auto-reload
 ```
 
@@ -25,8 +25,8 @@ uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
 
 Requirements:
 - Modal CLI installed and authenticated (`modal token new`).
-- Either supply an `.env` with `ENVIRONMENT_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY`
-  (recommended; pass via `--env-file`). The deploy command now inlines these values alongside
+- Either configure `ENVIRONMENT_API_KEY`, `GROQ_API_KEY`, and `OPENAI_API_KEY` via
+  `~/.synth-ai/user_config.json` (recommended). The deploy command now inlines these values alongside
   `Secret.from_dotenv`, so the minted environment key matches what the CLI uses locally.
 - Or maintain Modal secrets `groq-api-key` and `openai-api-key` if you prefer managing vendor
   credentials through Modal directly.

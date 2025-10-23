@@ -27,7 +27,13 @@ from .task_app_config import (
     prompt_value,
     select_or_create_config,
 )
-from .user_config import USER_CONFIG_PATH, load_user_config, save_user_config, update_user_config
+from .user_config import (
+    USER_CONFIG_PATH,
+    load_user_config,
+    load_user_env,
+    save_user_config,
+    update_user_config,
+)
 
 __all__ = [
     "create_new_config",
@@ -49,6 +55,7 @@ __all__ = [
     "select_or_create_config",
     "write_text",
     "load_user_config",
+    "load_user_env",
     "save_user_config",
     "update_user_config",
     "USER_CONFIG_PATH",

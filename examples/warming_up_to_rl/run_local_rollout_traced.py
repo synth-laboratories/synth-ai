@@ -20,6 +20,7 @@ from synth_ai.task import (
     RolloutSafetyConfig,
     TaskAppClient,
 )
+from synth_ai.cli.lib.user_config import load_user_config, update_user_config
 
 
 def build_rollout_request(
@@ -257,12 +258,7 @@ def print_reward_summary(
 
 
 async def main() -> None:
-    # Load .env file from current directory if it exists
-    env_file = Path.cwd() / ".env"
-    if env_file.exists():
-        from dotenv import load_dotenv
-
-        load_dotenv(env_file)
+    user_config = load_user_config()
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
@@ -332,47 +328,43 @@ async def main() -> None:
         base_url_input = input("Task app base URL [http://localhost:8001]: ").strip()
         base_url = base_url_input if base_url_input else "http://localhost:8001"
 
-    api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
+    api_key = (
+        args.api_key
+        or os.getenv("ENVIRONMENT_API_KEY")
+        or user_config.get("ENVIRONMENT_API_KEY")
+        or user_config.get("DEV_ENVIRONMENT_API_KEY")
+    )
     if not api_key:
         api_key = input("RL Environment API key (from ENVIRONMENT_API_KEY): ").strip()
         if not api_key:
             parser.error("RL Environment API key is required")
+        update_user_config(
+            {
+                "ENVIRONMENT_API_KEY": api_key,
+                "DEV_ENVIRONMENT_API_KEY": api_key,
+            }
+        )
+        user_config["ENVIRONMENT_API_KEY"] = api_key
+        user_config["DEV_ENVIRONMENT_API_KEY"] = api_key
+    os.environ["ENVIRONMENT_API_KEY"] = api_key
+    os.environ.setdefault("DEV_ENVIRONMENT_API_KEY", api_key)
 
     # Use Groq by default
     model = "llama-3.3-70b-versatile"
     inference_url = "https://api.groq.com/openai"
 
     print("\nInference configuration (Groq):")
-    inference_api_key = args.inference_api_key or os.getenv("GROQ_API_KEY")
+    inference_api_key = (
+        args.inference_api_key or os.getenv("GROQ_API_KEY") or user_config.get("GROQ_API_KEY")
+    )
     if not inference_api_key:
         inference_api_key = input("Groq API key: ").strip()
         if not inference_api_key:
             parser.error("Groq API key is required")
-
-        # Save to .env for future use
-        env_path = Path.cwd() / ".env"
-        try:
-            # Read existing .env
-            existing_lines = []
-            if env_path.exists():
-                existing_lines = env_path.read_text().splitlines()
-
-            # Check if GROQ_API_KEY already exists
-            key_exists = any(line.strip().startswith("GROQ_API_KEY=") for line in existing_lines)
-
-            if not key_exists:
-                # Append to .env
-                with open(env_path, "a") as f:
-                    if existing_lines and not existing_lines[-1].strip():
-                        # File exists and last line is not empty
-                        pass
-                    elif existing_lines:
-                        # Add newline before appending
-                        f.write("\n")
-                    f.write(f"GROQ_API_KEY={inference_api_key}\n")
-                print(f"[INFO] Saved GROQ_API_KEY to {env_path}")
-        except Exception as e:
-            print(f"[WARN] Could not save GROQ_API_KEY to .env: {e}")
+        update_user_config({"GROQ_API_KEY": inference_api_key})
+        user_config["GROQ_API_KEY"] = inference_api_key
+        print("[INFO] Saved GROQ_API_KEY to user configuration")
+    os.environ["GROQ_API_KEY"] = inference_api_key
 
     print("\nRollout configuration:")
     max_llm_calls = args.max_llm_calls
@@ -455,6 +447,17 @@ async def main() -> None:
             print("  Explore ./traces/ for SFT-ready data")
             print("  Stop the local server with Ctrl+C in the deploy terminal")
             print("  Export traces to SFT JSONL via `uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl`")
+        except httpx.ConnectError as exc:
+            print(
+                f"✖ Unable to connect to the task app at {args.base_url}: {exc}",
+                file=sys.stderr,
+            )
+            print(
+                "Hint: start the local task app (for example, `uvx synth-ai demo deploy --local`) "
+                "and leave it running while you collect rollouts.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
         except httpx.HTTPStatusError as exc:
             detail = (
                 exc.response.json()

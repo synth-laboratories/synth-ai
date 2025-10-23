@@ -15,6 +15,7 @@ from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 from .http import http_request
 from .process import popen_capture
 from .secrets import key_preview
+from .user_config import load_user_config
 
 __all__ = [
     "ensure_modal_installed",
@@ -110,8 +111,8 @@ def find_asgi_apps(root: Path) -> list[Path]:
 
 
 def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEnv:
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    local_env = demo_core.load_dotenv_file(cwd_env_path)
+    persist_path = demo_core.load_demo_dir() or os.getcwd()
+    user_config_map = load_user_config()
 
     env_key = (env.env_api_key or "").strip()
     if not env_key:
@@ -195,7 +196,7 @@ def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEn
             task_url = entered_clean
         else:
             task_url = resolved
-        demo_core.persist_task_url(task_url, name=(env.task_app_name or None))
+        demo_core.persist_task_url(task_url, name=(env.task_app_name or None), path=persist_path)
 
     app_name = env.task_app_name.strip()
     requires_modal_name = is_modal_public_url(task_url)
@@ -204,21 +205,16 @@ def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEn
         if not fallback:
             raise RuntimeError(f"[{label}] Task app name is required.")
         app_name = fallback
-        demo_core.persist_task_url(task_url, name=app_name)
+        demo_core.persist_task_url(task_url, name=app_name, path=persist_path)
 
-    demo_core.persist_task_url(task_url, name=app_name if requires_modal_name else None)
-    persist_values = {
-        "TASK_APP_BASE_URL": task_url,
-        "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME,
-    }
-    if requires_modal_name and app_name:
-        persist_values["TASK_APP_NAME"] = app_name
-    demo_core.persist_dotenv_values(persist_values)
-
+    demo_core.persist_task_url(task_url, name=app_name if requires_modal_name else None, path=persist_path)
     if synth_key:
         os.environ["SYNTH_API_KEY"] = synth_key
 
-    openai_key = (os.environ.get("OPENAI_API_KEY") or local_env.get("OPENAI_API_KEY") or "").strip()
+    openai_key = (
+        os.environ.get("OPENAI_API_KEY")
+        or str(user_config_map.get("OPENAI_API_KEY") or "")
+    ).strip()
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
 

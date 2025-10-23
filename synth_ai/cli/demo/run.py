@@ -5,7 +5,6 @@ import os
 from typing import Any
 
 import click
-
 from synth_ai.cli.lib import (
     ensure_task_app_ready,
     http_request,
@@ -32,8 +31,6 @@ def run_job(
         print(f"Using demo directory: {demo_dir}")
 
     env = demo_core.load_env()
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    demo_core.load_dotenv_file(cwd_env_path)
 
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:
@@ -43,7 +40,6 @@ def run_job(
             return 1
         os.environ["SYNTH_API_KEY"] = entered
         demo_core.persist_api_key(entered)
-        demo_core.persist_dotenv_values({"SYNTH_API_KEY": entered})
     env = demo_core.load_env()
     synth_key = (env.synth_api_key or "").strip()
     if not synth_key:

@@ -6,9 +6,10 @@ import stat
 from pathlib import Path
 
 import click
-
-from synth_ai.cli.lib import ensure_modal_installed, write_text
+from synth_ai.cli.lib import ensure_modal_installed
+from synth_ai.cli.lib.print_next_step_message import print_next_step_message
 from synth_ai.demo_registry import DemoTemplate, get_demo_template, list_demo_templates
+from synth_ai.demos import core as demo_core
 
 
 def run_init(template: str | None, dest: str | None, force: bool) -> int:
@@ -153,21 +154,17 @@ def run_init(template: str | None, dest: str | None, force: bool) -> int:
                     except Exception:
                         pass
 
-        ## Write template .env if provided
+        ## Store template environment defaults if provided
         if selected.env_lines:
-            env_path = destination / ".env"
-            should_write = directory_cleared or force or not env_path.exists()
-            if env_path.exists() and not (directory_cleared or force):
-                try:
-                    response = input("File .env exists. Overwrite? [y/N]: ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    print("\nCancelled.")
-                    return 1
-                should_write = response in ("y", "yes")
-            if should_write:
-                write_text(str(env_path), "\n".join(selected.env_lines) + "\n")
-            else:
-                print("Skipping .env")
+            defaults: dict[str, str] = {}
+            for line in selected.env_lines:
+                raw = line.strip()
+                if not raw or raw.startswith("#") or "=" not in raw:
+                    continue
+                key, value = raw.split("=", 1)
+                defaults[key.strip()] = value.strip()
+            if defaults:
+                demo_core.persist_dotenv_values(defaults, cwd=str(destination))
 
         ## Copy default config if present
         config_src = selected.config_source_path()
@@ -197,12 +194,16 @@ def run_init(template: str | None, dest: str | None, force: bool) -> int:
                 print(f"Post-processing failed: {post_exc}")
                 return 1
 
+        demo_core.record_task_app(str(destination), template_id=selected.template_id)
+        demo_core.persist_demo_dir(str(destination))
+        demo_core.persist_template_id(selected.template_id)
+
         ## Summarise results
         print(f"\nDemo files created at\n{destination}")
         for spec in selected.iter_copy_specs():
             print(f" - {spec.destination}")
         if selected.env_lines:
-            print(" - .env")
+            print(" - environment defaults stored")
         if selected.config_source_path():
             print(f" - {selected.config_destination}")
 
@@ -213,7 +214,7 @@ def run_init(template: str | None, dest: str | None, force: bool) -> int:
         print("  DEMO_MODE=1")
         print(f"  DEMO_DIR={destination}")
 
-        print("\n➡️  Next, set up your environment:\n   uvx synth-ai setup\n")
+        print_next_step_message("set up your environment", ["uvx synth-ai setup"])
         return 0
     except KeyboardInterrupt:
         return 1

@@ -10,9 +10,14 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import click
 import requests
-
-from synth_ai.cli.lib import is_modal_public_url, key_preview, popen_capture
-from synth_ai.cli.lib.user_config import USER_CONFIG_PATH, update_user_config
+from synth_ai.cli.lib import (
+    USER_CONFIG_PATH,
+    is_modal_public_url,
+    key_preview,
+    popen_capture,
+    update_user_config,
+)
+from synth_ai.cli.lib.print_next_step_message import print_next_step_message
 from synth_ai.demos import core as demo_core
 
 
@@ -218,7 +223,8 @@ def setup() -> int:
                 break
         if new_url and new_url != current:
             print(f"Updating TASK_APP_BASE_URL from Modal CLI → {new_url}")
-            demo_core.persist_task_url(new_url, name=env.task_app_name)
+            persist_path = demo_dir or os.getcwd()
+            demo_core.persist_task_url(new_url, name=env.task_app_name, path=persist_path)
             os.environ["TASK_APP_BASE_URL"] = new_url
             _refresh_env()
 
@@ -242,9 +248,6 @@ def setup() -> int:
         ) or demo_core.assert_http_ok(
             base, method="GET"
         )
-    else:
-        print("\nSet your task app URL by running:\nuvx synth-ai demo deploy\n")
-
     print("\nSaved keys:")
     print(f"  SYNTH_API_KEY={key_preview(synth_key, 'SYNTH_API_KEY')}")
     print(f"  ENVIRONMENT_API_KEY={key_preview(rl_env_key, 'ENVIRONMENT_API_KEY')}")
@@ -254,7 +257,7 @@ def setup() -> int:
 
     demo_core.persist_demo_dir(os.getcwd())
 
-    print("\nNext step:\n$ uvx synth-ai demo deploy")
+    print_next_step_message("deploy our task app", ["uvx synth-ai deploy"])
     return 0
 
 

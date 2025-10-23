@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from pathlib import Path
 
+from synth_ai.cli.lib import task_app_state
+from synth_ai.cli.lib.user_config import load_user_config
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
-from synth_ai.cli.lib.user_config import load_user_config, update_user_config
 
-DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"
+DEFAULT_TASK_APP_SECRET_NAME = task_app_state.DEFAULT_TASK_APP_SECRET_NAME
 
 
 @dataclass
@@ -29,219 +29,61 @@ def _mask(value: str, keep: int = 4) -> str:
     return value[:keep] + "…" if len(value) > keep else value
 
 
-_LEGACY_STATE_PATH = os.path.expanduser("~/.synth-ai/demo.json")
-_STATE_KEYS = {
-    "DEMO_DIR",
-    "TEMPLATE_ID",
-    "ENV_FILE_PATH",
-    "SYNTH_API_KEY",
-    "ENVIRONMENT_API_KEY",
-    "TASK_APP_BASE_URL",
-    "TASK_APP_NAME",
-    "TASK_APP_SECRET_NAME",
-}
-
-
-def _load_user_config_data() -> dict[str, Any]:
-    try:
-        from synth_ai.cli.lib.user_config import load_user_config as _load
-
-        return _load()
-    except Exception:
-        return {}
-
-
-def _update_user_config_data(updates: dict[str, Any]) -> dict[str, Any]:
-    try:
-        from synth_ai.cli.lib.user_config import update_user_config as _update
-
-        return _update(updates)
-    except Exception:
-        merged = dict(_load_user_config_data())
-        merged.update(updates)
-        try:
-            path = os.path.expanduser("~/.synth-ai/user_config.json")
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as fh:
-                json.dump(merged, fh, indent=2, sort_keys=True)
-        except Exception:
-            pass
-        return merged
-
-
-def _legacy_read_state() -> dict[str, Any]:
-    try:
-        if os.path.isfile(_LEGACY_STATE_PATH):
-            with open(_LEGACY_STATE_PATH) as fh:
-                data = json.load(fh) or {}
-                return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-    return {}
-
-
-def _read_state() -> dict[str, Any]:
-    config = _load_user_config_data()
-    data: dict[str, Any] = {
-        key: config[key]
-        for key in _STATE_KEYS
-        if key in config and config[key] not in (None, "")
-    }
-    if data:
-        return data
-    return _legacy_read_state()
-
-
-def _write_state(data: dict[str, Any]) -> None:
-    _update_user_config_data({k: v for k, v in data.items() if k in _STATE_KEYS})
-
-
-def _task_app_config_path() -> str:
-    return os.path.expanduser("~/.synth-ai/task_app_config.json")
-
-
-def _read_task_app_config() -> dict[str, Any]:
-    data: dict[str, Any] = {}
-    path = _task_app_config_path()
-    try:
-        if os.path.isfile(path):
-            with open(path) as fh:
-                loaded = json.load(fh) or {}
-                if isinstance(loaded, dict):
-                    data.update(loaded)
-    except Exception:
-        data = {}
-
-    if data:
-        return data
-
-    # Legacy fallback: reuse values from demo.json if new config absent.
-    legacy = _read_state()
-    for key in ("TASK_APP_BASE_URL", "TASK_APP_NAME", "TASK_APP_SECRET_NAME", "ENVIRONMENT_API_KEY"):
-        if key in legacy:
-            data[key] = legacy[key]
-    return data
-
-
-def _write_task_app_config(data: dict[str, Any]) -> None:
-    try:
-        path = _task_app_config_path()
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as fh:
-            json.dump(data, fh)
-    except Exception:
-        pass
-
-
-def load_dotenv_file(path: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    try:
-        with open(path) as fh:
-            for raw in fh:
-                line = raw.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                out[k.strip()] = v.strip().strip('"').strip("'")
-    except Exception:
-        pass
-    return out
-
-
-def _persist_dotenv_values(path: str, values: dict[str, str]) -> None:
-    """Ensure ``values`` are present in ``path`` (.env style)."""
-
-    try:
-        existing_lines: list[str] = []
-        if os.path.isfile(path):
-            with open(path) as fh:
-                existing_lines = fh.read().splitlines()
-        else:
-            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        mapping: dict[str, str] = {}
-        order: list[str] = []
-        for line in existing_lines:
-            if not line or line.startswith("#") or "=" not in line:
-                order.append(line)
-                continue
-            key, val = line.split("=", 1)
-            key = key.strip()
-            mapping[key] = val
-            order.append(key)
-        for key, value in values.items():
-            if key not in mapping:
-                order.append(key)
-            mapping[key] = value
-        with open(path, "w") as fh:
-            for item in order:
-                if item in mapping:
-                    fh.write(f"{item}={mapping[item]}\n")
-                else:
-                    fh.write(item + "\n")
-            for key, value in values.items():
-                if key not in order:
-                    fh.write(f"{key}={value}\n")
-    except Exception:
-        # Best-effort; failure to persist shouldn't crash CLI usage.
-        pass
+record_task_app = task_app_state.record_task_app
+persist_env_api_key = task_app_state.persist_env_api_key
+persist_task_url = task_app_state.persist_task_url
+persist_api_key = task_app_state.persist_api_key
 
 
 def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> str:
-    path = os.path.join(cwd or os.getcwd(), ".env")
-    _persist_dotenv_values(path, values)
-    return path
+    """Persist key/value pairs to a local .env file for compatibility."""
 
+    base_dir = Path(cwd or os.getcwd())
+    base_dir.mkdir(parents=True, exist_ok=True)
+    env_path = base_dir / ".env"
 
-def persist_env_api_key(key: str) -> None:
-    data = _read_task_app_config()
-    data["ENVIRONMENT_API_KEY"] = key
-    _write_task_app_config(data)
-    _update_user_config_data({"ENVIRONMENT_API_KEY": key})
+    existing: dict[str, str] = {}
+    if env_path.is_file():
+        for raw in env_path.read_text().splitlines():
+            if not raw or raw.lstrip().startswith("#") or "=" not in raw:
+                continue
+            k, v = raw.split("=", 1)
+            existing[k.strip()] = v.strip()
+
+    existing.update({k: str(v) for k, v in values.items() if v is not None})
+
+    with env_path.open("w", encoding="utf-8") as handle:
+        for key, value in existing.items():
+            handle.write(f"{key}={value}\n")
+
+    for key, value in existing.items():
+        os.environ.setdefault(key, value)
+
+    return str(env_path)
 
 
 def persist_demo_dir(demo_dir: str) -> None:
     """Store the demo directory path for subsequent commands."""
-    data = _read_state()
-    data["DEMO_DIR"] = demo_dir
-    _write_state(data)
+
+    task_app_state.persist_demo_dir(demo_dir)
 
 
 def load_demo_dir() -> str | None:
     """Load the stored demo directory path, if any."""
-    data = _read_state()
-    return data.get("DEMO_DIR")
+
+    return task_app_state.load_demo_dir()
 
 
 def persist_template_id(template_id: str | None) -> None:
     """Record the last materialized demo template id."""
 
-    data = _read_state()
-    if template_id is None:
-        data.pop("TEMPLATE_ID", None)
-    else:
-        data["TEMPLATE_ID"] = template_id
-    _write_state(data)
+    task_app_state.persist_template_id(template_id)
 
 
 def load_template_id() -> str | None:
     """Return the stored demo template id, if any."""
 
-    data = _read_state()
-    value = data.get("TEMPLATE_ID")
-    return str(value) if isinstance(value, str) else None
-
-
-def persist_env_file_path(env_path: str) -> None:
-    """Store the .env file path for subsequent commands."""
-    data = _read_state()
-    data["ENV_FILE_PATH"] = env_path
-    _write_state(data)
-
-
-def load_env_file_path() -> str | None:
-    """Load the stored .env file path, if any."""
-    data = _read_state()
-    return data.get("ENV_FILE_PATH")
+    return task_app_state.load_template_id()
 
 
 def modal_auth_status() -> tuple[bool, str]:
@@ -291,56 +133,35 @@ def modal_auth_status() -> tuple[bool, str]:
 
 
 def load_env() -> DemoEnv:
-    """Resolve environment with sane defaults and auto-detection.
+    """Resolve environment values from ``os.environ``, user configuration, and task-app metadata."""
 
-    Backend URL:
-      - Use BACKEND_OVERRIDE (any) from CWD .env if set
-      - Else use DEV_BACKEND_URL from CWD .env ONLY if it's localhost/127.0.0.1 or :8000
-      - Else default to production backend (PROD_BASE_URL_DEFAULT)
-
-    API keys:
-      - SYNTH_API_KEY from OS -> CWD .env -> repo .env -> pkg demo .env -> state
-      - If still missing, auto-pick DEV/PROD key based on backend and persist
-
-    TASK_APP_BASE_URL:
-      - OS -> CWD .env -> repo .env -> pkg demo .env -> state
-    """
     env = DemoEnv()
 
     os_env: dict[str, str] = dict(os.environ)
+    user_config_map: dict[str, str] = load_user_config()
 
-    # CWD .env
-    cwd_env_path = os.path.join(os.getcwd(), ".env")
-    cwd_env = load_dotenv_file(cwd_env_path)
-
-    # Repo/package .envs (fallbacks)
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    repo_env = load_dotenv_file(os.path.join(repo_root, ".env"))
-    pkg_env = load_dotenv_file(os.path.join(repo_root, "synth_ai", "demos", "math", ".env"))
-    examples_env = load_dotenv_file(os.path.join(repo_root, "examples", "rl", ".env"))
-
-    state = _read_state()
-    task_state = _read_task_app_config()
+    preferred_path = task_app_state.task_app_id_from_path(load_demo_dir())
+    if not preferred_path:
+        preferred_path = task_app_state.task_app_id_from_path(Path.cwd())
+    current_task_path, entry = task_app_state.resolve_task_app_entry(preferred_path)
+    modal_entry = entry.get("modal", {}) if isinstance(entry, dict) else {}
 
     default_root = PROD_BASE_URL_DEFAULT.rstrip("/")
     prod_default = f"{default_root}/api"
 
+    def _pick(*candidates: str | None) -> str:
+        for candidate in candidates:
+            if candidate is None:
+                continue
+            candidate = str(candidate).strip()
+            if candidate:
+                return candidate
+        return ""
+
     # Backend URL resolution
-    backend_override = (
-        os_env.get("BACKEND_OVERRIDE")
-        or cwd_env.get("BACKEND_OVERRIDE")
-        or repo_env.get("BACKEND_OVERRIDE")
-        or pkg_env.get("BACKEND_OVERRIDE")
-        or examples_env.get("BACKEND_OVERRIDE")
-        or ""
-    ).strip()
-    dev_env = (
-        os_env.get("DEV_BACKEND_URL")
-        or cwd_env.get("DEV_BACKEND_URL")
-        or repo_env.get("DEV_BACKEND_URL")
-        or pkg_env.get("DEV_BACKEND_URL")
-        or ""
-    ).strip()
+    backend_override = _pick(os_env.get("BACKEND_OVERRIDE"), user_config_map.get("BACKEND_OVERRIDE"))
+    dev_env = _pick(os_env.get("DEV_BACKEND_URL"), user_config_map.get("DEV_BACKEND_URL"))
+
     if backend_override:
         dev_url = backend_override
     elif dev_env:
@@ -354,14 +175,7 @@ def load_env() -> DemoEnv:
     if not dev_url.endswith("/api"):
         dev_url = dev_url.rstrip("/") + "/api"
 
-    # API key selection
-    synth_api_key = (
-        os_env.get("SYNTH_API_KEY")
-        or cwd_env.get("SYNTH_API_KEY")
-        or repo_env.get("SYNTH_API_KEY")
-        or pkg_env.get("SYNTH_API_KEY")
-        or str(state.get("SYNTH_API_KEY") or "")
-    )
+    synth_api_key = _pick(os_env.get("SYNTH_API_KEY"), user_config_map.get("SYNTH_API_KEY"))
     if not synth_api_key:
         mode = (
             "prod"
@@ -369,57 +183,55 @@ def load_env() -> DemoEnv:
             else ("local" if ("localhost" in dev_url or "127.0.0.1" in dev_url) else "dev")
         )
         if mode == "prod":
-            synth_api_key = (
-                os_env.get("PROD_SYNTH_API_KEY")
-                or cwd_env.get("PROD_SYNTH_API_KEY")
-                or repo_env.get("PROD_SYNTH_API_KEY")
-                or pkg_env.get("PROD_SYNTH_API_KEY")
-                or ""
+            synth_api_key = _pick(
+                os_env.get("PROD_SYNTH_API_KEY"),
+                user_config_map.get("PROD_SYNTH_API_KEY"),
             )
         else:
-            synth_api_key = (
-                os_env.get("DEV_SYNTH_API_KEY")
-                or cwd_env.get("DEV_SYNTH_API_KEY")
-                or repo_env.get("DEV_SYNTH_API_KEY")
-                or pkg_env.get("DEV_SYNTH_API_KEY")
-                or os_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or cwd_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or repo_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or pkg_env.get("TESTING_LOCAL_SYNTH_API_KEY")
-                or ""
+            synth_api_key = _pick(
+                os_env.get("DEV_SYNTH_API_KEY"),
+                user_config_map.get("DEV_SYNTH_API_KEY"),
+                os_env.get("TESTING_LOCAL_SYNTH_API_KEY"),
+                user_config_map.get("TESTING_LOCAL_SYNTH_API_KEY"),
             )
         if synth_api_key:
-            st = dict(state)
-            st["SYNTH_API_KEY"] = synth_api_key
-            _write_state(st)
+            persist_api_key(synth_api_key)
 
-    env_api_key = (
-        os_env.get("ENVIRONMENT_API_KEY")
-        or cwd_env.get("ENVIRONMENT_API_KEY")
-        or repo_env.get("ENVIRONMENT_API_KEY")
-        or pkg_env.get("ENVIRONMENT_API_KEY")
-        or examples_env.get("ENVIRONMENT_API_KEY")
-        or str(task_state.get("ENVIRONMENT_API_KEY") or "")
+    env_api_key = _pick(
+        os_env.get("ENVIRONMENT_API_KEY"),
+        user_config_map.get("ENVIRONMENT_API_KEY"),
+        os_env.get("DEV_ENVIRONMENT_API_KEY"),
+        user_config_map.get("DEV_ENVIRONMENT_API_KEY"),
     )
 
     # Task app URL
-    task_url = (
-        os_env.get("TASK_APP_BASE_URL")
-        or cwd_env.get("TASK_APP_BASE_URL")
-        or repo_env.get("TASK_APP_BASE_URL")
-        or pkg_env.get("TASK_APP_BASE_URL")
-        or str(task_state.get("TASK_APP_BASE_URL") or "")
+    task_url = _pick(
+        os_env.get("TASK_APP_BASE_URL"),
+        user_config_map.get("TASK_APP_BASE_URL"),
+        modal_entry.get("base_url") if isinstance(modal_entry, dict) else None,
     )
 
-    task_app_name = str(task_state.get("TASK_APP_NAME") or "")
-    task_app_secret_name = str(task_state.get("TASK_APP_SECRET_NAME") or DEFAULT_TASK_APP_SECRET_NAME)
+    task_app_name = _pick(
+        os_env.get("TASK_APP_NAME"),
+        user_config_map.get("TASK_APP_NAME"),
+        modal_entry.get("app_name") if isinstance(modal_entry, dict) else None,
+    )
+    task_app_secret_name = _pick(
+        os_env.get("TASK_APP_SECRET_NAME"),
+        user_config_map.get("TASK_APP_SECRET_NAME"),
+        modal_entry.get("secret_name") if isinstance(modal_entry, dict) else None,
+        DEFAULT_TASK_APP_SECRET_NAME,
+    )
 
     env.dev_backend_url = dev_url.rstrip("/")
     env.synth_api_key = synth_api_key
     env.env_api_key = env_api_key
-    env.task_app_base_url = task_url.rstrip("/")
+    env.task_app_base_url = task_url.rstrip("/") if task_url else ""
     env.task_app_name = task_app_name
     env.task_app_secret_name = task_app_secret_name
+
+    if current_task_path:
+        task_app_state.update_task_app_entry(current_task_path)
 
     if os.getenv("SYNTH_CLI_VERBOSE", "0") == "1":
         print("ENV:")
@@ -453,6 +265,7 @@ def assert_http_ok(
 
 def deploy_modal_math(env: DemoEnv) -> str:
     """Deploy Math Task App to Modal using in-repo deploy script; return public URL."""
+
     this_dir = os.path.dirname(__file__)
     demo_script = os.path.join(this_dir, "math", "deploy_task_app.sh")
     repo_root = os.path.abspath(os.path.join(this_dir, "../.."))
@@ -479,39 +292,6 @@ def deploy_modal_math(env: DemoEnv) -> str:
     raise RuntimeError("Failed to extract Modal Task App URL from deploy logs")
 
 
-def persist_task_url(url: str, *, name: str | None = None) -> None:
-    data = _read_task_app_config()
-    changed: list[str] = []
-    if data.get("TASK_APP_BASE_URL") != url:
-        data["TASK_APP_BASE_URL"] = url
-        changed.append("TASK_APP_BASE_URL")
-    if name:
-        if data.get("TASK_APP_NAME") != name:
-            data["TASK_APP_NAME"] = name
-            changed.append("TASK_APP_NAME")
-        if data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
-            data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-            changed.append("TASK_APP_SECRET_NAME")
-    elif data.get("TASK_APP_SECRET_NAME") != DEFAULT_TASK_APP_SECRET_NAME:
-        data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
-        changed.append("TASK_APP_SECRET_NAME")
-    _write_task_app_config(data)
-    persisted: dict[str, Any] = {"TASK_APP_BASE_URL": url, "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME}
-    if name:
-        persisted["TASK_APP_NAME"] = name
-    _update_user_config_data(persisted)
-    if changed:
-        print(f"Saved {', '.join(changed)} to {_task_app_config_path()}")
-        if "TASK_APP_SECRET_NAME" in changed:
-            print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
-
-
-def persist_api_key(key: str) -> None:
-    data = _read_state()
-    data["SYNTH_API_KEY"] = key
-    _write_state(data)
-
-
 def run_job(
     env: DemoEnv,
     config_toml_path: str,
@@ -521,6 +301,7 @@ def run_job(
     model: str | None = None,
 ) -> None:
     """Create and stream a short RL job using the backend API (placeholder: prints cURL to execute)."""
+
     backend = env.dev_backend_url.rstrip("/")
     api_base = backend if backend.endswith("/api") else backend + "/api"
     print("\nTo create an RL job, run:")
