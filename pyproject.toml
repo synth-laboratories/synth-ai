@@ -59,7 +59,7 @@ dependencies = [
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
-synth-ai-demo = "synth_ai.demos.core.cli:main"
+synth-ai-demo = "synth_ai.cli.demo.core_cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -127,8 +127,9 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 "synth_ai" = [
-    "demos/demo_task_apps/math/config.toml",
-    "demos/demo_task_apps/math/deploy_task_app.sh",
+    "demos/math/config.toml",
+    "demos/math/deploy_task_app.sh",
+    "demos/crafter/configs/*.toml",
 ]
 
 [tool.pytest.ini_options]
