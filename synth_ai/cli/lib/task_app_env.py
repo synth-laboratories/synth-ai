@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import os
-import signal
-import subprocess
-import time
 from collections.abc import Sequence
 from pathlib import Path
 
 import click
 
+from synth_ai.cli.lib.process import ensure_local_port_available
+from synth_ai.cli.lib.secrets import key_preview
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 from synth_ai.task.apps import TaskAppEntry
 
@@ -110,54 +109,13 @@ def resolve_env_paths_for_script(script_path: Path, explicit: Sequence[str]) -> 
 def ensure_port_free(port: int, host: str, *, force: bool) -> None:
     """Ensure a TCP port is not in use, optionally killing processes if --force."""
 
-    import socket  # local import to avoid unnecessary dependency during CLI import
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        in_use = sock.connect_ex((host, port)) == 0
-    if not in_use:
+    if ensure_local_port_available(host, port, force=force):
         return
 
-    try:
-        out = subprocess.run(
-            ["lsof", "-ti", f"TCP:{port}"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        pids = [pid for pid in out.stdout.strip().splitlines() if pid]
-    except FileNotFoundError:
-        pids = []
-
-    if not force:
-        message = f"Port {port} appears to be in use"
-        if pids:
-            message += f" (PIDs: {', '.join(pids)})"
+    message = f"Port {port} is still in use. Stop the running server and try again."
+    if force:
         raise click.ClickException(message)
-
-    for pid in pids:
-        try:
-            os.kill(int(pid), signal.SIGTERM)
-        except Exception as exc:
-            raise click.ClickException(f"Failed to terminate PID {pid}: {exc}") from exc
-
-    time.sleep(0.5)
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        still_in_use = sock.connect_ex((host, port)) == 0
-
-    if still_in_use:
-        for pid in pids:
-            try:
-                os.kill(int(pid), signal.SIGKILL)
-            except Exception as exc:
-                raise click.ClickException(f"Failed to force terminate PID {pid}: {exc}") from exc
-        time.sleep(0.5)
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        if sock.connect_ex((host, port)) == 0:
-            raise click.ClickException(
-                f"Port {port} is still in use after attempting to terminate processes."
-            )
+    raise click.ClickException(f"Port {port} appears to be in use. Restart with --force to terminate it.")
 
 
 def save_to_env_file(env_path: Path, key: str, value: str) -> None:
@@ -263,7 +221,7 @@ def print_demo_next_steps_if_applicable() -> None:
     """Print helpful instructions when operating inside a demo directory."""
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
 
         cwd = Path.cwd().resolve()
         demo_dir = load_demo_dir()
@@ -282,9 +240,7 @@ def print_demo_next_steps_if_applicable() -> None:
 
 
 def _preview_secret(value: str) -> str:
-    if len(value) <= 10:
-        return value
-    return f"{value[:6]}...{value[-4:]}"
+    return key_preview(value, "secret")
 
 
 def preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_failure: bool = False) -> None:
