@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import click
 
-from . import configure, deploy, init, run, setup
+from .. import setup
+from . import configure, deploy, init, run
 
 
 def register(cli):
@@ -15,19 +16,16 @@ def register(cli):
         click.echo(
             "\nWelcome to the Synth AI demo!\n"
             "\nRemote (Modal) workflow:\n"
-            "  synth-ai demo init   # choose math-modal\n"
-            "  synth-ai demo setup  # pair the SDK and store API keys\n"
-            "  synth-ai demo deploy # deploy to Modal (public HTTPS URL)\n"
-            "  synth-ai demo run    # submit the sample RL job to Synth cloud\n"
+            " 1. synth-ai demo init\n"
+            " 2. synth-ai setup\n"
+            " 3. synth-ai deploy\n"
+            " 4. synth-ai run\n"
             "\nLocal workflow:\n"
-            "  synth-ai demo init   # choose a local-friendly template (e.g. crafter-local)\n"
-            "  synth-ai demo setup  # write keys to the local .env\n"
-            "  synth-ai demo deploy # start the FastAPI server (keep terminal open)\n"
-            "  uvx python run_local_rollout_traced.py\n"
-            "  uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl\n"
-            "  # Optional lighter run\n"
-            "  uvx python run_local_rollout.py\n"
-            "  # Skip 'demo run' unless your task app is publicly reachable\n"
+            " 1. synth-ai demo init\n"
+            " 2. synth-ai setup\n"
+            " 3. synth-ai deploy\n"
+            " 4. uvx python run_local_rollout_traced.py\n"
+            " 5. uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl\n"
         )
         ctx.exit(0)
 
