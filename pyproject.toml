@@ -1,7 +1,7 @@
 [project]
 name = "synth-ai"
-version = "0.2.9.dev5"
-description = "RL as a service SDK - Core AI functionality and tracing"
+version = "0.2.9.dev6"
+description = "Python SDK and CLI for Synth — RL-as-a-service"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 readme = "README.md"
@@ -90,7 +90,9 @@ analytics = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/synth-laboratories/synth-ai"
+Homepage = "https://usesynth.ai"
+Documentation = "https://docs.usesynth.ai/sdk/get-started"
+Changelog = "https://docs.usesynth.ai/changelog"
 Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
@@ -99,7 +101,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*", "examples*"]
+include = ["synth_ai*", "synth*", "examples*"]
 exclude = [
     "docs*",
     "tests*",
@@ -195,6 +197,8 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "synth_ai/http.py" = ["F403"]
+"**/__init__.py" = ["N999"]
+"**/__main__.py" = ["N999"]
 
 [dependency-groups]
 dev = [

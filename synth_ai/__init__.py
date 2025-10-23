@@ -1,7 +1,3 @@
-"""
-Synth AI - Software for aiding the best and multiplying the will.
-"""
-
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
 import synth_ai.environments as environments  # expose module name for __all__
@@ -26,6 +22,24 @@ tracing = None  # type: ignore
 EventPartitionElement = RewardSignal = SystemTrace = TrainingQuestion = None  # type: ignore
 trace_event_async = trace_event_sync = upload = None  # type: ignore
 
+SDK_HELP = """
+Synth-AI SDK
+
+Quickstart:
+    pip install synth-ai
+    import synth_ai
+    uvx synth-ai setup
+
+Docs → https://docs.usesynth.ai/sdk/get-started
+""".strip()
+
+__doc__ = SDK_HELP
+
+
+def help() -> str:
+    """Return a concise quickstart for the Synth-AI SDK."""
+    return SDK_HELP
+
 __version__ = "0.2.6.dev4"
 __all__ = [
     "LM",
@@ -34,4 +48,5 @@ __all__ = [
     "Anthropic",
     "AsyncAnthropic",
     "environments",
+    "help",
 ]  # Explicitly define public API (v1 tracing omitted in minimal env)
