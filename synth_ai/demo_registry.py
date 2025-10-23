@@ -24,7 +24,7 @@ class CopySpec:
 
 @dataclass(frozen=True)
 class DemoTemplate:
-    """Describes a demo task app template that can be materialised into the CWD."""
+    """Describes a demo task app template that can be materialized into the CWD."""
 
     template_id: str
     name: str
@@ -53,16 +53,16 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
         description="Packaged modal task app matching examples/rl math environment.",
         copy_specs=(
             CopySpec(
-                "synth_ai/demos/demo_task_apps/math/modal_task_app.py",
+                "synth_ai/demos/math/modal_task_app.py",
                 "task_app.py",
             ),
             CopySpec(
-                "synth_ai/demos/demo_task_apps/math/deploy_task_app.sh",
+                "synth_ai/demos/math/deploy_task_app.sh",
                 "deploy_task_app.sh",
                 make_executable=True,
             ),
             CopySpec(
-                "synth_ai/demos/demo_task_apps/math/config.toml",
+                "synth_ai/demos/math/config.toml",
                 "configs/rl_from_base_qwen17.toml",
             ),
         ),
@@ -78,7 +78,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
             "# Optional: set to 'prod' to use production names",
             "ENVIRONMENT=",
         ),
-        config_source="synth_ai/demos/demo_task_apps/math/config.toml",
+        config_source="synth_ai/demos/math/config.toml",
         requires_modal=True,
         post_copy=lambda root: _postprocess_math_modal(root),
     ),
@@ -88,19 +88,19 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
         description="Lightweight wrapper around examples/warming_up_to_rl/task_app/grpo_crafter for local experimentation.",
         copy_specs=(
             CopySpec(
-                "synth_ai/demos/demo_task_apps/crafter/grpo_crafter_task_app.py",
+                "synth_ai/demos/crafter/grpo_crafter_task_app.py",
                 "task_app.py",
             ),
             CopySpec(
-                "synth_ai/demos/demo_task_apps/crafter/README.md",
+                "synth_ai/demos/crafter/README.md",
                 "README.md",
             ),
             CopySpec(
-                "synth_ai/demos/demo_task_apps/crafter/configs/rl_from_base_qwen4b.toml",
+                "synth_ai/demos/crafter/configs/rl_from_base_qwen4b.toml",
                 "configs/rl_from_base_qwen4b.toml",
             ),
             CopySpec(
-                "synth_ai/demos/demo_task_apps/crafter/configs/crafter_fft_4b.toml",
+                "synth_ai/demos/crafter/configs/crafter_fft_4b.toml",
                 "configs/crafter_fft_4b.toml",
             ),
             CopySpec(
@@ -140,7 +140,7 @@ DEMO_TEMPLATES: tuple[DemoTemplate, ...] = (
             "# Optional: URL for existing Crafter task app",
             "TASK_APP_BASE_URL=",
         ),
-        config_source="synth_ai/demos/demo_task_apps/crafter/configs/rl_from_base_qwen4b.toml",
+        config_source="synth_ai/demos/crafter/configs/rl_from_base_qwen4b.toml",
         config_destination="demo_config.toml",
         requires_modal=False,
         post_copy=lambda root: _postprocess_crafter_local(root),
