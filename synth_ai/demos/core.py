@@ -42,6 +42,33 @@ _STATE_KEYS = {
 }
 
 
+def _load_user_config_data() -> dict[str, Any]:
+    try:
+        from synth_ai.cli.lib.user_config import load_user_config as _load
+
+        return _load()
+    except Exception:
+        return {}
+
+
+def _update_user_config_data(updates: dict[str, Any]) -> dict[str, Any]:
+    try:
+        from synth_ai.cli.lib.user_config import update_user_config as _update
+
+        return _update(updates)
+    except Exception:
+        merged = dict(_load_user_config_data())
+        merged.update(updates)
+        try:
+            path = os.path.expanduser("~/.synth-ai/user_config.json")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(merged, fh, indent=2, sort_keys=True)
+        except Exception:
+            pass
+        return merged
+
+
 def _legacy_read_state() -> dict[str, Any]:
     try:
         if os.path.isfile(_LEGACY_STATE_PATH):
@@ -54,7 +81,7 @@ def _legacy_read_state() -> dict[str, Any]:
 
 
 def _read_state() -> dict[str, Any]:
-    config = load_user_config()
+    config = _load_user_config_data()
     data: dict[str, Any] = {
         key: config[key]
         for key in _STATE_KEYS
@@ -66,7 +93,7 @@ def _read_state() -> dict[str, Any]:
 
 
 def _write_state(data: dict[str, Any]) -> None:
-    update_user_config({k: v for k, v in data.items() if k in _STATE_KEYS})
+    _update_user_config_data({k: v for k, v in data.items() if k in _STATE_KEYS})
 
 
 def _task_app_config_path() -> str:
@@ -169,6 +196,7 @@ def persist_env_api_key(key: str) -> None:
     data = _read_task_app_config()
     data["ENVIRONMENT_API_KEY"] = key
     _write_task_app_config(data)
+    _update_user_config_data({"ENVIRONMENT_API_KEY": key})
 
 
 def persist_demo_dir(demo_dir: str) -> None:
@@ -468,6 +496,10 @@ def persist_task_url(url: str, *, name: str | None = None) -> None:
         data["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
         changed.append("TASK_APP_SECRET_NAME")
     _write_task_app_config(data)
+    persisted: dict[str, Any] = {"TASK_APP_BASE_URL": url, "TASK_APP_SECRET_NAME": DEFAULT_TASK_APP_SECRET_NAME}
+    if name:
+        persisted["TASK_APP_NAME"] = name
+    _update_user_config_data(persisted)
     if changed:
         print(f"Saved {', '.join(changed)} to {_task_app_config_path()}")
         if "TASK_APP_SECRET_NAME" in changed:
