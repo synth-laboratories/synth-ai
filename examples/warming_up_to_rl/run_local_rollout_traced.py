@@ -454,6 +454,7 @@ async def main() -> None:
                 print(f"  open {path_hint}")
             print("  Explore ./traces/ for SFT-ready data")
             print("  Stop the local server with Ctrl+C in the deploy terminal")
+            print("  Export traces to SFT JSONL via `uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl`")
         except httpx.HTTPStatusError as exc:
             detail = (
                 exc.response.json()
