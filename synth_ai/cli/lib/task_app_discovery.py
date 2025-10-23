@@ -134,7 +134,7 @@ def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
 
         demo_dir = load_demo_dir()
         if demo_dir:
@@ -423,7 +423,7 @@ def _collect_modal_scripts() -> list[AppChoice]:
 def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
     demo_rank = 1
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
 
         demo_dir = load_demo_dir()
         if demo_dir:
@@ -623,7 +623,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        import synth_ai.demos.demo_task_apps  # noqa: F401
+        import synth_ai.demos  # noqa: F401
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())

@@ -44,7 +44,7 @@ def _maybe_use_demo_dir() -> Path | None:
     """Change into the configured demo directory, if present."""
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
     except Exception:
         return None
 

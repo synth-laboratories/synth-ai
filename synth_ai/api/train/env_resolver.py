@@ -158,7 +158,7 @@ def resolve_env(
     else:
         # Check for saved .env path from demo command
         try:
-            from synth_ai.demos.demo_task_apps.core import load_env_file_path
+            from synth_ai.demos.core import load_env_file_path
 
             saved_env_path = load_env_file_path()
             if saved_env_path:
