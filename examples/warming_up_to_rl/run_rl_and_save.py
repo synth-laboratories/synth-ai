@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 
 def _load_toml(path: Path) -> dict[str, Any]:

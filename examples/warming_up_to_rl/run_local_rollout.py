@@ -12,45 +12,14 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from dotenv import load_dotenv
-from synth_ai.task import (
-    RolloutEnvSpec,
-    RolloutPolicySpec,
-    RolloutRecordConfig,
-    RolloutRequest,
-    RolloutSafetyConfig,
-    TaskAppClient,
-)
+from synth_ai._utils.user_config import load_user_config, update_user_config
+from synth_ai.task import TaskAppClient
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.append(str(SCRIPT_DIR))
 
-def build_rollout_request(
-    seed: int,
-    run_id: str,
-    *,
-    model: str,
-    inference_url: str,
-    ops: list[str],
-    extra_headers: dict[str, str] | None = None,
-    trace_format: str = "compact",
-    return_trace: bool = False,
-) -> RolloutRequest:
-    policy_config = {"model": model, "inference_url": inference_url}
-    if extra_headers:
-        policy_config["extra_headers"] = extra_headers
-    record_cfg = RolloutRecordConfig(
-        trajectories=True,
-        trace_format=trace_format,
-        return_trace=return_trace,
-    )
-    return RolloutRequest(
-        run_id=run_id,
-        env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
-        policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
-        ops=ops,
-        record=record_cfg,
-        on_done="reset",
-        safety=RolloutSafetyConfig(),
-    )
+from shared import build_rollout_request, ops_from_pairs, parse_ops  # noqa: E402
 
 
 def summarise_response(data: Any) -> dict[str, Any]:
@@ -87,7 +56,7 @@ def summarise_response(data: Any) -> dict[str, Any]:
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
-    parser.add_argument("--api-key", help="Environment API key (or set via --env-file)")
+    parser.add_argument("--api-key", help="Environment API key (or stored in user config)")
     parser.add_argument("--seed", type=int, default=42, help="Env seed to rollout")
     parser.add_argument("--run-id", default="local-demo", help="Run identifier")
     parser.add_argument(
@@ -99,9 +68,6 @@ async def main() -> None:
         "--inference-url",
         default="https://api.openai.com",
         help="Inference base URL used by the policy (e.g., https://api.openai.com)",
-    )
-    parser.add_argument(
-        "--env-file", type=str, default=None, help="Path to .env file with API keys"
     )
     parser.add_argument(
         "--ops", default=None, help="Comma-separated rollout ops (advanced override)"
@@ -126,23 +92,37 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    # Load local .env automatically so keys are available without extra flags
-    default_env = Path.cwd() / ".env"
-    if default_env.exists():
-        load_dotenv(default_env, override=False)
+    user_config = load_user_config()
 
-    if args.env_file:
-        env_path = Path(args.env_file).expanduser()
-        if not env_path.exists():
-            print(f"[WARN] Env file not found: {env_path}")
-        else:
-            load_dotenv(env_path, override=False)
-
-    api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
+    api_key = (
+        args.api_key
+        or os.getenv("ENVIRONMENT_API_KEY")
+        or user_config.get("ENVIRONMENT_API_KEY")
+        or user_config.get("DEV_ENVIRONMENT_API_KEY")
+    )
     if not api_key:
         parser.error("Missing --api-key (or ENVIRONMENT_API_KEY not set)")
+    else:
+        os.environ.setdefault("ENVIRONMENT_API_KEY", api_key)
+        if (
+            user_config.get("ENVIRONMENT_API_KEY") != api_key
+            or user_config.get("DEV_ENVIRONMENT_API_KEY") != api_key
+        ):
+            update_user_config(
+                {
+                    "ENVIRONMENT_API_KEY": api_key,
+                    "DEV_ENVIRONMENT_API_KEY": api_key,
+                }
+            )
+            user_config["ENVIRONMENT_API_KEY"] = api_key
+            user_config["DEV_ENVIRONMENT_API_KEY"] = api_key
 
-    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    openai_key = (
+        os.getenv("OPENAI_API_KEY")
+        or user_config.get("OPENAI_API_KEY")
+        or user_config.get("DEV_OPENAI_API_KEY")
+        or ""
+    ).strip()
     needs_openai = "openai" in (args.inference_url or "").lower()
     if needs_openai and not openai_key:
         try:
@@ -154,24 +134,28 @@ async def main() -> None:
             )
         except (KeyboardInterrupt, EOFError):
             openai_key = ""
+        if openai_key:
+            update_user_config(
+                {
+                    "OPENAI_API_KEY": openai_key,
+                    "DEV_OPENAI_API_KEY": openai_key,
+                }
+            )
+            user_config["OPENAI_API_KEY"] = openai_key
+            user_config["DEV_OPENAI_API_KEY"] = openai_key
     if needs_openai and not openai_key:
-        parser.error("OPENAI_API_KEY is required. Set it in your .env or provide it when prompted.")
+        parser.error("OPENAI_API_KEY is required. Export it before running or provide it when prompted.")
     if openai_key:
         os.environ["OPENAI_API_KEY"] = openai_key
-        env_path = Path.cwd() / ".env"
-        try:
-            existing = env_path.read_text().splitlines() if env_path.exists() else []
-            if not any(line.startswith("OPENAI_API_KEY=") for line in existing):
-                if existing and existing[-1].strip():
-                    existing.append("")
-                existing.append(f"OPENAI_API_KEY={openai_key}")
-                env_path.write_text("\n".join(existing) + "\n")
-                print(f"[INFO] Saved OPENAI_API_KEY to {env_path}")
-        except Exception as exc:
-            print(f"[WARN] Could not persist OPENAI_API_KEY to {env_path}: {exc}")
 
     extra_headers: dict[str, str] | None = None
-    synth_key = os.getenv("SYNTH_API_KEY")
+    synth_key = (
+        os.getenv("SYNTH_API_KEY")
+        or user_config.get("SYNTH_API_KEY")
+        or user_config.get("DEV_SYNTH_API_KEY")
+    )
+    if synth_key:
+        os.environ.setdefault("SYNTH_API_KEY", synth_key)
     if synth_key:
         extra_headers = {"Authorization": f"Bearer {synth_key}"}
         if "openai.com" not in args.inference_url.lower():
@@ -191,20 +175,16 @@ async def main() -> None:
         print(f"  Synth API key      : {_mask(synth_key)}")
         print(f"  HTTP timeout       : {args.timeout:.1f}s")
 
-    if args.ops:
-        ops = [op.strip() for op in args.ops.split(",") if op.strip()]
-        if not ops:
-            raise ValueError("Ops must contain at least one entry")
+    explicit_ops = parse_ops(args.ops)
+    if explicit_ops is not None:
+        ops = explicit_ops
     else:
         llm_calls = max(args.max_llm_calls, 1)
         if llm_calls > 20:
             print(
                 "[WARN] --max-llm-calls capped at 20 to avoid excessive episodes; use --ops for manual control."
             )
-            llm_calls = 20
-        ops = []
-        for _ in range(llm_calls):
-            ops.extend(["agent", "env"])
+        ops = ops_from_pairs(llm_calls, cap=20)
 
     async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
         try:
@@ -214,20 +194,14 @@ async def main() -> None:
             print(json.dumps(info_payload.model_dump(), indent=2)[:600])
 
             request = build_rollout_request(
-                args.seed,
-                args.run_id,
+                seed=args.seed,
+                run_id=args.run_id,
                 model=args.model,
                 inference_url=args.inference_url,
                 ops=ops,
                 extra_headers=extra_headers,
+                max_policy_tokens=args.max_policy_tokens,
             )
-            if args.max_policy_tokens is not None:
-                request.policy.config.update(
-                    {
-                        "max_completion_tokens": args.max_policy_tokens,
-                        "max_tokens": args.max_policy_tokens,
-                    }
-                )
             if args.verbose:
                 print(f"Ops: {ops}")
                 print(f"Request headers: {request.policy.config.get('extra_headers', {})}")

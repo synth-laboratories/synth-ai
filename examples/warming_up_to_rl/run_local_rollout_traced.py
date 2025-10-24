@@ -12,57 +12,14 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from synth_ai.task import (
-    RolloutEnvSpec,
-    RolloutPolicySpec,
-    RolloutRecordConfig,
-    RolloutRequest,
-    RolloutSafetyConfig,
-    TaskAppClient,
-)
-from synth_ai.cli.lib.user_config import load_user_config, update_user_config
+from synth_ai._utils.user_config import load_user_config, update_user_config
+from synth_ai.task import TaskAppClient
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.append(str(SCRIPT_DIR))
 
-def build_rollout_request(
-    *,
-    seed: int,
-    run_id: str,
-    model: str,
-    inference_url: str,
-    inference_api_key: str,
-    ops: list[str],
-    return_trace: bool,
-    trace_format: str,
-    max_policy_tokens: int | None,
-) -> RolloutRequest:
-    policy_config = {
-        "model": model,
-        "inference_url": inference_url,
-        "api_key": inference_api_key,
-    }
-    if max_policy_tokens is not None:
-        policy_config.update(
-            {
-                "max_completion_tokens": max_policy_tokens,
-                "max_tokens": max_policy_tokens,
-            }
-        )
-
-    record = RolloutRecordConfig(
-        trajectories=True,
-        return_trace=return_trace,
-        trace_format=trace_format,
-    )
-
-    return RolloutRequest(
-        run_id=run_id,
-        env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
-        policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
-        ops=ops,
-        record=record,
-        on_done="reset",
-        safety=RolloutSafetyConfig(),
-    )
+from shared import build_rollout_request, ops_from_pairs, parse_ops  # noqa: E402
 
 
 def summarise_rollout(response: Any) -> dict[str, Any]:
@@ -118,21 +75,6 @@ def summarise_trace(trace: Any) -> dict[str, Any]:
         "lm_calls_count": len(lm_calls),
         "decision_turns": len(decision_rewards),
     }
-
-
-def ensure_ops(ops_arg: str | None, max_llm_calls: int) -> list[str]:
-    if ops_arg:
-        ops = [op.strip() for op in ops_arg.split(",") if op.strip()]
-        if not ops:
-            raise ValueError("--ops must contain at least one entry when provided")
-        return ops
-    max_llm_calls = max(max_llm_calls, 1)
-    ops: list[str] = []
-    for _ in range(max_llm_calls):
-        ops.extend(["agent", "env"])
-    return ops
-
-
 def dump_trace(trace: dict[str, Any], *, path: Path, pretty: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:
@@ -262,7 +204,7 @@ async def main() -> None:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
-    parser.add_argument("--api-key", help="RL Environment API key (will prompt if not provided)")
+    parser.add_argument("--api-key", help="Environment API key (will prompt if not provided)")
     parser.add_argument(
         "--inference-api-key", help="Inference provider API key (will prompt if not provided)"
     )
@@ -335,9 +277,9 @@ async def main() -> None:
         or user_config.get("DEV_ENVIRONMENT_API_KEY")
     )
     if not api_key:
-        api_key = input("RL Environment API key (from ENVIRONMENT_API_KEY): ").strip()
+        api_key = input("Environment API key (from ENVIRONMENT_API_KEY): ").strip()
         if not api_key:
-            parser.error("RL Environment API key is required")
+            parser.error("Environment API key is required")
         update_user_config(
             {
                 "ENVIRONMENT_API_KEY": api_key,
@@ -376,7 +318,34 @@ async def main() -> None:
     args.base_url = base_url
     args.max_llm_calls = max_llm_calls
 
-    ops = ensure_ops(args.ops, args.max_llm_calls)
+    if args.trace_path is not None:
+        try:
+            args.trace_path = Path(args.trace_path).expanduser().resolve()
+        except Exception:
+            print(f"Could not resolve path '{args.trace_path}'. Falling back to prompt.")
+            args.trace_path = None
+
+    default_trace_path = (Path.cwd() / f"{args.run_id}_trace.json").resolve()
+    if not args.no_trace_file and args.trace_path is None:
+        try:
+            prompt = (
+                "\nTo where do you want to save the trace JSON?\n"
+                f"Press enter for default path: {default_trace_path}\n> "
+            )
+            trace_path_input = input(prompt).strip()
+        except Exception:
+            trace_path_input = ""
+        if trace_path_input:
+            try:
+                args.trace_path = Path(trace_path_input).expanduser().resolve()
+            except Exception:
+                print(f"Could not resolve path '{trace_path_input}'. Using default {default_trace_path}.")
+                args.trace_path = default_trace_path
+        else:
+            args.trace_path = default_trace_path
+
+    explicit_ops = parse_ops(args.ops)
+    ops = explicit_ops if explicit_ops is not None else ops_from_pairs(args.max_llm_calls)
     return_trace = not args.no_trace
 
     async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
@@ -437,16 +406,13 @@ async def main() -> None:
             )
 
             print(f"Ops executed: {ops}")
+
             print(
                 "Tip: export TASKAPP_TRACING_ENABLED=1 and optionally TASKAPP_SFT_OUTPUT_DIR before running `uvx synth-ai serve …` to persist traces/SFT."
             )
-            print("\nWhat's next:")
             if not args.no_trace_file:
                 path_hint = args.trace_path or Path(f"{args.run_id}_trace.json")
-                print(f"  open {path_hint}")
-            print("  Explore ./traces/ for SFT-ready data")
-            print("  Stop the local server with Ctrl+C in the deploy terminal")
-            print("  Export traces to SFT JSONL via `uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl`")
+                print(f"Your traces have been saved to:\n{path_hint}")
         except httpx.ConnectError as exc:
             print(
                 f"✖ Unable to connect to the task app at {args.base_url}: {exc}",
@@ -457,7 +423,7 @@ async def main() -> None:
                 "and leave it running while you collect rollouts.",
                 file=sys.stderr,
             )
-            raise SystemExit(1)
+            raise SystemExit(1) from None
         except httpx.HTTPStatusError as exc:
             detail = (
                 exc.response.json()
