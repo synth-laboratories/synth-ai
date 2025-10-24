@@ -6,9 +6,6 @@ Canonical CLI entrypoint for Synth AI (moved from synth_ai/cli.py).
 from __future__ import annotations
 
 import click
-from synth_ai.cli.demo.configure import run_configure
-from synth_ai.cli.demo.init import run_init
-from synth_ai.cli.demo.run import run_job
 from synth_ai.cli.setup import setup
 from synth_ai.cli.task_app_deploy import deploy_command as main_deploy_command
 
@@ -41,53 +38,6 @@ def cli():
 def setup_command():
     """Perform SDK handshake and persist keys to user_config.json."""
     code = setup()
-    if code:
-        raise click.exceptions.Exit(code)
-
-
-@cli.command(name="init")
-@click.option("--template", type=str, default=None, help="Template id to instantiate")
-@click.option("--dest", type=str, default=None, help="Destination directory for files")
-@click.option("--force", is_flag=True, help="Overwrite existing files in destination")
-def init_command(template: str | None, dest: str | None, force: bool):
-    """Materialise a demo task app template into the current directory."""
-    code = run_init(template=template, dest=dest, force=force)
-    if code:
-        raise click.exceptions.Exit(code)
-
-
-@cli.command(name="run")
-@click.option("--config", type=str, default=None, help="Path to TOML config (skip prompt)")
-@click.option("--batch-size", type=int, default=None)
-@click.option("--group-size", type=int, default=None)
-@click.option("--model", type=str, default=None)
-@click.option("--timeout", type=int, default=600)
-@click.option("--dry-run", is_flag=True, help="Print request body and exit")
-def run_command(
-    config: str | None,
-    batch_size: int | None,
-    group_size: int | None,
-    model: str | None,
-    timeout: int,
-    dry_run: bool,
-):
-    """Submit the configured RL job to the backend."""
-    code = run_job(
-        config=config,
-        batch_size=batch_size,
-        group_size=group_size,
-        model=model,
-        timeout=timeout,
-        dry_run=dry_run,
-    )
-    if code:
-        raise click.exceptions.Exit(code)
-
-
-@cli.command(name="configure")
-def configure_command():
-    """Preflight demo environment and write configuration files."""
-    code = run_configure()
     if code:
         raise click.exceptions.Exit(code)
 
