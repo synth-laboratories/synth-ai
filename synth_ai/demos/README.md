@@ -4,7 +4,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
 
 ## Remote (Modal) Math Demo
 
-- Template: `math-modal` (`synth-ai demo init --template math-modal`)
+- Template: select `math-modal` when prompted by `synth-ai demo init`
 - Config: `synth_ai/demos/math/config.toml`
 - Workflow:
   1. `uvx synth-ai demo init` (choose `math-modal`)
@@ -18,7 +18,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
 
 ## Local Crafter Demo
 
-- Template: `crafter-local` (`synth-ai demo init --template crafter-local`)
+- Template: select `crafter-local` when prompted by `synth-ai demo init`
 - Config: `synth_ai/demos/crafter/configs/rl_from_base_qwen4b.toml`
 - Workflow:
   1. `uvx synth-ai demo init` (choose `crafter-local`)
@@ -29,7 +29,7 @@ This package contains tiny, ready-to-run demo Task Apps and helpers.
      ```bash
      cd <path-to-your-demo>
      uvx python run_local_rollout_traced.py
-     uvx python export_trace_sft.py --db traces/v3/synth_ai.db --output demo_sft.jsonl
+    uvx python export_trace_sft.py --db traces/v3/task_app_traces_<timestamp>.db --output demo_sft.jsonl
      # Optional lighter run
      uvx python run_local_rollout.py
      ```

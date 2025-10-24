@@ -7,6 +7,8 @@ import os
 import shutil
 from typing import TYPE_CHECKING, Optional
 
+from synth_ai.tracing_v3.constants import canonical_trace_db_path
+
 if TYPE_CHECKING:
     from .turso.daemon import SqldDaemon
 
@@ -17,7 +19,7 @@ class DatabaseConfig:
     """Centralized database configuration management."""
 
     # Default values from serve.sh
-    DEFAULT_DB_FILE = "traces/v3/synth_ai.db"
+    DEFAULT_DB_FILE = str(canonical_trace_db_path())
     DEFAULT_HTTP_PORT = 8080
 
     def __init__(

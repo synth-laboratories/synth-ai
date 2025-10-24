@@ -20,12 +20,17 @@ from examples.warming_up_to_rl.export_trace_sft import (
     parse_event_filters,
     write_jsonl,
 )
+from synth_ai.tracing_v3.constants import TRACE_DB_DIR, canonical_trace_db_name
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--db", type=Path, default=Path("traces/v3/synth_ai.db"))
-    p.add_argument("--output", type=Path, default=Path("examples/sft/ft_data/crafter_traces.jsonl"))
+    p.add_argument(
+        "--db",
+        type=Path,
+        default=TRACE_DB_DIR / canonical_trace_db_name(),
+    )
+    p.add_argument("--output", type=Path, default=Path("examples/sft/ft_data/crafter_sft.jsonl"))
     p.add_argument("--model", action="append", dest="models")
     p.add_argument("--provider", action="append", dest="providers")
     p.add_argument("--min-unique", type=int, default=0)
@@ -113,5 +118,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
