@@ -1,4 +1,4 @@
-"""Modal task app for Hendrycks MATH single-step RL environment."""
+"""Modal task app for Hendrycks MATH single-step Environment."""
 
 from __future__ import annotations
 
