@@ -1,4 +1,4 @@
-"""Task app CLI commands built on the shared ``cli.lib`` helpers."""
+"""Task app CLI commands powered by shared utilities."""
 
 from __future__ import annotations
 
@@ -12,22 +12,16 @@ import sys
 import tempfile
 import textwrap
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 
 import click
-
-from synth_ai.cli.lib.task_app_discovery import AppChoice, select_app_choice
-from synth_ai.cli.lib.task_app_env import (
-    determine_env_files,
-    ensure_env_values,
+from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
+from synth_ai.utils.task_app_env import (
+    ensure_env_credentials,
     ensure_port_free,
-    load_env_files_into_process,
-    load_env_values,
+    hydrate_user_environment,
     preflight_env_key,
-    print_demo_next_steps_if_applicable,
-    resolve_env_paths_for_script,
-    save_to_env_file,
-    validate_required_env_keys,
 )
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry
 from synth_ai.task.server import run_task_app
@@ -44,7 +38,7 @@ def _maybe_use_demo_dir() -> Path | None:
     """Change into the configured demo directory, if present."""
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
     except Exception:
         return None
 
@@ -96,6 +90,7 @@ def _apply_tracing_configuration(trace_dir: str | None, trace_db: str | None) ->
         db_url = f"sqlite+aiosqlite:///{db_path}"
         os.environ["SQLD_DB_PATH"] = str(db_path)
         os.environ["TURSO_LOCAL_DB_URL"] = db_url
+        os.environ["TASKAPP_TRACE_DB_PATH"] = str(db_path)
         click.echo(f"Tracing DB path set to {db_path}")
 
         try:
@@ -206,7 +201,7 @@ def _build_modal_app_wrapper(original_script: Path) -> tuple[Path, Path]:
     return wrapper_path, temp_root
 
 
-def _stream_modal_output(proc: subprocess.Popen[str], env_paths: Sequence[Path]) -> None:
+def _stream_modal_output(proc: subprocess.Popen[str]) -> str | None:
     """Relay Modal CLI stdout to the terminal and capture deployment URLs."""
 
     assert proc.stdout is not None
@@ -216,18 +211,18 @@ def _stream_modal_output(proc: subprocess.Popen[str], env_paths: Sequence[Path])
         if task_app_url is None and ("modal.run" in line and "=>" in line):
             parts = line.split("=>")
             if len(parts) >= 2:
-                task_app_url = parts[-1].strip()
-                if task_app_url and env_paths:
-                    save_to_env_file(env_paths[0], "TASK_APP_BASE_URL", task_app_url)
+                candidate = parts[-1].strip()
+                if candidate:
+                    task_app_url = candidate
                     click.echo(f"\n✓ Task app URL: {task_app_url}\n")
+    return task_app_url
 
 
 def _run_modal_subprocess(
     cmd: list[str],
     *,
     env: dict[str, str],
-    env_paths: Sequence[Path],
-) -> None:
+) -> str | None:
     try:
         proc = subprocess.Popen(
             cmd,
@@ -237,32 +232,29 @@ def _run_modal_subprocess(
             bufsize=1,
             env=env,
         )
-        _stream_modal_output(proc, env_paths)
+        task_app_url = _stream_modal_output(proc)
         rc = proc.wait()
         if rc != 0:
             raise subprocess.CalledProcessError(rc, cmd)
+        return task_app_url
     except subprocess.CalledProcessError as exc:
         raise click.ClickException(f"modal command failed with exit code {exc.returncode}") from exc
+    return None
 
 
-def _prepare_modal_env(env_paths: Sequence[Path], fallback_dir: Path) -> None:
-    load_env_files_into_process([str(path) for path in env_paths])
-    ensure_env_values(list(env_paths), fallback_dir)
-    load_env_values(env_paths)
-    preflight_env_key(env_paths, crash_on_failure=True)
+def _prepare_modal_env(require_synth: bool = False) -> None:
+    _prepare_runtime_env(require_synth=require_synth, perform_preflight=True)
 
 
 def _run_modal_script(
     script_path: Path,
     modal_cli: str,
     command: str,
-    env_paths: Sequence[Path],
     *,
     modal_name: str | None = None,
     dry_run: bool = False,
-) -> None:
-    env_paths = [Path(p).resolve() for p in env_paths]
-    _prepare_modal_env(env_paths, script_path.parent.resolve())
+) -> str | None:
+    _prepare_modal_env(require_synth=False)
 
     proc_env = os.environ.copy()
     pythonpath_entries: list[str] = [str(script_path.parent.resolve()), str(REPO_ROOT)]
@@ -292,16 +284,18 @@ def _run_modal_script(
             with contextlib.suppress(Exception):
                 wrapper_path.unlink(missing_ok=True)
             shutil.rmtree(temp_root, ignore_errors=True)
-        return
+        return None
 
+    task_app_url: str | None = None
     try:
-        _run_modal_subprocess(cmd, env=proc_env, env_paths=env_paths)
+        task_app_url = _run_modal_subprocess(cmd, env=proc_env)
     finally:
         if wrapper_info is not None:
             wrapper_path, temp_root = wrapper_info
             with contextlib.suppress(Exception):
                 wrapper_path.unlink(missing_ok=True)
             shutil.rmtree(temp_root, ignore_errors=True)
+    return task_app_url
 
 
 def _write_modal_entrypoint(
@@ -309,7 +303,6 @@ def _write_modal_entrypoint(
     modal_cfg: ModalDeploymentConfig,
     override_name: str | None,
     *,
-    dotenv_paths: Sequence[str] | None = None,
     original_path: Path | None = None,
     inline_secret_values: dict[str, str] | None = None,
 ) -> Path:
@@ -337,8 +330,6 @@ def _write_modal_entrypoint(
             (Path("/opt/synth_ai_repo/__local_task_app__") / Path(original_path).stem).with_suffix(".py")
         )
 
-    dotenv_paths = [str(Path(path)) for path in (dotenv_paths or [])]
-
     pip_packages = list(modal_cfg.pip_packages)
     synth_pkg = "synth-ai"
     try:
@@ -349,6 +340,8 @@ def _write_modal_entrypoint(
             synth_pkg = f"synth-ai=={host_ver}"
     except Exception:
         pass
+    if not any(str(pkg).startswith("synth-ai") for pkg in pip_packages):
+        pip_packages.insert(0, synth_pkg)
     if not any(str(pkg).startswith("synth-ai") for pkg in pip_packages):
         pip_packages.insert(0, synth_pkg)
 
@@ -391,7 +384,6 @@ ENTRY_ID = {entry.app_id!r}
 MODAL_APP_NAME = {modal_name!r}
 MODULE_NAME = {module_name!r}
 MODULE_FILE = {guaranteed_file_str or remote_file_str!r}
-DOTENV_PATHS = {dotenv_paths!r}
 INLINE_SECRET_VALUES = {inline_secret_values!r}
 
 image = Image.debian_slim(python_version={modal_cfg.python_version!r})
@@ -436,9 +428,6 @@ secret_objs = [Secret.from_name(name) for name in secrets]
 
 if INLINE_SECRET_VALUES:
     secret_objs.append(Secret.from_dict(INLINE_SECRET_VALUES))
-
-if DOTENV_PATHS:
-    secret_objs.extend(Secret.from_dotenv(path) for path in DOTENV_PATHS)
 
 volume_mounts = {volume_mounts!r}
 volume_map = {{}}
@@ -513,20 +502,26 @@ def fastapi_app():
     return Path(name)
 
 
+def _prepare_runtime_env(*, require_synth: bool, perform_preflight: bool) -> None:
+    """Load persisted credentials into the process and ensure required keys exist."""
+
+    hydrate_user_environment(override=False)
+    ensure_env_credentials(require_synth=require_synth)
+    if perform_preflight:
+        preflight_env_key(crash_on_failure=True)
+
+
 def _run_modal_with_entry(
     entry: TaskAppEntry,
     modal_cfg: ModalDeploymentConfig,
     modal_cli: str,
     modal_name: str | None,
-    env_paths: Sequence[Path],
     command: str,
     *,
     dry_run: bool = False,
     original_path: Path | None = None,
-) -> None:
-    env_paths = [Path(p).resolve() for p in env_paths]
-    fallback_dir = env_paths[0].parent if env_paths else Path.cwd()
-    _prepare_modal_env(env_paths, fallback_dir)
+) -> str | None:
+    _prepare_modal_env(require_synth=False)
 
     inline_secret_values: dict[str, str] = {}
     env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
@@ -546,13 +541,12 @@ def _run_modal_with_entry(
         shown = f"{preview[:6]}...{preview[-4:]}" if preview and len(preview) > 10 else preview
         click.echo(f"[deploy] inline ENVIRONMENT_API_KEY prepared ({shown})")
     else:
-        click.echo("[deploy] no inline ENVIRONMENT_API_KEY found; relying on Modal secrets/dotenv")
+        click.echo("[deploy] no inline ENVIRONMENT_API_KEY found; relying on Modal secrets")
 
     script_path = _write_modal_entrypoint(
         entry,
         modal_cfg,
         modal_name,
-        dotenv_paths=[str(path) for path in env_paths],
         original_path=original_path,
         inline_secret_values=inline_secret_values,
     )
@@ -573,19 +567,12 @@ def _run_modal_with_entry(
     if dry_run:
         click.echo("Dry run: " + " ".join(cmd))
         script_path.unlink(missing_ok=True)
-        return
+        return None
 
     try:
-        _run_modal_subprocess(cmd, env=proc_env, env_paths=env_paths)
+        return _run_modal_subprocess(cmd, env=proc_env)
     finally:
         script_path.unlink(missing_ok=True)
-
-
-def _resolve_modal_choice_env(choice: AppChoice, env_file: Sequence[str]) -> list[Path]:
-    if choice.modal_script:
-        return resolve_env_paths_for_script(choice.modal_script, env_file)
-    entry = choice.ensure_entry()
-    return determine_env_files(entry, env_file)
 
 
 def _resolve_trace_options(
@@ -600,13 +587,19 @@ def _resolve_trace_options(
         click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
         enable_tracing = click.confirm("Enable tracing?", default=True)
         if enable_tracing:
-            default_trace_dir = str((demo_base / "traces/v3").resolve())
+            default_trace_dir = str((demo_base / "traces").resolve())
             trace_dir = click.prompt(
                 "Trace directory", type=str, default=default_trace_dir, show_default=True
             )
     if trace_dir and trace_db is None:
-        default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
-        trace_db = click.prompt("Trace DB path", type=str, default=default_trace_db, show_default=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        default_trace_db = (Path(trace_dir).expanduser().resolve() / f"task_app_traces_{timestamp}.db")
+        trace_db = click.prompt(
+            "Trace DB path",
+            type=str,
+            default=str(default_trace_db),
+            show_default=True,
+        )
     return trace_dir, trace_db
 
 
@@ -619,35 +612,33 @@ def _serve_cli(
     force: bool,
     trace_dir: str | None,
     trace_db: str | None,
+    *,
+    allow_demo_dir: bool = True,
+    choice: AppChoice | None = None,
 ) -> None:
-    _maybe_use_demo_dir()
+    if allow_demo_dir:
+        _maybe_use_demo_dir()
 
     if port is None:
         port = click.prompt("Port to serve on", type=int, default=8001)
 
     trace_dir, trace_db = _resolve_trace_options(trace_dir, trace_db)
 
-    choice = select_app_choice(app_id, purpose="serve")
+    if choice is None:
+        choice = select_app_choice(app_id, purpose="serve")
+
     entry = choice.ensure_entry()
 
-    env_paths = determine_env_files(entry, env_file)
-    click.echo("Using env file(s): " + ", ".join(str(p.resolve()) for p in env_paths))
-    load_env_files_into_process([str(path) for path in env_paths])
-
-    validate_required_env_keys()
-    preflight_env_key(env_paths, crash_on_failure=True)
+    _prepare_runtime_env(require_synth=True, perform_preflight=True)
 
     if trace_dir or trace_db:
         _apply_tracing_configuration(trace_dir, trace_db)
 
     ensure_port_free(port, host, force=force)
 
-    if trace_dir or trace_db:
-        print_demo_next_steps_if_applicable()
-
     env_files: list[str] = []
     env_files.extend(str(Path(p)) for p in entry.env_files if p)
-    env_files.extend(str(path) for path in env_paths)
+    env_files.extend(env_file)
     env_files = list(dict.fromkeys(env_files))
 
     run_task_app(

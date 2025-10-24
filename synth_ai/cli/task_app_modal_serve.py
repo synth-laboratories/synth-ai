@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import click
-
-from synth_ai.cli.lib.task_app_discovery import select_app_choice
+from synth_ai.utils.task_app_discovery import select_app_choice
 
 from .task_apps import (
     _maybe_use_demo_dir,

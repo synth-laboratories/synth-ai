@@ -9,16 +9,14 @@ import inspect
 import os
 import sys
 import types
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
 import click
-
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_IGNORE_DIRS = {
     ".git",
@@ -134,7 +132,7 @@ def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.demos.core import load_demo_dir
 
         demo_dir = load_demo_dir()
         if demo_dir:
@@ -156,6 +154,19 @@ def _candidate_search_roots() -> list[Path]:
     for rel in DEFAULT_SEARCH_RELATIVE:
         try:
             candidate = (cwd / rel).resolve()
+        except Exception:
+            continue
+        roots.append(candidate)
+
+    try:
+        package_root = REPO_ROOT.resolve()
+    except Exception:
+        package_root = REPO_ROOT
+
+    roots.append(package_root)
+    for rel in DEFAULT_SEARCH_RELATIVE:
+        try:
+            candidate = (package_root / rel).resolve()
         except Exception:
             continue
         roots.append(candidate)
@@ -420,54 +431,28 @@ def _collect_modal_scripts() -> list[AppChoice]:
     return results
 
 
-def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
-    demo_rank = 1
-    try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-        demo_dir = load_demo_dir()
-        if demo_dir:
-            demo_path = Path(demo_dir).resolve()
-            if choice.path.is_relative_to(demo_path):
-                demo_rank = 0
-    except Exception:
-        pass
-
-    cwd_rank = 1
-    try:
-        cwd = Path.cwd().resolve()
-        if choice.path.is_relative_to(cwd):
-            try:
-                rel_path = choice.path.relative_to(cwd)
-                if len(rel_path.parts) <= 2:
-                    cwd_rank = 0
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    modal_rank = 1 if choice.modal_script else 0
-    name = choice.path.name.lower()
-    if name.endswith("_task_app.py") or name.endswith("task_app.py"):
-        file_rank = 0
-    elif name.endswith("_app.py") or "task_app" in name:
-        file_rank = 1
-    elif name.endswith(".py"):
-        file_rank = 2
-    else:
-        file_rank = 3
-
-    directory_rank = 0 if choice.path.parent.name.lower() in {"task_app", "task_apps"} else 1
-
-    return (
-        demo_rank,
-        cwd_rank,
-        modal_rank,
-        file_rank,
-        directory_rank,
-        choice.app_id,
-        str(choice.path),
+def _restore_builtin_task_apps() -> None:
+    demo_modules: tuple[tuple[str, str], ...] = (
+        ("synth_ai.demos.math.task_app_entry", "register_demo_entry"),
+        ("synth_ai.demos.crafter.grpo_crafter_task_app", "register_demo_entry"),
     )
+    for module_name, attr_name in demo_modules:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:
+            continue
+        register_fn = getattr(module, attr_name, None)
+        if callable(register_fn):
+            with contextlib.suppress(Exception):
+                register_fn()
+
+
+def _app_choice_sort_key(choice: AppChoice) -> str:
+    try:
+        resolved = choice.path.resolve()
+    except Exception:
+        resolved = choice.path
+    return str(resolved).lower()
 
 
 def _choice_matches_identifier(choice: AppChoice, identifier: str) -> bool:
@@ -593,26 +578,57 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfig 
 
 
 def _format_choice(choice: AppChoice, index: int | None = None) -> str:
-    prefix = f"[{index}] " if index is not None else ""
+    display_name = choice.label or choice.app_id
     try:
-        mtime = choice.path.stat().st_mtime
-        modified_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
-        details = f"Modified: {modified_str}"
+        rel_path = choice.path.resolve()
     except Exception:
-        details = choice.description or "No timestamp available"
-    return f"{prefix}{choice.app_id} ({choice.source}) – {details}"
+        rel_path = choice.path
+    source_hint = choice.source
+    header = f"[{display_name}]"
+    if source_hint:
+        header += f" ({source_hint})"
+    details = f"    {rel_path}"
+    if index is not None:
+        header = f"[{index}] {header}"
+    return f"{header}\n{details}"
+
+
+def _prompt_manual_choice() -> AppChoice:
+    entered = click.prompt("Enter task app path", type=str).strip()
+    if not entered:
+        raise click.ClickException("Path cannot be empty.")
+    path = Path(entered).expanduser().resolve()
+    if not path.exists():
+        raise click.ClickException(f"Task app path not found: {path}")
+
+    def _loader() -> TaskAppEntry:
+        return _load_entry_from_path(path, path.stem)
+
+    return AppChoice(
+        app_id=path.stem,
+        label=path.stem,
+        path=path,
+        source="manual",
+        entry_loader=_loader,
+    )
 
 
 def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
     click.echo("Select a task app:")
     for idx, choice in enumerate(choices, start=1):
         click.echo(_format_choice(choice, idx))
+    click.echo("[m] Enter path manually")
+
     try:
-        response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
+        response = click.prompt("Enter choice", default="1", type=str).strip().lower() or "1"
     except (click.exceptions.Abort, EOFError, KeyboardInterrupt) as exc:
         raise click.ClickException("Task app selection cancelled by user") from exc
+
+    if response in {"m", "manual"}:
+        return _prompt_manual_choice()
+
     if not response.isdigit():
-        raise click.ClickException("Selection must be a number")
+        raise click.ClickException("Selection must be a number or 'm' for manual path")
     index = int(response)
     if not 1 <= index <= len(choices):
         raise click.ClickException("Selection out of range")
@@ -621,9 +637,10 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
 
 def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
+    _restore_builtin_task_apps()
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        import synth_ai.demos.demo_task_apps  # noqa: F401
+        import synth_ai.demos  # noqa: F401
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
@@ -839,14 +856,11 @@ def _load_entry_from_path(
     if modal_cfg is None:
         modal_cfg = _extract_modal_config_from_file(resolved)
 
-    env_files: Iterable[str] = getattr(module, "ENV_FILES", ())  # type: ignore[arg-type]
-
     return TaskAppEntry(
         app_id=app_id,
         description=inspect.getdoc(module) or f"Discovered task app in {resolved.name}",
         config_factory=factory_callable,
         aliases=(),
-        env_files=tuple(str(Path(p)) for p in env_files if p),
         modal=modal_cfg,
     )
 

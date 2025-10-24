@@ -26,14 +26,14 @@ from .task_apps import _serve_cli, task_app_group
     "trace_dir",
     type=click.Path(),
     default=None,
-    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
+    help="Enable tracing and write SFT JSONL files to this directory (default: traces)",
 )
 @click.option(
     "--trace-db",
     "trace_db",
     type=click.Path(),
     default=None,
-    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
+    help="Override local trace DB path (default: traces/task_app_traces_<timestamp>.db)",
 )
 def serve_command(
     app_id: str | None,
@@ -67,14 +67,14 @@ def serve_command(
     "trace_dir",
     type=click.Path(),
     default=None,
-    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
+    help="Enable tracing and write SFT JSONL files to this directory (default: traces)",
 )
 @click.option(
     "--trace-db",
     "trace_db",
     type=click.Path(),
     default=None,
-    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
+    help="Override local trace DB path (default: traces/task_app_traces_<timestamp>.db)",
 )
 def serve_task_group(
     app_id: str | None,
