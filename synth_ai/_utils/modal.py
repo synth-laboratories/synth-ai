@@ -198,7 +198,7 @@ def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEn
             task_url = resolved
         demo_core.persist_task_url(task_url, name=(env.task_app_name or None), path=persist_path)
 
-    app_name = env.task_app_name.strip()
+    app_name = (env.task_app_name or "").strip()
     requires_modal_name = is_modal_public_url(task_url)
     if requires_modal_name and not app_name:
         fallback = input("Enter Modal app name for the task app (required): ").strip()

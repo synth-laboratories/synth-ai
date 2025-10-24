@@ -47,7 +47,7 @@ def get_learning_v2_base_url(mode: Literal["dev", "prod"] = "prod") -> str:
     if dev:
         return _normalize_base(dev)
 
-    raise Exception()
+    raise ValueError("No base URL configured. Set one of: LEARNING_V2_BASE_URL, SYNTH_BASE_URL, SYNTH_LOCAL_BASE_URL, SYNTH_DEV_BASE_URL")
 
 
 def _resolve_override_mode() -> str:
