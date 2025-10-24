@@ -94,6 +94,12 @@ if __name__ == "__main__":
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8101)
     parser.add_argument("--reload", action="store_true", help="Enable uvicorn autoreload")
+    parser.add_argument(
+        "--env-file",
+        action="append",
+        default=[],
+        help="Path to .env file to load (can be specified multiple times)",
+    )
     args = parser.parse_args()
 
     run_task_app(
@@ -101,4 +107,5 @@ if __name__ == "__main__":
         host=args.host,
         port=args.port,
         reload=args.reload,
+        env_files=args.env_file or [],
     )
