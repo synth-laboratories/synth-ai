@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from importlib import import_module
+
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from synth_ai.task.apps.math_single_step import build_config as base_build_config
+
+try:
+    from synth_ai.task.apps.math_single_step import build_config as base_build_config
+except ModuleNotFoundError:
+    base_module = import_module("examples.rl.task_app.math_single_step")
+    base_build_config = getattr(base_module, "build_config")
 
 DEMO_MODAL_CONFIG = ModalDeploymentConfig(
     app_name="hendrycks-math-task-app",
@@ -26,11 +33,21 @@ def build_config():
     return base_build_config()
 
 
-register_task_app(
-    entry=TaskAppEntry(
+def register_demo_entry() -> None:
+    entry = TaskAppEntry(
         app_id="hendrycks-math-demo",
         description="Demo math task app (Modal-focused) shipping with synth-ai demos.",
         config_factory=build_config,
         modal=DEMO_MODAL_CONFIG,
     )
-)
+    try:
+        register_task_app(entry=entry)
+    except ValueError:
+        # Registry already holds an entry with this id; ignore duplicate registration.
+        pass
+
+
+register_demo_entry()
+
+
+__all__ = ["DEMO_MODAL_CONFIG", "build_config", "register_demo_entry"]
