@@ -1,10 +1,92 @@
 from __future__ import annotations
 
 import argparse
+import os
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-__all__ = ["ensure_required_args"]
+import click
+
+from .user_config import load_user_config, update_user_config
+
+__all__ = [
+    "ensure_key",
+    "print_next_step",
+    "key_preview",
+    "ensure_required_args",
+]
+
+
+def ensure_key(
+    key_name: str,
+    *,
+    prompt_text: str | None = None,
+    hidden: bool = True,
+    required: bool = True,
+    prompt: bool = True,
+    success_message: str | None = None,
+) -> str:
+    """Ensure a secret/API key is available in the environment and user config."""
+
+    prompt_text = prompt_text or f"Enter value for {key_name}"
+    current = (os.environ.get(key_name) or load_user_config().get(key_name) or "").strip()
+
+    if current:
+        os.environ[key_name] = current
+        return current
+
+    if not prompt:
+        return ""
+
+    while True:
+        try:
+            entered = click.prompt(
+                prompt_text,
+                hide_input=hidden,
+                default="",
+                show_default=False,
+            )
+        except (EOFError, KeyboardInterrupt) as exc:
+            if required:
+                raise click.ClickException(f"{key_name} is required.") from exc
+            return ""
+
+        current = entered.strip()
+        if current or not required:
+            break
+        click.echo(f"{key_name.replace('_', ' ')} cannot be empty. Please try again.")
+
+    if not current:
+        return ""
+
+    os.environ[key_name] = current
+    update_user_config({key_name: current})
+    if success_message:
+        click.echo(success_message)
+    return current
+
+
+def print_next_step(message: str, lines: Sequence[str]) -> None:
+    """Emit a short 'next steps' banner with bullet items."""
+
+    click.echo(f"\n➡️  Next, {message}:")
+    for line in lines:
+        click.echo(f"   {line}")
+    click.echo("")
+
+
+def key_preview(value: str, label: str) -> str:
+    """Return a short descriptor for a secret without leaking the full value."""
+
+    try:
+        text = value or ""
+        length = len(text)
+        prefix = text[:6] if length >= 6 else text
+        suffix = text[-5:] if length >= 5 else text
+        return f"{label} len={length} prefix={prefix} last5={suffix}"
+    except Exception:
+        return f"{label} len=0"
+
 
 PromptFunc = Callable[[str], str]
 CoerceFunc = Callable[[str], Any]
