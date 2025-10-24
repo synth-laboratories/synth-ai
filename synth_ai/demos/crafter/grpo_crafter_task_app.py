@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+from contextlib import suppress
 from pathlib import Path
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
-from synth_ai.task.apps import ModalDeploymentConfig, registry
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, registry
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.server import TaskAppConfig, create_task_app, run_task_app
 
@@ -37,7 +38,23 @@ def _load_build_config():
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load task app module at {module_path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    import sys
+
+    sys.modules.setdefault(spec.name, module)
+
+    from synth_ai.task import apps as task_apps
+
+    original_register = task_apps.registry.register
+
+    def _safe_register(entry):
+        with suppress(ValueError):
+            original_register(entry)
+
+    task_apps.registry.register = _safe_register
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        task_apps.registry.register = original_register
     return module.build_config
 
 
@@ -135,6 +152,22 @@ def fastapi_app():
         )
 
     return app
+
+
+def register_demo_entry() -> None:
+    description = "Crafter demo task app"
+    entry = TaskAppEntry(
+        app_id="crafter-demo",
+        description=description,
+        config_factory=build_task_app_config,
+        aliases=("crafter",),
+        modal=MODAL_DEPLOYMENT,
+    )
+    with suppress(ValueError):
+        registry.register(entry)
+
+
+register_demo_entry()
 
 
 if __name__ == "__main__":

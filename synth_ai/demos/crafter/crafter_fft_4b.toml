@@ -1,5 +1,7 @@
 # FFT job config for Qwen/Qwen3-4B on Crafter SFT dataset
 
+type = "sft"
+
 [algorithm]
 type = "offline"
 method = "supervised_finetune"
@@ -8,7 +10,7 @@ variety = "fft"
 
 [job]
 model = "Qwen/Qwen3-4B"
-data = "ft_data/crafter_traces.jsonl"
+data = "ft_data/crafter_sft.jsonl"
 
 [compute]
 # Adjust as needed for your quota
