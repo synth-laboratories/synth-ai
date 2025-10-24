@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 
@@ -606,6 +607,7 @@ def _serve_cli(
     app_id: str | None,
     host: str,
     port: int | None,
+    env_file: Sequence[str],
     reload_flag: bool,
     force: bool,
     trace_dir: str | None,
@@ -636,6 +638,7 @@ def _serve_cli(
 
     env_files: list[str] = []
     env_files.extend(str(Path(p)) for p in entry.env_files if p)
+    env_files.extend(env_file)
     env_files = list(dict.fromkeys(env_files))
 
     run_task_app(

@@ -40,6 +40,7 @@ def _deploy_local_task_app_choice(choice: AppChoice) -> None:
         choice.app_id,
         host="0.0.0.0",
         port=None,
+        env_file=(),
         reload_flag=False,
         force=False,
         trace_dir=None,
