@@ -1,10 +1,4 @@
-_HELP_TEXT = """Synth-AI SDK
-
-Quickstart:
-    pip install synth-ai
-    import synth_ai
-    uvx synth-ai setup
-
+_HELP_TEXT = """Synth AI SDK
 Docs → https://docs.usesynth.ai/sdk/get-started
 """
 
