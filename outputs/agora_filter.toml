@@ -1,0 +1,4 @@
+[filter]
+db = "traces/v3/eval_traces.db"
+output = "outputs/agora_filtered.jsonl"
+min_official_score = 0.069

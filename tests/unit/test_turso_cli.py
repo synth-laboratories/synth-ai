@@ -3,7 +3,7 @@ import subprocess
 from click.testing import CliRunner
 
 import synth_ai.cli.turso as turso_module
-import synth_ai.cli.root as root_module
+import synth_ai._utils.sqld as sqld_module
 from synth_ai.cli import cli
 
 
@@ -54,12 +54,6 @@ def test_turso_installs_when_missing(monkeypatch):
         def kill(self):
             self.returncode = -9
 
-    monkeypatch.setattr(turso_module, "find_sqld_binary", fake_find)
-    monkeypatch.setattr(root_module, "find_sqld_binary", fake_find)
-    monkeypatch.setattr(root_module.shutil, "which", fake_which)
-    monkeypatch.setattr(root_module.subprocess, "run", fake_run)
-    monkeypatch.setattr(root_module.subprocess, "Popen", lambda *a, **k: PopenStub())
-
     # Avoid creating real temp files; provide NamedTemporaryFile-like API
     class Tmp:
         name = "/tmp/synth_sqld_test.db"
@@ -89,12 +83,17 @@ def test_turso_installs_when_missing(monkeypatch):
         def getsockname(self):
             return ("127.0.0.1", 19099)
 
+    monkeypatch.setattr(turso_module, "find_sqld_binary", fake_find)
+    monkeypatch.setattr(sqld_module, "find_sqld_binary", fake_find)
+    monkeypatch.setattr(sqld_module.shutil, "which", fake_which)
+    monkeypatch.setattr(sqld_module.subprocess, "run", fake_run)
+    monkeypatch.setattr(sqld_module.subprocess, "Popen", lambda *a, **k: PopenStub())
     monkeypatch.setattr(
-        root_module.tempfile,
+        sqld_module.tempfile,
         "NamedTemporaryFile",
         lambda prefix, suffix, delete: Tmp(),
     )
-    monkeypatch.setattr(root_module.socket, "socket", lambda *a, **k: SocketStub())
+    monkeypatch.setattr(sqld_module.socket, "socket", lambda *a, **k: SocketStub())
 
     result = runner.invoke(cli, ["turso"])
 

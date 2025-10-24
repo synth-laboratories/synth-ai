@@ -52,11 +52,10 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) ->
         return recorded_config.copy()
 
     monkeypatch.setattr("synth_ai._utils.user_config.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_state.load_user_config", fake_load_user_config)
     monkeypatch.setattr("synth_ai._utils.user_config.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.keys.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.keys.update_user_config", fake_update_user_config)
     monkeypatch.setattr("synth_ai._utils.task_app_env.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_state.update_user_config", fake_update_user_config)
     monkeypatch.setattr("synth_ai._utils.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
     monkeypatch.setattr("synth_ai._utils.task_app_env.hydrate_user_environment", lambda override=False: {})
 

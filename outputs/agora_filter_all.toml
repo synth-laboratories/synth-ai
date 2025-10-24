@@ -1,0 +1,3 @@
+[filter]
+db = "traces/v3/eval_traces.db"
+output = "outputs/agora_filtered_all.jsonl"
