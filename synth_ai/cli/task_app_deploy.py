@@ -16,35 +16,6 @@ from synth_ai.utils.user_config import load_user_env, update_user_config
 from .task_apps import _run_modal_script, _run_modal_with_entry, _serve_cli, task_app_group
 
 
-def _raise_if_groq_network_blocked() -> None:
-    """Detect the common Groq VPN/network denial response and fail fast."""
-
-    key = (os.environ.get("GROQ_API_KEY") or "").strip()
-    if not key:
-        return
-
-    try:
-        import httpx  # type: ignore[import]
-    except Exception:
-        return
-
-    headers = {"Authorization": f"Bearer {key}"}
-    try:
-        with httpx.Client(timeout=5.0) as client:
-            response = client.get("https://api.groq.com/openai/v1/models", headers=headers)
-        body = response.text if isinstance(response.text, str) else ""
-        if response.status_code == 403 and "Access denied. Please check your network settings." in body:
-            raise click.ClickException(
-                "Groq API request failed with 'Access denied. Please check your network settings.' "
-                "Disable VPN or allow outbound traffic to api.groq.com, then re-run the local deploy."
-            )
-        response.raise_for_status()
-    except click.ClickException:
-        raise
-    except Exception:
-        # Any other failure falls back to existing runtime behaviour.
-        return
-
 
 def _deploy_local_task_app_choice(choice: AppChoice) -> None:
     """Launch a local task app using the shared serve machinery."""
@@ -65,7 +36,6 @@ def _deploy_local_task_app_choice(choice: AppChoice) -> None:
     )
 
     click.echo(f"Launching local task app for [{choice.app_id}]…\n")
-    _raise_if_groq_network_blocked()
     _serve_cli(
         choice.app_id,
         host="0.0.0.0",
@@ -192,13 +162,6 @@ def deploy_command(
     if local:
         if selected_choice is None:
             raise click.ClickException("Select a task app before running local deployment.")
-        ensure_key(
-            "GROQ_API_KEY",
-            prompt_text="Enter your Groq API key (required for local deployments)",
-            hidden=True,
-            required=True,
-            success_message="Groq API key saved.",
-        )
         _deploy_local_task_app_choice(selected_choice)
         return
 
