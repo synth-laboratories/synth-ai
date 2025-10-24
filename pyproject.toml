@@ -55,6 +55,7 @@ dependencies = [
     "datasets>=4.0.0",
     "transformers>=4.56.1",
     "modal==1.1.4",
+    "ruff>=0.12.9",
 ]
 
 [project.scripts]
@@ -186,7 +187,7 @@ extend-exclude = [
     "temp",
     "traces",
     "traces_*",
-    "synth_ai.db",
+    "task_app_traces*.db",
     "synth_ai/v0",
     "synth_ai/tracing_v3/tests",
 ]
