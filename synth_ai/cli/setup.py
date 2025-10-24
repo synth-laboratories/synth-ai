@@ -10,10 +10,9 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import click
 import requests
+from synth_ai.utils.cli_visualizations import key_preview, print_next_step
 from synth_ai.utils.modal import is_modal_public_url
-from synth_ai.utils.print_next_step import print_next_step
 from synth_ai.utils.process import popen_capture
-from synth_ai.utils.secrets import key_preview
 from synth_ai.utils.user_config import USER_CONFIG_PATH, update_user_config
 from synth_ai.demos import core as demo_core
 

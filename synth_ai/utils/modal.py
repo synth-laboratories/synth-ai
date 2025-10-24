@@ -12,9 +12,9 @@ from urllib.parse import urlparse, urlunparse
 from synth_ai.demos import core as demo_core
 from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 
+from .cli_visualizations import key_preview
 from .http import http_request
 from .process import popen_capture
-from .secrets import key_preview
 from .user_config import load_user_config
 
 __all__ = [

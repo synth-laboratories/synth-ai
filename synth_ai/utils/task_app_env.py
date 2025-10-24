@@ -6,9 +6,8 @@ from collections.abc import Mapping
 import click
 
 from .base_url import PROD_BASE_URL_DEFAULT
-from .keys import ensure_key
+from .cli_visualizations import ensure_key, key_preview
 from .process import ensure_local_port_available
-from .secrets import key_preview
 from .task_app_state import persist_env_api_key
 from .user_config import load_user_env, update_user_config
 

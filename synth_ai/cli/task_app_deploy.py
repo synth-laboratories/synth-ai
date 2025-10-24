@@ -8,8 +8,7 @@ from pathlib import Path
 
 import click
 from click.core import ParameterSource
-from synth_ai.utils.keys import ensure_key
-from synth_ai.utils.print_next_step import print_next_step
+from synth_ai.utils.cli_visualizations import ensure_key, print_next_step
 from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
 from synth_ai.utils.task_app_state import persist_env_api_key, persist_task_url
 from synth_ai.utils.user_config import load_user_env, update_user_config
