@@ -1,157 +1,95 @@
 # Warming Up to RL (Crafter)
 
-The Crafter example demonstrates the full Synth AI workflow: task app serving, Groq rollouts, tracing, SFT dataset export, FFT training, evaluation of fine-tuned models, and RL training.
-
-## Quick Reference Commands
-
-- Serve task app locally with tracing:
-  ```bash
-  uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3
-  ```
-- Deploy to Modal:
-  ```bash
-  uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
-  ```
-- Groq rollout (server-side):
-  ```bash
-  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_groq_qwen32b.toml --use-rollout
-  ```
-- Export SFT data from traced runs:
-  ```bash
-  python examples/warming_up_to_rl/export_trace_sft.py --db traces/v3/synth_ai.db --output ft_data/crafter_traces.jsonl
-  ```
-- FFT via CLI:
-  ```bash
-  uvx synth-ai train --type sft --config examples/warming_up_to_rl/configs/crafter_fft.toml --dataset /absolute/path/to/data.jsonl
-  ```
-- Evaluate FFT checkpoint:
-  ```bash
-  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_fft_qwen4b.toml --use-rollout
-  ```
-- RL via CLI (FFT-first):
-  ```bash
-  uvx synth-ai train --type rl --config examples/warming_up_to_rl/configs/rl_from_ft.toml
-  ```
-
----
+This folder contains an end-to-end Crafter workflow: stand up the task app, collect Groq-powered rollouts, export tracing data for supervised fine-tuning, run FFT/RL jobs, and evaluate checkpoints. Commands assume the repository root as the working directory unless stated otherwise.
 
 ## 1. Prerequisites
 
 - Python 3.11+
-- `uv`/`uvx` available (or install Synth in a virtualenv)
-- Modal CLI (`modal token new`) if you plan to deploy the task app
-- `.env` in this directory with at least:
-  - `SYNTH_API_KEY`
-  - `ENVIRONMENT_API_KEY`
-  - `TASK_APP_URL` (when running against a hosted task app)
-  - Optional: `GROQ_API_KEY`, `OPENAI_API_KEY` for proxy endpoints
+- [`uv`](https://docs.astral.sh/uv/) / `uvx` (or install `synth-ai` inside a virtualenv)
+- Modal CLI (`modal token new`) if you plan to deploy the task app remotely
+- API keys:
+  - `SYNTH_API_KEY` and `ENVIRONMENT_API_KEY` are required for CLI flows
+  - `GROQ_API_KEY` (used by the Groq policy) and optional `OPENAI_API_KEY`
+- Run `uvx synth-ai setup` once to pair with the Synth dashboard and populate `~/.synth-ai/user_config.json`
 
-`uvx synth-ai setup` can populate the `.env` by guiding you through the dashboard handshake.
+## 2. Task App
 
-> All commands below assume you are running from the repository root unless noted.
-
-## 2. Task App Operations
-
-### Local development
+### Local serve (FastAPI)
 
 ```bash
-uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env --trace traces/v3 --trace-db traces/v3/synth_ai.db
+uvx synth-ai serve \
+  --env-file examples/warming_up_to_rl/.env \
+  --host 127.0.0.1 --port 8001 \
+  --trace traces/v3
 ```
 
-- `--trace` and `--trace-db` enable tracing v3 and SFT JSONL dumps.
-- Add `--reload` for uvicorn auto-reload while editing code.
+- `--trace` creates/uses `traces/v3/task_app_traces_<timestamp>.db` for the lifetime of the server. All rollouts append to this file.
+- Add `--trace-db` to override the SQLite path (one DB per server instance).
+- Pass `--reload` during development for auto-reload.
 
 ### Modal deploy / serve
 
 ```bash
-uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app --env-file examples/warming_up_to_rl/.env
-uvx synth-ai modal-serve grpo-crafter --name grpo-crafter-task-app --env-file examples/warming_up_to_rl/.env
+uvx synth-ai deploy grpo-crafter --name grpo-crafter-task-app
+uvx synth-ai modal-serve grpo-crafter --name grpo-crafter-task-app
 ```
 
-Both commands preflight the environment key with the backend when `SYNTH_API_KEY` is present.
+Both commands reuse the same tracing defaults; the backend persists rollouts into the configured SQLite/Turso store.
 
-## 3. Baseline Evaluations (Groq and Synth vLLM)
+## 3. Collect rollouts
 
-Evaluation scripts auto-load `.env` values. Update TOMLs under `configs/` with the correct `task_app_url` and provider-specific model names.
+Hit the running task app with the local helper to gather a traced rollout (Groq policy shown below):
 
-- Groq Qwen3-32B:
-  ```bash
-  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_groq_qwen32b.toml --use-rollout
-  ```
-- Synth vLLM Qwen3-4B (Modal-hosted inference URL specified in TOML):
-  ```bash
-  uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_modal_qwen4b.toml --use-rollout
-  ```
+```bash
+python examples/warming_up_to_rl/run_local_rollout_traced.py \
+  --base-url http://localhost:8001 \
+  --api-key "$ENVIRONMENT_API_KEY" \
+  --inference-api-key "$GROQ_API_KEY" \
+  --model qwen/qwen3-32b \
+  --inference-url https://api.groq.com/openai \
+  --max-llm-calls 3 \
+  --run-id local-trace
+```
 
-`--use-rollout` drives the task app’s `/rollout` endpoint so achievements and metrics are captured. Without it the script issues per-step `initialize/step/terminate` calls.
+Artifacts produced per rollout:
+- `traces/v3/task_app_traces_<timestamp>.db`: the task app’s append-only database (one per server lifetime; new rollouts append rows).
+- `local-trace_trace.json`: single-run JSON snapshot for inspection.
 
-## 4. Tracing and SFT Dataset Export
+## 4. Export SFT-ready data
 
-1. Serve the task app with tracing enabled (see Section 2). Optionally, run the traced rollout helper against the running server:
-   ```bash
-   uv run python examples/warming_up_to_rl/run_local_rollout_traced.py \
-     --base-url http://localhost:8001 \
-     --api-key "$ENVIRONMENT_API_KEY" \
-     --inference-api-key "$GROQ_API_KEY" \
-     --model qwen/qwen3-32b \
-     --inference-url https://api.groq.com/openai \
-     --max-llm-calls 3 \
-     --run-id local-trace
-   ```
-2. Inspect local trace databases:
-   ```bash
-   uvx synth-ai traces --limit 10
-   ```
-3. Export JSONL suitable for SFT:
-   ```bash
-   python examples/warming_up_to_rl/export_trace_sft.py \
-     --db traces/v3/synth_ai.db \
-     --min-achievements 3 \
-     --output ft_data/crafter_traces.jsonl
-   ```
+```bash
+python examples/warming_up_to_rl/export_trace_sft.py
+```
 
-The exporter enriches each example with achievements unlocked, model metadata, and reward summaries.
+- When run without `--in`, the script lists every `task_app_traces*.db` under the current directory (and subdirectories), sorted by recency, and prompts you to pick one (the newest is marked `← most recent`).
+- The exporter validates the trace data, filters sessions, and writes JSONL to `ft_data/crafter_sft.jsonl` by default (override with `--out`).
 
-## 5. SFT / FFT Training
+## 5. FFT / SFT Training
 
-### Preferred: `uvx synth-ai train`
+Recommended via CLI:
 
 ```bash
 uvx synth-ai train \
   --type sft \
   --config examples/warming_up_to_rl/configs/crafter_fft.toml \
-  --dataset /absolute/path/to/crafter_traces.jsonl
+  --dataset /absolute/path/to/crafter_sft.jsonl
 ```
 
-The CLI will:
-- Prompt for `.env` selection (or use `--env-file`).
-- Upload training (and optional validation) data to `/learning/files`.
-- Submit the job and poll until completion unless `--no-poll` is set.
+The CLI uploads training data, submits the job to the Synth backend, and polls for completion. A legacy helper (`run_fft_and_save.py`) is still provided for ad-hoc usage.
 
-### Legacy script
+## 6. Evaluate checkpoints
+
+Update the relevant TOML with the model identifier (e.g., `model = "ft:<model_id>"`) and run:
 
 ```bash
-uv run python examples/warming_up_to_rl/run_fft_and_save.py \
-  --toml examples/warming_up_to_rl/configs/crafter_fft.toml \
-  --data /absolute/path/to/crafter_traces.jsonl \
-  --poll-seconds 1800
+uv run python examples/warming_up_to_rl/run_eval.py \
+  --toml examples/warming_up_to_rl/configs/eval_fft_qwen4b.toml \
+  --use-rollout
 ```
 
-The script writes the resulting model ID to `ft_model_id.txt`. Use that ID in evaluation and RL configs (e.g., `model = "ft:abc123"`).
-
-## 6. Evaluate the Fine-tuned Model
-
-After FFT completes, update `configs/eval_fft_qwen4b.toml` so `model = "ft:<model_id>"`, then rerun the evaluation:
-
-```bash
-uv run python examples/warming_up_to_rl/run_eval.py --toml examples/warming_up_to_rl/configs/eval_fft_qwen4b.toml --use-rollout
-```
-
-This reuses the same Groq/vLLM pipeline but exercises the finetuned checkpoint.
+`--use-rollout` exercises the `/rollout` endpoint so achievements/rewards are surfaced in traces.
 
 ## 7. RL Training
-
-### Preferred: `uvx synth-ai train --type rl`
 
 ```bash
 uvx synth-ai train \
@@ -159,21 +97,14 @@ uvx synth-ai train \
   --config examples/warming_up_to_rl/configs/rl_from_base_qwen4b.toml
 ```
 
-During the interactive setup the CLI ensures `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, and `TASK_APP_URL` are present, health-checks the task app, and submits the RL job to `/rl/jobs`.
+Start from `rl_from_ft.toml` if you want to bootstrap from a previously fine-tuned checkpoint.
 
-### Legacy script
+---
 
-```bash
-uv run python examples/warming_up_to_rl/run_rl_and_save.py \
-  --config examples/warming_up_to_rl/configs/rl_from_ft.toml
-```
+### Notes on tracing
 
-To start directly from a base model, switch the config to `rl_from_base_qwen4b.toml` and ensure `[model].base` is populated.
+- **One SQLite DB per server:** every task app instance maintains a single `task_app_traces_<timestamp>.db` and appends each new rollout. If you want a fresh file, start another `synth-ai serve` with a different `--trace-db` path.
+- **JSON snapshots per run:** `run_local_rollout_traced.py` writes `<run_id>_trace.json` so you can inspect or hand-edit individual runs.
+- **Exporter discovery:** the SFT exporter recursively catalogs all `task_app_traces*.db` files beneath the task app directory, allowing you to select any historical snapshot when exporting training data.
 
-## 8. Additional Utilities
-
-- `manage_secrets.py` – convenience helpers for Modal secret management.
-- `run_local_rollout.py`, `run_local_rollout_parallel.py`, `run_rollout_remote.py` – alternative rollout launchers for benchmarking.
-- `analyze_trace_db.py` – inspect trace quality/achievements before exporting.
-
-Refer to `docs/workflows/` for end-to-end guidance that mirrors these commands.
+These conventions keep tracing predictable: continuous history per server, easy selection of historical DBs, and one-off JSON exports for quick analysis.
