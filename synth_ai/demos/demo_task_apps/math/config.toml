@@ -1,0 +1,74 @@
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[services]
+task_url = "http://localhost:8101"
+
+[model]
+base = "Qwen/Qwen3-1.7B"
+
+[policy]
+model = "Qwen/Qwen3-1.7B"
+inference_url = "http://localhost:8000/api/inference"
+max_tokens = 1028
+temperature = 0.2
+
+[data]
+split = "train"
+seed_start = 0
+episodes_per_iteration = 1280  # 8 per group * 4 groups per batch * 2 batches per step * 20 steps
+evaluation_split = "validation"
+evaluation_episodes = 50
+
+[training]
+max_turns = 1
+ops = ["agent", "env"]
+batch_size = 2
+group_size = 16
+reward_positive = 1.0
+reward_negative_no_tool = -1.0
+reward_negative_no_answer = -0.5
+learning_rate = 5e-6
+log_interval = 1
+weight_sync_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+
+[compute]
+gpu_type = "H100"
+gpu_count = 4
+
+[topology]
+type = "single_node_split"
+gpus_for_vllm = 2
+gpus_for_training = 1
+gpus_for_ref = 1
+tensor_parallel = 1
+
+[vllm]
+tensor_parallel_size = 1
+max_model_len = 4096
+
+[reference]
+placement = "dedicated"
+port = 8002
+tp = 1
+health_max_wait_s = 180
+health_interval_ms = 300
+
+[rollout]
+policy_name = "math-single-step"
+max_turns = 1
+episodes_per_batch = 32  # group_size * batch_size
+
+[evaluation]
+instances = 32
+every_n_iters = 10
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+[tags]
+experiment = "math_single_step_qwen17"

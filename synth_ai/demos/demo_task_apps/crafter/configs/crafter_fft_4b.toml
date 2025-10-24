@@ -1,0 +1,53 @@
+# FFT job config for Qwen/Qwen3-4B on Crafter SFT dataset
+
+[algorithm]
+type = "offline"
+method = "supervised_finetune"
+variety = "fft"
+
+
+[job]
+model = "Qwen/Qwen3-4B"
+data = "ft_data/crafter_traces.jsonl"
+
+[compute]
+# Adjust as needed for your quota
+gpu_type = "H100"
+gpu_count = 1
+nodes = 1
+
+[data]
+# Optional topology metadata (left empty for now)
+topology = {}
+
+# Optional local validation dataset path (JSONL). If set, the client will upload
+# this file and wire up validation so the frontend can display val.loss.
+# validation_path = "../ft_data/crafter_validation.jsonl"
+
+[training]
+mode = "sft_offline"
+use_qlora = false
+
+# Validation settings to emit val.loss on the frontend
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 20
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+# Minimal safe defaults; backend can override
+n_epochs = 1
+batch_size = 1
+gradient_accumulation_steps = 64
+sequence_length = 4096
+learning_rate = 5e-6
+warmup_ratio = 0.03
+train_kind = "fft"
+
+# Optional parallelism block example
+#[hyperparameters.parallelism]
+# tensor_parallel_size = 1
+# pipeline_parallel_size = 1
