@@ -10,7 +10,7 @@ try:
     from synth_ai.task.apps.math_single_step import build_config as base_build_config
 except ModuleNotFoundError:
     base_module = import_module("examples.rl.task_app.math_single_step")
-    base_build_config = getattr(base_module, "build_config")
+    base_build_config = base_module.build_config
 
 DEMO_MODAL_CONFIG = ModalDeploymentConfig(
     app_name="hendrycks-math-task-app",

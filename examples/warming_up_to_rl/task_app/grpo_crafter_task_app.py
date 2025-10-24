@@ -9,7 +9,6 @@ This module now delegates to the TaskAppConfig defined in the colocated example 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
