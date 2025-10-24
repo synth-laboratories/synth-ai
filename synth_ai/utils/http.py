@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import os
 from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
 
-__all__ = ["HTTPError", "AsyncHttpClient", "sleep", "http_request"]
+__all__ = ["HTTPError", "AsyncHttpClient", "http_request"]
 
 
 @dataclass
@@ -128,10 +127,6 @@ class AsyncHttpClient:
             body_snippet=body_snippet,
             detail=detail,
         )
-
-
-async def sleep(seconds: float) -> None:
-    await asyncio.sleep(seconds)
 
 
 def http_request(
