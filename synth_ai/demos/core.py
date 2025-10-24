@@ -6,11 +6,41 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from synth_ai.cli.lib import task_app_state
-from synth_ai.cli.lib.user_config import load_user_config
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
-
-DEFAULT_TASK_APP_SECRET_NAME = task_app_state.DEFAULT_TASK_APP_SECRET_NAME
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.task_app_state import (
+    DEFAULT_TASK_APP_SECRET_NAME,
+)
+from synth_ai._utils.task_app_state import (
+    load_demo_dir as _load_demo_dir,
+)
+from synth_ai._utils.task_app_state import (
+    load_template_id as _load_template_id,
+)
+from synth_ai._utils.task_app_state import (
+    persist_api_key as _persist_api_key,
+)
+from synth_ai._utils.task_app_state import (
+    persist_demo_dir as _persist_demo_dir,
+)
+from synth_ai._utils.task_app_state import (
+    persist_env_api_key as _persist_env_api_key,
+)
+from synth_ai._utils.task_app_state import (
+    persist_task_url as _persist_task_url,
+)
+from synth_ai._utils.task_app_state import (
+    persist_template_id as _persist_template_id,
+)
+from synth_ai._utils.task_app_state import (
+    resolve_task_app_entry as _resolve_task_app_entry,
+)
+from synth_ai._utils.task_app_state import (
+    task_app_id_from_path as _task_app_id_from_path,
+)
+from synth_ai._utils.task_app_state import (
+    update_task_app_entry as _update_task_app_entry,
+)
+from synth_ai._utils.user_config import load_user_config
 
 
 @dataclass
@@ -29,10 +59,9 @@ def _mask(value: str, keep: int = 4) -> str:
     return value[:keep] + "…" if len(value) > keep else value
 
 
-record_task_app = task_app_state.record_task_app
-persist_env_api_key = task_app_state.persist_env_api_key
-persist_task_url = task_app_state.persist_task_url
-persist_api_key = task_app_state.persist_api_key
+persist_env_api_key = _persist_env_api_key
+persist_task_url = _persist_task_url
+persist_api_key = _persist_api_key
 
 
 def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> str:
@@ -65,25 +94,25 @@ def persist_dotenv_values(values: dict[str, str], *, cwd: str | None = None) -> 
 def persist_demo_dir(demo_dir: str) -> None:
     """Store the demo directory path for subsequent commands."""
 
-    task_app_state.persist_demo_dir(demo_dir)
+    _persist_demo_dir(demo_dir)
 
 
 def load_demo_dir() -> str | None:
     """Load the stored demo directory path, if any."""
 
-    return task_app_state.load_demo_dir()
+    return _load_demo_dir()
 
 
 def persist_template_id(template_id: str | None) -> None:
     """Record the last materialized demo template id."""
 
-    task_app_state.persist_template_id(template_id)
+    _persist_template_id(template_id)
 
 
 def load_template_id() -> str | None:
     """Return the stored demo template id, if any."""
 
-    return task_app_state.load_template_id()
+    return _load_template_id()
 
 
 def modal_auth_status() -> tuple[bool, str]:
@@ -140,10 +169,18 @@ def load_env() -> DemoEnv:
     os_env: dict[str, str] = dict(os.environ)
     user_config_map: dict[str, str] = load_user_config()
 
-    preferred_path = task_app_state.task_app_id_from_path(load_demo_dir())
+    # Export persisted keys into the process environment if not already set.
+    for key in ("GROQ_API_KEY", "OPENAI_API_KEY", "OPENAI_BASE_URL"):
+        if key not in os_env:
+            value = user_config_map.get(key, "").strip()
+            if value:
+                os.environ.setdefault(key, value)
+                os_env[key] = value
+
+    preferred_path = _task_app_id_from_path(load_demo_dir())
     if not preferred_path:
-        preferred_path = task_app_state.task_app_id_from_path(Path.cwd())
-    current_task_path, entry = task_app_state.resolve_task_app_entry(preferred_path)
+        preferred_path = _task_app_id_from_path(Path.cwd())
+    current_task_path, entry = _resolve_task_app_entry(preferred_path)
     modal_entry = entry.get("modal", {}) if isinstance(entry, dict) else {}
 
     default_root = PROD_BASE_URL_DEFAULT.rstrip("/")
@@ -231,7 +268,7 @@ def load_env() -> DemoEnv:
     env.task_app_secret_name = task_app_secret_name
 
     if current_task_path:
-        task_app_state.update_task_app_entry(current_task_path)
+        _update_task_app_entry(current_task_path)
 
     if os.getenv("SYNTH_CLI_VERBOSE", "0") == "1":
         print("ENV:")
