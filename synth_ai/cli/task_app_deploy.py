@@ -8,11 +8,11 @@ from pathlib import Path
 
 import click
 from click.core import ParameterSource
-from synth_ai._utils.keys import ensure_key
-from synth_ai._utils.print_next_step import print_next_step
-from synth_ai._utils.task_app_discovery import AppChoice, select_app_choice
-from synth_ai._utils.task_app_state import persist_env_api_key, persist_task_url
-from synth_ai._utils.user_config import load_user_env, update_user_config
+from synth_ai.utils.keys import ensure_key
+from synth_ai.utils.print_next_step import print_next_step
+from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
+from synth_ai.utils.task_app_state import persist_env_api_key, persist_task_url
+from synth_ai.utils.user_config import load_user_env, update_user_config
 
 from .task_apps import _run_modal_script, _run_modal_with_entry, _serve_cli, task_app_group
 

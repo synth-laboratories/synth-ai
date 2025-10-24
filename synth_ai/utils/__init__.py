@@ -16,7 +16,7 @@ from .modal import (
 )
 from .print_next_step import print_next_step
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
-from .prompts import ensure_required_args
+from .user_input import ensure_required_args
 from .secrets import key_preview
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
 from .user_config import (

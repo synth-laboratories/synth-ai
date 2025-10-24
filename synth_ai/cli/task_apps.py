@@ -15,8 +15,8 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-from synth_ai._utils.task_app_discovery import AppChoice, select_app_choice
-from synth_ai._utils.task_app_env import (
+from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
+from synth_ai.utils.task_app_env import (
     ensure_env_credentials,
     ensure_port_free,
     hydrate_user_environment,
