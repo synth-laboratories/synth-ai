@@ -98,18 +98,14 @@ if __name__ == "__main__":
         "--env-file",
         action="append",
         default=[],
-        help="Additional .env files to load before startup",
+        help="Path to .env file to load (can be specified multiple times)",
     )
     args = parser.parse_args()
-
-    default_env = Path(__file__).resolve().parents[2] / ".env"
-    env_files = [str(default_env)] if default_env.exists() else []
-    env_files.extend(args.env_file or [])
 
     run_task_app(
         build_config,
         host=args.host,
         port=args.port,
         reload=args.reload,
-        env_files=env_files,
+        env_files=args.env_file or [],
     )

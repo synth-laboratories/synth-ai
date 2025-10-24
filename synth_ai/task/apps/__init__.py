@@ -36,7 +36,6 @@ class TaskAppEntry:
     description: str
     config_factory: Callable[[], TaskAppConfig]
     aliases: Sequence[str] = field(default_factory=tuple)
-    env_files: Sequence[str] = field(default_factory=tuple)
     modal: ModalDeploymentConfig | None = None
 
 

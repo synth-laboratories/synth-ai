@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from synth_ai.tracing_v3.constants import TRACE_DB_DIR, canonical_trace_db_name
 
 
 def tracing_env_enabled(default: bool = False) -> bool:
@@ -40,9 +43,17 @@ def resolve_tracing_db_url() -> str | None:
             path.parent.mkdir(parents=True, exist_ok=True)
             return f"sqlite+aiosqlite:///{path}"
 
-    fallback_path = Path("traces/v3/synth_ai.db").expanduser()
-    fallback_path.parent.mkdir(parents=True, exist_ok=True)
-    return f"sqlite+aiosqlite:///{fallback_path}"
+    existing = os.getenv("TASKAPP_TRACE_DB_PATH")
+    if existing:
+        path = Path(existing).expanduser()
+    else:
+        base_dir = TRACE_DB_DIR.expanduser()
+        base_dir.mkdir(parents=True, exist_ok=True)
+        path = base_dir / canonical_trace_db_name(timestamp=datetime.now())
+        os.environ["TASKAPP_TRACE_DB_PATH"] = str(path)
+        os.environ.setdefault("SQLD_DB_PATH", str(path))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite+aiosqlite:///{path}"
 
 
 def build_tracer_factory(

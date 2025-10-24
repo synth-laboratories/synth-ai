@@ -1,5 +1,7 @@
 # Qwen3 Coder LoRA SFT – all-linear adapters
 
+type = "sft"
+
 [algorithm]
 type = "offline"
 method = "sft"
@@ -54,5 +56,4 @@ r = 16
 alpha = 32
 dropout = 0.05
 target_modules = ["all-linear"]
-
 

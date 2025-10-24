@@ -962,7 +962,6 @@ register_task_app(
         description="Single-step math reasoning task app using EleutherAI/math dataset.",
         config_factory=build_config,
         aliases=("math-rl",),
-        env_files=("examples/rl/.env",),
         modal=ModalDeploymentConfig(
             app_name="synth-math-single-step",
             pip_packages=(

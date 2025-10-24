@@ -1,3 +1,5 @@
+type = "rl"
+
 [services]
 task_url = "https://your-math-task.modal.run"
 

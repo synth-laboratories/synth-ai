@@ -12,7 +12,7 @@ from opentelemetry.sdk.trace.export import (
 )
 from pydantic import BaseModel, ConfigDict, Field
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 
 class InMemoryExporter(SpanExporter):

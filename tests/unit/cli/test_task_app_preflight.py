@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-from synth_ai.cli.lib.task_app_env import preflight_env_key
+from synth_ai._utils.task_app_env import preflight_env_key
 from synth_ai.learning.rl.secrets import mint_environment_api_key
 
 
@@ -28,8 +28,7 @@ def test_mint_environment_api_key_is_raw_hex(monkeypatch: pytest.MonkeyPatch) ->
     assert bytes.fromhex(minted)
 
 
-def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    env_file = tmp_path / "task.env"
+def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) -> None:
     minted_value = "f0" * 32  # 64 hex chars; matches secrets.token_hex(32) output length.
     mint_calls: list[str] = []
 
@@ -42,6 +41,24 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tm
     monkeypatch.delenv("DEV_ENVIRONMENT_API_KEY", raising=False)
     monkeypatch.setenv("SYNTH_API_KEY", "sk_test_123")
     monkeypatch.setenv("BACKEND_BASE_URL", "https://example.test/api")
+
+    recorded_config: dict[str, str] = {}
+
+    def fake_load_user_config() -> dict[str, str]:
+        return recorded_config.copy()
+
+    def fake_update_user_config(updates: dict[str, str]) -> dict[str, str]:
+        recorded_config.update({k: str(v) for k, v in updates.items()})
+        return recorded_config.copy()
+
+    monkeypatch.setattr("synth_ai._utils.user_config.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.user_config.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_env.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
+    monkeypatch.setattr("synth_ai._utils.task_app_env.hydrate_user_environment", lambda override=False: {})
 
     public_key_bytes = b"\x01" * 32
     public_key_b64 = base64.b64encode(public_key_bytes).decode("ascii")
@@ -107,13 +124,13 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tm
     monkeypatch.setattr(nacl.public, "PublicKey", FakePublicKey)
     monkeypatch.setattr(nacl.public, "SealedBox", FakeSealedBox)
 
-    preflight_env_key([env_file], crash_on_failure=True)
+    preflight_env_key(crash_on_failure=True)
 
     assert mint_calls == ["called"]
     assert os.environ["ENVIRONMENT_API_KEY"] == minted_value
     assert os.environ["DEV_ENVIRONMENT_API_KEY"] == minted_value
-    assert env_file.exists()
-    assert f"ENVIRONMENT_API_KEY={minted_value}" in env_file.read_text().splitlines()
+    assert recorded_config.get("ENVIRONMENT_API_KEY") == minted_value
+    assert recorded_config.get("DEV_ENVIRONMENT_API_KEY") == minted_value
 
     assert FakeSealedBox.last_plaintext == minted_value.encode("utf-8")
 

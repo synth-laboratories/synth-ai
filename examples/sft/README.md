@@ -27,7 +27,7 @@ You can generate traces with the Crafter task app and then export them to SFT JS
 # Serve the task app locally with tracing enabled (example)
 uvx synth-ai serve grpo-crafter \
   --trace traces/v3 \
-  --trace-db traces/v3/synth_ai.db \
+  --trace-db traces/v3/task_app_traces_<timestamp>.db \
   --port 8001
 
 # Or run traced local rollouts to accumulate data
@@ -36,9 +36,9 @@ uv run python examples/warming_up_to_rl/run_local_rollout_traced.py \
 
 # Export SFT dataset from the trace DB
 uv run python examples/warming_up_to_rl/export_trace_sft.py \
-  --db traces/v3/synth_ai.db \
+  --db traces/v3/task_app_traces_<timestamp>.db \
   --min-unique 0 \
-  --output examples/sft/ft_data/crafter_traces.jsonl
+  --output examples/sft/ft_data/crafter_sft.jsonl
 ```
 
 Notes:
@@ -56,7 +56,7 @@ Use the standard CLI. Do not use a custom Python finetuning script. Point the CL
 uvx synth-ai train \
   --type sft \
   --config examples/sft/configs/crafter_lora_qwen0p6b.toml \
-  --dataset examples/sft/ft_data/crafter_traces.jsonl \
+  --dataset examples/sft/ft_data/crafter_sft.jsonl \
   --env-file /Users/joshpurtell/Documents/GitHub/monorepo/backend/.env.dev
 ```
 
@@ -76,7 +76,7 @@ Full finetuning updates all weights and uses a near-identical CLI flow with the 
 uvx synth-ai train \
   --type sft \
   --config examples/sft/configs/crafter_fft_qwen0p6b.toml \
-  --dataset examples/sft/ft_data/crafter_traces.jsonl \
+  --dataset examples/sft/ft_data/crafter_sft.jsonl \
   --env-file /Users/joshpurtell/Documents/GitHub/monorepo/backend/.env.dev
 ```
 

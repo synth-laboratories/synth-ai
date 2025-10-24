@@ -1,5 +1,7 @@
 # Eval config for finetuned Qwen/Qwen3-4B (FFT) via task app rollout
 
+type = "sft"
+
 # Required
 task_app_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
 # Replace with your finished job id if different

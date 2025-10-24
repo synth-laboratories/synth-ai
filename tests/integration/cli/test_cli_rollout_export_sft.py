@@ -1,10 +1,11 @@
 import os
-import sqlite3
+import shutil
 from pathlib import Path
 
 import pytest
 
 from synth_ai.api.train.utils import validate_sft_jsonl
+from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME, canonical_trace_db_name
 
 pytestmark = pytest.mark.integration
 
@@ -19,17 +20,21 @@ def _artifacts_dir() -> Path:
 
 def test_export_from_cached_trace_db(tmp_path: Path) -> None:
     # Use the committed minimal SQL to create a tiny SQLite DB on the fly
-    sql_path = _artifacts_dir() / "rollouts" / "traces" / "v3" / "synth_ai.small.sql"
-    db_path = tmp_path / "traces" / "v3" / "synth_ai.db"
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    fixture_dir = _artifacts_dir() / "traces" / "chat_small"
+    candidates = sorted(
+        fixture_dir.glob(f"{TRACE_DB_BASENAME}*.db"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        candidates = sorted(fixture_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise RuntimeError(f"Unable to locate fixture database in {fixture_dir}")
+    source_db = candidates[0]
 
-    conn = sqlite3.connect(str(db_path))
-    try:
-        with sql_path.open("r", encoding="utf-8") as fh:
-            conn.executescript(fh.read())
-        conn.commit()
-    finally:
-        conn.close()
+    db_path = tmp_path / "traces" / "v3" / canonical_trace_db_name()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_db, db_path)
 
     # Import exporter pieces from the example to avoid reimplementation
     from examples.warming_up_to_rl.export_trace_sft import (

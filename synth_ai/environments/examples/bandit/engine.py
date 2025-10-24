@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-
 from synth_ai.environments.environment.shared_engine import (
     GetObservationCallable,
     InternalObservation,

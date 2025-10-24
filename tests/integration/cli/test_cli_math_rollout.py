@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 import requests
+from synth_ai.tracing_v3.constants import canonical_trace_db_name
 
 pytestmark = pytest.mark.integration
 
@@ -112,7 +113,7 @@ def test_serve_math_rollout_returns_trace(tmp_path: Path):
     env.setdefault("SYNTH_FAKE_INFERENCE", "1")
 
     trace_dir = tmp_path / "traces"
-    trace_db = trace_dir / "synth_ai.db"
+    trace_db = trace_dir / canonical_trace_db_name()
     trace_dir.mkdir(parents=True, exist_ok=True)
 
     cmd = [

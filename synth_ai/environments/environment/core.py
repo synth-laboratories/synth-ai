@@ -1,4 +1,10 @@
-from synth_ai.core.system import System
+class System:
+    """Minimal base data structure shared by environment types."""
+
+    id: str
+    name: str
+    description: str
+    pass
 
 
 class Environment(System):

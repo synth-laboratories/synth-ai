@@ -13,16 +13,24 @@ from click.testing import CliRunner
 
 from synth_ai.cli.status import register as register_status
 from synth_ai.cli.traces import register as register_traces
+from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME, canonical_trace_db_name
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"
 
 
 def _fixture_db(scenario: str) -> Path:
-    db_path = FIXTURE_ROOT / scenario / "synth_ai.db"
-    if not db_path.exists():
-        raise RuntimeError(f"Fixture database missing for scenario '{scenario}': {db_path}")
-    return db_path
+    scenario_dir = FIXTURE_ROOT / scenario
+    candidates = sorted(
+        scenario_dir.glob(f"{TRACE_DB_BASENAME}*.db"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        candidates = sorted(scenario_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise RuntimeError(f"Fixture database missing for scenario '{scenario}' in {scenario_dir}")
+    return candidates[0]
 
 
 def _build_cli(include_traces: bool = False) -> click.Group:
@@ -59,7 +67,7 @@ def test_traces_cli_lists_fixture_database(tmp_path):
     runner = CliRunner()
     cli = _build_cli(include_traces=True)
 
-    root = tmp_path / "synth_ai.db" / "dbs"
+    root = tmp_path / canonical_trace_db_name().removesuffix(".db") / "dbs"  # type: ignore[attr-defined]
     fixture_dir = root / "fixture"
     fixture_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(_fixture_db("chat_small"), fixture_dir / "data")

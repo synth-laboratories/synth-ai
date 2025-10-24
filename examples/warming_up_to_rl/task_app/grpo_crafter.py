@@ -664,7 +664,6 @@ register_task_app(
         description="Crafter Classic task app with rollout + proxy endpoints",
         config_factory=build_config,
         aliases=("crafter", "crafter-task"),
-        env_files=(str(REPO_ROOT / "backend" / ".env.dev"),),
         modal=ModalDeploymentConfig(
             app_name="grpo-crafter-task-app",
             python_version="3.11",
