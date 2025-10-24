@@ -1,21 +1,18 @@
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 from typing import Any
 
 import click
-from synth_ai.config.base_url import get_backend_from_env
 
 from .builders import build_rl_payload, build_sft_payload
-from .config_finder import discover_configs, prompt_for_config
-from .env_resolver import KeySpec, resolve_env
 from .pollers import RLJobPoller, SFTJobPoller
 from .task_app import check_task_app_health
 from .utils import (
     REPO_ROOT,
     TrainError,
-    ensure_api_base,
     http_get,
     http_post,
     limit_jsonl_examples,
@@ -28,11 +25,22 @@ from .utils import (
 
 
 def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Path]:
+    root = config_path.parent
+    parent = root.parent
+    cwd = Path.cwd()
+
     search_dirs: list[Path] = [
-        config_path.parent,
-        config_path.parent / "datasets",
-        REPO_ROOT / "traces",
+        root,
+        root / "datasets",
+        parent,
+        parent / "datasets",
+        parent / "ft_data",
+        cwd,
+        cwd / "datasets",
+        cwd / "ft_data",
         REPO_ROOT / "datasets",
+        REPO_ROOT / "ft_data",
+        REPO_ROOT / "traces",
     ]
 
     candidates: list[Path] = []
@@ -51,9 +59,13 @@ def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Pat
             if resolved.stat().st_size == 0:
                 continue
             candidates.append(resolved)
-            if len(candidates) >= limit:
-                return candidates
-    return candidates
+    with contextlib.suppress(OSError):
+        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    if candidates:
+        named = [p for p in candidates if "sft_dataset_" in p.name]
+        if named:
+            return named[:limit]
+    return candidates[:limit]
 
 
 def prompt_for_dataset(config_path: Path) -> Path:
@@ -62,10 +74,11 @@ def prompt_for_dataset(config_path: Path) -> Path:
         if candidates:
             click.echo("Select dataset JSONL file:")
             for idx, candidate in enumerate(candidates, start=1):
-                click.echo(f"  {idx}) {candidate}")
+                marker = " <- most recent" if idx == 1 else ""
+                click.echo(f"  {idx}) {candidate}{marker}")
             click.echo("  m) Enter path manually")
             click.echo("  0) Abort")
-            choice = click.prompt("Choice", default="m").strip().lower()
+            choice = click.prompt("Choice", default="1").strip().lower()
             if choice == "0":
                 raise click.ClickException("Aborted by user")
             if choice in {"m", "manual"}:
@@ -91,168 +104,6 @@ def prompt_for_dataset(config_path: Path) -> Path:
 def _prompt_manual_dataset() -> Path:
     manual = click.prompt("Enter dataset JSONL path", type=str).strip()
     return Path(manual).expanduser()
-
-
-def _default_backend() -> str:
-    """Resolve backend URL with proper production default."""
-    # Check explicit override first
-    explicit = os.getenv("BACKEND_BASE_URL", "").strip()
-    if explicit:
-        return explicit
-    # Use standard resolution logic
-    base, _ = get_backend_from_env()
-    return f"{base}/api" if not base.endswith("/api") else base
-
-
-@click.command("train")
-@click.option(
-    "--config",
-    "config_paths",
-    multiple=True,
-    type=click.Path(),
-    help="Path to training TOML (repeatable)",
-)
-@click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft"]), default="auto")
-@click.option("--task-url", default=None, help="Override task app base URL (RL only)")
-@click.option(
-    "--dataset",
-    "dataset_path",
-    type=click.Path(),
-    default=None,
-    help="Override dataset JSONL path (SFT)",
-)
-@click.option("--backend", default=_default_backend, help="Backend base URL")
-@click.option("--model", default=None, help="Override model identifier")
-@click.option(
-    "--allow-experimental",
-    "allow_experimental",
-    is_flag=True,
-    flag_value=True,
-    default=None,
-    help="Allow experimental models (overrides SDK_EXPERIMENTAL env)",
-)
-@click.option(
-    "--no-allow-experimental",
-    "allow_experimental",
-    is_flag=True,
-    flag_value=False,
-    help="Disallow experimental models (overrides SDK_EXPERIMENTAL env)",
-)
-@click.option("--idempotency", default=None, help="Idempotency-Key header for job creation")
-@click.option("--dry-run", is_flag=True, hidden=True, help="Deprecated: no-op")
-@click.option("--poll/--no-poll", default=True, help="Poll job status until terminal state")
-@click.option(
-    "--poll-timeout", default=3600.0, type=float, help="Maximum seconds to poll before timing out"
-)
-@click.option("--poll-interval", default=5.0, type=float, help="Seconds between poll attempts")
-@click.option(
-    "--examples",
-    "examples_limit",
-    type=int,
-    default=None,
-    help="Limit SFT training to the first N examples",
-)
-def train_command(
-    config_paths: tuple[str, ...],
-    train_type: str,
-    task_url: str | None,
-    dataset_path: str | None,
-    backend: str,
-    model: str | None,
-    allow_experimental: bool | None,
-    idempotency: str | None,
-    dry_run: bool,
-    poll: bool,
-    poll_timeout: float,
-    poll_interval: float,
-    examples_limit: int | None,
-) -> None:
-    """Interactive launcher for RL / SFT jobs."""
-
-    candidates = discover_configs(
-        list(config_paths), requested_type=train_type if train_type != "auto" else None
-    )
-    selection = prompt_for_config(
-        candidates,
-        requested_type=train_type if train_type != "auto" else None,
-        allow_autoselect=bool(config_paths),
-    )
-
-    effective_type = train_type if train_type != "auto" else selection.train_type
-    if effective_type not in {"rl", "sft"}:
-        effective_type = click.prompt(
-            "Detected config type is ambiguous. Enter type", type=click.Choice(["rl", "sft"])
-        )
-
-    cfg_path = selection.path
-    click.echo(f"Using config: {cfg_path} ({effective_type})")
-
-    required_keys: list[KeySpec] = []
-    if effective_type == "rl":
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-        required_keys.append(
-            KeySpec(
-                "ENVIRONMENT_API_KEY",
-                "Environment API key for task app",
-                allow_modal_secret=True,
-                modal_secret_pattern="env",
-            )
-        )
-        required_keys.append(
-            KeySpec(
-                "TASK_APP_URL",
-                "Task app base URL",
-                secret=False,
-                allow_modal_app=True,
-                optional=bool(task_url),
-            )
-        )
-    else:  # sft
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-
-    _, env_values = resolve_env(
-        config_path=cfg_path,
-        explicit_env_paths=(),
-        required_keys=required_keys,
-    )
-
-    click.echo("Environment credentials loaded.")
-
-    synth_key = env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")
-    if not synth_key:
-        raise click.ClickException("SYNTH_API_KEY required")
-
-    backend_base = ensure_api_base(backend)
-    click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
-
-    if effective_type == "rl":
-        handle_rl(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            task_url_override=task_url,
-            model_override=model,
-            idempotency=idempotency,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-        )
-    else:
-        dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
-        handle_sft(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            dataset_override=dataset_override_path,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            examples_limit=examples_limit,
-        )
 
 
 def _wait_for_training_file(
@@ -572,7 +423,3 @@ def handle_sft(
                 limited_path.parent.rmdir()
             except Exception:
                 pass
-
-
-def register(cli: click.Group) -> None:
-    cli.add_command(train_command)
