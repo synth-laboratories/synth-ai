@@ -1,3 +1,5 @@
+type = "rl"
+
 [algorithm]
 type = "online"
 method = "policy_gradient"
