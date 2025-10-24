@@ -7,7 +7,7 @@ from synth_ai.api.models.supported import (
     normalize_model_identifier,
 )
 
-from ..http import AsyncHttpClient
+from .._utils.http import AsyncHttpClient
 
 
 class InferenceClient:

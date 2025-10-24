@@ -12,7 +12,7 @@ from typing import Any
 
 import requests
 from dotenv import load_dotenv
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 
 def mask(val: str) -> str:

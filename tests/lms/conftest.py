@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from synth_ai.config.base_url import get_backend_from_env
+from synth_ai._utils.base_url import get_backend_from_env
 
 
 def pytest_addoption(parser):

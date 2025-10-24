@@ -52,7 +52,7 @@ uvx synth-ai serve math-single-step \
   --port 8101 \
   --env-file examples/rl/.env \
   --trace traces/math \
-  --trace-db traces/math/synth_ai.db
+  --trace-db traces/math/task_app_traces_<timestamp>.db
 ```
 
 Deploy or serve on Modal using the same env file; the registration includes a `ModalDeploymentConfig` that installs the `datasets` package automatically.

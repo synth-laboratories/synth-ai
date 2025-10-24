@@ -11,7 +11,7 @@ from synth_ai.api.models.supported import (
 )
 from synth_ai.learning.sft.config import prepare_sft_job_payload
 
-from ..http import AsyncHttpClient, HTTPError, sleep
+from .._utils.http import AsyncHttpClient, HTTPError, sleep
 
 
 class LearningClient:

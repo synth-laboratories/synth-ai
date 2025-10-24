@@ -1,6 +1,8 @@
 # Crafter Full Finetune (FFT) example on H100
 # Adjust paths and hyperparameters to your environment before running.
 
+type = "sft"
+
 [job]
 model = "Qwen/Qwen3-4B"               # base model to finetune
 # Path to your SFT JSONL dataset

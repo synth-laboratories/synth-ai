@@ -26,6 +26,7 @@ from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
 from synth_ai.tracing_v3.storage.factory import create_storage
 from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"
@@ -36,11 +37,18 @@ def _load_manifest(scenario: str) -> tuple[dict, Path]:
     """Load manifest and database path for the given fixture scenario."""
     scenario_dir = FIXTURE_ROOT / scenario
     manifest_path = scenario_dir / "manifest.json"
-    db_path = scenario_dir / "synth_ai.db"
+    db_candidates = sorted(
+        scenario_dir.glob(f"{TRACE_DB_BASENAME}*.db"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not db_candidates:
+        db_candidates = sorted(scenario_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not manifest_path.exists():
         raise RuntimeError(f"Missing manifest for fixture '{scenario}': {manifest_path}")
-    if not db_path.exists():
-        raise RuntimeError(f"Missing database for fixture '{scenario}': {db_path}")
+    if not db_candidates:
+        raise RuntimeError(f"Missing database for fixture '{scenario}' in {scenario_dir}")
+    db_path = db_candidates[0]
     with manifest_path.open("r", encoding="utf-8") as fh:
         manifest = json.load(fh)
     return manifest, db_path

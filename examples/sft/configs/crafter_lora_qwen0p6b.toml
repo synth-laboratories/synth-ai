@@ -1,7 +1,9 @@
+type = "sft"
+
 [job]
 model = "Qwen/Qwen3-0.6B"
 # Optionally set here, but prefer passing --dataset at runtime
-# data = "examples/sft/ft_data/crafter_traces.jsonl"
+# data = "examples/sft/ft_data/crafter_sft.jsonl"
 
 [compute]
 gpu_type = "H100"
@@ -12,7 +14,7 @@ nodes = 1
 # Forwarded into metadata.effective_config
 topology = {}
 # Optional validation set if you have one locally
-# validation_path = "examples/sft/ft_data/crafter_traces.val.jsonl"
+# validation_path = "examples/sft/ft_data/crafter_sft.val.jsonl"
 
 [training]
 mode = "lora"
@@ -42,4 +44,3 @@ fsdp = false
 bf16 = true
 fp16 = false
 activation_checkpointing = true
-

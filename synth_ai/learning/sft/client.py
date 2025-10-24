@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ...http import AsyncHttpClient, HTTPError
+from ..._utils.http import AsyncHttpClient, HTTPError
 from .config import prepare_sft_job_payload
 from .data import validate_jsonl_or_raise
 

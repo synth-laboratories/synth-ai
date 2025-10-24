@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from synth_ai.jobs.client import JobsClient
-from synth_ai.http import HTTPError
+from synth_ai._utils.http import HTTPError
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
@@ -190,5 +190,4 @@ async def test_create_qlora_job_prod() -> None:
         )
         assert isinstance(job, dict)
         assert job.get("id") and job.get("status")
-
 

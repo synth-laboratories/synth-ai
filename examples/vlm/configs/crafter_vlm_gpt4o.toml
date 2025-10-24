@@ -1,3 +1,5 @@
+type = "sft"
+
 [job]
 model = "openai/gpt-4o-mini-2024-07-18"
 modalities = ["text", "image"]
