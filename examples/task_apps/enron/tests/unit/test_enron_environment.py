@@ -3,6 +3,7 @@ import pytest
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_enron_search_tool():
     """Test that the search_emails tool works correctly."""
     from synth_ai.environments.examples.enron.environment import SearchEmailsTool

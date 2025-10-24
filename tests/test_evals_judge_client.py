@@ -69,6 +69,7 @@ async def test_score_happy_path(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_score_validation_error_422(monkeypatch):
 	if JudgeClient is None:
 		pytest.skip("JudgeClient not yet implemented")

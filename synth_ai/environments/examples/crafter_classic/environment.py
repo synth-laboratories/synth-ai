@@ -397,7 +397,7 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             priv_state, pub_state, self.custom_step_observation_callable
         )
         total_step_time = time.time() - step_start_time
-        logger.info(
+        logger.debug(
             f"CrafterClassic step completed in {total_step_time:.3f}s (interact: {interact_time:.3f}s)"
         )
         return obs

@@ -1,7 +1,7 @@
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the TaskAppConfig defined in the local example at
-`examples/warming_up_to_rl/task_app/grpo_crafter.py`. It is kept for legacy usage
+`examples/task_apps/crafter/task_app/grpo_crafter.py`. It is kept for legacy usage
 (running the file directly or targeting `fastapi_app` from external tooling).
 Prefer using `uvx synth-ai serve grpo-crafter` for local development and testing.
 """
@@ -28,24 +28,25 @@ def _load_build_config():
         return module.build_config  # type: ignore[attr-defined]
     except Exception:
         # Fallback: locate the file within the installed synth_ai distribution and exec it
-        import synth_ai
         import sys as _sys
+
+        import synth_ai
 
         synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
         module_path = (
-            synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
+            synth_ai_path / "examples" / "task_apps" / "crafter" / "task_app" / "grpo_crafter.py"
         )
 
         if not module_path.exists():
             raise ImportError(
                 f"Could not find task app module at {module_path}. Make sure you're running from the synth-ai repository."
-            )
+            ) from None
 
         spec = importlib.util.spec_from_file_location(
             "examples.task_apps.crafter.task_app.grpo_crafter", module_path
         )
         if spec is None or spec.loader is None:
-            raise ImportError(f"Could not load task app module at {module_path}")
+            raise ImportError(f"Could not load task app module at {module_path}") from None
 
         module = importlib.util.module_from_spec(spec)
         _sys.modules[spec.name] = module
@@ -56,7 +57,7 @@ def _load_build_config():
 build_config = _load_build_config()
 
 
-APP_ID = "grpo-crafter"
+APP_ID = "grpo-crafter-task-app"
 
 
 def _build_base_config() -> TaskAppConfig:

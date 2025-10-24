@@ -350,6 +350,7 @@ async def run_all_models_parallel():
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_judge_model_comparison():
     """
     Integration test comparing judge performance across multiple models.

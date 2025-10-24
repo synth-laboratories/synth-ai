@@ -1,7 +1,7 @@
 """Compatibility wrapper for the GRPO Crafter task app.
 
 This module now delegates to the TaskAppConfig defined in the colocated example at
-`examples/warming_up_to_rl/task_app/grpo_crafter.py`. It is kept for legacy usage
+`examples/task_apps/crafter/task_app/grpo_crafter.py`. It is kept for legacy usage
 (running the file directly or targeting `fastapi_app` from external tooling). Prefer using
 `uvx synth-ai serve grpo-crafter` for local development and testing.
 """

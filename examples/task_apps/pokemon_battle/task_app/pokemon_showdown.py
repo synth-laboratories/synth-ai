@@ -238,7 +238,7 @@ def _build_dataset_registry() -> tuple[TaskDatasetRegistry, PokemonBattleDataset
 def _base_task_info(dataset: PokemonBattleDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "pokemon_showdown", "name": "Pokémon Showdown Battle", "version": "0.1.0"},
-        environments=["pokemon_showdown"],
+        environment="pokemon_showdown",
         action_space={
             "type": "structured",
             "schema": {
@@ -283,11 +283,6 @@ def _base_task_info(dataset: PokemonBattleDataset) -> TaskInfo:
                 "groq": "/proxy/groq/v1/chat/completions",
             },
         },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
-        },
         limits={"max_turns": 200, "max_time_s": 1800, "max_ops": 4096},
         task_metadata={
             "preferred_engine": "pokechamp",
@@ -311,26 +306,37 @@ def provide_task_instances(
     dataset: PokemonBattleDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
+
     for seed_value in seeds:
         resolved_seed = dataset.resolve_seed(seed_value)
         details = dataset.describe_seed(resolved_seed)
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
                 observation={
-                    **base_info.observation,
+                    **observation_template,
                     "seed": resolved_seed,
                     "format_id": details["format_id"],
                     "player_team_ref": details["player_team_ref"],
                     "opponent_team_ref": details["opponent_team_ref"],
                     "description": details["description"],
                 },
-                dataset={**base_info.dataset, "seed": resolved_seed, "scenario": details},
+                dataset={
+                    **base_info.dataset.model_dump(),
+                    "seed": resolved_seed,
+                    "scenario": details,
+                },
                 rubric=base_info.rubric,
                 inference=base_info.inference,
-                capabilities=base_info.capabilities,
                 limits=base_info.limits,
                 task_metadata={
                     **base_info.task_metadata,
@@ -850,12 +856,16 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         },
     )
 
+    # Extract inference_url from policy config
+    inference_url = (request.policy.config or {}).get("inference_url")
+    
     trajectory = RolloutTrajectory(
         env_id="pokemon_showdown",
         policy_id=request.policy.policy_id or "policy",
         steps=steps,
         final={"observation": final_obs, "reward": total_reward, "done": done},
         length=len(steps),
+        inference_url=inference_url,  # NEW: Required for trace correlation
     )
 
     return RolloutResponse(

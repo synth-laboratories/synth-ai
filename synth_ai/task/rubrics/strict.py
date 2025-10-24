@@ -1,15 +1,32 @@
+"""Strict rubric validators for step-wise judges.
+
+These validators enforce stricter constraints than the general-purpose rubrics:
+- Weights must be ≤ 1.0 and sum to exactly 1.0
+- Only weighted_sum aggregation is allowed
+- All required fields must be non-empty
+
+Used primarily for validation in judge configurations.
+"""
+
 from __future__ import annotations
 
 import json
 import math
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable, Literal
+from typing import Any, Literal
 
 import pydantic
 
 
-class RubricCriterion(pydantic.BaseModel):
-    """Single scoring criterion within a rubric."""
+class StrictCriterion(pydantic.BaseModel):
+    """Single scoring criterion with strict validation.
+    
+    Enforces:
+    - Weight ≤ 1.0 (for proper normalization)
+    - Weight > 0.0 (positive)
+    - Non-empty strings
+    """
 
     id: str
     description: str
@@ -35,16 +52,23 @@ class RubricCriterion(pydantic.BaseModel):
         return value
 
 
-class RubricSpec(pydantic.BaseModel):
-    """High-level rubric definition used by step-wise judges."""
+class StrictRubric(pydantic.BaseModel):
+    """Strict rubric definition for step-wise judges.
+    
+    Enforces:
+    - Weights must sum to 1.0
+    - Only weighted_sum aggregation
+    - Non-empty version and goal_text
+    - At least one criterion
+    """
 
     version: str
     goal_text: str
     aggregation: Literal["weighted_sum"]
-    criteria: list[RubricCriterion]
+    criteria: list[StrictCriterion]
 
     @pydantic.model_validator(mode="after")
-    def _validate_weights(self) -> "RubricSpec":
+    def _validate_weights(self) -> StrictRubric:
         if not self.criteria:
             raise ValueError("rubric must declare at least one criterion")
         total_weight = sum(criterion.weight for criterion in self.criteria)
@@ -71,56 +95,55 @@ class RubricSpec(pydantic.BaseModel):
         return value
 
 
+# Re-export pydantic's ValidationError for convenience
 ValidationError = pydantic.ValidationError
 
 
-def validate_rubric_dict(payload: dict[str, Any]) -> RubricSpec:
-    """
-    Validate an in-memory rubric payload and return the parsed model.
-
+def validate_rubric_dict(payload: dict[str, Any]) -> StrictRubric:
+    """Validate an in-memory rubric payload with strict rules.
+    
     Args:
-        payload: Dictionary representing the rubric JSON.
+        payload: Dictionary representing the rubric JSON
+        
     Returns:
-        Validated RubricSpec instance.
+        Validated StrictRubric instance
+        
     Raises:
-        ValidationError: If the payload is missing required fields or contains
-        invalid weights.
+        ValidationError: If payload is invalid or doesn't meet strict constraints
     """
-
     if not isinstance(payload, dict):
         raise TypeError("rubric payload must be a dictionary")
-    return RubricSpec.model_validate(payload)
+    return StrictRubric.model_validate(payload)
 
 
 def _load_payload_from_file(path: Path) -> dict[str, Any]:
+    """Load JSON rubric from file."""
     if path.suffix.lower() != ".json":
         raise ValueError(f"Unsupported rubric file type: {path}")
     text = path.read_text(encoding="utf-8")
     return json.loads(text)
 
 
-def validate_rubric_file(path: Path) -> RubricSpec:
-    """
-    Load and validate a rubric file.
-
+def validate_rubric_file(path: Path) -> StrictRubric:
+    """Load and validate a rubric file with strict rules.
+    
     Args:
-        path: Path to a JSON rubric document.
+        path: Path to a JSON rubric document
+        
     Returns:
-        Validated RubricSpec instance.
+        Validated StrictRubric instance
     """
-
     payload = _load_payload_from_file(path)
     return validate_rubric_dict(payload)
 
 
-def validate_rubric_files(paths: Iterable[Path]) -> list[RubricSpec]:
-    """
-    Validate multiple rubric files and return their parsed models.
-
+def validate_rubric_files(paths: Iterable[Path]) -> list[StrictRubric]:
+    """Validate multiple rubric files with strict rules.
+    
     Useful for bulk validation inside tests or CI checks.
     """
-
-    validated: list[RubricSpec] = []
+    validated: list[StrictRubric] = []
     for path in paths:
         validated.append(validate_rubric_file(path))
     return validated
+

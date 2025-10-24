@@ -44,6 +44,7 @@ def _ops(n: int) -> list[str]:
 
 
 def _request(seed: int, a: EvalArgs) -> RolloutRequest:
+    from synth_ai.task.contracts import RolloutMode
     return RolloutRequest(
         run_id=f"eval-{seed}",
         env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
@@ -53,6 +54,7 @@ def _request(seed: int, a: EvalArgs) -> RolloutRequest:
         ),
         ops=_ops(a.max_llm_calls),
         record=RolloutRecordConfig(trajectories=True, return_trace=False, trace_format="compact"),
+        mode=RolloutMode.EVAL,
     )
 
 

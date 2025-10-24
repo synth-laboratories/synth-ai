@@ -311,20 +311,20 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     async def info() -> Mapping[str, Any]:
         dataset_meta = cfg.base_task_info.dataset
         rubrics: dict[str, Any] | None = None
-        if cfg.rubrics.outcome or cfg.rubrics.events:
+        rubric_bundle = cfg.rubrics
+        if rubric_bundle and (rubric_bundle.outcome or rubric_bundle.events):
             rubrics = {
-                "outcome": cfg.rubrics.outcome.model_dump() if cfg.rubrics.outcome else None,
-                "events": cfg.rubrics.events.model_dump() if cfg.rubrics.events else None,
+                "outcome": rubric_bundle.outcome.model_dump() if rubric_bundle.outcome else None,
+                "events": rubric_bundle.events.model_dump() if rubric_bundle.events else None,
             }
         payload = {
             "service": {
                 "task": cfg.base_task_info.task,
-                "version": cfg.base_task_info.task.get("version"),
+                "version": cfg.base_task_info.task.version,
             },
             "dataset": dataset_meta,
             "rubrics": rubrics,
             "inference": cfg.base_task_info.inference,
-            "capabilities": cfg.base_task_info.capabilities,
             "limits": cfg.base_task_info.limits,
         }
         return to_jsonable(payload)

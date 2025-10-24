@@ -9,7 +9,7 @@ This is the canonical contract that the backend MUST conform to.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,7 +26,7 @@ class CriterionScorePayload(BaseModel):
 class ReviewPayload(BaseModel):
     """Rubric review (event-level or outcome-level)."""
 
-    criteria: Dict[str, CriterionScorePayload] = Field(
+    criteria: dict[str, CriterionScorePayload] = Field(
         default_factory=dict,
         description="Map of criterion keys to their scores"
     )
@@ -42,7 +42,7 @@ class JudgeScoreResponse(BaseModel):
     """
 
     status: Literal["ok", "failed"] = Field(default="ok", description="Request status")
-    event_reviews: List[ReviewPayload] = Field(
+    event_reviews: list[ReviewPayload] = Field(
         default_factory=list,
         description="List of per-event rubric reviews (one per step)"
     )
@@ -50,15 +50,15 @@ class JudgeScoreResponse(BaseModel):
         None,
         description="Optional outcome-level rubric review"
     )
-    event_totals: List[float] = Field(
+    event_totals: list[float] = Field(
         default_factory=list,
         description="List of aggregated scores per event (matches event_reviews length)"
     )
-    details: Dict[str, Any] = Field(
+    details: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional details (provider, latency, etc.)"
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Request metadata (provider, options, etc.)"
     )
@@ -108,12 +108,12 @@ class JudgeOptions(BaseModel):
 class JudgeTracePayload(BaseModel):
     """Trace payload containing trajectory context."""
     
-    event_history: List[Dict[str, Any]] = Field(..., description="List of events/steps")
-    markov_blanket_message_history: List[Dict[str, Any]] = Field(
+    event_history: list[dict[str, Any]] = Field(..., description="List of events/steps")
+    markov_blanket_message_history: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Optional message history for context"
     )
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Trace metadata")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Trace metadata")
 
 
 class JudgeScoreRequest(BaseModel):

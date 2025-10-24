@@ -255,7 +255,7 @@ def _build_trace_payload(
 def _task_info() -> TaskInfo:
     return TaskInfo(
         task={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
-        environments=["sokoban"],
+        environment="sokoban",
         action_space={
             "type": "tool_call",
             "tools": [{"name": "interact", "schema": {"action": "int"}}],
@@ -265,7 +265,6 @@ def _task_info() -> TaskInfo:
         dataset={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
         rubric={"version": "1", "criteria_count": 1, "source": "inline"},
         inference={"supports_proxy": False},
-        capabilities={"supports_rollout": True, "supports_env_lifecycle": True},
         limits={"max_turns": 200},
     )
 
@@ -315,12 +314,17 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     final = {"observation": last_obs, "reward": 0.0}
     if not steps:
         steps = [RolloutStep(obs=last_obs, tool_calls=[], reward=0.0, done=True, info={})]
+    
+    # Extract inference_url from policy config (None for manual rollouts)
+    inference_url = policy_cfg.get("inference_url")
+    
     traj = RolloutTrajectory(
         env_id="sokoban",
         policy_id=request.policy.policy_id or "policy",
         steps=steps,
         final=final,
         length=len(steps),
+        inference_url=inference_url,  # NEW: Required for trace correlation
     )
     metrics = RolloutMetrics(
         episode_returns=[final.get("reward", 0.0) or 0.0],
@@ -647,12 +651,15 @@ async def _rollout_with_groq(
                 break
 
     final = {"observation": observation, "reward": total_reward}
+    inference_url_groq = "https://api.groq.com/openai/v1/chat/completions"
+    
     trajectory = RolloutTrajectory(
         env_id=request.env.env_id or request.env.env_name or "sokoban",
         policy_id=request.policy.policy_id or request.policy.policy_name or "sokoban-groq",
         steps=steps,
         final=final,
         length=len(steps),
+        inference_url=inference_url_groq,  # NEW: Required for trace correlation
     )
     metrics = RolloutMetrics(
         episode_returns=[total_reward],
@@ -872,12 +879,15 @@ async def _rollout_with_openai(
                 break
 
     final = {"observation": observation, "reward": total_reward}
+    inference_url_openai = "https://api.openai.com/v1/chat/completions"
+    
     trajectory = RolloutTrajectory(
         env_id=request.env.env_id or request.env.env_name or "sokoban",
         policy_id=request.policy.policy_id or request.policy.policy_name or "sokoban-openai",
         steps=steps,
         final=final,
         length=len(steps),
+        inference_url=inference_url_openai,  # NEW: Required for trace correlation
     )
     metrics = RolloutMetrics(
         episode_returns=[total_reward],

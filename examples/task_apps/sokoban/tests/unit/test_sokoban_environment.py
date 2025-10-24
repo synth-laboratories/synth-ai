@@ -2,6 +2,7 @@
 import pytest
 
 
+@pytest.mark.fast
 def test_sokoban_module_imports():
     """Test that Sokoban modules can be imported."""
     from synth_ai.environments.examples.sokoban import environment, engine

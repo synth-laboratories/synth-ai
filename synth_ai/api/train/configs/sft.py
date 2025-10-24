@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from pydantic import Field
 
@@ -74,11 +75,11 @@ class SFTConfig(ExtraModel):
         return self.model_dump(mode="python", exclude_none=True)
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> "SFTConfig":
+    def from_mapping(cls, data: Mapping[str, Any]) -> SFTConfig:
         return cls.model_validate(dict(data))
 
     @classmethod
-    def from_path(cls, path: Path) -> "SFTConfig":
+    def from_path(cls, path: Path) -> SFTConfig:
         content = load_toml(path)
         return cls.from_mapping(content)
 

@@ -723,6 +723,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         },
     )
 
+    # Extract inference_url from policy config
+    inference_url = (request.policy.config or {}).get("inference_url")
+    
     trajectory = RolloutTrajectory(
         env_id=f"math::{sample['split']}::{sample['index']}",
         policy_id=request.policy.policy_id or "policy",
@@ -732,6 +735,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "reward": reward,
         },
         length=1,
+        inference_url=inference_url,  # NEW: Required for trace correlation
     )
     metrics = RolloutMetrics(
         episode_returns=[reward],
@@ -800,7 +804,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, MathDataset]:
 def _base_task_info() -> TaskInfo:
     return TaskInfo(
         task={"id": "math_single_step", "name": "Math Single Step", "version": "1.0.0"},
-        environments=["math"],
+        environment="math",
         action_space={
             "type": "tool_call",
             "tools": [
@@ -829,11 +833,6 @@ def _base_task_info() -> TaskInfo:
         inference={
             "supports_proxy": True,
             "tool": {"name": TOOL_NAME, "parallel_tool_calls": False},
-        },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
         },
         limits={"max_turns": 1},
     )
@@ -887,21 +886,31 @@ def describe_taskset(dataset: MathDataset) -> dict[str, Any]:
 
 def provide_task_instances(dataset: MathDataset, seeds: Sequence[int]) -> Iterable[TaskInfo]:
     info = _base_task_info()
+    base_observation = getattr(info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
+
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
         yield TaskInfo(
             task=info.task,
-            environments=info.environments,
+            environment=info.environment,
             action_space=info.action_space,
-            observation={**info.observation, "sample_index": sample["index"]},
+            observation={
+                **observation_template,
+                "sample_index": sample["index"],
+            },
             dataset={
-                **info.dataset,
+                **info.dataset.model_dump(),
                 "split": sample["split"],
                 "index": sample["index"],
             },
             rubric=info.rubric,
             inference=info.inference,
-            capabilities=info.capabilities,
             limits=info.limits,
         )
 

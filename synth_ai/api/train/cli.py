@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import importlib
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
 try:
-    _config_module = importlib.import_module("synth_ai.config.base_url")
-    get_backend_from_env = _config_module.get_backend_from_env
+    _config_module = cast(
+        Any, importlib.import_module("synth_ai.config.base_url")
+    )
+    get_backend_from_env = cast(Callable[[], str], _config_module.get_backend_from_env)
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load backend configuration helpers") from exc
 
@@ -238,8 +240,12 @@ def train_command(
     ]
     if missing_keys:
         try:
-            _task_apps_module = importlib.import_module("synth_ai.cli.task_apps")
-            _interactive_fill_env = _task_apps_module._interactive_fill_env
+            _task_apps_module = cast(
+                Any, importlib.import_module("synth_ai.cli.task_apps")
+            )
+            _interactive_fill_env = cast(
+                Callable[[Path], Path | None], _task_apps_module._interactive_fill_env
+            )
         except Exception as exc:  # pragma: no cover - protective fallback
             raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
 

@@ -10,12 +10,14 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     return subprocess.run(args, text=True, capture_output=True, env=env)
 
 
+@pytest.mark.fast
 def test_balance_help():
     cp = _run(["uv", "run", "synth-ai", "balance", "--help"], env=os.environ.copy())
     assert cp.returncode == 0
     assert "Show your remaining credit balance" in cp.stdout
 
 
+@pytest.mark.fast
 def test_balance_dev_backend_help_only():
     env = os.environ.copy()
     # Prefer explicit dev URL if configured; don't require real key for help
@@ -24,6 +26,7 @@ def test_balance_dev_backend_help_only():
     assert cp.returncode == 0
 
 
+@pytest.mark.fast
 def test_balance_prod_help_only():
     env = os.environ.copy()
     # Ensure we don't leak dev overrides; help should still work

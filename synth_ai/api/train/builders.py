@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -9,25 +10,36 @@ import click
 from pydantic import ValidationError
 
 try:
-    _models_module = importlib.import_module("synth_ai.api.models.supported")
-    UnsupportedModelError = _models_module.UnsupportedModelError
-    ensure_allowed_model = _models_module.ensure_allowed_model
-    normalize_model_identifier = _models_module.normalize_model_identifier
+    _models_module = cast(
+        Any, importlib.import_module("synth_ai.api.models.supported")
+    )
+    UnsupportedModelError = cast(type[Exception], _models_module.UnsupportedModelError)
+    ensure_allowed_model = cast(
+        Callable[..., None], _models_module.ensure_allowed_model
+    )
+    normalize_model_identifier = cast(
+        Callable[[str], str], _models_module.normalize_model_identifier
+    )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load supported model helpers") from exc
 
 try:
-    prepare_sft_job_payload = importlib.import_module("synth_ai.learning.sft.config").prepare_sft_job_payload
+    _sft_module = cast(
+        Any, importlib.import_module("synth_ai.learning.sft.config")
+    )
+    prepare_sft_job_payload = cast(
+        Callable[..., dict[str, Any]], _sft_module.prepare_sft_job_payload
+    )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
 
+from .configs import RLConfig, SFTConfig
 from .supported_algos import (
     AlgorithmValidationError,
     ensure_model_supported_for_algorithm,
     validate_algorithm_config,
 )
 from .utils import TrainError, ensure_api_base
-from .configs import RLConfig, SFTConfig
 
 
 @dataclass(slots=True)
@@ -125,7 +137,7 @@ def build_rl_payload(
         if model_source:
             model_source = normalize_model_identifier(model_source)
         if model_base:
-            model_base = normalize_model_identifier(model_base, allow_finetuned_prefixes=False)
+            model_base = normalize_model_identifier(model_base)
     except UnsupportedModelError as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -304,10 +316,12 @@ def build_sft_payload(
         )
     except UnsupportedModelError as exc:
         raise TrainError(str(exc)) from exc
-    try:
-        ensure_model_supported_for_algorithm(base_model, spec)
-    except AlgorithmValidationError as exc:
-        raise TrainError(str(exc)) from exc
+    
+    if base_model:
+        try:
+            ensure_model_supported_for_algorithm(base_model, spec)
+        except AlgorithmValidationError as exc:
+            raise TrainError(str(exc)) from exc
 
     try:
         payload = prepare_sft_job_payload(

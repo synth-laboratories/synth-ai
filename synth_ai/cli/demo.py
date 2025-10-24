@@ -8,13 +8,18 @@ CLI: interactive launcher for example demos and RL demo helpers.
 
 from __future__ import annotations
 
+import importlib
 import os
 import subprocess
 from pathlib import Path
+from typing import Any, cast
 
 import click
+from click.exceptions import Exit
 
-from synth_ai.demos.core import cli as demo_commands
+demo_commands = cast(
+    Any, importlib.import_module("synth_ai.demos.core.cli")
+)
 
 
 def _find_demo_scripts(root: Path) -> list[Path]:
@@ -29,7 +34,7 @@ def _run_demo_command(func, *args, **kwargs) -> None:
     try:
         result = func(*args, **kwargs)
     except SystemExit as exc:  # pragma: no cover - defensive
-        raise click.exceptions.Exit(exc.code or 1) from exc
+        raise Exit(exc.code or 1) from exc
 
     if result is None:
         return
@@ -39,7 +44,7 @@ def _run_demo_command(func, *args, **kwargs) -> None:
     except (TypeError, ValueError):
         return
     if code != 0:
-        raise click.exceptions.Exit(code)
+        raise Exit(code)
 
 
 def register(cli):
@@ -106,10 +111,7 @@ def register(cli):
     # (prepare command removed; configure now prepares baseline TOML)
 
     # Help pyright understand dynamic Click group attributes
-    from typing import Any
-    from typing import cast as _cast
-
-    _dg = _cast(Any, demo)
+    _dg = cast(Any, demo)
 
     @_dg.command("deploy")
     @click.option("--local", is_flag=True, help="Run local FastAPI instead of Modal deploy")

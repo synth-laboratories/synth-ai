@@ -85,8 +85,17 @@ class CrafterReActAgent:
         history: list[dict[str, Any]] | None = None,
         turn: int | None = None,
         image_parts: list[dict[str, Any]] | None = None,
+        image_only_mode: bool = False,
     ) -> list[dict[str, Any]]:
-        """Construct OpenAI-style messages list for vLLM generation."""
+        """Construct OpenAI-style messages list for vLLM generation.
+        
+        Args:
+            observation: Text observation to include
+            history: Previous conversation history
+            turn: Current turn number
+            image_parts: Image content parts in OpenAI format
+            image_only_mode: If True, only include images without text observation
+        """
         msgs: list[dict[str, Any]] = [
             {"role": "system", "content": CrafterReActAgent.get_system_prompt()}
         ]
@@ -94,8 +103,14 @@ class CrafterReActAgent:
             msgs.extend(history)
         user_content: Any
         if image_parts:
-            user_content = [{"type": "text", "text": observation}] + list(image_parts)
+            # Image-only mode: send only images without text observation
+            if image_only_mode:
+                user_content = list(image_parts)
+            else:
+                # Normal vision mode: send both text and images
+                user_content = [{"type": "text", "text": observation}] + list(image_parts)
         else:
+            # Text-only mode (default): no images
             user_content = observation
         msgs.append({"role": "user", "content": user_content})
         return msgs

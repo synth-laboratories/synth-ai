@@ -102,6 +102,7 @@ class TestConcurrentOperations:
         actual_db_file = os.path.join(sqld_daemon.db_path, "dbs", "default", "data")
         return f"sqlite+aiosqlite:///{actual_db_file}"
 
+    @pytest.mark.fast
     async def test_concurrent_session_insertion_no_race_condition(self, db_url):
         """
         Test that concurrent session insertions work without race conditions.
@@ -178,6 +179,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_async_concurrent_operations(self, db_url):
         """Test various concurrent async operations."""
         num_workers = 20
@@ -259,6 +261,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_experiment_linking_concurrent(self, db_url):
         """Test concurrent experiment creation and session linking."""
         num_experiments = 5
@@ -334,6 +337,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_high_concurrency_stress(self, db_url):
         """Stress test with high concurrency."""
         num_workers = 50
@@ -390,6 +394,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_duplicate_session_handling(self, db_url):
         """Test handling of duplicate session IDs (should use OR IGNORE)."""
         session_id = "duplicate_test_session"

@@ -8,6 +8,7 @@ requests = pytest.importorskip("requests")
 AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
 
 
+@pytest.mark.slow
 def test_sokoban_manual_rollout(sokoban_server: str) -> None:
     """Test a manual Sokoban rollout with explicit movement actions."""
     # Actions: 0=left, 1=up, 2=right, 3=down
@@ -51,6 +52,7 @@ def test_sokoban_manual_rollout(sokoban_server: str) -> None:
         assert "reward" in step or "reward_last" in step.get("obs", {})
 
 
+@pytest.mark.slow
 def test_sokoban_policy_rollout_with_openai(sokoban_server: str) -> None:
     """Test a Sokoban rollout using OpenAI GPT-5-mini policy."""
     if "OPENAI_API_KEY" not in os.environ:
@@ -86,6 +88,7 @@ def test_sokoban_policy_rollout_with_openai(sokoban_server: str) -> None:
         assert "metrics" in data
 
 
+@pytest.mark.fast
 def test_sokoban_difficulty_levels(sokoban_server: str) -> None:
     """Test Sokoban rollouts with different difficulty levels."""
     for difficulty in ["easy", "medium", "hard"]:
@@ -116,6 +119,7 @@ def test_sokoban_difficulty_levels(sokoban_server: str) -> None:
         assert len(data["trajectories"]) > 0
 
 
+@pytest.mark.fast
 def test_sokoban_max_steps_limit(sokoban_server: str) -> None:
     """Test that Sokoban respects max_steps configuration."""
     max_steps = 5
@@ -153,6 +157,7 @@ def test_sokoban_max_steps_limit(sokoban_server: str) -> None:
         assert final_obs.get("truncated") is True
 
 
+@pytest.mark.fast
 def test_sokoban_completion_detection(sokoban_server: str) -> None:
     """Test that Sokoban detects puzzle completion (terminated=True)."""
     # This test verifies the structure, not necessarily that we solve it

@@ -11,7 +11,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from ._storage import load_storage
+from synth_ai.cli._storage import load_storage
 
 
 def register(cli):

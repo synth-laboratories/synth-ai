@@ -53,6 +53,8 @@ def sokoban_server(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     tmp_path = tmp_path_factory.mktemp("sokoban")
 
     env = os.environ.copy()
+    # Set the test API key
+    env["ENVIRONMENT_API_KEY"] = "sk_env_30c78a787bac223c716918181209f263"
     cmd = [
         "uv",
         "run",

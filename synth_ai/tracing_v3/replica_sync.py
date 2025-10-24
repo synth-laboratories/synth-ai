@@ -25,15 +25,15 @@ application to continue without blocking on sync operations.
 """
 
 import asyncio
+import importlib
 import logging
-from typing import Any
-
-import libsql
+from typing import Any, cast
 
 from .config import CONFIG
 
 logger = logging.getLogger(__name__)
 
+libsql = cast(Any, importlib.import_module("libsql"))
 
 class ReplicaSync:
     """Manages synchronization of embedded SQLite replica with remote Turso database.
@@ -53,7 +53,7 @@ class ReplicaSync:
         db_path: str = "embedded.db",
         sync_url: str | None = None,
         auth_token: str | None = None,
-        sync_interval: int | None = None,
+        sync_interval: float | None = None,
     ):
         """Initialize replica sync manager.
 

@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import pytest
 
-from synth_ai.rubrics.trace_utils import load_session_trace, compute_deterministic_metrics
+from synth_ai.tracing_v3.trace_utils import load_session_trace, compute_deterministic_metrics
 from synth_ai.judge_schemas import JudgeScoreResponse
 
 

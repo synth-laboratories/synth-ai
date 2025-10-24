@@ -33,12 +33,14 @@ def build_rollout_request(
             "Authorization": f"Bearer {api_key}",
         },
     }
+    from synth_ai.task.contracts import RolloutMode
     return RolloutRequest(
         run_id=run_id,
         env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
         policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
         ops=ops,
         record=RolloutRecordConfig(trajectories=True),
+        mode=RolloutMode.EVAL,
         on_done="reset",
         safety=RolloutSafetyConfig(),
     )

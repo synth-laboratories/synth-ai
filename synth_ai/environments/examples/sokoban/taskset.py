@@ -103,7 +103,7 @@ class SokobanTaskInstance(TaskInstance):
 def _base_task_info_template() -> TaskInfo:
     return TaskInfo(
         task={"id": "sokoban", "name": "Sokoban", "version": "1.0.0"},
-        environments=["sokoban"],
+        environment="sokoban",
         action_space={
             "type": "tool_call",
             "tools": [{"name": "interact", "schema": {"action": "int"}}],

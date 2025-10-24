@@ -1,20 +1,32 @@
 from __future__ import annotations
 
 import importlib
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 try:
-    normalize_model_identifier = importlib.import_module("synth_ai.api.models.supported").normalize_model_identifier
+    _supported_module = cast(
+        Any, importlib.import_module("synth_ai.api.models.supported")
+    )
+    normalize_model_identifier = cast(
+        Callable[[str], str], _supported_module.normalize_model_identifier
+    )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load supported model utilities") from exc
 
 try:
-    AsyncHttpClient = importlib.import_module("synth_ai.http").AsyncHttpClient
+    _http_module = cast(Any, importlib.import_module("synth_ai.http"))
+    AsyncHttpClient = _http_module.AsyncHttpClient
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load HTTP client") from exc
 
 try:
-    prepare_sft_job_payload = importlib.import_module("synth_ai.learning.sft.config").prepare_sft_job_payload
+    _sft_config_module = cast(
+        Any, importlib.import_module("synth_ai.learning.sft.config")
+    )
+    prepare_sft_job_payload = cast(
+        Callable[..., dict[str, Any]], _sft_config_module.prepare_sft_job_payload
+    )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT configuration helpers") from exc
 

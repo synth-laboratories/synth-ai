@@ -331,7 +331,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, EnronDataset]:
 def _base_task_info(dataset: EnronDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "enron_email_qa", "name": "Enron Email QA", "version": "1.0.0"},
-        environments=["enron"],
+        environment="enron",
         action_space={
             "type": "tool_calls",
             "tools": TOOLS,
@@ -352,11 +352,6 @@ def _base_task_info(dataset: EnronDataset) -> TaskInfo:
             "supports_proxy": False,
             "endpoints": {},
             "tool": {"name": "enron_tools", "parallel_tool_calls": False},
-        },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
         },
         limits={"max_ops": 0, "max_time_s": 900},
     )
@@ -401,6 +396,14 @@ def provide_task_instances(
     dataset: EnronDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
+
     for seed in seeds:
         instance = dataset.instance_by_seed(seed)
         metadata = instance.metadata
@@ -412,17 +415,19 @@ def provide_task_instances(
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
-                observation={**base_info.observation, "question": instance.impetus.instructions},
+                observation={
+                    **observation_template,
+                    "question": instance.impetus.instructions,
+                },
                 dataset={
-                    **base_info.dataset,
+                    **base_info.dataset.model_dump(),
                     "instance_id": str(_safe_uuid(instance.id)),
                     "metadata": meta_dict,
                 },
                 rubric=base_info.rubric,
                 inference=base_info.inference,
-                capabilities=base_info.capabilities,
                 limits=base_info.limits,
             )
         )
@@ -475,12 +480,14 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         truncated=None,
         info={"note": "No rollout executed; provider unset."},
     )
+    # No inference_url for noop policy
     trajectory = RolloutTrajectory(
         env_id=request.env.env_id or "enron",
         policy_id=request.policy.policy_id or request.policy.policy_name or "noop-policy",
         steps=[step],
         final={"observation": obs_dict},
         length=1,
+        inference_url=None,  # NEW: No inference for noop policy
         decision_samples=None,
     )
     metrics = RolloutMetrics(
@@ -787,12 +794,15 @@ async def _rollout_with_groq(
         events_score=None,
         details={"provider": "groq", "model": model},
     )
+    inference_url_groq = "https://api.groq.com/openai/v1/chat/completions"
+    
     trajectory = RolloutTrajectory(
         env_id=request.env.env_id or "enron",
         policy_id=request.policy.policy_id or request.policy.policy_name or "enron-groq",
         steps=steps,
         final={"observation": steps[-1].obs if steps else {}},
         length=len(steps),
+        inference_url=inference_url_groq,  # NEW: Required for trace correlation
         decision_samples=None,
     )
     trace_payload = _build_trace_payload_enron(

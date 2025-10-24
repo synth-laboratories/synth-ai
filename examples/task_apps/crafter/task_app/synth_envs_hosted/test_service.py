@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""
-Simple test script for the GRPO Synth Envs Hosted Service.
-
-Run this after starting the service with:
-    python main.py
-"""
+"""Manual smoke script for the GRPO Synth Envs Hosted Service."""
 
 import asyncio
 import json
 
 import httpx
+import pytest
+
+
+pytestmark = pytest.mark.skip(reason="Requires running hosted service on localhost:8000")
 
 
 async def test_service():

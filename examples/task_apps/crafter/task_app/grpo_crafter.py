@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -24,6 +25,17 @@ from synth_ai.task.tracing_utils import (
 )
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 
+try:
+    from .synth_envs_hosted.utils import (
+        ensure_chat_completions_url,
+        extract_trace_correlation_id,
+    )
+except Exception:  # pragma: no cover - utils unavailable if optional deps missing
+    def ensure_chat_completions_url(raw_url, mode=None):
+        return raw_url
+
+    def extract_trace_correlation_id(_raw_url):
+        return None
 logger = logging.getLogger(__name__)
 
 DEFAULT_ALIAS_OPS: list[str] = ["agent", "env"] * 10
@@ -68,7 +80,7 @@ def _resolve_repo_root() -> Path:
 def _resolve_task_app_root(repo_root: Path) -> Path:
     """Locate the task_app directory even when the module is copied to a temp mount."""
 
-    preferred = (repo_root / "examples" / "warming_up_to_rl" / "task_app").resolve()
+    preferred = (repo_root / "examples" / "task_apps" / "crafter" / "task_app").resolve()
     if preferred.is_dir():
         return preferred
 
@@ -81,7 +93,7 @@ def _resolve_task_app_root(repo_root: Path) -> Path:
         if (candidate / "synth_envs_hosted").is_dir():
             return candidate
 
-    fallback = Path("/opt/synth_ai_repo/examples/warming_up_to_rl/task_app")
+    fallback = Path("/opt/synth_ai_repo/examples/task_apps/crafter/task_app")
     if fallback.is_dir():
         return fallback.resolve()
 
@@ -94,6 +106,110 @@ SYNTH_ENVS_HOSTED_ROOT = (TASK_APP_ROOT / "synth_envs_hosted").resolve()
 
 EXAMPLES_ROOT = (REPO_ROOT / "examples").resolve()
 RUBRICS_ROOT = (EXAMPLES_ROOT / "multi_step" / "rubrics").resolve()
+
+DEFAULT_OUTCOME_RUBRIC_DATA: dict[str, Any] = {
+    "version": "1",
+    "goal_text": (
+        "Reward episodes that climb the Crafter achievement ladder, stockpile key resources "
+        "(especially wood), and finish alive with clear understanding of any failure."
+    ),
+    "aggregation": "weighted_sum",
+    "criteria": [
+        {
+            "id": "achievement_progression",
+            "description": (
+                "Weigh achievements by tier: late-game unlocks (iron tools, furnace, armor) earn "
+                "the most, mid-tier crafting (stone tools, furnace prep) gets partial credit, early "
+                "tasks (collecting saplings/wood tools) only lightly scored."
+            ),
+            "weight": 0.35,
+        },
+        {
+            "id": "resource_stockpile",
+            "description": (
+                "Assess resource totals with emphasis on wood stores; high scores require abundant "
+                "wood plus supporting materials (stone, coal, iron) that signal readiness for "
+                "crafting."
+            ),
+            "weight": 0.2,
+        },
+        {
+            "id": "survival_state",
+            "description": (
+                "Reward finishing alive with healthy food/drink bars and safe positioning; penalize "
+                "deaths, low vitals, or lingering hazards at episode end."
+            ),
+            "weight": 0.2,
+        },
+        {
+            "id": "failure_analysis",
+            "description": (
+                "If the run ends in death or timeout, clearly identify the cause and deduct unless "
+                "the agent mitigated risk; highlight when the agent survives despite danger."
+            ),
+            "weight": 0.15,
+        },
+        {
+            "id": "future_readiness",
+            "description": (
+                "Describe how prepared the agent is for the next objectives (tools crafted, shelters, "
+                "furnaces, smelted materials) and whether the inventory supports further progress."
+            ),
+            "weight": 0.1,
+        },
+    ],
+}
+
+DEFAULT_EVENTS_RUBRIC_DATA: dict[str, Any] = {
+    "version": "1",
+    "goal_text": (
+        "Score each decision in proportion to the concrete Crafter achievement progress it "
+        "delivers, topping out the scale when the log shows a fresh achievement unlock and keeping "
+        "routine upkeep near zero."
+    ),
+    "aggregation": "weighted_sum",
+    "criteria": [
+        {
+            "id": "achievement_unlocks",
+            "description": (
+                "Assign 0.9-1.0 when the decision explicitly unlocks a new Crafter achievement (look "
+                'for "Achievement unlocked" messages or equivalent deterministic completions such as '
+                "placing a furnace that immediately crafts ingots). Cap the score at 0.4 when no new "
+                "achievement fires, and drop to <=0.1 if the turn repeats known actions without "
+                "measurable progress."
+            ),
+            "weight": 0.55,
+        },
+        {
+            "id": "milestone_setup",
+            "description": (
+                "Give 0.5-0.7 when the action completes the last prerequisite for a specific upcoming "
+                "achievement (e.g., gathering the final ore before smelting, crafting sticks right "
+                "before a tool). Keep the score <=0.3 if the progress is speculative or still several "
+                "steps away."
+            ),
+            "weight": 0.2,
+        },
+        {
+            "id": "inventory_depth",
+            "description": (
+                "Reward 0.3-0.5 for pulls that clearly deepen critical buffers (fuel, food, ore) and "
+                "immediately unblock the next milestone. If resources are already plentiful or the "
+                "haul is generic filler, stay at <=0.2."
+            ),
+            "weight": 0.15,
+        },
+        {
+            "id": "execution_quality",
+            "description": (
+                "Only add up to 0.1 for clean, legal execution that avoids wasted turns; drop to 0.0 "
+                "whenever the agent idles, repeats failed moves, or takes damage without compensating "
+                "progress."
+            ),
+            "weight": 0.1,
+        },
+    ],
+}
 
 for path in (REPO_ROOT, TASK_APP_ROOT, SYNTH_ENVS_HOSTED_ROOT, EXAMPLES_ROOT):
     try:
@@ -114,6 +230,28 @@ try:
             sys.path.insert(0, _hard_examples_str)
 except Exception:
     pass
+
+def _load_rubric_with_fallback(filename: str, fallback: dict[str, Any]):
+    """Load rubric from JSON file when available, otherwise use bundled fallback."""
+
+    search_paths = [RUBRICS_ROOT / filename, TASK_APP_ROOT / "rubrics" / filename]
+    for path in search_paths:
+        try:
+            if path.exists():
+                logger.debug("Loading rubric from %s", path)
+                return load_rubric(str(path))
+        except Exception as exc:
+            logger.warning("Failed to load rubric %s from %s: %s", filename, path, exc)
+
+    logger.warning("Falling back to inline rubric %s: file not available", filename)
+    try:
+        materialized = search_paths[0]
+        materialized.parent.mkdir(parents=True, exist_ok=True)
+        materialized.write_text(json.dumps(fallback, indent=2), encoding="utf-8")
+    except Exception:
+        logger.debug("Unable to materialize inline rubric %s", filename, exc_info=True)
+    return load_rubric(fallback)
+
 
 HAS_HOSTED = True
 try:
@@ -306,13 +444,16 @@ def build_dataset() -> tuple[TaskDatasetRegistry, CrafterDataset]:
 def _base_task_info(dataset: CrafterDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "crafter_classic", "name": "Crafter Classic", "version": "1.0.0"},
-        environments=["crafter"],
+        environment="crafter",
         action_space={
             "type": "discrete",
+            "description": f"Discrete action space with {len(crafter_constants.actions)} actions including movement, crafting, and interaction",
             "size": len(crafter_constants.actions),
             "actions": list(crafter_constants.actions),
         },
         observation={
+            "type": "dict",
+            "description": "RGB frame (64x64x3) plus inventory counts, achievements, and semantic map patches",
             "summary": "RGB frame plus inventory, achievements, and semantic map patches.",
             "keys": ["image", "inventory", "achievements", "semantic_map_patch7"],
             "image_shape": [64, 64, 3],
@@ -336,18 +477,17 @@ def _base_task_info(dataset: CrafterDataset) -> TaskInfo:
             },
             "tool": {"name": "interact", "parallel_tool_calls": False},
         },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
-        },
         limits={"max_ops": 100000, "max_time_s": 3600},
     )
 
 
-OUTCOME_RUBRIC = load_rubric(str(RUBRICS_ROOT / "crafter_outcome_rubric.json"))
+OUTCOME_RUBRIC = _load_rubric_with_fallback(
+    "crafter_outcome_rubric.json", DEFAULT_OUTCOME_RUBRIC_DATA
+)
 
-EVENTS_RUBRIC = load_rubric(str(RUBRICS_ROOT / "crafter_events_rubric.json"))
+EVENTS_RUBRIC = _load_rubric_with_fallback(
+    "crafter_events_rubric.json", DEFAULT_EVENTS_RUBRIC_DATA
+)
 
 
 def describe_taskset(dataset: CrafterDataset) -> dict[str, Any]:
@@ -366,29 +506,36 @@ def provide_task_instances(
     dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
+
     for seed_value in seeds:
         summary = dataset.describe_seed(seed_value)
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
                 observation={
-                    **base_info.observation,
+                    **observation_template,
                     "seed": seed_value,
                     "traits": summary["traits"],
                     "inventory": summary["inventory"],
                     "player_position": summary["player_position"],
                 },
                 dataset={
-                    **base_info.dataset,
+                    **base_info.dataset.model_dump(),
                     "seed": seed_value,
                     "difficulty": summary["difficulty"],
                     "config": summary["config"],
                 },
                 rubric=base_info.rubric,
                 inference=base_info.inference,
-                capabilities=base_info.capabilities,
                 limits=base_info.limits,
             )
         )
@@ -488,9 +635,92 @@ def _coerce_math_to_crafter(request: RolloutRequest) -> RolloutRequest:
     return coerced
 
 
+def _resolve_trace_correlation_id(policy_cfg: dict[str, Any]) -> str | None:
+    """Best-effort extraction of the trace correlation identifier."""
+    candidates: list[Any] = [
+        policy_cfg.get("trace_correlation_id"),
+        policy_cfg.get("trace"),
+    ]
+    logger.debug(
+        "_resolve_trace_correlation_id: inspecting policy_cfg keys=%s candidates=%s",
+        sorted(policy_cfg.keys()),
+        candidates,
+    )
+    for candidate in candidates:
+        if isinstance(candidate, str):
+            stripped = candidate.strip()
+            if stripped:
+                return stripped
+
+    return extract_trace_correlation_id(policy_cfg.get("inference_url"))
+
+
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
+    request = _coerce_math_to_crafter(request)
+
+    policy_cfg = dict(request.policy.config or {})
+    logger.info(
+        "ROLLOUT_EXEC: incoming policy config keys=%s inference_url=%s run_id=%s mode=%s",
+        sorted(policy_cfg.keys()),
+        policy_cfg.get("inference_url"),
+        request.run_id,
+        request.mode,
+    )
+    inferred_url = ensure_chat_completions_url(policy_cfg.get("inference_url"), mode=request.mode)
+    if isinstance(inferred_url, str) and inferred_url:
+        if inferred_url != policy_cfg.get("inference_url"):
+            logger.warning(
+                "ROLLOUT_EXEC: normalized inference_url run_id=%s from %s to %s",
+                request.run_id,
+                policy_cfg.get("inference_url"),
+                inferred_url,
+            )
+        policy_cfg["inference_url"] = inferred_url
+    else:
+        logger.warning(
+            "ROLLOUT_EXEC: inference_url missing or not normalized run_id=%s raw=%s",
+            request.run_id,
+            policy_cfg.get("inference_url"),
+        )
+
+    trace_correlation_id = _resolve_trace_correlation_id(policy_cfg)
+    
+    # ASSERTION: trace_correlation_id MUST be present for RL mode
+    assert trace_correlation_id is not None, (
+        f"FATAL: trace_correlation_id extraction failed for run_id={request.run_id}. "
+        f"policy_cfg_keys={sorted(policy_cfg.keys())} "
+        f"inference_url={policy_cfg.get('inference_url')}"
+    )
+    assert isinstance(trace_correlation_id, str) and trace_correlation_id.strip(), (
+        f"FATAL: trace_correlation_id is empty for run_id={request.run_id}. "
+        f"Got: {trace_correlation_id!r}"
+    )
+    
+    policy_cfg["trace_correlation_id"] = trace_correlation_id
+    logger.info(
+        "ROLLOUT_EXEC: resolved trace_correlation_id=%s run_id=%s",
+        trace_correlation_id,
+        request.run_id,
+    )
+
+    pipeline_metadata: dict[str, Any] = {}
+    if trace_correlation_id:
+        pipeline_metadata["trace_correlation_id"] = trace_correlation_id
+    if isinstance(policy_cfg.get("inference_url"), str) and policy_cfg["inference_url"]:
+        pipeline_metadata.setdefault("inference_url", policy_cfg["inference_url"])
+    logger.info(
+        "ROLLOUT_EXEC: pipeline metadata prepared run_id=%s metadata=%s",
+        request.run_id,
+        pipeline_metadata,
+    )
+
     # If hosted env service code is not bundled, return a no-op rollout response compatible with contracts
     if not HAS_HOSTED:
+        logger.warning(
+            "ROLLOUT_EXEC: HAS_HOSTED disabled, returning stub response run_id=%s metadata=%s",
+            request.run_id,
+            pipeline_metadata,
+        )
         return RolloutResponse(
             run_id=request.run_id,
             trajectories=[],
@@ -505,11 +735,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
             aborted=False,
             ops_executed=0,
             trace=None,
+            trace_correlation_id=trace_correlation_id or f"trace_{request.run_id}",
+            pipeline_metadata=pipeline_metadata,
         )
 
-    request = _coerce_math_to_crafter(request)
-
-    policy_cfg = dict(request.policy.config or {})
     try:
         max_llm_calls = int(policy_cfg.get("max_llm_calls") or 10)
     except Exception:
@@ -540,6 +769,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         converted_ops = converted_ops[:max_ops_allowed]
     legacy_request = LegacyRolloutRequest(
         run_id=request.run_id,
+        mode=request.mode,  # Preserve mode for nested requests
         env=LegacyRolloutEnvSpec(
             env_id=request.env.env_id,
             env_name=request.env.env_name,
@@ -563,12 +793,79 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
     legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(
         legacy_request, fastapi_request
     )
+    logger.info(
+        "ROLLOUT_EXEC: legacy rollout completed run_id=%s trace_id=%s",
+        request.run_id,
+        trace_correlation_id,
+    )
     data = legacy_response.model_dump()
     metrics = data.get("metrics", {}) or {}
     metrics.setdefault("outcome_score", None)
     metrics.setdefault("events_score", None)
     metrics.setdefault("details", {})
     data["metrics"] = metrics
+    
+    # Add trace_correlation_id at TOP-LEVEL (REQUIRED for RL training pipeline)
+    # Use fallback if somehow missing
+    data["trace_correlation_id"] = trace_correlation_id or f"trace_{request.run_id}"
+    
+    # Add trace_correlation_id to pipeline_metadata
+    existing_meta = data.get("pipeline_metadata")
+    if not isinstance(existing_meta, dict):
+        existing_meta = {}
+    # ALWAYS set trace_correlation_id (use fallback if needed)
+    final_cid = trace_correlation_id or f"trace_{request.run_id}"
+    existing_meta["trace_correlation_id"] = final_cid
+    if isinstance(policy_cfg.get("inference_url"), str) and policy_cfg["inference_url"]:
+        existing_meta.setdefault("inference_url", policy_cfg["inference_url"])
+    data["pipeline_metadata"] = existing_meta
+    
+    # Add trace_correlation_id to each trajectory (required for RL training pipeline)
+    if "trajectories" in data:
+        for traj in data.get("trajectories", []):
+            if isinstance(traj, dict):
+                traj["trace_correlation_id"] = final_cid
+    logger.info(
+        "ROLLOUT_EXEC: final pipeline metadata run_id=%s metadata=%s",
+        request.run_id,
+        existing_meta,
+    )
+    if trace_correlation_id and existing_meta.get("trace_correlation_id") != trace_correlation_id:
+        logger.error(
+            "ROLLOUT_EXEC: metadata trace mismatch run_id=%s expected=%s actual=%s",
+            request.run_id,
+            trace_correlation_id,
+            existing_meta.get("trace_correlation_id"),
+        )
+    if not existing_meta.get("trace_correlation_id"):
+        logger.error(
+            "ROLLOUT_EXEC: final metadata missing trace_correlation_id run_id=%s metadata=%s",
+            request.run_id,
+            existing_meta,
+        )
+    
+    # ASSERTION: Verify trace_correlation_id is present in response at all required levels
+    assert "trace_correlation_id" in data, (
+        f"FATAL: trace_correlation_id missing from top-level response data for run_id={request.run_id}. "
+        f"Keys: {list(data.keys())}"
+    )
+    assert data["trace_correlation_id"] == final_cid, (
+        f"FATAL: trace_correlation_id mismatch in response for run_id={request.run_id}. "
+        f"Expected: {final_cid!r}, Got: {data.get('trace_correlation_id')!r}"
+    )
+    assert "pipeline_metadata" in data, (
+        f"FATAL: pipeline_metadata missing from response for run_id={request.run_id}"
+    )
+    assert data["pipeline_metadata"].get("trace_correlation_id") == final_cid, (
+        f"FATAL: trace_correlation_id missing or mismatched in pipeline_metadata for run_id={request.run_id}. "
+        f"Expected: {final_cid!r}, Got: {data['pipeline_metadata'].get('trace_correlation_id')!r}"
+    )
+    logger.info(
+        "ROLLOUT_EXEC: assertions passed - trace_correlation_id present in response run_id=%s cid=%s",
+        request.run_id,
+        final_cid,
+    )
+    
     return RolloutResponse.model_validate(data)
 
 
@@ -612,7 +909,7 @@ def build_config() -> TaskAppConfig:
     routers: tuple = (environment_router, policy_router, branching_router) if HAS_HOSTED else ()
 
     config = TaskAppConfig(
-        app_id="grpo-crafter",
+        app_id="grpo-crafter-task-app",
         name="GRPO Crafter Task App",
         description="Crafter Classic environment with GRPO task endpoints and LLM proxies.",
         base_task_info=base_info,
@@ -633,7 +930,7 @@ def build_config() -> TaskAppConfig:
 
 register_task_app(
     entry=TaskAppEntry(
-        app_id="grpo-crafter",
+        app_id="grpo-crafter-task-app",
         description="Crafter Classic task app with rollout + proxy endpoints",
         config_factory=build_config,
         aliases=("crafter", "crafter-task"),
@@ -659,7 +956,9 @@ register_task_app(
                 # Mount repo root so local modules resolve when deployed on Modal
                 (str(REPO_ROOT), "/opt/synth_ai_repo"),
                 (str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),
-                (str(TASK_APP_ROOT), "/opt/synth_ai_repo/examples/warming_up_to_rl/task_app"),
+                (str(TASK_APP_ROOT), "/opt/synth_ai_repo/examples/task_apps/crafter/task_app"),
+                # Explicitly mount rubrics directory
+                (str(RUBRICS_ROOT), "/opt/synth_ai_repo/examples/multi_step/rubrics"),
             ),
             secret_names=("groq-api-key", "openai-api-key"),
             memory=16384,

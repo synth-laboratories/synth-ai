@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from synth_ai.lm.vendors.base import BaseLMResponse
 from synth_ai.task.tracing_utils import unique_sft_path
 from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
+from synth_ai.task.contracts import RolloutMode
 from synth_ai.tracing_v3.llm_call_record_helpers import create_llm_call_record_from_response
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 
@@ -120,6 +121,8 @@ class RolloutRequest(BaseModel):
     # Optional run/session context
     training_session_id: str | None = None
     synth_base_url: str | None = None
+    # Mode controls URL transformation: REQUIRED to make intent explicit
+    mode: RolloutMode
 
 
 class RolloutStep(BaseModel):
@@ -140,6 +143,7 @@ class RolloutTrajectory(BaseModel):
     final: dict[str, Any] | None = None
     length: int
     decision_samples: list[dict[str, Any]] | None = None
+    inference_url: str | None = None
 
 
 def _normalize_step_strategy(raw_strategy: Any) -> str:
@@ -452,11 +456,12 @@ class RolloutMetrics(BaseModel):
 class RolloutResponse(BaseModel):
     run_id: str
     trajectories: list[RolloutTrajectory]
-    branches: dict[str, list[str]] = {}
+    branches: dict[str, list[str]] = Field(default_factory=dict)
     metrics: RolloutMetrics
     aborted: bool = False
     ops_executed: int = 0
     trace: dict[str, Any] | None = None
+    pipeline_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RolloutTracingContext:
@@ -567,7 +572,7 @@ class RolloutTracingContext:
             try:
                 await self.tracer.record_message(
                     content=self._prompt_payload(entry, role="system"),
-                    message_type="policy_system_prompt",
+                    message_type="system",  # Use standard message type
                     metadata=self._message_metadata(),
                 )
             except Exception as exc:
@@ -576,11 +581,16 @@ class RolloutTracingContext:
             try:
                 await self.tracer.record_message(
                     content=self._prompt_payload(entry, role="user"),
-                    message_type="policy_user_prompt",
+                    message_type="user",  # Use standard message type
                     metadata=self._message_metadata(),
                 )
             except Exception as exc:
                 logger.debug("TRACING_USER_MSG_FAIL: %s", exc)
+        
+        # Debug: Check message count
+        if self.tracer and self.tracer._current_trace:
+            msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
+            logger.info(f"[TRACE_DEBUG] After record_policy_prompts: {msg_count} messages in trace")
 
     def _content_to_text(self, content: Any) -> str:
         if isinstance(content, str):
@@ -656,8 +666,8 @@ class RolloutTracingContext:
             try:
                 await self.tracer.record_message(
                     content=self._safe_json(tool_calls),
-                    message_type="policy_tool_call",
-                    metadata=self._message_metadata(),
+                    message_type="assistant",  # Map to standard assistant message type
+                    metadata={**self._message_metadata(), "is_tool_call": True},
                 )
             except Exception as exc:
                 logger.debug("TRACING_TOOL_MSG_FAIL: %s", exc)
@@ -928,11 +938,22 @@ class RolloutTracingContext:
             except Exception as exc:
                 logger.debug("TRACING_OUTCOME_FAIL: %s", exc)
             try:
+                # Debug: Check message count before end_session
+                if self.tracer._current_trace:
+                    msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
+                    logger.info(f"[TRACE_DEBUG] Before end_session: {msg_count} messages in trace")
+                
                 self.session_trace = await self.tracer.end_session()
-                if self.session_trace is not None:
+                
+                # Debug: Check if session was saved
+                if self.session_trace:
+                    logger.info(f"[TRACE_DEBUG] Session ended successfully, session_id={self.session_trace.session_id}")
                     self.session_trace.metadata.update(self.metadata_updates)
+                    logger.info(f"[TRACE_DEBUG] session_trace.metadata keys: {list(self.session_trace.metadata.keys())}")
+                else:
+                    logger.warning("[TRACE_DEBUG] end_session returned None!")
             except Exception as exc:
-                logger.debug("TRACING_END_SESSION_FAIL: %s", exc)
+                logger.warning(f"TRACING_END_SESSION_FAIL: {exc}", exc_info=True)
                 self.session_trace = None
             with contextlib.suppress(Exception):
                 await self.tracer.close()
@@ -1056,12 +1077,14 @@ async def execute_rollout(
     req: Request,
 ) -> RolloutResponse:
     """Execute a rollout with coordinated environment and policy steps."""
+    logger.info("ROLLOUT: mode = %s", request.mode)
+    
     # Emit rollout identifier early for correlation
     with contextlib.suppress(Exception):
         _rid = getattr(request, "run_id", None)
         _pol = getattr(request.policy, "policy_name", None) or getattr(request.policy, "policy_id", None)
         _env = getattr(request.env, "env_name", None) or getattr(request.env, "env_id", None)
-        logger.info("ROLLOUT_BEGIN: run_id=%s policy=%s env=%s", _rid, _pol, _env)
+        logger.info("ROLLOUT_BEGIN: run_id=%s policy=%s env=%s mode=%s", _rid, _pol, _env, request.mode)
         print(f"[rollout] begin run_id={_rid} policy={_pol} env={_env}", flush=True)
     # Enforce per-episode step cap via env-specific parameters; default to 20 if omitted
     try:
@@ -1271,6 +1294,7 @@ async def execute_rollout(
                     config=_policy_config,
                     rl_run_id=request.run_id,
                     bound_env_id=env_id,
+                    mode=request.mode,  # Pass through mode for URL transformation control
                 ),
                 req,
             )
@@ -1843,12 +1867,81 @@ async def execute_rollout(
                     timing_final.setdefault("overhead_ms", 0.0)
 
         # Build trajectory
+        # Extract inference_url from policy config (REQUIRED for trace correlation)
+        # The trainer sets this in policy config with ?cid=... parameter
+        inference_url = None
+        
+        # Try policy config from request first (most reliable source)
+        try:
+            policy_config_snapshot = (
+                request.policy.config if isinstance(request.policy.config, dict) else {}
+            )
+            inference_url = policy_config_snapshot.get("inference_url")
+            if inference_url:
+                logger.info(
+                    "ROLLOUT_TRAJECTORY: extracted inference_url from request.policy.config run_id=%s url=%s",
+                    request.run_id,
+                    inference_url,
+                )
+        except Exception as exc:
+            logger.warning(
+                "ROLLOUT_TRAJECTORY: failed to get inference_url from request.policy.config run_id=%s: %s",
+                request.run_id,
+                exc,
+            )
+        
+        # Fallback: Try policy handle snapshot (if request.policy.config failed)
+        if not inference_url and policy_handle is not None:
+            try:
+                policy_snapshot = policy_handle.snapshot()
+                inference_url = policy_snapshot.get("config", {}).get("inference_url")
+                if inference_url:
+                    logger.info(
+                        "ROLLOUT_TRAJECTORY: extracted inference_url from policy_handle.snapshot run_id=%s url=%s",
+                        request.run_id,
+                        inference_url,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "ROLLOUT_TRAJECTORY: failed to snapshot policy for run_id=%s policy_id=%s: %s",
+                    request.run_id,
+                    policy_id,
+                    exc,
+                )
+        
+        # ASSERTION: inference_url MUST be present (required by RolloutTrajectory schema)
+        if not inference_url:
+            raise ValueError(
+                f"FATAL: inference_url is required but not found!\n"
+                f"\n"
+                f"run_id: {request.run_id}\n"
+                f"policy_id: {policy_id}\n"
+                f"policy_config_keys: {list(policy_config_snapshot.keys()) if 'policy_config_snapshot' in locals() else 'N/A'}\n"
+                f"\n"
+                f"The trainer MUST set inference_url in policy config with ?cid=... parameter.\n"
+                f"This is required for trace correlation and hydration.\n"
+            )
+        
+        # policy_config_snapshot already set above in try block (line 1876-1878)
+        # Ensure it exists for logging below
+        if 'policy_config_snapshot' not in locals():
+            policy_config_snapshot = {}
+        
+        logger.info(
+            "ROLLOUT_TRAJECTORY: run_id=%s policy_id=%s inference_url=%s trace_id=%s",
+            request.run_id,
+            policy_id,
+            inference_url,
+            policy_config_snapshot.get("trace_correlation_id"),
+        )
+        
         trajectory = RolloutTrajectory(
             env_id=env_id,
             policy_id=policy_id,
             steps=trajectory_steps,
             final={"observation": _summarize_observation_for_storage(env_handle, current_obs)},
             length=len(trajectory_steps),
+            inference_url=inference_url,  # NEW: Required for trace correlation
             decision_samples=decision_samples if step_rewards_active else None,
         )
 
@@ -1938,12 +2031,17 @@ async def execute_rollout(
             )
             finalized = True
         trace_payload = tracing_context.build_trace_payload(session_trace)
+        
+        # Debug: Check trace payload
+        logger.info(f"[TRACE_DEBUG] trace_payload is None: {trace_payload is None}, return_trace={tracing_context.return_trace}")
+        if trace_payload:
+            logger.info(f"[TRACE_DEBUG] trace_payload keys: {list(trace_payload.keys())}")
 
         # Hard-fail if no steps executed (avg_turns == 0 scenario)
         if metrics.num_steps <= 0:
             raise HTTPException(status_code=500, detail="no_steps_executed: avg_turns == 0")
 
-        return RolloutResponse(
+        response = RolloutResponse(
             run_id=request.run_id,
             trajectories=[trajectory],
             branches={},
@@ -1952,6 +2050,16 @@ async def execute_rollout(
             ops_executed=ops_executed,
             trace=trace_payload,
         )
+        logger.info(
+            "ROLLOUT_RESPONSE: run_id=%s aborted=%s ops_executed=%s metrics_steps=%s trace_present=%s pipeline_metadata=%s",
+            request.run_id,
+            aborted,
+            ops_executed,
+            metrics.num_steps,
+            bool(trace_payload),
+            response.pipeline_metadata,
+        )
+        return response
 
     except Exception as e:
         logger.error(f"Rollout failed for run {request.run_id}: {e}")

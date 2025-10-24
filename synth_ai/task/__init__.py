@@ -4,7 +4,11 @@ from .auth import (
     require_api_key_dependency,
 )
 from .client import TaskAppClient
+from .config import EvalConfig, FilterConfig
 from .contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
@@ -14,8 +18,10 @@ from .contracts import (
     RolloutSafetyConfig,
     RolloutStep,
     RolloutTrajectory,
-    TaskAppContract,
+    RubricInfo,
+    RubricSection,
     TaskAppEndpoints,
+    TaskDescriptor,
     TaskInfo,
 )
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
@@ -45,7 +51,7 @@ from .server import (
     create_task_app,
     run_task_app,
 )
-from .validators import validate_task_app_url
+from .validators import validate_task_app_endpoint, validate_task_app_url
 from .vendors import (
     get_groq_key_or_503,
     get_openai_key_or_503,
@@ -54,8 +60,10 @@ from .vendors import (
 
 __all__ = [
     "validate_task_app_url",
+    "validate_task_app_endpoint",
     "task_app_health",
-    "TaskAppContract",
+    "EvalConfig",
+    "FilterConfig",
     "TaskAppEndpoints",
     "RolloutEnvSpec",
     "RolloutPolicySpec",
@@ -66,6 +74,12 @@ __all__ = [
     "RolloutTrajectory",
     "RolloutStep",
     "RolloutMetrics",
+    "TaskDescriptor",
+    "DatasetInfo",
+    "RubricInfo",
+    "RubricSection",
+    "InferenceInfo",
+    "LimitsInfo",
     "TaskInfo",
     "to_jsonable",
     "normalize_environment_api_key",

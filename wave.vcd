@@ -1,5 +1,5 @@
 $date
-	Wed Oct 22 09:51:39 2025
+	Fri Oct 24 00:05:06 2025
 $end
 $version
 	Icarus Verilog
@@ -16,10 +16,10 @@ $scope module tb $end
 $var wire 1 " tb_mismatch $end
 $upscope $end
 $scope module tb $end
-$var wire 1 # zero_ref $end
+$var wire 1 # one_ref $end
 $upscope $end
 $scope module tb $end
-$var wire 1 $ zero_dut $end
+$var wire 1 $ one_dut $end
 $upscope $end
 $enddefinitions $end
 $comment Show the parameter values. $end
@@ -27,8 +27,8 @@ $dumpall
 $end
 #0
 $dumpvars
-0$
-0#
+1$
+1#
 0"
 0!
 $end

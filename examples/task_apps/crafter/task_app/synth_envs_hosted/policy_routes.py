@@ -10,11 +10,13 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from synth_ai.task.auth import allowed_environment_api_keys, normalize_environment_api_key
+from synth_ai.task.contracts import RolloutMode
 
 from .envs.crafter.policy import CrafterPolicy
 from .inference.openai_client import create_inference_client
 from .registry import registry
 from .storage.volume import storage
+from .utils import ensure_chat_completions_url
 
 # Token budgeting (shared logic with inference server)
 try:
@@ -40,6 +42,7 @@ class PolicyCreateRequest(BaseModel):
     parent_policy_id: str | None = None
     rl_run_id: str
     bound_env_id: str | None = None
+    mode: RolloutMode
 
 
 class PolicyCreateResponse(BaseModel):
@@ -119,6 +122,14 @@ async def create_policy(
             config.setdefault("inference_url", f"{base_url}/proxy")
             config["provider"] = "openai"
 
+        received_url = config.get("inference_url")
+        logger.info(
+            "POLICY_CREATE: policy=%s provider=%s raw_inference_url=%s",
+            request.policy_name,
+            provider,
+            received_url,
+        )
+
         if "inference_url" not in config and task_app is not None:
             task_base_url = getattr(task_app, "vllm_base_url", None)
             if task_base_url:
@@ -131,6 +142,31 @@ async def create_policy(
             raise HTTPException(
                 status_code=422,
                 detail="Policy configuration must include 'inference_url' and 'model'.",
+            )
+
+        # Get mode from PolicyCreateRequest (defaults to "rl" for backward compatibility)
+        mode = request.mode
+        logger.info("POLICY_CREATE: Using mode=%s for URL processing", mode)
+        
+        sanitized_url = ensure_chat_completions_url(config.get("inference_url"), mode=mode)
+        if isinstance(sanitized_url, str) and sanitized_url:
+            if sanitized_url != config.get("inference_url"):
+                logger.warning(
+                    "POLICY_CREATE: normalized inference_url for policy=%s provider=%s mode=%s from %s to %s",
+                    request.policy_name,
+                    provider,
+                    mode,
+                    config.get("inference_url"),
+                    sanitized_url,
+                )
+            config["inference_url"] = sanitized_url
+        else:
+            logger.warning(
+                "POLICY_CREATE: unable to normalize inference_url for policy=%s provider=%s mode=%s raw=%s",
+                request.policy_name,
+                mode,
+                provider,
+                config.get("inference_url"),
             )
 
         # Create policy instance based on name
@@ -507,7 +543,22 @@ async def step_policy(
 
             # Ensure meta carries the final target URL for downstream logging/clients
             with contextlib.suppress(Exception):
-                meta["inference_url"] = target_url
+                sanitized_target = ensure_chat_completions_url(target_url)
+                if sanitized_target and sanitized_target != target_url:
+                    logger.warning(
+                        "POLICY_STEP: normalized inference_url mid-flight policy=%s from %s to %s",
+                        policy_name,
+                        target_url,
+                        sanitized_target,
+                    )
+                elif not sanitized_target:
+                    logger.info(
+                        "POLICY_STEP: inference_url unchanged policy=%s target=%s",
+                        policy_name,
+                        target_url,
+                    )
+                meta["inference_url"] = sanitized_target if sanitized_target else target_url
+                target_url = sanitized_target or target_url
 
             # Select API key based on resolved target URL
             api_key_override = None

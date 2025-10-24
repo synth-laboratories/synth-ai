@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from pydantic import model_validator
 
@@ -21,7 +22,7 @@ class ModelConfig(ExtraModel):
     label: str
 
     @model_validator(mode="after")
-    def _ensure_exactly_one_source_or_base(self) -> "ModelConfig":
+    def _ensure_exactly_one_source_or_base(self) -> ModelConfig:
         if bool(self.source) == bool(self.base):
             raise ValueError("Config must set exactly one of [model].source or [model].base")
         return self
@@ -111,11 +112,11 @@ class RLConfig(ExtraModel):
         return self.model_dump(mode="python", exclude_none=True)
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any]) -> "RLConfig":
+    def from_mapping(cls, data: Mapping[str, Any]) -> RLConfig:
         return cls.model_validate(dict(data))
 
     @classmethod
-    def from_path(cls, path: Path) -> "RLConfig":
+    def from_path(cls, path: Path) -> RLConfig:
         content = load_toml(path)
         return cls.from_mapping(content)
 

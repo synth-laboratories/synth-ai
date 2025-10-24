@@ -37,10 +37,14 @@ from .utils import calculate_cost, detect_provider
 # Context variables for session and turn tracking
 # These variables automatically propagate across async call boundaries,
 # allowing deeply nested code to access tracing context without explicit passing
-_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar("session_id")
-_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar("turn_number")
+_session_id_ctx: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "session_id"
+)
+_turn_number_ctx: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "turn_number"
+)
 _session_tracer_ctx: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
-    "session_tracer", default=None
+    "session_tracer"
 )
 
 

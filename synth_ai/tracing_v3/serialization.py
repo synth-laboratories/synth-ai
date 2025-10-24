@@ -55,11 +55,11 @@ def normalize_for_json(value: Any) -> Any:
         return {str(k): normalize_for_json(v) for k, v in value.items()}
 
     # Sequences
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return [normalize_for_json(v) for v in value]
 
     # Datetime / Date
-    if isinstance(value, (datetime, date)):
+    if isinstance(value, datetime | date):
         return value.isoformat()
 
     # Decimal
@@ -73,7 +73,7 @@ def normalize_for_json(value: Any) -> Any:
             return str(value)
 
     # Bytes-like
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, bytes | bytearray):
         return base64.b64encode(bytes(value)).decode("ascii")
 
     # Enum
@@ -82,9 +82,9 @@ def normalize_for_json(value: Any) -> Any:
 
     # Numpy scalars / arrays
     if _np is not None:
-        if isinstance(value, (_np.generic,)):  # type: ignore[attr-defined]
+        if isinstance(value, _np.generic):  # type: ignore[attr-defined]
             return normalize_for_json(value.item())
-        if isinstance(value, (_np.ndarray,)):
+        if isinstance(value, _np.ndarray):
             return normalize_for_json(value.tolist())
 
     # Floats: sanitize NaN / Infinity to None

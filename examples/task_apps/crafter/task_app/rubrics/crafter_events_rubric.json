@@ -1,0 +1,27 @@
+{
+  "version": "1",
+  "goal_text": "Score each decision in proportion to the concrete Crafter achievement progress it delivers, topping out the scale when the log shows a fresh achievement unlock and keeping routine upkeep near zero.",
+  "aggregation": "weighted_sum",
+  "criteria": [
+    {
+      "id": "achievement_unlocks",
+      "description": "Assign 0.9-1.0 when the decision explicitly unlocks a new Crafter achievement (look for “Achievement unlocked” messages or equivalent deterministic completions such as placing a furnace that immediately crafts ingots). Cap the score at 0.4 when no new achievement fires, and drop to ≤0.1 if the turn repeats known actions without measurable progress.",
+      "weight": 0.55
+    },
+    {
+      "id": "milestone_setup",
+      "description": "Give 0.5-0.7 when the action completes the last prerequisite for a specific upcoming achievement (e.g., gathering the final ore before smelting, crafting sticks right before a tool). Keep the score ≤0.3 if the progress is speculative or still several steps away.",
+      "weight": 0.2
+    },
+    {
+      "id": "inventory_depth",
+      "description": "Reward 0.3-0.5 for pulls that clearly deepen critical buffers (fuel, food, ore) and immediately unblock the next milestone. If resources are already plentiful or the haul is generic filler, stay at ≤0.2.",
+      "weight": 0.15
+    },
+    {
+      "id": "execution_quality",
+      "description": "Only add up to 0.1 for clean, legal execution that avoids wasted turns; drop to 0.0 whenever the agent idles, repeats failed moves, or takes damage without compensating progress.",
+      "weight": 0.1
+    }
+  ]
+}

@@ -8,6 +8,7 @@ requests = pytest.importorskip("requests")
 AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
 
 
+@pytest.mark.slow
 def test_enron_manual_rollout(enron_server: str) -> None:
     """Test a manual Enron rollout with explicit search/read/answer actions."""
     rollout_payload = {
@@ -60,6 +61,7 @@ def test_enron_manual_rollout(enron_server: str) -> None:
     assert len(trajectory["steps"]) > 0
 
 
+@pytest.mark.slow
 def test_enron_policy_rollout(enron_server: str) -> None:
     """Test an Enron rollout using Groq policy."""
     if "GROQ_API_KEY" not in os.environ:
@@ -111,6 +113,7 @@ def test_enron_policy_rollout(enron_server: str) -> None:
         assert isinstance(metrics["episode_returns"][0], (int, float))
 
 
+@pytest.mark.fast
 def test_enron_rollout_with_auth(enron_server: str) -> None:
     """Test that Enron rollout requires proper authentication."""
     rollout_payload = {

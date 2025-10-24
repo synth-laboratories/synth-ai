@@ -35,13 +35,13 @@ def _safe_eval(expr: str) -> float:
         if isinstance(n, ast.Expression):
             return _eval(n.body)
         if isinstance(n, ast.Constant):
-            if isinstance(n.value, (int, float)):
+            if isinstance(n.value, int | float):
                 return float(n.value)
             raise ValueError("Only numeric constants are allowed")
         num_node = getattr(ast, "Num", None)
         if num_node is not None and isinstance(n, num_node):  # pragma: no cover
             numeric_value = getattr(n, "n", None)
-            if isinstance(numeric_value, (int, float)):
+            if isinstance(numeric_value, int | float):
                 return float(numeric_value)
             raise ValueError("Only numeric constants are allowed")
         if isinstance(n, ast.BinOp):

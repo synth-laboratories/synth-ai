@@ -8,6 +8,7 @@ requests = pytest.importorskip("requests")
 AUTH_HEADER = {"Authorization": "Bearer sk_env_30c78a787bac223c716918181209f263"}
 
 
+@pytest.mark.slow
 def test_verilog_policy_rollout(verilog_server: str) -> None:
     """Test a Verilog rollout using Groq policy."""
     if "GROQ_API_KEY" not in os.environ:

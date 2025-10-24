@@ -46,7 +46,7 @@ class VerilogCompileSuccessComponent(RewardComponent):
         if hasattr(action, "get") and action.get("type") == "compile":
             # Check if compilation was successful (returncode 0)
             if action.get("returncode") == 0:
-                return 0.1
+                return 0.01  # Normalized: 0.1 / 10.0 = 0.01
         return 0.0
 
 
@@ -55,12 +55,12 @@ class VerilogSimulationPassComponent(RewardComponent):
         if hasattr(action, "get") and action.get("type") == "simulate":
             # Check if simulation passed
             if action.get("passed", False):
-                return 1.0
+                return 0.1  # Normalized: 1.0 / 10.0 = 0.1
         return 0.0
 
 
 class VerilogStepPenaltyComponent(RewardComponent):
-    def __init__(self, penalty: float = -0.01):
+    def __init__(self, penalty: float = -0.001):  # Normalized: -0.01 / 10.0 = -0.001
         self.penalty = penalty
 
     async def score(self, state: Any, action: Any) -> float:
@@ -68,12 +68,12 @@ class VerilogStepPenaltyComponent(RewardComponent):
 
 
 class VerilogSubmitSuccessComponent(RewardComponent):
-    """Reward for successful submission (tests passed)."""
+    """Reward for successful submission (tests passed). Max reward = 1.0 (normalized)."""
     async def score(self, state: VerilogPublicState, action: Any) -> float:
         if hasattr(action, "get") and action.get("type") == "submit":
             # Check if submission passed
             if action.get("passed", False):
-                return 10.0  # Large reward for completing the task correctly
+                return 1.0  # Normalized: Maximum reward is now 1.0
         return 0.0
 
 
@@ -92,7 +92,7 @@ class VerilogEngine(StatefulEngine):
                 VerilogCompileSuccessComponent(),
                 VerilogSimulationPassComponent(),
                 VerilogSubmitSuccessComponent(),
-                VerilogStepPenaltyComponent(penalty=-0.01),
+                VerilogStepPenaltyComponent(penalty=-0.001),  # Normalized: -0.01 / 10.0
             ]
         )
 

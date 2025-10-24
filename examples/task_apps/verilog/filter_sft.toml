@@ -1,0 +1,5 @@
+[filter]
+db = "traces/v3/synth_ai.db"
+output = "ft_data/verilog_sft.jsonl"
+min_official_score = 0.01
+

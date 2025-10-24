@@ -45,13 +45,13 @@ except Exception:
 
 # Judge API contract schemas
 from synth_ai.judge_schemas import (
+    CriterionScorePayload,
+    JudgeOptions,
     JudgeScoreRequest,
     JudgeScoreResponse,
-    JudgeOptions,
     JudgeTaskApp,
     JudgeTracePayload,
     ReviewPayload,
-    CriterionScorePayload,
 )
 
 # Legacy tracing v1 is not required for v3 usage and can be unavailable in minimal envs.

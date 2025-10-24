@@ -44,6 +44,8 @@ class CrafterPolicy(Policy):
         self.inference_url = inference_url
         self.model = model
         self.use_tools = True
+        self.use_vision = False  # Enable vision for VLMs
+        self.image_only_mode = False  # If True, only send images without text observations
         # Sampling parameters (populated via initialize(config))
         self.temperature: float | None = None
         self.top_p: float | None = None
@@ -63,6 +65,16 @@ class CrafterPolicy(Policy):
             self.model = config["model"]
         if "use_tools" in config:
             self.use_tools = bool(config["use_tools"])
+        if "use_vision" in config:
+            self.use_vision = bool(config["use_vision"])
+        if "image_only_mode" in config:
+            self.image_only_mode = bool(config["image_only_mode"])
+            # If image_only_mode is enabled, automatically enable vision
+            if self.image_only_mode:
+                self.use_vision = True
+        # Auto-detect vision capability from model name if not explicitly set
+        if "use_vision" not in config and self.model:
+            self.use_vision = self._is_vision_model(self.model)
         # Adopt sampling params from policy config (trainer passes these through)
         if "temperature" in config:
             self.temperature = float(config["temperature"])  # fail fast on bad types
@@ -384,6 +396,7 @@ class CrafterPolicy(Policy):
                 "inference_url": self.inference_url,
                 "model": self.model,
                 "use_tools": self.use_tools,
+                "use_vision": self.use_vision,
             },
             "state": self.state_dict(),
         }
@@ -396,7 +409,8 @@ class CrafterPolicy(Policy):
             inference_url=config["inference_url"],
             model=config.get("model"),
         )
-        policy.use_tools = bool(config["use_tools"])
+        policy.use_tools = bool(config.get("use_tools", True))
+        policy.use_vision = bool(config.get("use_vision", False))
         policy.load_state_dict(state)
         return policy
 
@@ -409,14 +423,21 @@ class CrafterPolicy(Policy):
         """Prepare an inference request (implementing abstract method)."""
         # Format observation with rich contextual information
         observation_text = self._format_observation_for_llm(observation)
-        image_parts = self._extract_image_parts(observation)
+        
+        # Extract image parts based on vision settings
+        if self.use_vision:
+            image_parts = self._extract_image_parts(observation)
+        else:
+            # Text-only mode: don't include any images
+            image_parts = []
 
-        # Build messages (observation_text already formatted; no raw matrices)
+        # Build messages with appropriate mode
         messages = CrafterReActAgent.build_messages(
             observation=observation_text,
             history=history,
             turn=self.turn_index,
             image_parts=image_parts,
+            image_only_mode=self.image_only_mode,
         )
 
         # Return messages and tools schema
@@ -446,12 +467,60 @@ class CrafterPolicy(Policy):
 
         return format_observation(obs_data, step_count=step_idx, max_steps=max_steps)
 
+    @staticmethod
+    def _is_vision_model(model_name: str) -> bool:
+        """Check if a model supports vision/image inputs based on its name."""
+        if not model_name:
+            return False
+        
+        model_lower = model_name.lower()
+        
+        # Known vision-capable model patterns
+        vision_patterns = [
+            "gpt-4o",           # GPT-4o series
+            "gpt-4-turbo",      # GPT-4 Turbo with vision
+            "gpt-4-vision",     # Explicit vision variant
+            "gpt-5",            # GPT-5 series (all variants support vision)
+            "claude-3",         # All Claude 3 models support vision
+            "gemini",           # Gemini models
+            "qwen-vl",          # Qwen Vision-Language models
+            "qwen2-vl",         # Qwen2 VL
+            "pixtral",          # Mistral's vision model
+            "llava",            # LLaVA models
+            "phi-3-vision",     # Microsoft Phi-3 Vision
+            "internvl",         # InternVL models
+            "cogvlm",           # CogVLM models
+            "vision",           # Generic vision indicator
+        ]
+        
+        return any(pattern in model_lower for pattern in vision_patterns)
+
     def _extract_image_parts(
         self, observation: dict[str, Any] | None
     ) -> list[dict[str, Any]]:
-        """Crafter policy uses text-only prompts; do not attach image parts."""
-
-        return []
+        """Extract image parts from crafter observation for vision-capable models.
+        
+        Returns OpenAI-style image_url format if vision is enabled and image data is available.
+        """
+        # Only extract images if vision is enabled for this policy
+        if not self.use_vision:
+            return []
+        
+        if not observation:
+            return []
+        
+        # Get the observation data (could be nested)
+        obs = observation.get("observation", observation)
+        if not isinstance(obs, dict):
+            return []
+        
+        # Extract the data URL (includes base64-encoded image)
+        data_url = obs.get("observation_image_data_url")
+        if not data_url or not isinstance(data_url, str):
+            return []
+        
+        # Return OpenAI-style image_url format
+        return [{"type": "image_url", "image_url": {"url": data_url}}]
 
     def parse_model_response(
         self, response: str, observation: dict[str, Any]

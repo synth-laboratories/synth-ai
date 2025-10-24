@@ -74,6 +74,7 @@ async def _wait_for_success(backend_base: str, api_key: str, job_id: str, timeou
         ("tests/artifacts/configs/lora.small.toml", True),
     ),
 )
+@pytest.mark.fast
 def test_cli_train_sft_small_configs(tmp_path: Path, config_rel: str, expect_deepspeed: bool) -> None:
     _maybe_env()
     raw_backend = (

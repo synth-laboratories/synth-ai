@@ -209,6 +209,16 @@ class CrafterEnvironmentWrapper:
             logger.info("No valid actions provided, defaulting to noop")
             normalized.append(EnvToolCall(tool="interact", args={"action": 0}))  # noop action
 
+        # Limit to first 20 actions to prevent spam from overly long tool calls
+        MAX_ACTIONS_PER_STEP = 20
+        if len(normalized) > MAX_ACTIONS_PER_STEP:
+            logger.warning(
+                "Tool call contained %d actions, limiting to first %d to prevent spam",
+                len(normalized),
+                MAX_ACTIONS_PER_STEP,
+            )
+            normalized = normalized[:MAX_ACTIONS_PER_STEP]
+
         # Pre-step logging: capture current public state and print concise summary
         before_state: dict[str, Any] | None = None
         try:

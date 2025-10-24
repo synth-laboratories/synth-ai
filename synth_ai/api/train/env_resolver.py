@@ -5,6 +5,7 @@ import os
 from collections.abc import Callable, Iterable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import click
 
@@ -14,8 +15,10 @@ from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
 
 def _load_saved_env_path() -> Path | None:
     try:
-        module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
-        loader = module.load_env_file_path
+        module = cast(
+            Any, importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        )
+        loader = cast(Callable[[], str | None], module.load_env_file_path)
         saved_path = loader()
         if saved_path:
             return Path(saved_path)

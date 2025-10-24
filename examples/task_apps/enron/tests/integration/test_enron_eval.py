@@ -116,12 +116,14 @@ def enron_server(tmp_path: Path) -> Iterator[str]:
                 proc.kill()
 
 
+@pytest.mark.slow
 def test_enron_server_health(enron_server: str) -> None:
     """Test that the Enron server health endpoint works."""
     resp = requests.get(f"{enron_server}/health", timeout=5.0)
     assert resp.status_code in (200, 400), f"Unexpected status: {resp.status_code}"
 
 
+@pytest.mark.slow
 def test_enron_task_info(enron_server: str) -> None:
     """Test that the Enron server returns valid task_info."""
     resp = requests.get(f"{enron_server}/task_info", timeout=5.0)
@@ -131,6 +133,7 @@ def test_enron_task_info(enron_server: str) -> None:
     assert data["task"]["id"] == "enron_email_qa"
 
 
+@pytest.mark.slow
 def test_enron_eval_with_groq(enron_server: str) -> None:
     """Spin up the Enron task app and run a Groq-backed eval."""
     if not CONFIG_PATH.exists():
@@ -171,4 +174,6 @@ def test_enron_eval_with_groq(enron_server: str) -> None:
     
     # Check that we got a meaningful score
     assert "official" in result.stdout.lower() or "mean_return" in result.stdout.lower()
+
+
 

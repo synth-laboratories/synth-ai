@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 Row = sqlite3.Row
 
@@ -17,9 +18,9 @@ def connect(db_path: str | bytes | int) -> sqlite3.Connection:
 def _json_load(value: Any) -> Any:
     if value is None:
         return None
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return value
-    if isinstance(value, (bytes, bytearray)):
+    if isinstance(value, bytes | bytearray):
         value = value.decode("utf-8", errors="ignore")
     try:
         return json.loads(value)

@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 import os
 from collections.abc import Callable
+from typing import Any, cast
 
 import click
 import requests
@@ -19,9 +20,9 @@ from rich.table import Table
 
 def _load_base_url_module() -> tuple[str, Callable[[], tuple[str, str]]]:
     try:
-        module = importlib.import_module("synth_ai.config.base_url")
-        default = module.PROD_BASE_URL_DEFAULT
-        getter = module.get_backend_from_env
+        module = cast(Any, importlib.import_module("synth_ai.config.base_url"))
+        default = cast(str, module.PROD_BASE_URL_DEFAULT)
+        getter = cast(Callable[[], tuple[str, str]], module.get_backend_from_env)
         return str(default), getter
     except Exception:
         return "https://agent-learning.onrender.com", lambda: ("https://agent-learning.onrender.com", "")

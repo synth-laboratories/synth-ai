@@ -6,7 +6,7 @@ import sys
 def main() -> int:
     # Apply Typer compatibility patch before Modal CLI bootstraps Click/Typer internals.
     try:
-        from ._typer_patch import patch_typer_make_metavar
+        from synth_ai.cli._typer_patch import patch_typer_make_metavar
 
         patch_typer_make_metavar()
     except Exception:
@@ -20,7 +20,8 @@ def main() -> int:
     else:
         sys.argv = ["modal"]
 
-    return modal_main()
+    result = modal_main()
+    return result if result is not None else 0
 
 
 if __name__ == "__main__":

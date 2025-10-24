@@ -61,7 +61,7 @@ class TestRegistry:
 
     def test_get_environment_cls_not_found(self):
         """Test retrieving a non-existent environment raises error."""
-        with pytest.raises(ValueError, match="Unsupported environment type: NonExistent"):
+        with pytest.raises(ValueError, match="Unsupported environment type: '?NonExistent'?"):
             get_environment_cls("NonExistent")
 
     def test_list_supported_env_types(self):
@@ -110,7 +110,7 @@ class TestRegistry:
 
     def test_get_environment_cls_not_found_tictactoe(self):
         """Test error when environment not found."""
-        with pytest.raises(ValueError, match="Unsupported environment type: NonExistent"):
+        with pytest.raises(ValueError, match="Unsupported environment type: '?NonExistent'?"):
             get_environment_cls("NonExistent")
 
     def test_list_supported_env_types_tictactoe(self):

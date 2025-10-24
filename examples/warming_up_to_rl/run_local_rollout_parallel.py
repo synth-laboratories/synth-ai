@@ -46,12 +46,14 @@ def build_rollout_request(
         trace_format=trace_format,
         return_trace=return_trace,
     )
+    from synth_ai.task.contracts import RolloutMode
     return RolloutRequest(
         run_id=run_id,
         env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
         policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
         ops=ops,
         record=record_cfg,
+        mode=RolloutMode.EVAL,
         on_done="reset",
         safety=RolloutSafetyConfig(),
     )

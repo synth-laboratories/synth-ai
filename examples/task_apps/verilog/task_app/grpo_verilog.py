@@ -45,7 +45,36 @@ from synth_ai.tracing_v3.session_tracer import SessionTracer
 logger = logging.getLogger(__name__)
 
 _HERE = Path(__file__).resolve()
-REPO_ROOT = _HERE.parents[4]
+
+
+def _resolve_repo_root() -> Path:
+    """Find synth-ai repo root, checking env var and parent traversal."""
+    candidates: list[Path] = []
+    env_root = os.getenv("SYNTH_AI_REPO_ROOT")
+    if env_root:
+        candidates.append(Path(env_root).expanduser())
+    
+    # Try Modal mount point
+    candidates.append(Path("/opt/synth_ai_repo"))
+    
+    # Traverse up from current file
+    current = _HERE
+    for _ in range(6):
+        current = current.parent
+        candidates.append(current)
+        if (current / "synth_ai").is_dir() and (current / "examples").is_dir():
+            return current
+    
+    # Return first existing candidate
+    for candidate in candidates:
+        if candidate.is_dir() and (candidate / "synth_ai").exists():
+            return candidate
+    
+    # Fallback to current parent structure (may not work in Modal)
+    return _HERE.parent.parent.parent.parent
+
+
+REPO_ROOT = _resolve_repo_root()
 
 DATASET_SPEC = TaskDatasetSpec(
     id="verilog_eval_v2",
@@ -131,7 +160,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, VerilogDataset]:
 def _base_task_info(dataset: VerilogDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "verilog_eval_v2", "name": "VerilogEval Spec-to-RTL", "version": "1.0.0"},
-        environments=["verilog"],
+        environment="verilog",
         action_space={
             "type": "tool_calls",
             "tools": TOOLS,
@@ -156,11 +185,6 @@ def _base_task_info(dataset: VerilogDataset) -> TaskInfo:
                 "groq": "/proxy/groq/v1/chat/completions",
             },
             "tool": {"name": "verilog_tools", "parallel_tool_calls": False},
-        },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
         },
         limits={"max_ops": 0, "max_time_s": 3600},
     )
@@ -455,6 +479,14 @@ def provide_task_instances(
     dataset: VerilogDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
+
     for seed in seeds:
         instance = dataset.instance_by_seed(seed)
         metadata: VerilogTaskInstanceMetadata = instance.metadata  # type: ignore[assignment]
@@ -467,21 +499,20 @@ def provide_task_instances(
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
                 observation={
-                    **base_info.observation,
+                    **observation_template,
                     "problem_name": meta_dict["problem_name"],
                     "difficulty": meta_dict["difficulty"],
                 },
                 dataset={
-                    **base_info.dataset,
+                    **base_info.dataset.model_dump(),
                     "instance_id": str(instance.id),
                     "metadata": meta_dict,
                 },
                 rubric=base_info.rubric,
                 inference=base_info.inference,
-                capabilities=base_info.capabilities,
                 limits=base_info.limits,
             )
         )
@@ -795,6 +826,25 @@ async def rollout_executor(
         },
     )
 
+    # Extract inference_url from policy config (REQUIRED for RL trace correlation)
+    # The trainer injects this with ?cid=trace_xxxxx parameter for trace linking
+    final_inference_url = policy_config.get("inference_url")
+    if not isinstance(final_inference_url, str) or not final_inference_url.strip():
+        # Fallback to agent's inference_url if not in policy config
+        final_inference_url = agent.inference_url
+        logger.warning(
+            "VERILOG_ROLLOUT: inference_url not found in policy_config, using agent.inference_url run_id=%s url=%s",
+            request.run_id,
+            final_inference_url,
+        )
+    else:
+        logger.info(
+            "VERILOG_ROLLOUT: using inference_url from policy_config run_id=%s url=%s has_cid=%s",
+            request.run_id,
+            final_inference_url,
+            "?cid=" in final_inference_url,
+        )
+    
     trajectory = RolloutTrajectory(
         env_id=str(env_id),
         policy_id=str(policy_id),
@@ -808,10 +858,11 @@ async def rollout_executor(
                 "total_reward": final_total_reward,
                 "task_completed": bool(final_observation.get("task_completed")),
                 "policy_model": policy_model,
-                "inference_url": agent.inference_url,
+                "inference_url": final_inference_url,
             },
         },
         length=len(steps),
+        inference_url=final_inference_url,  # CRITICAL: Must contain ?cid=... for trace correlation
         decision_samples=None,
     )
 
@@ -833,6 +884,29 @@ async def rollout_executor(
         }
     }
     
+    # Build pipeline_metadata (required for RL training)
+    pipeline_metadata = {
+        "reward_score": final_total_reward,
+        "policy_id": policy_id,
+        "inference": {
+            "provider": "groq",
+            "model": policy_model,
+            "url": final_inference_url,  # Use final_inference_url (has ?cid=...)
+        },
+        "env_name": env_id,
+        "task_id": getattr(instance, "problem_id", None),
+        "task_split": getattr(instance, "split", "val"),
+        "inference_url": final_inference_url,  # CRITICAL: Used by trainer to extract trace_correlation_id
+    }
+    
+    # Log for debugging RL training
+    logger.info(
+        "VERILOG_ROLLOUT: pipeline_metadata run_id=%s reward=%.3f inference_url=%s",
+        request.run_id,
+        final_total_reward,
+        final_inference_url,
+    )
+    
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -841,6 +915,7 @@ async def rollout_executor(
         aborted=False,
         ops_executed=len(steps),
         trace=trace_payload,
+        pipeline_metadata=pipeline_metadata,
     )
 
 

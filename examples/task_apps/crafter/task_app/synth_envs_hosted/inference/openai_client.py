@@ -149,7 +149,11 @@ class OpenAIClient:
             OpenAI-compatible chat completion response
         """
         base = (base_url or self.base_url).rstrip("/")
-        url = base + "/v1/chat/completions"
+        # Don't append /v1/chat/completions if the URL already contains it
+        if "/v1/chat/completions" in base:
+            url = base
+        else:
+            url = base + "/v1/chat/completions"
         timeout = timeout_s or self.timeout_s
 
         # Merge headers
@@ -164,10 +168,18 @@ class OpenAIClient:
         except Exception:
             pass
 
-        # If target is our in-app Groq proxy, force Authorization to use GROQ_API_KEY
+        # Set Authorization header based on the target URL
         try:
             low_url = (url or "").lower()
-            if "/proxy/groq" in low_url or "groq" in low_url:
+            
+            # If calling OpenAI directly (api.openai.com)
+            if "api.openai.com" in low_url:
+                openai_key = os.getenv("OPENAI_API_KEY")
+                if openai_key and isinstance(openai_key, str):
+                    headers["Authorization"] = f"Bearer {openai_key}"
+            
+            # If target is our in-app Groq proxy, use GROQ_API_KEY
+            elif "/proxy/groq" in low_url or "groq" in low_url:
                 gk = os.getenv("GROQ_API_KEY")
                 if gk and isinstance(gk, str):
                     headers["Authorization"] = f"Bearer {gk}"

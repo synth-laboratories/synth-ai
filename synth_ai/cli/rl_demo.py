@@ -15,9 +15,13 @@ For convenience, dotted aliases are also exposed:
 
 from __future__ import annotations
 
-import click
+import importlib
+from typing import Any, cast
 
-from synth_ai.demos.core import cli as demo_commands
+import click
+from click.exceptions import Exit
+
+demo_commands = cast(Any, importlib.import_module("synth_ai.demos.core.cli"))
 
 
 def _run_demo_command(func, *args, **kwargs) -> None:
@@ -26,7 +30,7 @@ def _run_demo_command(func, *args, **kwargs) -> None:
     try:
         result = func(*args, **kwargs)
     except SystemExit as exc:  # pragma: no cover - defensive
-        raise click.exceptions.Exit(exc.code or 1) from exc
+        raise Exit(exc.code or 1) from exc
 
     if result is None:
         return
@@ -35,7 +39,7 @@ def _run_demo_command(func, *args, **kwargs) -> None:
     except (TypeError, ValueError):
         return
     if code != 0:
-        raise click.exceptions.Exit(code)
+        raise Exit(code)
 
 
 def register(cli):
@@ -44,10 +48,7 @@ def register(cli):
         """RL Demo commands (separate from legacy demo)."""
 
     # Help pyright understand dynamic Click group attributes
-    from typing import Any
-    from typing import cast as _cast
-
-    _rlg = _cast(Any, rl_demo)
+    _rlg = cast(Any, rl_demo)
 
     @_rlg.command("setup")
     def rl_setup():

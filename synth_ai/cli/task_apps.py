@@ -12,29 +12,53 @@ import inspect
 import json
 import os
 import shlex
-import sqlite3
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import tempfile
-import time
 import textwrap
+import time
 import types
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 try:  # Python 3.11+
     import tomllib as _toml
 except Exception:  # pragma: no cover - fallback
     _toml = None  # type: ignore
-import uuid
 
 import click
 from click.exceptions import Abort
+
+# Tracing imports - make conditional for optional dependencies
+try:
+    from synth_ai.tracing_v3 import (  # type: ignore[import-untyped]
+        BaseEvent,
+        EnvironmentEvent,
+        RuntimeEvent,
+        SessionEventMarkovBlanketMessage,
+        SessionMessageContent,
+        SessionTimeStep,
+        SessionTracer,
+        TimeRecord,
+    )
+    from synth_ai.tracing_v3 import (  # type: ignore[import-untyped]
+        SessionTrace as V3SessionTrace,
+    )
+    _TRACING_AVAILABLE = True
+except (ImportError, ModuleNotFoundError, TypeError):
+    # Tracing system not available (missing optional dependencies)
+    BaseEvent = EnvironmentEvent = RuntimeEvent = None  # type: ignore
+    SessionEventMarkovBlanketMessage = SessionMessageContent = None  # type: ignore
+    SessionTimeStep = SessionTracer = TimeRecord = None  # type: ignore
+    V3SessionTrace = None  # type: ignore
+    _TRACING_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Dynamic imports to avoid hard dependencies during type checking.
@@ -42,13 +66,15 @@ from click.exceptions import Abort
 ModalDeploymentConfigType = TaskAppConfigType = TaskAppEntryType = Any
 
 try:  # Resolve base URL defaults lazily
-    _config_module = importlib.import_module("synth_ai.config.base_url")
+    _config_module = cast(
+        Any, importlib.import_module("synth_ai.config.base_url")
+    )
     PROD_BASE_URL_DEFAULT = cast(str, _config_module.PROD_BASE_URL_DEFAULT)
 except Exception:  # pragma: no cover - fallback
     PROD_BASE_URL_DEFAULT = "https://agent-learning.onrender.com"
 
 try:
-    _task_apps_module = importlib.import_module("synth_ai.task.apps")
+    _task_apps_module = cast(Any, importlib.import_module("synth_ai.task.apps"))
     ModalDeploymentConfig = cast(
         type[ModalDeploymentConfigType], _task_apps_module.ModalDeploymentConfig
     )
@@ -59,33 +85,23 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load task app registry") from exc
 
 try:
-    _task_server_module = importlib.import_module("synth_ai.task.server")
-    create_task_app = _task_server_module.create_task_app
-    run_task_app = _task_server_module.run_task_app
+    _task_server_module = cast(Any, importlib.import_module("synth_ai.task.server"))
+    create_task_app = cast(Callable[..., Any], _task_server_module.create_task_app)
+    run_task_app = cast(Callable[..., Any], _task_server_module.run_task_app)
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load task app server utilities") from exc
 
-from synth_ai.tracing_v3 import (
-    BaseEvent,
-    EnvironmentEvent,
-    RuntimeEvent,
-    SessionEventMarkovBlanketMessage,
-    SessionMessageContent,
-    SessionTimeStep,
-    SessionTracer,
-    SessionTrace as V3SessionTrace,
-    TimeRecord,
-)
 
-
-def _load_demo_directory() -> Path | None:
+def _load_demo_directory() -> Optional[Path]:
     """Return the demo task apps directory if available."""
 
     try:
-        module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
-        loader = module.load_demo_dir
+        module = cast(
+            Any, importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        )
+        loader = cast(Callable[[], Optional[str | Path]], module.load_demo_dir)
         demo_dir = loader()
-        if isinstance(demo_dir, (str, Path)):
+        if isinstance(demo_dir, str | Path):
             demo_path = Path(demo_dir)
             if demo_path.exists():
                 return demo_path.resolve()
@@ -123,7 +139,7 @@ DEFAULT_SEARCH_RELATIVE = (
 )
 
 
-def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
+def _pearson(xs: Sequence[float], ys: Sequence[float]) -> Optional[float]:
     if len(xs) != len(ys) or len(xs) < 2:
         return None
     mean_x = sum(xs) / len(xs)
@@ -131,7 +147,7 @@ def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     num = 0.0
     denom_x = 0.0
     denom_y = 0.0
-    for x, y in zip(xs, ys):
+    for x, y in zip(xs, ys, strict=False):
         dx = x - mean_x
         dy = y - mean_y
         num += dx * dy
@@ -148,7 +164,7 @@ class AppChoice:
     label: str
     path: Path
     source: str
-    description: str | None = None
+    description: Optional[str] = None
     aliases: tuple[str, ...] = ()
     entry: TaskAppEntryType | None = None
     entry_loader: Callable[[], TaskAppEntryType] | None = None
@@ -172,7 +188,7 @@ class JudgeSpec:
     kwargs: dict[str, Any]
 
 
-def _parse_datetime_for_trace(value: Any) -> datetime | None:
+def _parse_datetime_for_trace(value: Any) -> Optional[datetime]:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
     if isinstance(value, str):
@@ -185,7 +201,7 @@ def _parse_datetime_for_trace(value: Any) -> datetime | None:
             except Exception:
                 return None
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return datetime.fromtimestamp(float(value), tz=timezone.utc)
     return None
 
@@ -193,7 +209,7 @@ def _parse_datetime_for_trace(value: Any) -> datetime | None:
 def _time_record_from_dict(payload: dict[str, Any] | None) -> TimeRecord:
     payload = payload or {}
     event_time = payload.get("event_time")
-    if not isinstance(event_time, (int, float)):
+    if not isinstance(event_time, int | float):
         try:
             event_time = float(event_time)
         except Exception:
@@ -277,7 +293,7 @@ def _step_from_dict(payload: dict[str, Any]) -> SessionTimeStep:
     )
 
 
-def _session_trace_from_dict(payload: dict[str, Any]) -> V3SessionTrace | None:
+def _session_trace_from_dict(payload: dict[str, Any]) -> Optional[V3SessionTrace]:
     if not isinstance(payload, dict):
         return None
     steps = [
@@ -314,21 +330,43 @@ async def _store_trace(
     trace_namespace: dict[str, Any] | None,
     extra_metadata: dict[str, Any] | None = None,
 ):
+    import logging
+    _logger = logging.getLogger(__name__)
+    
+    _logger.info(f"[STORE_TRACE_DEBUG] Called with tracer={tracer is not None}, trace_namespace={trace_namespace is not None}")
+    
     if tracer is None or not isinstance(trace_namespace, dict):
+        _logger.warning(f"[STORE_TRACE_DEBUG] Early return: tracer={tracer is not None}, trace_namespace type={type(trace_namespace)}")
         return
+    
+    _logger.info(f"[STORE_TRACE_DEBUG] trace_namespace keys: {list(trace_namespace.keys())}")
+    
     session_payload = trace_namespace.get("session_trace")
     if not isinstance(session_payload, dict):
+        _logger.warning(f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}")
         return
+    
+    _logger.info(f"[STORE_TRACE_DEBUG] session_payload keys: {list(session_payload.keys())}")
+    msg_count = len(session_payload.get("markov_blanket_message_history", []))
+    _logger.info(f"[STORE_TRACE_DEBUG] Found {msg_count} messages in session_payload")
+    
     trace_obj = _session_trace_from_dict(session_payload)
     if trace_obj is None:
+        _logger.warning(f"[STORE_TRACE_DEBUG] _session_trace_from_dict returned None")
         return
+    
+    _logger.info(f"[STORE_TRACE_DEBUG] Created SessionTrace object with {len(trace_obj.markov_blanket_message_history)} messages")
+    
     if tracer.db is None:
         await tracer.initialize()
     meta = dict(trace_obj.metadata or {})
     if extra_metadata:
         meta.update(extra_metadata)
     trace_obj.metadata = meta
+    
+    _logger.info(f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}")
     await tracer.db.insert_session_trace(trace_obj)
+    _logger.info(f"[STORE_TRACE_DEBUG] Successfully inserted trace")
 
 def _temporary_sys_path(paths: Sequence[Path]):
     """Context manager to prepend entries to sys.path temporarily."""
@@ -878,36 +916,44 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
             elif kw.arg == "pip_packages" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle pip_packages list/tuple
                 packages: list[str] = []
-                for elt in kw.value.elts:
-                    if isinstance(elt, ast.Constant):
-                        packages.append(elt.value)
+                value_node = kw.value
+                if isinstance(value_node, (ast.List, ast.Tuple)):
+                    for elt in value_node.elts:
+                        if isinstance(elt, ast.Constant):
+                            packages.append(elt.value)
                 kwargs[kw.arg] = tuple(packages)
             elif kw.arg == "extra_local_dirs" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle extra_local_dirs list/tuple of tuples
                 dirs = []
-                for elt in kw.value.elts:
-                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
-                        src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
-                        dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
-                        if src and dst:
-                            dirs.append((src, dst))
+                value_node = kw.value
+                if isinstance(value_node, (ast.List, ast.Tuple)):
+                    for elt in value_node.elts:
+                        if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                            src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
+                            dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            if src and dst:
+                                dirs.append((src, dst))
                 kwargs[kw.arg] = tuple(dirs)
             elif kw.arg == "secret_names" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle secret_names list/tuple
                 secrets = []
-                for elt in kw.value.elts:
-                    if isinstance(elt, ast.Constant):
-                        secrets.append(elt.value)
+                value_node = kw.value
+                if isinstance(value_node, (ast.List, ast.Tuple)):
+                    for elt in value_node.elts:
+                        if isinstance(elt, ast.Constant):
+                            secrets.append(elt.value)
                 kwargs[kw.arg] = tuple(secrets)
             elif kw.arg == "volume_mounts" and isinstance(kw.value, (ast.List, ast.Tuple)):
                 # Handle volume_mounts list/tuple of tuples
                 mounts = []
-                for elt in kw.value.elts:
-                    if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
-                        name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
-                        mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
-                        if name and mount:
-                            mounts.append((name, mount))
+                value_node = kw.value
+                if isinstance(value_node, (ast.List, ast.Tuple)):
+                    for elt in value_node.elts:
+                        if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                            name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
+                            mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
+                            if name and mount:
+                                mounts.append((name, mount))
                 kwargs[kw.arg] = tuple(mounts)
 
         return ModalDeploymentConfig(**kwargs)
@@ -1067,10 +1113,13 @@ def _safe_import_context() -> Iterator[None]:
         uvicorn_run = None
 
     try:
-        from synth_ai.task import server as _task_server
-
-        run_task_app_orig = _task_server.run_task_app
-        _task_server.run_task_app = lambda *args, **kwargs: None  # type: ignore[assignment]
+        _task_server_patch = cast(
+            Any, importlib.import_module("synth_ai.task.server")
+        )
+        run_task_app_orig = cast(Callable[..., Any], _task_server_patch.run_task_app)
+        _task_server_patch.run_task_app = (  # type: ignore[assignment]
+            lambda *args, **kwargs: None
+        )
     except Exception:
         run_task_app_orig = None
 
@@ -1088,9 +1137,10 @@ def _safe_import_context() -> Iterator[None]:
                 pass
         if run_task_app_orig is not None:
             try:
-                from synth_ai.task import server as _task_server
-
-                _task_server.run_task_app = run_task_app_orig  # type: ignore[assignment]
+                _task_server_patch = cast(
+                    Any, importlib.import_module("synth_ai.task.server")
+                )
+                _task_server_patch.run_task_app = run_task_app_orig  # type: ignore[assignment]
             except Exception:
                 pass
 
@@ -1333,23 +1383,26 @@ def _is_modal_shim(path_str: str) -> bool:
     except Exception:
         size = None
 
-    if size is not None and size < 2048 and "python" in (snippet.splitlines() or [""])[0]:
-        if "modal.__main__" in snippet or "modal.__main__" in snippet.replace(" ", ""):
-            return True
+    if (
+        size is not None
+        and size < 2048
+        and "python" in (snippet.splitlines() or [""])[0]
+        and (
+            "modal.__main__" in snippet
+            or "modal.__main__" in snippet.replace(" ", "")
+        )
+    ):
+        return True
 
     virtual_env = os.environ.get("VIRTUAL_ENV")
-    if virtual_env:
-        if _path_is_within(resolved, Path(virtual_env)):
-            return True
+    if virtual_env and _path_is_within(resolved, Path(virtual_env)):
+        return True
 
     if _path_is_within(resolved, REPO_ROOT):
         return True
 
     uv_tools_dir = Path.home() / ".local" / "share" / "uv" / "tools"
-    if uv_tools_dir.exists() and _path_is_within(resolved, uv_tools_dir):
-        return True
-
-    return False
+    return uv_tools_dir.exists() and _path_is_within(resolved, uv_tools_dir)
 
 
 def _find_modal_executable(modal_cli: str) -> tuple[str | None, str | None]:
@@ -2084,6 +2137,255 @@ def list_apps() -> None:
     for entry in entries:
         aliases = f" (aliases: {', '.join(entry.aliases)})" if entry.aliases else ""
         click.echo(f"- {entry.app_id}{aliases}: {entry.description}")
+
+
+@task_app_group.command("validate")
+@click.argument("app_id", type=str, required=True)
+@click.option(
+    "--url",
+    type=str,
+    default=None,
+    help="Task app URL to validate (if not provided, starts a local server)",
+)
+@click.option(
+    "--port",
+    type=int,
+    default=8765,
+    help="Port to use for temporary server (default: 8765)",
+)
+@click.option(
+    "--api-key",
+    type=str,
+    default=None,
+    envvar="ENVIRONMENT_API_KEY",
+    help="API key for authentication (default: $ENVIRONMENT_API_KEY)",
+)
+@click.option(
+    "--min-instances",
+    type=int,
+    default=10,
+    help="Minimum number of task instances required (default: 10)",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed information about the task app",
+)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    help="Output results as JSON",
+)
+def validate_task_app_cmd(
+    app_id: str,
+    url: str | None,
+    port: int,
+    api_key: str | None,
+    min_instances: int,
+    verbose: bool,
+    output_json: bool,
+) -> None:
+    """Validate a task app deployment readiness.
+    
+    This command verifies that a task app is properly configured and ready to run
+    by checking all required HTTP endpoints, authentication, and task availability.
+    
+    By default, it starts a temporary local server for validation. You can also
+    validate a remote deployment by passing --url.
+    
+    \b
+    What gets validated:
+    • Root endpoint (/) responds correctly
+    • Health endpoint (/health) is accessible with proper authentication
+    • Info endpoint (/info) returns valid task metadata  
+    • Task info endpoint (/task_info) provides task instances
+    • Rollout endpoint (/rollout) is registered
+    • At least N task instances are available (default: 10)
+    
+    \b
+    Examples:
+    
+    \b
+    Validate grpo-crafter (starts local server automatically):
+        $ synth-ai task-app validate grpo-crafter
+    
+    \b
+    Validate sokoban with verbose output:
+        $ synth-ai task-app validate sokoban --verbose
+    
+    \b
+    Validate with custom port:
+        $ synth-ai task-app validate sokoban --port 9000
+    
+    \b
+    Validate a remote deployment:
+        $ synth-ai task-app validate grpo-crafter --url https://my-crafter.modal.run
+    
+    \b
+    Require at least 20 task instances:
+        $ synth-ai task-app validate grpo-crafter --min-instances 20
+    
+    \b
+    Get JSON output for automation:
+        $ synth-ai task-app validate sokoban --json
+    
+    \b
+    Common use cases:
+    • Pre-deployment verification: Check task app works before deploying to Modal
+    • CI/CD integration: Use --json flag for automated validation in pipelines
+    • Debug failing deployments: Use --verbose to see detailed endpoint responses
+    • Test API key configuration: Verify authentication is set up correctly
+    """
+    import asyncio
+    import socket
+    import subprocess
+    import tempfile
+    import time
+    
+    # Import the validate_task_app function defined in this module
+    from synth_ai.cli._validate_task_app import validate_task_app  # type: ignore[attr-defined]
+    
+    proc = None
+    task_app_url = url
+    
+    try:
+        # If no URL provided, start a temporary server
+        if not task_app_url:
+            # Find an available port
+            def is_port_available(port: int) -> bool:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.bind(("", port))
+                        return True
+                    except OSError:
+                        return False
+            
+            while not is_port_available(port):
+                port += 1
+            
+            task_app_url = f"http://localhost:{port}"
+            
+            if not output_json:
+                click.echo(f"Starting temporary {app_id} server on port {port}...")
+            
+            # Start the server in background
+            env = os.environ.copy()
+            if api_key:
+                env["ENVIRONMENT_API_KEY"] = api_key
+            
+            # Create a temporary trace DB and trace dir to avoid prompts
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            temp_trace_db = os.path.join(temp_dir, "validate_trace.db")
+            temp_trace_dir = os.path.join(temp_dir, "traces")
+            os.makedirs(temp_trace_dir, exist_ok=True)
+            
+            proc = subprocess.Popen(
+                [
+                    "uv",
+                    "run",
+                    "synth-ai",
+                    "task-app",
+                    "serve",
+                    app_id,
+                    "--port",
+                    str(port),
+                    "--no-reload",
+                    "--trace",
+                    temp_trace_dir,
+                    "--trace-db",
+                    temp_trace_db,
+                ],
+                env=env,
+                stdin=subprocess.PIPE,  # Add stdin to handle any prompts
+                stdout=subprocess.DEVNULL if output_json else subprocess.PIPE,
+                stderr=subprocess.DEVNULL if output_json else subprocess.PIPE,
+                text=True,
+            )
+            
+            # Write empty input to stdin to skip any prompts
+            if proc.stdin:
+                try:
+                    proc.stdin.write("\n")
+                    proc.stdin.flush()
+                    proc.stdin.close()
+                except Exception:
+                    pass
+            
+            # Wait for server to be ready
+            if not output_json:
+                click.echo("Waiting for server to start...")
+            
+            import httpx
+            for _attempt in range(60):  # 30 seconds timeout
+                try:
+                    async def check_health():
+                        async with httpx.AsyncClient(timeout=2.0) as client:
+                            resp = await client.get(f"{task_app_url}/")
+                            return resp.status_code == 200
+                    
+                    if asyncio.run(check_health()):
+                        break
+                except Exception:
+                    pass
+                
+                # Check if process died
+                if proc.poll() is not None:
+                    stderr_output = ""
+                    if proc.stderr and not output_json:
+                        stderr_output = proc.stderr.read()
+                    click.echo(click.style("✗ Server process exited unexpectedly", fg="red"), err=True)
+                    if stderr_output and not output_json:
+                        click.echo(f"Error output:\n{stderr_output}", err=True)
+                    sys.exit(1)
+                
+                time.sleep(0.5)
+            else:
+                click.echo(click.style("✗ Server failed to start within 30 seconds", fg="red"), err=True)
+                sys.exit(1)
+            
+            if not output_json:
+                click.echo(click.style("✓ Server started", fg="green"))
+                click.echo()
+        
+        # Ensure URL doesn't have trailing slash
+        task_app_url = task_app_url.rstrip("/")
+        
+        async def _run() -> tuple[bool, dict[str, Any]]:
+            return await validate_task_app(
+                url=task_app_url,
+                api_key=api_key,
+                min_instances=min_instances,
+                verbose=verbose,
+            )
+        
+        success, results = asyncio.run(_run())
+        
+        if output_json:
+            import json as _json
+            click.echo(_json.dumps(results, indent=2))
+        
+        sys.exit(0 if success else 1)
+    
+    finally:
+        # Cleanup: stop the temporary server
+        if proc is not None:
+            if not output_json:
+                click.echo("\nStopping temporary server...")
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+            except Exception:
+                proc.kill()
+        
+        # Cleanup temp trace DB
+        if not url and 'temp_dir' in locals():
+            import contextlib
+            import shutil
+            with contextlib.suppress(Exception):
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def _load_env_files_into_process(paths: Sequence[str]) -> None:
@@ -2944,25 +3246,46 @@ def register(cli: click.Group) -> None:
     cli.add_command(filter_command)
 
 
-@click.command("eval")
+@click.command(
+    "eval",
+    help="Run one-off rollouts against a task app and print judge/eval summaries.",
+)
 @click.argument("app_id", type=str, required=False)
-@click.option("--config", type=click.Path(), default=None, help="Path to eval TOML (short schema)")
+@click.option(
+    "--config",
+    type=click.Path(),
+    default=None,
+    help="Path to eval TOML (short schema). Auto-discovers the first matching file when omitted.",
+)
 @click.option(
     "--url",
     "task_app_url",
     type=str,
     default=None,
-    help="Base URL of a running task app (skip in-process server)",
+    help="Base URL of a running task app instead of spawning locally (requires --env-file for secrets).",
 )
-@click.option("--seeds", default="0,1,2,3,4", help="Comma-separated seeds/indices to evaluate")
+@click.option(
+    "--seeds",
+    default="0,1,2,3,4",
+    help="Comma-separated seeds/indices to evaluate. Use negative numbers to wrap around the dataset.",
+)
 @click.option("--split", default="train", show_default=True, help="Dataset split to use")
-@click.option("--model", default=None, help="Model identifier (prompted if omitted)")
-@click.option("--env-file", multiple=True, type=click.Path(), help="Env file(s) for keys")
+@click.option(
+    "--model",
+    default=None,
+    help="Model identifier. When omitted the CLI will prompt based on task metadata.",
+)
+@click.option(
+    "--env-file",
+    multiple=True,
+    type=click.Path(),
+    help="Env file(s) to load (API keys, etc.). Required when using --url or remote judges.",
+)
 @click.option(
     "--trace-db",
-    default="traces/v3/eval_traces.db",
+    default="traces/v3/synth_ai.db",
     show_default=True,
-    help="Path or database URL for storing rollout traces (set to 'none' to disable)",
+    help="SQLite/Turso URL for storing rollout traces set to 'none' to disable persistence.",
 )
 @click.option(
     "--metadata",
@@ -2986,9 +3309,20 @@ def eval_command(
     metadata: Sequence[str],
     metadata_sql: str | None,
 ) -> None:
-    """Run local rollouts against a task app using in-process ASGI and summarize results."""
+    """Run rollouts against a task app and report judge statistics.
+
+    By default the command spins up the selected task app in-process, executes the
+    requested seeds, and prints aggregate scores (official and custom judges). When
+    pointing at a remote `--url`, supply matching `--env-file` values so the CLI can
+    forward authentication headers to the running service.
+    """
+    # Parse and validate TOML config
+    from synth_ai.task.config import EvalConfig
+    
     cfg: dict[str, Any] = {}
+    eval_cfg: EvalConfig | None = None
     config_path: Path | None = None
+    
     if config:
         config_path = Path(config)
     else:
@@ -3010,21 +3344,37 @@ def eval_command(
             if isinstance(parsed, dict):
                 section = parsed.get("eval")
                 cfg = dict(section) if isinstance(section, dict) else dict(parsed)
+            
+            # Validate config with dataclass
+            try:
+                eval_cfg = EvalConfig.from_dict(cfg)
+                click.echo(f"✓ Config validated: {len(eval_cfg.seeds)} seeds, model={eval_cfg.model}")
+            except (ValueError, TypeError) as validation_error:
+                raise click.ClickException(f"Invalid eval config: {validation_error}") from validation_error
+        except click.ClickException:
+            raise
         except Exception as exc:
             raise click.ClickException(f"Failed to parse TOML '{config_path}': {exc}") from exc
 
-    app_id = app_id or (cfg.get("app_id") if isinstance(cfg.get("app_id"), str) else None)  # type: ignore
+    # CLI args override config
+    if eval_cfg:
+        app_id = app_id or eval_cfg.app_id
+    else:
+        app_id = app_id or (cfg.get("app_id") if isinstance(cfg.get("app_id"), str) else None)  # type: ignore
 
     metadata_filters: dict[str, str] = {}
-    cfg_metadata = cfg.get("metadata")
-    if isinstance(cfg_metadata, dict):
-        for key, value in cfg_metadata.items():
-            metadata_filters[str(key)] = str(value)
-    elif isinstance(cfg_metadata, list):
-        for item in cfg_metadata:
-            if isinstance(item, str) and "=" in item:
-                key, value = item.split("=", 1)
-                metadata_filters[key.strip()] = value.strip()
+    if eval_cfg:
+        metadata_filters.update(eval_cfg.metadata)
+    else:
+        cfg_metadata = cfg.get("metadata")
+        if isinstance(cfg_metadata, dict):
+            for key, value in cfg_metadata.items():
+                metadata_filters[str(key)] = str(value)
+        elif isinstance(cfg_metadata, list):
+            for item in cfg_metadata:
+                if isinstance(item, str) and "=" in item:
+                    key, value = item.split("=", 1)
+                    metadata_filters[key.strip()] = value.strip()
 
     for item in metadata or ():
         if "=" not in item:
@@ -3037,11 +3387,14 @@ def eval_command(
         metadata_filters[key] = value
 
     metadata_sql_query: str | None = None
-    cfg_metadata_sql = cfg.get("metadata_sql")
-    if isinstance(cfg_metadata_sql, dict):
-        metadata_sql_query = cfg_metadata_sql.get("query") or cfg_metadata_sql.get("sql")
-    elif isinstance(cfg_metadata_sql, str):
-        metadata_sql_query = cfg_metadata_sql
+    if eval_cfg and eval_cfg.metadata_sql:
+        metadata_sql_query = eval_cfg.metadata_sql
+    else:
+        cfg_metadata_sql = cfg.get("metadata_sql")
+        if isinstance(cfg_metadata_sql, dict):
+            metadata_sql_query = cfg_metadata_sql.get("query") or cfg_metadata_sql.get("sql")
+        elif isinstance(cfg_metadata_sql, str):
+            metadata_sql_query = cfg_metadata_sql
 
     if metadata_sql:
         metadata_sql_query = metadata_sql
@@ -3110,12 +3463,30 @@ def eval_command(
         app = create_task_app(config)
 
     # Determine supported models
+    inference_meta: dict[str, Any] = {}
     supported: list[str] = []
+    seen_models: set[str] = set()
+
+    def _add_supported_model(candidate: Any) -> None:
+        if not candidate:
+            return
+        text = str(candidate).strip()
+        if not text or text in seen_models:
+            return
+        supported.append(text)
+        seen_models.add(text)
+
     if task_app_url is None:
         try:
-            supported = list((config.base_task_info.inference or {}).get("models") or [])  # type: ignore[union-attr]
+            if hasattr(config, "base_task_info") and config.base_task_info:
+                inf_obj = getattr(config.base_task_info, "inference", None)
+                if inf_obj is not None:
+                    if hasattr(inf_obj, "model_dump"):
+                        inference_meta = dict(inf_obj.model_dump(exclude_none=True))  # type: ignore[attr-defined]
+                    elif isinstance(inf_obj, dict):
+                        inference_meta = dict(inf_obj)
         except Exception:
-            supported = []
+            inference_meta = {}
     else:
         try:
             import httpx as _hx
@@ -3128,38 +3499,38 @@ def eval_command(
                 info = c.get("/info").json()
             inf = info.get("inference") if isinstance(info, dict) else None
             if isinstance(inf, dict):
-                m = inf.get("models")
-                if isinstance(m, list):
-                    supported = [str(x) for x in m]
-                if not supported:
-                    providers = inf.get("providers")
-                    if isinstance(providers, list):
-                        if "openai" in providers:
-                            supported.append("gpt-5")
-                        if "groq" in providers:
-                            supported.append("groq:llama-3.1-70b-versatile")
-                        supported.append("synth:qwen-0.6b")
+                inference_meta = dict(inf)
         except Exception:
-            supported = []
-    if not supported:
-        # Only fall back to local config-derived providers when running in-process
-        if task_app_url is None:
-            try:
-                providers = list((config.base_task_info.inference or {}).get("providers") or [])  # type: ignore[union-attr]
-            except Exception:
-                providers = []
-            if "openai" in providers:
-                supported.append("gpt-5")
-            if "groq" in providers:
-                supported.append("groq:llama-3.1-70b-versatile")
-        # Always include a local synth model option for smoke tests
-        supported.append("synth:qwen-0.6b")
+            inference_meta = {}
+
+    default_model = inference_meta.get("model")
+    if isinstance(default_model, str):
+        _add_supported_model(default_model)
+
+    models_field = inference_meta.get("models")
+    if isinstance(models_field, list):
+        for candidate in models_field:
+            _add_supported_model(candidate)
+
+    supported_models = inference_meta.get("supported_models")
+    if isinstance(supported_models, list):
+        for candidate in supported_models:
+            _add_supported_model(candidate)
+
+    providers = inference_meta.get("providers")
+    if isinstance(providers, list):
+        if "openai" in providers:
+            _add_supported_model("gpt-5")
+        if "groq" in providers:
+            _add_supported_model("groq:llama-3.1-70b-versatile")
+
+    _add_supported_model("synth:qwen-0.6b")
 
     selected_model = model
     if not selected_model:
         if not supported:
             raise click.ClickException(
-                "No supported models; supply --model or add base_task_info.inference.models"
+                "No supported models; supply --model or add base_task_info.inference.model"
             )
         click.echo("Select model to evaluate:")
         for idx, m in enumerate(supported, start=1):
@@ -3249,7 +3620,7 @@ def eval_command(
                 ) from exc
         else:
             if hasattr(module, "judge"):
-                judge_fn = getattr(module, "judge")
+                judge_fn = module.judge
             else:
                 raise click.ClickException("Judge module must expose 'judge' callable")
 
@@ -3285,7 +3656,7 @@ def eval_command(
 
     raw_judges_list = cfg.get("judges")
     if isinstance(raw_judges_list, list):
-        for index, entry in enumerate(raw_judges_list, start=1):
+        for _index, entry in enumerate(raw_judges_list, start=1):
             if isinstance(entry, dict):
                 _register_judge(entry.get("name") or f"judge{len(judge_specs) + 1}", entry)
 
@@ -3465,18 +3836,52 @@ def eval_command(
 
             async def _run_seed(seed_val: int) -> None:
                 nonlocal successes, failures, outcome_sum, outcome_count, outcome_correct, records
+                # Read env_name and policy_name from config if available
+                env_name = cfg.get("env_name") or (cfg.get("env", {}).get("env_name") if isinstance(cfg.get("env"), dict) else None)
+                policy_name = cfg.get("policy_name") or (cfg.get("policy", {}).get("policy_name") if isinstance(cfg.get("policy"), dict) else None)
+                env_config_overrides = cfg.get("env_config", {}) if isinstance(cfg.get("env_config"), dict) else {}
+                policy_config_overrides = cfg.get("policy_config", {}) if isinstance(cfg.get("policy_config"), dict) else {}
+                
+                # Debug: print config parsing
+                if seed_val == 0:
+                    click.echo(f"[DEBUG] env_name from config: {env_name}")
+                    click.echo(f"[DEBUG] policy_name from config: {policy_name}")
+                
+                # Generate default ops sequence if not provided
+                max_llm_calls = policy_config_overrides.get("max_llm_calls", 10)
+                ops_list = cfg.get("ops", [])
+                if not ops_list:
+                    # Generate default "agent, env" pairs for max_llm_calls
+                    ops_list = ["agent", "env"] * int(max_llm_calls)
+                
                 body = {
                     "run_id": str(uuid.uuid4()),
-                    "env": {"config": {"split": split, "index": seed_val}, "seed": seed_val},
+                    "env": {"config": {"split": split, "index": seed_val, **env_config_overrides}, "seed": seed_val},
                     "policy": {
-                        "policy_name": selected_model,
-                        "config": {"model": selected_model, **policy_overrides},
+                        "policy_name": policy_name or selected_model,
+                        "config": {"model": selected_model, **policy_overrides, **policy_config_overrides},
                     },
-                    "ops": [],
+                    "ops": ops_list,
+                    "record": {
+                        "return_trace": cfg.get("return_trace", True),
+                        "trace_format": cfg.get("trace_format", "structured"),
+                    },
+                    "mode": "eval",  # RolloutMode.EVAL: use inference URLs as-is, no transformations
                 }
+                if env_name:
+                    body["env"]["env_name"] = env_name
+                
+                # Debug: print the body being sent
+                if seed_val == 0:
+                    click.echo(f"[DEBUG] rollout body env: {body['env']}")
+                    click.echo(f"[DEBUG] rollout body policy: {body['policy']}")
+                    click.echo(f"[DEBUG] rollout body mode: {body.get('mode', 'NOT SET')}")
                 rollout_elapsed: float | None = None
                 rollout_start = time.perf_counter()
                 try:
+                    import logging
+                    _log = logging.getLogger(__name__)
+                    _log.info(f"[EVAL_BODY_DEBUG] Sending body with mode={body.get('mode')}")
                     async with semaphore:
                         response = await async_client.post("/rollout", json=body)
                     rollout_elapsed = time.perf_counter() - rollout_start
@@ -3497,6 +3902,10 @@ def eval_command(
                     data = response.json()
                 except Exception:
                     data = None
+                
+                # Debug: print validation errors
+                if response.status_code == 422 and data:
+                    click.echo(f"[DEBUG] 422 Validation Error: {data}")
 
                 metrics: dict[str, Any] | None = None
                 completion: str | None = None
@@ -3510,16 +3919,33 @@ def eval_command(
                 session_trace_dict: dict[str, Any] | None = None
 
                 if isinstance(data, dict):
+                    import logging
+                    _logger = logging.getLogger(__name__)
+                    _logger.info(f"[EVAL_DEBUG] Response data keys: {list(data.keys())}")
+                    if "detail" in data:
+                        _logger.error(f"[EVAL_DEBUG] Task app returned error: {data['detail']}")
                     trace_namespace = data.get("trace")
+                    _logger.info(f"[EVAL_DEBUG] trace_namespace type: {type(trace_namespace)}, value: {trace_namespace if not isinstance(trace_namespace, dict) else 'dict with keys: ' + str(list(trace_namespace.keys()) if trace_namespace else 'None')}")
                     if not isinstance(trace_namespace, dict):
                         raise RuntimeError(
-                            "rollout response missing trace payload; task app must return tracing_v3 data"
+                            "The 'synth-ai eval' command requires trace payloads in rollout responses. "
+                            "Ensure the rollout request includes 'trace_format': 'structured' and 'return_trace': true, "
+                            "and that task app tracing is enabled (TASKAPP_TRACING_ENABLED=1). "
+                            "Note: This is specific to the eval command - general rollout endpoints don't require traces."
                         )
+                    # Handle both "compact" and "full" trace formats:
+                    # - compact: trace_namespace contains {session_id, metadata, ...}
+                    # - full: trace_namespace IS the full session_trace dict
                     session_trace_dict = trace_namespace.get("session_trace")
                     if not isinstance(session_trace_dict, dict):
-                        raise RuntimeError(
-                            "rollout response trace missing 'session_trace'; ensure the task app is serving the tracing_v3 build"
-                        )
+                        # If no session_trace key, assume "full" format where trace itself is the session_trace
+                        if "session_id" in trace_namespace:
+                            session_trace_dict = trace_namespace
+                        else:
+                            raise RuntimeError(
+                                "The 'synth-ai eval' command requires 'session_trace' in the trace payload or a valid full trace format. "
+                                "Ensure the task app is using tracing_v3 and returning structured trace data."
+                            )
                     metrics = data.get("metrics") if isinstance(data.get("metrics"), dict) else None
                     if metrics:
                         mean_return = metrics.get("mean_return") or metrics.get("total_reward")
@@ -3614,13 +4040,13 @@ def eval_command(
                 if isinstance(metrics, dict):
                     for key in ("mean_return", "total_reward", "outcome_score"):
                         val = metrics.get(key)
-                        if isinstance(val, (int, float)):
+                        if isinstance(val, int | float):
                             official_score = float(val)
                             break
                 if official_score is None and isinstance(data, dict):
                     try:
                         reward_val = data["trajectories"][0]["steps"][0].get("reward")
-                        if isinstance(reward_val, (int, float)):
+                        if isinstance(reward_val, int | float):
                             official_score = float(reward_val)
                     except Exception:
                         pass
@@ -3632,7 +4058,11 @@ def eval_command(
                         official_score = min(1.0, official_score)
 
                 judge_scores: dict[str, float | None] = {}
-                timings: dict[str, Any] = {"rollout_s": rollout_elapsed, "judges": {}}
+                judges_timings: dict[str, float | None] = {}
+                timings: dict[str, Any] = {
+                    "rollout_s": rollout_elapsed,
+                    "judges": judges_timings,
+                }
                 if judge_specs:
                     for spec in judge_specs:
                         score_value: float | None = None
@@ -3651,13 +4081,13 @@ def eval_command(
                                 judge_start = time.perf_counter()
                                 result = spec.fn(judge_payload, **spec.kwargs)
                                 judge_elapsed = time.perf_counter() - judge_start
-                                if isinstance(result, (int, float)):
+                                if isinstance(result, int | float):
                                     score_value = float(result)
                             except Exception as exc:
                                 if judge_elapsed is None:
                                     judge_elapsed = time.perf_counter() - judge_start
                                 click.echo(f"seed={seed_val} judge[{spec.name}]_error={exc}")
-                        timings["judges"][spec.name] = judge_elapsed
+                        judges_timings[spec.name] = judge_elapsed
                         judge_scores[spec.name] = score_value
 
                 if trace_tracer is not None and trace_namespace:
@@ -3770,7 +4200,7 @@ def eval_command(
             row = [seed_val, prompt_idx, official_val]
             for spec in judge_specs:
                 score_val = record["judge_scores"].get(spec.name)
-                row.append(f"{score_val:.3f}" if isinstance(score_val, (int, float)) else "-")
+                row.append(f"{score_val:.3f}" if isinstance(score_val, int | float) else "-")
             rows.append(row)
 
         widths = [len(col) for col in header]
@@ -3786,9 +4216,33 @@ def eval_command(
 
 
 
-@click.command("filter")
-@click.option("--config", "config_path", type=click.Path(), required=True, help="Path to TOML config with filters")
+@click.command(
+    "filter",
+    help="Export filtered tracing sessions to SFT-ready JSONL based on a TOML config.",
+)
+@click.option(
+    "--config",
+    "config_path",
+    type=click.Path(),
+    required=True,
+    help="Path to TOML config describing the input trace DB, score thresholds, and output JSONL.",
+)
 def filter_command(config_path: str) -> None:
+    """Render tracing sessions that match filter rules into SFT JSONL.
+
+    The TOML file should contain a `[filter]` table with at least:
+
+        db = \"path/to/traces.db\"      # sqlite path or URL (sqlite+aiosqlite://...)
+        output = \"ft_data/out.jsonl\"  # destination JSONL
+
+    Optional keys such as `splits`, `task_ids`, `models`, `min_official_score`, or
+    `min_judge_scores.my_judge = 0.7` allow you to narrow the dataset down to
+    high-quality traces. See `customers/agora_single_file/configs/filter_local.toml`
+    for a working example.
+    """
+    # Parse and validate TOML config
+    from synth_ai.task.config import FilterConfig
+    
     if _toml is None:
         raise click.ClickException("TOML parser not available; install tomli or use Python 3.11+")
 
@@ -3801,71 +4255,48 @@ def filter_command(config_path: str) -> None:
     except Exception as exc:
         raise click.ClickException(f"Failed to parse TOML '{cfg_path}': {exc}") from exc
 
-    filter_cfg = config_data.get("filter") if isinstance(config_data, dict) else None
-    if not isinstance(filter_cfg, dict):
+    filter_cfg_dict = config_data.get("filter") if isinstance(config_data, dict) else None
+    if not isinstance(filter_cfg_dict, dict):
         raise click.ClickException("Config must contain a [filter] table")
 
-    db_value = str(filter_cfg.get("db", "traces/v3/eval_traces.db")).strip()
-    if not db_value:
-        raise click.ClickException("filter.db must be provided")
-    if "://" in db_value:
-        db_url = db_value
-    else:
-        db_path = Path(db_value).expanduser()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        db_url = f"sqlite+aiosqlite:///{db_path}"
-
-    output_value = filter_cfg.get("output")
-    if not output_value:
-        raise click.ClickException("filter.output must be provided")
-    output_path = Path(str(output_value)).expanduser()
-
-    splits = set(filter_cfg.get("splits", []) or [])
-    task_ids = set(filter_cfg.get("task_ids", []) or [])
-    models = set(filter_cfg.get("models", []) or [])
-    min_official = filter_cfg.get("min_official_score")
-    max_official = filter_cfg.get("max_official_score")
-    if min_official is not None:
-        try:
-            min_official = float(min_official)
-        except Exception:
-            raise click.ClickException("filter.min_official_score must be numeric")
-    if max_official is not None:
-        try:
-            max_official = float(max_official)
-        except Exception:
-            raise click.ClickException("filter.max_official_score must be numeric")
-    min_judge_scores = filter_cfg.get("min_judge_scores", {}) or {}
-    max_judge_scores = filter_cfg.get("max_judge_scores", {}) or {}
+    # Validate config with dataclass
     try:
-        min_judge_scores = {k: float(v) for k, v in min_judge_scores.items()}
-    except Exception:
-        raise click.ClickException("filter.min_judge_scores values must be numeric")
-    try:
-        max_judge_scores = {k: float(v) for k, v in max_judge_scores.items()}
-    except Exception:
-        raise click.ClickException("filter.max_judge_scores values must be numeric")
-    min_created = _parse_datetime_for_trace(filter_cfg.get("min_created_at"))
-    max_created = _parse_datetime_for_trace(filter_cfg.get("max_created_at"))
-    limit = filter_cfg.get("limit")
-    if limit is not None:
-        try:
-            limit = int(limit)
-        except Exception:
-            raise click.ClickException("filter.limit must be an integer")
+        filter_cfg = FilterConfig.from_dict(filter_cfg_dict)
+        click.echo(f"✓ Config validated: db={filter_cfg.db}, output={filter_cfg.output}")
+        if filter_cfg.min_official_score is not None:
+            click.echo(f"  → Filtering for official score >= {filter_cfg.min_official_score}")
+        if filter_cfg.limit:
+            click.echo(f"  → Limiting to {filter_cfg.limit} examples")
+    except (ValueError, TypeError) as validation_error:
+        raise click.ClickException(f"Invalid filter config: {validation_error}") from validation_error
+
+    # Use validated config
+    db_url = filter_cfg.get_db_url()
+    output_path = filter_cfg.get_output_path()
+
+    # Extract validated fields from dataclass
+    splits = set(filter_cfg.splits)
+    task_ids = set(filter_cfg.task_ids)
+    models = set(filter_cfg.models)
+    min_official = filter_cfg.min_official_score
+    max_official = filter_cfg.max_official_score
+    min_judge_scores = filter_cfg.min_judge_scores
+    max_judge_scores = filter_cfg.max_judge_scores
+    # Note: min_created_at and max_created_at not yet in FilterConfig dataclass
+    min_created = _parse_datetime_for_trace(filter_cfg_dict.get("min_created_at"))
+    max_created = _parse_datetime_for_trace(filter_cfg_dict.get("max_created_at"))
+    limit = filter_cfg.limit
 
     def _score_ok(value: Any, min_val: Any, max_val: Any) -> bool:
         try:
             if value is None:
-                return False if min_val is not None else True
+                return min_val is None
             value = float(value)
         except Exception:
             return False
         if min_val is not None and value < float(min_val):
             return False
-        if max_val is not None and value > float(max_val):
-            return False
-        return True
+        return not (max_val is not None and value > float(max_val))
 
     async def _run_filter() -> None:
         tracer = SessionTracer(db_url=db_url, auto_save=False)
@@ -3909,8 +4340,21 @@ def filter_command(config_path: str) -> None:
             if max_created and (created_at_dt is None or created_at_dt > max_created):
                 continue
 
-            if not _score_ok(metadata.get("official_score"), min_official, max_official):
-                continue
+            # Check against outcome_rewards if score filter is set
+            total_reward = None
+            achievements_count = None
+            if min_official is not None or max_official is not None:
+                reward_query = "SELECT total_reward, achievements_count FROM outcome_rewards WHERE session_id = :session_id"
+                reward_rows = await tracer.db.query_traces(reward_query, {"session_id": session_id})
+                reward_records = reward_rows.to_dict("records") if hasattr(reward_rows, "to_dict") else []
+                if reward_records:
+                    total_reward = reward_records[0].get("total_reward")
+                    achievements_count = reward_records[0].get("achievements_count")
+                    if not _score_ok(total_reward, min_official, max_official):
+                        continue
+                elif min_official is not None:
+                    # No reward found, but score filter requires it
+                    continue
 
             judge_scores = metadata.get("judge_scores") or {}
             include = True
@@ -3927,30 +4371,120 @@ def filter_command(config_path: str) -> None:
             if not include:
                 continue
 
-            prompt = metadata.get("prompt") or ""
-            completion = metadata.get("completion") or ""
-            if not prompt or not completion:
+            # Query messages for this session
+            messages_query = """
+                SELECT message_type, content, timestamp 
+                FROM messages 
+                WHERE session_id = :session_id
+                ORDER BY timestamp ASC, id ASC
+            """
+            msg_df = await tracer.db.query_traces(messages_query, {"session_id": session_id})
+            message_rows = msg_df.to_dict("records") if hasattr(msg_df, "to_dict") else []
+            
+            if not message_rows:
+                # Fallback: check if prompt/completion in metadata (old format)
+                prompt = metadata.get("prompt") or ""
+                completion = metadata.get("completion") or ""
+                if prompt and completion:
+                    record = {
+                        "messages": [
+                            {"role": "user", "content": str(prompt)},
+                            {"role": "assistant", "content": str(completion)},
+                        ],
+                        "metadata": {
+                            "session_id": session_id,
+                            "env_name": metadata.get("env_name"),
+                            "policy_name": metadata.get("policy_name"),
+                            "seed": metadata.get("seed"),
+                            "total_reward": total_reward,
+                            "achievements_count": achievements_count,
+                            "model": metadata.get("model"),
+                            "created_at": created_at_dt.isoformat() if created_at_dt else created_at_raw,
+                        },
+                    }
+                    accepted.append(record)
                 continue
 
-            record = {
-                "messages": [
-                    {"role": "user", "content": str(prompt)},
-                    {"role": "assistant", "content": str(completion)},
-                ],
-                "metadata": {
-                    "session_id": session_id,
-                    "task_id": metadata.get("task_id"),
-                    "task_split": metadata.get("task_split"),
-                    "task_rubric_id": metadata.get("task_rubric_id"),
-                    "official_score": metadata.get("official_score"),
-                    "judge_scores": judge_scores,
-                    "model": metadata.get("model"),
-                    "created_at": created_at_dt.isoformat() if created_at_dt else created_at_raw,
-                    "prompt": prompt,
-                    "completion": completion,
-                },
-            }
-            accepted.append(record)
+            # Extract user/assistant pairs from messages
+            for i, msg_row in enumerate(message_rows):
+                msg_type = msg_row.get("message_type")
+                content_raw = msg_row.get("content")
+                
+                # Look for user message
+                if msg_type in ("user", "policy_user_prompt"):
+                    # Find next policy_system_prompt or assistant
+                    assistant_msg = None
+                    for j in range(i + 1, len(message_rows)):
+                        next_type = message_rows[j].get("message_type")
+                        if next_type in ("assistant", "policy_system_prompt"):
+                            if next_type == "assistant":
+                                assistant_msg = message_rows[j]
+                            break
+                    
+                    # Parse content
+                    try:
+                        user_content = json.loads(content_raw) if isinstance(content_raw, str) else content_raw
+                    except Exception:
+                        user_content = content_raw
+                    
+                    # Extract text from structured content
+                    def extract_text(content: Any) -> str:
+                        if isinstance(content, str):
+                            return content
+                        if isinstance(content, dict):
+                            # Try payload.content for user prompts
+                            if "payload" in content and isinstance(content["payload"], dict):
+                                payload = content["payload"]
+                                if "content" in payload:
+                                    return extract_text(payload["content"])
+                            # Try common keys
+                            for key in ["text", "content", "content_text"]:
+                                if key in content:
+                                    val = content[key]
+                                    if isinstance(val, str):
+                                        return val
+                            return json.dumps(content)
+                        if isinstance(content, list):
+                            # Multimodal content - concatenate text parts
+                            parts = []
+                            for item in content:
+                                if isinstance(item, dict) and item.get("type") == "text":
+                                    parts.append(item.get("text", ""))
+                            return " ".join(parts) if parts else str(content)
+                        return str(content)
+                    
+                    user_text = extract_text(user_content)
+                    
+                    # For assistant, we might not have it recorded, so use tool calls as completion
+                    assistant_text = ""
+                    if assistant_msg:
+                        assistant_content_raw = assistant_msg.get("content")
+                        try:
+                            assistant_content = json.loads(assistant_content_raw) if isinstance(assistant_content_raw, str) else assistant_content_raw
+                        except Exception:
+                            assistant_content = assistant_content_raw
+                        assistant_text = extract_text(assistant_content)
+                    
+                    if not user_text:
+                        continue
+
+                    record = {
+                        "messages": [
+                            {"role": "user", "content": user_text},
+                            {"role": "assistant", "content": assistant_text if assistant_text else "[no response recorded]"},
+                        ],
+                        "metadata": {
+                            "session_id": session_id,
+                            "env_name": metadata.get("env_name"),
+                            "policy_name": metadata.get("policy_name"),
+                            "seed": metadata.get("seed"),
+                            "total_reward": total_reward,
+                            "achievements_count": achievements_count,
+                            "model": metadata.get("model"),
+                            "created_at": created_at_dt.isoformat() if created_at_dt else created_at_raw,
+                        },
+                    }
+                    accepted.append(record)
 
         if not accepted:
             raise click.ClickException("No sessions matched the provided filters")

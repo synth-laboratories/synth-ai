@@ -3,7 +3,7 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 
 class StorageBackend(str, Enum):
@@ -14,7 +14,7 @@ class StorageBackend(str, Enum):
     POSTGRES = "postgres"  # Future support
 
 
-def _is_enabled(value: str | None) -> bool:
+def _is_enabled(value: Optional[str]) -> bool:
     if value is None:
         return False
     return value.lower() in {"1", "true", "yes", "on"}
@@ -25,7 +25,7 @@ class StorageConfig:
     """Configuration for storage backend."""
 
     backend: StorageBackend = StorageBackend.TURSO_NATIVE
-    connection_string: str | None = None
+    connection_string: Optional[str] = None
 
     # Turso-specific settings
     turso_url: str = os.getenv("TURSO_DATABASE_URL", "sqlite+libsql://http://127.0.0.1:8080")

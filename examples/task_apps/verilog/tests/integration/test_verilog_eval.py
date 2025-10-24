@@ -117,6 +117,7 @@ def verilog_server(tmp_path: Path) -> Iterator[str]:
                 proc.kill()
 
 
+@pytest.mark.slow
 def test_verilog_server_health(verilog_server: str) -> None:
     """Test that the Verilog server health endpoint works."""
     # Health endpoint requires auth, so we expect 400 (auth failed) or 200
@@ -124,6 +125,7 @@ def test_verilog_server_health(verilog_server: str) -> None:
     assert resp.status_code in (200, 400), f"Unexpected status: {resp.status_code}"
 
 
+@pytest.mark.slow
 def test_verilog_task_info(verilog_server: str) -> None:
     """Test that the Verilog server returns valid task_info."""
     resp = requests.get(f"{verilog_server}/task_info", timeout=5.0)
@@ -133,6 +135,7 @@ def test_verilog_task_info(verilog_server: str) -> None:
     assert data["task"]["id"] == "verilog"
 
 
+@pytest.mark.slow
 def test_verilog_eval_with_groq(verilog_server: str) -> None:
     """Spin up the Verilog task app and run a Groq-backed eval."""
     if not CONFIG_PATH.exists():
@@ -173,4 +176,6 @@ def test_verilog_eval_with_groq(verilog_server: str) -> None:
     
     # Check that we got a meaningful outcome score
     assert "outcome" in result.stdout.lower() or "mean_return" in result.stdout.lower()
+
+
 

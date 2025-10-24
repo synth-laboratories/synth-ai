@@ -17,6 +17,7 @@ CRAFT_SFT = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_s
 
 
 @pytest.mark.parametrize("path", [CRAFT_SFT])
+@pytest.mark.fast
 def test_collect_sft_jsonl_errors_clean(path: Path) -> None:
     assert path.exists(), f"fixture dataset missing: {path}"
     errors = collect_sft_jsonl_errors(path, min_messages=2, max_errors=5)

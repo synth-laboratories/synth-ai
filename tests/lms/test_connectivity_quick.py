@@ -11,6 +11,7 @@ def _service_root(base: str) -> str:
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_openapi_available_quick(backend_base_url: str):
     root = _service_root(backend_base_url)
     url = f"{root}/openapi.json"
@@ -22,6 +23,7 @@ def test_openapi_available_quick(backend_base_url: str):
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_modal_service_health(backend_base_url: str):
     """Test if Modal service is responding at all (basic connectivity)."""
     root = _service_root(backend_base_url)
@@ -37,6 +39,7 @@ def test_modal_service_health(backend_base_url: str):
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_modal_service_root(backend_base_url: str):
     """Test if Modal service root is accessible."""
     root = _service_root(backend_base_url)
@@ -52,6 +55,7 @@ def test_modal_service_root(backend_base_url: str):
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_modal_api_root(backend_base_url: str):
     """Test if /api endpoint is accessible."""
     url = f"{backend_base_url}/"  # Just /api/
@@ -66,6 +70,7 @@ def test_modal_api_root(backend_base_url: str):
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_chat_completions_endpoint_exists(backend_base_url: str):
     """Test if /chat/completions endpoint exists (GET request)."""
     url = f"{backend_base_url}/chat/completions"
@@ -94,6 +99,7 @@ def test_dns_resolution(backend_base_url: str):
 
 
 @pytest.mark.integration
+@pytest.mark.fast
 def test_basic_connectivity(backend_base_url: str):
     """Test basic TCP connectivity to the host."""
     import socket

@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 from synth_ai.lm.vendors.base import BaseLMResponse
 from synth_ai.task.tracing_utils import unique_sft_path
+from synth_ai.task.contracts import RolloutMode
 from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
 from synth_ai.tracing_v3.llm_call_record_helpers import create_llm_call_record_from_response
 from synth_ai.tracing_v3.session_tracer import SessionTracer
@@ -120,6 +121,7 @@ class RolloutRequest(BaseModel):
     # Optional run/session context
     training_session_id: str | None = None
     synth_base_url: str | None = None
+    mode: RolloutMode  # Required: explicit RL vs EVAL mode
 
 
 class RolloutStep(BaseModel):
@@ -1238,6 +1240,15 @@ async def execute_rollout(
                         )
 
                     # Build partial trajectory and return HTTP 200
+                    # Extract inference_url from policy meta (best effort)
+                    inference_url = None
+                    if policy_handle is not None:
+                        try:
+                            policy_snapshot = policy_handle.snapshot()
+                            inference_url = policy_snapshot.get("config", {}).get("inference_url")
+                        except Exception:
+                            pass
+                    
                     trajectory = RolloutTrajectory(
                         env_id=env_id,
                         policy_id=policy_id,
@@ -1249,6 +1260,7 @@ async def execute_rollout(
                             "at_op": op,
                         },
                         length=len(trajectory_steps),
+                        inference_url=inference_url,  # NEW: Required for trace correlation
                         decision_samples=decision_samples if step_rewards_active else None,
                     )
                     metrics = RolloutMetrics(
@@ -1369,6 +1381,15 @@ async def execute_rollout(
                         },
                     )
                     trajectory_steps.append(term_step)
+                    # Extract inference_url from policy meta (best effort)
+                    inference_url = None
+                    if policy_handle is not None:
+                        try:
+                            policy_snapshot = policy_handle.snapshot()
+                            inference_url = policy_snapshot.get("config", {}).get("inference_url")
+                        except Exception:
+                            pass
+                    
                     trajectory = RolloutTrajectory(
                         env_id=env_id,
                         policy_id=policy_id,
@@ -1379,6 +1400,7 @@ async def execute_rollout(
                             "at_op": op,
                         },
                         length=len(trajectory_steps),
+                        inference_url=inference_url,  # NEW: Required for trace correlation
                         decision_samples=decision_samples if step_rewards_active else None,
                     )
                     metrics = RolloutMetrics(
@@ -1460,6 +1482,15 @@ async def execute_rollout(
                     )
                     trajectory_steps.append(term_step)
                     # Build partial response
+                    # Extract inference_url from policy meta (best effort)
+                    inference_url = None
+                    if policy_handle is not None:
+                        try:
+                            policy_snapshot = policy_handle.snapshot()
+                            inference_url = policy_snapshot.get("config", {}).get("inference_url")
+                        except Exception:
+                            pass
+                    
                     trajectory = RolloutTrajectory(
                         env_id=env_id,
                         policy_id=policy_id,
@@ -1471,6 +1502,7 @@ async def execute_rollout(
                             "at_op": op,
                         },
                         length=len(trajectory_steps),
+                        inference_url=inference_url,  # NEW: Required for trace correlation
                         decision_samples=decision_samples if step_rewards_active else None,
                     )
                     metrics = RolloutMetrics(
@@ -1688,12 +1720,22 @@ async def execute_rollout(
                     timing_final.setdefault("overhead_ms", 0.0)
 
         # Build trajectory
+        # Extract inference_url from policy meta
+        inference_url = None
+        if policy_handle is not None:
+            try:
+                policy_snapshot = policy_handle.snapshot()
+                inference_url = policy_snapshot.get("config", {}).get("inference_url")
+            except Exception:
+                pass
+        
         trajectory = RolloutTrajectory(
             env_id=env_id,
             policy_id=policy_id,
             steps=trajectory_steps,
             final={"observation": _summarize_observation_for_storage(env_handle, current_obs)},
             length=len(trajectory_steps),
+            inference_url=inference_url,  # NEW: Required for trace correlation
             decision_samples=decision_samples if step_rewards_active else None,
         )
 

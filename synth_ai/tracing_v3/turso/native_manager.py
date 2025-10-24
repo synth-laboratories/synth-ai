@@ -13,7 +13,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
 import libsql
@@ -117,7 +117,7 @@ def _maybe_datetime(value: Any) -> Any:
 
 
 def _load_json(value: Any) -> Any:
-    if value is None or isinstance(value, (dict, list)):
+    if value is None or isinstance(value, dict | list):
         return value or {}
     if isinstance(value, str):
         try:
@@ -370,8 +370,18 @@ class NativeLibsqlTraceManager(TraceStorage):
 
     async def insert_session_trace(self, trace: SessionTrace) -> str:
         await self.initialize()
+        
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.info(f"[TRACE_DEBUG] insert_session_trace START: session_id={trace.session_id}, {len(trace.markov_blanket_message_history)} messages")
 
-        if await self._session_exists(trace.session_id):
+        session_exists = await self._session_exists(trace.session_id)
+        _logger.info(f"[TRACE_DEBUG] Session exists: {session_exists}")
+        
+        if session_exists:
+            _logger.warning(f"[TRACE_DEBUG] Session {trace.session_id} already exists, need to save messages anyway!")
+            # Don't return early - we need to save messages!
+            # Just update metadata
             async with self._op_lock:
                 conn = self._conn
                 assert conn is not None
@@ -380,32 +390,34 @@ class NativeLibsqlTraceManager(TraceStorage):
                     (_json_dumps(trace.metadata or {}), trace.session_id),
                 )
                 conn.commit()
-            return trace.session_id
+            # Continue to save messages instead of returning
 
-        created_at = trace.created_at or datetime.now(UTC)
+        if not session_exists:
+            created_at = trace.created_at or datetime.now(timezone.utc)
 
-        async with self._op_lock:
-            conn = self._conn
-            assert conn is not None
-            conn.execute(
-                """
-                INSERT INTO session_traces (
-                    session_id,
-                    created_at,
-                    num_timesteps,
-                    num_events,
-                    num_messages,
-                    metadata
+            async with self._op_lock:
+                conn = self._conn
+                assert conn is not None
+                conn.execute(
+                    """
+                    INSERT INTO session_traces (
+                        session_id,
+                        created_at,
+                        num_timesteps,
+                        num_events,
+                        num_messages,
+                        metadata
+                    )
+                    VALUES (?, ?, 0, 0, 0, ?)
+                    """,
+                    (
+                        trace.session_id,
+                        created_at.isoformat(),
+                        _json_dumps(trace.metadata or {}),
+                    ),
                 )
-                VALUES (?, ?, 0, 0, 0, ?)
-                """,
-                (
-                    trace.session_id,
-                    created_at.isoformat(),
-                    _json_dumps(trace.metadata or {}),
-                ),
-            )
-            conn.commit()
+                conn.commit()
+                _logger.info(f"[TRACE_DEBUG] Session row inserted")
 
         step_id_map: dict[str, int] = {}
 
@@ -434,7 +446,11 @@ class NativeLibsqlTraceManager(TraceStorage):
                 metadata_override=event.metadata or {},
             )
 
-        for msg in trace.markov_blanket_message_history:
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.info(f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages")
+        
+        for idx, msg in enumerate(trace.markov_blanket_message_history):
             metadata = dict(getattr(msg, "metadata", {}) or {})
             step_ref = metadata.get("step_id")
             content_value = msg.content
@@ -452,15 +468,22 @@ class NativeLibsqlTraceManager(TraceStorage):
                 except (TypeError, ValueError):
                     content_value = str(content_value)
 
-            await self.insert_message_row(
-                trace.session_id,
-                timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
-                message_type=msg.message_type,
-                content=content_value,
-                event_time=msg.time_record.event_time,
-                message_time=msg.time_record.message_time,
-                metadata=metadata,
-            )
+            _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: type={msg.message_type}, content_len={len(str(content_value))}")
+            
+            try:
+                await self.insert_message_row(
+                    trace.session_id,
+                    timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
+                    message_type=msg.message_type,
+                    content=content_value,
+                    event_time=msg.time_record.event_time,
+                    message_time=msg.time_record.message_time,
+                    metadata=metadata,
+                )
+                _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: saved successfully")
+            except Exception as exc:
+                _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
+                raise
 
         async with self._op_lock:
             conn = self._conn
@@ -584,7 +607,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 raise ValueError("No named parameters found in query for provided mapping")
             values = tuple(params[key] for key in keys)
             return new_query, values
-        if isinstance(params, (list, tuple)):
+        if isinstance(params, list | tuple):
             return query, tuple(params)
         raise TypeError("Unsupported parameter type for query execution")
 
@@ -783,7 +806,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> None:
         await self.initialize()
 
-        created_at_val = (created_at or datetime.now(UTC)).isoformat()
+        created_at_val = (created_at or datetime.now(timezone.utc)).isoformat()
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -815,7 +838,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        started_at_val = (started_at or datetime.now(UTC)).isoformat()
+        started_at_val = (started_at or datetime.now(timezone.utc)).isoformat()
         completed_at_val = completed_at.isoformat() if completed_at else None
         metadata_json = _json_dumps(metadata or {})
 
@@ -881,7 +904,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        if not isinstance(event, (EnvironmentEvent, LMCAISEvent, RuntimeEvent)):
+        if not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
             raise TypeError(f"Unsupported event type for native manager: {type(event)!r}")
 
         metadata_json = metadata_override or event.metadata or {}
@@ -1127,7 +1150,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     total_reward,
                     achievements_count,
                     total_steps,
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     _json_dumps(reward_metadata),
                 ),
             )
@@ -1179,7 +1202,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     key,
                     _json_dumps(annotation),
                     source,
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
             conn.commit()

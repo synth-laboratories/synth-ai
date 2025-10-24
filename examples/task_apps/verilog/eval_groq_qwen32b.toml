@@ -1,12 +1,14 @@
 # Verilog Eval Config for Groq Qwen3-32B
+# Quick eval to test Verilog task app before RL training
 
 [task_app]
-url = "http://localhost:8103"  # Verilog task app port
+# Update this with your Modal URL after deployment
+url = "https://synth-laboratories--grpo-verilog-task-app-fastapi-app-dev.modal.run"
 
 [eval]
-num_episodes = 5
-seeds = [0, 1, 2, 3, 4]
-max_steps = 10
+num_episodes = 3  # Quick test with 3 seeds
+seeds = [0, 1, 2]
+max_steps = 15    # More steps for Verilog compilation chains
 
 [policy]
 provider = "groq"
@@ -17,4 +19,6 @@ inference_url = "https://api.groq.com/openai/v1/chat/completions"
 
 [env]
 difficulty = "medium"  # Can be "easy", "medium", or "hard"
+
+
 

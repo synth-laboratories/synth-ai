@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Iterable, Mapping, Sequence
 
 from fastapi import HTTPException, Request
@@ -21,12 +22,21 @@ from synth_ai.task.contracts import (
     TaskInfo,
 )
 from synth_ai.task.server import ProxyConfig, TaskAppConfig
+from synth_ai.task.tracing_utils import (
+    build_tracer_factory,
+    resolve_sft_output_dir,
+    resolve_tracing_db_url,
+    tracing_env_enabled,
+)
+from synth_ai.tracing_v3.session_tracer import SessionTracer
+
+logger = logging.getLogger(__name__)
 
 
 def _base_task_info() -> TaskInfo:
     return TaskInfo(
         task={"id": "pokemon_red", "name": "Pokémon Red", "version": "0.1.0"},
-        environments=["pokemon_red"],
+        environment="pokemon_red",
         action_space={
             "type": "tool_call",
             "tools": [
@@ -86,7 +96,6 @@ def _base_task_info() -> TaskInfo:
                 "groq": "/proxy/groq/v1/chat/completions",
             },
         },
-        capabilities={"supports_rollout": True, "supports_env_lifecycle": True},
         limits={"max_steps": 1000},
     )
 
@@ -100,13 +109,12 @@ def _provide_task_instances(seeds: Sequence[int]) -> Iterable[TaskInfo]:
     for s in seeds:
         yield TaskInfo(
             task=base.task,
-            environments=base.environments,
+            environment=base.environment,
             action_space=base.action_space,
             observation={**base.observation, "seed": s},
             dataset=base.dataset,
             rubric=base.rubric,
             inference=base.inference,
-            capabilities=base.capabilities,
             limits=base.limits,
         )
 
@@ -184,7 +192,70 @@ def _calculate_outcome_score(final_state: dict[str, Any], total_reward: float) -
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
+    # Initialize SessionTracer for this rollout
+    tracer_factory = getattr(fastapi_request.app.state, "session_tracer_factory", None)
+    tracer_instance: SessionTracer | None = None
+    if callable(tracer_factory):
+        try:
+            inst = tracer_factory()
+            tracer_instance = inst if isinstance(inst, SessionTracer) else None
+        except Exception as exc:
+            logger.debug(f"TRACER_FACTORY_FAIL: {exc}")
+    
+    # Start tracing session
+    if tracer_instance is not None:
+        try:
+            await tracer_instance.initialize()
+            await tracer_instance.start_session(
+                session_id=request.run_id,
+                metadata={
+                    "run_id": request.run_id,
+                    "env_name": "pokemon_red",
+                    "policy_name": request.policy.policy_name or "default",
+                    "seed": request.env.seed,
+                }
+            )
+            logger.info(f"[pokemon_red] tracing enabled for run_id={request.run_id}")
+        except Exception as exc:
+            logger.warning(f"[pokemon_red] tracing init failed: {exc}")
+            tracer_instance = None
+    
     async def _call_inference(policy_cfg: Mapping[str, Any], observation: Mapping[str, Any]) -> Mapping[str, Any]:
+        # Check if vision mode is enabled
+        use_vision = bool(policy_cfg.get("use_vision", False))
+        image_only_mode = bool(policy_cfg.get("image_only_mode", False))
+        
+        # Build user message content
+        if use_vision and "observation_image_data_url" in observation:
+            # Extract image data URL
+            image_data_url = observation["observation_image_data_url"]
+            
+            # Build state summary (text observation)
+            state_summary = "State summary: " + str({
+                k: observation.get(k) 
+                for k in observation.keys() 
+                if k not in ["error", "observation_image_base64", "observation_image_data_url", 
+                            "observation_image_format", "observation_image_width", "observation_image_height"]
+            })
+            
+            # Image-only mode: only send image, no text
+            if image_only_mode:
+                user_content = [
+                    {"type": "image_url", "image_url": {"url": image_data_url}}
+                ]
+            else:
+                # Vision mode with text: send both text and image
+                user_content = [
+                    {"type": "text", "text": state_summary},
+                    {"type": "image_url", "image_url": {"url": image_data_url}}
+                ]
+        else:
+            # Text-only mode (default)
+            state_summary = "State summary: " + str({
+                k: observation.get(k) for k in observation.keys() if k != "error"
+            })
+            user_content = state_summary
+        
         messages = [
             {
                 "role": "system",
@@ -195,9 +266,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             },
             {
                 "role": "user",
-                "content": (
-                    "State summary: " + str({k: observation.get(k) for k in observation.keys() if k != "error"})
-                ),
+                "content": user_content,
             },
         ]
         payload = {
@@ -264,6 +333,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "max_tokens": int(policy_cfg.get("max_tokens") or 500),
         }
         inference_url = str(policy_cfg.get("inference_url") or "").rstrip("/")
+        
+        # Determine if this is an external URL or internal proxy
+        is_external = inference_url.startswith("http://") or inference_url.startswith("https://")
+        
         if not inference_url:
             # Prefer built-in proxy endpoints from app if no external URL
             provider = (policy_cfg.get("provider") or "").lower()
@@ -271,8 +344,31 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 inference_url = "/proxy/groq/v1/chat/completions"
             else:
                 inference_url = "/proxy/v1/chat/completions"
-        async with httpx.AsyncClient(base_url="http://127.0.0.1:" + str(fastapi_request.url.port or 8913), timeout=httpx.Timeout(60.0)) as client:  # best-effort
-            resp = await client.post(inference_url, json=payload)
+            is_external = False
+        elif is_external:
+            # Add /v1/chat/completions if using OpenAI directly
+            if "api.openai.com" in inference_url and not inference_url.endswith("/chat/completions"):
+                inference_url = inference_url + "/v1/chat/completions"
+        
+        if is_external:
+            # External API: use direct HTTP client with auth header
+            headers = {}
+            if "api.openai.com" in inference_url:
+                import os
+                api_key = os.getenv("OPENAI_API_KEY")
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+            
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+                resp = await client.post(inference_url, json=payload, headers=headers)
+        else:
+            # Internal proxy: use local base_url
+            async with httpx.AsyncClient(
+                base_url="http://127.0.0.1:" + str(fastapi_request.url.port or 8913),
+                timeout=httpx.Timeout(60.0)
+            ) as client:
+                resp = await client.post(inference_url, json=payload)
+        
         resp.raise_for_status()
         data = resp.json()
         # Extract first tool call
@@ -545,14 +641,84 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         },
     )
 
+    # Extract inference_url from policy config
+    inference_url = (policy_cfg or {}).get("inference_url")
+    
     trajectory = RolloutTrajectory(
         env_id="pokemon_red",
         policy_id=request.policy.policy_id or "policy",
         steps=steps,
         final={"observation": final_obs, "reward": total_reward},
         length=len(steps),
+        inference_url=inference_url,  # NEW: Required for trace correlation
     )
 
+    # Record outcome rewards and end session
+    trace_payload = None
+    if tracer_instance is not None:
+        try:
+            # Count achievements (milestones)
+            achievements_count = len(milestone_events)
+            
+            # Build metadata with all relevant info
+            reward_metadata = {
+                "run_id": request.run_id,
+                "env_name": "pokemon_red",
+                "final_map": final_state.get("map_id", -1),
+                "party_count": final_state.get("party_count", 0),
+                "badges": final_state.get("badges", 0),
+                "steps": len(steps),
+                "milestone_events": milestone_events,
+                "reward_components": all_reward_components,
+            }
+            
+            # Record outcome reward to Turso
+            await tracer_instance.record_outcome_reward(
+                total_reward=int(total_reward),
+                achievements_count=achievements_count,
+                total_steps=len(steps),
+                reward_metadata=reward_metadata,
+            )
+            logger.info(f"[pokemon_red] recorded outcome: reward={total_reward}, achievements={achievements_count}")
+            
+            # End session and get trace
+            session_trace = await tracer_instance.end_session()
+            
+            # Build trace payload if requested
+            record_config = getattr(request, 'record', None)
+            if record_config and getattr(record_config, 'return_trace', False) and session_trace:
+                trace_payload = {
+                    "session_id": session_trace.session_id,
+                    "created_at": session_trace.created_at.isoformat() if session_trace.created_at else None,
+                    "metadata": dict(session_trace.metadata or {}),
+                    "num_timesteps": session_trace.num_timesteps,
+                    "num_events": session_trace.num_events,
+                    "num_messages": session_trace.num_messages,
+                }
+        except Exception as exc:
+            logger.warning(f"[pokemon_red] tracing finalization failed: {exc}")
+    
+    # Fallback trace payload if no tracer but CLI needs it
+    if trace_payload is None:
+        record_config = getattr(request, 'record', None)
+        if record_config and getattr(record_config, 'return_trace', False):
+            trace_payload = {
+                "session_id": request.run_id,
+                "created_at": import_datetime().now().isoformat(),
+                "metadata": {
+                    "run_id": request.run_id,
+                    "env_name": "pokemon_red",
+                    "total_reward": int(total_reward),
+                    "final_map": final_state.get("map_id", -1),
+                    "party_count": final_state.get("party_count", 0),
+                    "badges": final_state.get("badges", 0),
+                    "steps": len(steps),
+                },
+                "num_timesteps": len(steps),
+                "num_events": len(steps),
+                "num_messages": len(steps) * 2,
+            }
+    
     return RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
@@ -560,11 +726,40 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         metrics=metrics,
         aborted=False,
         ops_executed=len(request.ops or []),
+        trace=trace_payload,
     )
+
+
+def import_datetime():
+    """Helper to import datetime for trace timestamps."""
+    from datetime import datetime
+    return datetime
 
 
 def build_config() -> TaskAppConfig:
     base_info = _base_task_info()
+    
+    # Set up tracing
+    tracing_enabled = tracing_env_enabled()
+    tracing_db_url = resolve_tracing_db_url()
+    tracer_factory = build_tracer_factory(
+        SessionTracer, enabled=tracing_enabled, db_url=tracing_db_url
+    )
+    sft_output_dir = resolve_sft_output_dir()
+    
+    app_state: dict[str, Any] = {
+        "tracing_enabled": tracing_enabled,
+    }
+    if tracer_factory is not None:
+        app_state["session_tracer_factory"] = tracer_factory
+    if sft_output_dir:
+        app_state["sft_output_dir"] = sft_output_dir
+    
+    if tracing_enabled:
+        status_msg = f"[task:tracing] enabled (db={tracing_db_url or 'default'})"
+        logger.info(status_msg)
+        print(status_msg, flush=True)
+    
     return TaskAppConfig(
         app_id="pokemon_red",
         name="Pokémon Red Task App",
@@ -583,7 +778,7 @@ def build_config() -> TaskAppConfig:
                 "Example: {\"tool\": \"execute_sequence\", \"args\": {\"actions\": [{\"button\": \"DOWN\", \"frames\": 30}, ...]}}"
             ),
         ),
-        app_state={},
+        app_state=app_state,
         require_api_key=False,
         expose_debug_env=True,
         cors_origins=["*"],
