@@ -634,11 +634,16 @@ def _serve_cli(
 
     ensure_port_free(port, host, force=force)
 
+    env_files: list[str] = []
+    env_files.extend(str(Path(p)) for p in entry.env_files if p)
+    env_files = list(dict.fromkeys(env_files))
+
     run_task_app(
         entry.config_factory,
         host=host,
         port=port,
         reload=reload_flag,
+        env_files=env_files,
     )
 
 
