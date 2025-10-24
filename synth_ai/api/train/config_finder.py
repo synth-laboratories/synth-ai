@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +10,9 @@ import click
 from .utils import REPO_ROOT, load_toml, preview_json
 
 _SKIP_DIRS = {".git", "__pycache__", ".venv", "node_modules", "dist", "build"}
-_STATE_FILE = os.path.expanduser("~/.synth-ai/demo.json")
+
+_STATE_DIR = Path.home() / ".synth-ai"
+_STATE_FILE = _STATE_DIR / "train_cli.json"
 
 
 @dataclass(slots=True)
@@ -23,8 +24,8 @@ class ConfigCandidate:
 def _load_last_config() -> Path | None:
     """Load the last used training config path from state file."""
     try:
-        if os.path.isfile(_STATE_FILE):
-            with open(_STATE_FILE) as fh:
+        if _STATE_FILE.is_file():
+            with _STATE_FILE.open() as fh:
                 data = json.load(fh)
                 if isinstance(data, dict):
                     last_config = data.get("LAST_CONFIG")
@@ -41,14 +42,14 @@ def _save_last_config(config_path: Path) -> None:
     """Save the last used training config path to state file."""
     try:
         data = {}
-        if os.path.isfile(_STATE_FILE):
-            with open(_STATE_FILE) as fh:
+        if _STATE_FILE.is_file():
+            with _STATE_FILE.open() as fh:
                 data = json.load(fh) or {}
         if not isinstance(data, dict):
             data = {}
         data["LAST_CONFIG"] = str(config_path.resolve())
-        os.makedirs(os.path.dirname(_STATE_FILE), exist_ok=True)
-        with open(_STATE_FILE, "w") as fh:
+        _STATE_DIR.mkdir(parents=True, exist_ok=True)
+        with _STATE_FILE.open("w") as fh:
             json.dump(data, fh)
     except Exception:
         pass
@@ -77,6 +78,7 @@ def _iter_candidate_paths() -> Iterable[Path]:
         REPO_ROOT / "configs",
         REPO_ROOT / "examples",
         REPO_ROOT / "training",
+        REPO_ROOT / "synth_ai" / "demos",
     ]
     for base in preferred:
         if not base.exists():
@@ -148,6 +150,10 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
             raise click.ClickException(f"Config not found: {path}")
         data = load_toml(path)
         cfg_type = _infer_config_type(data)
+        if cfg_type == "unknown":
+            raise click.ClickException(
+                f"Config {path} is missing algorithm.type/method metadata. Add type = 'rl' or 'sft'."
+            )
         candidates.append(ConfigCandidate(path=path, train_type=cfg_type))
         seen.add(path)
 
@@ -162,10 +168,12 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
         except Exception:
             continue
         cfg_type = _infer_config_type(data)
+        if cfg_type == "unknown":
+            continue
         candidates.append(ConfigCandidate(path=path, train_type=cfg_type))
 
     if requested_type and requested_type != "auto":
-        candidates = [c for c in candidates if c.train_type in {requested_type, "unknown"}]
+        candidates = [c for c in candidates if c.train_type == requested_type]
 
     # De-dupe by path and keep deterministic ordering by directory depth then name
     candidates.sort(key=lambda c: (len(c.path.parts), str(c.path)))
@@ -196,9 +204,8 @@ def prompt_for_config(
 
     click.echo("Select a training config:")
     for idx, cand in enumerate(candidates, start=1):
-        label = cand.train_type if cand.train_type != "unknown" else "?"
         last_marker = " (last used)" if last_config and cand.path.resolve() == last_config else ""
-        click.echo(f"  {idx}) [{label}] {cand.path}{last_marker}")
+        click.echo(f"  {idx}) {cand.path}{last_marker}")
     click.echo("  0) Abort")
 
     choice = click.prompt("Enter choice", type=int, default=default_idx)
