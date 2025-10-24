@@ -383,7 +383,7 @@ def main() -> None:
     parser.add_argument(
         "--db",
         type=Path,
-        default=Path("traces/v3/synth_ai.db"),
+        default=Path("traces/task_app_traces.db"),
         help="Path to the tracing_v3 SQLite database",
     )
     args = parser.parse_args()

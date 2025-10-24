@@ -23,6 +23,11 @@ from typing import Iterable, Sequence
 import shutil
 import hashlib
 
+from synth_ai.tracing_v3.constants import (
+    TRACE_DB_BASENAME,
+    TRACE_DB_DIR,
+    canonical_trace_db_name,
+)
 
 DEFAULT_TABLES: Sequence[str] = (
     "session_traces",
@@ -93,7 +98,7 @@ def _write_manifest(
         **extra,
         "counts": dict(counts),
         "hashes": {
-            "synth_ai.db": _hash_file(dst_path / "synth_ai.db"),
+            canonical_trace_db_name(): _hash_file(dst_path / canonical_trace_db_name()),
             "trace_export.jsonl": _hash_file(dst_path / "trace_export.jsonl"),
         },
     }
@@ -182,7 +187,7 @@ def _extract_fixture(
     overwrite: bool,
 ) -> None:
     dst_dir = _prepare_destination(dest_root, spec.name, overwrite)
-    dst_db_path = dst_dir / "synth_ai.db"
+    dst_db_path = dst_dir / canonical_trace_db_name()
     if dst_db_path.exists() and overwrite:
         dst_db_path.unlink()
 
@@ -228,13 +233,31 @@ def _extract_fixture(
         dst.close()
 
 
+def _discover_source_db() -> Path:
+    """Find the most recent task app trace database under the default trace directory."""
+
+    candidates: list[Path] = []
+    if TRACE_DB_DIR.exists():
+        for path in TRACE_DB_DIR.glob(f"{TRACE_DB_BASENAME}_*.db"):
+            candidates.append(path)
+        fallback = TRACE_DB_DIR / canonical_trace_db_name()
+        if fallback.exists():
+            candidates.append(fallback)
+    if not candidates:
+        raise SystemExit(
+            "Trace database not found. Provide --source or generate a task app trace first."
+        )
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source",
         type=Path,
-        default=Path("traces/v3/synth_ai.db"),
-        help="Path to the full tracing_v3 SQLite database.",
+        default=None,
+        help="Path to the full tracing_v3 SQLite database (default: latest task_app_traces_*.db).",
     )
     parser.add_argument(
         "--dest",
@@ -252,12 +275,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if not args.source.exists():
-        raise SystemExit(f"Source database not found: {args.source}")
+    source = args.source or _discover_source_db()
+    if not source.exists():
+        raise SystemExit(f"Source database not found: {source}")
 
     args.dest.mkdir(parents=True, exist_ok=True)
 
-    conn = sqlite3.connect(args.source)
+    conn = sqlite3.connect(source)
     conn.row_factory = sqlite3.Row
     try:
         builders = (_build_chat_small, _build_env_rollout, _build_high_volume)
