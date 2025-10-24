@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 # Prod-only base URL for all tests in this folder
 PROD_BASE = f"{PROD_BASE_URL_DEFAULT.rstrip('/')}/api/v1"

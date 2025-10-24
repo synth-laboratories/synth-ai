@@ -7,6 +7,8 @@ from typing import Any
 
 import aiohttp
 
+__all__ = ["HTTPError", "AsyncHttpClient", "sleep", "http_request"]
+
 
 @dataclass
 class HTTPError(Exception):
@@ -33,7 +35,6 @@ class AsyncHttpClient:
     async def __aenter__(self) -> AsyncHttpClient:
         if self._session is None:
             headers = {"authorization": f"Bearer {self._api_key}"}
-            # Optional dev overrides for user/org context
             user_id = os.getenv("SYNTH_USER_ID") or os.getenv("X_USER_ID") or os.getenv("USER_ID")
             if user_id:
                 headers["X-User-ID"] = user_id
@@ -51,9 +52,8 @@ class AsyncHttpClient:
     def _abs(self, path: str) -> str:
         if path.startswith("http://") or path.startswith("https://"):
             return path
-        # If base_url already ends with /api and path starts with /api, remove duplicate
         if self._base_url.endswith("/api") and path.startswith("/api"):
-            path = path[4:]  # Remove leading /api
+            path = path[4:]
         return f"{self._base_url}/{path.lstrip('/')}"
 
     async def get(
@@ -114,10 +114,8 @@ class AsyncHttpClient:
                 try:
                     return await resp.json()
                 except Exception:
-                    # Fallback to text
                     return text
             return text
-        # error
         detail: Any | None = None
         try:
             detail = await resp.json()
@@ -134,3 +132,36 @@ class AsyncHttpClient:
 
 async def sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
+
+
+def http_request(
+    method: str, url: str, headers: dict[str, str] | None = None, body: dict[str, Any] | None = None
+) -> tuple[int, dict[str, Any] | str]:
+    import json as _json
+    import ssl
+    import urllib.error
+    import urllib.request
+
+    data = None
+    if body is not None:
+        data = _json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(url, method=method, headers=headers or {}, data=data)
+    try:
+        ctx = ssl._create_unverified_context()
+        if os.getenv("SYNTH_SSL_VERIFY", "0") == "1":
+            ctx = None
+        with urllib.request.urlopen(req, timeout=60, context=ctx) as resp:
+            code = getattr(resp, "status", 200)
+            txt = resp.read().decode("utf-8", errors="ignore")
+            try:
+                return int(code), _json.loads(txt)
+            except Exception:
+                return int(code), txt
+    except urllib.error.HTTPError as exc:  # Capture 4xx/5xx bodies
+        txt = exc.read().decode("utf-8", errors="ignore")
+        try:
+            return int(exc.code or 0), _json.loads(txt)
+        except Exception:
+            return int(exc.code or 0), txt
+    except Exception as exc:
+        return 0, str(exc)

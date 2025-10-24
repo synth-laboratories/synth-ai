@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar, Union
 if TYPE_CHECKING:
     from .trackers import SynthTrackerAsync, SynthTrackerSync
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 from .abstractions import (
     AgentComputeStep,

@@ -4,12 +4,13 @@ import os
 from collections.abc import Mapping
 
 import click
-from synth_ai.cli.lib.process import ensure_local_port_available
-from synth_ai.cli.lib.secrets import key_preview
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 
+from .base_url import PROD_BASE_URL_DEFAULT
+from .keys import ensure_key
+from .process import ensure_local_port_available
+from .secrets import key_preview
 from .task_app_state import persist_env_api_key
-from .user_config import load_user_config, load_user_env, update_user_config
+from .user_config import load_user_env, update_user_config
 
 __all__ = [
     "ensure_env_credentials",
@@ -26,43 +27,28 @@ def hydrate_user_environment(*, override: bool = False) -> Mapping[str, str]:
 
 
 def ensure_env_credentials(*, require_synth: bool = False, prompt: bool = True) -> None:
-    """Ensure required API keys are present in the process environment.
-
-    Keys are resolved in this order:
-      1. Existing environment variables
-      2. ``~/.synth-ai/user_config.json``
-      3. Interactive prompt (when ``prompt`` is True)
-    """
+    """Ensure required API keys are present in the process environment."""
 
     hydrate_user_environment(override=False)
-    config = load_user_config()
 
-    def _require(key: str, label: str, *, required: bool) -> str:
-        value = (os.environ.get(key) or config.get(key) or "").strip()
-        if value:
-            os.environ[key] = value
-            return value
-        if not prompt:
-            return ""
-        entered = click.prompt(label, type=str, default="", show_default=False).strip()
-        if not entered and required:
-            raise click.ClickException(f"{key} is required.")
-        if entered:
-            os.environ[key] = entered
-            update_user_config({key: entered})
-        return entered
-
-    env_key = _require(
+    env_key = ensure_key(
         "ENVIRONMENT_API_KEY",
-        "Enter your RL Environment API key",
+        prompt_text="Enter your Environment API key",
+        hidden=True,
         required=True,
+        prompt=prompt,
     )
     if env_key:
         update_user_config({"DEV_ENVIRONMENT_API_KEY": env_key})
         persist_env_api_key(env_key)
 
-    synth_label = "Enter your Synth API key" + ("" if require_synth else " (optional)")
-    synth_key = _require("SYNTH_API_KEY", synth_label, required=require_synth)
+    synth_key = ensure_key(
+        "SYNTH_API_KEY",
+        prompt_text="Enter your Synth API key" + ("" if require_synth else " (optional)"),
+        hidden=True,
+        required=require_synth,
+        prompt=prompt,
+    )
     if synth_key:
         update_user_config({"SYNTH_API_KEY": synth_key})
 

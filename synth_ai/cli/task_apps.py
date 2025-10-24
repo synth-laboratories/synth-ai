@@ -1,4 +1,4 @@
-"""Task app CLI commands built on the shared ``cli.lib`` helpers."""
+"""Task app CLI commands powered by shared utilities."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import datetime
 from pathlib import Path
 
 import click
-from synth_ai.cli.lib.task_app_discovery import select_app_choice
-from synth_ai.cli.lib.task_app_env import (
+from synth_ai._utils.task_app_discovery import AppChoice, select_app_choice
+from synth_ai._utils.task_app_env import (
     ensure_env_credentials,
     ensure_port_free,
     hydrate_user_environment,
@@ -88,6 +89,7 @@ def _apply_tracing_configuration(trace_dir: str | None, trace_db: str | None) ->
         db_url = f"sqlite+aiosqlite:///{db_path}"
         os.environ["SQLD_DB_PATH"] = str(db_path)
         os.environ["TURSO_LOCAL_DB_URL"] = db_url
+        os.environ["TASKAPP_TRACE_DB_PATH"] = str(db_path)
         click.echo(f"Tracing DB path set to {db_path}")
 
         try:
@@ -584,13 +586,19 @@ def _resolve_trace_options(
         click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
         enable_tracing = click.confirm("Enable tracing?", default=True)
         if enable_tracing:
-            default_trace_dir = str((demo_base / "traces/v3").resolve())
+            default_trace_dir = str((demo_base / "traces").resolve())
             trace_dir = click.prompt(
                 "Trace directory", type=str, default=default_trace_dir, show_default=True
             )
     if trace_dir and trace_db is None:
-        default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
-        trace_db = click.prompt("Trace DB path", type=str, default=default_trace_db, show_default=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        default_trace_db = (Path(trace_dir).expanduser().resolve() / f"task_app_traces_{timestamp}.db")
+        trace_db = click.prompt(
+            "Trace DB path",
+            type=str,
+            default=str(default_trace_db),
+            show_default=True,
+        )
     return trace_dir, trace_db
 
 
@@ -602,15 +610,21 @@ def _serve_cli(
     force: bool,
     trace_dir: str | None,
     trace_db: str | None,
+    *,
+    allow_demo_dir: bool = True,
+    choice: AppChoice | None = None,
 ) -> None:
-    _maybe_use_demo_dir()
+    if allow_demo_dir:
+        _maybe_use_demo_dir()
 
     if port is None:
         port = click.prompt("Port to serve on", type=int, default=8001)
 
     trace_dir, trace_db = _resolve_trace_options(trace_dir, trace_db)
 
-    choice = select_app_choice(app_id, purpose="serve")
+    if choice is None:
+        choice = select_app_choice(app_id, purpose="serve")
+
     entry = choice.ensure_entry()
 
     _prepare_runtime_env(require_synth=True, perform_preflight=True)

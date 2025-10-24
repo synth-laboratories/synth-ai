@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import click
-from synth_ai.cli.lib.task_app_discovery import select_app_choice
+from synth_ai._utils.task_app_discovery import select_app_choice
 
 from .task_apps import (
     _maybe_use_demo_dir,

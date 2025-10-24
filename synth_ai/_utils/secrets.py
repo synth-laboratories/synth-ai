@@ -13,4 +13,3 @@ def key_preview(value: str, label: str) -> str:
         return f"{label} len={length} prefix={prefix} last5={suffix}"
     except Exception:
         return f"{label} len=0"
-

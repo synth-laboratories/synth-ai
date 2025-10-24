@@ -10,14 +10,11 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import click
 import requests
-from synth_ai.cli.lib import (
-    USER_CONFIG_PATH,
-    is_modal_public_url,
-    key_preview,
-    popen_capture,
-    update_user_config,
-)
-from synth_ai.cli.lib.print_next_step_message import print_next_step_message
+from synth_ai._utils.modal import is_modal_public_url
+from synth_ai._utils.print_next_step import print_next_step
+from synth_ai._utils.process import popen_capture
+from synth_ai._utils.secrets import key_preview
+from synth_ai._utils.user_config import USER_CONFIG_PATH, update_user_config
 from synth_ai.demos import core as demo_core
 
 
@@ -170,13 +167,13 @@ def setup() -> int:
     if not rl_env_key:
         try:
             rl_env_key = input(
-                "Failed to fetch your RL Environment API key. Please enter your RL Environment API key here:\n> "
+                "Failed to fetch your Environment API key. Please enter your Environment API key here:\n> "
             ).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nSetup cancelled.")
             return 1
         if not rl_env_key:
-            print("RL Environment API key is required.")
+            print("Environment API key is required.")
             return 1
 
     # Persist keys to user config
@@ -257,7 +254,7 @@ def setup() -> int:
 
     demo_core.persist_demo_dir(os.getcwd())
 
-    print_next_step_message("deploy our task app", ["uvx synth-ai deploy"])
+    print_next_step("deploy our task app", ["uvx synth-ai deploy"])
     return 0
 
 

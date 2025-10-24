@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-from synth_ai.cli.lib.task_app_env import preflight_env_key
+from synth_ai._utils.task_app_env import preflight_env_key
 from synth_ai.learning.rl.secrets import mint_environment_api_key
 
 
@@ -51,14 +51,14 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) ->
         recorded_config.update({k: str(v) for k, v in updates.items()})
         return recorded_config.copy()
 
-    monkeypatch.setattr("synth_ai.cli.lib.user_config.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_env.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_state.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.user_config.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_env.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_state.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
-    monkeypatch.setattr("synth_ai.cli.lib.task_app_env.hydrate_user_environment", lambda override=False: {})
+    monkeypatch.setattr("synth_ai._utils.user_config.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.load_user_config", fake_load_user_config)
+    monkeypatch.setattr("synth_ai._utils.user_config.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_env.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.update_user_config", fake_update_user_config)
+    monkeypatch.setattr("synth_ai._utils.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
+    monkeypatch.setattr("synth_ai._utils.task_app_env.hydrate_user_environment", lambda override=False: {})
 
     public_key_bytes = b"\x01" * 32
     public_key_b64 = base64.b64encode(public_key_bytes).decode("ascii")

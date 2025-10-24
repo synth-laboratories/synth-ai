@@ -167,11 +167,7 @@ def _terminate_pids(pids: Iterable[int], *, aggressive: bool) -> bool:
 
 
 def ensure_local_port_available(host: str, port: int, *, force: bool = False) -> bool:
-    """Ensure ``host:port`` is free before starting a local server.
-
-    Returns True if the port is available (or successfully freed), False if the user
-    declined to terminate conflicting processes.
-    """
+    """Ensure ``host:port`` is free before starting a local server."""
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.5)
@@ -198,25 +194,21 @@ def ensure_local_port_available(host: str, port: int, *, force: bool = False) ->
             print("Aborting; stop the running server and try again.")
             return False
     else:
-        if not pids:
-            print("Attempting to continue without known PIDs; please ensure the port is free.")
+        print("Attempting to terminate the existing process...")
 
-    if not pids:
-        # No PIDs found; wait briefly and re-check before giving up.
-        time.sleep(0.5)
-    else:
+    if pids:
         _terminate_pids(pids, aggressive=force)
-
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.5)
-        if sock.connect_ex((host, port)) != 0:
-            print(f"Cleared port {port}.")
-            return True
-
-    if not force:
-        print(f"Port {port} is still in use. Stop the running server and rerun this command.")
+    else:
+        print("Unable to determine owning process. Please stop it manually and retry.")
         return False
 
-    print(f"Port {port} is still in use after attempting termination.")
-    return False
+    for _ in range(10):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            if sock.connect_ex((host, port)) != 0:
+                print("Port is now available.")
+                return True
+        time.sleep(0.5)
 
+    print("Port still in use after terminating processes.")
+    return False

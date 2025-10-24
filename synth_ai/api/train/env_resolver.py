@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import click
-from synth_ai.cli.lib.task_app_env import ensure_env_credentials, hydrate_user_environment
-from synth_ai.cli.lib.task_app_state import persist_env_api_key
-from synth_ai.cli.lib.user_config import load_user_config, update_user_config
+from synth_ai._utils.task_app_env import ensure_env_credentials, hydrate_user_environment
+from synth_ai._utils.task_app_state import persist_env_api_key
+from synth_ai._utils.user_config import load_user_config, update_user_config
 
 from . import task_app
 from .utils import mask_value

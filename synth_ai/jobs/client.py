@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from synth_ai._utils.http import AsyncHttpClient
 from synth_ai.api.models.supported import normalize_model_identifier
-from synth_ai.http import AsyncHttpClient
 from synth_ai.learning.sft.config import prepare_sft_job_payload
 
 

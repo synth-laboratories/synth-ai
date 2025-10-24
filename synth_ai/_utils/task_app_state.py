@@ -7,8 +7,27 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+DEFAULT_TASK_APP_SECRET_NAME = "synth-demo-task-app-secret"
 
-DEFAULT_TASK_APP_SECRET_NAME = "hendrycks-math-task-app-demo-secret"
+__all__ = [
+    "DEFAULT_TASK_APP_SECRET_NAME",
+    "current_task_app_id",
+    "load_demo_dir",
+    "load_template_id",
+    "now_iso",
+    "persist_api_key",
+    "persist_demo_dir",
+    "persist_env_api_key",
+    "persist_task_url",
+    "persist_template_id",
+    "read_task_app_config",
+    "record_task_app",
+    "resolve_task_app_entry",
+    "task_app_config_path",
+    "task_app_id_from_path",
+    "update_task_app_entry",
+    "write_task_app_config",
+]
 
 
 def task_app_config_path() -> str:
@@ -27,7 +46,6 @@ def read_task_app_config() -> dict[str, Any]:
                         return apps
     except Exception:
         pass
-
     return {}
 
 
@@ -119,18 +137,28 @@ def update_task_app_entry(
     return entry
 
 
-def record_task_app(path: str, *, template_id: str | None = None) -> None:
-    update_task_app_entry(path, template_id=template_id)
-
-
-def persist_env_api_key(key: str, path: str | Path | None = None) -> None:
-    target = path or load_demo_dir()
+def record_task_app(
+    path: str,
+    *,
+    template_id: str | None = None,
+    secret_name: str | None = None,
+) -> None:
 
     def _mutate(entry: dict[str, Any]) -> None:
-        secrets = entry.setdefault("secrets", {})
-        secrets["environment_api_key"] = key
+        if secret_name:
+            modal_block = entry.setdefault(
+                "modal",
+                {
+                    "app_name": None,
+                    "base_url": None,
+                    "secret_name": DEFAULT_TASK_APP_SECRET_NAME,
+                    "created_at": None,
+                    "last_used": None,
+                },
+            )
+            modal_block["secret_name"] = secret_name
 
-    update_task_app_entry(target, mutate=_mutate)
+    update_task_app_entry(path, template_id=template_id, mutate=_mutate if secret_name else None)
 
 
 def _select_entry(
@@ -216,6 +244,16 @@ def persist_api_key(key: str) -> None:
     update_task_app_entry(target, mutate=_mutate)
 
 
+def persist_env_api_key(key: str, path: str | Path | None = None) -> None:
+    target = path or load_demo_dir()
+
+    def _mutate(entry: dict[str, Any]) -> None:
+        secrets = entry.setdefault("secrets", {})
+        secrets["environment_api_key"] = key
+
+    update_task_app_entry(target, mutate=_mutate)
+
+
 def _derive_modal_app_name(url: str | None) -> str | None:
     if not url:
         return None
@@ -280,24 +318,3 @@ def persist_task_url(url: str, *, name: str | None = None, path: str | None = No
         print(f"Saved {', '.join(changed)} to {task_app_config_path()}")
         if "TASK_APP_SECRET_NAME" in changed:
             print(f"TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
-
-
-__all__ = [
-    "DEFAULT_TASK_APP_SECRET_NAME",
-    "current_task_app_id",
-    "load_demo_dir",
-    "load_template_id",
-    "now_iso",
-    "persist_api_key",
-    "persist_demo_dir",
-    "persist_env_api_key",
-    "persist_task_url",
-    "persist_template_id",
-    "resolve_task_app_entry",
-    "read_task_app_config",
-    "record_task_app",
-    "task_app_config_path",
-    "task_app_id_from_path",
-    "update_task_app_entry",
-    "write_task_app_config",
-]

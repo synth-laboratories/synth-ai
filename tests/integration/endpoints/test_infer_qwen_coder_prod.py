@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from synth_ai.http import HTTPError
+from synth_ai._utils.http import HTTPError
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]

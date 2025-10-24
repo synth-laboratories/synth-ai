@@ -18,6 +18,7 @@ def _ensure_config_dir() -> None:
 
 def load_user_config() -> dict[str, Any]:
     """Return the persisted user config as a dict (empty if missing or invalid)."""
+
     try:
         if USER_CONFIG_PATH.is_file():
             with USER_CONFIG_PATH.open("r", encoding="utf-8") as fh:
@@ -30,6 +31,7 @@ def load_user_config() -> dict[str, Any]:
 
 def save_user_config(config: Mapping[str, Any]) -> None:
     """Persist a new user config dictionary (overwrites previous contents)."""
+
     _ensure_config_dir()
     try:
         with USER_CONFIG_PATH.open("w", encoding="utf-8") as fh:
@@ -40,6 +42,7 @@ def save_user_config(config: Mapping[str, Any]) -> None:
 
 def update_user_config(updates: Mapping[str, Any]) -> dict[str, Any]:
     """Merge `updates` into the existing user config and persist the result."""
+
     current = load_user_config()
     current.update(updates)
     save_user_config(current)
@@ -94,11 +97,7 @@ def _select_task_app_entry(entries: dict[str, Any]) -> tuple[str | None, dict[st
 
 
 def load_user_env(*, override: bool = True) -> dict[str, str]:
-    """Hydrate ``os.environ`` from persisted Synth CLI state.
-
-    Combines values from ``user_config.json`` with the latest task-app entry so
-    callers get a ready-to-use environment without relying on `.env` prompts.
-    """
+    """Hydrate ``os.environ`` from persisted Synth SDK state."""
 
     applied: dict[str, str] = {}
 
@@ -129,3 +128,12 @@ def load_user_env(*, override: bool = True) -> dict[str, str]:
             _apply({"SYNTH_DEMO_DIR": entry_key})
 
     return applied
+
+
+__all__ = [
+    "USER_CONFIG_PATH",
+    "load_user_config",
+    "save_user_config",
+    "update_user_config",
+    "load_user_env",
+]

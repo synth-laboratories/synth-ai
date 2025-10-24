@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+__all__ = ["format_int", "format_currency", "safe_str"]
+
 
 def format_int(value: Any) -> str:
     """Return an integer formatted with thousands separators."""
@@ -31,6 +33,3 @@ def safe_str(value: Any) -> str:
         return str(value)
     except Exception:
         return "-"
-
-
-__all__ = ["format_int", "format_currency", "safe_str"]
