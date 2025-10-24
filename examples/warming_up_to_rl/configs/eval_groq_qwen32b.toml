@@ -1,6 +1,8 @@
 # Eval config for Groq Qwen3-32B
 # Fields mirror run_eval.py expectations
 
+type = "rl"
+
 # Required
 task_app_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
 model = "qwen/qwen3-32b"
