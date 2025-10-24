@@ -8,7 +8,7 @@ output now that each record's metadata includes `has_image`, `user_has_image`, a
 
 Usage:
     uv run python examples/vlm/filter_image_rows.py \
-        --input examples/sft/ft_data/crafter_traces.jsonl \
+        --input examples/sft/ft_data/crafter_sft.jsonl \
         --output examples/vlm/output/crafter_vlm_dataset.jsonl
 """
 
