@@ -6,15 +6,18 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse, urlunparse
 
 from synth_ai.demos import core as demo_core
-from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
+
+if TYPE_CHECKING:
+    from synth_ai.demos.demo_task_apps.core import DemoEnv
 
 from .http import http_request
 from .process import popen_capture
 from .secrets import key_preview
+from .task_app_state import DEFAULT_TASK_APP_SECRET_NAME
 from .user_config import load_user_config
 
 __all__ = [
@@ -110,7 +113,7 @@ def find_asgi_apps(root: Path) -> list[Path]:
     return results
 
 
-def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEnv:
+def ensure_task_app_ready(env: "DemoEnv", synth_key: str, *, label: str) -> "DemoEnv":
     persist_path = demo_core.load_demo_dir() or os.getcwd()
     user_config_map = load_user_config()
 
