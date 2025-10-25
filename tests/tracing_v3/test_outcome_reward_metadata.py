@@ -5,6 +5,7 @@ import pytest
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_session_tracer_persists_reward_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Arrange: isolate a fresh sqlite DB path
     db_path = tmp_path / "synth_ai.db"
@@ -51,6 +52,7 @@ async def test_session_tracer_persists_reward_metadata(tmp_path: Path, monkeypat
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_manager_insert_outcome_reward_accepts_reward_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Arrange
     db_path = tmp_path / "synth_ai.db"

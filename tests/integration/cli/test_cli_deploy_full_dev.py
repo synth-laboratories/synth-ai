@@ -22,6 +22,7 @@ def _have_modal_auth_env() -> bool:
 
 
 @pytest.mark.skipif(not (_have_modal_cli() and _have_modal_auth_env()), reason="modal CLI not installed or not authenticated via env vars")
+@pytest.mark.slow
 def test_deploy_and_fetch_task_info(tmp_path: Path):
     env = os.environ.copy()
     env.setdefault("ENVIRONMENT_API_KEY", "test_env_key_123")

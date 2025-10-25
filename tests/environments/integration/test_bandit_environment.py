@@ -42,6 +42,7 @@ def _make_instance(
     )
 
 
+@pytest.mark.fast
 async def test_bandit_taskset_default_configs():
     taskset = await create_bandit_taskset()
     assert len(taskset.instances) >= 3

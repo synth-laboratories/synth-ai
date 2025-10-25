@@ -1,0 +1,33 @@
+# Verilog eval using Synth backend with Qwen3-8B
+
+[eval]
+app_id = "grpo-verilog"
+task_app_url = "https://synth-laboratories--grpo-verilog-task-app-fastapi-app-dev.modal.run"
+model = "Qwen/Qwen3-8B"
+seeds = [0, 1, 2]
+max_turns = 6
+concurrency = 1
+env_name = "verilog"
+policy_name = "verilog-designer"
+trace_format = "full"
+return_trace = true
+
+[eval.env_config]
+difficulty = "medium"
+
+[eval.policy_config]
+provider = "openai"
+model = "Qwen/Qwen3-8B"
+inference_url = "https://synth-backend-dev-docker.onrender.com/api/v1/chat/completions"
+temperature = 0.2
+top_p = 0.95
+max_tokens = 4096
+max_llm_calls = 6
+
+[eval.judge]
+path = "examples/multi_step/judges/verilog_backend_judge.py"
+name = "Backend"
+backend_url = "http://localhost:8000/api"
+model = "openai/gpt-oss-120b"
+timeout_s = 45
+

@@ -1,6 +1,12 @@
+import pytest
 import httpx
+import pytest
 
 
+pytestmark = pytest.mark.skip(reason="Balance API/CLI has been removed; test kept for reference only.")
+
+
+@pytest.mark.slow
 def test_get_balance_current(base_url: str, auth_headers: dict):
     url = f"{base_url}/balance/current"
     r = httpx.get(url, headers=auth_headers, timeout=30)

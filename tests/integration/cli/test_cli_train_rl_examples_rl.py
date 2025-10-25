@@ -81,6 +81,7 @@ def _deploy_or_lookup_task_app(tmp_dir: Path) -> str | None:
     return None
 
 
+@pytest.mark.fast
 def test_examples_rl_run(tmp_path: Path) -> None:
     _maybe_env()
     backend = (

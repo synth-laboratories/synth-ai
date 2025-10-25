@@ -4,11 +4,14 @@ This module provides utilities to convert vendor responses to LLMCallRecord
 format and compute aggregates from call records.
 """
 
-import uuid
-from datetime import UTC, datetime
-from typing import Any
+from __future__ import annotations
 
-from synth_ai.tracing_v3.lm_call_record_abstractions import (
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, TypedDict, cast
+
+from .lm_call_record_abstractions import (
     LLMCallRecord,
     LLMChunk,
     LLMContentPart,
@@ -17,7 +20,21 @@ from synth_ai.tracing_v3.lm_call_record_abstractions import (
     LLMUsage,
     ToolCallSpec,
 )
-from synth_ai.v0.lm.vendors.base import BaseLMResponse
+
+BaseLMResponse = Any
+
+
+class _UsageDict(TypedDict, total=False):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    reasoning_tokens: int
+    cost_usd: float
+    duration_ms: int
+    reasoning_input_tokens: int
+    reasoning_output_tokens: int
+    cache_write_tokens: int
+    cache_read_tokens: int
 
 
 def create_llm_call_record_from_response(
@@ -110,9 +127,10 @@ def create_llm_call_record_from_response(
         )
 
     # Extract tool calls if present
-    output_tool_calls = []
-    if hasattr(response, "tool_calls") and response.tool_calls:
-        for idx, tool_call in enumerate(response.tool_calls):
+    output_tool_calls: list[ToolCallSpec] = []
+    tool_calls_data = cast(list[dict[str, Any]] | None, getattr(response, "tool_calls", None))
+    if tool_calls_data:
+        for idx, tool_call in enumerate(tool_calls_data):
             if isinstance(tool_call, dict):
                 output_tool_calls.append(
                     ToolCallSpec(
@@ -125,18 +143,19 @@ def create_llm_call_record_from_response(
 
     # Extract usage information
     usage = None
-    if hasattr(response, "usage") and response.usage:
+    usage_data = cast(_UsageDict | None, getattr(response, "usage", None))
+    if usage_data:
         usage = LLMUsage(
-            input_tokens=response.usage.get("input_tokens"),
-            output_tokens=response.usage.get("output_tokens"),
-            total_tokens=response.usage.get("total_tokens"),
-            cost_usd=response.usage.get("cost_usd"),
+            input_tokens=usage_data.get("input_tokens"),
+            output_tokens=usage_data.get("output_tokens"),
+            total_tokens=usage_data.get("total_tokens"),
+            cost_usd=usage_data.get("cost_usd"),
             # Additional token accounting if available
-            reasoning_tokens=response.usage.get("reasoning_tokens"),
-            reasoning_input_tokens=response.usage.get("reasoning_input_tokens"),
-            reasoning_output_tokens=response.usage.get("reasoning_output_tokens"),
-            cache_write_tokens=response.usage.get("cache_write_tokens"),
-            cache_read_tokens=response.usage.get("cache_read_tokens"),
+            reasoning_tokens=usage_data.get("reasoning_tokens"),
+            reasoning_input_tokens=usage_data.get("reasoning_input_tokens"),
+            reasoning_output_tokens=usage_data.get("reasoning_output_tokens"),
+            cache_write_tokens=usage_data.get("cache_write_tokens"),
+            cache_read_tokens=usage_data.get("cache_read_tokens"),
         )
 
     # Build request parameters
@@ -161,8 +180,8 @@ def create_llm_call_record_from_response(
         api_type=api_type,
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.now(UTC),
-        completed_at=completed_at or datetime.now(UTC),
+        started_at=started_at or datetime.now(timezone.utc),
+        completed_at=completed_at or datetime.now(timezone.utc),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,
@@ -188,7 +207,45 @@ def create_llm_call_record_from_response(
     return record
 
 
-def compute_aggregates_from_call_records(call_records: list[LLMCallRecord]) -> dict[str, Any]:
+@dataclass
+class _AggregateAccumulator:
+    """Mutable accumulator for call record aggregates."""
+
+    call_count: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    reasoning_tokens: int = 0
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    models_used: set[str] = field(default_factory=set)
+    providers_used: set[str] = field(default_factory=set)
+    tool_calls_count: int = 0
+    error_count: int = 0
+    success_count: int = 0
+
+
+class AggregateSummary(TypedDict, total=False):
+    """Aggregate metrics derived from call records."""
+
+    call_count: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    reasoning_tokens: int
+    cost_usd: float
+    latency_ms: int
+    models_used: list[str]
+    providers_used: list[str]
+    tool_calls_count: int
+    error_count: int
+    success_count: int
+    avg_latency_ms: float
+    avg_input_tokens: float
+    avg_output_tokens: float
+
+
+def compute_aggregates_from_call_records(call_records: list[LLMCallRecord]) -> AggregateSummary:
     """Compute aggregate statistics from a list of LLMCallRecord instances.
 
     Args:
@@ -197,65 +254,62 @@ def compute_aggregates_from_call_records(call_records: list[LLMCallRecord]) -> d
     Returns:
         Dictionary containing aggregated statistics
     """
-    aggregates = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "total_tokens": 0,
-        "reasoning_tokens": 0,
-        "cost_usd": 0.0,
-        "latency_ms": 0,
-        "models_used": set(),
-        "providers_used": set(),
-        "tool_calls_count": 0,
-        "error_count": 0,
-        "success_count": 0,
-        "call_count": len(call_records),
-    }
+    aggregates = _AggregateAccumulator(call_count=len(call_records))
 
     for record in call_records:
         # Token aggregation
         if record.usage:
             if record.usage.input_tokens:
-                aggregates["input_tokens"] += record.usage.input_tokens
+                aggregates.input_tokens += record.usage.input_tokens
             if record.usage.output_tokens:
-                aggregates["output_tokens"] += record.usage.output_tokens
+                aggregates.output_tokens += record.usage.output_tokens
             if record.usage.total_tokens:
-                aggregates["total_tokens"] += record.usage.total_tokens
+                aggregates.total_tokens += record.usage.total_tokens
             if record.usage.reasoning_tokens:
-                aggregates["reasoning_tokens"] += record.usage.reasoning_tokens
+                aggregates.reasoning_tokens += record.usage.reasoning_tokens
             if record.usage.cost_usd:
-                aggregates["cost_usd"] += record.usage.cost_usd
+                aggregates.cost_usd += record.usage.cost_usd
 
         # Latency aggregation
-        if record.latency_ms:
-            aggregates["latency_ms"] += record.latency_ms
+        if record.latency_ms is not None:
+            aggregates.latency_ms += record.latency_ms
 
         # Model and provider tracking
         if record.model_name:
-            aggregates["models_used"].add(record.model_name)
+            aggregates.models_used.add(record.model_name)
         if record.provider:
-            aggregates["providers_used"].add(record.provider)
+            aggregates.providers_used.add(record.provider)
 
         # Tool calls
-        aggregates["tool_calls_count"] += len(record.output_tool_calls)
+        aggregates.tool_calls_count += len(record.output_tool_calls)
 
         # Success/error tracking
         if record.outcome == "error":
-            aggregates["error_count"] += 1
+            aggregates.error_count += 1
         elif record.outcome == "success":
-            aggregates["success_count"] += 1
+            aggregates.success_count += 1
 
-    # Convert sets to lists for JSON serialization
-    aggregates["models_used"] = list(aggregates["models_used"])
-    aggregates["providers_used"] = list(aggregates["providers_used"])
+    summary: AggregateSummary = {
+        "call_count": aggregates.call_count,
+        "input_tokens": aggregates.input_tokens,
+        "output_tokens": aggregates.output_tokens,
+        "total_tokens": aggregates.total_tokens,
+        "reasoning_tokens": aggregates.reasoning_tokens,
+        "cost_usd": aggregates.cost_usd,
+        "latency_ms": aggregates.latency_ms,
+        "models_used": list(aggregates.models_used),
+        "providers_used": list(aggregates.providers_used),
+        "tool_calls_count": aggregates.tool_calls_count,
+        "error_count": aggregates.error_count,
+        "success_count": aggregates.success_count,
+    }
 
-    # Compute averages
-    if aggregates["call_count"] > 0:
-        aggregates["avg_latency_ms"] = aggregates["latency_ms"] / aggregates["call_count"]
-        aggregates["avg_input_tokens"] = aggregates["input_tokens"] / aggregates["call_count"]
-        aggregates["avg_output_tokens"] = aggregates["output_tokens"] / aggregates["call_count"]
+    if aggregates.call_count > 0:
+        summary["avg_latency_ms"] = aggregates.latency_ms / aggregates.call_count
+        summary["avg_input_tokens"] = aggregates.input_tokens / aggregates.call_count
+        summary["avg_output_tokens"] = aggregates.output_tokens / aggregates.call_count
 
-    return aggregates
+    return summary
 
 
 def create_llm_call_record_from_streaming(
@@ -322,8 +376,8 @@ def create_llm_call_record_from_streaming(
         api_type="responses",  # Streaming typically from Responses API
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.now(UTC),
-        completed_at=completed_at or datetime.now(UTC),
+        started_at=started_at or datetime.now(timezone.utc),
+        completed_at=completed_at or datetime.now(timezone.utc),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,

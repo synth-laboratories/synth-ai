@@ -15,6 +15,7 @@ def _have_modal_cli() -> bool:
 
 
 @pytest.mark.skipif(not _have_modal_cli(), reason="modal CLI not installed")
+@pytest.mark.slow
 def test_modal_serve_dry_run_math_single_step():
     env = os.environ.copy()
     env.setdefault("ENVIRONMENT_API_KEY", "test_env_key_123")

@@ -35,7 +35,7 @@ def main() -> None:
             try:
                 obj = json.loads(line)
             except Exception as exc:
-                raise SystemExit(f"Line {i} is not valid JSON: {exc}") from exc
+                raise SystemExit(f"Line {i} is not valid JSON: {exc}")
             msgs = obj.get("messages") if isinstance(obj, dict) else None
             if not isinstance(msgs, list):
                 raise SystemExit(f"Line {i} missing 'messages' list")
@@ -55,4 +55,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -122,6 +123,13 @@ class GameSystemState:
     menu_state: int
     text_box_active: bool
     warp_flag: int
+    # Battle-specific data
+    enemy_hp_current: int = 0
+    enemy_hp_max: int = 0
+    enemy_hp_percentage: float = 0.0
+    enemy_level: int = 0
+    enemy_species_id: int = 0
+    battle_turn: int = 0
     # TODO: Add when available
     # current_menu_type: str = ""
     # dialogue_speaker: str = ""
@@ -278,12 +286,21 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
 
     def _get_rom_path(self) -> Path:
         """Get path to Pokemon Red ROM file"""
+        # Highest priority: explicit environment variable
+        env_rom = os.getenv("POKEMON_RED_ROM")
+        if env_rom:
+            p = Path(env_rom).expanduser()
+            if p.exists():
+                return p
+
         # Check several possible locations
         possible_paths = [
             Path(__file__).parent / "roms" / "pokemon_red.gb",
             Path(__file__).parent / "roms" / "PokemonRed.gb",
             Path(__file__).parent / "vendor" / "pokemon_red.gb",
             Path.home() / "Games" / "pokemon_red.gb",
+            # Common example location where users may drop the ROM
+            Path(__file__).resolve().parents[5] / "examples" / "task_apps" / "pokemon_red" / "Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb",
         ]
 
         for path in possible_paths:
@@ -533,6 +550,12 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
                     menu_state=int(current_state.get("menu_state", 0)),
                     text_box_active=bool(current_state.get("text_box_active", False)),
                     warp_flag=int(current_state.get("warp_flag", 0)),
+                    enemy_hp_current=int(current_state.get("enemy_hp_current", 0)),
+                    enemy_hp_max=int(current_state.get("enemy_hp_max", 0)),
+                    enemy_hp_percentage=float(current_state.get("enemy_hp_percentage", 0.0)),
+                    enemy_level=int(current_state.get("enemy_level", 0)),
+                    enemy_species_id=int(current_state.get("enemy_species_id", 0)),
+                    battle_turn=int(current_state.get("battle_turn", 0)),
                 ),
             )
 
@@ -613,6 +636,10 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
                         "prev_in_battle": bool(prev_state.get("in_battle", False)),
                         "prev_party_level": int(prev_state.get("party_level", 0)),
                         "prev_party_xp": int(prev_state.get("party_xp", 0)),
+                        "prev_party_count": int(prev_state.get("party_count", 0)),
+                        "prev_text_box_active": bool(prev_state.get("text_box_active", False)),
+                        "prev_enemy_hp_current": int(prev_state.get("enemy_hp_current", 0)),
+                        "prev_enemy_hp_percentage": float(prev_state.get("enemy_hp_percentage", 0.0)),
                     },
                 )
             except Exception as e:

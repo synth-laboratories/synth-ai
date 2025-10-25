@@ -1,6 +1,8 @@
+import pytest
 import httpx
 
 
+@pytest.mark.slow
 def test_ft_jobs_list_and_get_stub(base_url: str, auth_headers: dict):
     # Use a random (non-existent) job id to hit the GET job status stub
     api_base = base_url.replace("/v1", "")

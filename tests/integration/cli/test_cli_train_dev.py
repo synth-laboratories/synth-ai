@@ -10,6 +10,7 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
     return subprocess.run(args, text=True, capture_output=True, env=env)
 
 
+@pytest.mark.fast
 def test_train_help_dev():
     env = os.environ.copy()
     env.setdefault("BACKEND_BASE_URL", env.get("DEV_BACKEND_URL", "http://localhost:8000/api"))

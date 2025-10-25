@@ -1,0 +1,35 @@
+# Crafter eval (stepwise: complex)
+
+# Replace at runtime by exporting TASK_APP_URL, or put the full https://<modal>.run URL here
+# task_app_url = "https://YOUR-TASK-APP.modal.run"
+
+model = "qwen/qwen3-32b"
+# Route inference to local task app Groq proxy
+inference_url = "http://localhost:8001/proxy/groq"
+num_episodes = 10
+max_turns = 10
+concurrency = 10
+# difficulty = "easy"  # optional
+
+[rollout]
+env_name = "crafter"
+policy_name = "crafter-react"
+max_turns = 10
+
+  [rollout.env_config]
+
+    [rollout.env_config.step_rewards]
+    enabled = true
+    mode = "decision_stepwise"
+    strategy = "complex"
+    indicator_lambda = 0.0  # ignored by complex mode if weights are present
+    
+    # Example weights (tune per need)
+    weights = { collect_sapling = 0.1, craft_wood_pickaxe = 0.3, collect_diamond = 1.0 }
+    # Allow rewarding an achievement up to K times per episode
+    k_limits = { collect_sapling = 1, craft_wood_pickaxe = 2, collect_diamond = 3 }
+
+  [rollout.policy_config]
+  temperature = 0.2
+  top_p = 0.95
+  max_tokens = 512

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
+import base64
+from io import BytesIO
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +19,12 @@ from synth_ai.environments.environment.tools import (
 )
 from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
 from synth_ai.environments.stateful.core import StatefulEnvironment
+try:  # optional for image encoding
+    import numpy as _np  # type: ignore
+    from PIL import Image as _PILImage  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    _np = None  # type: ignore
+    _PILImage = None  # type: ignore
 
 # Import logging configuration to suppress JAX debug messages
 from .engine import (
@@ -220,6 +228,58 @@ class PokemonRedEnvironment(StatefulEnvironment, ReproducibleEnvironment[Pokemon
         """Convert states to observation using the specified callback"""
         active_obs_cb = obs_cb or PokemonRedObservationCallable()
         observation = await active_obs_cb.get_observation(pub, priv)
+        
+        # Include raw state fields for reward calculation
+        if isinstance(observation, dict):
+            observation["map_id"] = pub.world.map_id if pub.world else None
+            observation["player_x"] = pub.world.player_x if pub.world else None
+            observation["player_y"] = pub.world.player_y if pub.world else None
+            observation["party_count"] = len(pub.party) if pub.party else 0
+            observation["party_pokemon"] = [
+                {
+                    "species_id": p.species_id,
+                    "level": p.level,
+                    "hp_current": p.hp_current,
+                    "hp_max": p.hp_max,
+                    "hp_percentage": (p.hp_current / p.hp_max * 100) if p.hp_max > 0 else 0,
+                }
+                for p in (pub.party or [])
+            ]
+            observation["in_battle"] = pub.system.in_battle if pub.system else False
+            observation["battle_outcome"] = pub.system.battle_outcome if pub.system else 0
+            observation["text_box_active"] = pub.system.text_box_active if pub.system else False
+            observation["enemy_hp_current"] = pub.system.enemy_hp_current if pub.system else 0
+            observation["enemy_hp_max"] = pub.system.enemy_hp_max if pub.system else 0
+            observation["enemy_hp_percentage"] = pub.system.enemy_hp_percentage if pub.system else 0.0
+            observation["badges"] = pub.progress.badges if pub.progress else 0
+        # Attach latest PNG frame for VLM agents if available
+        try:
+            emulator = getattr(self.engine, "emulator", None)
+            screen = getattr(emulator, "screen", None)
+            if screen is not None and _np is not None and _PILImage is not None:
+                # Prefer documented ndarray property if present
+                frame = getattr(screen, "ndarray", None)
+                if frame is None and hasattr(screen, "image"):
+                    frame = screen.image
+                if isinstance(frame, _np.ndarray) and frame.ndim == 3 and frame.shape[0] > 0 and frame.shape[1] > 0:
+                    array_uint8 = (
+                        frame.astype("uint8") if frame.dtype != _np.uint8 else frame
+                    )
+                    # PyBoy gives RGBA; convert to RGB
+                    if array_uint8.shape[-1] == 4:
+                        array_uint8 = array_uint8[:, :, :3]
+                    img = _PILImage.fromarray(array_uint8, mode="RGB")
+                    buf = BytesIO()
+                    img.save(buf, format="PNG")
+                    encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+                    if isinstance(observation, dict):
+                        observation["observation_image_base64"] = encoded
+                        observation["observation_image_format"] = "png"
+                        observation["observation_image_width"] = int(array_uint8.shape[1])
+                        observation["observation_image_height"] = int(array_uint8.shape[0])
+                        observation["observation_image_data_url"] = f"data:image/png;base64,{encoded}"
+        except Exception:
+            pass
         if extra_obs and isinstance(observation, dict):
             observation.update(extra_obs)
         return observation

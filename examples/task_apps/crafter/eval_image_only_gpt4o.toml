@@ -1,0 +1,28 @@
+# Evaluation config for Crafter with image-only input
+# This config uses GPT-4o mini with only image data (no text observations)
+
+[eval]
+app_id = "grpo-crafter-task-app"
+model = "gpt-4o-mini-2024-07-18"
+seeds = [0, 1]  # Quick test run
+max_turns = 10
+concurrency = 1  # Reduced to 1 to avoid database locks during testing
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "full"
+return_trace = true
+
+[eval.env_config]
+env_params = {max_steps_per_episode = 10}
+
+[eval.policy_config]
+provider = "openai"
+model = "gpt-4o-mini-2024-07-18"
+inference_url = "https://api.openai.com"  # Base URL (client will append /v1/chat/completions)
+temperature = 0.6
+top_p = 0.95
+max_tokens = 512
+use_vision = true
+image_only_mode = true
+max_llm_calls = 10
+

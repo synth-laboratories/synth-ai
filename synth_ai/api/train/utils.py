@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -7,13 +8,20 @@ import subprocess
 import tempfile
 import time
 import tomllib
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import requests
-from synth_ai.learning.sft import collect_sft_jsonl_errors
+
+try:
+    sft_module = cast(Any, importlib.import_module("synth_ai.learning.sft"))
+    collect_sft_jsonl_errors = cast(
+        Callable[..., list[dict[str, Any]]], sft_module.collect_sft_jsonl_errors
+    )
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load SFT JSONL helpers") from exc
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -149,7 +157,7 @@ def validate_sft_jsonl(path: Path, *, max_errors: int = 20) -> None:
 
     truncated = max_errors is not None and len(issues) >= max_errors
     suffix = "" if not truncated else f" (showing first {max_errors} issues)"
-    details = "\n - ".join(issues)
+    details = "\n - ".join(cast("list[str]", issues))
     raise TrainError(f"{path}: Dataset validation failed{suffix}:\n - {details}")
 
 

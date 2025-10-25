@@ -11,17 +11,13 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any, cast
 
 import libsql
 from sqlalchemy.engine import make_url
-
-try:  # pragma: no cover - exercised only when pandas present
-    import pandas as pd  # type: ignore
-except Exception:  # pragma: no cover
-    pd = None  # type: ignore[assignment]
 
 from ..abstractions import (
     EnvironmentEvent,
@@ -33,6 +29,24 @@ from ..abstractions import (
 from ..config import CONFIG
 from ..storage.base import TraceStorage
 from .models import analytics_views
+
+if TYPE_CHECKING:
+    from sqlite3 import Connection as LibsqlConnection
+else:  # pragma: no cover - runtime fallback for typing only
+    LibsqlConnection = Any  # type: ignore[assignment]
+
+_LIBSQL_CONNECT_ATTR = getattr(libsql, "connect", None)
+if _LIBSQL_CONNECT_ATTR is None:  # pragma: no cover - defensive guard
+    raise RuntimeError("libsql.connect is required for NativeLibsqlTraceManager")
+_libsql_connect: Callable[..., LibsqlConnection] = cast(
+    Callable[..., LibsqlConnection],
+    _LIBSQL_CONNECT_ATTR,
+)
+
+try:  # pragma: no cover - exercised only when pandas present
+    import pandas as pd  # type: ignore
+except Exception:  # pragma: no cover
+    pd = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -313,12 +327,12 @@ class NativeLibsqlTraceManager(TraceStorage):
     ):
         self._config_auth_token = auth_token
         self._target = _resolve_connection_target(db_url, auth_token)
-        self._conn: libsql.Connection | None = None
+        self._conn: LibsqlConnection | None = None
         self._conn_lock = asyncio.Lock()
         self._op_lock = asyncio.Lock()
         self._initialized = False
 
-    def _open_connection(self) -> libsql.Connection:
+    def _open_connection(self) -> LibsqlConnection:
         """Open a libsql connection for the resolved target."""
         kwargs: dict[str, Any] = {}
         if self._target.sync_url and self._target.sync_url.startswith("libsql://"):
@@ -328,7 +342,7 @@ class NativeLibsqlTraceManager(TraceStorage):
         # Disable automatic background sync; ReplicaSync drives this explicitly.
         kwargs.setdefault("sync_interval", 0)
         logger.debug("Opening libsql connection to %s", self._target.database)
-        return libsql.connect(self._target.database, **kwargs)
+        return _libsql_connect(self._target.database, **kwargs)
 
     async def initialize(self):
         """Initialise the backend."""
@@ -356,8 +370,18 @@ class NativeLibsqlTraceManager(TraceStorage):
 
     async def insert_session_trace(self, trace: SessionTrace) -> str:
         await self.initialize()
+        
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.info(f"[TRACE_DEBUG] insert_session_trace START: session_id={trace.session_id}, {len(trace.markov_blanket_message_history)} messages")
 
-        if await self._session_exists(trace.session_id):
+        session_exists = await self._session_exists(trace.session_id)
+        _logger.info(f"[TRACE_DEBUG] Session exists: {session_exists}")
+        
+        if session_exists:
+            _logger.warning(f"[TRACE_DEBUG] Session {trace.session_id} already exists, need to save messages anyway!")
+            # Don't return early - we need to save messages!
+            # Just update metadata
             async with self._op_lock:
                 conn = self._conn
                 assert conn is not None
@@ -366,32 +390,34 @@ class NativeLibsqlTraceManager(TraceStorage):
                     (_json_dumps(trace.metadata or {}), trace.session_id),
                 )
                 conn.commit()
-            return trace.session_id
+            # Continue to save messages instead of returning
 
-        created_at = trace.created_at or datetime.now(UTC)
+        if not session_exists:
+            created_at = trace.created_at or datetime.now(timezone.utc)
 
-        async with self._op_lock:
-            conn = self._conn
-            assert conn is not None
-            conn.execute(
-                """
-                INSERT INTO session_traces (
-                    session_id,
-                    created_at,
-                    num_timesteps,
-                    num_events,
-                    num_messages,
-                    metadata
+            async with self._op_lock:
+                conn = self._conn
+                assert conn is not None
+                conn.execute(
+                    """
+                    INSERT INTO session_traces (
+                        session_id,
+                        created_at,
+                        num_timesteps,
+                        num_events,
+                        num_messages,
+                        metadata
+                    )
+                    VALUES (?, ?, 0, 0, 0, ?)
+                    """,
+                    (
+                        trace.session_id,
+                        created_at.isoformat(),
+                        _json_dumps(trace.metadata or {}),
+                    ),
                 )
-                VALUES (?, ?, 0, 0, 0, ?)
-                """,
-                (
-                    trace.session_id,
-                    created_at.isoformat(),
-                    _json_dumps(trace.metadata or {}),
-                ),
-            )
-            conn.commit()
+                conn.commit()
+                _logger.info(f"[TRACE_DEBUG] Session row inserted")
 
         step_id_map: dict[str, int] = {}
 
@@ -420,7 +446,11 @@ class NativeLibsqlTraceManager(TraceStorage):
                 metadata_override=event.metadata or {},
             )
 
-        for msg in trace.markov_blanket_message_history:
+        import logging as _logging
+        _logger = _logging.getLogger(__name__)
+        _logger.info(f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages")
+        
+        for idx, msg in enumerate(trace.markov_blanket_message_history):
             metadata = dict(getattr(msg, "metadata", {}) or {})
             step_ref = metadata.get("step_id")
             content_value = msg.content
@@ -438,15 +468,22 @@ class NativeLibsqlTraceManager(TraceStorage):
                 except (TypeError, ValueError):
                     content_value = str(content_value)
 
-            await self.insert_message_row(
-                trace.session_id,
-                timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
-                message_type=msg.message_type,
-                content=content_value,
-                event_time=msg.time_record.event_time,
-                message_time=msg.time_record.message_time,
-                metadata=metadata,
-            )
+            _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: type={msg.message_type}, content_len={len(str(content_value))}")
+            
+            try:
+                await self.insert_message_row(
+                    trace.session_id,
+                    timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
+                    message_type=msg.message_type,
+                    content=content_value,
+                    event_time=msg.time_record.event_time,
+                    message_time=msg.time_record.message_time,
+                    metadata=metadata,
+                )
+                _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: saved successfully")
+            except Exception as exc:
+                _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
+                raise
 
         async with self._op_lock:
             conn = self._conn
@@ -492,7 +529,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 return None
 
             session_columns = ["session_id", "created_at", "num_timesteps", "num_events", "num_messages", "metadata"]
-            session_data = dict(zip(session_columns, session_row, strict=False))
+            session_data = dict(zip(session_columns, session_row, strict=True))
 
             timestep_cursor = conn.execute(
                 """
@@ -610,7 +647,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 return pd.DataFrame(columns=list(columns))
             return []
 
-        records = [dict(zip(columns, row, strict=False)) for row in rows]
+        records = [dict(zip(columns, row, strict=True)) for row in rows]
         if pd is not None:
             return pd.DataFrame(records)
         return records
@@ -769,7 +806,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> None:
         await self.initialize()
 
-        created_at_val = (created_at or datetime.now(UTC)).isoformat()
+        created_at_val = (created_at or datetime.now(timezone.utc)).isoformat()
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -801,7 +838,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        started_at_val = (started_at or datetime.now(UTC)).isoformat()
+        started_at_val = (started_at or datetime.now(timezone.utc)).isoformat()
         completed_at_val = completed_at.isoformat() if completed_at else None
         metadata_json = _json_dumps(metadata or {})
 
@@ -1113,7 +1150,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     total_reward,
                     achievements_count,
                     total_steps,
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     _json_dumps(reward_metadata),
                 ),
             )
@@ -1165,7 +1202,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     key,
                     _json_dumps(annotation),
                     source,
-                    datetime.now(UTC).isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
             conn.commit()

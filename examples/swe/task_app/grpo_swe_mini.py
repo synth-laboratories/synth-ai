@@ -60,34 +60,55 @@ try:
     HAS_HOSTED = True
 except Exception:
     try:  # pragma: no cover - optional dependency path
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.branching import (  # type: ignore
-            router as branching_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.branching import (  # type: ignore
+            BranchingEnvironmentConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.environment_routes import (  # type: ignore # noqa: E501
-            router as environment_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.environment_routes import (  # type: ignore # noqa: E501
+            CrafterEnvironmentRoutes,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.policy_routes import (  # type: ignore
-            router as policy_router,
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.policy_routes import (  # type: ignore
+            PolicyRoutes,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (  # type: ignore
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (  # type: ignore
+            RolloutPayload,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            EnvironmentConfig,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            PolicyConfig,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RolloutRequest,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RolloutResponse,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            RunSpec,
+        )
+        from examples.task_apps.crafter.task_app.synth_envs_hosted.rollout import (
+            ToolUse,
+        )
+        from examples.task_apps.crafter.task_app.hosted.rollout import (  # type: ignore
             RolloutEnvSpec as LegacyRolloutEnvSpec,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutPolicySpec as LegacyRolloutPolicySpec,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutRecordConfig as LegacyRolloutRecordConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutRequest as LegacyRolloutRequest,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutResponse as LegacyRolloutResponse,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             RolloutSafetyConfig as LegacyRolloutSafetyConfig,
         )
-        from examples.warming_up_to_rl.task_app.synth_envs_hosted.rollout import (
+        from examples.task_apps.crafter.task_app.hosted.rollout import (
             execute_rollout as legacy_execute_rollout,
         )
         HAS_HOSTED = True
@@ -264,7 +285,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, MiniSweDataset]:
 def _base_task_info(dataset: MiniSweDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "swe_mini", "name": "mini-SWE Tasks", "version": "0.1.0"},
-        environments=["swe-mini"],
+        environment="swe-mini",
         action_space={
             "type": "tool",
             "tools": ["run_command", "submit_patch"],
@@ -291,11 +312,6 @@ def _base_task_info(dataset: MiniSweDataset) -> TaskInfo:
                 "groq": "/proxy/groq/v1/chat/completions",
             },
             "tool": {"name": "run_command", "parallel_tool_calls": False},
-        },
-        capabilities={
-            "supports_rollout": True,
-            "supports_env_lifecycle": True,
-            "requires_api_key_header": True,
         },
         limits={"max_ops": 2000, "max_time_s": 7200},
     )
@@ -348,18 +364,31 @@ def provide_task_instances(
     dataset: MiniSweDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        base_observation_data = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        base_observation_data = dict(base_observation)
+    else:
+        base_observation_data = {}
+
     for seed in seeds:
         instance = dataset.sample_by_index(int(seed))
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
-                observation={**base_info.observation, "instance_id": instance["instance_id"]},
-                dataset={**base_info.dataset, "instance_id": instance["instance_id"]},
+                observation={
+                    **base_observation_data,
+                    "instance_id": instance["instance_id"],
+                },
+                dataset={
+                    **base_info.dataset.model_dump(),
+                    "instance_id": instance["instance_id"],
+                },
                 rubric=base_info.rubric,
                 inference=base_info.inference,
-                capabilities=base_info.capabilities,
                 limits=base_info.limits,
             )
         )
@@ -389,22 +418,22 @@ def build_config() -> TaskAppConfig:
 
     hosted_task_app = None
     if HAS_HOSTED:
-        hosted_task_app_cls = None
+        HostedTaskAppCls = None
         try:
             from examples.swe.task_app.hosted.hosted_app import (  # type: ignore
                 TaskApp as HostedTaskApp,
             )
-            hosted_task_app_cls = HostedTaskApp
+            HostedTaskAppCls = HostedTaskApp
         except Exception:
             try:
-                from examples.warming_up_to_rl.task_app.synth_envs_hosted.hosted_app import (  # type: ignore
-                    TaskApp as HostedTaskApp,
+                from examples.task_apps.crafter.task_app.synth_envs_hosted.hosted_app import (  # type: ignore
+                    create_app,
                 )
-                hosted_task_app_cls = HostedTaskApp
+                HostedTaskAppCls = create_app
             except Exception as exc:  # pragma: no cover - optional dependency path
                 logger.warning("Unable to import HostedTaskApp for swe-mini: %s", exc)
-        if hosted_task_app_cls is not None:
-            hosted_task_app = hosted_task_app_cls(
+        if HostedTaskAppCls is not None:
+            hosted_task_app = HostedTaskAppCls(
                 service_base_url=os.getenv("SWE_MINI_SERVICE_BASE_URL"),
                 vllm_base_url=os.getenv(
                     "SWE_MINI_VLLM_BASE_URL",
@@ -455,6 +484,7 @@ def build_config() -> TaskAppConfig:
 
         legacy_request = LegacyRolloutRequest(
             run_id=request.run_id,
+            mode=request.mode,  # Preserve mode for nested requests
             env=LegacyRolloutEnvSpec(
                 env_id=request.env.env_id,
                 env_name=env_spec.env_name or "swe-mini",

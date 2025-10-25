@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import importlib
 import os
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
-from synth_ai.config.base_url import get_backend_from_env
+
+try:
+    _config_module = cast(
+        Any, importlib.import_module("synth_ai.config.base_url")
+    )
+    get_backend_from_env = cast(Callable[[], str], _config_module.get_backend_from_env)
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load backend configuration helpers") from exc
 
 from .builders import build_rl_payload, build_sft_payload
 from .config_finder import discover_configs, prompt_for_config
@@ -231,12 +240,17 @@ def train_command(
     ]
     if missing_keys:
         try:
-            from synth_ai.cli.lib.task_app_env import interactive_fill_env
+            _task_apps_module = cast(
+                Any, importlib.import_module("synth_ai.cli.task_apps")
+            )
+            _interactive_fill_env = cast(
+                Callable[[Path], Path | None], _task_apps_module._interactive_fill_env
+            )
         except Exception as exc:  # pragma: no cover - protective fallback
             raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
 
         target_dir = cfg_path.parent
-        generated = interactive_fill_env(target_dir / ".env")
+        generated = _interactive_fill_env(target_dir / ".env")
         if generated is None:
             raise click.ClickException("Required environment values missing; aborting.")
         env_path, env_values = resolve_env(
@@ -386,9 +400,19 @@ def handle_rl(
             verify_url, headers=verify_headers, json_body={"endpoint_base_url": build.task_url}
         )
         try:
-            vjs = vresp.json()
+            parsed_json = vresp.json()
         except Exception:
-            vjs = {"status": vresp.status_code, "text": (vresp.text or "")[:400]}
+            parsed_json = None
+
+        if isinstance(parsed_json, Mapping):
+            vjs: dict[str, Any] = dict(parsed_json)
+        else:
+            vjs = {
+                "status": vresp.status_code,
+                "text": (vresp.text or "")[:400],
+            }
+            if parsed_json is not None:
+                vjs["body"] = parsed_json
     except Exception as _ve:
         raise click.ClickException(
             f"Task app verification call failed: {type(_ve).__name__}: {_ve}"
@@ -404,8 +428,13 @@ def handle_rl(
         # Print concise summary
         try:
             cands = vjs.get("candidates_first15") or []
-            attempts = vjs.get("attempts") or []
-            statuses = [a.get("status") for a in attempts]
+            attempts_raw = vjs.get("attempts")
+            attempts: list[Mapping[str, Any]] = (
+                [a for a in attempts_raw if isinstance(a, Mapping)]
+                if isinstance(attempts_raw, list)
+                else []
+            )
+            statuses = [attempt.get("status") for attempt in attempts]
             click.echo(f"Verification OK (candidates={cands}, statuses={statuses})")
         except Exception:
             pass
