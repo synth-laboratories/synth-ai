@@ -1,7 +1,7 @@
 .cache
 .DS_Store
 .venv
-.env
+.env*
 **/.DS_Store
 **/.cache
 **/.venv
