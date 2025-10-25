@@ -232,7 +232,7 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
             os.environ[spec.name] = env_val
             return env_val
 
-        load_secret(spec.name, load_to="env")
+        load_secret(spec.name)
         resolved_value = os.environ.get(spec.name)
         if resolved_value:
             click.echo(f"Found {spec.name} via secrets helper: {mask_value(resolved_value)}")
