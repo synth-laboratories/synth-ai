@@ -1,7 +1,9 @@
-import click
 import json
 import os
 from pathlib import Path
+from typing import Literal
+
+import click
 
 
 def mask_str(input: str, position: int = 4) -> str:
@@ -62,28 +64,32 @@ def convert_abspath_to_relpath(path: Path, base_dir: Path | str = '.') -> str:
         return path.name
 
 
-def load_secret_value(secret_key: str) -> str:
-    output = ""
-    session_value = os.getenv(secret_key)
+def load_secret(secret_key: str, load_to: Literal["str", "env"] = "env") -> str | None:
+    secret_value: str | None = None
+    env_value = os.getenv(secret_key)
     env_file_paths = filter_env_files_by_key(secret_key, get_env_file_paths())
     synth_file_paths = filter_json_files_by_key(secret_key, get_synth_config_file_paths())
-    if not session_value and len(env_file_paths) == 0 and len(synth_file_paths) == 0:
+    if not env_value and len(env_file_paths) == 0 and len(synth_file_paths) == 0:
         click.echo(f"Failed to find {secret_key}")
-        return ""
+        return None
     
     options: list[tuple[str, str]] = []
-    if (session_value):
-        options.append((f"(session)  {mask_str(session_value)}", session_value))
+    if env_value:
+        options.append((f"(process env)  {mask_str(env_value)}", env_value))
     for path, value in env_file_paths:
         label = f"({convert_abspath_to_relpath(path)})  {mask_str(value)}"
         options.append((label, value))
     for path, value in synth_file_paths:
         label = f"({path})  {mask_str(value)}"
         options.append((label, value))
+    
     if len(options) == 1:
-        label, output = options[0]
-        click.echo(f"Loaded {secret_key}={mask_str(output)} via {label}")
-        return output
+        label, secret_value = options[0]
+        if load_to == "env":
+            os.environ[secret_key] = secret_value
+            click.echo(f"Loaded {secret_key}={mask_str(secret_value)} into process environment from {label}")
+            return None
+        return secret_value
     
     click.echo(f"\nFound the following options for {secret_key}")
     for i, (label, _) in enumerate(options, start=1):
@@ -96,6 +102,11 @@ def load_secret_value(secret_key: str) -> str:
         default=1
     )
 
-    label, output = options[index - 1]
-    click.echo(f"Loaded {secret_key}={mask_str(output)}")
-    return output
+    label, secret_value = options[index - 1]
+    if not secret_value:
+        return None
+    if load_to == "env":
+        os.environ[secret_key] = secret_value
+        click.echo(f"Loaded {secret_key}={mask_str(secret_value)} into process environment")
+        return None
+    return secret_value
