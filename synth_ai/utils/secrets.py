@@ -64,7 +64,10 @@ def convert_abspath_to_relpath(path: Path, base_dir: Path | str = '.') -> str:
         return path.name
 
 
-def load_secret(secret_key: str, load_to: Literal["str", "env"] = "env") -> str | None:
+def load_secret(secret_key: str, load_to: Literal["str", "env", "str_and_env"] = "env") -> str | None:
+    if load_to not in { "str", "env", "str_and_env" }:
+        raise ValueError(f"Unknown load target: {load_to}")
+
     secret_value: str | None = None
     env_value = os.getenv(secret_key)
     env_file_paths = filter_env_files_by_key(secret_key, get_env_file_paths())
@@ -72,7 +75,7 @@ def load_secret(secret_key: str, load_to: Literal["str", "env"] = "env") -> str 
     if not env_value and len(env_file_paths) == 0 and len(synth_file_paths) == 0:
         click.echo(f"Failed to find {secret_key}")
         return None
-    
+
     options: list[tuple[str, str]] = []
     if env_value:
         options.append((f"(process env)  {mask_str(env_value)}", env_value))
@@ -82,15 +85,19 @@ def load_secret(secret_key: str, load_to: Literal["str", "env"] = "env") -> str 
     for path, value in synth_file_paths:
         label = f"({path})  {mask_str(value)}"
         options.append((label, value))
-    
+
+    store_in_env = load_to in { "env", "str_and_env" }
+    return_string = load_to in { "str", "str_and_env" }
+
     if len(options) == 1:
         label, secret_value = options[0]
-        if load_to == "env":
+        if secret_value and store_in_env:
             os.environ[secret_key] = secret_value
             click.echo(f"Loaded {secret_key}={mask_str(secret_value)} into process environment from {label}")
-            return None
-        return secret_value
-    
+        if return_string:
+            return secret_value
+        return None
+
     click.echo(f"\nFound the following options for {secret_key}")
     for i, (label, _) in enumerate(options, start=1):
         click.echo(f" [{i}] {label}")
@@ -105,8 +112,9 @@ def load_secret(secret_key: str, load_to: Literal["str", "env"] = "env") -> str 
     label, secret_value = options[index - 1]
     if not secret_value:
         return None
-    if load_to == "env":
+    if store_in_env:
         os.environ[secret_key] = secret_value
         click.echo(f"Loaded {secret_key}={mask_str(secret_value)} into process environment")
-        return None
-    return secret_value
+    if return_string:
+        return secret_value
+    return None
