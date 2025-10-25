@@ -51,7 +51,12 @@ from .server import (
     create_task_app,
     run_task_app,
 )
-from .validators import validate_task_app_endpoint, validate_task_app_url
+from .validators import (
+    normalize_inference_url,
+    validate_rollout_response_for_rl,
+    validate_task_app_endpoint,
+    validate_task_app_url,
+)
 from .vendors import (
     get_groq_key_or_503,
     get_openai_key_or_503,
@@ -59,6 +64,8 @@ from .vendors import (
 )
 
 __all__ = [
+    "normalize_inference_url",
+    "validate_rollout_response_for_rl",
     "validate_task_app_url",
     "validate_task_app_endpoint",
     "task_app_health",

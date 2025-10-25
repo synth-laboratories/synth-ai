@@ -3076,6 +3076,11 @@ def _write_modal_entrypoint(
     if not any(str(p).startswith("synth-ai") for p in pip_packages):
         pip_packages.insert(0, synth_pkg)
 
+    apt_packages = list(modal_cfg.apt_packages)
+    click.echo(f"[DEBUG] modal_cfg.apt_packages type: {type(modal_cfg.apt_packages)}")
+    click.echo(f"[DEBUG] modal_cfg.apt_packages value: {modal_cfg.apt_packages}")
+    click.echo(f"[DEBUG] apt_packages after list(): {apt_packages}")
+    
     local_dirs = [(str(Path(src)), dst) for src, dst in modal_cfg.extra_local_dirs]
     # Also mount the host synth_ai source if available to ensure latest code is used
     if host_synth is not None:
@@ -3121,6 +3126,15 @@ DOTENV_PATHS = {dotenv_paths!r}
 INLINE_SECRET_VALUES = {inline_secret_values!r}
 
 image = Image.debian_slim(python_version={modal_cfg.python_version!r})
+
+# CRITICAL: Install iverilog for Verilog task app (hardcoded to prevent config issues)
+if {entry.app_id!r} == "grpo-verilog":
+    image = image.apt_install("iverilog")
+
+# Install apt packages first (before pip)
+apt_packages = {apt_packages!r}
+if apt_packages:
+    image = image.apt_install(*apt_packages)
 
 pip_packages = {pip_packages!r}
 if pip_packages:
@@ -4067,26 +4081,27 @@ def eval_command(
                     for spec in judge_specs:
                         score_value: float | None = None
                         judge_elapsed: float | None = None
-                        if completion is not None:
-                            judge_payload = {
-                                "seed": seed_val,
-                                "prompt_index": prompt_index,
-                                "prompt": prompt_text,
-                                "completion": completion,
-                                "metrics": metrics,
-                                "response": data,
-                                "trace": trace_namespace,
-                            }
-                            try:
-                                judge_start = time.perf_counter()
-                                result = spec.fn(judge_payload, **spec.kwargs)
+                        # Run judges for all tasks (text-based and trajectory-based)
+                        # Text-based tasks have completion, trajectory-based tasks use response
+                        judge_payload = {
+                            "seed": seed_val,
+                            "prompt_index": prompt_index,
+                            "prompt": prompt_text,
+                            "completion": completion,
+                            "metrics": metrics,
+                            "response": data,
+                            "trace": trace_namespace,
+                        }
+                        try:
+                            judge_start = time.perf_counter()
+                            result = spec.fn(judge_payload, **spec.kwargs)
+                            judge_elapsed = time.perf_counter() - judge_start
+                            if isinstance(result, int | float):
+                                score_value = float(result)
+                        except Exception as exc:
+                            if judge_elapsed is None:
                                 judge_elapsed = time.perf_counter() - judge_start
-                                if isinstance(result, int | float):
-                                    score_value = float(result)
-                            except Exception as exc:
-                                if judge_elapsed is None:
-                                    judge_elapsed = time.perf_counter() - judge_start
-                                click.echo(f"seed={seed_val} judge[{spec.name}]_error={exc}")
+                            click.echo(f"seed={seed_val} judge[{spec.name}]_error={exc}")
                         judges_timings[spec.name] = judge_elapsed
                         judge_scores[spec.name] = score_value
 

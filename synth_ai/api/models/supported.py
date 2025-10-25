@@ -36,6 +36,7 @@ QWEN3_CODER_MODELS: list[str] = [
 # Training support sets
 RL_SUPPORTED_MODELS: frozenset[str] = frozenset(
     {
+        "Qwen/Qwen3-0.6B",
         "Qwen/Qwen3-1.7B",
         "Qwen/Qwen3-4B",
         "Qwen/Qwen3-4B-Thinking-2507",

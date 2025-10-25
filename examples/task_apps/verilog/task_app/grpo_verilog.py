@@ -34,6 +34,7 @@ from synth_ai.task.contracts import (
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.rubrics import load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.task.validators import normalize_inference_url
 from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
@@ -190,23 +191,6 @@ def _base_task_info(dataset: VerilogDataset) -> TaskInfo:
     )
 
 
-def _normalize_inference_url(url: str | None) -> str:
-    candidate = (url or DEFAULT_INFERENCE_URL).strip()
-    if not candidate:
-        candidate = DEFAULT_INFERENCE_URL
-    if candidate.endswith("/v1/chat/completions"):
-        return candidate
-    if candidate.endswith("/chat/completions"):
-        return candidate
-    if candidate.endswith("/v1"):
-        return f"{candidate.rstrip('/')}/chat/completions"
-    if candidate.endswith("/v1/"):
-        return f"{candidate.rstrip('/')}/chat/completions"
-    if candidate.endswith("/chat"):
-        return f"{candidate.rstrip('/')}/completions"
-    if candidate.endswith("/chat/"):
-        return f"{candidate.rstrip('/')}/completions"
-    return f"{candidate.rstrip('/')}/v1/chat/completions"
 
 
 def _format_file_previews(files: dict[str, str]) -> str:
@@ -365,7 +349,7 @@ class VerilogLLMAgent:
         max_tokens: int,
     ) -> None:
         self.instructions = instructions.strip()
-        self.inference_url = _normalize_inference_url(inference_url)
+        self.inference_url = normalize_inference_url(inference_url, default=DEFAULT_INFERENCE_URL)
         self.model = model or DEFAULT_MODEL
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -378,7 +362,16 @@ class VerilogLLMAgent:
             if not api_key:
                 raise RuntimeError("GROQ_API_KEY is not configured for Verilog inference.")
             self.headers["Authorization"] = f"Bearer {api_key.strip()}"
-        elif "openai" in lowered:
+        # If target is Synth backend (any deployment), use SYNTH_API_KEY
+        elif any(pattern in lowered for pattern in [
+            "synth-backend", "synth.run", "agent-learning",
+            "localhost:8000", "127.0.0.1:8000"
+        ]):
+            api_key = os.getenv("SYNTH_API_KEY")
+            if not api_key:
+                raise RuntimeError("SYNTH_API_KEY is not configured for Verilog inference with Synth backend.")
+            self.headers["Authorization"] = f"Bearer {api_key.strip()}"
+        elif "openai" in lowered or "api.openai.com" in lowered:
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise RuntimeError("OPENAI_API_KEY is not configured for Verilog inference.")
@@ -603,6 +596,21 @@ async def rollout_executor(
     total_reward = 0.0
     final_observation: dict[str, Any] | None = None
     truncated_due_to_limit = False
+    
+    # Log episode start
+    problem_id = getattr(instance, "problem_id", "unknown")
+    logger.info("=" * 80)
+    logger.info(f"[EPISODE START] run_id={request.run_id}")
+    logger.info(f"  Problem ID:        {problem_id}")
+    logger.info(f"  Policy:            {policy_id}")
+    logger.info(f"  Model:             {policy_model}")
+    logger.info(f"  Max steps:         {max_steps}")
+    logger.info(f"  Temperature:       {temperature}")
+    logger.info(f"  Max tokens:        {max_tokens}")
+    if instructions:
+        instructions_preview = instructions[:150] + "..." if len(instructions) > 150 else instructions
+        logger.info(f"  Instructions:      {instructions_preview}")
+    logger.info("=" * 80)
     code_dirty = False
     last_compile_success = False
     simulate_since_last_compile = False
@@ -677,7 +685,7 @@ async def rollout_executor(
                             and not code_dirty
                         )
                         if skip_env_step:
-                            reward_last = -0.01
+                            reward_last = 0.0  # No reward for blocked operations
                             total_reward += reward_last
                             current_observation = dict(current_observation)
                             current_observation["reward_last"] = reward_last
@@ -698,6 +706,23 @@ async def rollout_executor(
                                 or current_observation.get("task_completed")
                             )
                             truncated_flag = bool(current_observation.get("truncated"))
+                            
+                            # Log what the environment returned
+                            print(f"\n{'='*80}")
+                            print(f"[STEP {step_index}] TOOL CALL:")
+                            print(f"  Tool: {env_call.tool}")
+                            print(f"  Args: {env_call.args}")
+                            print(f"\n[STEP {step_index}] ENVIRONMENT RESPONSE:")
+                            print(f"  Reward: {reward_last:.4f} (cumulative: {total_reward:.4f})")
+                            print(f"  Task completed: {step_observation.get('task_completed')}")
+                            print(f"  Done: {done_flag} | Truncated: {truncated_flag}")
+                            if 'compile_status' in step_observation and step_observation.get('compile_status'):
+                                print(f"  Compile status:\n{step_observation.get('compile_status')}")
+                            if 'simulate_status' in step_observation and step_observation.get('simulate_status'):
+                                print(f"  Simulate status:\n{step_observation.get('simulate_status')}")
+                            if 'files' in step_observation:
+                                print(f"  Files: {list(step_observation.get('files', {}).keys())}")
+                            print(f"{'='*80}\n")
 
                         executed_tool_name = str(primary_call["tool"])
                         normalized_executed_tool = executed_tool_name.strip().lower()
@@ -727,10 +752,40 @@ async def rollout_executor(
                             {"tool_name": call["tool"], "arguments": call["args"]}
                             for call in tool_calls
                         ]
+                        
+                        # Print tool calls for debugging
+                        logger.info(f"[STEP {step_index}] Tool calls executed:")
+                        for call in tool_calls:
+                            tool_name = call["tool"]
+                            args = call["args"]
+                            # Truncate long arguments for readability
+                            if "code" in args or "content" in args:
+                                args_preview = {k: (v[:100] + "..." if isinstance(v, str) and len(v) > 100 else v) 
+                                               for k, v in args.items()}
+                            else:
+                                args_preview = args
+                            logger.info(f"  └─ {tool_name}({args_preview})")
+                        
+                        # Log reward details for debugging
+                        logger.info(f"[STEP {step_index}] Reward details:")
+                        logger.info(f"  └─ reward_last: {reward_last:.4f}")
+                        logger.info(f"  └─ total_reward: {total_reward:.4f}")
+                        logger.info(f"  └─ skip_env_step: {skip_env_step}")
+                        if not skip_env_step:
+                            logger.info(f"  └─ obs.task_completed: {current_observation.get('task_completed', False)}")
+                            logger.info(f"  └─ obs.compile_status: {current_observation.get('compile_status', 'N/A')}")
+                            logger.info(f"  └─ obs.simulate_status: {current_observation.get('simulate_status', 'N/A')}")
+                            logger.info(f"  └─ obs.terminated: {current_observation.get('terminated', False)}")
+                        else:
+                            logger.info(f"  └─ (blocked operation - no env step)")
+                        
                         step_info = {
                             "assistant_message": assistant_text,
                             "model_response": raw_response,
                             "llm_request": request_payload,
+                            "meta": {
+                                "inference_url": policy_config.get("inference_url") or resolved_inference,  # CRITICAL: Required by RL trainer for trace extraction (must have ?cid=...)
+                            },
                         }
                         if override_info:
                             step_info["auto_override"] = override_info
@@ -785,6 +840,9 @@ async def rollout_executor(
                             "model_response": raw_response,
                             "llm_request": request_payload,
                             "error": error_text,
+                            "meta": {
+                                "inference_url": policy_config.get("inference_url") or resolved_inference,  # CRITICAL: Required by RL trainer
+                            },
                         }
                         steps.append(
                             RolloutStep(
@@ -888,6 +946,7 @@ async def rollout_executor(
     pipeline_metadata = {
         "reward_score": final_total_reward,
         "policy_id": policy_id,
+        "inference_url": final_inference_url,  # CRITICAL: Must be at top level for RL trainer (expects ?cid=...)
         "inference": {
             "provider": "groq",
             "model": policy_model,
@@ -896,8 +955,56 @@ async def rollout_executor(
         "env_name": env_id,
         "task_id": getattr(instance, "problem_id", None),
         "task_split": getattr(instance, "split", "val"),
-        "inference_url": final_inference_url,  # CRITICAL: Used by trainer to extract trace_correlation_id
     }
+    
+    # Log episode summary with reward breakdown
+    compile_status = final_observation.get("compile_status", "N/A")
+    simulate_status = final_observation.get("simulate_status", "N/A")
+    task_completed = bool(final_observation.get("task_completed", False))
+    
+    logger.info("=" * 80)
+    logger.info(f"[EPISODE COMPLETE] run_id={request.run_id}")
+    logger.info(f"  Steps taken:       {len(steps)}")
+    logger.info(f"  Total reward:      {final_total_reward:.3f}")
+    logger.info(f"  Task completed:    {task_completed}")
+    logger.info(f"  Compile status:    {compile_status}")
+    logger.info(f"  Simulate status:   {simulate_status}")
+    logger.info(f"  Done/Truncated:    {final_done}/{final_truncated}")
+    logger.info(f"  Problem ID:        {getattr(instance, 'problem_id', 'N/A')}")
+    
+    # DEBUG: Log each step's reward for RL debugging
+    print(f"\n[REWARD DEBUG] Step-by-step breakdown:")
+    for idx, step in enumerate(steps):
+        print(f"  Step {idx}: reward={step.reward:.4f} tool_calls={[tc.get('tool_name') for tc in step.tool_calls]}")
+    print(f"[REWARD DEBUG] Final observation keys: {list(final_observation.keys())}")
+    print(f"[REWARD DEBUG] Final obs total_reward: {final_observation.get('total_reward')}")
+    print(f"[REWARD DEBUG] Metrics outcome_score: {metrics.outcome_score}")
+    print(f"[REWARD DEBUG] Metrics mean_return: {metrics.mean_return}")
+    
+    # Reward breakdown for debugging
+    logger.info("\n[REWARD BREAKDOWN]")
+    compile_count = sum(1 for s in steps if any(tc.get("tool_name") == "compile" for tc in s.tool_calls))
+    simulate_count = sum(1 for s in steps if any(tc.get("tool_name") == "simulate" for tc in s.tool_calls))
+    submit_count = sum(1 for s in steps if any(tc.get("tool_name") == "submit" for tc in s.tool_calls))
+    write_count = sum(1 for s in steps if any(tc.get("tool_name") == "write_file" for tc in s.tool_calls))
+    
+    logger.info(f"  Tool usage: write_file={write_count}, compile={compile_count}, simulate={simulate_count}, submit={submit_count}")
+    
+    # Show per-step rewards
+    step_rewards = [s.reward for s in steps]
+    nonzero_rewards = [r for r in step_rewards if r != 0.0]
+    logger.info(f"  Step rewards: {step_rewards}")
+    if nonzero_rewards:
+        logger.info(f"  Non-zero rewards: {nonzero_rewards}")
+    else:
+        logger.info(f"  ⚠️  ALL REWARDS ZERO! Possible reasons:")
+        logger.info(f"    - No successful compiles (compile reward = 0.01)")
+        logger.info(f"    - No successful simulations (simulate reward = 0.1)")
+        logger.info(f"    - No successful submits (submit reward = 1.0)")
+        logger.info(f"    - Check if task_completed={task_completed}")
+        logger.info(f"    - Check compile_status='{compile_status}'")
+        logger.info(f"    - Check simulate_status='{simulate_status}'")
+    logger.info("=" * 80)
     
     # Log for debugging RL training
     logger.info(
@@ -905,6 +1012,61 @@ async def rollout_executor(
         request.run_id,
         final_total_reward,
         final_inference_url,
+    )
+    
+    # DEBUG: Log what we're returning to the RL trainer
+    print(f"\n[RETURN DEBUG] Trajectory structure being returned:")
+    print(f"  trajectory.steps count: {len(steps)}")
+    print(f"  trajectory.final.reward: {trajectory.final.get('reward') if trajectory.final else 'None'}")
+    print(f"  trajectory.length: {trajectory.length}")
+    print(f"  metrics.outcome_score: {metrics.outcome_score}")
+    print(f"  metrics.mean_return: {metrics.mean_return}")
+    print(f"  metrics.episode_returns: {metrics.episode_returns}")
+    print(f"  pipeline_metadata.reward_score: {pipeline_metadata.get('reward_score')}")
+    
+    # ASSERTIONS: Validate RL-required fields before returning
+    # These catch structural issues early (before they reach the backend trainer)
+    # Only enforce for RL mode, not EVAL mode
+    is_rl_mode = hasattr(request, 'mode') and str(getattr(request, 'mode', '')).lower() == 'rl'
+    
+    assert isinstance(pipeline_metadata, dict), (
+        f"VERILOG_ROLLOUT_VALIDATION: pipeline_metadata must be dict, got {type(pipeline_metadata).__name__}"
+    )
+    assert "inference_url" in pipeline_metadata, (
+        f"VERILOG_ROLLOUT_VALIDATION: pipeline_metadata missing 'inference_url' (REQUIRED for RL training)"
+    )
+    assert isinstance(pipeline_metadata["inference_url"], str), (
+        f"VERILOG_ROLLOUT_VALIDATION: pipeline_metadata['inference_url'] must be string, got {type(pipeline_metadata['inference_url']).__name__}"
+    )
+    # Only require ?cid= for RL mode (not needed for EVAL)
+    if is_rl_mode:
+        assert "?cid=" in pipeline_metadata["inference_url"], (
+            f"VERILOG_ROLLOUT_VALIDATION: pipeline_metadata['inference_url'] must contain '?cid=' for trace correlation in RL mode. "
+            f"Got: {pipeline_metadata['inference_url'][:100]}"
+        )
+    
+    # Validate each step has meta.inference_url (backend expects this nested structure)
+    for step_idx, step in enumerate(steps):
+        step_dict = step if isinstance(step, dict) else (step.model_dump() if hasattr(step, "model_dump") else {})
+        step_info = step_dict.get("info", {})
+        assert isinstance(step_info, dict), (
+            f"VERILOG_ROLLOUT_VALIDATION: step[{step_idx}].info must be dict, got {type(step_info).__name__}"
+        )
+        step_meta = step_info.get("meta", {})
+        assert isinstance(step_meta, dict), (
+            f"VERILOG_ROLLOUT_VALIDATION: step[{step_idx}].info.meta must be dict, got {type(step_meta).__name__}"
+        )
+        assert "inference_url" in step_meta, (
+            f"VERILOG_ROLLOUT_VALIDATION: step[{step_idx}].info.meta missing 'inference_url' (REQUIRED for RL training)"
+        )
+        assert isinstance(step_meta["inference_url"], str), (
+            f"VERILOG_ROLLOUT_VALIDATION: step[{step_idx}].info.meta['inference_url'] must be string, got {type(step_meta['inference_url']).__name__}"
+        )
+    
+    logger.info(
+        "VERILOG_ROLLOUT_VALIDATION: ✓ All RL-required fields present run_id=%s steps=%d",
+        request.run_id,
+        len(steps),
     )
     
     return RolloutResponse(
@@ -989,6 +1151,7 @@ register_task_app(
                 "python-dotenv>=1.0.1",
                 "datasets>=2.10.0",
             ),
+            apt_packages=("iverilog",),  # Icarus Verilog compiler and simulator (provides iverilog and vvp)
             extra_local_dirs=(
                 (str(REPO_ROOT), "/opt/synth_ai_repo"),
                 (str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),

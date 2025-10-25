@@ -178,8 +178,18 @@ class OpenAIClient:
                 if openai_key and isinstance(openai_key, str):
                     headers["Authorization"] = f"Bearer {openai_key}"
             
-            # If target is our in-app Groq proxy, use GROQ_API_KEY
-            elif "/proxy/groq" in low_url or "groq" in low_url:
+            # If target is Synth backend (any deployment), use SYNTH_API_KEY
+            # Matches: synth-backend-*, agent-learning*, localhost:8000, 127.0.0.1:8000
+            elif any(pattern in low_url for pattern in [
+                "synth-backend", "synth.run", "agent-learning",
+                "localhost:8000", "127.0.0.1:8000"
+            ]):
+                synth_key = os.getenv("SYNTH_API_KEY")
+                if synth_key and isinstance(synth_key, str):
+                    headers["Authorization"] = f"Bearer {synth_key}"
+            
+            # If target is Groq, use GROQ_API_KEY
+            elif "/proxy/groq" in low_url or "api.groq.com" in low_url:
                 gk = os.getenv("GROQ_API_KEY")
                 if gk and isinstance(gk, str):
                     headers["Authorization"] = f"Bearer {gk}"

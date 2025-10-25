@@ -60,7 +60,7 @@ class VerilogSimulationPassComponent(RewardComponent):
 
 
 class VerilogStepPenaltyComponent(RewardComponent):
-    def __init__(self, penalty: float = -0.001):  # Normalized: -0.01 / 10.0 = -0.001
+    def __init__(self, penalty: float = 0.0):  # No per-step reward - only reward accomplishments
         self.penalty = penalty
 
     async def score(self, state: Any, action: Any) -> float:
@@ -83,6 +83,9 @@ class VerilogEngine(StatefulEngine):
     """
 
     def __init__(self, task_instance: TaskInstance):
+        # Validate required Verilog tools are available
+        self._validate_verilog_tools()
+        
         self.task_instance = task_instance
         self._total_reward = 0.0
         self._current_action_for_reward: Optional[Dict[str, Any]] = None
@@ -92,7 +95,7 @@ class VerilogEngine(StatefulEngine):
                 VerilogCompileSuccessComponent(),
                 VerilogSimulationPassComponent(),
                 VerilogSubmitSuccessComponent(),
-                VerilogStepPenaltyComponent(penalty=-0.001),  # Normalized: -0.01 / 10.0
+                VerilogStepPenaltyComponent(penalty=0.0),  # No per-step reward
             ]
         )
 
@@ -103,6 +106,39 @@ class VerilogEngine(StatefulEngine):
         # Track last compile/simulate outputs
         self._last_compile_output: Optional[str] = None
         self._last_simulate_output: Optional[str] = None
+    
+    @staticmethod
+    def _validate_verilog_tools() -> None:
+        """Validate that required Verilog tools (iverilog, vvp) are available."""
+        missing_tools = []
+        
+        if not shutil.which("iverilog"):
+            missing_tools.append("iverilog")
+        if not shutil.which("vvp"):
+            missing_tools.append("vvp")
+        
+        if missing_tools:
+            error_msg = (
+                f"🚨🚨🚨 CRITICAL CONFIGURATION ERROR 🚨🚨🚨\n"
+                f"\n"
+                f"Missing required Verilog tools: {', '.join(missing_tools)}\n"
+                f"\n"
+                f"The Verilog environment CANNOT function without these tools.\n"
+                f"ALL compile/simulate operations will FAIL.\n"
+                f"ALL rewards will be ZERO.\n"
+                f"Training or evaluation will be COMPLETELY BROKEN.\n"
+                f"\n"
+                f"🔧 FIX THIS NOW:\n"
+                f"1. Add 'iverilog' to apt_packages in Modal deployment config\n"
+                f"2. Location: examples/task_apps/verilog/task_app/grpo_verilog.py\n"
+                f"3. Look for: modal=ModalDeploymentConfig(\n"
+                f"4. Add: apt_packages=('iverilog',)  # Provides both iverilog and vvp\n"
+                f"5. Redeploy: uvx synth-ai modal-serve grpo-verilog\n"
+                f"\n"
+                f"{'='*80}"
+            )
+            print(f"\n{'='*80}\n{error_msg}\n{'='*80}\n", flush=True)
+            raise RuntimeError(error_msg)
 
     async def _reset_engine(
         self, *, seed: Optional[int] = None
@@ -133,6 +169,13 @@ class VerilogEngine(StatefulEngine):
     ) -> Tuple[VerilogPrivateState, VerilogPublicState]:
         """Process an action result and update engine state."""
         self._current_action_for_reward = action_result
+        
+        # DEBUG: Print action_result
+        print(f"\n[ENGINE DEBUG] _step_engine called")
+        print(f"  action_result: {action_result}")
+        print(f"  action_result.type: {action_result.get('type')}")
+        print(f"  action_result.returncode: {action_result.get('returncode')}")
+        print(f"  action_result.ok: {action_result.get('ok')}")
 
         # Update last outputs if this is a compile or simulate action
         if action_result.get("type") == "compile":
@@ -147,18 +190,21 @@ class VerilogEngine(StatefulEngine):
         current_pub_state = VerilogPublicState(
             files=self._get_file_contents(),
             build_dir=str(self.build_dir),
-            task_completed=action_result.get("passed", False),
+            task_completed=action_result.get("submitted", False) and action_result.get("passed", False),
         )
 
         reward_from_stack = await self.reward_stack.step_reward(
             state=current_pub_state, action=self._current_action_for_reward
         )
         self._current_action_for_reward = None
+        
+        # DEBUG: Print reward
+        print(f"[ENGINE DEBUG] reward_from_stack: {reward_from_stack}")
 
         self._total_reward += reward_from_stack
 
-        # Check termination conditions
-        terminated = action_result.get("passed", False) or action_result.get("submitted", False)
+        # Check termination conditions - only terminate if submitted (regardless of pass/fail)
+        terminated = action_result.get("submitted", False)
 
         priv = VerilogPrivateState(
             reward_last=reward_from_stack,
@@ -170,7 +216,7 @@ class VerilogEngine(StatefulEngine):
         pub = VerilogPublicState(
             files=self._get_file_contents(),
             build_dir=str(self.build_dir),
-            task_completed=action_result.get("passed", False),
+            task_completed=action_result.get("submitted", False) and action_result.get("passed", False),
             last_compile_output=self._last_compile_output,
             last_simulate_output=self._last_simulate_output,
         )
@@ -259,6 +305,16 @@ class VerilogEngine(StatefulEngine):
             }
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "Compilation timeout", "type": "compile"}
+        except FileNotFoundError:
+            error_msg = (
+                "🚨 CRITICAL ERROR: 'iverilog' executable not found! 🚨\n"
+                "The Verilog compiler (iverilog) is not installed in this environment.\n"
+                "This will cause ALL compile operations to fail and result in ZERO rewards.\n"
+                "Fix: Add 'iverilog' to apt_packages in the Modal deployment config.\n"
+                "Location: examples/task_apps/verilog/task_app/grpo_verilog.py -> modal=ModalDeploymentConfig(apt_packages=('iverilog',))"
+            )
+            print(f"\n{'='*80}\n{error_msg}\n{'='*80}\n", flush=True)
+            raise RuntimeError(error_msg) from None
         except Exception as e:
             return {"ok": False, "error": str(e), "type": "compile"}
 
@@ -290,6 +346,16 @@ class VerilogEngine(StatefulEngine):
             }
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "Simulation timeout", "type": "simulate"}
+        except FileNotFoundError:
+            error_msg = (
+                "🚨 CRITICAL ERROR: 'vvp' executable not found! 🚨\n"
+                "The Verilog simulator (vvp) is not installed in this environment.\n"
+                "This will cause ALL simulate operations to fail and result in ZERO rewards.\n"
+                "Fix: Add 'iverilog' to apt_packages in the Modal deployment config (provides both iverilog and vvp).\n"
+                "Location: examples/task_apps/verilog/task_app/grpo_verilog.py -> modal=ModalDeploymentConfig(apt_packages=('iverilog',))"
+            )
+            print(f"\n{'='*80}\n{error_msg}\n{'='*80}\n", flush=True)
+            raise RuntimeError(error_msg) from None
         except Exception as e:
             return {"ok": False, "error": str(e), "type": "simulate"}
 

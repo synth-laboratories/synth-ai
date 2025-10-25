@@ -6,8 +6,7 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-
-from synth_ai.cli.task_apps import _preflight_env_key
+from synth_ai.cli.task_apps import _preflight_env_key as preflight_env_key
 from synth_ai.learning.rl.secrets import mint_environment_api_key
 
 
@@ -29,8 +28,7 @@ def test_mint_environment_api_key_is_raw_hex(monkeypatch: pytest.MonkeyPatch) ->
     assert bytes.fromhex(minted)
 
 
-def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    env_file = tmp_path / "task.env"
+def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) -> None:
     minted_value = "f0" * 32  # 64 hex chars; matches secrets.token_hex(32) output length.
     mint_calls: list[str] = []
 
@@ -107,25 +105,36 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch, tm
     monkeypatch.setattr(httpx, "Client", FakeClient)
     monkeypatch.setattr(nacl.public, "PublicKey", FakePublicKey)
     monkeypatch.setattr(nacl.public, "SealedBox", FakeSealedBox)
+    
+    # Mock file I/O functions to prevent actual file writes during test
+    monkeypatch.setattr("synth_ai.cli.task_apps._persist_env_api_key", lambda *args, **kwargs: None)
 
-    _preflight_env_key([env_file], crash_on_failure=True)
+    preflight_env_key(crash_on_failure=True)
 
     assert mint_calls == ["called"]
     assert os.environ["ENVIRONMENT_API_KEY"] == minted_value
     assert os.environ["DEV_ENVIRONMENT_API_KEY"] == minted_value
-    assert env_file.exists()
-    assert f"ENVIRONMENT_API_KEY={minted_value}" in env_file.read_text().splitlines()
-
+    
     assert FakeSealedBox.last_plaintext == minted_value.encode("utf-8")
 
-    assert len(FakeClient.instances) == 2
-    upload_client = FakeClient.instances[1]
-    post_calls = [entry for entry in upload_client.requests if entry[0] == "POST"]
+    assert FakeClient.instances, "Expected HTTP client usage during preflight"
+    
+    # Collect all requests from all client instances
+    all_requests = []
+    for client in FakeClient.instances:
+        all_requests.extend(client.requests)
+    
+    get_calls = [entry for entry in all_requests if entry[0] == "GET"]
+    assert any(
+        entry[1].endswith("/v1/crypto/public-key") for entry in get_calls
+    ), "Expected public key fetch via GET"
+    
+    post_calls = [entry for entry in all_requests if entry[0] == "POST"]
     assert post_calls, "Expected an upload POST request"
     payload = post_calls[0][2]["json"]
     expected_ciphertext = base64.b64encode(b"sealed:" + minted_value.encode("utf-8")).decode("ascii")
     assert payload["name"] == "ENVIRONMENT_API_KEY"
     assert payload["ciphertext_b64"] == expected_ciphertext
 
-    verify_calls = [entry for entry in upload_client.requests if entry[0] == "GET" and entry[1].endswith("/v1/env-keys/verify")]
+    verify_calls = [entry for entry in all_requests if entry[0] == "GET" and entry[1].endswith("/v1/env-keys/verify")]
     assert verify_calls, "Expected verification request after upload"

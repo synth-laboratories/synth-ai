@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 def extract_trace_correlation_id(
     policy_config: dict[str, Any],
-    inference_url: str | None = None
+    inference_url: str | None = None,
+    mode: Any = None
 ) -> str | None:
     """
     Extract trace_correlation_id from policy config or inference URL.
@@ -27,6 +28,8 @@ def extract_trace_correlation_id(
     Args:
         policy_config: Policy configuration dict from RolloutRequest.policy.config
         inference_url: Inference URL (optional, used as fallback)
+        mode: RolloutMode or string ("rl" or "eval"). Controls warning behavior - 
+              warnings only logged for RL mode, not EVAL mode.
         
     Returns:
         trace_correlation_id if found, None otherwise
@@ -59,12 +62,27 @@ def extract_trace_correlation_id(
                 )
                 return stripped
     
+    # Determine if we're in EVAL mode (trace_correlation_id not required for eval)
+    try:
+        from synth_ai.task.contracts import RolloutMode
+        is_eval_mode = (mode == "eval" or mode == RolloutMode.EVAL or 
+                        (hasattr(mode, 'value') and mode.value == "eval"))
+    except ImportError:
+        # If RolloutMode not available, fall back to string comparison
+        is_eval_mode = (mode == "eval")
+    
     # Fallback: try to extract from inference_url query params
     if not inference_url or not isinstance(inference_url, str):
-        logger.warning(
-            "extract_trace_correlation_id: no correlation ID found in policy_config "
-            "and no inference_url provided"
-        )
+        if is_eval_mode:
+            logger.debug(
+                "extract_trace_correlation_id: no correlation ID found in policy_config "
+                "and no inference_url provided (EVAL mode - expected)"
+            )
+        else:
+            logger.warning(
+                "extract_trace_correlation_id: no correlation ID found in policy_config "
+                "and no inference_url provided"
+            )
         return None
     
     try:
@@ -89,11 +107,18 @@ def extract_trace_correlation_id(
             e,
         )
     
-    logger.warning(
-        "extract_trace_correlation_id: no trace_correlation_id found in "
-        "policy_config or inference_url=%s",
-        inference_url,
-    )
+    if is_eval_mode:
+        logger.debug(
+            "extract_trace_correlation_id: no trace_correlation_id found in "
+            "policy_config or inference_url=%s (EVAL mode - expected)",
+            inference_url,
+        )
+    else:
+        logger.warning(
+            "extract_trace_correlation_id: no trace_correlation_id found in "
+            "policy_config or inference_url=%s",
+            inference_url,
+        )
     return None
 
 

@@ -10,33 +10,33 @@ variety = "gspo"
 
 [services]
 # Replace with the Modal URL printed by `uvx synth-ai modal-serve grpo-verilog`
-task_url = "https://YOUR-MODAL-VERILOG-TASK-APP.modal.run"
+task_url = "https://synth-laboratories--grpo-verilog-task-app-fastapi-app-dev.modal.run"
 # Point at the Synth backend (or compatible service) that exposes /api/judge/v1/*
 judge_url = "https://synth-backend-dev-docker.onrender.com/api"
 
 [compute]
-gpu_type = "H100"  # ✅ 0.6B model fits easily on H100
-gpu_count = 2      # ✅ Always need at least 2x GPUs (vLLM + training split)
+gpu_type = "H200"  # ✅ 8B model needs H200 for larger context window
+gpu_count = 2      # ✅ Minimum 2x GPUs (1 for vLLM inference + 1 for training)
 nodes = 1
 
 [topology]
 type = "single_node_split"
 gpus_for_vllm = 1      # ✅ vLLM for inference
-gpus_for_training = 1  # ✅ Training GPU (even for 0.6B LoRA)
+gpus_for_training = 1  # ✅ Training GPU (8B LoRA fits well)
 gpus_for_ref = 0
 tensor_parallel = 1
 
 [vllm]
 tensor_parallel_size = 1
-max_model_len = 4096  # ✅ Shorter sequences for Verilog tasks
+max_model_len = 24576  # ✅ Increased to 24K to accommodate long Verilog prompts (16K + 8K buffer for testbenches + history)
 
 [reference]
 placement = "none"
 
 [model]
-base = "Qwen/Qwen3-0.6B"  # ✅ Same model as proven SFT configs
+base = "Qwen/Qwen3-8B"  # ✅ 8B model for RL training with good balance of speed and capability
 trainer_mode = "lora"
-label = "verilog-rl-lora-qwen0.6b"
+label = "verilog-rl-lora-qwen8b"
 
 [lora]
 r = 16
@@ -46,8 +46,8 @@ target_modules = ["all-linear"]
 
 [rollout]
 env_name = "verilog"  # ✅ Changed from "crafter" to "verilog"
-max_turns = 15        # ✅ More steps for compilation chains vs Crafter's 10
-episodes_per_batch = 4  # ✅ Increased for 0.6B (faster inference)
+max_turns = 6        # ✅ More steps for compilation chains vs Crafter's 10
+episodes_per_batch = 4  # ✅ Good batch size for 8B model
 policy_name = "verilog-designer"
 max_concurrent_rollouts = 8
 batches_per_step = 2
@@ -65,10 +65,10 @@ ops = ["agent", "env"]
     step_beta = 0.0
 
   [rollout.policy_config]
-  provider = "groq"
-  model = "qwen/qwen3-32b"  # ✅ Use larger model for inference (like Crafter)
+  provider = "openai"
+  model = "Qwen/Qwen3-8B"  # ✅ Use the model being trained (8B) for rollouts
   temperature = 0.2
-  max_tokens = 768
+  max_tokens = 4096  # ✅ Balanced for Verilog generation while leaving room for long input prompts (testbenches + history)
 
 [evaluation]
 instances = 16
@@ -77,16 +77,17 @@ seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 [training]
 num_epochs = 1
-iterations_per_epoch = 20
+iterations_per_epoch = 5
 gradient_accumulation_steps = 1
 max_accumulated_minibatch = 1
 max_turns = 15
-batch_size = 4          # ✅ Same as Crafter (works well for 0.6B)
+batch_size = 4          # ✅ Same as Crafter (works well for 8B LoRA)
 group_size = 4
 learning_rate = 5e-5    # ✅ Same as Crafter
 log_interval = 1
 weight_sync_interval = 1
 event_rewards_kind = "unique"
+async_semaphore_max = 20  # Max concurrent rollouts in streaming pipeline
 
 # Enable dense decision rewards in the trainer
 step_rewards_enabled = true

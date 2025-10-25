@@ -4,11 +4,155 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import click
 import httpx
 
 from synth_ai.task.contracts import TaskAppEndpoints  # type: ignore[attr-defined]
+
+
+def validate_rollout_response_for_rl(response_data: dict[str, Any], *, warn_only: bool = False) -> list[str]:
+    """Validate that a task app rollout response has required fields for RL training.
+    
+    The backend RL trainer requires:
+    1. pipeline_metadata["inference_url"] at top level (with ?cid= for trace correlation)
+    2. Each step's info.meta["inference_url"] must be present (nested structure!)
+    
+    Args:
+        response_data: The rollout response dict from task app
+        warn_only: If True, return warnings instead of raising exceptions
+        
+    Returns:
+        List of validation warnings/errors
+        
+    Raises:
+        ValueError: If critical fields are missing (unless warn_only=True)
+    """
+    issues = []
+    
+    # Check pipeline_metadata
+    pipeline_metadata = response_data.get("pipeline_metadata")
+    if not isinstance(pipeline_metadata, dict):
+        issues.append("Missing or invalid 'pipeline_metadata' (required for RL training)")
+    else:
+        inference_url = pipeline_metadata.get("inference_url")
+        if not inference_url:
+            issues.append(
+                "pipeline_metadata['inference_url'] is missing. "
+                "RL trainer requires this field to extract traces."
+            )
+        elif not isinstance(inference_url, str):
+            issues.append(
+                f"pipeline_metadata['inference_url'] must be a string, got: {type(inference_url).__name__}"
+            )
+        elif "?cid=" not in inference_url:
+            issues.append(
+                f"pipeline_metadata['inference_url'] should contain '?cid=' for trace correlation. "
+                f"Got: {inference_url[:80]}..."
+            )
+    
+    # Check trajectories and steps
+    trajectories = response_data.get("trajectories", [])
+    if not trajectories:
+        issues.append("No trajectories found in response")
+    
+    for traj_idx, trajectory in enumerate(trajectories):
+        if not isinstance(trajectory, dict):
+            continue
+        
+        steps = trajectory.get("steps", [])
+        for step_idx, step in enumerate(steps):
+            if not isinstance(step, dict):
+                continue
+            
+            step_info = step.get("info", {})
+            if not isinstance(step_info, dict):
+                issues.append(
+                    f"trajectory[{traj_idx}].steps[{step_idx}].info is not a dict"
+                )
+                continue
+            
+            # Check for nested meta.inference_url (backend expects this structure!)
+            step_meta = step_info.get("meta", {})
+            if not isinstance(step_meta, dict):
+                issues.append(
+                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta is missing or not a dict. "
+                    f"RL trainer expects nested structure: info.meta.inference_url"
+                )
+                continue
+            
+            step_inference_url = step_meta.get("inference_url")
+            if not step_inference_url:
+                issues.append(
+                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta['inference_url'] is missing. "
+                    f"RL trainer needs this for trace extraction (nested structure required!)"
+                )
+            elif not isinstance(step_inference_url, str):
+                issues.append(
+                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta['inference_url'] must be a string, "
+                    f"got: {type(step_inference_url).__name__}"
+                )
+    
+    if issues and not warn_only:
+        error_msg = "Task app response validation failed for RL training:\n" + "\n".join(
+            f"  - {issue}" for issue in issues
+        )
+        raise ValueError(error_msg)
+    
+    return issues
+
+
+def normalize_inference_url(url: str | None, *, default: str = "https://api.openai.com/v1/chat/completions") -> str:
+    """Normalize an inference URL to include the /v1/chat/completions path.
+    
+    This utility ensures inference URLs have the correct path structure for OpenAI-compatible
+    chat completions endpoints, while preserving query parameters (e.g., ?cid=trace_123) 
+    that may be added for tracing.
+    
+    Args:
+        url: The inference URL to normalize (may be None or incomplete)
+        default: Default URL to use if url is None/empty
+        
+    Returns:
+        Normalized URL with proper path and preserved query parameters
+        
+    Examples:
+        >>> normalize_inference_url("https://api.groq.com")
+        'https://api.groq.com/v1/chat/completions'
+        
+        >>> normalize_inference_url("https://modal.host?cid=trace_123")
+        'https://modal.host/v1/chat/completions?cid=trace_123'
+        
+        >>> normalize_inference_url("https://api.openai.com/v1")
+        'https://api.openai.com/v1/chat/completions'
+        
+        >>> normalize_inference_url("https://api.groq.com/openai/v1/chat/completions")
+        'https://api.groq.com/openai/v1/chat/completions'
+    """
+    candidate = (url or default).strip()
+    if not candidate:
+        candidate = default
+    
+    # Parse the URL to separate path and query components
+    parsed = urlparse(candidate)
+    
+    # Check if path already ends with a completions endpoint
+    path = parsed.path.rstrip('/')
+    if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
+        return candidate
+    
+    # Determine what to append based on existing path
+    if path.endswith("/v1"):
+        new_path = f"{path}/chat/completions"
+    elif path.endswith("/chat"):
+        new_path = f"{path}/completions"
+    else:
+        # Default: append full path
+        new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+    
+    # Reconstruct URL with new path and original query/fragment
+    return urlunparse(parsed._replace(path=new_path))
 
 
 def validate_task_app_url(url: str | None) -> str:

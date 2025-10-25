@@ -12,11 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from synth_ai.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.task.contracts import RolloutMetrics, RolloutMode, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
 from synth_ai.task.rubrics import load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.task.validators import normalize_inference_url
 from synth_ai.task.tracing_utils import (
     build_tracer_factory,
     resolve_sft_output_dir,
@@ -32,7 +33,8 @@ try:
     )
 except Exception:  # pragma: no cover - utils unavailable if optional deps missing
     def ensure_chat_completions_url(raw_url, mode=None):
-        return raw_url
+        """Fallback to shared utility for URL normalization."""
+        return normalize_inference_url(raw_url) if raw_url else raw_url
 
     def extract_trace_correlation_id(_raw_url):
         return None
@@ -635,7 +637,7 @@ def _coerce_math_to_crafter(request: RolloutRequest) -> RolloutRequest:
     return coerced
 
 
-def _resolve_trace_correlation_id(policy_cfg: dict[str, Any]) -> str | None:
+def _resolve_trace_correlation_id(policy_cfg: dict[str, Any], mode: Any = None) -> str | None:
     """Best-effort extraction of the trace correlation identifier."""
     candidates: list[Any] = [
         policy_cfg.get("trace_correlation_id"),
@@ -652,7 +654,7 @@ def _resolve_trace_correlation_id(policy_cfg: dict[str, Any]) -> str | None:
             if stripped:
                 return stripped
 
-    return extract_trace_correlation_id(policy_cfg.get("inference_url"))
+    return extract_trace_correlation_id(policy_cfg.get("inference_url"), mode=mode)
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
@@ -683,20 +685,22 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
             policy_cfg.get("inference_url"),
         )
 
-    trace_correlation_id = _resolve_trace_correlation_id(policy_cfg)
+    trace_correlation_id = _resolve_trace_correlation_id(policy_cfg, mode=request.mode)
     
-    # ASSERTION: trace_correlation_id MUST be present for RL mode
-    assert trace_correlation_id is not None, (
-        f"FATAL: trace_correlation_id extraction failed for run_id={request.run_id}. "
-        f"policy_cfg_keys={sorted(policy_cfg.keys())} "
-        f"inference_url={policy_cfg.get('inference_url')}"
-    )
-    assert isinstance(trace_correlation_id, str) and trace_correlation_id.strip(), (
-        f"FATAL: trace_correlation_id is empty for run_id={request.run_id}. "
-        f"Got: {trace_correlation_id!r}"
-    )
+    # ASSERTION: trace_correlation_id MUST be present for RL mode (but not EVAL mode)
+    if request.mode == RolloutMode.RL:
+        assert trace_correlation_id is not None, (
+            f"FATAL: trace_correlation_id extraction failed for run_id={request.run_id}. "
+            f"policy_cfg_keys={sorted(policy_cfg.keys())} "
+            f"inference_url={policy_cfg.get('inference_url')}"
+        )
+        assert isinstance(trace_correlation_id, str) and trace_correlation_id.strip(), (
+            f"FATAL: trace_correlation_id is empty for run_id={request.run_id}. "
+            f"Got: {trace_correlation_id!r}"
+        )
     
-    policy_cfg["trace_correlation_id"] = trace_correlation_id
+    if trace_correlation_id:
+        policy_cfg["trace_correlation_id"] = trace_correlation_id
     logger.info(
         "ROLLOUT_EXEC: resolved trace_correlation_id=%s run_id=%s",
         trace_correlation_id,

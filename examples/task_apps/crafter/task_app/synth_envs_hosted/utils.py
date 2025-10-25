@@ -63,7 +63,7 @@ def ensure_chat_completions_url(raw_url: Any, mode: str | None = None) -> Any:
     return normalized
 
 
-def inference_url_to_trace_correlation_id(raw_url: Any, *, required: bool = False) -> str | None:
+def inference_url_to_trace_correlation_id(raw_url: Any, *, required: bool = False, mode: Any = None) -> str | None:
     """
     Extract trace_correlation_id from inference URL query params.
     
@@ -74,6 +74,8 @@ def inference_url_to_trace_correlation_id(raw_url: Any, *, required: bool = Fals
     Args:
         raw_url: Inference URL (should contain ?cid=... query param)
         required: If True, raises AssertionError if trace_correlation_id not found
+        mode: RolloutMode or string ("rl" or "eval"). Controls warning behavior - 
+              warnings only logged for RL mode, not EVAL mode.
     
     Returns:
         trace_correlation_id if found in URL, None otherwise
@@ -119,12 +121,25 @@ def inference_url_to_trace_correlation_id(raw_url: Any, *, required: bool = Fals
             )
             return correlation_id
     
-    # Not found
-    logger.warning(
-        "inference_url_to_trace_correlation_id: ❌ NO trace_correlation_id found in url=%s query_params=%s",
-        raw_url,
-        list(query_params.keys())
-    )
+    # Not found - check if we're in EVAL mode (trace_correlation_id not required for eval)
+    from synth_ai.task.contracts import RolloutMode
+    is_eval_mode = (mode == "eval" or mode == RolloutMode.EVAL or 
+                    (hasattr(mode, 'value') and mode.value == "eval"))
+    
+    if is_eval_mode:
+        # For EVAL mode, missing trace_correlation_id is expected - log as debug, not warning
+        logger.debug(
+            "inference_url_to_trace_correlation_id: No trace_correlation_id in EVAL mode (expected) url=%s query_params=%s",
+            raw_url,
+            list(query_params.keys())
+        )
+    else:
+        # For RL mode, missing trace_correlation_id is concerning
+        logger.warning(
+            "inference_url_to_trace_correlation_id: ❌ NO trace_correlation_id found in url=%s query_params=%s",
+            raw_url,
+            list(query_params.keys())
+        )
     
     if required:
         raise AssertionError(
@@ -141,9 +156,9 @@ def inference_url_to_trace_correlation_id(raw_url: Any, *, required: bool = Fals
 
 
 # Legacy alias for backward compatibility
-def extract_trace_correlation_id(raw_url: Any) -> str | None:
+def extract_trace_correlation_id(raw_url: Any, mode: Any = None) -> str | None:
     """DEPRECATED: Use inference_url_to_trace_correlation_id instead."""
-    return inference_url_to_trace_correlation_id(raw_url, required=False)
+    return inference_url_to_trace_correlation_id(raw_url, required=False, mode=mode)
 
 
 def convert_numpy_to_python(obj: Any) -> Any:
