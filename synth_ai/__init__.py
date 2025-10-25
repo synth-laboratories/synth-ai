@@ -1,6 +1,6 @@
-"""
-Synth AI - Software for aiding the best and multiplying the will.
-"""
+# Environment exports - moved from synth-env
+from synth_ai.environments import *  # noqa
+import synth_ai.environments as environments  # expose module name for __all__
 
 from __future__ import annotations
 
