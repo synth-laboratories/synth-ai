@@ -60,12 +60,14 @@ def build_request(
     for _ in range(max(llm_calls, 1)):
         ops.extend(["agent", "env"])
 
+    from synth_ai.task.contracts import RolloutMode
     return RolloutRequest(
         run_id=run_id,
         env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
         policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
         ops=ops,
         record=RolloutRecordConfig(trajectories=True),
+        mode=RolloutMode.EVAL,
         on_done="reset",
         safety=RolloutSafetyConfig(),
     )

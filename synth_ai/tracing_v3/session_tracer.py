@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from .abstractions import (
@@ -106,7 +106,7 @@ class SessionTracer:
 
             self._current_trace = SessionTrace(
                 session_id=session_id,
-                created_at=datetime.now(UTC),
+                created_at=datetime.now(timezone.utc),
                 session_time_steps=[],
                 event_history=[],
                 markov_blanket_message_history=[],
@@ -152,7 +152,7 @@ class SessionTracer:
         step = SessionTimeStep(
             step_id=step_id,
             step_index=len(self._current_trace.session_time_steps),
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             turn_number=turn_number,
             step_metadata=metadata or {},
         )
@@ -197,7 +197,7 @@ class SessionTracer:
             step = self._current_step
 
         if step and step.completed_at is None:
-            step.completed_at = datetime.now(UTC)
+            step.completed_at = datetime.now(timezone.utc)
 
             # Trigger hooks
             await self.hooks.trigger(
@@ -294,7 +294,7 @@ class SessionTracer:
             content=normalised_content,
             message_type=message_type,
             time_record=TimeRecord(
-                event_time=event_time or datetime.now(UTC).timestamp(), message_time=message_time
+                event_time=event_time or datetime.now(timezone.utc).timestamp(), message_time=message_time
             ),
             metadata=metadata or {},
         )
@@ -368,18 +368,28 @@ class SessionTracer:
             # End any open timesteps
             for step in self._current_trace.session_time_steps:
                 if step.completed_at is None:
-                    step.completed_at = datetime.now(UTC)
+                    step.completed_at = datetime.now(timezone.utc)
 
             # Trigger pre-save hooks
             await self.hooks.trigger("before_save", session=self._current_trace)
 
             # Save if requested
             should_save = save if save is not None else self.auto_save
+            
+            # Debug logging
+            import logging
+            _logger = logging.getLogger(__name__)
+            _logger.info(f"[TRACE_DEBUG] end_session: should_save={should_save}, self.db={self.db is not None}, auto_save={self.auto_save}")
+            
             if should_save and self.db:
+                _logger.info(f"[TRACE_DEBUG] Calling insert_session_trace with {len(self._current_trace.markov_blanket_message_history)} messages")
                 await self.db.insert_session_trace(self._current_trace)
+                _logger.info(f"[TRACE_DEBUG] insert_session_trace completed")
 
                 # Trigger post-save hooks
                 await self.hooks.trigger("after_save", session=self._current_trace)
+            else:
+                _logger.warning(f"[TRACE_DEBUG] Skipping save: should_save={should_save}, self.db={self.db is not None}")
 
             # Trigger session end hooks
             await self.hooks.trigger("session_end", session=self._current_trace)

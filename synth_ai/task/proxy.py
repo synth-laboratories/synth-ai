@@ -1,38 +1,14 @@
-"""Shared helpers for Task App proxy endpoints (OpenAI, Groq, etc.)."""
+"""Shared helpers for Task App proxy endpoints (OpenAI, Groq, etc.).
+
+The proxy is tool-agnostic - each task app provides its own tools schema.
+"""
 
 from __future__ import annotations
 
 import copy
 import json
 import re
-from collections.abc import Iterable
 from typing import Any
-
-INTERACT_TOOL_SCHEMA: list[dict[str, Any]] = [
-    {
-        "type": "function",
-        "function": {
-            "name": "interact",
-            "description": "Perform one or more environment actions.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "actions": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of environment actions to execute in order.",
-                    },
-                    "reasoning": {
-                        "type": "string",
-                        "description": "Optional reasoning for the chosen actions.",
-                    },
-                },
-                "required": ["actions"],
-                "additionalProperties": False,
-            },
-        },
-    }
-]
 
 _REMOVE_FIELDS = {
     "stop_after_tool_calls",
@@ -44,14 +20,12 @@ _REMOVE_SAMPLING_FIELDS = {"temperature", "top_p"}
 _GPT5_MIN_COMPLETION_TOKENS = 16000
 
 
-def _ensure_tools(payload: dict[str, Any]) -> None:
-    tools = payload.get("tools")
-    if not isinstance(tools, list) or not tools:
-        payload["tools"] = copy.deepcopy(INTERACT_TOOL_SCHEMA)
-
-
 def prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, Any]:
-    """Sanitise an OpenAI chat completions payload for Task App usage."""
+    """Sanitise an OpenAI chat completions payload for Task App usage.
+    
+    The task app is responsible for providing tools in the payload.
+    This function only handles model-specific parameter normalization.
+    """
 
     sanitized = copy.deepcopy(payload)
     for field in _REMOVE_FIELDS:
@@ -68,10 +42,18 @@ def prepare_for_openai(model: str | None, payload: dict[str, Any]) -> dict[str, 
         mct = sanitized.get("max_completion_tokens")
         if not isinstance(mct, int) or mct < _GPT5_MIN_COMPLETION_TOKENS:
             sanitized["max_completion_tokens"] = _GPT5_MIN_COMPLETION_TOKENS
-        sanitized["tool_choice"] = {"type": "function", "function": {"name": "interact"}}
+        
+        # Set tool_choice to first provided tool (task app must provide tools)
+        # If tool_choice not already set and tools are provided, use the first one
+        if "tool_choice" not in sanitized:
+            tools = sanitized.get("tools", [])
+            if isinstance(tools, list) and tools:
+                first_func = tools[0].get("function", {})
+                if isinstance(first_func, dict) and "name" in first_func:
+                    sanitized["tool_choice"] = {"type": "function", "function": {"name": first_func["name"]}}
+        
         sanitized["parallel_tool_calls"] = False
 
-    _ensure_tools(sanitized)
     return sanitized
 
 
@@ -206,24 +188,18 @@ def parse_tool_call_from_text(text: str) -> tuple[list[str], str]:
     return [], text
 
 
-def _build_tool_call(actions: Iterable[str], reasoning: str) -> dict[str, Any]:
-    payload = {
-        "actions": [str(a).strip() for a in actions if str(a).strip()],
-    }
-    if reasoning.strip():
-        payload["reasoning"] = reasoning.strip()
-    return {
-        "id": "tool_interact_fallback",
-        "type": "function",
-        "function": {
-            "name": INTERACT_TOOL_SCHEMA[0]["function"]["name"],
-            "arguments": json.dumps(payload, ensure_ascii=False),
-        },
-    }
-
-
-def synthesize_tool_call_if_missing(openai_response: dict[str, Any]) -> dict[str, Any]:
-    """Ensure the first choice carries a tool_call derived from text if absent."""
+def synthesize_tool_call_if_missing(
+    openai_response: dict[str, Any],
+    fallback_tool_name: str = "interact"
+) -> dict[str, Any]:
+    """Ensure the first choice carries a tool_call derived from text if absent.
+    
+    This is a fallback for models that don't properly support tool calling.
+    Task apps can specify their preferred fallback tool name (e.g., "interact", "execute_sequence").
+    
+    DEPRECATED: Task apps should prefer models with native tool calling support.
+    This function will be removed in a future version.
+    """
 
     if not isinstance(openai_response, dict):
         return openai_response
@@ -245,8 +221,24 @@ def synthesize_tool_call_if_missing(openai_response: dict[str, Any]) -> dict[str
     if not actions:
         return openai_response
 
+    # Build a fallback tool call using the provided tool name
+    payload = {
+        "actions": [str(a).strip() for a in actions if str(a).strip()],
+    }
+    if reasoning.strip():
+        payload["reasoning"] = reasoning.strip()
+    
+    tool_call = {
+        "id": f"tool_{fallback_tool_name}_fallback",
+        "type": "function",
+        "function": {
+            "name": fallback_tool_name,
+            "arguments": json.dumps(payload, ensure_ascii=False),
+        },
+    }
+
     new_message = copy.deepcopy(message)
-    new_message["tool_calls"] = [_build_tool_call(actions, reasoning)]
+    new_message["tool_calls"] = [tool_call]
     if "content" not in new_message:
         new_message["content"] = None
 

@@ -1,0 +1,29 @@
+# Evaluation config for Pokemon Red with image-only input
+# This config uses GPT-4o mini with only image data (no text observations)
+
+[eval]
+app_id = "pokemon_red"
+model = "gpt-4o-mini-2024-07-18"
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+max_turns = 10
+concurrency = 1  # Keep low initially to avoid issues
+env_name = "pokemon_red"
+policy_name = "pokemon_red_policy"
+trace_format = "full"
+return_trace = true
+
+[eval.env_config]
+max_steps_per_episode = 10
+
+[eval.policy_config]
+provider = "openai"
+model = "gpt-4o-mini-2024-07-18"
+inference_url = "https://api.openai.com"
+temperature = 0.7
+top_p = 0.95
+max_tokens = 512
+use_vision = true
+image_only_mode = true
+max_llm_calls = 10
+
+

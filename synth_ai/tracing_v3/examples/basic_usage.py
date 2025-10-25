@@ -2,13 +2,14 @@
 
 import asyncio
 import time
+from typing import Any
 
-from synth_ai.tracing_v3 import SessionTracer
-from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+from .. import SessionTracer
+from ..abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
+from ..turso.daemon import SqldDaemon
 
 
-async def simulate_llm_call(model: str, prompt: str) -> dict:
+async def simulate_llm_call(model: str, prompt: str) -> dict[str, Any]:
     """Simulate an LLM API call."""
     await asyncio.sleep(0.1)  # Simulate network latency
 
@@ -133,6 +134,9 @@ async def main():
         print("\n--- Example 3: Querying Data ---")
 
         # Get model usage statistics
+        if tracer.db is None:
+            raise RuntimeError("Tracer database backend is not initialized")
+
         model_usage = await tracer.db.get_model_usage()
         print("\nModel Usage:")
         print(model_usage)
@@ -150,9 +154,10 @@ async def main():
         # Get specific session details
         if recent_sessions:
             session_detail = await tracer.db.get_session_trace(recent_sessions[0]["session_id"])
-            print(f"\nSession Detail for {session_detail['session_id']}:")
-            print(f"  Created: {session_detail['created_at']}")
-            print(f"  Timesteps: {len(session_detail['timesteps'])}")
+            if session_detail:
+                print(f"\nSession Detail for {session_detail['session_id']}:")
+                print(f"  Created: {session_detail['created_at']}")
+                print(f"  Timesteps: {len(session_detail['timesteps'])}")
 
         # Example 4: Using hooks
         print("\n--- Example 4: Hooks ---")

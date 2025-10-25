@@ -25,6 +25,7 @@ def _fixture_db(scenario: str) -> Path:
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_replica_sync_uses_fixture_database(monkeypatch, tmp_path):
     """ReplicaSync should target the provided fixture path and invoke libsql sync."""
     source = _fixture_db("env_rollout")

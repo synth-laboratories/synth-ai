@@ -13,19 +13,19 @@ from datetime import datetime
 import pytest
 import pytest_asyncio
 
-from synth_ai.tracing_v3.config import CONFIG
-from synth_ai.tracing_v3.db_config import DatabaseConfig, set_default_db_config
-from synth_ai.tracing_v3.abstractions import (
+from ..abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
+from ..config import CONFIG
+from ..db_config import DatabaseConfig, set_default_db_config
+from ..session_tracer import SessionTracer
 
 # Import the utilities and components we want to test
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
-from synth_ai.tracing_v3.utils import calculate_cost, detect_provider, json_dumps
+from ..turso.native_manager import NativeLibsqlTraceManager
+from ..utils import calculate_cost, detect_provider, json_dumps
 
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
@@ -34,7 +34,7 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
         allow_module_level=True,
     )
 
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
+from ..turso.daemon import SqldDaemon
 
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
     _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
@@ -137,7 +137,7 @@ class TestNativeTraceManager:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration."""
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -154,7 +154,7 @@ class TestNativeTraceManager:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -165,6 +165,7 @@ class TestNativeTraceManager:
         yield manager
         await manager.close()
 
+    @pytest.mark.fast
     async def test_init_schema(self, db_manager):
         """Test schema initialization."""
         # Schema should already be initialized by fixture
@@ -177,6 +178,7 @@ class TestNativeTraceManager:
         for table in expected_tables:
             assert table in table_names
 
+    @pytest.mark.fast
     async def test_insert_session_trace_basic(self, db_manager):
         """Test basic session trace insertion."""
         # Create a simple session trace
@@ -203,6 +205,7 @@ class TestNativeTraceManager:
         assert len(df) == 1
         assert df.iloc[0]["session_id"] == session_id
 
+    @pytest.mark.fast
     async def test_insert_session_trace_with_events(self, db_manager):
         """Test session trace insertion with events."""
         # Create session tracer
@@ -246,6 +249,7 @@ class TestNativeTraceManager:
         assert "runtime" in event_types
         assert "environment" in event_types
 
+    @pytest.mark.fast
     async def test_insert_session_trace_with_lm_events(self, db_manager):
         """Test session trace insertion with LM events."""
         # Create session tracer
@@ -287,6 +291,7 @@ class TestNativeTraceManager:
         assert row["output_tokens"] == 50
         assert row["cost_usd"] == 1  # Stored as cents (0.01 USD = 1 cent)
 
+    @pytest.mark.fast
     async def test_batch_insert_sessions(self, db_manager):
         """Test batch insert functionality."""
         # Create multiple session traces
@@ -316,6 +321,7 @@ class TestNativeTraceManager:
             assert len(df) == 1
             assert df.iloc[0]["session_id"] == session_id
 
+    @pytest.mark.fast
     async def test_query_traces(self, db_manager):
         """Test query functionality."""
         # Insert some test data
@@ -336,6 +342,7 @@ class TestNativeTraceManager:
         assert len(df) == 1
         assert df.iloc[0]["session_id"] == session_id
 
+    @pytest.mark.fast
     async def test_get_model_usage(self, db_manager):
         """Test model usage statistics."""
         # Insert test data with LM events
@@ -368,6 +375,7 @@ class TestNativeTraceManager:
         if len(gpt4_rows) > 0:
             assert gpt4_rows.iloc[0]["total_input_tokens"] >= 100
 
+    @pytest.mark.fast
     async def test_get_session_trace(self, db_manager):
         """Test retrieving a specific session."""
         # Insert test data
@@ -388,6 +396,7 @@ class TestNativeTraceManager:
         assert session_data["metadata"] == {"test": "value"}
         assert len(session_data["timesteps"]) == 1
 
+    @pytest.mark.fast
     async def test_delete_session(self, db_manager):
         """Test session deletion."""
         # Insert test data
@@ -410,6 +419,7 @@ class TestNativeTraceManager:
         session_data = await db_manager.get_session_trace(session_id)
         assert session_data is None
 
+    @pytest.mark.fast
     async def test_experiment_management(self, db_manager):
         """Test experiment creation and linking."""
         # Use a unique experiment ID to avoid conflicts
@@ -448,7 +458,7 @@ class TestIntegrationScenarios:
     @pytest_asyncio.fixture
     async def sqld_daemon(self):
         """Use the centralized database configuration for integration tests."""
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
 
@@ -465,7 +475,7 @@ class TestIntegrationScenarios:
     async def db_manager(self, sqld_daemon):
         """Create a NativeLibsqlTraceManager instance using centralized config."""
 
-        from synth_ai.tracing_v3.db_config import get_default_db_config
+        from ..db_config import get_default_db_config
 
         config = get_default_db_config()
         db_url = config.database_url
@@ -476,6 +486,7 @@ class TestIntegrationScenarios:
         yield manager
         await manager.close()
 
+    @pytest.mark.fast
     async def test_crafter_session_trace(self, db_manager):
         """Test inserting a realistic Crafter session trace."""
         # Create a realistic session trace
@@ -558,6 +569,7 @@ class TestIntegrationScenarios:
         assert event_types.count("environment") == 3
         assert event_types.count("runtime") == 3
 
+    @pytest.mark.fast
     async def test_large_session_trace(self, db_manager):
         """Test handling of large session traces."""
         # Create a large session trace

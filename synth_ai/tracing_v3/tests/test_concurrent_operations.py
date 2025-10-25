@@ -17,16 +17,16 @@ import uuid
 import pytest
 import pytest_asyncio
 
-from synth_ai.tracing_v3.config import CONFIG
-from synth_ai.tracing_v3.abstractions import (
+from ..abstractions import (
     EnvironmentEvent,
     LMCAISEvent,
     RuntimeEvent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from ..config import CONFIG
+from ..session_tracer import SessionTracer
+from ..turso.daemon import SqldDaemon
+from ..turso.native_manager import NativeLibsqlTraceManager
 
 
 if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
@@ -39,8 +39,6 @@ if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is
 # environments block the process from binding to localhost, resulting in
 # `Operation not permitted` errors when the daemon launches. If we detect that
 # condition, skip the module instead of failing all tests.
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon
-
 with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
     _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
     try:
@@ -104,6 +102,7 @@ class TestConcurrentOperations:
         actual_db_file = os.path.join(sqld_daemon.db_path, "dbs", "default", "data")
         return f"sqlite+aiosqlite:///{actual_db_file}"
 
+    @pytest.mark.fast
     async def test_concurrent_session_insertion_no_race_condition(self, db_url):
         """
         Test that concurrent session insertions work without race conditions.
@@ -180,6 +179,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_async_concurrent_operations(self, db_url):
         """Test various concurrent async operations."""
         num_workers = 20
@@ -261,6 +261,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_experiment_linking_concurrent(self, db_url):
         """Test concurrent experiment creation and session linking."""
         num_experiments = 5
@@ -336,6 +337,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_high_concurrency_stress(self, db_url):
         """Stress test with high concurrency."""
         num_workers = 50
@@ -392,6 +394,7 @@ class TestConcurrentOperations:
 
         await manager.close()
 
+    @pytest.mark.fast
     async def test_duplicate_session_handling(self, db_url):
         """Test handling of duplicate session IDs (should use OR IGNORE)."""
         session_id = "duplicate_test_session"

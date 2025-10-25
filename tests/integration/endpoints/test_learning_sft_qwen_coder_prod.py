@@ -50,6 +50,7 @@ def _derive_backend_base_url_prod() -> str | None:
         ("examples.qwen_coder.sft_full_17b", "ft_model_id_full.txt", "full"),
     ],
 )
+@pytest.mark.slow
 async def test_sft_qwen_coder_prod(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

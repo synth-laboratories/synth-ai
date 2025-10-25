@@ -17,6 +17,7 @@ def _artifacts_dir() -> Path:
     return _repo_root() / "tests" / "artifacts"
 
 
+@pytest.mark.fast
 def test_export_from_cached_trace_db(tmp_path: Path) -> None:
     # Use the committed minimal SQL to create a tiny SQLite DB on the fly
     sql_path = _artifacts_dir() / "rollouts" / "traces" / "v3" / "synth_ai.small.sql"

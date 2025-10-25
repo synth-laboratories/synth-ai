@@ -1,0 +1,31 @@
+# Verilog Eval Config for Groq Qwen3-32B
+# Quick eval to test Verilog task app before RL training
+
+[eval]
+app_id = "grpo-verilog"
+task_app_url = "https://synth-laboratories--grpo-verilog-task-app-fastapi-app-dev.modal.run"
+model = "qwen/qwen3-32b"
+seeds = [0, 1, 2]
+max_turns = 15
+concurrency = 1
+env_name = "verilog"
+policy_name = "verilog-designer"
+trace_format = "full"
+return_trace = true
+
+[eval.env_config]
+difficulty = "medium"  # Can be "easy", "medium", or "hard"
+
+[eval.policy_config]
+provider = "groq"
+model = "qwen/qwen3-32b"
+inference_url = "https://api.groq.com/openai/v1/chat/completions"
+temperature = 0.2
+max_tokens = 8192  # Large buffer for Verilog (long testbenches + module implementation)
+
+[eval.judge]
+path = "examples/multi_step/judges/verilog_backend_judge.py"
+name = "Backend"
+backend_url = "http://localhost:8000/api"
+model = "openai/gpt-oss-120b"
+timeout_s = 45

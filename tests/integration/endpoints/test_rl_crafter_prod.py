@@ -75,6 +75,7 @@ async def _poll_rl_job(
         ("tests/artifacts/configs/rl.full.small.toml", "full"),
     ],
 )
+@pytest.mark.slow
 def test_rl_crafter_train_prod(
     monkeypatch: pytest.MonkeyPatch,
     config_rel_path: str,

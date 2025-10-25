@@ -42,6 +42,7 @@ def _build_ops(max_llm_calls: int) -> list[str]:
 
 
 def _build_request(seed: int, run_id: str, model: str, inference_url: str, api_key: str, *, max_llm_calls: int, return_trace: bool) -> RolloutRequest:
+    from synth_ai.task.contracts import RolloutMode
     policy_cfg: dict[str, Any] = {
         "model": model,
         "inference_url": inference_url,
@@ -54,6 +55,7 @@ def _build_request(seed: int, run_id: str, model: str, inference_url: str, api_k
         policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_cfg),
         ops=_build_ops(max_llm_calls),
         record=record,
+        mode=RolloutMode.EVAL,
     )
 
 

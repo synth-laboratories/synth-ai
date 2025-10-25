@@ -5,6 +5,7 @@ CLI-level regression tests that exercise trace fixtures via Synth AI commands.
 
 from __future__ import annotations
 
+import pytest
 import shutil
 from pathlib import Path
 
@@ -33,6 +34,7 @@ def _build_cli(include_traces: bool = False) -> click.Group:
     return cli
 
 
+@pytest.mark.fast
 def test_status_cli_reports_fixture_counts():
     """`synth-ai status` should read fixture DBs and emit aggregate counts."""
     runner = CliRunner()
@@ -54,6 +56,7 @@ def test_status_cli_reports_fixture_counts():
     assert "Events:" in result.output
 
 
+@pytest.mark.fast
 def test_traces_cli_lists_fixture_database(tmp_path):
     """`synth-ai traces` should enumerate trace DB roots built from fixtures."""
     runner = CliRunner()

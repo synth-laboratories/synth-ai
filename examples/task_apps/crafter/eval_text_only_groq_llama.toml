@@ -1,0 +1,36 @@
+# Evaluation config for Crafter with text-only input
+# This config uses Groq Qwen with only text observations (no images)
+
+[eval]
+app_id = "grpo-crafter-task-app"
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-fastapi-app-dev.modal.run"
+model = "qwen/qwen3-32b"
+seeds = [0, 1, 2]
+max_turns = 10
+concurrency = 1
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "full"
+return_trace = true
+
+[eval.env_config]
+env_params = {max_steps_per_episode = 10}
+
+[eval.policy_config]
+provider = "groq"
+model = "qwen/qwen3-32b"
+inference_url = "https://api.groq.com/openai/v1/chat/completions"
+temperature = 0.6
+top_p = 0.95
+max_tokens = 512
+use_vision = false
+image_only_mode = false
+max_llm_calls = 10
+
+[eval.judge]
+path = "examples/task_apps/crafter/judges/crafter_backend_judge.py"
+name = "Backend"
+backend_url = "http://localhost:8000/api"
+model = "openai/gpt-oss-120b"
+timeout_s = 45
+

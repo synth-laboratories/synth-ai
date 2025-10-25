@@ -6,6 +6,13 @@ PLAYER_Y = 0xD361  # player Y coordinate
 IN_BATTLE_FLAG = 0xD057  # battle state flag
 BATTLE_OUTCOME = 0xD089  # 0=ongoing, 1=win, 2=lose
 
+# Battle-specific data
+ENEMY_HP_CURRENT = 0xCFE6  # enemy Pokemon current HP (2 bytes)
+ENEMY_HP_MAX = 0xCFE8  # enemy Pokemon max HP (2 bytes)
+ENEMY_LEVEL = 0xD127  # enemy Pokemon level
+ENEMY_SPECIES = 0xCFE5  # enemy Pokemon species ID
+BATTLE_TURN = 0xCC2F  # current battle turn counter
+
 # Party Pokemon data (up to 6 Pokemon)
 PARTY_COUNT = 0xD163  # number of Pokemon in party (0-6)
 PARTY_SPECIES = 0xD164  # species of each Pokemon (6 bytes)

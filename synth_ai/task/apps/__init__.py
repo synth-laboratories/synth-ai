@@ -18,6 +18,7 @@ class ModalDeploymentConfig:
     app_name: str
     python_version: str = "3.11"
     pip_packages: Sequence[str] = field(default_factory=tuple)
+    apt_packages: Sequence[str] = field(default_factory=tuple)
     extra_local_dirs: Sequence[tuple[str, str]] = field(default_factory=tuple)
     secret_names: Sequence[str] = field(default_factory=tuple)
     volume_mounts: Sequence[tuple[str, str]] = field(default_factory=tuple)

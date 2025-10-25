@@ -9,6 +9,7 @@ import pytest
         # keep simple and cheap; adjust if needed
     ],
 )
+@pytest.mark.slow
 def test_chat_completion_minimal(base_url: str, auth_headers: dict, model: str):
     url = f"{base_url}/chat/completions"
     payload = {
