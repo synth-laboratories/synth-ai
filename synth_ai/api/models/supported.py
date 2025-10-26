@@ -20,35 +20,75 @@ QWEN3_MODELS: list[str] = [
     "Qwen/Qwen3-14B",
     "Qwen/Qwen3-30B-A3B",
     "Qwen/Qwen3-32B",
-    # Include 4B-2507 and Thinking variants used in RL
+    # 2507 baseline models
+    "Qwen/Qwen3-4B-2507",
+    # Instruct variants (no <think> tags)
+    "Qwen/Qwen3-4B-Instruct-2507",
+    "Qwen/Qwen3-4B-Instruct-2507-FP8",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+    # Thinking variants (with <think> tags)
     "Qwen/Qwen3-4B-Thinking-2507",
+    "Qwen/Qwen3-4B-Thinking-2507-FP8",
     "Qwen/Qwen3-30B-A3B-Thinking-2507",
+    "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
     "Qwen/Qwen3-235B-A22B-Thinking-2507",
+    "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
 ]
 
 # Qwen3 Coder family (backend-supported); text-only, SFT/inference
 QWEN3_CODER_MODELS: list[str] = [
-    # Instruct variants used for coding tasks
+    # Instruct variants used for coding tasks (no <think> tags)
     "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
     "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
 ]
 
 # Training support sets
 RL_SUPPORTED_MODELS: frozenset[str] = frozenset(
     {
+        # Legacy base models
         "Qwen/Qwen3-0.6B",
         "Qwen/Qwen3-1.7B",
         "Qwen/Qwen3-4B",
-        "Qwen/Qwen3-4B-Thinking-2507",
         "Qwen/Qwen3-8B",
         "Qwen/Qwen3-14B",
         "Qwen/Qwen3-30B-A3B",
+        # 2507 models - base
+        "Qwen/Qwen3-4B-2507",
+        # 2507 models - instruct (no <think> tags)
+        "Qwen/Qwen3-4B-Instruct-2507",
+        "Qwen/Qwen3-4B-Instruct-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        # 2507 models - thinking (with <think> tags)
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
         "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+        # Coder instruct models
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
     }
 )
 
 # SFT allowlist includes core Qwen3 plus Coder family
 SFT_SUPPORTED_MODELS: frozenset[str] = frozenset([*QWEN3_MODELS, *QWEN3_CODER_MODELS])
+
+# Models that support <think> reasoning tags
+THINKING_MODELS: frozenset[str] = frozenset(
+    {
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+    }
+)
 
 # ------------------------------------------------------------------------------
 # Lifecycle classification (core vs experimental)
@@ -58,11 +98,17 @@ SFT_SUPPORTED_MODELS: frozenset[str] = frozenset([*QWEN3_MODELS, *QWEN3_CODER_MO
 _EXPERIMENTAL_DEFAULTS: frozenset[str] = frozenset(
     {
         # Larger (>= 64B) or bleeding-edge variants are experimental by default.
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
         "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
         "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
         # Thinking variants can fluctuate more rapidly.
         "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
         "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
     }
 )
 
@@ -120,6 +166,7 @@ class SupportedModel:
     modalities: tuple[str, ...] = ()
     training_modes: tuple[str, ...] = ()
     lifecycle: str = "core"  # "core" | "experimental"
+    supports_thinking: bool = False  # Whether model supports <think> reasoning tags
 
     def as_dict(self) -> dict[str, object]:
         data: dict[str, object] = {
@@ -127,6 +174,7 @@ class SupportedModel:
             "family": self.family,
             "provider": self.provider,
             "lifecycle": self.lifecycle,
+            "supports_thinking": self.supports_thinking,
         }
         if self.modalities:
             data["modalities"] = list(self.modalities)
@@ -150,6 +198,7 @@ SUPPORTED_MODELS: tuple[SupportedModel, ...] = tuple(
             )
         ),
         lifecycle=("experimental" if model in EXPERIMENTAL_MODELS else "core"),
+        supports_thinking=(model in THINKING_MODELS),
     )
     for model in _ALL_QWEN3_IDS
 )
@@ -347,11 +396,66 @@ def training_modes_for_model(model_id: str) -> tuple[str, ...]:
     return model.training_modes
 
 
+def supports_thinking(model_id: str) -> bool:
+    """Return True if the model supports <think> reasoning tags.
+    
+    Thinking models use structured <think>...</think> tags for reasoning.
+    Instruct models do not have these tags and should not use thinking-specific logic.
+    
+    Args:
+        model_id: Model identifier (can include prefixes like 'rl:', 'fft:', etc.)
+        
+    Returns:
+        True if the model supports thinking tags, False otherwise.
+        Returns False for unsupported models.
+        
+    Example:
+        >>> supports_thinking("Qwen/Qwen3-4B-Thinking-2507")
+        True
+        >>> supports_thinking("Qwen/Qwen3-4B-Instruct-2507")
+        False
+        >>> supports_thinking("rl:Qwen/Qwen3-4B-Thinking-2507")
+        True
+    """
+    try:
+        canonical = ensure_supported_model(model_id, allow_finetuned_prefixes=True)
+    except UnsupportedModelError:
+        return False
+    model = _MODEL_BY_ID.get(canonical)
+    if not model:
+        return False
+    return model.supports_thinking
+
+
+def get_model_metadata(model_id: str) -> SupportedModel | None:
+    """Return the full metadata for a supported model, or None if not supported.
+    
+    Args:
+        model_id: Model identifier (can include prefixes like 'rl:', 'fft:', etc.)
+        
+    Returns:
+        SupportedModel instance with full metadata, or None if model is not supported.
+        
+    Example:
+        >>> meta = get_model_metadata("Qwen/Qwen3-4B-Instruct-2507")
+        >>> meta.supports_thinking
+        False
+        >>> meta.training_modes
+        ('rl', 'sft')
+    """
+    try:
+        canonical = ensure_supported_model(model_id, allow_finetuned_prefixes=True)
+    except UnsupportedModelError:
+        return None
+    return _MODEL_BY_ID.get(canonical)
+
+
 __all__ = [
     "QWEN3_MODELS",
     "QWEN3_CODER_MODELS",
     "RL_SUPPORTED_MODELS",
     "SFT_SUPPORTED_MODELS",
+    "THINKING_MODELS",
     "EXPERIMENTAL_MODELS",
     "CORE_MODELS",
     "ExperimentalWarning",
@@ -373,5 +477,7 @@ __all__ = [
     "core_model_ids",
     "format_supported_models",
     "training_modes_for_model",
+    "supports_thinking",
+    "get_model_metadata",
 ]
 

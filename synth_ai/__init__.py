@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 # Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
 import synth_ai.environments as environments  # expose module name for __all__
-
-from __future__ import annotations
 
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
@@ -23,10 +23,6 @@ except PackageNotFoundError:  # Fallback to pyproject version for editable insta
         __version__ = str(_pyproject["project"]["version"])
     except Exception:
         __version__ = "0.0.0.dev0"
-
-# Environment exports - moved from synth-env
-from synth_ai.environments import *  # noqa
-import synth_ai.environments as environments  # expose module name for __all__
 
 try:
     from synth_ai.lm.core.main import LM  # Moved from zyk to lm for better organization

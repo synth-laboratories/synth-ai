@@ -16,24 +16,24 @@ judge_url = "https://synth-backend-dev-docker.onrender.com/api"
 
 [compute]
 gpu_type = "H200"
-gpu_count = 2
+gpu_count = 4
 
 [topology]
 type = "single_node_split"
-gpus_for_vllm = 1
-gpus_for_training = 1
+gpus_for_vllm = 2
+gpus_for_training = 2
 gpus_for_ref = 0
-tensor_parallel = 1
+tensor_parallel = 2
 
 [vllm]
-tensor_parallel_size = 1
-max_model_len = 8192
+tensor_parallel_size = 2
+max_model_len = 4096
 
 [reference]
 placement = "none"
 
 [model]
-base = "Qwen/Qwen3-4B"
+base = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
 trainer_mode = "lora"
 label = "crafter-rl-stepwise-hosted-judge"
 
@@ -74,7 +74,7 @@ seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 [training]
 num_epochs = 1
-iterations_per_epoch = 20
+iterations_per_epoch = 5
 gradient_accumulation_steps = 1
 max_accumulated_minibatch = 1
 max_turns = 10
@@ -84,7 +84,7 @@ learning_rate = 5e-5
 log_interval = 1
 weight_sync_interval = 1
 event_rewards_kind = "unique"
-async_semaphore_max = 40  # Max concurrent rollouts in streaming pipeline
+async_semaphore_max = 4  # Max concurrent rollouts in streaming pipeline
 
 # Enable dense decision rewards in the trainer to mirror env_config step rewards.
 step_rewards_enabled = true

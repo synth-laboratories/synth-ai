@@ -3,18 +3,21 @@ import pytest
 from synth_ai.api.models.supported import (
     CORE_MODELS,
     EXPERIMENTAL_MODELS,
+    THINKING_MODELS,
     SupportedModel,
     UnsupportedModelError,
     core_model_ids,
     ensure_allowed_model,
     ensure_supported_model,
     format_supported_models,
+    get_model_metadata,
     is_core_model,
     is_experimental_model,
     is_supported_model,
     list_supported_models,
     normalize_model_identifier,
     supported_model_ids,
+    supports_thinking,
 )
 
 
@@ -100,3 +103,172 @@ def test_ensure_allowed_model_respects_env(monkeypatch: pytest.MonkeyPatch) -> N
         ensure_allowed_model("Qwen/Qwen3-30B-A3B-Thinking-2507")
         == "Qwen/Qwen3-30B-A3B-Thinking-2507"
     )
+
+
+# Tests for instruct models
+def test_instruct_models_supported():
+    """Test that all instruct model variants are supported."""
+    instruct_models = [
+        "Qwen/Qwen3-4B-Instruct-2507",
+        "Qwen/Qwen3-4B-Instruct-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+    ]
+    for model_id in instruct_models:
+        assert is_supported_model(model_id), f"{model_id} should be supported"
+
+
+def test_thinking_models_supported():
+    """Test that all thinking model variants are supported."""
+    thinking_models = [
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+    ]
+    for model_id in thinking_models:
+        assert is_supported_model(model_id), f"{model_id} should be supported"
+
+
+# Tests for thinking support detection
+def test_supports_thinking_for_thinking_models():
+    """Test that thinking models are correctly identified."""
+    thinking_models = [
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+    ]
+    for model_id in thinking_models:
+        assert supports_thinking(model_id), f"{model_id} should support thinking"
+        assert model_id in THINKING_MODELS
+
+
+def test_supports_thinking_for_instruct_models():
+    """Test that instruct models are correctly identified as NOT supporting thinking."""
+    instruct_models = [
+        "Qwen/Qwen3-4B-Instruct-2507",
+        "Qwen/Qwen3-4B-Instruct-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+        "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+    ]
+    for model_id in instruct_models:
+        assert not supports_thinking(model_id), f"{model_id} should NOT support thinking"
+
+
+def test_supports_thinking_with_prefixes():
+    """Test that thinking detection works with fine-tuned prefixes."""
+    assert supports_thinking("rl:Qwen/Qwen3-4B-Thinking-2507")
+    assert supports_thinking("fft:Qwen/Qwen3-4B-Thinking-2507:job123")
+    assert not supports_thinking("rl:Qwen/Qwen3-4B-Instruct-2507")
+    assert not supports_thinking("fft:Qwen/Qwen3-4B-Instruct-2507:job123")
+
+
+def test_supports_thinking_for_unknown_model():
+    """Test that unknown models return False for thinking support."""
+    assert not supports_thinking("Unknown/Model")
+    assert not supports_thinking("gpt-4")
+
+
+# Tests for model metadata
+def test_get_model_metadata_for_thinking_model():
+    """Test that metadata correctly reflects thinking support."""
+    meta = get_model_metadata("Qwen/Qwen3-4B-Thinking-2507")
+    assert meta is not None
+    assert meta.supports_thinking is True
+    assert "rl" in meta.training_modes
+    assert "sft" in meta.training_modes
+
+
+def test_get_model_metadata_for_instruct_model():
+    """Test that metadata correctly reflects no thinking support for instruct models."""
+    meta = get_model_metadata("Qwen/Qwen3-4B-Instruct-2507")
+    assert meta is not None
+    assert meta.supports_thinking is False
+    assert "rl" in meta.training_modes
+    assert "sft" in meta.training_modes
+
+
+def test_get_model_metadata_with_prefix():
+    """Test that metadata works with fine-tuned prefixes."""
+    meta = get_model_metadata("rl:Qwen/Qwen3-4B-Instruct-2507")
+    assert meta is not None
+    assert meta.model_id == "Qwen/Qwen3-4B-Instruct-2507"
+    assert meta.supports_thinking is False
+
+
+def test_get_model_metadata_for_unknown_model():
+    """Test that unknown models return None."""
+    meta = get_model_metadata("Unknown/Model")
+    assert meta is None
+
+
+# Tests for RL support
+def test_instruct_models_support_rl():
+    """Test that instruct models are in the RL support list."""
+    rl_instruct_models = [
+        "Qwen/Qwen3-4B-Instruct-2507",
+        "Qwen/Qwen3-4B-Instruct-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+        "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+    ]
+    for model_id in rl_instruct_models:
+        meta = get_model_metadata(model_id)
+        assert meta is not None
+        assert "rl" in meta.training_modes, f"{model_id} should support RL"
+
+
+def test_thinking_models_support_rl():
+    """Test that thinking models are in the RL support list."""
+    rl_thinking_models = [
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+    ]
+    for model_id in rl_thinking_models:
+        meta = get_model_metadata(model_id)
+        assert meta is not None
+        assert "rl" in meta.training_modes, f"{model_id} should support RL"
+
+
+# Tests for SFT support
+def test_all_2507_models_support_sft():
+    """Test that all 2507 models (instruct, thinking, and base) support SFT."""
+    sft_models = [
+        "Qwen/Qwen3-4B-2507",
+        "Qwen/Qwen3-4B-Instruct-2507",
+        "Qwen/Qwen3-4B-Instruct-2507-FP8",
+        "Qwen/Qwen3-4B-Thinking-2507",
+        "Qwen/Qwen3-4B-Thinking-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        "Qwen/Qwen3-30B-A3B-Instruct-2507-FP8",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507",
+        "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507",
+        "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507",
+        "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+    ]
+    for model_id in sft_models:
+        meta = get_model_metadata(model_id)
+        assert meta is not None
+        assert "sft" in meta.training_modes, f"{model_id} should support SFT"
