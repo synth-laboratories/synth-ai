@@ -65,7 +65,7 @@ async def test_score_happy_path(monkeypatch):
 	assert call["path"] == "/api/judge/v1/score"
 	assert call["json"]["policy_name"] == "p"
 	assert call["json"]["task_app"]["id"] == "env"
-	assert call["json"]["options"]["provider"] == "gemini"
+	assert call["json"]["options"]["provider"] == "groq"
 
 
 @pytest.mark.asyncio

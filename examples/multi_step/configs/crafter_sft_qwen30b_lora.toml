@@ -1,0 +1,62 @@
+# Crafter SFT LoRA configuration
+# Train Qwen3-Coder-30B on Crafter agent traces
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "lora"
+
+[job]
+model = "Qwen/Qwen3-Coder-30B-A3B-Instruct"
+# Default dataset - can override with --dataset flag
+data = "traces/crafter_sft_converted.jsonl"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 2
+nodes = 1
+
+[data]
+# Forwarded into metadata.effective_config
+topology = {}
+# Optional validation set if you have one locally
+# validation_path = "examples/multi_step/ft_data/crafter_sft.val.jsonl"
+
+[training]
+mode = "lora"
+use_qlora = true
+
+[training.validation]
+enabled = true
+evaluation_strategy = "steps"
+eval_steps = 100
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+
+[hyperparameters]
+n_epochs = 1
+train_kind = "peft"
+per_device_batch = 1
+gradient_accumulation_steps = 64
+sequence_length = 4096
+learning_rate = 5e-6
+warmup_ratio = 0.03
+lora_rank = 16
+lora_alpha = 32
+lora_dropout = 0.05
+lora_target_modules = ["all-linear"]
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true
+
+[tags]
+experiment = "crafter_sft_lora_qwen_coder_30b"
+task = "crafter_agent"
+model_size = "30b"
+
