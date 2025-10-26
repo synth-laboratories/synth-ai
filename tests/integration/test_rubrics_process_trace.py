@@ -157,7 +157,7 @@ def _make_in_memory_conn():
 
     # Seed minimal data for a single session
     conn.execute(
-        "INSERT INTO session_traces(session_id, created_at, metadata) VALUES ('s1', 't0', '{"episode_id": 1}')"
+        "INSERT INTO session_traces(session_id, created_at, metadata) VALUES ('s1', 't0', '{\"episode_id\": 1}')"
     )
     conn.execute(
         "INSERT INTO session_timesteps(session_id, step_id, step_index, turn_number, started_at, completed_at, step_metadata) VALUES ('s1', 'st1', 0, 1, 't0', 't1', '{}')"
@@ -169,10 +169,10 @@ def _make_in_memory_conn():
         "INSERT INTO messages(session_id, message_type, content, event_time, message_time, timestamp, metadata) VALUES ('s1', 'user', 'hello', 't0', 't0', 't0', '{}')"
     )
     conn.execute(
-        "INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at) VALUES ('s1', 1, 1, 1.0, 'unique_achievement_delta', 'k', '{"new_unique": ["X"]}', 't', 't0')"
+        "INSERT INTO event_rewards(session_id, event_id, turn_number, reward_value, reward_type, key, annotation, source, created_at) VALUES ('s1', 1, 1, 1.0, 'unique_achievement_delta', 'k', '{\"new_unique\": [\"X\"]}', 't', 't0')"
     )
     conn.execute(
-        "INSERT INTO outcome_rewards(session_id, total_reward, reward_metadata, created_at) VALUES ('s1', 2.0, '{"achievements": ["Y"]}', 't0')"
+        "INSERT INTO outcome_rewards(session_id, total_reward, reward_metadata, created_at) VALUES ('s1', 2.0, '{\"achievements\": [\"Y\"]}', 't0')"
     )
     conn.commit()
 

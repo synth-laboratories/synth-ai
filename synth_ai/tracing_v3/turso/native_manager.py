@@ -378,8 +378,10 @@ class NativeLibsqlTraceManager(TraceStorage):
         session_exists = await self._session_exists(trace.session_id)
         _logger.info(f"[TRACE_DEBUG] Session exists: {session_exists}")
         
+        step_id_map: dict[str, int] = {}
+        
         if session_exists:
-            _logger.warning(f"[TRACE_DEBUG] Session {trace.session_id} already exists, need to save messages anyway!")
+            _logger.warning(f"[TRACE_DEBUG] Session {trace.session_id} already exists, skipping events/timesteps, only updating messages!")
             # Don't return early - we need to save messages!
             # Just update metadata
             async with self._op_lock:
@@ -390,9 +392,8 @@ class NativeLibsqlTraceManager(TraceStorage):
                     (_json_dumps(trace.metadata or {}), trace.session_id),
                 )
                 conn.commit()
-            # Continue to save messages instead of returning
-
-        if not session_exists:
+            # Skip events and timesteps to ensure idempotency
+        else:
             created_at = trace.created_at or datetime.now(timezone.utc)
 
             async with self._op_lock:
@@ -419,71 +420,74 @@ class NativeLibsqlTraceManager(TraceStorage):
                 conn.commit()
                 _logger.info(f"[TRACE_DEBUG] Session row inserted")
 
-        step_id_map: dict[str, int] = {}
+            # Only insert timesteps and events if this is a new session
+            for step in trace.session_time_steps:
+                step_db_id = await self.ensure_timestep(
+                    trace.session_id,
+                    step_id=step.step_id,
+                    step_index=step.step_index,
+                    turn_number=step.turn_number,
+                    started_at=step.timestamp,
+                    completed_at=step.completed_at,
+                    metadata=step.step_metadata or {},
+                )
+                step_id_map[step.step_id] = step_db_id
 
-        for step in trace.session_time_steps:
-            step_db_id = await self.ensure_timestep(
-                trace.session_id,
-                step_id=step.step_id,
-                step_index=step.step_index,
-                turn_number=step.turn_number,
-                started_at=step.timestamp,
-                completed_at=step.completed_at,
-                metadata=step.step_metadata or {},
-            )
-            step_id_map[step.step_id] = step_db_id
-
-        for event in trace.event_history:
-            step_ref = None
-            metadata = event.metadata or {}
-            if isinstance(metadata, dict):
-                step_ref = metadata.get("step_id")
-            timestep_db_id = step_id_map.get(step_ref) if step_ref else None
-            await self.insert_event_row(
-                trace.session_id,
-                timestep_db_id=timestep_db_id,
-                event=event,
-                metadata_override=event.metadata or {},
-            )
+            for event in trace.event_history:
+                step_ref = None
+                metadata = event.metadata or {}
+                if isinstance(metadata, dict):
+                    step_ref = metadata.get("step_id")
+                timestep_db_id = step_id_map.get(step_ref) if step_ref else None
+                await self.insert_event_row(
+                    trace.session_id,
+                    timestep_db_id=timestep_db_id,
+                    event=event,
+                    metadata_override=event.metadata or {},
+                )
 
         import logging as _logging
         _logger = _logging.getLogger(__name__)
-        _logger.info(f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages")
+        _logger.info(f"[TRACE_DEBUG] insert_session_trace: saving {len(trace.markov_blanket_message_history)} messages (session_exists={session_exists})")
         
-        for idx, msg in enumerate(trace.markov_blanket_message_history):
-            metadata = dict(getattr(msg, "metadata", {}) or {})
-            step_ref = metadata.get("step_id")
-            content_value = msg.content
-            if isinstance(msg.content, SessionMessageContent):
-                if msg.content.json_payload:
-                    metadata.setdefault("json_payload", msg.content.json_payload)
-                    content_value = msg.content.json_payload
-                else:
-                    content_value = msg.content.as_text()
-                    if msg.content.text:
-                        metadata.setdefault("text", msg.content.text)
-            elif not isinstance(content_value, str):
-                try:
-                    content_value = json.dumps(content_value, ensure_ascii=False)
-                except (TypeError, ValueError):
-                    content_value = str(content_value)
+        # Only insert messages if this is a new session (for idempotency)
+        if not session_exists:
+            for idx, msg in enumerate(trace.markov_blanket_message_history):
+                metadata = dict(getattr(msg, "metadata", {}) or {})
+                step_ref = metadata.get("step_id")
+                content_value = msg.content
+                if isinstance(msg.content, SessionMessageContent):
+                    if msg.content.json_payload:
+                        metadata.setdefault("json_payload", msg.content.json_payload)
+                        content_value = msg.content.json_payload
+                    else:
+                        content_value = msg.content.as_text()
+                        if msg.content.text:
+                            metadata.setdefault("text", msg.content.text)
+                elif not isinstance(content_value, str):
+                    try:
+                        content_value = json.dumps(content_value, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        content_value = str(content_value)
 
-            _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: type={msg.message_type}, content_len={len(str(content_value))}")
-            
-            try:
-                await self.insert_message_row(
-                    trace.session_id,
-                    timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
-                    message_type=msg.message_type,
-                    content=content_value,
-                    event_time=msg.time_record.event_time,
-                    message_time=msg.time_record.message_time,
-                    metadata=metadata,
-                )
-                _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: saved successfully")
-            except Exception as exc:
-                _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
-                raise
+                _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: type={msg.message_type}, content_len={len(str(content_value))}")
+                
+                try:
+                    await self.insert_message_row(
+                        trace.session_id,
+                        timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
+                        message_type=msg.message_type,
+                        content=content_value,
+                        event_time=msg.time_record.event_time,
+                        message_time=msg.time_record.message_time,
+                        metadata=metadata,
+                    )
+                    _logger.info(f"[TRACE_DEBUG]   Message {idx+1}: saved successfully")
+                except Exception as exc:
+                    _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
+                    raise
+        else:
+            _logger.info(f"[TRACE_DEBUG] Skipping message insertion for existing session (idempotency)")
 
         async with self._op_lock:
             conn = self._conn
