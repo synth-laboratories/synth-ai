@@ -110,6 +110,7 @@ class TestTraceEventAsync:
     """Test the trace_event_async decorator."""
 
     @pytest.mark.asyncio
+    @pytest.mark.fast
     async def test_basic_async_function(self):
         """Test decorating a basic asynchronous function."""
 
@@ -137,6 +138,7 @@ class TestTraceEventAsync:
         assert events[0].closed > events[0].opened
 
     @pytest.mark.asyncio
+    @pytest.mark.fast
     async def test_async_function_with_exception(self):
         """Test async function that raises an exception."""
 
@@ -162,6 +164,7 @@ class TestTraceEventAsync:
             assert len(events) == 0
 
     @pytest.mark.asyncio
+    @pytest.mark.fast
     async def test_async_compute_logging(self):
         """Test compute input/output logging for async functions."""
 
@@ -186,6 +189,7 @@ class TestTraceEventAsync:
         assert events[0].event_type == "test_async_compute"
 
     @pytest.mark.asyncio
+    @pytest.mark.fast
     async def test_nested_async_events(self):
         """Test nested async function calls."""
 
@@ -223,6 +227,7 @@ class TestTraceEventAsync:
 class TestEventManagement:
     """Test event management functionality."""
 
+    @pytest.mark.fast
     def test_concurrent_sync_events(self):
         """Test handling multiple sync events."""
 

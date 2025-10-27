@@ -1,0 +1,45 @@
+examples/warming_up_to_rl/run_local_rollout.py,
+examples/warming_up_to_rl/run_local_rollout_modal.py,
+examples/warming_up_to_rl/run_local_rollout_parallel.py,
+examples/warming_up_to_rl/run_local_rollout_traced.py:
+- nightly builds loaded/persisted API keys with synth_ai._utils.user_config (including DEV_* fallbacks and syncing SYNTH_API_KEY into OPENAI) and relied on shared.parse_ops/ops_from_pairs helpers; main branch now expects keys to come from env/.env and uses its inline agent/env loop builder.
+- nightly CLIs auto-updated local config/state (e.g., storing keys, prompting for explicit trace output paths) and injected custom extra_headers logic; those workflows were removed to match main.
+
+pyproject.toml:
+- nightly set version to 0.2.9.dev6, updated the description, added a synth-ai-demo console entry, and treated ruff as a runtime dependency while dropping the httpx/pyboy/setuptools pins; main reverts to 0.2.15.dev0 with the original dependency/script layout.
+
+synth_ai/api/train/cli.py:
+- nightly broadened dataset discovery (searching cwd/parent/ft_data paths and picking the latest JSONL) and enforced training-file readiness before job creation; main uses the config_finder/env_resolver flow and only warns on readiness failures, so those stricter heuristics were dropped.
+
+synth_ai/cli/demo.py:
+- nightly deleted the demo command surface entirely; main restores the integration with synth_ai.demos.core CLI helpers.
+
+synth_ai/cli/lib/task_app_env.py:
+- nightly removed the env helper module that handled .env discovery, port checks, and preflight key uploads; main brings that tooling back.
+
+synth_ai/cli/task_app_deploy.py:
+- nightly added a local FastAPI deploy path, legacy shell-script support, and persisted ENVIRONMENT/SYNTH keys via user_config; main keeps the Modal-centric flow with the cli.lib helpers, so those nightly-only branches are gone.
+
+synth_ai/cli/task_app_modal_serve.py:
+- nightly version pulled discovery helpers from synth_ai.utils.task_app_discovery; main relies on the cli.lib wrapper instead.
+
+synth_ai/cli/task_apps.py:
+- nightly rewired the task-app CLI around synth_ai.utils helpers (persist_env_api_key, load_user_env, etc.) and a simpler registration stack; main restores the larger CLI surface with tracing/export utilities, dropping the nightly simplifications.
+
+synth_ai/cli/turso.py:
+- nightly imported SQLD tooling from synth_ai.utils.sqld; main reverts to the cli.root module, removing that indirection.
+
+synth_ai/jobs/client.py:
+- nightly used direct imports from synth_ai._utils.http and friends; main returns to lazy imports via synth_ai.http/synth_ai.api.models.supported to keep packaging optionality.
+
+synth_ai/task/server.py:
+- nightly deleted the FastAPI task server implementation; main restores create_task_app/run_task_app and associated proxy wiring.
+
+synth_ai/utils/task_app_discovery.py:
+- nightly assumed the task app registry was always importable, restored built-in demos eagerly, and sorted choices lexicographically; main reinstates guarded imports, richer sorting (demo/cwd/timestamps), and env_files propagation, so the nightly shortcuts were dropped.
+
+tests/unit/cli/test_task_app_preflight.py:
+- nightly targeted synth_ai._utils.task_app_env.preflight_env_key and asserted user_config updates; main exercises synth_ai.cli.task_apps._preflight_env_key with the new persistence hook mocked, so those nightly expectations were removed.
+
+uv.lock:
+- nightly lockfile captured the alternate dependency graph (e.g., ruff as runtime, missing httpx/pyboy pins); replaced with main's lock to match the restored pyproject metadata.

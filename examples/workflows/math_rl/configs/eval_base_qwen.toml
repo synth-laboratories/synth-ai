@@ -1,0 +1,15 @@
+provider = "synth"
+task_app_url = "http://localhost:8101"
+model = "Qwen/Qwen3-1.7B"
+split = "validation"
+num_episodes = 50
+seed_start = 0
+
+[policy]
+inference_url = "https://agent-learning.onrender.com/api/inference"
+max_tokens = 128
+temperature = 0.0
+
+# Optionally supply custom headers
+# [policy.headers]
+# Authorization = "Bearer ..."

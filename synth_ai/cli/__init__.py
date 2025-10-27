@@ -1,10 +1,15 @@
 """CLI subcommands for Synth AI.
 
-This package exposes a top-level Click group named ``cli`` compatible with the
-pyproject entry point ``synth_ai.cli:cli``.
+This package hosts modular commands (watch, traces, recent, calc, status)
+and exposes a top-level Click group named `cli` compatible with the
+pyproject entry point `synth_ai.cli:cli`.
 """
 
 from __future__ import annotations
+
+import importlib
+from collections.abc import Callable
+from typing import Any, cast
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -16,64 +21,65 @@ except Exception:
     # dotenv is optional at runtime; proceed if unavailable
     pass
 
-try:
-    from ._typer_patch import patch_typer_make_metavar
-
-    patch_typer_make_metavar()
-except Exception:
-    pass
+def _callable_from(module: Any, attr: str) -> Callable[..., Any] | None:
+    candidate = getattr(module, attr, None)
+    return candidate if callable(candidate) else None
 
 
-from .root import cli  # new canonical CLI entrypoint
+def _maybe_import(module_path: str) -> Any | None:
+    try:
+        return importlib.import_module(module_path)
+    except Exception:
+        return None
 
-# Register subcommands from this package onto the group
-try:
-    from . import watch as _watch
 
-    _watch.register(cli)
-except Exception:
-    pass
-try:
-    from . import recent as _recent
+def _maybe_call(module_path: str, attr: str, *args: Any, **kwargs: Any) -> None:
+    module = _maybe_import(module_path)
+    if not module:
+        return
+    fn = _callable_from(module, attr)
+    if fn:
+        fn(*args, **kwargs)
 
-    _recent.register(cli)
-except Exception:
-    pass
-try:
-    from . import calc as _calc
 
-    _calc.register(cli)
-except Exception:
-    pass
-try:
-    from . import demo as _demo
+# Apply Typer patch if available
+_maybe_call("synth_ai.cli._typer_patch", "patch_typer_make_metavar")
 
-    _demo.register(cli)
-except Exception:
-    pass
-try:
-    from . import turso as _turso
 
-    _turso.register(cli)
-except Exception:
-    pass
-try:
-    from synth_ai.api.train import register as _train_register
+_cli_module = _maybe_import("synth_ai.cli.root")
+if not _cli_module:
+    raise ImportError("synth_ai.cli.root is required for CLI entrypoint")
+cli = cast(Any, _cli_module.cli)
 
-    _train_register(cli)
-except Exception:
-    pass
 
-from importlib import import_module
+# Register optional subcommands packaged under synth_ai.cli.*
+for _module_path in (
+    "synth_ai.cli.demo",
+    "synth_ai.cli.turso",
+):
+    _maybe_call(_module_path, "register", cli)
 
-from .task_app_serve import serve_command
-from .task_apps import task_app_group
+# Train CLI lives under synth_ai.api.train
+_maybe_call("synth_ai.api.train", "register", cli)
 
-import_module(".task_app_list", __name__)
-import_module(".task_app_deploy", __name__)
-import_module(".task_app_modal_serve", __name__)
+# Task app group/commands are optional and have richer API surface
+_task_apps_module = _maybe_import("synth_ai.cli.task_apps")
+if _task_apps_module:
+    task_app_group = getattr(_task_apps_module, "task_app_group", None)
+    if task_app_group is not None:
+        cli.add_command(task_app_group, name="task-app")
+        # Expose common aliases when present
+        commands = getattr(task_app_group, "commands", None)
+        if isinstance(commands, dict):
+            for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
+                command = commands.get(name)
+                if command is not None:
+                    cli.add_command(command, name=alias)
+    register_task_apps = _callable_from(_task_apps_module, "register")
+    if register_task_apps:
+        register_task_apps(cli)
 
-cli.add_command(serve_command)
-cli.add_command(task_app_group, name="task-app")
-cli.add_command(task_app_group.commands["deploy"], name="deploy")
-cli.add_command(task_app_group.commands["modal-serve"], name="modal-serve")
+# Register TUI command if dependencies allow
+_maybe_call("synth_ai.cli.tui", "register", cli)
+
+# Top-level 'info' alias removed; use `synth-ai task-app info` instead

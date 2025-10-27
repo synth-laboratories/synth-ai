@@ -11,6 +11,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_infer_rl_qwen17b_dev() -> None:
     """
     Dev smoke test for RL-trained model chat completions.

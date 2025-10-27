@@ -66,6 +66,7 @@ def _resolve_count(result) -> int:
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_fixture_counts_align_with_manifest(scenario: str):
     """Ensure all table counts in each fixture match the recorded manifest."""
     manifest, db_path = _load_manifest(scenario)
@@ -81,6 +82,7 @@ async def test_fixture_counts_align_with_manifest(scenario: str):
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_session_summary_contains_fixture_sessions(scenario: str):
     """Session summary analytics view should surface each fixture session."""
     manifest, db_path = _load_manifest(scenario)
@@ -224,6 +226,7 @@ async def test_storage_factory_defaults_to_native():
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_session_tracer_uses_native_by_default(tmp_path):
     """SessionTracer should instantiate the native manager by default."""
     temp_db = tmp_path / "native_session.db"
@@ -236,6 +239,7 @@ async def test_session_tracer_uses_native_by_default(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_native_model_usage_matches_sqlite_view():
     """Native query helpers should produce the same results as the underlying view."""
     _, db_path = _load_manifest("high_volume")
@@ -334,6 +338,7 @@ async def test_native_get_session_trace_matches_sqlite():
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_native_get_sessions_by_experiment_matches_legacy(tmp_path):
     db_path = tmp_path / "experiments.db"
     db_url = f"sqlite+aiosqlite:///{db_path}"
@@ -389,6 +394,7 @@ async def test_native_get_sessions_by_experiment_matches_legacy(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_native_delete_session_removes_rows(tmp_path):
     db_path = tmp_path / "delete_me.db"
     db_url = f"sqlite+aiosqlite:///{db_path}"
@@ -440,6 +446,7 @@ async def test_native_delete_session_removes_rows(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_native_insert_session_trace_idempotent(tmp_path):
     db_path = tmp_path / "native_insert.db"
     storage = create_storage(StorageConfig(connection_string=f"sqlite+aiosqlite:///{db_path}"))
@@ -496,6 +503,7 @@ async def test_native_insert_session_trace_idempotent(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_session_tracer_native_write_pipeline(tmp_path):
     """Native manager should persist incremental writes end-to-end."""
     db_path = tmp_path / "native_pipeline.db"
@@ -564,6 +572,7 @@ async def test_session_tracer_native_write_pipeline(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.fast
 async def test_session_tracer_replays_env_fixture_subset(tmp_path):
     """Replay a subset of an environment session via SessionTracer and verify persistence."""
     manifest, fixture_db = _load_manifest("env_rollout")

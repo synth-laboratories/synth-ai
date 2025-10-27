@@ -1,0 +1,8 @@
+# Simple filter config for testing vision trace export
+[filter]
+db = "traces/gpt4o_vision_test/rollouts.db"
+output = "traces/gpt4o_vision_test/sft/train.jsonl"
+
+# No filters - accept all traces
+limit = 100  # Max 100 examples
+

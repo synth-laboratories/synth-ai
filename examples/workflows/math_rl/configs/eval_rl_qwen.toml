@@ -1,0 +1,11 @@
+provider = "synth"
+task_app_url = "https://your-math-task.modal.run"
+model = "rl:REPLACE_WITH_JOB_ID"
+split = "test"
+num_episodes = 200
+seed_start = 100000
+
+[policy]
+inference_url = "https://your-inference-host"
+max_tokens = 128
+temperature = 0.0

@@ -85,6 +85,33 @@ def extract_inventory(memory) -> List[Dict[str, Any]]:
     return inventory
 
 
+def extract_battle_state(memory) -> Dict[str, Any]:
+    """Extract battle-specific state"""
+    in_battle = get_byte(memory, IN_BATTLE_FLAG) > 0
+    
+    if not in_battle:
+        return {
+            "enemy_hp_current": 0,
+            "enemy_hp_max": 0,
+            "enemy_level": 0,
+            "enemy_species_id": 0,
+            "enemy_hp_percentage": 0.0,
+            "battle_turn": 0,
+        }
+    
+    enemy_hp_current = get_word(memory, ENEMY_HP_CURRENT)
+    enemy_hp_max = get_word(memory, ENEMY_HP_MAX)
+    
+    return {
+        "enemy_hp_current": enemy_hp_current,
+        "enemy_hp_max": enemy_hp_max,
+        "enemy_level": get_byte(memory, ENEMY_LEVEL),
+        "enemy_species_id": get_byte(memory, ENEMY_SPECIES),
+        "enemy_hp_percentage": round((enemy_hp_current / enemy_hp_max * 100) if enemy_hp_max > 0 else 0, 1),
+        "battle_turn": get_byte(memory, BATTLE_TURN),
+    }
+
+
 def extract_game_state(memory) -> Dict[str, Any]:
     """Extract comprehensive game state from Game Boy memory"""
     # Get party and inventory details
@@ -93,6 +120,9 @@ def extract_game_state(memory) -> Dict[str, Any]:
 
     # Get money
     money = get_bcd_3byte(memory, MONEY)
+    
+    # Get battle state
+    battle_state = extract_battle_state(memory)
 
     # Basic game state
     state = {
@@ -111,6 +141,8 @@ def extract_game_state(memory) -> Dict[str, Any]:
         "party_pokemon": party,
         "inventory_count": len(inventory),
         "inventory_items": inventory,
+        # Battle state
+        **battle_state,
         # Legacy fields for compatibility (use first Pokemon if available)
         "party_level": party[0]["level"] if party else 0,
         "party_hp_current": party[0]["hp_current"] if party else 0,

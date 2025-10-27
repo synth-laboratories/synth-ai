@@ -5,7 +5,7 @@ type = "sft"
 [algorithm]
 type = "offline"
 method = "sft"
-variety = "fft"
+variety = "lora"
 
 [job]
 model = "Qwen/Qwen3-Coder-30B-A3B-Instruct"

@@ -10,7 +10,7 @@ from typing import Any
 
 
 def iso_now() -> str:
-    """Get current UTC time as ISO format string."""
+    """Get current timezone.utc time as ISO format string."""
     return datetime.now(UTC).isoformat()
 
 

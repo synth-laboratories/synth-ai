@@ -6,20 +6,57 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import sys
 from collections import Counter
 from pathlib import Path
 from statistics import mean, median
 from typing import Any
 
-from synth_ai._utils.user_config import load_user_config, update_user_config
-from synth_ai.task import TaskAppClient
+from dotenv import load_dotenv
+from synth_ai.task import (
+    RolloutEnvSpec,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    RolloutSafetyConfig,
+    TaskAppClient,
+)
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.append(str(SCRIPT_DIR))
 
-from shared import build_rollout_request, ops_from_pairs, parse_ops  # noqa: E402
+def build_rollout_request(
+    *,
+    seed: int,
+    run_id: str,
+    model: str,
+    inference_url: str,
+    inference_api_key: str,
+    ops: list[str],
+    extra_headers: dict[str, str] | None = None,
+    trace_format: str = "compact",
+    return_trace: bool = False,
+) -> RolloutRequest:
+    policy_config = {
+        "model": model,
+        "inference_url": inference_url,
+        "api_key": inference_api_key,
+    }
+    if extra_headers:
+        policy_config["extra_headers"] = extra_headers
+    record_cfg = RolloutRecordConfig(
+        trajectories=True,
+        trace_format=trace_format,
+        return_trace=return_trace,
+    )
+    from synth_ai.task.contracts import RolloutMode
+    return RolloutRequest(
+        run_id=run_id,
+        env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
+        policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
+        ops=ops,
+        record=record_cfg,
+        mode=RolloutMode.EVAL,
+        on_done="reset",
+        safety=RolloutSafetyConfig(),
+    )
 
 
 def mask_value(value: str | None) -> str:
@@ -29,14 +66,21 @@ def mask_value(value: str | None) -> str:
 
 
 def build_ops(max_llm_calls: int, explicit_ops: str | None) -> list[str]:
-    parsed = parse_ops(explicit_ops)
-    if parsed is not None:
-        return parsed
+    if explicit_ops:
+        ops = [op.strip() for op in explicit_ops.split(",") if op.strip()]
+        if not ops:
+            raise ValueError("--ops must contain at least one entry")
+        return ops
 
     llm_calls = max(1, max_llm_calls)
     if llm_calls > 50:
         print("[WARN] --max-llm-calls capped at 50 per rollout; use --ops for manual control.")
-    return ops_from_pairs(llm_calls, cap=50)
+        llm_calls = 50
+
+    ops: list[str] = []
+    for _ in range(llm_calls):
+        ops.extend(["agent", "env"])
+    return ops
 
 
 def extract_achievements(step_info: dict[str, Any] | None) -> list[str]:
@@ -190,51 +234,32 @@ def print_summary(
 
 
 async def execute_rollouts(args: argparse.Namespace) -> None:
-    user_config = load_user_config()
+    if args.env_file:
+        env_path = Path(args.env_file).expanduser()
+        if not env_path.exists():
+            raise FileNotFoundError(f"Env file not found: {env_path}")
+        load_dotenv(env_path, override=False)
 
-    api_key = (
-        args.api_key
-        or os.getenv("ENVIRONMENT_API_KEY")
-        or user_config.get("ENVIRONMENT_API_KEY")
-        or user_config.get("DEV_ENVIRONMENT_API_KEY")
-    )
+    api_key = args.api_key or os.getenv("ENVIRONMENT_API_KEY")
     if not api_key:
-        print("Please enter your Environment API key:", file=sys.stderr, flush=True)
+        import sys
+
+        print("Please enter your RL Environment API key:", file=sys.stderr, flush=True)
         api_key = input("> ").strip()
         if not api_key:
-            raise RuntimeError("Environment API key is required")
-    if (
-        user_config.get("ENVIRONMENT_API_KEY") != api_key
-        or user_config.get("DEV_ENVIRONMENT_API_KEY") != api_key
-    ):
-        update_user_config(
-            {
-                "ENVIRONMENT_API_KEY": api_key,
-                "DEV_ENVIRONMENT_API_KEY": api_key,
-            }
-        )
-        user_config["ENVIRONMENT_API_KEY"] = api_key
-        user_config["DEV_ENVIRONMENT_API_KEY"] = api_key
-    os.environ.setdefault("ENVIRONMENT_API_KEY", api_key)
+            raise RuntimeError("RL Environment API key is required")
 
-    groq_api_key = os.getenv("GROQ_API_KEY") or user_config.get("GROQ_API_KEY")
+    # Prompt for Groq API key if not set
+    groq_api_key = os.getenv("GROQ_API_KEY")
     if not groq_api_key:
+        import sys
+
         print("Please enter your Groq API key:", file=sys.stderr, flush=True)
         groq_api_key = input("> ").strip()
         if not groq_api_key:
             raise RuntimeError("Groq API key is required")
-    if user_config.get("GROQ_API_KEY") != groq_api_key:
-        update_user_config({"GROQ_API_KEY": groq_api_key})
-        user_config["GROQ_API_KEY"] = groq_api_key
-    os.environ.setdefault("GROQ_API_KEY", groq_api_key)
 
-    synth_key = (
-        os.getenv("SYNTH_API_KEY")
-        or user_config.get("SYNTH_API_KEY")
-        or user_config.get("DEV_SYNTH_API_KEY")
-    )
-    if synth_key:
-        os.environ.setdefault("SYNTH_API_KEY", synth_key)
+    synth_key = os.getenv("SYNTH_API_KEY")
     extra_headers: dict[str, str] | None = None
     if synth_key and "openai.com" not in args.inference_url.lower():
         extra_headers = {"Authorization": f"Bearer {synth_key}"}
@@ -250,9 +275,8 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
 
     ops = build_ops(args.max_llm_calls, args.ops)
 
-    effective_llm_calls = len(ops) // 2
     print(f"\n🚀 Starting {args.count} rollouts with {args.parallel} parallel workers...")
-    print(f"📊 Each rollout: {len(ops)} ops ({effective_llm_calls} LLM calls)\n")
+    print(f"📊 Each rollout: {len(ops)} ops ({args.max_llm_calls} LLM calls)\n")
 
     async with TaskAppClient(args.base_url, api_key=api_key, timeout=args.timeout) as client:
 
@@ -271,8 +295,14 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
                 extra_headers=extra_headers,
                 trace_format=args.trace_format,
                 return_trace=True,
-                max_policy_tokens=args.max_policy_tokens,
             )
+            if args.max_policy_tokens is not None:
+                request.policy.config.update(
+                    {
+                        "max_completion_tokens": args.max_policy_tokens,
+                        "max_tokens": args.max_policy_tokens,
+                    }
+                )
 
             try:
                 response = await client.rollout(request)
@@ -322,7 +352,8 @@ async def execute_rollouts(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8001", help="Task app base URL")
-    parser.add_argument("--api-key", help="Environment API key (or stored in user config)")
+    parser.add_argument("--api-key", help="Environment API key (or set via --env-file)")
+    parser.add_argument("--env-file", help="Path to .env file providing API keys")
     parser.add_argument(
         "--model", default="gpt-4o-mini", help="Model identifier for the Crafter policy"
     )

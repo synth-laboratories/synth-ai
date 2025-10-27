@@ -5,6 +5,7 @@ Regression tests for the trace SFT exporter using real fixtures.
 
 from __future__ import annotations
 
+import pytest
 from pathlib import Path
 
 from examples.warming_up_to_rl import export_trace_sft as exporter
@@ -28,6 +29,7 @@ def _fixture_db(scenario: str) -> Path:
     return candidates[0]
 
 
+@pytest.mark.fast
 def test_exporter_builds_dataset_from_env_rollout_fixture():
     """Ensure build_sft_dataset produces validated records from the env_rollout fixture."""
     db_path = _fixture_db("env_rollout")

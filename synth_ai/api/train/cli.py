@@ -1,18 +1,30 @@
 from __future__ import annotations
 
-import contextlib
+import importlib
 import os
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
+try:
+    _config_module = cast(
+        Any, importlib.import_module("synth_ai.config.base_url")
+    )
+    get_backend_from_env = cast(Callable[[], str], _config_module.get_backend_from_env)
+except Exception as exc:  # pragma: no cover - critical dependency
+    raise RuntimeError("Unable to load backend configuration helpers") from exc
+
 from .builders import build_rl_payload, build_sft_payload
+from .config_finder import discover_configs, prompt_for_config
+from .env_resolver import KeySpec, resolve_env
 from .pollers import RLJobPoller, SFTJobPoller
 from .task_app import check_task_app_health
 from .utils import (
     REPO_ROOT,
     TrainError,
+    ensure_api_base,
     http_get,
     http_post,
     limit_jsonl_examples,
@@ -25,22 +37,11 @@ from .utils import (
 
 
 def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Path]:
-    root = config_path.parent
-    parent = root.parent
-    cwd = Path.cwd()
-
     search_dirs: list[Path] = [
-        root,
-        root / "datasets",
-        parent,
-        parent / "datasets",
-        parent / "ft_data",
-        cwd,
-        cwd / "datasets",
-        cwd / "ft_data",
-        REPO_ROOT / "datasets",
-        REPO_ROOT / "ft_data",
+        config_path.parent,
+        config_path.parent / "datasets",
         REPO_ROOT / "traces",
+        REPO_ROOT / "datasets",
     ]
 
     candidates: list[Path] = []
@@ -59,13 +60,9 @@ def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Pat
             if resolved.stat().st_size == 0:
                 continue
             candidates.append(resolved)
-    with contextlib.suppress(OSError):
-        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    if candidates:
-        named = [p for p in candidates if "sft_dataset_" in p.name]
-        if named:
-            return named[:limit]
-    return candidates[:limit]
+            if len(candidates) >= limit:
+                return candidates
+    return candidates
 
 
 def prompt_for_dataset(config_path: Path) -> Path:
@@ -74,11 +71,10 @@ def prompt_for_dataset(config_path: Path) -> Path:
         if candidates:
             click.echo("Select dataset JSONL file:")
             for idx, candidate in enumerate(candidates, start=1):
-                marker = " <- most recent" if idx == 1 else ""
-                click.echo(f"  {idx}) {candidate}{marker}")
+                click.echo(f"  {idx}) {candidate}")
             click.echo("  m) Enter path manually")
             click.echo("  0) Abort")
-            choice = click.prompt("Choice", default="1").strip().lower()
+            choice = click.prompt("Choice", default="m").strip().lower()
             if choice == "0":
                 raise click.ClickException("Aborted by user")
             if choice in {"m", "manual"}:
@@ -106,10 +102,205 @@ def _prompt_manual_dataset() -> Path:
     return Path(manual).expanduser()
 
 
+def _default_backend() -> str:
+    """Resolve backend URL with proper production default."""
+    # Check explicit override first
+    explicit = os.getenv("BACKEND_BASE_URL", "").strip()
+    if explicit:
+        return explicit
+    # Use standard resolution logic
+    base, _ = get_backend_from_env()
+    return f"{base}/api" if not base.endswith("/api") else base
+
+
+@click.command("train")
+@click.option(
+    "--config",
+    "config_paths",
+    multiple=True,
+    type=click.Path(),
+    help="Path to training TOML (repeatable)",
+)
+@click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft"]), default="auto")
+@click.option(
+    "--env-file",
+    "env_files",
+    multiple=True,
+    type=click.Path(),
+    help=".env file(s) to preload (skips selection prompt)",
+)
+@click.option("--task-url", default=None, help="Override task app base URL (RL only)")
+@click.option(
+    "--dataset",
+    "dataset_path",
+    type=click.Path(),
+    default=None,
+    help="Override dataset JSONL path (SFT)",
+)
+@click.option("--backend", default=_default_backend, help="Backend base URL")
+@click.option("--model", default=None, help="Override model identifier")
+@click.option(
+    "--allow-experimental",
+    "allow_experimental",
+    is_flag=True,
+    flag_value=True,
+    default=None,
+    help="Allow experimental models (overrides SDK_EXPERIMENTAL env)",
+)
+@click.option(
+    "--no-allow-experimental",
+    "allow_experimental",
+    is_flag=True,
+    flag_value=False,
+    help="Disallow experimental models (overrides SDK_EXPERIMENTAL env)",
+)
+@click.option("--idempotency", default=None, help="Idempotency-Key header for job creation")
+@click.option("--dry-run", is_flag=True, hidden=True, help="Deprecated: no-op")
+@click.option("--poll/--no-poll", default=True, help="Poll job status until terminal state")
+@click.option(
+    "--poll-timeout", default=3600.0, type=float, help="Maximum seconds to poll before timing out"
+)
+@click.option("--poll-interval", default=5.0, type=float, help="Seconds between poll attempts")
+@click.option(
+    "--examples",
+    "examples_limit",
+    type=int,
+    default=None,
+    help="Limit SFT training to the first N examples",
+)
+def train_command(
+    config_paths: tuple[str, ...],
+    train_type: str,
+    env_files: tuple[str, ...],
+    task_url: str | None,
+    dataset_path: str | None,
+    backend: str,
+    model: str | None,
+    allow_experimental: bool | None,
+    idempotency: str | None,
+    dry_run: bool,
+    poll: bool,
+    poll_timeout: float,
+    poll_interval: float,
+    examples_limit: int | None,
+) -> None:
+    """Interactive launcher for RL / SFT jobs."""
+
+    candidates = discover_configs(
+        list(config_paths), requested_type=train_type if train_type != "auto" else None
+    )
+    selection = prompt_for_config(
+        candidates,
+        requested_type=train_type if train_type != "auto" else None,
+        allow_autoselect=bool(config_paths),
+    )
+
+    effective_type = train_type if train_type != "auto" else selection.train_type
+    if effective_type not in {"rl", "sft"}:
+        effective_type = click.prompt(
+            "Detected config type is ambiguous. Enter type", type=click.Choice(["rl", "sft"])
+        )
+
+    cfg_path = selection.path
+    click.echo(f"Using config: {cfg_path} ({effective_type})")
+
+    required_keys: list[KeySpec] = []
+    if effective_type == "rl":
+        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
+        required_keys.append(
+            KeySpec(
+                "ENVIRONMENT_API_KEY",
+                "Environment API key for task app",
+                allow_modal_secret=True,
+                modal_secret_pattern="env",
+            )
+        )
+        required_keys.append(
+            KeySpec(
+                "TASK_APP_URL",
+                "Task app base URL",
+                secret=False,
+                allow_modal_app=True,
+                optional=bool(task_url),
+            )
+        )
+    else:  # sft
+        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
+
+    env_path, env_values = resolve_env(
+        config_path=cfg_path,
+        explicit_env_paths=env_files,
+        required_keys=required_keys,
+    )
+
+    missing_keys = [
+        spec.name
+        for spec in required_keys
+        if not spec.optional and not (env_values.get(spec.name) or os.environ.get(spec.name))
+    ]
+    if missing_keys:
+        try:
+            _task_apps_module = cast(
+                Any, importlib.import_module("synth_ai.cli.task_apps")
+            )
+            _interactive_fill_env = cast(
+                Callable[[Path], Path | None], _task_apps_module._interactive_fill_env
+            )
+        except Exception as exc:  # pragma: no cover - protective fallback
+            raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
+
+        target_dir = cfg_path.parent
+        generated = _interactive_fill_env(target_dir / ".env")
+        if generated is None:
+            raise click.ClickException("Required environment values missing; aborting.")
+        env_path, env_values = resolve_env(
+            config_path=cfg_path,
+            explicit_env_paths=(str(generated),),
+            required_keys=required_keys,
+        )
+    click.echo(f"Using env file: {env_path}")
+
+    synth_key = env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")
+    if not synth_key:
+        raise click.ClickException("SYNTH_API_KEY required")
+
+    backend_base = ensure_api_base(backend)
+    click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
+
+    if effective_type == "rl":
+        handle_rl(
+            cfg_path=cfg_path,
+            backend_base=backend_base,
+            synth_key=synth_key,
+            task_url_override=task_url,
+            model_override=model,
+            idempotency=idempotency,
+            allow_experimental=allow_experimental,
+            dry_run=dry_run,
+            poll=poll,
+            poll_timeout=poll_timeout,
+            poll_interval=poll_interval,
+        )
+    else:
+        dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
+        handle_sft(
+            cfg_path=cfg_path,
+            backend_base=backend_base,
+            synth_key=synth_key,
+            dataset_override=dataset_override_path,
+            allow_experimental=allow_experimental,
+            dry_run=dry_run,
+            poll=poll,
+            poll_timeout=poll_timeout,
+            poll_interval=poll_interval,
+            examples_limit=examples_limit,
+        )
+
+
 def _wait_for_training_file(
     backend_base: str, api_key: str, file_id: str, *, timeout: float = 120.0
 ) -> None:
-    url = f"{backend_base}/learning/files/{file_id}"
+    url = f"{backend_base.rstrip('/')}/files/{file_id}"
     headers = {"Authorization": f"Bearer {api_key}"}
     elapsed = 0.0
     interval = 2.0
@@ -209,9 +400,19 @@ def handle_rl(
             verify_url, headers=verify_headers, json_body={"endpoint_base_url": build.task_url}
         )
         try:
-            vjs = vresp.json()
+            parsed_json = vresp.json()
         except Exception:
-            vjs = {"status": vresp.status_code, "text": (vresp.text or "")[:400]}
+            parsed_json = None
+
+        if isinstance(parsed_json, Mapping):
+            vjs: dict[str, Any] = dict(parsed_json)
+        else:
+            vjs = {
+                "status": vresp.status_code,
+                "text": (vresp.text or "")[:400],
+            }
+            if parsed_json is not None:
+                vjs["body"] = parsed_json
     except Exception as _ve:
         raise click.ClickException(
             f"Task app verification call failed: {type(_ve).__name__}: {_ve}"
@@ -227,8 +428,13 @@ def handle_rl(
         # Print concise summary
         try:
             cands = vjs.get("candidates_first15") or []
-            attempts = vjs.get("attempts") or []
-            statuses = [a.get("status") for a in attempts]
+            attempts_raw = vjs.get("attempts")
+            attempts: list[Mapping[str, Any]] = (
+                [a for a in attempts_raw if isinstance(a, Mapping)]
+                if isinstance(attempts_raw, list)
+                else []
+            )
+            statuses = [attempt.get("status") for attempt in attempts]
             click.echo(f"Verification OK (candidates={cands}, statuses={statuses})")
         except Exception:
             pass
@@ -318,7 +524,7 @@ def handle_sft(
             click.echo("Validating validation dataset…")
             validate_sft_jsonl(build.validation_file)
 
-        upload_url = f"{backend_base}/learning/files"
+        upload_url = f"{backend_base.rstrip('/')}/files"
         click.echo("\n=== Uploading Training Data ===")
         click.echo(f"Dataset: {build.train_file}")
         click.echo(f"Destination: {upload_url}")
@@ -373,7 +579,8 @@ def handle_sft(
         try:
             _wait_for_training_file(backend_base, synth_key, train_file_id)
         except click.ClickException as exc:
-            raise click.ClickException(f"Training file {train_file_id} not ready: {exc}") from exc
+            click.echo(f"[WARN] File readiness check failed: {exc}")
+            click.echo("Proceeding anyway - backend will validate file during job creation...")
 
         click.echo("\n=== Creating Training Job ===")
         click.echo("Job payload preview:")
@@ -423,3 +630,7 @@ def handle_sft(
                 limited_path.parent.rmdir()
             except Exception:
                 pass
+
+
+def register(cli: click.Group) -> None:
+    cli.add_command(train_command)

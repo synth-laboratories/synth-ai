@@ -1,15 +1,31 @@
 from __future__ import annotations
 
+import importlib
 import os
 from collections.abc import Callable, Iterable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import click
 
 from . import task_app
 from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
 from synth_ai.utils.env import resolve_env_var
+
+
+def _load_saved_env_path() -> Path | None:
+    try:
+        module = cast(
+            Any, importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        )
+        loader = cast(Callable[[], str | None], module.load_env_file_path)
+        saved_path = loader()
+        if saved_path:
+            return Path(saved_path)
+    except Exception:
+        return None
+    return None
 
 
 @dataclass(slots=True)
@@ -157,25 +173,11 @@ def resolve_env(
                 raise click.ClickException(f"Env file not found: {path}")
         resolver = EnvResolver(provided)
     else:
-        # Check for saved .env path from demo command
-        try:
-            from synth_ai.demos.demo_task_apps.core import load_env_file_path
-
-            saved_env_path = load_env_file_path()
-            if saved_env_path:
-                saved_path = Path(saved_env_path)
-                if saved_path.exists():
-                    click.echo(f"Using .env file: {saved_path}")
-                    resolver = EnvResolver([saved_path])
-                else:
-                    # Saved path no longer exists, fall back to prompt
-                    resolver = EnvResolver(_collect_default_candidates(config_path))
-                    resolver.select_new_env()
-            else:
-                resolver = EnvResolver(_collect_default_candidates(config_path))
-                resolver.select_new_env()
-        except Exception:
-            # If import fails or any error, fall back to original behavior
+        saved_path = _load_saved_env_path()
+        if saved_path and saved_path.exists():
+            click.echo(f"Using .env file: {saved_path}")
+            resolver = EnvResolver([saved_path])
+        else:
             resolver = EnvResolver(_collect_default_candidates(config_path))
             resolver.select_new_env()
 

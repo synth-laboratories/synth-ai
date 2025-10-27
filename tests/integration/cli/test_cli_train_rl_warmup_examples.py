@@ -89,6 +89,7 @@ async def _wait_for_success(backend_base: str, api_key: str, job_id: str, timeou
         raise AssertionError(f"Timed out waiting for job {job_id} to succeed; last={last}")
 
 
+@pytest.mark.fast
 def test_cli_train_rl_from_base(tmp_path: Path) -> None:
     _maybe_env()
     backend = (

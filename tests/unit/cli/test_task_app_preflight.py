@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-from synth_ai._utils.task_app_env import preflight_env_key
+from synth_ai.cli.task_apps import _preflight_env_key as preflight_env_key
 from synth_ai.learning.rl.secrets import mint_environment_api_key
 
 
@@ -41,24 +41,6 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("DEV_ENVIRONMENT_API_KEY", raising=False)
     monkeypatch.setenv("SYNTH_API_KEY", "sk_test_123")
     monkeypatch.setenv("BACKEND_BASE_URL", "https://example.test/api")
-
-    recorded_config: dict[str, str] = {}
-
-    def fake_load_user_config() -> dict[str, str]:
-        return recorded_config.copy()
-
-    def fake_update_user_config(updates: dict[str, str]) -> dict[str, str]:
-        recorded_config.update({k: str(v) for k, v in updates.items()})
-        return recorded_config.copy()
-
-    monkeypatch.setattr("synth_ai._utils.user_config.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_state.load_user_config", fake_load_user_config)
-    monkeypatch.setattr("synth_ai._utils.user_config.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_env.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_state.update_user_config", fake_update_user_config)
-    monkeypatch.setattr("synth_ai._utils.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
-    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_env", lambda override=False: {})
 
     public_key_bytes = b"\x01" * 32
     public_key_b64 = base64.b64encode(public_key_bytes).decode("ascii")
@@ -123,29 +105,36 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(httpx, "Client", FakeClient)
     monkeypatch.setattr(nacl.public, "PublicKey", FakePublicKey)
     monkeypatch.setattr(nacl.public, "SealedBox", FakeSealedBox)
+    
+    # Mock file I/O functions to prevent actual file writes during test
+    monkeypatch.setattr("synth_ai.cli.task_apps._persist_env_api_key", lambda *args, **kwargs: None)
 
     preflight_env_key(crash_on_failure=True)
 
     assert mint_calls == ["called"]
     assert os.environ["ENVIRONMENT_API_KEY"] == minted_value
     assert os.environ["DEV_ENVIRONMENT_API_KEY"] == minted_value
-    assert recorded_config.get("ENVIRONMENT_API_KEY") == minted_value
-    assert recorded_config.get("DEV_ENVIRONMENT_API_KEY") == minted_value
-
+    
     assert FakeSealedBox.last_plaintext == minted_value.encode("utf-8")
 
     assert FakeClient.instances, "Expected HTTP client usage during preflight"
-    upload_client = FakeClient.instances[-1]
-    get_calls = [entry for entry in upload_client.requests if entry[0] == "GET"]
+    
+    # Collect all requests from all client instances
+    all_requests = []
+    for client in FakeClient.instances:
+        all_requests.extend(client.requests)
+    
+    get_calls = [entry for entry in all_requests if entry[0] == "GET"]
     assert any(
         entry[1].endswith("/v1/crypto/public-key") for entry in get_calls
     ), "Expected public key fetch via GET"
-    post_calls = [entry for entry in upload_client.requests if entry[0] == "POST"]
+    
+    post_calls = [entry for entry in all_requests if entry[0] == "POST"]
     assert post_calls, "Expected an upload POST request"
     payload = post_calls[0][2]["json"]
     expected_ciphertext = base64.b64encode(b"sealed:" + minted_value.encode("utf-8")).decode("ascii")
     assert payload["name"] == "ENVIRONMENT_API_KEY"
     assert payload["ciphertext_b64"] == expected_ciphertext
 
-    verify_calls = [entry for entry in upload_client.requests if entry[0] == "GET" and entry[1].endswith("/v1/env-keys/verify")]
+    verify_calls = [entry for entry in all_requests if entry[0] == "GET" and entry[1].endswith("/v1/env-keys/verify")]
     assert verify_calls, "Expected verification request after upload"

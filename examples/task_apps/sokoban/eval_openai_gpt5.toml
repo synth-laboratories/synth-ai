@@ -1,0 +1,16 @@
+# Evaluation config for running OpenAI GPT-5 against the Sokoban task app.
+
+provider = "openai"
+task_app_url = "http://127.0.0.1:8911"
+model = "gpt-5"
+seeds = [123]
+max_turns = 60
+concurrency = 1
+
+[policy]
+provider = "openai"
+model = "gpt-5"
+temperature = 0.2
+top_p = 0.9
+max_completion_tokens = 4000
+max_actions_per_call = 4

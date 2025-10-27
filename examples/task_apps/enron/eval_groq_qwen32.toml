@@ -1,0 +1,16 @@
+# Evaluation config for running Groq Qwen/Qwen3-32B on the Enron email QA task app.
+
+provider = "groq"
+task_app_url = "http://127.0.0.1:8102"
+model = "qwen/qwen3-32b"
+seeds = [0, 1, 2]
+max_turns = 8
+concurrency = 1
+
+[policy]
+provider = "groq"
+model = "qwen/qwen3-32b"
+temperature = 0.2
+top_p = 0.8
+max_tokens = 1024
+max_turns = 8

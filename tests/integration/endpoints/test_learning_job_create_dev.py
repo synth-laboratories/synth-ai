@@ -99,6 +99,7 @@ def _job_metadata(kind: str) -> dict:
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_create_full_finetune_job_dev() -> None:
     _load_env_dev_first()
     base_url = _derive_backend_base_url()
@@ -176,6 +177,7 @@ async def test_create_full_finetune_job_dev() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_create_qlora_job_dev() -> None:
     _load_env_dev_first()
     base_url = _derive_backend_base_url()

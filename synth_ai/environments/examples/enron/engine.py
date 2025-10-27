@@ -26,7 +26,10 @@ from synth_ai.environments.examples.enron.taskset import EnronTaskInstance
 
 # SQLite-backed helpers
 from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngineSnapshot
-from synth_ai.zyk import LM  # Import LM class
+try:  # pragma: no cover - optional dependency
+    from synth_ai.zyk import LM  # type: ignore
+except ImportError:  # pragma: no cover - fallback when LM unavailable
+    LM = None
 
 # --------------------------------------------------------------------------- actions
 ACTION_SEARCH = "search"
@@ -244,7 +247,9 @@ class EnronEngine(StatefulEngine):
 async def determine_if_answer_is_correct(
     question: str, gold_answer: str, agent_answer: str
 ) -> bool:
-    # Instantiate LM for the judge
+    if LM is None:
+        return gold_answer.strip().lower() == agent_answer.strip().lower()
+
     llm = LM(model_name="gpt-4.1-nano", formatting_model_name="gpt-4.1-nano", temperature=0.0)
 
     system_prompt = (

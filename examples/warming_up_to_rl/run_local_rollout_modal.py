@@ -12,14 +12,38 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from synth_ai._utils.user_config import load_user_config, update_user_config
-from synth_ai.task import TaskAppClient
+from dotenv import load_dotenv
+from synth_ai.task import (
+    RolloutEnvSpec,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    RolloutSafetyConfig,
+    TaskAppClient,
+)
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.append(str(SCRIPT_DIR))
 
-from shared import build_rollout_request, ops_from_pairs, parse_ops  # noqa: E402
+def build_rollout_request(
+    seed: int, run_id: str, *, model: str, inference_url: str, ops: list[str], api_key: str
+) -> RolloutRequest:
+    policy_config = {
+        "model": model,
+        "inference_url": inference_url,
+        "extra_headers": {
+            "Authorization": f"Bearer {api_key}",
+        },
+    }
+    from synth_ai.task.contracts import RolloutMode
+    return RolloutRequest(
+        run_id=run_id,
+        env=RolloutEnvSpec(env_name="crafter", seed=seed, config={}),
+        policy=RolloutPolicySpec(policy_name="crafter-react", config=policy_config),
+        ops=ops,
+        record=RolloutRecordConfig(trajectories=True),
+        mode=RolloutMode.EVAL,
+        on_done="reset",
+        safety=RolloutSafetyConfig(),
+    )
 
 
 def summarise_response(data: Any) -> dict[str, Any]:
@@ -39,8 +63,14 @@ def summarise_response(data: Any) -> dict[str, Any]:
 
 
 async def main() -> None:
+    # Load .env file from current directory first if it exists
+    default_env = Path.cwd() / ".env"
+    if default_env.exists():
+        load_dotenv(default_env, override=False)
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://localhost:8010", help="Task app base URL")
+    parser.add_argument("--env-file", type=str, default=None, help="Path to .env file with keys")
     parser.add_argument("--seed", type=int, default=42, help="Env seed to rollout")
     parser.add_argument("--run-id", default="modal-eval", help="Run identifier")
     parser.add_argument(
@@ -80,7 +110,13 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    user_config = load_user_config()
+    # Also load from explicit --env-file if provided
+    if args.env_file:
+        env_path = Path(args.env_file).expanduser()
+        if not env_path.exists():
+            print(f"[WARN] Env file not found: {env_path}")
+        else:
+            load_dotenv(env_path, override=False)
 
     # Prompt for required parameters if not provided
     base_url = args.base_url
@@ -110,68 +146,35 @@ async def main() -> None:
     args.model = model
     args.inference_url = inference_url
 
-    # Check environment variables first, then user configuration
-    task_app_key = (
-        args.task_app_key
-        or os.getenv("ENVIRONMENT_API_KEY")
-        or user_config.get("ENVIRONMENT_API_KEY")
-        or user_config.get("DEV_ENVIRONMENT_API_KEY")
-    )
+    # Check environment variables first (loaded from .env)
+    task_app_key = args.task_app_key or os.getenv("ENVIRONMENT_API_KEY")
     if not task_app_key:
-        print("\n[INFO] ENVIRONMENT_API_KEY not found in environment or user config")
-        task_app_key = input("Environment API key: ").strip()
+        print("\n[INFO] ENVIRONMENT_API_KEY not found in environment or .env file")
+        task_app_key = input("RL Environment API key: ").strip()
         if not task_app_key:
             parser.error("Missing task app API key")
-    if (
-        user_config.get("ENVIRONMENT_API_KEY") != task_app_key
-        or user_config.get("DEV_ENVIRONMENT_API_KEY") != task_app_key
-    ):
-        update_user_config(
-            {
-                "ENVIRONMENT_API_KEY": task_app_key,
-                "DEV_ENVIRONMENT_API_KEY": task_app_key,
-            }
-        )
-        user_config["ENVIRONMENT_API_KEY"] = task_app_key
-        user_config["DEV_ENVIRONMENT_API_KEY"] = task_app_key
-    os.environ.setdefault("ENVIRONMENT_API_KEY", task_app_key)
 
-    modal_key = (
-        args.modal_key
-        or os.getenv("SYNTH_API_KEY")
-        or user_config.get("SYNTH_API_KEY")
-        or user_config.get("DEV_SYNTH_API_KEY")
-    )
+    modal_key = args.modal_key or os.getenv("SYNTH_API_KEY")
     if not modal_key:
-        print("[INFO] SYNTH_API_KEY not found in environment or user config")
+        print("[INFO] SYNTH_API_KEY not found in environment or .env file")
         modal_key = input("Synth API key: ").strip()
         if not modal_key:
             parser.error("Missing Synth/Modal API key")
-    if (
-        user_config.get("SYNTH_API_KEY") != modal_key
-        or user_config.get("DEV_SYNTH_API_KEY") != modal_key
-    ):
-        update_user_config(
-            {
-                "SYNTH_API_KEY": modal_key,
-                "DEV_SYNTH_API_KEY": modal_key,
-            }
-        )
-        user_config["SYNTH_API_KEY"] = modal_key
-        user_config["DEV_SYNTH_API_KEY"] = modal_key
 
     if modal_key and "openai.com" not in args.inference_url.lower():
         os.environ["OPENAI_API_KEY"] = modal_key
-    os.environ.setdefault("SYNTH_API_KEY", modal_key)
 
-    explicit_ops = parse_ops(args.ops)
-    if explicit_ops is not None:
-        ops = explicit_ops
+    if args.ops:
+        ops = [op.strip() for op in args.ops.split(",") if op.strip()]
+        if not ops:
+            raise ValueError("Ops must contain at least one entry")
     else:
         llm_calls = max(args.max_llm_calls, 1)
         if llm_calls > 20:
-            print("[WARN] --max-llm-calls capped at 20; use --ops for manual control.")
-        ops = ops_from_pairs(llm_calls, cap=20)
+            llm_calls = 20
+        ops = []
+        for _ in range(llm_calls):
+            ops.extend(["agent", "env"])
 
     if args.verbose:
 
@@ -205,16 +208,22 @@ async def main() -> None:
             print(json.dumps(info_payload.model_dump(), indent=2)[:600])
 
             request = build_rollout_request(
-                seed=args.seed,
-                run_id=args.run_id,
+                args.seed,
+                args.run_id,
                 model=args.model,
                 inference_url=args.inference_url,
                 ops=ops,
-                extra_headers={"Authorization": f"Bearer {modal_key}"},
-                max_policy_tokens=args.max_policy_tokens,
+                api_key=modal_key,
             )
             if args.verbose:
                 print(f"Request headers: {request.policy.config.get('extra_headers', {})}")
+            if args.max_policy_tokens is not None:
+                request.policy.config.update(
+                    {
+                        "max_completion_tokens": args.max_policy_tokens,
+                        "max_tokens": args.max_policy_tokens,
+                    }
+                )
             print("Requesting rollout…")
             response = await client.rollout(request)
             summary = summarise_response(response)

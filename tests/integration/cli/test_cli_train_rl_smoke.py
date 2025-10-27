@@ -166,6 +166,7 @@ def _warmup_task_app(url: str, *, timeout_s: float = 300.0, interval_s: float = 
     raise AssertionError(f"Task app failed to warm up at {base}; last_err={last_err}")
 
 
+@pytest.mark.slow
 def test_cli_train_rl_smoke(tmp_path: Path) -> None:
     _maybe_env()
     backend = (

@@ -1,0 +1,75 @@
+$date
+	Fri Oct 24 17:03:09 2025
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module tb $end
+$scope module stim1 $end
+$var wire 1 ! clk $end
+$upscope $end
+$upscope $end
+$scope module tb $end
+$var wire 1 " tb_mismatch $end
+$upscope $end
+$scope module tb $end
+$var wire 1 # one_ref $end
+$upscope $end
+$scope module tb $end
+$var wire 1 $ one_dut $end
+$upscope $end
+$enddefinitions $end
+$comment Show the parameter values. $end
+$dumpall
+$end
+#0
+$dumpvars
+1$
+1#
+0"
+0!
+$end
+#5
+1!
+#10
+0!
+#15
+1!
+#20
+0!
+#25
+1!
+#30
+0!
+#35
+1!
+#40
+0!
+#45
+1!
+#50
+0!
+#55
+1!
+#60
+0!
+#65
+1!
+#70
+0!
+#75
+1!
+#80
+0!
+#85
+1!
+#90
+0!
+#95
+1!
+#100
+0!
+#102

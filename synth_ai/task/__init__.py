@@ -4,7 +4,11 @@ from .auth import (
     require_api_key_dependency,
 )
 from .client import TaskAppClient
+from .config import EvalConfig, FilterConfig
 from .contracts import (
+    DatasetInfo,
+    InferenceInfo,
+    LimitsInfo,
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
@@ -14,8 +18,10 @@ from .contracts import (
     RolloutSafetyConfig,
     RolloutStep,
     RolloutTrajectory,
-    TaskAppContract,
+    RubricInfo,
+    RubricSection,
     TaskAppEndpoints,
+    TaskDescriptor,
     TaskInfo,
 )
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
@@ -23,7 +29,6 @@ from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
 from .json import to_jsonable
 from .proxy import (
-    INTERACT_TOOL_SCHEMA,
     extract_message_text,
     inject_system_hint,
     parse_tool_call_from_text,
@@ -46,7 +51,12 @@ from .server import (
     create_task_app,
     run_task_app,
 )
-from .validators import validate_task_app_url
+from .validators import (
+    normalize_inference_url,
+    validate_rollout_response_for_rl,
+    validate_task_app_endpoint,
+    validate_task_app_url,
+)
 from .vendors import (
     get_groq_key_or_503,
     get_openai_key_or_503,
@@ -54,9 +64,13 @@ from .vendors import (
 )
 
 __all__ = [
+    "normalize_inference_url",
+    "validate_rollout_response_for_rl",
     "validate_task_app_url",
+    "validate_task_app_endpoint",
     "task_app_health",
-    "TaskAppContract",
+    "EvalConfig",
+    "FilterConfig",
     "TaskAppEndpoints",
     "RolloutEnvSpec",
     "RolloutPolicySpec",
@@ -67,6 +81,12 @@ __all__ = [
     "RolloutTrajectory",
     "RolloutStep",
     "RolloutMetrics",
+    "TaskDescriptor",
+    "DatasetInfo",
+    "RubricInfo",
+    "RubricSection",
+    "InferenceInfo",
+    "LimitsInfo",
     "TaskInfo",
     "to_jsonable",
     "normalize_environment_api_key",
@@ -75,7 +95,6 @@ __all__ = [
     "normalize_vendor_keys",
     "get_openai_key_or_503",
     "get_groq_key_or_503",
-    "INTERACT_TOOL_SCHEMA",
     "prepare_for_openai",
     "prepare_for_groq",
     "inject_system_hint",

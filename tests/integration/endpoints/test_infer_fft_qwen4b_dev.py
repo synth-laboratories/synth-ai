@@ -8,6 +8,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 @pytest.mark.asyncio
+@pytest.mark.slow
 async def test_fft_qwen4b_chat_completion_smoke() -> None:
     """
     Smoke-test the Synth OpenAI-compatible chat completions endpoint using a fine-tuned model.

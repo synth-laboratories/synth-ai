@@ -8,16 +8,16 @@ import time
 
 import pytest
 
-from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
-from synth_ai.tracing_v3.decorators import SessionContext, get_session_id
-from synth_ai.tracing_v3.hooks import HookManager
-from synth_ai.tracing_v3.lm_call_record_abstractions import (
+from ..abstractions import EnvironmentEvent, LMCAISEvent, RuntimeEvent, TimeRecord
+from ..decorators import SessionContext, get_session_id
+from ..hooks import HookManager
+from ..lm_call_record_abstractions import (
     LLMCallRecord,
     LLMContentPart,
     LLMMessage,
     LLMUsage,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
+from ..session_tracer import SessionTracer
 
 
 @pytest.mark.asyncio
@@ -32,14 +32,16 @@ class TestSessionTracer:
         session_id = await tracer.start_session(metadata={"test": "value"})
         assert session_id is not None
         assert tracer.current_session is not None
-        assert tracer.current_session.session_id == session_id
-        assert tracer.current_session.metadata == {"test": "value"}
+        current_session = tracer.current_session
+        assert current_session.session_id == session_id
+        assert current_session.metadata == {"test": "value"}
 
         # Start timestep
         step = await tracer.start_timestep("step1", turn_number=1)
         assert step.step_id == "step1"
         assert step.turn_number == 1
         assert tracer.current_step == step
+        assert tracer.current_step is not None
 
         # Record event
         event = RuntimeEvent(
@@ -48,12 +50,16 @@ class TestSessionTracer:
             actions=[1, 2, 3],
         )
         await tracer.record_event(event)
+        assert tracer.current_session is not None
         assert len(tracer.current_session.event_history) == 1
+        assert tracer.current_step is not None
         assert len(tracer.current_step.events) == 1
 
         # Record message
         await tracer.record_message(content="Test message", message_type="user")
+        assert tracer.current_session is not None
         assert len(tracer.current_session.markov_blanket_message_history) == 1
+        assert tracer.current_step is not None
         assert len(tracer.current_step.markov_blanket_messages) == 1
 
         # End timestep
@@ -223,14 +229,18 @@ class TestSessionTracer:
         session2 = await tracer2.start_session()
 
         assert session1 != session2
-        assert tracer1.current_session.session_id != tracer2.current_session.session_id
+        assert tracer1.current_session is not None
+        assert tracer2.current_session is not None
+        session_state1 = tracer1.current_session
+        session_state2 = tracer2.current_session
+        assert session_state1.session_id != session_state2.session_id
 
         # Add data to tracer1
         await tracer1.record_message("Tracer 1 message", "user")
 
         # Verify isolation
-        assert len(tracer1.current_session.markov_blanket_message_history) == 1
-        assert len(tracer2.current_session.markov_blanket_message_history) == 0
+        assert len(session_state1.markov_blanket_message_history) == 1
+        assert len(session_state2.markov_blanket_message_history) == 0
 
         await tracer1.end_session(save=False)
         await tracer2.end_session(save=False)
@@ -348,8 +358,10 @@ class TestSessionTracer:
         # Verify new call_records structure
         lm_event_from_trace = trace.event_history[2]
         assert len(lm_event_from_trace.call_records) == 1
-        assert lm_event_from_trace.call_records[0].model_name == "gpt-4"
-        assert lm_event_from_trace.call_records[0].usage.total_tokens == 150
+        lm_call_record = lm_event_from_trace.call_records[0]
+        assert lm_call_record.usage is not None
+        assert lm_call_record.model_name == "gpt-4"
+        assert lm_call_record.usage.total_tokens == 150
 
     async def test_concurrent_timesteps_same_session(self):
         """Test that timesteps within a session are sequential, not concurrent."""
@@ -365,6 +377,7 @@ class TestSessionTracer:
         await tracer.start_timestep("step2")
 
         # step2 should be added, but step1 might not be properly ended
+        assert tracer.current_session is not None
         assert len(tracer.current_session.session_time_steps) == 2
 
         await tracer.end_session(save=False)

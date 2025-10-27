@@ -190,6 +190,22 @@ class SynthCrafterObservationCallable(GetObservationCallable):
         obs_dict["truncated"] = priv.truncated
         if pub.error_info:
             obs_dict["tool_error"] = pub.error_info
+        counts_payload = {}
+        try:
+            counts = getattr(priv, "achievements_current_values", {}) or {}
+            for k, v in counts.items():
+                try:
+                    counts_payload[str(k)] = int(v)
+                except Exception:
+                    try:
+                        counts_payload[str(k)] = int(float(v))
+                    except Exception:
+                        continue
+            if counts_payload:
+                obs_dict["achievements_counts"] = counts_payload
+        except Exception:
+            # Best effort; omit counts if coercion fails
+            pass
 
         # Derive a simple local semantic patch around the player for easy rendering
         try:
@@ -381,7 +397,7 @@ class CrafterClassicEnvironment(StatefulEnvironment, ReproducibleEnvironment[Cra
             priv_state, pub_state, self.custom_step_observation_callable
         )
         total_step_time = time.time() - step_start_time
-        logger.info(
+        logger.debug(
             f"CrafterClassic step completed in {total_step_time:.3f}s (interact: {interact_time:.3f}s)"
         )
         return obs

@@ -1,0 +1,26 @@
+# Crafter evaluation with consistent stepwise shaping.
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-final-warming--ceb5b2.modal.run"
+model = "qwen/qwen3-32b"
+inference_url = "https://api.groq.com/openai"
+num_episodes = 20
+max_turns = 10
+concurrency = 10
+
+[rollout]
+env_name = "crafter"
+policy_name = "crafter-react"
+max_turns = 10
+
+[rollout.env_config]
+difficulty = "easy"
+
+[rollout.env_config.step_rewards]
+enabled = true
+mode = "decision_stepwise"
+strategy = "consistent"
+indicator_lambda = 1.0
+
+[rollout.policy_config]
+temperature = 0.2
+top_p = 0.95
+max_tokens = 512

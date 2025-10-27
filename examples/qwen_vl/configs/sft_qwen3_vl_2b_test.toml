@@ -1,0 +1,54 @@
+# SFT Training Config for Qwen3-VL-2B with Vision Data
+# Test config for validating vision fine-tuning pipeline
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "lora"
+
+[job]
+model = "Qwen/Qwen3-VL-2B-Instruct"
+data = "examples/qwen_vl/test_data/vision_sft_test.jsonl"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 1
+nodes = 1
+
+[training]
+mode = "lora"
+use_qlora = false  # Use full precision LoRA for vision
+
+[training.validation]
+enabled = false  # Skip validation for quick test
+
+[hyperparameters]
+n_epochs = 2  # 2 epochs for test
+train_kind = "peft"
+per_device_batch = 1
+gradient_accumulation_steps = 4
+sequence_length = 2048  # Shorter for vision + text
+learning_rate = 5e-5
+warmup_ratio = 0.03
+lora_rank = 16
+lora_alpha = 32
+lora_dropout = 0.05
+lora_target_modules = ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj", "mm_projector"]
+
+[hyperparameters.parallelism]
+use_deepspeed = false
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = false
+
+[model_config]
+supports_vision = true
+max_images_per_message = 1
+max_model_len = 2048  # Short for test
+
+[tags]
+experiment = "test_vision_sft"
+purpose = "integration_test"
+model_size = "2B"
+data_type = "synthetic_vision"

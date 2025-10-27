@@ -97,6 +97,7 @@ def _wait_for_health(base_url: str, proc: subprocess.Popen[str], logger: _ProcLo
     raise AssertionError(f"server did not become healthy: {last_err}")
 
 
+@pytest.mark.slow
 def test_serve_math_rollout_returns_trace(tmp_path: Path):
     try:
         port = _find_free_port()

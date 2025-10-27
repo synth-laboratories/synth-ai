@@ -47,8 +47,10 @@ async def run(args: argparse.Namespace) -> None:
 
     inference_url = args.inference_url or f"{args.base_url.rstrip('/')}/proxy/groq"
 
+    from synth_ai.task.contracts import RolloutMode
     request = RolloutRequest(
         run_id=args.run_id,
+        mode=RolloutMode.EVAL,
         env=RolloutEnvSpec(env_name="crafter", seed=args.seed, config={"seed": args.seed}),
         policy=RolloutPolicySpec(
             policy_name="groq-smoke",

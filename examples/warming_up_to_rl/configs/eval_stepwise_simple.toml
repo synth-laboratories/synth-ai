@@ -1,0 +1,32 @@
+# Crafter eval (stepwise: simple)
+
+# Replace at runtime by exporting TASK_APP_URL, or put the full https://<modal>.run URL here
+# task_app_url = "https://YOUR-TASK-APP.modal.run"
+
+model = "qwen/qwen3-32b"
+# Route inference to local task app Groq proxy
+inference_url = "http://localhost:8001/proxy/groq"
+num_episodes = 10
+max_turns = 10
+concurrency = 10
+# difficulty = "easy"  # optional
+
+[rollout]
+env_name = "crafter"
+policy_name = "crafter-react"
+max_turns = 10
+
+  [rollout.env_config]
+  # Example additional env controls can go here
+
+    [rollout.env_config.step_rewards]
+    enabled = true
+    mode = "decision_stepwise"
+    strategy = "simple"        # 1.0 reward if any new achievement this decision
+    indicator_lambda = 1.0
+
+  [rollout.policy_config]
+  # Inference will be routed automatically when using --use-rollout
+  temperature = 0.2
+  top_p = 0.95
+  max_tokens = 512

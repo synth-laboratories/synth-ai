@@ -1,0 +1,16 @@
+# Filter config for Crafter image-only traces
+# Creates SFT dataset from rollouts with non-zero rewards
+
+[filter]
+# Input: Consolidated traces database
+db = "traces/v3/synth_ai.db"
+
+# Output: SFT-ready JSONL file
+output = "ft_data/crafter_image_only_sft.jsonl"
+
+# Filter for successful rollouts (those with achievements)
+min_official_score = 0.01  # Only include traces with rewards > 0
+
+# Optional: Limit number of examples (remove to get all)
+# limit = 10
+

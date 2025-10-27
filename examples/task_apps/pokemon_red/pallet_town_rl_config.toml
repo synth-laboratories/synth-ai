@@ -1,0 +1,75 @@
+# Pokemon Red: Pallet Town Progression RL Configuration
+#
+# This configuration uses the ultra-rich reward function that tracks
+# all major milestones in the Pallet Town opening sequence:
+# - Leaving bedroom
+# - Exiting house
+# - Finding Oak's lab
+# - Talking to Oak
+# - Receiving starter Pokemon
+# - Entering first battle
+# - Dealing damage to rival
+# - Winning first battle
+# - Exiting lab with Pokemon
+#
+# Total possible reward: ~600+ points
+
+[experiment]
+name = "pokemon_red_pallet_town_progression"
+description = "Learn to complete the Pallet Town intro sequence with dense reward shaping"
+
+[environment]
+task_app_id = "pokemon_red"
+# Start state is already configured to begin in Red's bedroom (Map26)
+
+[reward]
+# Use the comprehensive Pallet Town progression reward
+reward_type = "composite"
+reward_class = "synth_ai.environments.examples.red.engine_helpers.reward_library.pallet_town_progression.PalletTownProgressionCompositeReward"
+
+[policy]
+model = "gpt-4-turbo"
+# or use "qwen-2.5-7b" for faster, cheaper training
+
+[training]
+algorithm = "ppo"  # or "grpo"
+max_steps_per_episode = 500  # Plenty of steps for the Pallet Town sequence
+num_episodes = 1000
+batch_size = 32
+
+[training.hyperparameters]
+learning_rate = 3e-4
+gamma = 0.99
+clip_epsilon = 0.2
+
+[logging]
+log_interval = 10
+save_interval = 100
+wandb_project = "pokemon-red-rl"
+wandb_run_name = "pallet-town-progression"
+
+[evaluation]
+eval_interval = 50
+num_eval_episodes = 10
+
+# Reward breakdown (for reference):
+# ============================================
+# LeaveBedroomReward              +20
+# ExitHouseFirstTimeReward        +30
+# FindOakLabReward                +40
+# TalkToOakReward                 +50
+# ReceiveStarterPokemonReward     +100
+# EnterFirstBattleReward          +75
+# DealDamageToRivalReward         +50  (10×5)
+# ReduceEnemyHPByHalfReward       +25
+# ReduceEnemyHPToLowReward        +35
+# WinFirstBattleReward            +150
+# ExitLabAfterBattleReward        +60
+# FirstBattleEfficiencyReward     +20
+# KeepPokemonHealthyReward        +30
+# NavigationSpeedReward           +50
+# ============================================
+# TOTAL POSSIBLE                  ~600+
+
+
+

@@ -5,7 +5,8 @@ from __future__ import annotations
 import subprocess
 
 import click
-from synth_ai.utils.sqld import SQLD_VERSION, find_sqld_binary, install_sqld
+
+from .root import SQLD_VERSION, find_sqld_binary, install_sqld
 
 
 def register(cli: click.Group) -> None:

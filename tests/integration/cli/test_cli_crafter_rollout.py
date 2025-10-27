@@ -100,6 +100,7 @@ pytestmark = pytest.mark.integration
 pytest.importorskip("crafter", reason="crafter dependency not installed")
 
 
+@pytest.mark.slow
 def test_serve_crafter_rollout_returns_trace(tmp_path: Path):
     try:
         port = _find_free_port()

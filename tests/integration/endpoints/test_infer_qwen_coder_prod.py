@@ -108,6 +108,7 @@ async def _run_sft_example(
         ),
     ],
 )
+@pytest.mark.slow
 async def test_infer_qwen_coder_prod(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

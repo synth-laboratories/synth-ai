@@ -6,18 +6,19 @@ proper usage patterns for migrating from legacy fields to the new structure.
 
 import time
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import TypedDict, cast
 
 import pytest
 
-from synth_ai.tracing_v3.abstractions import (
+from ..abstractions import (
     LMCAISEvent,
     SessionTimeStep,
     SessionTrace,
     TimeRecord,
 )
-from synth_ai.tracing_v3.lm_call_record_abstractions import (
+from ..lm_call_record_abstractions import (
     LLMCallRecord,
     LLMContentPart,
     LLMMessage,
@@ -26,6 +27,66 @@ from synth_ai.tracing_v3.lm_call_record_abstractions import (
     ToolCallSpec,
     compute_latency_ms,
 )
+
+
+class OpenAIChoiceMessage(TypedDict):
+    """Typed representation of an OpenAI chat completion message."""
+
+    role: str
+    content: str
+
+
+class OpenAIChoice(TypedDict):
+    """Typed representation of an OpenAI chat completion choice."""
+
+    index: int
+    message: OpenAIChoiceMessage
+    finish_reason: str
+
+
+class OpenAIUsage(TypedDict):
+    """Token usage block for OpenAI responses."""
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
+class OpenAIChatResponse(TypedDict):
+    """Minimal schema for OpenAI chat completion responses used in testing."""
+
+    id: str
+    object: str
+    created: int
+    model: str
+    choices: list[OpenAIChoice]
+    usage: OpenAIUsage
+
+
+class AnthropicContentBlock(TypedDict):
+    """Content block from Anthropic Messages API."""
+
+    type: str
+    text: str
+
+
+class AnthropicUsage(TypedDict):
+    """Token usage block for Anthropic Messages API."""
+
+    input_tokens: int
+    output_tokens: int
+
+
+class AnthropicResponse(TypedDict):
+    """Minimal schema for Anthropic messages responses used in testing."""
+
+    id: str
+    type: str
+    role: str
+    content: list[AnthropicContentBlock]
+    model: str
+    stop_reason: str
+    usage: AnthropicUsage
 
 
 class TestLLMCallRecord:
@@ -55,6 +116,7 @@ class TestLLMCallRecord:
         assert record.call_id == call_id
         assert record.api_type == "chat_completions"
         assert record.model_name == "gpt-4"
+        assert record.usage is not None
         assert record.usage.total_tokens == 15
         assert len(record.input_messages) == 1
         assert len(record.output_messages) == 1
@@ -125,8 +187,10 @@ class TestLMCAISEventWithCallRecords:
         )
 
         assert len(event.call_records) == 1
-        assert event.call_records[0].model_name == "gpt-4"
-        assert event.call_records[0].usage.total_tokens == 150
+        event_call_record = event.call_records[0]
+        assert event_call_record.usage is not None
+        assert event_call_record.model_name == "gpt-4"
+        assert event_call_record.usage.total_tokens == 150
 
     def test_aggregate_from_call_records(self):
         """Test computing aggregates from multiple call_records."""
@@ -326,8 +390,12 @@ class TestComplexScenarios:
         assert len(session.session_time_steps[1].events) == 1
 
         # Verify tool call flow
-        turn1_call = session.session_time_steps[0].events[0].call_records[0]
-        turn2_call = session.session_time_steps[1].events[0].call_records[0]
+        first_event = session.session_time_steps[0].events[0]
+        second_event = session.session_time_steps[1].events[0]
+        assert isinstance(first_event, LMCAISEvent)
+        assert isinstance(second_event, LMCAISEvent)
+        turn1_call = first_event.call_records[0]
+        turn2_call = second_event.call_records[0]
 
         assert len(turn1_call.output_tool_calls) == 1
         assert turn1_call.output_tool_calls[0].name == "get_weather"
@@ -336,7 +404,7 @@ class TestComplexScenarios:
 
     def test_streaming_response(self):
         """Test LLMCallRecord with streaming chunks."""
-        from synth_ai.tracing_v3.lm_call_record_abstractions import LLMChunk
+        from ..lm_call_record_abstractions import LLMChunk
 
         chunks = [
             LLMChunk(
@@ -384,6 +452,7 @@ class TestComplexScenarios:
             usage=LLMUsage(input_tokens=10, output_tokens=5, total_tokens=15),
         )
 
+        assert record.chunks is not None
         assert len(record.chunks) == 5
         assert record.output_text == "The answer is 42"
 
@@ -398,7 +467,7 @@ class TestProviderMappings:
     def test_openai_chat_completions_mapping(self):
         """Test mapping OpenAI Chat Completions to LLMCallRecord."""
         # Simulate OpenAI response structure
-        openai_response = {
+        openai_response: OpenAIChatResponse = {
             "id": "chatcmpl-123",
             "object": "chat.completion",
             "created": 1677652288,
@@ -440,13 +509,14 @@ class TestProviderMappings:
 
         assert record.call_id == "chatcmpl-123"
         assert record.model_name == "gpt-4"
+        assert record.usage is not None
         assert record.usage.total_tokens == 19
         assert record.finish_reason == "stop"
 
     def test_anthropic_messages_mapping(self):
         """Test mapping Anthropic Messages API to LLMCallRecord."""
         # Simulate Anthropic response structure
-        anthropic_response = {
+        anthropic_response: AnthropicResponse = {
             "id": "msg_123",
             "type": "message",
             "role": "assistant",
@@ -485,58 +555,87 @@ class TestProviderMappings:
 
         assert record.call_id == "msg_123"
         assert record.model_name == "claude-3-opus-20240229"
+        assert record.usage is not None
         assert record.usage.total_tokens == 27
         assert record.finish_reason == "end_turn"
 
 
-def helper_compute_aggregates_from_records(call_records: list[LLMCallRecord]) -> dict[str, Any]:
+@dataclass
+class _AggregateAccumulator:
+    """Mutable accumulator for aggregate statistics."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    models_used: set[str] = field(default_factory=set)
+    providers_used: set[str] = field(default_factory=set)
+    tool_calls_count: int = 0
+    error_count: int = 0
+
+
+class AggregatesSummary(TypedDict):
+    """Return type for aggregate helper."""
+
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cost_usd: float
+    latency_ms: int
+    models_used: list[str]
+    providers_used: list[str]
+    tool_calls_count: int
+    error_count: int
+
+
+def helper_compute_aggregates_from_records(call_records: list[LLMCallRecord]) -> AggregatesSummary:
     """Helper function to compute aggregates from call_records.
 
     This demonstrates the pattern for computing event-level aggregates
     from a list of LLMCallRecord instances.
     """
-    aggregates = {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "total_tokens": 0,
-        "cost_usd": 0.0,
-        "latency_ms": 0,
-        "models_used": set(),
-        "providers_used": set(),
-        "tool_calls_count": 0,
-        "error_count": 0,
-    }
+    aggregates = _AggregateAccumulator()
 
     for record in call_records:
         if record.usage:
             if record.usage.input_tokens:
-                aggregates["input_tokens"] += record.usage.input_tokens
+                aggregates.input_tokens += record.usage.input_tokens
             if record.usage.output_tokens:
-                aggregates["output_tokens"] += record.usage.output_tokens
+                aggregates.output_tokens += record.usage.output_tokens
             if record.usage.total_tokens:
-                aggregates["total_tokens"] += record.usage.total_tokens
+                aggregates.total_tokens += record.usage.total_tokens
             if record.usage.cost_usd:
-                aggregates["cost_usd"] += record.usage.cost_usd
+                aggregates.cost_usd += record.usage.cost_usd
 
-        if record.latency_ms:
-            aggregates["latency_ms"] += record.latency_ms
+        if record.latency_ms is not None:
+            aggregates.latency_ms += record.latency_ms
 
         if record.model_name:
-            aggregates["models_used"].add(record.model_name)
+            aggregates.models_used.add(record.model_name)
 
         if record.provider:
-            aggregates["providers_used"].add(record.provider)
+            aggregates.providers_used.add(record.provider)
 
-        aggregates["tool_calls_count"] += len(record.output_tool_calls)
+        aggregates.tool_calls_count += len(record.output_tool_calls)
 
         if record.outcome == "error":
-            aggregates["error_count"] += 1
+            aggregates.error_count += 1
 
-    # Convert sets to lists for JSON serialization
-    aggregates["models_used"] = list(aggregates["models_used"])
-    aggregates["providers_used"] = list(aggregates["providers_used"])
-
-    return aggregates
+    return cast(
+        AggregatesSummary,
+        {
+            "input_tokens": aggregates.input_tokens,
+            "output_tokens": aggregates.output_tokens,
+            "total_tokens": aggregates.total_tokens,
+            "cost_usd": aggregates.cost_usd,
+            "latency_ms": aggregates.latency_ms,
+            "models_used": list(aggregates.models_used),
+            "providers_used": list(aggregates.providers_used),
+            "tool_calls_count": aggregates.tool_calls_count,
+            "error_count": aggregates.error_count,
+        },
+    )
 
 
 class TestAggregateHelper:
