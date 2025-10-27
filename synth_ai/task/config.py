@@ -185,9 +185,12 @@ class FilterConfig:
             raise ValueError(f"output must be a .jsonl or .json file, got: {self.output}")
         
         # Validate score thresholds
-        if self.min_official_score is not None and self.max_official_score is not None:
-            if self.min_official_score > self.max_official_score:
-                raise ValueError("min_official_score cannot be greater than max_official_score")
+        if (
+            self.min_official_score is not None
+            and self.max_official_score is not None
+            and self.min_official_score > self.max_official_score
+        ):
+            raise ValueError("min_official_score cannot be greater than max_official_score")
         
         # Validate limit/offset
         if self.limit is not None and self.limit < 1:
@@ -253,5 +256,4 @@ class FilterConfig:
         output_path = Path(self.output).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         return output_path
-
 

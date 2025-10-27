@@ -218,8 +218,20 @@ class OpenAIClient:
             # Do NOT fall back silently; surface the error so callers fail fast
             raise
 
+        # DEBUG: Log request BEFORE _fix_model_parameters
+        logger.error(f"🔊 [OPENAI_CLIENT_PRE_FIX] Request message[1] content type: {type(request.get('messages', [])[1].get('content') if len(request.get('messages', [])) > 1 else None)}")
+        if len(request.get("messages", [])) > 1:
+            msg1_content = request["messages"][1].get("content")
+            logger.error(f"🔊 [OPENAI_CLIENT_PRE_FIX] Message[1] content value: {msg1_content if not isinstance(msg1_content, list) else f'list[{len(msg1_content)}]'}")
+        
         # Fix parameter compatibility for newer models
         processed_request = self._fix_model_parameters(request, target_url=url)
+        
+        # DEBUG: Log request AFTER _fix_model_parameters
+        logger.error(f"🔊 [OPENAI_CLIENT_POST_FIX] Processed message[1] content type: {type(processed_request.get('messages', [])[1].get('content') if len(processed_request.get('messages', [])) > 1 else None)}")
+        if len(processed_request.get("messages", [])) > 1:
+            msg1_content_post = processed_request["messages"][1].get("content")
+            logger.error(f"🔊 [OPENAI_CLIENT_POST_FIX] Message[1] content value: {msg1_content_post if not isinstance(msg1_content_post, list) else f'list[{len(msg1_content_post)}]'}")
 
         # Log request (redact messages in production)
         logger.info(f"Inference POST target: {url}")
@@ -228,6 +240,24 @@ class OpenAIClient:
         with contextlib.suppress(Exception):
             keys_preview = sorted(processed_request.keys())
             logger.info(f"Request keys: {keys_preview}")
+            # DEBUG: Log message structure for vision debugging
+            if "messages" in processed_request:
+                msgs = processed_request["messages"]
+                if isinstance(msgs, list):
+                    logger.error(f"🔊 [OPENAI_CLIENT] Request has {len(msgs)} messages")
+                    for idx, msg in enumerate(msgs):
+                        if isinstance(msg, dict):
+                            role = msg.get("role")
+                            content = msg.get("content")
+                            if isinstance(content, list):
+                                logger.error(f"🔊 [OPENAI_CLIENT] Message[{idx}] role={role}, content=list[{len(content)}]")
+                                for part_idx, part in enumerate(content):
+                                    if isinstance(part, dict):
+                                        part_type = part.get("type")
+                                        logger.error(f"🔊 [OPENAI_CLIENT]   Part[{part_idx}]: type={part_type}")
+                            else:
+                                content_len = len(str(content)) if content else 0
+                                logger.error(f"🔊 [OPENAI_CLIENT] Message[{idx}] role={role}, content_type={type(content).__name__}, len={content_len}")
 
         # Final hard-guard for OpenAI: ensure unsupported field is not present
         try:

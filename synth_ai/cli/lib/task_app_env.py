@@ -9,7 +9,6 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import click
-
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 from synth_ai.task.apps import TaskAppEntry
 

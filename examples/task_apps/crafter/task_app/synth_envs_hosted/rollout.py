@@ -985,10 +985,15 @@ class RolloutTracingContext:
     def build_trace_payload(self, session_trace: Any) -> dict[str, Any] | None:
         if not self.return_trace or session_trace is None:
             return None
-        if self.trace_format == "full":
+        
+        # For both "full" and "structured" formats, return the complete session trace
+        # The CLI (synth-ai eval) expects this for proper trace storage
+        if self.trace_format in ("full", "structured"):
             payload = session_trace.to_dict()
             payload.setdefault("metadata", {}).update(self.metadata_updates)
             return payload
+        
+        # For "compact" format, return only summary stats
         metadata = dict(session_trace.metadata)
         metadata.update(self.metadata_updates)
         return {
@@ -1617,16 +1622,21 @@ async def execute_rollout(
 
             elif op == "env":
                 if not pending_tool_calls:
+                    # Instead of failing, inject a no-op action to keep the rollout going
                     with contextlib.suppress(Exception):
                         logger.warning(
-                            "POLICY_STEP_FAIL: missing tool_calls; failing rollout run_id=%s op_idx=%s",
+                            "POLICY_STEP_NOOP: missing tool_calls; injecting noop action run_id=%s op_idx=%s",
                             request.run_id,
                             str(op_idx),
                         )
-                    raise HTTPException(
-                        status_code=500,
-                        detail="policy_step_failed: missing tool_calls (no_tool_calls)",
-                    )
+                    # Create a noop tool call in the format expected by the environment
+                    pending_tool_calls = [
+                        {
+                            "id": f"noop_{op_idx}",
+                            "tool": "interact",
+                            "arguments": {"action": "noop"},
+                        }
+                    ]
 
                 # Environment step
                 from .environment_routes import EnvStepRequest, step_environment

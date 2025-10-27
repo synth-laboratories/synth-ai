@@ -4,10 +4,10 @@ import pathlib
 import shutil
 import subprocess
 import time
+from typing import Any
 
 import requests
 from requests import RequestException
-from typing import Any, Optional
 
 from ..config import CONFIG
 
@@ -17,9 +17,9 @@ class SqldDaemon:
 
     def __init__(
         self,
-        db_path: Optional[str] = None,
-        http_port: Optional[int] = None,
-        binary_path: Optional[str] = None,
+        db_path: str | None = None,
+        http_port: int | None = None,
+        binary_path: str | None = None,
     ):
         """Initialize sqld daemon manager.
 
@@ -31,7 +31,7 @@ class SqldDaemon:
         self.db_path = db_path or CONFIG.sqld_db_path
         self.http_port = http_port or CONFIG.sqld_http_port
         self.binary_path = binary_path or self._find_binary()
-        self.process: Optional[Any] = None
+        self.process: Any | None = None
 
     def _find_binary(self) -> str:
         """Find sqld binary in PATH."""
@@ -124,10 +124,10 @@ class SqldDaemon:
 
 
 # Convenience functions
-_daemon: Optional[SqldDaemon] = None
+_daemon: SqldDaemon | None = None
 
 
-def start_sqld(db_path: Optional[str] = None, port: Optional[int] = None) -> SqldDaemon:
+def start_sqld(db_path: str | None = None, port: int | None = None) -> SqldDaemon:
     """Start a global sqld daemon instance."""
     global _daemon
     if _daemon and _daemon.is_running():
@@ -146,6 +146,6 @@ def stop_sqld():
         _daemon = None
 
 
-def get_daemon() -> Optional[SqldDaemon]:
+def get_daemon() -> SqldDaemon | None:
     """Get the global daemon instance."""
     return _daemon

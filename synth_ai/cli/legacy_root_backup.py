@@ -235,7 +235,7 @@ def view(url: str):
     """Launch the interactive TUI dashboard."""
     try:
         module = importlib.import_module(".tui.dashboard", __package__)
-        synth_dashboard_cls = getattr(module, "SynthDashboard")
+        synth_dashboard_cls = module.SynthDashboard
         app = synth_dashboard_cls(db_url=url)
         app.run()
     except ImportError:

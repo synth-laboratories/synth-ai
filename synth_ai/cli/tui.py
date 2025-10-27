@@ -30,7 +30,7 @@ def register(cli):
             console.print(f"Missing dependencies: {e}")
             console.print("Install with: pip install textual")
             return
-        except Exception as e:
+        except Exception:
             # Handle other import errors (like missing libsql, type annotation issues, etc.)
             console.print("[red]Error:[/red] TUI dashboard not available.")
             console.print("This may be due to missing dependencies or Python version compatibility.")

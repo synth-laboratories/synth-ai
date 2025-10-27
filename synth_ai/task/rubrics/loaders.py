@@ -78,15 +78,20 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
         data = _parse_structured(text, suffix)
     
     # Check if this looks like a backend judge rubric (wrong format)
-    if isinstance(data, dict) and "event" in data and "outcome" in data:
-        # Missing required task app rubric fields
-        if "version" not in data and "goal_text" not in data and "criteria" not in data:
-            source_hint = f" ({source})" if isinstance(source, str) else ""
-            raise ValueError(
-                f"Rubric appears to be in backend judge format (has 'event'/'outcome' keys){source_hint}. "
-                f"Task apps require rubrics with 'version', 'goal_text', and 'criteria' fields. "
-                f"Backend judge rubrics should be named '*_backend_judge.json' and loaded by judge functions."
-            )
+    if (
+        isinstance(data, dict)
+        and "event" in data
+        and "outcome" in data
+        and "version" not in data
+        and "goal_text" not in data
+        and "criteria" not in data
+    ):
+        source_hint = f" ({source})" if isinstance(source, str) else ""
+        raise ValueError(
+            f"Rubric appears to be in backend judge format (has 'event'/'outcome' keys){source_hint}. "
+            f"Task apps require rubrics with 'version', 'goal_text', and 'criteria' fields. "
+            f"Backend judge rubrics should be named '*_backend_judge.json' and loaded by judge functions."
+        )
     
     return Rubric.model_validate(data)
 
@@ -149,4 +154,3 @@ def blend_rubrics(base: Rubric | None, override: Rubric | None) -> Rubric | None
         criteria=merged,
         aggregation=aggregation,
     )
-

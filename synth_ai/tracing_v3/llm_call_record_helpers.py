@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, TypedDict, cast
 
 from .lm_call_record_abstractions import (
@@ -180,8 +180,8 @@ def create_llm_call_record_from_response(
         api_type=api_type,
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.now(timezone.utc),
-        completed_at=completed_at or datetime.now(timezone.utc),
+        started_at=started_at or datetime.now(UTC),
+        completed_at=completed_at or datetime.now(UTC),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,
@@ -376,8 +376,8 @@ def create_llm_call_record_from_streaming(
         api_type="responses",  # Streaming typically from Responses API
         provider=provider,
         model_name=model_name,
-        started_at=started_at or datetime.now(timezone.utc),
-        completed_at=completed_at or datetime.now(timezone.utc),
+        started_at=started_at or datetime.now(UTC),
+        completed_at=completed_at or datetime.now(UTC),
         latency_ms=latency_ms,
         request_params=params,
         input_messages=input_messages,

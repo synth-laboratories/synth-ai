@@ -6,9 +6,10 @@ based on the visual frames from the game.
 """
 
 import asyncio
-import httpx
 import os
 from pathlib import Path
+
+import httpx
 
 
 async def main():
@@ -25,9 +26,9 @@ async def main():
     print("POKÉMON RED - GPT-5-NANO POLICY ROLLOUT")
     print("=" * 70)
     print()
-    print(f"Policy: gpt-5-nano (vision model)")
-    print(f"Task: Complete Pallet Town progression")
-    print(f"Server: http://127.0.0.1:8913")
+    print("Policy: gpt-5-nano (vision model)")
+    print("Task: Complete Pallet Town progression")
+    print("Server: http://127.0.0.1:8913")
     print()
     
     # Create output directory under the pokemon_emerald artifacts tree
@@ -182,7 +183,7 @@ async def main():
             response.raise_for_status()
             result = response.json()
             
-            print(f"✓ Rollout complete!")
+            print("✓ Rollout complete!")
             
             # Debug: print response structure
             print(f"Response keys: {list(result.keys())}")
@@ -210,8 +211,9 @@ async def main():
                 
                 if img_b64:
                     import base64
-                    from PIL import Image
                     from io import BytesIO
+
+                    from PIL import Image
                     
                     img_data = base64.b64decode(img_b64)
                     img = Image.open(BytesIO(img_data))

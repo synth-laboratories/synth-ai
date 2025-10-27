@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 
 import click
-
 from synth_ai.cli.root import SQLD_VERSION, find_sqld_binary, install_sqld
 
 

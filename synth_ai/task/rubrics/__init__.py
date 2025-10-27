@@ -9,10 +9,9 @@ This module provides:
 """
 
 # Core models (flexible validation)
-from .models import Criterion, Rubric
-
 # Loading and blending
 from .loaders import blend_rubrics, load_rubric
+from .models import Criterion, Rubric
 
 # Scoring
 from .scoring import score_events_against_rubric, score_outcome_against_rubric

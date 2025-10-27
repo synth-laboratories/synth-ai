@@ -13,7 +13,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import libsql
@@ -394,7 +394,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 conn.commit()
             # Skip events and timesteps to ensure idempotency
         else:
-            created_at = trace.created_at or datetime.now(timezone.utc)
+            created_at = trace.created_at or datetime.now(UTC)
 
             async with self._op_lock:
                 conn = self._conn
@@ -418,7 +418,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     ),
                 )
                 conn.commit()
-                _logger.info(f"[TRACE_DEBUG] Session row inserted")
+                _logger.info("[TRACE_DEBUG] Session row inserted")
 
             # Only insert timesteps and events if this is a new session
             for step in trace.session_time_steps:
@@ -487,7 +487,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     _logger.error(f"[TRACE_DEBUG]   Message {idx+1}: FAILED TO SAVE: {exc}", exc_info=True)
                     raise
         else:
-            _logger.info(f"[TRACE_DEBUG] Skipping message insertion for existing session (idempotency)")
+            _logger.info("[TRACE_DEBUG] Skipping message insertion for existing session (idempotency)")
 
         async with self._op_lock:
             conn = self._conn
@@ -810,7 +810,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> None:
         await self.initialize()
 
-        created_at_val = (created_at or datetime.now(timezone.utc)).isoformat()
+        created_at_val = (created_at or datetime.now(UTC)).isoformat()
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -842,7 +842,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        started_at_val = (started_at or datetime.now(timezone.utc)).isoformat()
+        started_at_val = (started_at or datetime.now(UTC)).isoformat()
         completed_at_val = completed_at.isoformat() if completed_at else None
         metadata_json = _json_dumps(metadata or {})
 
@@ -931,7 +931,11 @@ class NativeLibsqlTraceManager(TraceStorage):
         if isinstance(event, LMCAISEvent):
             call_records = None
             if getattr(event, "call_records", None):
-                call_records = [asdict(record) for record in event.call_records]
+                # Handle both dataclass instances and dicts (from deserialization)
+                call_records = [
+                    asdict(record) if not isinstance(record, dict) else record
+                    for record in event.call_records
+                ]
             payload.update(
                 {
                     "event_type": "cais",
@@ -1154,7 +1158,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     total_reward,
                     achievements_count,
                     total_steps,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                     _json_dumps(reward_metadata),
                 ),
             )
@@ -1206,7 +1210,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     key,
                     _json_dumps(annotation),
                     source,
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
             conn.commit()

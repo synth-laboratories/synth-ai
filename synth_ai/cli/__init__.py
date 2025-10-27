@@ -68,7 +68,7 @@ try:
     import importlib
     task_apps_module = importlib.import_module('synth_ai.cli.task_apps')
     task_apps_module.register(cli)
-except (ImportError, ModuleNotFoundError, TypeError, RuntimeError) as e:
+except (ImportError, ModuleNotFoundError, TypeError, RuntimeError):
     # Task apps module not available (missing optional dependencies)
     # This is expected - silently skip
     pass

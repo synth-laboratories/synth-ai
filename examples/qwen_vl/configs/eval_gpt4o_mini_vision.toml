@@ -1,0 +1,43 @@
+# Evaluation config for gpt-4o-mini with vision
+# Stronger teacher than gpt-5-nano, use for high-quality distillation
+
+[eval]
+model = "gpt-4o-mini-2024-07-18"
+provider = "openai"  # Use OpenAI API
+
+# Task app endpoint
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app.modal.run"
+
+# Vision settings (auto-detected from "gpt-4o" in model name)
+use_vision = true
+image_only_mode = false  # Include both text + images
+
+# Rollout settings
+num_episodes = 100
+max_steps_per_episode = 50
+seeds = "200-299"  # Different seeds for comparison
+
+# Sampling parameters
+temperature = 0.6  # Lower temperature for more consistent behavior
+max_tokens = 512
+
+# Trace collection
+collect_traces = true
+trace_db = "traces/gpt4o_mini_vision/rollouts.db"
+
+# Tools
+use_tools = true
+
+# Parallel rollouts
+parallel_episodes = 5
+
+[task]
+name = "crafter"
+environment = "crafter-classic"
+
+# Task-specific settings
+[task.config]
+seed_start = 200
+max_episode_length = 256
+render_size = [64, 64]  # 64x64 PNG images
+

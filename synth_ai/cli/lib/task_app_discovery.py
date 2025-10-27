@@ -15,7 +15,6 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

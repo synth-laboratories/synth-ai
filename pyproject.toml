@@ -198,6 +198,8 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.per-file-ignores]
 "synth_ai/http.py" = ["F403"]
+"**/__init__.py" = ["N999"]
+"**/__main__.py" = ["N999"]
 
 [dependency-groups]
 dev = [

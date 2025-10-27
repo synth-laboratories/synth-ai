@@ -24,9 +24,9 @@ import types
 import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 try:  # Python 3.11+
     import tomllib as _toml
@@ -92,14 +92,14 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load task app server utilities") from exc
 
 
-def _load_demo_directory() -> Optional[Path]:
+def _load_demo_directory() -> Path | None:
     """Return the demo task apps directory if available."""
 
     try:
         module = cast(
             Any, importlib.import_module("synth_ai.demos.demo_task_apps.core")
         )
-        loader = cast(Callable[[], Optional[str | Path]], module.load_demo_dir)
+        loader = cast(Callable[[], str | Path | None], module.load_demo_dir)
         demo_dir = loader()
         if isinstance(demo_dir, str | Path):
             demo_path = Path(demo_dir)
@@ -139,7 +139,7 @@ DEFAULT_SEARCH_RELATIVE = (
 )
 
 
-def _pearson(xs: Sequence[float], ys: Sequence[float]) -> Optional[float]:
+def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     if len(xs) != len(ys) or len(xs) < 2:
         return None
     mean_x = sum(xs) / len(xs)
@@ -164,7 +164,7 @@ class AppChoice:
     label: str
     path: Path
     source: str
-    description: Optional[str] = None
+    description: str | None = None
     aliases: tuple[str, ...] = ()
     entry: TaskAppEntryType | None = None
     entry_loader: Callable[[], TaskAppEntryType] | None = None
@@ -188,21 +188,21 @@ class JudgeSpec:
     kwargs: dict[str, Any]
 
 
-def _parse_datetime_for_trace(value: Any) -> Optional[datetime]:
+def _parse_datetime_for_trace(value: Any) -> datetime | None:
     if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
     if isinstance(value, str):
         value = value.replace("Z", "+00:00")
         try:
             dt = datetime.fromisoformat(value)
         except ValueError:
             try:
-                dt = datetime.fromtimestamp(float(value), tz=timezone.utc)
+                dt = datetime.fromtimestamp(float(value), tz=UTC)
             except Exception:
                 return None
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
     if isinstance(value, int | float):
-        return datetime.fromtimestamp(float(value), tz=timezone.utc)
+        return datetime.fromtimestamp(float(value), tz=UTC)
     return None
 
 
@@ -239,6 +239,24 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
             truncated=bool(payload.get("truncated", False)),
             system_state_before=payload.get("system_state_before"),
             system_state_after=payload.get("system_state_after"),
+            **base_kwargs,
+        )
+    # Check for LM CAIS event fields
+    if any(key in payload for key in ("model_name", "provider", "call_records")):
+        from synth_ai.tracing_v3.abstractions import LMCAISEvent
+        # Note: call_records are left as dicts - the storage layer will handle serialization
+        call_records = payload.get("call_records") or []
+        return LMCAISEvent(
+            model_name=payload.get("model_name", ""),
+            provider=payload.get("provider", ""),
+            input_tokens=payload.get("input_tokens"),
+            output_tokens=payload.get("output_tokens"),
+            total_tokens=payload.get("total_tokens"),
+            cost_usd=payload.get("cost_usd"),
+            latency_ms=payload.get("latency_ms"),
+            span_id=payload.get("span_id"),
+            trace_id=payload.get("trace_id"),
+            call_records=call_records,
             **base_kwargs,
         )
     return BaseEvent(**base_kwargs)
@@ -279,7 +297,7 @@ def _step_from_dict(payload: dict[str, Any]) -> SessionTimeStep:
         for msg in payload.get("markov_blanket_messages", [])
         if isinstance(msg, dict)
     ]
-    timestamp = _parse_datetime_for_trace(payload.get("timestamp")) or datetime.now(timezone.utc)
+    timestamp = _parse_datetime_for_trace(payload.get("timestamp")) or datetime.now(UTC)
     completed_at = _parse_datetime_for_trace(payload.get("completed_at"))
     return SessionTimeStep(
         step_id=payload.get("step_id", ""),
@@ -293,7 +311,7 @@ def _step_from_dict(payload: dict[str, Any]) -> SessionTimeStep:
     )
 
 
-def _session_trace_from_dict(payload: dict[str, Any]) -> Optional[V3SessionTrace]:
+def _session_trace_from_dict(payload: dict[str, Any]) -> V3SessionTrace | None:
     if not isinstance(payload, dict):
         return None
     steps = [
@@ -311,7 +329,7 @@ def _session_trace_from_dict(payload: dict[str, Any]) -> Optional[V3SessionTrace
         for msg in payload.get("markov_blanket_message_history", [])
         if isinstance(msg, dict)
     ]
-    created_at = _parse_datetime_for_trace(payload.get("created_at")) or datetime.now(timezone.utc)
+    created_at = _parse_datetime_for_trace(payload.get("created_at")) or datetime.now(UTC)
     metadata = payload.get("metadata") or {}
     session_metadata = payload.get("session_metadata")
     return V3SessionTrace(
@@ -341,10 +359,18 @@ async def _store_trace(
     
     _logger.info(f"[STORE_TRACE_DEBUG] trace_namespace keys: {list(trace_namespace.keys())}")
     
+    # Handle both formats:
+    # - With session_trace key: {"session_trace": {...}}
+    # - Without session_trace key (trace itself is the session): {"session_id": ..., "markov_blanket_message_history": ...}
     session_payload = trace_namespace.get("session_trace")
     if not isinstance(session_payload, dict):
-        _logger.warning(f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}")
-        return
+        # If no session_trace key, assume "full" format where trace itself is the session_trace
+        if "session_id" in trace_namespace:
+            session_payload = trace_namespace
+            _logger.info("[STORE_TRACE_DEBUG] Using trace_namespace directly as session_payload (no session_trace key)")
+        else:
+            _logger.warning(f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}")
+            return
     
     _logger.info(f"[STORE_TRACE_DEBUG] session_payload keys: {list(session_payload.keys())}")
     msg_count = len(session_payload.get("markov_blanket_message_history", []))
@@ -352,7 +378,7 @@ async def _store_trace(
     
     trace_obj = _session_trace_from_dict(session_payload)
     if trace_obj is None:
-        _logger.warning(f"[STORE_TRACE_DEBUG] _session_trace_from_dict returned None")
+        _logger.warning("[STORE_TRACE_DEBUG] _session_trace_from_dict returned None")
         return
     
     _logger.info(f"[STORE_TRACE_DEBUG] Created SessionTrace object with {len(trace_obj.markov_blanket_message_history)} messages")
@@ -366,7 +392,7 @@ async def _store_trace(
     
     _logger.info(f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}")
     await tracer.db.insert_session_trace(trace_obj)
-    _logger.info(f"[STORE_TRACE_DEBUG] Successfully inserted trace")
+    _logger.info("[STORE_TRACE_DEBUG] Successfully inserted trace")
 
 def _temporary_sys_path(paths: Sequence[Path]):
     """Context manager to prepend entries to sys.path temporarily."""
@@ -4442,6 +4468,10 @@ def filter_command(config_path: str) -> None:
                     except Exception:
                         user_content = content_raw
                     
+                    # If user_content is a message dict with a 'content' key, extract it
+                    if isinstance(user_content, dict) and "content" in user_content:
+                        user_content = user_content["content"]
+                    
                     # Extract text from structured content
                     def extract_text(content: Any) -> str:
                         if isinstance(content, str):
@@ -4472,21 +4502,31 @@ def filter_command(config_path: str) -> None:
                     
                     # For assistant, we might not have it recorded, so use tool calls as completion
                     assistant_text = ""
+                    assistant_content = None
                     if assistant_msg:
                         assistant_content_raw = assistant_msg.get("content")
                         try:
                             assistant_content = json.loads(assistant_content_raw) if isinstance(assistant_content_raw, str) else assistant_content_raw
                         except Exception:
                             assistant_content = assistant_content_raw
+                        
+                        # If assistant_content is a message dict with a 'content' key, extract it
+                        if isinstance(assistant_content, dict) and "content" in assistant_content:
+                            assistant_content = assistant_content["content"]
+                        
                         assistant_text = extract_text(assistant_content)
                     
                     if not user_text:
                         continue
 
+                    # Use full multimodal content if it's a list (contains images), otherwise use text
+                    user_content_for_message = user_content if isinstance(user_content, list) else user_text
+                    assistant_content_for_message = assistant_content if isinstance(assistant_content, list) else (assistant_text if assistant_text else "[no response recorded]")
+
                     record = {
                         "messages": [
-                            {"role": "user", "content": user_text},
-                            {"role": "assistant", "content": assistant_text if assistant_text else "[no response recorded]"},
+                            {"role": "user", "content": user_content_for_message},
+                            {"role": "assistant", "content": assistant_content_for_message},
                         ],
                         "metadata": {
                             "session_id": session_id,

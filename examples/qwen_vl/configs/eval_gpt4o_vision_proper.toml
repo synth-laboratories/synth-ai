@@ -1,0 +1,29 @@
+# Proper synth-ai eval config for Crafter with gpt-4o-mini vision
+# Collects traces with images to database for synth-ai filter
+
+[eval]
+app_id = "grpo-crafter-task-app"  # Modal deployed task app
+model = "gpt-4o-mini-2024-07-18"
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # 10 episodes for test
+max_turns = 50  # 50 steps per episode
+concurrency = 2  # 2 parallel episodes
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "structured"  # Required for synth-ai eval
+return_trace = true
+
+[eval.env_config]
+env_params = {max_steps_per_episode = 50}
+
+[eval.policy_config]
+provider = "openai"
+model = "gpt-4o-mini-2024-07-18"
+inference_url = "https://api.openai.com"  # Base URL
+# Note: Don't set temperature for gpt-4o-mini, use default
+top_p = 0.95
+max_tokens = 512
+use_vision = true  # Enable vision
+image_only_mode = false  # Use both text + images
+max_llm_calls = 50
+use_tools = true  # Enable tool calling
+

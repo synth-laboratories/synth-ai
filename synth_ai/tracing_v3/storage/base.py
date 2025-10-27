@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from ..abstractions import SessionTrace
 
@@ -28,7 +28,7 @@ class TraceStorage(ABC):
         pass
 
     @abstractmethod
-    async def get_session_trace(self, session_id: str) -> Optional[dict[str, Any]]:
+    async def get_session_trace(self, session_id: str) -> dict[str, Any] | None:
         """Retrieve a session trace by ID.
 
         Args:
@@ -40,7 +40,7 @@ class TraceStorage(ABC):
         pass
 
     @abstractmethod
-    async def query_traces(self, query: str, params: Optional[dict[str, Any]] = None) -> Any:
+    async def query_traces(self, query: str, params: dict[str, Any] | None = None) -> Any:
         """Execute a query and return results.
 
         Args:
@@ -55,9 +55,9 @@ class TraceStorage(ABC):
     @abstractmethod
     async def get_model_usage(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        model_name: Optional[str] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        model_name: str | None = None,
     ) -> Any:
         """Get model usage statistics.
 
@@ -95,8 +95,8 @@ class TraceStorage(ABC):
         self,
         session_id: str,
         *,
-        created_at: Optional[datetime] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        created_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Ensure a session row exists for the given session id."""
         pass
@@ -108,10 +108,10 @@ class TraceStorage(ABC):
         *,
         step_id: str,
         step_index: int,
-        turn_number: Optional[int] = None,
-        started_at: Optional[datetime] = None,
-        completed_at: Optional[datetime] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        turn_number: int | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int:
         """Ensure a timestep row exists and return its database id."""
         pass
@@ -121,9 +121,9 @@ class TraceStorage(ABC):
         self,
         session_id: str,
         *,
-        timestep_db_id: Optional[int],
+        timestep_db_id: int | None,
         event: Any,
-        metadata_override: Optional[dict[str, Any]] = None,
+        metadata_override: dict[str, Any] | None = None,
     ) -> int:
         """Insert an event and return its database id."""
         pass
@@ -133,12 +133,12 @@ class TraceStorage(ABC):
         self,
         session_id: str,
         *,
-        timestep_db_id: Optional[int],
+        timestep_db_id: int | None,
         message_type: str,
         content: Any,
-        event_time: Optional[float] = None,
-        message_time: Optional[int] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        event_time: float | None = None,
+        message_time: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> int:
         """Insert a message row linked to a session/timestep."""
         pass
@@ -151,7 +151,7 @@ class TraceStorage(ABC):
         total_reward: int,
         achievements_count: int,
         total_steps: int,
-        reward_metadata: Optional[dict] = None,
+        reward_metadata: dict | None = None,
     ) -> int:
         """Record an outcome reward for a session."""
         pass
@@ -162,13 +162,13 @@ class TraceStorage(ABC):
         session_id: str,
         *,
         event_id: int,
-        message_id: Optional[int] = None,
-        turn_number: Optional[int] = None,
+        message_id: int | None = None,
+        turn_number: int | None = None,
         reward_value: float = 0.0,
-        reward_type: Optional[str] = None,
-        key: Optional[str] = None,
-        annotation: Optional[dict[str, Any]] = None,
-        source: Optional[str] = None,
+        reward_type: str | None = None,
+        key: str | None = None,
+        annotation: dict[str, Any] | None = None,
+        source: str | None = None,
     ) -> int:
         """Record a reward tied to a specific event."""
         pass
@@ -178,8 +178,8 @@ class TraceStorage(ABC):
         self,
         experiment_id: str,
         name: str,
-        description: Optional[str] = None,
-        configuration: Optional[dict[str, Any]] = None,
+        description: str | None = None,
+        configuration: dict[str, Any] | None = None,
     ) -> str:
         """Create a new experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
@@ -189,14 +189,14 @@ class TraceStorage(ABC):
         raise NotImplementedError("Experiment management not supported by this backend")
 
     async def get_sessions_by_experiment(
-        self, experiment_id: str, limit: Optional[int] = None
+        self, experiment_id: str, limit: int | None = None
     ) -> list[dict[str, Any]]:
         """Get all sessions for an experiment."""
         raise NotImplementedError("Experiment management not supported by this backend")
 
     # Batch operations
     async def batch_insert_sessions(
-        self, traces: list[SessionTrace], batch_size: Optional[int] = 1000
+        self, traces: list[SessionTrace], batch_size: int | None = 1000
     ) -> list[str]:
         """Batch insert multiple session traces.
 

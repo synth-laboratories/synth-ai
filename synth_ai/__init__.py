@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-# Environment exports - moved from synth-env
-from synth_ai.environments import *  # noqa
-import synth_ai.environments as environments  # expose module name for __all__
-
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
+
+import synth_ai.environments as environments  # expose module name for __all__
+
+# Environment exports - moved from synth-env
+from synth_ai.environments import *  # noqa
 
 try:  # Prefer the installed package metadata when available
     __version__ = _metadata.version("synth-ai")
