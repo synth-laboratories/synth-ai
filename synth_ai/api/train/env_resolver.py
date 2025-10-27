@@ -9,7 +9,7 @@ import click
 
 from . import task_app
 from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
-from synth_ai.utils.secrets import load_secret
+from synth_ai.utils.env import resolve_env_var
 
 
 @dataclass(slots=True)
@@ -232,7 +232,7 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
             os.environ[spec.name] = env_val
             return env_val
 
-        load_secret(spec.name)
+        resolve_env_var(spec.name)
         resolved_value = os.environ.get(spec.name)
         if resolved_value:
             click.echo(f"Found {spec.name} via secrets helper: {mask_value(resolved_value)}")
