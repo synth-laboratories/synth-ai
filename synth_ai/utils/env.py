@@ -1,8 +1,19 @@
 import json
 import os
+import string
 from pathlib import Path
 
 import click
+
+_ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
+
+
+def _format_env_value(value: str) -> str:
+    if value == "":
+        return '""'
+    if all(char in _ENV_SAFE_CHARS for char in value):
+        return value
+    return json.dumps(value)
 
 
 def _strip_inline_comment(value: str) -> str:
@@ -22,7 +33,7 @@ def _strip_inline_comment(value: str) -> str:
         if char == '"' and not in_single:
             in_double = not in_double
             continue
-        if char == "#" and not in_single and not in_double:
+        if char == '#' and not in_single and not in_double:
             return value[:idx].rstrip()
     return value.rstrip()
 
@@ -66,7 +77,7 @@ def _prompt_manual_env_value(key: str) -> str:
             return value
         if click.confirm("Save empty value?", default=False):
             return ""
-        click.echo("Empty value discarded; enter a value or confirm empty to continue.")
+        click.echo("Empty value discarded; enter a value or confirm empty to continue")
 
 
 def mask_str(input: str, position: int = 3) -> str:
@@ -183,3 +194,96 @@ def resolve_env_var(key: str) -> None:
     os.environ[key] = value
     click.echo(f"Loaded {key}={mask_str(value)} into process environment")
     return
+
+
+def write_env_var_to_dotenv(
+    key: str,
+    value: str,
+    output_file_path: str | Path,
+) -> None:
+    path = Path(output_file_path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    encoded_value = _format_env_value(value)
+
+    lines: list[str] = []
+    key_written = False
+
+    if path.is_file():
+        try:
+            with path.open('r', encoding="utf-8") as handle:
+                lines = handle.readlines()
+        except OSError as exc:
+            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+
+        for index, line in enumerate(lines):
+            parsed = _parse_env_assignment(line)
+            if parsed is None or parsed[0] != key:
+                continue
+
+            leading_len = len(line) - len(line.lstrip(' \t'))
+            leading = line[:leading_len]
+            stripped = line.lstrip()
+            has_export = stripped.lower().startswith('export ')
+            newline = '\n' if line.endswith('\n') else ''
+            prefix = 'export ' if has_export else ''
+            lines[index] = f"{leading}{prefix}{key}={encoded_value}{newline}"
+            key_written = True
+            break
+
+    if not key_written:
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] = f"{lines[-1]}\n"
+        lines.append(f"{key}={encoded_value}\n")
+
+    try:
+        with path.open('w', encoding="utf-8") as handle:
+            handle.writelines(lines)
+    except OSError as exc:
+        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+
+    click.echo(f"Wrote {key}={mask_str(value)} to {path}")
+
+
+def write_env_var_to_json(
+    key: str,
+    value: str,
+    output_file_path: str | Path,
+) -> None:
+    path = Path(output_file_path).expanduser()
+    if path.exists() and not path.is_file():
+        raise click.ClickException(f"{path} exists and is not a file")
+
+    data: dict[str, str] = {}
+
+    if path.is_file():
+        try:
+            with path.open('r', encoding="utf-8") as handle:
+                existing = json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(f"Invalid JSON in {path}: {exc}") from exc
+        except OSError as exc:
+            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+
+        if not isinstance(existing, dict):
+            raise click.ClickException(f"Expected JSON object in {path}")
+
+        for existing_key, existing_value in existing.items():
+            if existing_key == key:
+                continue
+            data[str(existing_key)] = (
+                existing_value if isinstance(existing_value, str) else str(existing_value)
+            )
+
+    data[key] = value
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with path.open('w', encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, sort_keys=True)
+            handle.write('\n')
+    except OSError as exc:
+        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+
+    click.echo(f"Wrote {key}={mask_str(value)} to {path}")
