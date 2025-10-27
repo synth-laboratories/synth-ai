@@ -127,13 +127,6 @@ def filter_json_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, st
     return matches
 
 
-def convert_abspath_to_relpath(path: Path, base_dir: Path | str = '.') -> str:
-    try:
-        return str(path.resolve().relative_to(Path(base_dir).resolve()))
-    except ValueError:
-        return path.name
-
-
 def resolve_env_var(key: str) -> None:
     env_value = os.getenv(key)
     if env_value is not None:
@@ -147,7 +140,12 @@ def resolve_env_var(key: str) -> None:
 
     options: list[tuple[str, str]] = []
     for path, value in env_file_paths:
-        label = f"({convert_abspath_to_relpath(path)})  {mask_str(value)}"
+        resolved_path = path.resolve()
+        try:
+            rel_path = str(resolved_path.relative_to(Path.cwd()))
+        except ValueError:
+            rel_path = str(resolved_path)
+        label = f"({rel_path})  {mask_str(value)}"
         options.append((label, value))
     for path, value in synth_file_paths:
         label = f"({path})  {mask_str(value)}"
