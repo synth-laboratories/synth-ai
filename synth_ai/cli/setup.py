@@ -10,7 +10,8 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import click
 import requests
-from synth_ai.utils.cli_visualizations import key_preview, print_next_step
+from synth_ai.utils.cli import print_next_step
+from synth_ai.utils.env import mask_str
 from synth_ai.utils.modal import is_modal_public_url
 from synth_ai.utils.process import popen_capture
 from synth_ai.utils.user_config import USER_CONFIG_PATH, update_user_config
@@ -245,8 +246,8 @@ def setup() -> int:
             base, method="GET"
         )
     print("\nSaved keys:")
-    print(f"  SYNTH_API_KEY={key_preview(synth_key, 'SYNTH_API_KEY')}")
-    print(f"  ENVIRONMENT_API_KEY={key_preview(rl_env_key, 'ENVIRONMENT_API_KEY')}")
+    print(f"  SYNTH_API_KEY={mask_str(synth_key)}")
+    print(f"  ENVIRONMENT_API_KEY={mask_str(rl_env_key)}")
     if env.task_app_base_url:
         print(f"  TASK_APP_BASE_URL={env.task_app_base_url}")
     print(f"Configuration persisted to: {USER_CONFIG_PATH}")
