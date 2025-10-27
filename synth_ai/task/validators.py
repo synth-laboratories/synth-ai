@@ -8,7 +8,6 @@ from urllib.parse import urlparse, urlunparse
 
 import click
 import httpx
-
 from synth_ai.task.contracts import TaskAppEndpoints  # type: ignore[attr-defined]
 
 

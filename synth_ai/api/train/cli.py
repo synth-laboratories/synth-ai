@@ -300,7 +300,7 @@ def train_command(
 def _wait_for_training_file(
     backend_base: str, api_key: str, file_id: str, *, timeout: float = 120.0
 ) -> None:
-    url = f"{backend_base}/learning/files/{file_id}"
+    url = f"{backend_base.rstrip('/')}/files/{file_id}"
     headers = {"Authorization": f"Bearer {api_key}"}
     elapsed = 0.0
     interval = 2.0
@@ -524,7 +524,7 @@ def handle_sft(
             click.echo("Validating validation dataset…")
             validate_sft_jsonl(build.validation_file)
 
-        upload_url = f"{backend_base}/learning/files"
+        upload_url = f"{backend_base.rstrip('/')}/files"
         click.echo("\n=== Uploading Training Data ===")
         click.echo(f"Dataset: {build.train_file}")
         click.echo(f"Destination: {upload_url}")
@@ -579,7 +579,8 @@ def handle_sft(
         try:
             _wait_for_training_file(backend_base, synth_key, train_file_id)
         except click.ClickException as exc:
-            raise click.ClickException(f"Training file {train_file_id} not ready: {exc}") from exc
+            click.echo(f"[WARN] File readiness check failed: {exc}")
+            click.echo("Proceeding anyway - backend will validate file during job creation...")
 
         click.echo("\n=== Creating Training Job ===")
         click.echo("Job payload preview:")

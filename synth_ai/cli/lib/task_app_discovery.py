@@ -13,10 +13,23 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import click
 
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppConfig, TaskAppEntry, registry
+try:
+    _task_apps_module = importlib.import_module("synth_ai.task.apps")
+    ModalDeploymentConfig = _task_apps_module.ModalDeploymentConfig
+    TaskAppConfig = _task_apps_module.TaskAppConfig
+    TaskAppEntry = _task_apps_module.TaskAppEntry
+    registry = _task_apps_module.registry
+except Exception:
+    class _UnavailableTaskAppType:  # pragma: no cover - used when optional deps missing
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            raise RuntimeError("Task app registry is unavailable in this environment")
+
+    ModalDeploymentConfig = TaskAppConfig = TaskAppEntry = _UnavailableTaskAppType  # type: ignore[assignment]
+    registry: dict[str, Any] = {}
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -134,15 +147,20 @@ def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-        demo_dir = load_demo_dir()
-        if demo_dir:
-            demo_path = Path(demo_dir)
-            if demo_path.exists() and demo_path.is_dir():
-                roots.append(demo_path.resolve())
+        demo_module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
     except Exception:
-        pass
+        demo_module = None
+    if demo_module:
+        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
+        if callable(load_demo_dir):
+            try:
+                demo_dir = load_demo_dir()
+            except Exception:
+                demo_dir = None
+            if demo_dir:
+                demo_path = Path(demo_dir)
+                if demo_path.exists() and demo_path.is_dir():
+                    roots.append(demo_path.resolve())
 
     env_paths = os.environ.get("SYNTH_TASK_APP_SEARCH_PATH")
     if env_paths:
@@ -423,15 +441,20 @@ def _collect_modal_scripts() -> list[AppChoice]:
 def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
     demo_rank = 1
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
-
-        demo_dir = load_demo_dir()
-        if demo_dir:
-            demo_path = Path(demo_dir).resolve()
-            if choice.path.is_relative_to(demo_path):
-                demo_rank = 0
+        demo_module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
     except Exception:
-        pass
+        demo_module = None
+    if demo_module:
+        load_demo_dir = getattr(demo_module, "load_demo_dir", None)
+        if callable(load_demo_dir):
+            try:
+                demo_dir = load_demo_dir()
+            except Exception:
+                demo_dir = None
+            if demo_dir:
+                demo_path = Path(demo_dir).resolve()
+                if choice.path.is_relative_to(demo_path):
+                    demo_rank = 0
 
     cwd_rank = 1
     try:
@@ -623,7 +646,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        import synth_ai.demos.demo_task_apps  # noqa: F401
+        importlib.import_module("synth_ai.demos.demo_task_apps")
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())

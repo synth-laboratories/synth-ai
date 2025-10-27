@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from synth_ai.cli._storage import load_storage
+from ._storage import load_storage
 
 
 async def _db_stats(db_url: str) -> dict:

@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import importlib
 import sys
 
 
 def main() -> int:
     # Apply Typer compatibility patch before Modal CLI bootstraps Click/Typer internals.
     try:
-        from synth_ai.cli._typer_patch import patch_typer_make_metavar
-
-        patch_typer_make_metavar()
+        module = importlib.import_module("synth_ai.cli._typer_patch")
     except Exception:
-        pass
+        module = None
+    if module is not None:
+        patch = getattr(module, "patch_typer_make_metavar", None)
+        if callable(patch):
+            patch()
 
     from modal.__main__ import main as modal_main
 
@@ -26,4 +29,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

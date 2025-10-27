@@ -37,7 +37,7 @@ Concepts:
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .lm_call_record_abstractions import LLMCallRecord
@@ -249,7 +249,7 @@ class SessionTimeStep:
 
     step_id: str = ""
     step_index: int = 0
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     turn_number: int | None = None
     events: list[BaseEvent] = field(default_factory=list)
     markov_blanket_messages: list[SessionEventMarkovBlanketMessage] = field(default_factory=list)
@@ -283,7 +283,7 @@ class SessionTrace:
     """
 
     session_id: str = ""
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     session_time_steps: list[SessionTimeStep] = field(default_factory=list)
     event_history: list[BaseEvent] = field(default_factory=list)
     markov_blanket_message_history: list[SessionEventMarkovBlanketMessage] = field(

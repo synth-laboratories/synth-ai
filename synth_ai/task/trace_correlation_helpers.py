@@ -7,6 +7,7 @@ This module provides utilities for task apps to:
 See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for requirements.
 """
 
+import importlib
 import logging
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -63,13 +64,25 @@ def extract_trace_correlation_id(
                 return stripped
     
     # Determine if we're in EVAL mode (trace_correlation_id not required for eval)
+    rollout_mode_cls: Any | None = None
     try:
-        from synth_ai.task.contracts import RolloutMode
-        is_eval_mode = (mode == "eval" or mode == RolloutMode.EVAL or 
-                        (hasattr(mode, 'value') and mode.value == "eval"))
-    except ImportError:
-        # If RolloutMode not available, fall back to string comparison
-        is_eval_mode = (mode == "eval")
+        contracts_module = importlib.import_module("synth_ai.task.contracts")
+        rollout_mode_cls = getattr(contracts_module, "RolloutMode", None)
+    except Exception:
+        rollout_mode_cls = None
+
+    is_eval_mode = False
+    if rollout_mode_cls is not None:
+        try:
+            is_eval_mode = (
+                mode == "eval"
+                or mode == rollout_mode_cls.EVAL
+                or getattr(mode, "value", None) == "eval"
+            )
+        except Exception:
+            is_eval_mode = mode == "eval"
+    else:
+        is_eval_mode = mode == "eval" or getattr(mode, "value", None) == "eval"
     
     # Fallback: try to extract from inference_url query params
     if not inference_url or not isinstance(inference_url, str):
@@ -87,10 +100,12 @@ def extract_trace_correlation_id(
     
     try:
         parsed = urlparse(inference_url)
-        query_params = parse_qs(parsed.query or "")
+        query_params: dict[str, list[str]] = parse_qs(parsed.query or "")
         # Try multiple possible query param names
         for param_name in ["cid", "trace_correlation_id", "trace"]:
-            values = query_params.get(param_name, [])
+            values = query_params.get(param_name)
+            if not values:
+                continue
             for value in values:
                 if isinstance(value, str) and value.strip():
                     correlation_id = value.strip()
@@ -311,5 +326,3 @@ def verify_trace_correlation_id_in_response(
         expected_correlation_id
     )
     return True
-
-

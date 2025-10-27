@@ -651,7 +651,7 @@ def _resolve_trace_correlation_id(policy_cfg: dict[str, Any], mode: Any = None) 
             if stripped:
                 return stripped
 
-    return extract_trace_correlation_id(policy_cfg.get("inference_url"), mode=mode)
+    return extract_trace_correlation_id(policy_cfg.get("inference_url"))
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:

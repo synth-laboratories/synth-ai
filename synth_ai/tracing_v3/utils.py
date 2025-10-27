@@ -5,13 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
 def iso_now() -> str:
     """Get current timezone.utc time as ISO format string."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def json_dumps(obj: Any) -> str:

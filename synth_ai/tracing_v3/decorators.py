@@ -29,6 +29,7 @@ import contextvars
 import functools
 import time
 from collections.abc import Awaitable, Callable, Mapping
+from contextvars import Token
 from typing import Any, TypeVar, cast, overload
 
 from .abstractions import LMCAISEvent, TimeRecord
@@ -367,11 +368,11 @@ class SessionContext:
         ```
     """
 
-    def __init__(self, session_id: str, tracer=None):
+    def __init__(self, session_id: str, tracer: Any | None = None):
         self.session_id = session_id
         self.tracer = tracer
-        self._token = None
-        self._tracer_token = None
+        self._token: Token[str | None] | None = None
+        self._tracer_token: Token[Any] | None = None
 
     def __enter__(self):
         # Store tokens to restore previous context on exit
@@ -382,8 +383,9 @@ class SessionContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # Restore previous context - this is crucial for proper isolation
-        _session_id_ctx.reset(self._token)
-        if self._tracer_token:
+        if self._token is not None:
+            _session_id_ctx.reset(self._token)
+        if self._tracer_token is not None:
             _session_tracer_ctx.reset(self._tracer_token)
 
     async def __aenter__(self):
@@ -393,6 +395,7 @@ class SessionContext:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        _session_id_ctx.reset(self._token)
-        if self._tracer_token:
+        if self._token is not None:
+            _session_id_ctx.reset(self._token)
+        if self._tracer_token is not None:
             _session_tracer_ctx.reset(self._tracer_token)

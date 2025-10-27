@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-# Environment exports - moved from synth-env
-from synth_ai.environments import *  # noqa
-import synth_ai.environments as environments  # expose module name for __all__
-
+import importlib
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
+from typing import Any, cast
+
+import synth_ai.environments as environments  # expose module name for __all__
+from synth_ai.environments import *  # noqa
+from synth_ai.judge_schemas import (
+    CriterionScorePayload,
+    JudgeOptions,
+    JudgeScoreRequest,
+    JudgeScoreResponse,
+    JudgeTaskApp,
+    JudgeTracePayload,
+    ReviewPayload,
+)
 
 try:  # Prefer the installed package metadata when available
     __version__ = _metadata.version("synth-ai")
@@ -24,31 +34,39 @@ except PackageNotFoundError:  # Fallback to pyproject version for editable insta
     except Exception:
         __version__ = "0.0.0.dev0"
 
-try:
-    from synth_ai.lm.core.main import LM  # Moved from zyk to lm for better organization
-except Exception:  # allow minimal imports (e.g., tracing) without LM stack
-    LM = None  # type: ignore
-try:
-    from synth_ai.lm.provider_support.anthropic import Anthropic, AsyncAnthropic
-except Exception:  # optional in minimal environments
-    Anthropic = AsyncAnthropic = None  # type: ignore
+def _optional_import(module_path: str) -> Any | None:
+    try:
+        return importlib.import_module(module_path)
+    except Exception:
+        return None
 
-# Provider support exports - moved from synth-sdk to synth_ai/lm
-try:
-    from synth_ai.lm.provider_support.openai import AsyncOpenAI, OpenAI
-except Exception:
-    AsyncOpenAI = OpenAI = None  # type: ignore
 
-# Judge API contract schemas
-from synth_ai.judge_schemas import (
-    CriterionScorePayload,
-    JudgeOptions,
-    JudgeScoreRequest,
-    JudgeScoreResponse,
-    JudgeTaskApp,
-    JudgeTracePayload,
-    ReviewPayload,
-)
+_lm_module = _optional_import("synth_ai.lm.core.main")
+LM = cast(Any, _lm_module).LM if _lm_module and hasattr(_lm_module, "LM") else None  # type: ignore[attr-defined]
+
+_anthropic_module = _optional_import("synth_ai.lm.provider_support.anthropic")
+Anthropic = (
+    cast(Any, _anthropic_module).Anthropic
+    if _anthropic_module and hasattr(_anthropic_module, "Anthropic")
+    else None
+)  # type: ignore[attr-defined]
+AsyncAnthropic = (
+    cast(Any, _anthropic_module).AsyncAnthropic
+    if _anthropic_module and hasattr(_anthropic_module, "AsyncAnthropic")
+    else None
+)  # type: ignore[attr-defined]
+
+_openai_module = _optional_import("synth_ai.lm.provider_support.openai")
+AsyncOpenAI = (
+    cast(Any, _openai_module).AsyncOpenAI
+    if _openai_module and hasattr(_openai_module, "AsyncOpenAI")
+    else None
+)  # type: ignore[attr-defined]
+OpenAI = (
+    cast(Any, _openai_module).OpenAI
+    if _openai_module and hasattr(_openai_module, "OpenAI")
+    else None
+)  # type: ignore[attr-defined]
 
 # Legacy tracing v1 is not required for v3 usage and can be unavailable in minimal envs.
 tracing = None  # type: ignore

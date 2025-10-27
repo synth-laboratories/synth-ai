@@ -47,6 +47,23 @@ QWEN3_CODER_MODELS: list[str] = [
     "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
 ]
 
+# Qwen3-VL family (vision-language models); multimodal, SFT/inference
+QWEN3_VL_MODELS: list[str] = [
+    # Vision-Language Models (Qwen3-VL)
+    "Qwen/Qwen3-VL-2B-Instruct",
+    "Qwen/Qwen3-VL-2B-Thinking",
+    "Qwen/Qwen3-VL-4B-Instruct",
+    "Qwen/Qwen3-VL-4B-Thinking",
+    "Qwen/Qwen3-VL-8B-Instruct",
+    "Qwen/Qwen3-VL-8B-Thinking",
+    "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "Qwen/Qwen3-VL-30B-A3B-Thinking",
+    "Qwen/Qwen3-VL-32B-Instruct",
+    "Qwen/Qwen3-VL-32B-Thinking",
+    "Qwen/Qwen3-VL-235B-A22B-Instruct",
+    "Qwen/Qwen3-VL-235B-A22B-Thinking",
+]
+
 # Training support sets
 RL_SUPPORTED_MODELS: frozenset[str] = frozenset(
     {
@@ -72,11 +89,18 @@ RL_SUPPORTED_MODELS: frozenset[str] = frozenset(
         # Coder instruct models
         "Qwen/Qwen3-Coder-30B-A3B-Instruct",
         "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8",
+        # Vision-Language models (Qwen3-VL)
+        "Qwen/Qwen3-VL-2B-Instruct",
+        "Qwen/Qwen3-VL-2B-Thinking",
+        "Qwen/Qwen3-VL-4B-Instruct",
+        "Qwen/Qwen3-VL-4B-Thinking",
+        "Qwen/Qwen3-VL-8B-Instruct",
+        "Qwen/Qwen3-VL-8B-Thinking",
     }
 )
 
-# SFT allowlist includes core Qwen3 plus Coder family
-SFT_SUPPORTED_MODELS: frozenset[str] = frozenset([*QWEN3_MODELS, *QWEN3_CODER_MODELS])
+# SFT allowlist includes core Qwen3 plus Coder and VL families
+SFT_SUPPORTED_MODELS: frozenset[str] = frozenset([*QWEN3_MODELS, *QWEN3_CODER_MODELS, *QWEN3_VL_MODELS])
 
 # Models that support <think> reasoning tags
 THINKING_MODELS: frozenset[str] = frozenset(
@@ -87,6 +111,13 @@ THINKING_MODELS: frozenset[str] = frozenset(
         "Qwen/Qwen3-30B-A3B-Thinking-2507-FP8",
         "Qwen/Qwen3-235B-A22B-Thinking-2507",
         "Qwen/Qwen3-235B-A22B-Thinking-2507-FP8",
+        # Vision-Language Thinking models
+        "Qwen/Qwen3-VL-2B-Thinking",
+        "Qwen/Qwen3-VL-4B-Thinking",
+        "Qwen/Qwen3-VL-8B-Thinking",
+        "Qwen/Qwen3-VL-30B-A3B-Thinking",
+        "Qwen/Qwen3-VL-32B-Thinking",
+        "Qwen/Qwen3-VL-235B-A22B-Thinking",
     }
 )
 
@@ -123,8 +154,8 @@ def _parse_experimental_env() -> frozenset[str]:
 # Final experimental set (defaults ∪ optional env override)
 EXPERIMENTAL_MODELS: frozenset[str] = frozenset(_EXPERIMENTAL_DEFAULTS | _parse_experimental_env())
 
-# Build catalog entries for both core and coder families under unified "Qwen3"
-_ALL_QWEN3_IDS: list[str] = [*QWEN3_MODELS, *QWEN3_CODER_MODELS]
+# Build catalog entries for core, coder, and VL families under unified "Qwen3"
+_ALL_QWEN3_IDS: list[str] = [*QWEN3_MODELS, *QWEN3_CODER_MODELS, *QWEN3_VL_MODELS]
 
 CORE_MODELS: frozenset[str] = frozenset(m for m in _ALL_QWEN3_IDS if m not in EXPERIMENTAL_MODELS)
 

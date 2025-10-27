@@ -32,7 +32,10 @@ except (ImportError, ModuleNotFoundError):
     ComposeResult = object  # type: ignore
     Binding = object  # type: ignore
     Container = object  # type: ignore
-    reactive = lambda x: x  # type: ignore
+
+    def reactive(value, *_, **__):
+        return value
+
     Timer = object  # type: ignore
     DataTable = object  # type: ignore
     Footer = object  # type: ignore
@@ -42,16 +45,18 @@ except (ImportError, ModuleNotFoundError):
 
 # Import database manager with graceful fallback
 try:
-    from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager  # type: ignore[import-untyped]
+    from synth_ai.tracing_v3.turso.native_manager import (
+        NativeLibsqlTraceManager,  # type: ignore[import-untyped]
+    )
     _DB_AVAILABLE = True
 except (ImportError, ModuleNotFoundError, TypeError):
     # Database manager not available - provide dummy class
     NativeLibsqlTraceManager = object  # type: ignore
     _DB_AVAILABLE = False
 
-import asyncio
-import requests
 from datetime import timedelta
+
+import requests
 
 
 class ExperimentRow:
@@ -218,8 +223,8 @@ class DatabaseStatus(Static):
                 path_part = url.split("///")[-1]
                 filename = Path(path_part).name
                 self.connection_status = f"🟢 {filename}"
-            except:
-                self.connection_status = f"🟢 Connected"
+            except Exception:
+                self.connection_status = "🟢 Connected"
         else:
             host_info = f"{parsed.hostname}:{parsed.port}" if parsed.port else str(parsed.hostname)
             self.connection_status = f"🟢 {host_info}"
@@ -317,10 +322,10 @@ class BalanceStatus(Static):
 
     def set_global_error(self, error: str):
         """Show error state for global data."""
-        self.global_balance = f"Error"
+        self.global_balance = "Error"
         self.global_spend_24h = "-"
         self.global_spend_7d = "-"
-        self.global_status = f"❌"
+        self.global_status = "❌"
         
     def set_local_error(self, error: str):
         """Show error state for local data."""
@@ -328,7 +333,7 @@ class BalanceStatus(Static):
         self.local_cost = "Error"
         self.local_tokens = 0
         self.local_tasks = []
-        self.local_status = f"❌"
+        self.local_status = "❌"
     
     def set_global_unavailable(self):
         """Mark global data as unavailable (no API key)."""

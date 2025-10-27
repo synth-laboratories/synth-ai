@@ -1,0 +1,60 @@
+# Example Vision SFT Config for Crafter
+# Train Qwen-VL on collected vision traces
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "lora"
+
+[job]
+model = "Qwen/Qwen2-VL-7B-Instruct"  # or Qwen/Qwen3-VL-8B
+# Dataset from collect_vision_traces.py → export_to_sft.py
+data = "traces/gpt5nano_vision/train.jsonl"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 2          # 2x H200 (282GB total)
+nodes = 1
+
+[training]
+mode = "lora"          # SFT with LoRA
+use_qlora = true       # Quantized LoRA for memory efficiency
+
+[hyperparameters]
+n_epochs = 2           # 2 epochs over collected samples
+per_device_batch = 1   # Batch size 1 (images are memory-intensive)
+gradient_accumulation_steps = 32
+sequence_length = 2048 # Shorter context (images dominate memory)
+learning_rate = 5e-06
+warmup_ratio = 0.03
+train_kind = "peft"
+
+# LoRA config
+lora_rank = 16
+lora_alpha = 32
+lora_dropout = 0.05
+lora_target_modules = ["all-linear"]  # Full linear layer adaptation
+
+# Training optimizations
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 2
+fsdp = false
+bf16 = true
+fp16 = false
+activation_checkpointing = true
+
+# Evaluation
+evaluation_strategy = "steps"
+eval_steps = 100
+save_best_model_at_end = true
+metric_for_best_model = "val.loss"
+greater_is_better = false
+load_best_model_at_end = true
+
+[tags]
+task = "crafter"
+modality = "vision"
+data_source = "collected_traces"
+model_family = "qwen_vl"
+

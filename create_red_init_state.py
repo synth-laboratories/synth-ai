@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Create a working init state for Pokémon Red by skipping the title screen."""
-import time
 from pathlib import Path
 
 from pyboy import PyBoy

@@ -3,6 +3,7 @@
 CLI: Interactive TUI dashboard for Synth AI.
 """
 
+import importlib
 import os
 
 import click
@@ -24,18 +25,22 @@ def register(cli):
 
         # Import here to avoid circular imports and handle optional dependencies
         try:
-            from synth_ai.tui.dashboard import main as tui_main
+            module = importlib.import_module("synth_ai.tui.dashboard")
         except (ImportError, ModuleNotFoundError) as e:
             console.print("[red]Error:[/red] TUI dashboard not available.")
             console.print(f"Missing dependencies: {e}")
             console.print("Install with: pip install textual")
             return
-        except Exception as e:
+        except Exception:
             # Handle other import errors (like missing libsql, type annotation issues, etc.)
             console.print("[red]Error:[/red] TUI dashboard not available.")
             console.print("This may be due to missing dependencies or Python version compatibility.")
             console.print("Try: pip install textual libsql")
             console.print("If using Python < 3.10, you may need to update Python or install eval_type_backport.")
+            return
+        tui_main = getattr(module, "main", None)
+        if not callable(tui_main):
+            console.print("[red]Error:[/red] TUI dashboard entrypoint not available.")
             return
 
         # Set environment variables for the TUI to use

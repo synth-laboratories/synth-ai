@@ -23,7 +23,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -31,7 +31,7 @@ THRESHOLD_SECONDS = 5.0
 DURATIONS_FILE = REPO_ROOT / "test_durations.json"
 
 
-def run_tests_and_collect_durations(extra_args: List[str] = None) -> Dict[str, float]:
+def run_tests_and_collect_durations(extra_args: Optional[List[str]] = None) -> Dict[str, float]:
     """Run pytest with duration reporting and parse the results."""
     print("🔍 Running tests to measure durations...")
     print("   This may take a while...")
@@ -220,6 +220,8 @@ def load_durations() -> Dict[str, float]:
 
 
 def main():
+    global THRESHOLD_SECONDS
+
     parser = argparse.ArgumentParser(description="Mark tests as fast or slow based on execution time")
     parser.add_argument("--measure", action="store_true", help="Run tests and measure durations")
     parser.add_argument("--analyze", action="store_true", help="Analyze existing duration data")
@@ -230,7 +232,6 @@ def main():
     
     args = parser.parse_args()
     
-    global THRESHOLD_SECONDS
     THRESHOLD_SECONDS = args.threshold
     
     durations = {}
@@ -264,4 +265,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
