@@ -8,7 +8,8 @@ from pathlib import Path
 
 import click
 from click.core import ParameterSource
-from synth_ai.utils.cli_visualizations import ensure_key, print_next_step
+from synth_ai.utils.env import resolve_env_var
+from synth_ai.utils.cli import print_next_step
 from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
 from synth_ai.utils.task_app_state import persist_env_api_key, persist_task_url
 from synth_ai.utils.user_config import load_user_env, update_user_config
@@ -53,12 +54,12 @@ def _deploy_local_task_app_choice(choice: AppChoice) -> None:
 def _deploy_with_legacy_script(script_path: Path, modal_name: str | None) -> str | None:
     env_api_key = os.environ.get("ENVIRONMENT_API_KEY", "").strip()
     if not env_api_key:
-        env_api_key = ensure_key(
-            "ENVIRONMENT_API_KEY",
-            prompt_text="Enter your Environment API key",
-            hidden=True,
-            required=True,
-        )
+        resolve_env_var("ENVIRONMENT_API_KEY")
+        env_api_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if not env_api_key:
+        raise click.ClickException("ENVIRONMENT_API_KEY is required.")
+
+    update_user_config({"ENVIRONMENT_API_KEY": env_api_key})
 
     try:
         from synth_ai.demos.math.deploy_modal import deploy as modal_deploy
@@ -117,22 +118,23 @@ def deploy_command(
 
     load_user_env()
 
-    env_key = ensure_key(
-        "ENVIRONMENT_API_KEY",
-        prompt_text="Enter your Environment API key",
-        hidden=True,
-        required=True,
-    )
-    if env_key:
-        update_user_config({"DEV_ENVIRONMENT_API_KEY": env_key})
-        persist_env_api_key(env_key)
+    resolve_env_var("ENVIRONMENT_API_KEY")
+    env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if not env_key:
+        raise click.ClickException("ENVIRONMENT_API_KEY is required.")
 
-    ensure_key(
-        "SYNTH_API_KEY",
-        prompt_text="Enter your Synth API key (optional)",
-        hidden=True,
-        required=False,
+    update_user_config(
+        {
+            "ENVIRONMENT_API_KEY": env_key,
+            "DEV_ENVIRONMENT_API_KEY": env_key,
+        }
     )
+    persist_env_api_key(env_key)
+
+    resolve_env_var("SYNTH_API_KEY")
+    synth_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if synth_key:
+        update_user_config({"SYNTH_API_KEY": synth_key})
 
     selected_choice: AppChoice | None = None
     if not app and not script:
