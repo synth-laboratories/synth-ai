@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Sequence
 from typing import Any, cast
 
@@ -131,6 +129,3 @@ def print_next_step(message: str, lines: Sequence[str]) -> None:
     for line in lines:
         print(f"   {line}")
     print("")
-
-
-__all__ = ["PromptedChoiceType", "PromptedChoiceOption", "print_next_step"]
