@@ -1,7 +1,4 @@
-from __future__ import annotations
-
-import importlib
-
+from . import task_app_state
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .cli import PromptedChoiceOption, PromptedChoiceType, print_next_step
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
@@ -17,22 +14,39 @@ from .modal import (
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
 from .task_app_discovery import AppChoice, discover_eval_config_paths, select_app_choice
-from .task_app_env import (
-    ensure_env_credentials,
-    ensure_port_free,
-    preflight_env_key,
+from .task_app_env import ensure_env_credentials, ensure_port_free, preflight_env_key
+from .task_app_state import (
+    DEFAULT_TASK_APP_SECRET_NAME,
+    current_task_app_id,
+    load_demo_dir,
+    load_template_id,
+    now_iso,
+    persist_api_key,
+    persist_demo_dir,
+    persist_env_api_key,
+    persist_task_url,
+    persist_template_id,
+    read_task_app_config,
+    record_task_app,
+    resolve_task_app_entry,
+    task_app_config_path,
+    task_app_id_from_path,
+    update_task_app_entry,
+    write_task_app_config,
 )
 from .user_config import USER_CONFIG_PATH, load_user_config, load_user_env, save_user_config, update_user_config
 
-_BASE_EXPORTS = (
+__all__ = [
     "AppChoice",
     "AsyncHttpClient",
+    "DEFAULT_TASK_APP_SECRET_NAME",
     "HTTPError",
     "PROD_BASE_URL_DEFAULT",
     "PromptedChoiceOption",
     "PromptedChoiceType",
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
+    "current_task_app_id",
     "discover_eval_config_paths",
     "ensure_env_credentials",
     "ensure_local_port_available",
@@ -47,28 +61,35 @@ _BASE_EXPORTS = (
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
+    "load_demo_dir",
+    "load_template_id",
     "load_user_config",
     "load_user_env",
     "mask_str",
     "normalize_endpoint_url",
+    "now_iso",
+    "persist_api_key",
+    "persist_demo_dir",
+    "persist_env_api_key",
+    "persist_task_url",
+    "persist_template_id",
     "popen_capture",
     "popen_stream",
     "popen_stream_capture",
     "preflight_env_key",
     "print_next_step",
+    "read_task_app_config",
+    "record_task_app",
     "resolve_env_var",
+    "resolve_task_app_entry",
     "save_user_config",
     "select_app_choice",
+    "task_app_config_path",
+    "task_app_id_from_path",
     "task_app_state",
+    "update_task_app_entry",
     "update_user_config",
     "write_env_var_to_dotenv",
     "write_env_var_to_json",
-)
-
-task_app_state = importlib.import_module("synth_ai.utils.task_app_state")
-
-_TASK_APP_STATE_EXPORTS = tuple(getattr(task_app_state, "__all__", ()))
-for _name in _TASK_APP_STATE_EXPORTS:
-    globals()[_name] = getattr(task_app_state, _name)
-
-__all__ = (*_BASE_EXPORTS, *_TASK_APP_STATE_EXPORTS)
+    "write_task_app_config",
+]
