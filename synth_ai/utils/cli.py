@@ -1,5 +1,3 @@
-"""Reusable Click helpers that provide interactive choice prompts."""
-
 from __future__ import annotations
 
 from typing import Any, cast
@@ -8,7 +6,27 @@ import click
 
 
 class PromptedChoiceType(click.Choice):
-    """`click.Choice` variant that reprompts with an interactive menu on failure."""
+    """`click.Choice` variant that reprompts with an interactive menu on failure.
+
+    Example
+    -------
+    ```python
+    import click
+
+    from synth_ai.utils.cli import PromptedChoiceType, PromptedChoiceOption
+
+
+    @click.command()
+    @click.option(
+        "--mode",
+        cls=PromptedChoiceOption,
+        type=PromptedChoiceType(["sft", "rl"]),
+        required=True,
+    )
+    def train(mode: str) -> None:
+        click.echo(f"Selected mode: {mode}")
+    ```
+    """
 
     def convert(
         self,
@@ -72,7 +90,27 @@ class PromptedChoiceType(click.Choice):
 
 
 class PromptedChoiceOption(click.Option):
-    """`click.Option` subclass that triggers the interactive picker when missing."""
+    """`click.Option` subclass that triggers the interactive picker when missing.
+
+    Example
+    -------
+    ```python
+    import click
+
+    from synth_ai.utils.cli import PromptedChoiceType, PromptedChoiceOption
+
+
+    @click.command()
+    @click.option(
+        "--mode",
+        cls=PromptedChoiceOption,
+        type=PromptedChoiceType(["sft", "rl"]),
+        required=True,
+    )
+    def train(mode: str) -> None:
+        click.echo(f"Selected mode: {mode}")
+    ```
+    """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         kwargs.setdefault("prompt", True)
