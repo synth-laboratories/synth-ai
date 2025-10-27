@@ -912,7 +912,7 @@ async def step_policy(
                 except Exception:
                     pass
                 
-                logger.error(f"🔊 [POLICY_ROUTES] is_vision_model={is_vision_model}, will_flatten={not is_vision_model}")
+                logger.debug(f"🔊 [POLICY_ROUTES] is_vision_model={is_vision_model}, will_flatten={not is_vision_model}")
                 
                 if not is_vision_model:
                     # Only flatten for non-vision models (backward compatibility)
@@ -946,24 +946,24 @@ async def step_policy(
                             if changed:
                                 req_body2["messages"] = new_msgs
                                 meta["inference_request"] = req_body2
-                                logger.error(f"🔊 [POLICY_ROUTES] Flattened messages for non-vision model")
+                                logger.debug(f"🔊 [POLICY_ROUTES] Flattened messages for non-vision model")
                 else:
-                    logger.error(f"🔊 [POLICY_ROUTES] Preserving multimodal content for vision model")
+                    logger.debug(f"🔊 [POLICY_ROUTES] Preserving multimodal content for vision model")
                 
                 # DEBUG: Log final message structure before calling inference
                 final_req = meta.get("inference_request", {})
                 if isinstance(final_req, dict):
                     final_msgs = final_req.get("messages", [])
-                    logger.error(f"🔊 [POLICY_ROUTES_FINAL] Sending {len(final_msgs)} messages to inference")
+                    logger.debug(f"🔊 [POLICY_ROUTES_FINAL] Sending {len(final_msgs)} messages to inference")
                     for idx, msg in enumerate(final_msgs):
                         if isinstance(msg, dict):
                             content = msg.get("content")
-                            logger.error(f"🔊 [POLICY_ROUTES_FINAL] Message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}")
+                            logger.debug(f"🔊 [POLICY_ROUTES_FINAL] Message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}")
                             if isinstance(content, list):
-                                logger.error(f"🔊 [POLICY_ROUTES_FINAL]   Content list has {len(content)} items")
+                                logger.debug(f"🔊 [POLICY_ROUTES_FINAL]   Content list has {len(content)} items")
                                 for part_idx, part in enumerate(content[:3]):  # Show first 3 items
                                     if isinstance(part, dict):
-                                        logger.error(f"🔊 [POLICY_ROUTES_FINAL]     Part[{part_idx}]: type={part.get('type')}")
+                                        logger.debug(f"🔊 [POLICY_ROUTES_FINAL]     Part[{part_idx}]: type={part.get('type')}")
 
             _t_start = _t.time()
             call_started_at = datetime.utcnow()

@@ -15,7 +15,8 @@ from rich.align import Align
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
-from synth_ai.cli._storage import load_storage
+
+from ._storage import load_storage
 
 
 def _open_db(db_url: str):

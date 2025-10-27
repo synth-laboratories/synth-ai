@@ -49,6 +49,11 @@ DEFAULT_OUTPUT = Path("examples/qwen_vl/temp")
 FRAME_SUBDIR = "qwen_vl_frames"
 
 
+def _default_backend_base_url() -> str:
+    raw = os.getenv("BACKEND_BASE_URL", "https://agent-learning.onrender.com/api").strip()
+    return raw if raw.endswith("/api") else f"{raw}/api"
+
+
 class EpisodeResult:
     def __init__(self, seed: int) -> None:
         self.seed = seed
@@ -79,7 +84,8 @@ def _ensure_synth_client() -> InferenceClient:
             "SYNTH_API_KEY must be set for synth-ai hosted inference. "
             "Get your key from https://synth-ai.com"
         )
-    return InferenceClient(api_key=api_key)
+    base_url = os.getenv("SYNTH_BASE_URL", _default_backend_base_url())
+    return InferenceClient(base_url=base_url, api_key=api_key)
 
 
 def _build_task_instance(seed: int) -> CrafterTaskInstance:
@@ -105,7 +111,7 @@ def _build_task_instance(seed: int) -> CrafterTaskInstance:
         is_reproducible=True,
         initial_engine_snapshot=None,
     )
-    instance.config = {"seed": seed, "length": 256, "area": [64, 64]}
+    setattr(instance, "config", {"seed": seed, "length": 256, "area": [64, 64]})
     return instance
 
 
@@ -173,9 +179,9 @@ async def _run_episode(
         inference_request = meta["inference_request"]
 
         # Call synth-ai hosted inference
-        response = await client.chat_completion(
-            messages=inference_request["messages"],
+        response = await client.create_chat_completion(
             model=model,
+            messages=inference_request["messages"],
             temperature=temperature,
             max_tokens=512,
             tools=inference_request.get("tools"),
@@ -292,4 +298,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -62,9 +62,9 @@ class CrafterPolicy(Policy):
         # DEBUG: Log the incoming config
         import logging
         _logger = logging.getLogger(__name__)
-        _logger.error(f"🔊 [POLICY_INIT] Received config keys: {list(config.keys())}")
-        _logger.error(f"🔊 [POLICY_INIT] use_vision in config: {'use_vision' in config}, value: {config.get('use_vision')}")
-        _logger.error(f"🔊 [POLICY_INIT] image_only_mode in config: {'image_only_mode' in config}, value: {config.get('image_only_mode')}")
+        _logger.debug(f"🔊 [POLICY_INIT] Received config keys: {list(config.keys())}")
+        _logger.debug(f"🔊 [POLICY_INIT] use_vision in config: {'use_vision' in config}, value: {config.get('use_vision')}")
+        _logger.debug(f"🔊 [POLICY_INIT] image_only_mode in config: {'image_only_mode' in config}, value: {config.get('image_only_mode')}")
         
         if "inference_url" in config:
             self.inference_url = config["inference_url"]
@@ -74,7 +74,7 @@ class CrafterPolicy(Policy):
             self.use_tools = bool(config["use_tools"])
         if "use_vision" in config:
             self.use_vision = bool(config["use_vision"])
-            _logger.error(f"🔊 [POLICY_INIT] Set use_vision={self.use_vision} from config")
+            _logger.debug(f"🔊 [POLICY_INIT] Set use_vision={self.use_vision} from config")
         if "image_only_mode" in config:
             self.image_only_mode = bool(config["image_only_mode"])
             # If image_only_mode is enabled, automatically enable vision
@@ -107,7 +107,7 @@ class CrafterPolicy(Policy):
         self.trajectory_history = []
         
         # DEBUG: Log final state
-        _logger.error(f"🔊 [POLICY_INIT] FINAL STATE: use_vision={self.use_vision}, image_only_mode={self.image_only_mode}, model={self.model}")
+        _logger.debug(f"🔊 [POLICY_INIT] FINAL STATE: use_vision={self.use_vision}, image_only_mode={self.image_only_mode}, model={self.model}")
 
     def _append_user_observation(self, observation_text: str) -> None:
         self.history_messages.append({"role": "user", "content": observation_text})
@@ -148,29 +148,29 @@ class CrafterPolicy(Policy):
         # DEBUG: Log message structure
         import logging
         _logger = logging.getLogger(__name__)
-        _logger.error(f"🔊 [BUILD_REQUEST] Built {len(messages)} messages")
+        _logger.debug(f"🔊 [BUILD_REQUEST] Built {len(messages)} messages")
         for idx, msg in enumerate(messages):
             role = msg.get("role")
             content = msg.get("content")
             if isinstance(content, list):
-                _logger.error(f"🔊 [BUILD_REQUEST] Message[{idx}] role={role}, content=list[{len(content)}]")
+                _logger.debug(f"🔊 [BUILD_REQUEST] Message[{idx}] role={role}, content=list[{len(content)}]")
                 for part_idx, part in enumerate(content):
                     if isinstance(part, dict):
                         part_type = part.get("type")
-                        _logger.error(f"🔊 [BUILD_REQUEST]   Part[{part_idx}]: type={part_type}")
+                        _logger.debug(f"🔊 [BUILD_REQUEST]   Part[{part_idx}]: type={part_type}")
             else:
                 content_len = len(str(content)) if content else 0
-                _logger.error(f"🔊 [BUILD_REQUEST] Message[{idx}] role={role}, content_len={content_len}")
+                _logger.debug(f"🔊 [BUILD_REQUEST] Message[{idx}] role={role}, content_len={content_len}")
         
         payload: dict[str, Any] = {
             "messages": messages,
         }
         
         # DEBUG: Verify messages are in payload correctly
-        _logger.error(f"🔊 [BUILD_REQUEST_PAYLOAD] Created payload with {len(payload['messages'])} messages")
+        _logger.debug(f"🔊 [BUILD_REQUEST_PAYLOAD] Created payload with {len(payload['messages'])} messages")
         for idx, msg in enumerate(payload["messages"]):
             content = msg.get("content")
-            _logger.error(f"🔊 [BUILD_REQUEST_PAYLOAD] Payload message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}, len={len(content) if isinstance(content, list) else len(str(content)) if content else 0}")
+            _logger.debug(f"🔊 [BUILD_REQUEST_PAYLOAD] Payload message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}, len={len(content) if isinstance(content, list) else len(str(content)) if content else 0}")
         
         if self.model is not None:
             payload["model"] = self.model
@@ -401,14 +401,14 @@ class CrafterPolicy(Policy):
         # DEBUG: Log image extraction
         import logging
         _logger = logging.getLogger(__name__)
-        _logger.error(f"🔊 [POLICY] use_vision={self.use_vision}, has_raw_obs={raw_observation is not None}")
+        _logger.debug(f"🔊 [POLICY] use_vision={self.use_vision}, has_raw_obs={raw_observation is not None}")
         if raw_observation:
             obs = raw_observation.get("observation", raw_observation)
             data_url = obs.get("observation_image_data_url") if isinstance(obs, dict) else None
-            _logger.error(f"🔊 [POLICY] has_data_url={data_url is not None}, url_preview={data_url[:50] if data_url else 'NONE'}...")
+            _logger.debug(f"🔊 [POLICY] has_data_url={data_url is not None}, url_preview={data_url[:50] if data_url else 'NONE'}...")
         
         image_parts = self._extract_image_parts(raw_observation)
-        _logger.error(f"🔊 [POLICY] Extracted {len(image_parts)} image parts")
+        _logger.debug(f"🔊 [POLICY] Extracted {len(image_parts)} image parts")
 
         payload = self.build_inference_request(
             combined_text,
@@ -418,12 +418,12 @@ class CrafterPolicy(Policy):
         )
         
         # DEBUG: Verify payload before returning
-        _logger.error(f"🔊 [POLICY_STEP_RETURN] About to return payload with {len(payload.get('messages', []))} messages")
+        _logger.debug(f"🔊 [POLICY_STEP_RETURN] About to return payload with {len(payload.get('messages', []))} messages")
         for idx, msg in enumerate(payload.get("messages", [])):
             content = msg.get("content")
-            _logger.error(f"🔊 [POLICY_STEP_RETURN] Return message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}")
+            _logger.debug(f"🔊 [POLICY_STEP_RETURN] Return message[{idx}]: type={type(content).__name__}, is_list={isinstance(content, list)}")
             if isinstance(content, list):
-                _logger.error(f"🔊 [POLICY_STEP_RETURN]   Content list has {len(content)} items")
+                _logger.debug(f"🔊 [POLICY_STEP_RETURN]   Content list has {len(content)} items")
                 # Add assertion to catch corruption early
                 assert len(content) > 0, f"Message content list is empty! This should contain images."
         

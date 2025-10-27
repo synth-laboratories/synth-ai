@@ -1,21 +1,4 @@
-[environment]
-# Limit type checking to the core package directory (replaces deprecated [src]).
-root = ["synth_ai"]
-
 [src]
-# Only check these roots by default (you can still pass PATHs to `ty check`).
 include = [
-  "synth_ai/tracing_v3",
-  "synth_ai/jobs",
-  "synth_ai/api",
-  "synth_ai/cli",
-  "synth_ai/task"
+    "synth_ai",
 ]
-exclude = [
-  "**/migrations/**",
-  "synth_ai/v0/**",
-]
-
-# Note: For ignoring false positives, use CLI flags:
-# uv run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
-

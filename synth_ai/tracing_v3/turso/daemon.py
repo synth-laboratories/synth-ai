@@ -4,7 +4,6 @@ import pathlib
 import shutil
 import subprocess
 import time
-from typing import Any
 
 import requests
 from requests import RequestException
@@ -31,7 +30,7 @@ class SqldDaemon:
         self.db_path = db_path or CONFIG.sqld_db_path
         self.http_port = http_port or CONFIG.sqld_http_port
         self.binary_path = binary_path or self._find_binary()
-        self.process: Any | None = None
+        self.process: subprocess.Popen[str] | None = None
 
     def _find_binary(self) -> str:
         """Find sqld binary in PATH."""
@@ -85,7 +84,7 @@ class SqldDaemon:
                 pass
 
             # Check if process crashed
-            if self.process.poll() is not None:
+            if self.process and self.process.poll() is not None:
                 stdout, stderr = self.process.communicate()
                 raise RuntimeError(
                     f"sqld daemon failed to start:\nstdout: {stdout}\nstderr: {stderr}"

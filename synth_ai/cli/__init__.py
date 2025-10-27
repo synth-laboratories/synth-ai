@@ -21,86 +21,65 @@ except Exception:
     # dotenv is optional at runtime; proceed if unavailable
     pass
 
-try:
-    from synth_ai.cli._typer_patch import patch_typer_make_metavar
-
-    patch_typer_make_metavar()
-except Exception:
-    pass
+def _callable_from(module: Any, attr: str) -> Callable[..., Any] | None:
+    candidate = getattr(module, attr, None)
+    return candidate if callable(candidate) else None
 
 
-from synth_ai.cli.root import cli  # new canonical CLI entrypoint
-
-# Register subcommands from this package onto the group
-# Deprecated/legacy commands intentionally not registered: watch/experiments, balance, calc,
-# man, recent, status, traces
-try:
-    from synth_ai.cli import demo as _demo
-
-    _demo.register(cli)
-except Exception:
-    pass
-try:
-    from synth_ai.cli import turso as _turso
-
-    _turso.register(cli)
-except Exception:
-    pass
-try:
-    _train_module = cast(Any, importlib.import_module("synth_ai.api.train"))
-    _train_register = cast(Callable[[Any], None], _train_module.register)
-    _train_register(cli)
-except Exception:
-    pass
-
-
-# Import task_app_group conditionally
-try:
-    from synth_ai.cli.task_apps import task_app_group
-    cli.add_command(task_app_group, name="task-app")
-except Exception:
-    # Task app functionality not available
-    pass
-
-
-try:
-    # Make task_apps import more robust to handle missing optional dependencies
-    import importlib
-    task_apps_module = importlib.import_module('synth_ai.cli.task_apps')
-    task_apps_module.register(cli)
-except (ImportError, ModuleNotFoundError, TypeError, RuntimeError):
-    # Task apps module not available (missing optional dependencies)
-    # This is expected - silently skip
-    pass
-
-# Register TUI command - make import completely isolated
-def _register_tui_command():
-    """Register TUI command only when called, not during CLI startup."""
+def _maybe_import(module_path: str) -> Any | None:
     try:
-        # Import TUI only when the command is actually used
-        from synth_ai.cli.tui import register as tui_register
-        tui_register(cli)
+        return importlib.import_module(module_path)
     except Exception:
-        # TUI not available - this is expected if dependencies are missing
-        pass
+        return None
 
-# Add TUI command as a lazy-registered command
-try:
-    # Try to import and register immediately for normal cases
-    from synth_ai.cli.tui import register as tui_register
-    tui_register(cli)
-except Exception:
-    # If that fails, add a lazy registration that will only happen when called
-    # For now, just skip - the command won't be available but CLI won't crash
-    pass
 
-# Add task app commands if available
-try:
-    if 'task_app_group' in locals() and hasattr(task_app_group, 'commands'):
-        cli.add_command(task_app_group.commands["serve"], name="serve")
-        cli.add_command(task_app_group.commands["deploy"], name="deploy")
-        cli.add_command(task_app_group.commands["modal-serve"], name="modal-serve")
-except Exception:
-    # Task app commands not available
-    pass
+def _maybe_call(module_path: str, attr: str, *args: Any, **kwargs: Any) -> None:
+    module = _maybe_import(module_path)
+    if not module:
+        return
+    fn = _callable_from(module, attr)
+    if fn:
+        fn(*args, **kwargs)
+
+
+# Apply Typer patch if available
+_maybe_call("synth_ai.cli._typer_patch", "patch_typer_make_metavar")
+
+
+_cli_module = _maybe_import("synth_ai.cli.root")
+if not _cli_module:
+    raise ImportError("synth_ai.cli.root is required for CLI entrypoint")
+cli = cast(Any, _cli_module.cli)
+
+
+# Register optional subcommands packaged under synth_ai.cli.*
+for _module_path in (
+    "synth_ai.cli.demo",
+    "synth_ai.cli.turso",
+):
+    _maybe_call(_module_path, "register", cli)
+
+# Train CLI lives under synth_ai.api.train
+_maybe_call("synth_ai.api.train", "register", cli)
+
+# Task app group/commands are optional and have richer API surface
+_task_apps_module = _maybe_import("synth_ai.cli.task_apps")
+if _task_apps_module:
+    task_app_group = getattr(_task_apps_module, "task_app_group", None)
+    if task_app_group is not None:
+        cli.add_command(task_app_group, name="task-app")
+        # Expose common aliases when present
+        commands = getattr(task_app_group, "commands", None)
+        if isinstance(commands, dict):
+            for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
+                command = commands.get(name)
+                if command is not None:
+                    cli.add_command(command, name=alias)
+    register_task_apps = _callable_from(_task_apps_module, "register")
+    if register_task_apps:
+        register_task_apps(cli)
+
+# Register TUI command if dependencies allow
+_maybe_call("synth_ai.cli.tui", "register", cli)
+
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead

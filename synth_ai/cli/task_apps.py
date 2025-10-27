@@ -2271,7 +2271,7 @@ def validate_task_app_cmd(
     import time
     
     # Import the validate_task_app function defined in this module
-    from synth_ai.cli._validate_task_app import validate_task_app  # type: ignore[attr-defined]
+    from ._validate_task_app import validate_task_app  # type: ignore[attr-defined]
     
     proc = None
     task_app_url = url

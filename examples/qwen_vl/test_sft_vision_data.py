@@ -1,7 +1,7 @@
 """Generate test vision SFT dataset for Qwen3-VL-2B."""
 
-import json
 import base64
+import json
 from pathlib import Path
 from io import BytesIO
 
@@ -11,6 +11,7 @@ except ImportError:
     print("❌ PIL not available")
     exit(1)
 
+BASE_DIR = Path(__file__).resolve().parent
 
 def create_test_image(color: str) -> str:
     """Create a 64x64 colored square and return base64 data URL."""
@@ -30,7 +31,7 @@ def create_test_image(color: str) -> str:
 
 
 def main():
-    output_dir = Path("/Users/joshpurtell/Documents/GitHub/synth-ai/examples/qwen_vl/test_data")
+    output_dir = BASE_DIR / "test_data"
     output_dir.mkdir(parents=True, exist_ok=True)
     
     output_file = output_dir / "vision_sft_test.jsonl"
@@ -107,4 +108,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

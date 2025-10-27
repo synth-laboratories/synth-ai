@@ -8,7 +8,7 @@ variety = "lora"
 
 [job]
 model = "Qwen/Qwen3-VL-2B-Instruct"
-data = "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/qwen_vl/test_data/vision_sft_test.jsonl"
+data = "examples/qwen_vl/test_data/vision_sft_test.jsonl"
 
 [compute]
 gpu_type = "H100"
@@ -52,4 +52,3 @@ experiment = "test_vision_sft"
 purpose = "integration_test"
 model_size = "2B"
 data_type = "synthetic_vision"
-

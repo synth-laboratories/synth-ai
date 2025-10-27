@@ -11,12 +11,14 @@ import click
 from rich import box
 from rich.console import Console
 from rich.table import Table
-from synth_ai.cli._storage import load_storage
+
+from ._storage import load_storage
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import pandas as pd
 else:
     pd = Any  # type: ignore[assignment]
+
 def _fmt_int(v: Any) -> str:
     try:
         return f"{int(v):,}"

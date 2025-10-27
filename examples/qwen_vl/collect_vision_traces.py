@@ -36,9 +36,10 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from examples.task_apps.crafter.task_app.synth_envs_hosted.envs.crafter.environment import (
@@ -54,7 +55,8 @@ from synth_ai.environments.tasks.core import Impetus, Intent
 
 # Try importing trace storage
 try:
-    from synth_ai.tracing_v3.storage import create_storage, StorageConfig
+    from synth_ai.tracing_v3.storage import create_storage
+    from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
     TRACING_AVAILABLE = True
 except ImportError:
     print("Warning: Tracing storage not available. Traces will not be persisted.")
@@ -71,6 +73,11 @@ def _get_openai_client():
     return OpenAI(api_key=api_key)
 
 
+def _default_backend_base_url() -> str:
+    raw = os.getenv("BACKEND_BASE_URL", "https://agent-learning.onrender.com/api").strip()
+    return raw if raw.endswith("/api") else f"{raw}/api"
+
+
 def _get_synth_client():
     """Get synth-ai inference client."""
     from synth_ai.inference.client import InferenceClient
@@ -78,7 +85,8 @@ def _get_synth_client():
     api_key = os.getenv("SYNTH_API_KEY")
     if not api_key:
         raise RuntimeError("SYNTH_API_KEY not set")
-    return InferenceClient(api_key=api_key)
+    base_url = os.getenv("SYNTH_BASE_URL", _default_backend_base_url())
+    return InferenceClient(base_url=base_url, api_key=api_key)
 
 
 def _build_task_instance(seed: int) -> CrafterTaskInstance:
@@ -104,7 +112,7 @@ def _build_task_instance(seed: int) -> CrafterTaskInstance:
         is_reproducible=True,
         initial_engine_snapshot=None,
     )
-    instance.config = {"seed": seed, "length": 256, "area": [64, 64]}
+    setattr(instance, "config", {"seed": seed, "length": 256, "area": [64, 64]})
     return instance
 
 
@@ -147,12 +155,16 @@ async def collect_traces(
 ):
     """Collect vision traces for SFT."""
     # Setup tracing store
-    if TracingStore is None:
-        raise RuntimeError("TracingStore not available. Cannot persist traces.")
+    if not TRACING_AVAILABLE:
+        raise RuntimeError("Tracing storage not available. Cannot persist traces.")
     
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = output_dir / "rollouts.db"
-    tracing_store = TracingStore(str(db_path))
+    storage_config = StorageConfig(
+        backend=StorageBackend.SQLITE,
+        connection_string=f"sqlite+aiosqlite:///{db_path}",
+    )
+    tracing_store = create_storage(storage_config)
     await tracing_store.initialize()
     
     # Setup inference client
@@ -226,9 +238,9 @@ async def collect_traces(
                 response = client.chat.completions.create(**normalized_request)
                 response_dict = response.model_dump()
             else:  # synth
-                response_dict = await client.chat_completion(
-                    messages=inference_request["messages"],
+                response_dict = await client.create_chat_completion(
                     model=model,
+                    messages=inference_request["messages"],
                     temperature=temperature,
                     max_tokens=512,
                     tools=inference_request.get("tools"),
@@ -246,17 +258,24 @@ async def collect_traces(
             assistant_message = response_dict["choices"][0].get("message", {})
             trace_messages = inference_request["messages"] + [assistant_message]
             
-            await tracing_store.store_trace(
-                session_id=f"ep{episode_id:04d}",
-                step=step_idx,
-                messages=trace_messages,
-                model=model,
-                metadata={
-                    "seed": seed,
-                    "has_image": policy.use_vision,
-                    "provider": provider,
-                }
-            )
+            tracing_store_any = cast(Any, tracing_store)
+            if hasattr(tracing_store_any, "store_trace"):
+                await tracing_store_any.store_trace(
+                    session_id=f"ep{episode_id:04d}",
+                    step=step_idx,
+                    messages=trace_messages,
+                    model=model,
+                    metadata={
+                        "seed": seed,
+                        "has_image": policy.use_vision,
+                        "provider": provider,
+                    },
+                )
+            else:
+                logging.warning(
+                    "Tracing backend does not expose store_trace(); skipping persistence for episode %s",
+                    episode_id,
+                )
             
             # Execute action
             assistant_text = assistant_message.get("content")
@@ -347,4 +366,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

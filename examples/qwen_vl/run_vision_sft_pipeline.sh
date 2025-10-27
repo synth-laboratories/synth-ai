@@ -4,8 +4,21 @@
 
 set -e
 
-SYNTH_DIR="/Users/joshpurtell/Documents/GitHub/synth-ai"
-MONOREPO_DIR="/Users/joshpurtell/Documents/GitHub/monorepo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Allow callers to override root paths, otherwise derive them relative to this script.
+SYNTH_DIR="${SYNTH_DIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+DEFAULT_MONOREPO_DIR="$(cd "$SYNTH_DIR/.." && pwd)/monorepo"
+MONOREPO_DIR="${MONOREPO_DIR:-$DEFAULT_MONOREPO_DIR}"
+
+if [ ! -d "$SYNTH_DIR" ]; then
+    echo "Error: synth-ai repository not found at: $SYNTH_DIR"
+    exit 1
+fi
+
+if [ ! -d "$MONOREPO_DIR" ]; then
+    echo "Warning: MONOREPO_DIR not found at: $MONOREPO_DIR"
+    echo "         Set MONOREPO_DIR to a valid path if you plan to run the optional training step."
+fi
 
 # Configuration
 MODEL="gpt-5-nano"
@@ -123,6 +136,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Starting SFT training..."
     echo ""
     
+    if [ ! -d "$MONOREPO_DIR" ]; then
+        echo "Error: MONOREPO_DIR not found. Set MONOREPO_DIR to your monorepo path before running training."
+        exit 1
+    fi
+    
     cd "$MONOREPO_DIR"
     
     uvx synth-ai train \
@@ -155,4 +173,3 @@ echo "  1. Train SFT model (see command above)"
 echo "  2. Evaluate trained model"
 echo "  3. Fine-tune with RL"
 echo ""
-
