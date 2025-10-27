@@ -152,5 +152,3 @@ swe_mini_task_app.log.bak
 # Large vendor/test data accidentally committed
 astropy/
 _math_cache/
-
-z.sh
