@@ -53,6 +53,22 @@ def _parse_env_assignment(line: str) -> tuple[str, str] | None:
     return key, value
 
 
+def _prompt_manual_env_value(key: str) -> str:
+    while True:
+        value = click.prompt(
+            f"Enter value for {key}",
+            hide_input=False,
+            default="",
+            show_default=False,
+            type=str,
+        ).strip()
+        if value:
+            return value
+        if click.confirm("Save empty value?", default=False):
+            return ""
+        click.echo("Empty value discarded; enter a value or confirm empty to continue.")
+
+
 def mask_str(input: str, position: int = 3) -> str:
     return input[:position] + "..." + input[-position:] if len(input) > position * 2 else "***"
 
@@ -110,16 +126,13 @@ def convert_abspath_to_relpath(path: Path, base_dir: Path | str = '.') -> str:
 def resolve_env_var(key: str) -> None:
     env_value = os.getenv(key)
     if env_value is not None:
-        click.echo(f"Using ${key}={mask_str(env_value)} from process environment")
+        click.echo(f"Using {key}={mask_str(env_value)} from process environment")
         return
 
     value: str = ""
 
     env_file_paths = filter_env_files_by_key(key, get_env_file_paths())
     synth_file_paths = filter_json_files_by_key(key, get_synth_config_file_paths())
-    if len(env_file_paths) == 0 and len(synth_file_paths) == 0:
-        click.echo(f"Failed to find {key}")
-        return
 
     options: list[tuple[str, str]] = []
     for path, value in env_file_paths:
@@ -128,28 +141,44 @@ def resolve_env_var(key: str) -> None:
     for path, value in synth_file_paths:
         label = f"({path})  {mask_str(value)}"
         options.append((label, value))
-    
-    click.echo(f"\nFound the following options for {key}")
-    for i, (label, _) in enumerate(options, start=1):
-        click.echo(f" [{i}] {label}")
-    click.echo()
 
-    while True:
-        try:
-            index = click.prompt(
-                "Which do you want to load into process environment?",
-                default=1,
-                type=int,
-                show_choices=False
-            )
+    if options:
+        click.echo(f"\nFound the following options for {key}")
+        for i, (label, _) in enumerate(options, start=1):
+            click.echo(f" [{i}] {label}")
+        click.echo(" [m] Enter value manually")
+        click.echo()
+
+        while True:
+            try:
+                choice = click.prompt(
+                    "Select option",
+                    default=1,
+                    type=str,
+                    show_choices=False,
+                ).strip()
+            except click.Abort:
+                return
+
+            if choice.lower() == 'm':
+                value = _prompt_manual_env_value(key)
+                break
+
+            try:
+                index = int(choice)
+            except ValueError:
+                click.echo('Invalid selection. Enter a number or "m".')
+                continue
+
             if 1 <= index <= len(options):
                 _, value = options[index - 1]
                 break
-            click.echo(f"Invalid selection. Enter a number between 1 and {len(options)}.")
-        except click.Abort:
-            return
-        except Exception:
-            click.echo("Invalid input. Please enter a valid number.")
+
+            click.echo(f"Invalid selection. Enter a number between 1 and {len(options)} or 'm'.")
+
+    else:
+        click.echo(f"No value found for {key}")
+        value = _prompt_manual_env_value(key)
     
     os.environ[key] = value
     click.echo(f"Loaded {key}={mask_str(value)} into process environment")
