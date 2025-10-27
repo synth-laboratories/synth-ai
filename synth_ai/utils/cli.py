@@ -1,5 +1,3 @@
-"""Reusable Click helpers that provide interactive choice prompts."""
-
 from __future__ import annotations
 
 from typing import Any, cast
