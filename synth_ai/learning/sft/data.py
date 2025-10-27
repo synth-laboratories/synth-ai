@@ -581,7 +581,7 @@ def validate_vision_example(
     # Validate image URLs in each message
     for i, msg in enumerate(example.messages):
         # Check if this message has image_url type entries
-        if not isinstance(msg.content, (list, dict)):
+        if not isinstance(msg.content, list | dict):
             continue
         
         # Count image_url type entries vs valid URLs

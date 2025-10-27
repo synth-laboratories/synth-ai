@@ -939,43 +939,43 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
         for kw in modal_call.keywords:
             if kw.arg and isinstance(kw.value, ast.Constant):
                 kwargs[kw.arg] = kw.value.value
-            elif kw.arg == "pip_packages" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "pip_packages" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle pip_packages list/tuple
                 packages: list[str] = []
                 value_node = kw.value
-                if isinstance(value_node, (ast.List, ast.Tuple)):
+                if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
                         if isinstance(elt, ast.Constant):
                             packages.append(elt.value)
                 kwargs[kw.arg] = tuple(packages)
-            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "extra_local_dirs" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle extra_local_dirs list/tuple of tuples
                 dirs = []
                 value_node = kw.value
-                if isinstance(value_node, (ast.List, ast.Tuple)):
+                if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
-                        if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                        if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
                             src = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                             dst = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                             if src and dst:
                                 dirs.append((src, dst))
                 kwargs[kw.arg] = tuple(dirs)
-            elif kw.arg == "secret_names" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "secret_names" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle secret_names list/tuple
                 secrets = []
                 value_node = kw.value
-                if isinstance(value_node, (ast.List, ast.Tuple)):
+                if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
                         if isinstance(elt, ast.Constant):
                             secrets.append(elt.value)
                 kwargs[kw.arg] = tuple(secrets)
-            elif kw.arg == "volume_mounts" and isinstance(kw.value, (ast.List, ast.Tuple)):
+            elif kw.arg == "volume_mounts" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle volume_mounts list/tuple of tuples
                 mounts = []
                 value_node = kw.value
-                if isinstance(value_node, (ast.List, ast.Tuple)):
+                if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
-                        if isinstance(elt, (ast.List, ast.Tuple)) and len(elt.elts) == 2:
+                        if isinstance(elt, ast.List | ast.Tuple) and len(elt.elts) == 2:
                             name = elt.elts[0].value if isinstance(elt.elts[0], ast.Constant) else None
                             mount = elt.elts[1].value if isinstance(elt.elts[1], ast.Constant) else None
                             if name and mount:

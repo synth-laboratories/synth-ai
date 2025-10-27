@@ -7,9 +7,16 @@ from pathlib import Path
 from typing import Any, cast
 
 import synth_ai.environments as environments  # expose module name for __all__
-
-# Environment exports - moved from synth-env
 from synth_ai.environments import *  # noqa
+from synth_ai.judge_schemas import (
+    CriterionScorePayload,
+    JudgeOptions,
+    JudgeScoreRequest,
+    JudgeScoreResponse,
+    JudgeTaskApp,
+    JudgeTracePayload,
+    ReviewPayload,
+)
 
 try:  # Prefer the installed package metadata when available
     __version__ = _metadata.version("synth-ai")
@@ -60,17 +67,6 @@ OpenAI = (
     if _openai_module and hasattr(_openai_module, "OpenAI")
     else None
 )  # type: ignore[attr-defined]
-
-# Judge API contract schemas
-from synth_ai.judge_schemas import (
-    CriterionScorePayload,
-    JudgeOptions,
-    JudgeScoreRequest,
-    JudgeScoreResponse,
-    JudgeTaskApp,
-    JudgeTracePayload,
-    ReviewPayload,
-)
 
 # Legacy tracing v1 is not required for v3 usage and can be unavailable in minimal envs.
 tracing = None  # type: ignore
