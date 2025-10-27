@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
-
 import click
 
 from .base_url import PROD_BASE_URL_DEFAULT
-from .cli_visualizations import ensure_key, key_preview
+from .env import mask_str, resolve_env_var
 from .process import ensure_local_port_available
 from .task_app_state import persist_env_api_key
 from .user_config import load_user_env, update_user_config
@@ -14,42 +12,40 @@ from .user_config import load_user_env, update_user_config
 __all__ = [
     "ensure_env_credentials",
     "ensure_port_free",
-    "hydrate_user_environment",
     "preflight_env_key",
 ]
-
-
-def hydrate_user_environment(*, override: bool = False) -> Mapping[str, str]:
-    """Load persisted user configuration into ``os.environ``."""
-
-    return load_user_env(override=override)
 
 
 def ensure_env_credentials(*, require_synth: bool = False, prompt: bool = True) -> None:
     """Ensure required API keys are present in the process environment."""
 
-    hydrate_user_environment(override=False)
+    load_user_env(override=False)
 
-    env_key = ensure_key(
-        "ENVIRONMENT_API_KEY",
-        prompt_text="Enter your Environment API key",
-        hidden=True,
-        required=True,
-        prompt=prompt,
-    )
+    env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if prompt and not env_key:
+        resolve_env_var("ENVIRONMENT_API_KEY")
+        env_key = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+
     if env_key:
-        update_user_config({"DEV_ENVIRONMENT_API_KEY": env_key})
+        update_user_config(
+            {
+                "ENVIRONMENT_API_KEY": env_key,
+                "DEV_ENVIRONMENT_API_KEY": env_key,
+            }
+        )
         persist_env_api_key(env_key)
+    elif prompt:
+        raise click.ClickException("ENVIRONMENT_API_KEY is required.")
 
-    synth_key = ensure_key(
-        "SYNTH_API_KEY",
-        prompt_text="Enter your Synth API key" + ("" if require_synth else " (optional)"),
-        hidden=True,
-        required=require_synth,
-        prompt=prompt,
-    )
+    synth_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if prompt and (require_synth or not synth_key):
+        resolve_env_var("SYNTH_API_KEY")
+        synth_key = (os.environ.get("SYNTH_API_KEY") or "").strip()
+
     if synth_key:
         update_user_config({"SYNTH_API_KEY": synth_key})
+    elif require_synth and prompt:
+        raise click.ClickException("SYNTH_API_KEY is required.")
 
 
 def ensure_port_free(port: int, host: str, *, force: bool) -> None:
@@ -68,7 +64,7 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
     """Ensure ENVIRONMENT_API_KEY exists and attempt a backend registration."""
 
     ensure_env_credentials(require_synth=False, prompt=not crash_on_failure)
-    hydrate_user_environment(override=False)
+    load_user_env(override=False)
 
     raw_backend = (
         os.environ.get("BACKEND_BASE_URL")
@@ -96,7 +92,7 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
                 }
             )
             persist_env_api_key(key)
-            click.echo(f"[preflight] minted ENVIRONMENT_API_KEY ({_preview_secret(key)})")
+            click.echo(f"[preflight] minted ENVIRONMENT_API_KEY ({mask_str(key)})")
             return key
         except Exception as exc:  # pragma: no cover - defensive fallback
             if crash_on_failure:
@@ -160,7 +156,7 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
             response = client.post(f"{backend_base.rstrip('/')}/v1/env-keys", json=payload)
             if 200 <= response.status_code < 300:
                 click.echo(
-                    f"✅ ENVIRONMENT_API_KEY uploaded successfully ({_preview_secret(env_api_key)})"
+                    f"✅ ENVIRONMENT_API_KEY uploaded successfully ({mask_str(env_api_key)})"
                 )
                 try:
                     ver = client.get(f"{backend_base.rstrip('/')}/v1/env-keys/verify")
@@ -189,7 +185,3 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
         if crash_on_failure:
             raise click.ClickException(f"[CRITICAL] {message}") from exc
         click.echo(f"[WARN] {message}; proceeding anyway")
-
-
-def _preview_secret(value: str) -> str:
-    return key_preview(value, "secret")

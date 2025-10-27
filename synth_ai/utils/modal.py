@@ -12,7 +12,7 @@ from urllib.parse import urlparse, urlunparse
 from synth_ai.demos import core as demo_core
 from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 
-from .cli_visualizations import key_preview
+from .env import mask_str
 from .http import http_request
 from .process import popen_capture
 from .user_config import load_user_config
@@ -220,7 +220,7 @@ def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEn
 
     print(f"[{label}] Verifying rollout health:")
     try:
-        preview = key_preview(env_key, "ENVIRONMENT_API_KEY")
+        preview = mask_str(env_key)
         print(f"[{label}] {preview}")
     except Exception:
         pass
@@ -242,7 +242,7 @@ def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEn
     if rc != 200:
         print(f"[{label}] Warning: rollout health check failed ({rc}). Response: {body}")
         with contextlib.suppress(Exception):
-            print(f"[{label}] Sent header X-API-Key → {key_preview(env_key, 'X-API-Key')}")
+            print(f"[{label}] Sent header X-API-Key → {mask_str(env_key)}")
     else:
         print(f"[{label}] Task app rollout health check OK.")
 

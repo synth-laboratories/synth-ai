@@ -58,7 +58,7 @@ def test_preflight_mints_and_uploads_env_key(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr("synth_ai._utils.task_app_env.update_user_config", fake_update_user_config)
     monkeypatch.setattr("synth_ai._utils.task_app_state.update_user_config", fake_update_user_config)
     monkeypatch.setattr("synth_ai._utils.task_app_state.update_task_app_entry", lambda *args, **kwargs: {})
-    monkeypatch.setattr("synth_ai._utils.task_app_env.hydrate_user_environment", lambda override=False: {})
+    monkeypatch.setattr("synth_ai._utils.task_app_env.load_user_env", lambda override=False: {})
 
     public_key_bytes = b"\x01" * 32
     public_key_b64 = base64.b64encode(public_key_bytes).decode("ascii")

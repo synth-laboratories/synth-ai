@@ -1,0 +1,289 @@
+import json
+import os
+import string
+from pathlib import Path
+
+import click
+
+_ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
+
+
+def _format_env_value(value: str) -> str:
+    if value == "":
+        return '""'
+    if all(char in _ENV_SAFE_CHARS for char in value):
+        return value
+    return json.dumps(value)
+
+
+def _strip_inline_comment(value: str) -> str:
+    in_single = False
+    in_double = False
+    escaped = False
+    for idx, char in enumerate(value):
+        if escaped:
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == "'" and not in_double:
+            in_single = not in_single
+            continue
+        if char == '"' and not in_single:
+            in_double = not in_double
+            continue
+        if char == '#' and not in_single and not in_double:
+            return value[:idx].rstrip()
+    return value.rstrip()
+
+
+def _parse_env_assignment(line: str) -> tuple[str, str] | None:
+    stripped = line.strip()
+    if not stripped or stripped.startswith('#'):
+        return None
+    if stripped.lower().startswith("export "):
+        stripped = stripped[7:].lstrip()
+    if '=' not in stripped:
+        return None
+    key_part, value_part = stripped.split('=', 1)
+    key = key_part.strip()
+    if not key:
+        return None
+    value_candidate = _strip_inline_comment(value_part.strip())
+    if not value_candidate:
+        return key, ""
+    if (
+        len(value_candidate) >= 2
+        and value_candidate[0] in {'"', "'"}
+        and value_candidate[-1] == value_candidate[0]
+    ):
+        value = value_candidate[1:-1]
+    else:
+        value = value_candidate
+    return key, value
+
+
+def _prompt_manual_env_value(key: str) -> str:
+    while True:
+        value = click.prompt(
+            f"Enter value for {key}",
+            hide_input=False,
+            default="",
+            show_default=False,
+            type=str,
+        ).strip()
+        if value:
+            return value
+        if click.confirm("Save empty value?", default=False):
+            return ""
+        click.echo("Empty value discarded; enter a value or confirm empty to continue")
+
+
+def mask_str(input: str, position: int = 3) -> str:
+    return input[:position] + "..." + input[-position:] if len(input) > position * 2 else "***"
+
+
+def get_env_file_paths(base_dir: str | Path = '.') -> list[Path]:
+    base = Path(base_dir).resolve()
+    return [path for path in base.rglob(".env*") if path.is_file()]
+
+
+def get_synth_config_file_paths() -> list[Path]:
+    dir = Path.home() / ".synth-ai"
+    if not dir.exists():
+        return []
+    return [path for path in dir.glob("*.json") if path.is_file()]
+
+
+def filter_env_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str]]:
+    matches: list[tuple[Path, str]] = []
+    for path in paths:
+        try:
+            with path.open('r', encoding="utf-8") as file:
+                for line in file:
+                    parsed = _parse_env_assignment(line)
+                    if parsed is None:
+                        continue
+                    parsed_key, value = parsed
+                    if parsed_key == key:
+                        matches.append((path, value))
+                        break
+        except (OSError, UnicodeDecodeError):
+            continue
+    return matches
+
+
+def filter_json_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str]]:
+    matches: list[tuple[Path, str]] = []
+    for path in paths:
+        try:
+            with path.open('r', encoding="utf-8") as file:
+                data = json.load(file)
+                if key in data and isinstance(data[key], str):
+                    matches.append((path, data[key]))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+    return matches
+
+
+def convert_abspath_to_relpath(path: Path, base_dir: Path | str = '.') -> str:
+    try:
+        return str(path.resolve().relative_to(Path(base_dir).resolve()))
+    except ValueError:
+        return path.name
+
+
+def resolve_env_var(key: str) -> None:
+    env_value = os.getenv(key)
+    if env_value is not None:
+        click.echo(f"Using {key}={mask_str(env_value)} from process environment")
+        return
+
+    value: str = ""
+
+    env_file_paths = filter_env_files_by_key(key, get_env_file_paths())
+    synth_file_paths = filter_json_files_by_key(key, get_synth_config_file_paths())
+
+    options: list[tuple[str, str]] = []
+    for path, value in env_file_paths:
+        label = f"({convert_abspath_to_relpath(path)})  {mask_str(value)}"
+        options.append((label, value))
+    for path, value in synth_file_paths:
+        label = f"({path})  {mask_str(value)}"
+        options.append((label, value))
+
+    if options:
+        click.echo(f"\nFound the following options for {key}")
+        for i, (label, _) in enumerate(options, start=1):
+            click.echo(f" [{i}] {label}")
+        click.echo(" [m] Enter value manually")
+        click.echo()
+
+        while True:
+            try:
+                choice = click.prompt(
+                    "Select option",
+                    default=1,
+                    type=str,
+                    show_choices=False,
+                ).strip()
+            except click.Abort:
+                return
+
+            if choice.lower() == 'm':
+                value = _prompt_manual_env_value(key)
+                break
+
+            try:
+                index = int(choice)
+            except ValueError:
+                click.echo('Invalid selection. Enter a number or "m".')
+                continue
+
+            if 1 <= index <= len(options):
+                _, value = options[index - 1]
+                break
+
+            click.echo(f"Invalid selection. Enter a number between 1 and {len(options)} or 'm'.")
+
+    else:
+        click.echo(f"No value found for {key}")
+        value = _prompt_manual_env_value(key)
+    
+    os.environ[key] = value
+    click.echo(f"Loaded {key}={mask_str(value)} into process environment")
+    return
+
+
+def write_env_var_to_dotenv(
+    key: str,
+    value: str,
+    output_file_path: str | Path,
+) -> None:
+    path = Path(output_file_path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    encoded_value = _format_env_value(value)
+
+    lines: list[str] = []
+    key_written = False
+
+    if path.is_file():
+        try:
+            with path.open('r', encoding="utf-8") as handle:
+                lines = handle.readlines()
+        except OSError as exc:
+            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+
+        for index, line in enumerate(lines):
+            parsed = _parse_env_assignment(line)
+            if parsed is None or parsed[0] != key:
+                continue
+
+            leading_len = len(line) - len(line.lstrip(' \t'))
+            leading = line[:leading_len]
+            stripped = line.lstrip()
+            has_export = stripped.lower().startswith('export ')
+            newline = '\n' if line.endswith('\n') else ''
+            prefix = 'export ' if has_export else ''
+            lines[index] = f"{leading}{prefix}{key}={encoded_value}{newline}"
+            key_written = True
+            break
+
+    if not key_written:
+        if lines and not lines[-1].endswith('\n'):
+            lines[-1] = f"{lines[-1]}\n"
+        lines.append(f"{key}={encoded_value}\n")
+
+    try:
+        with path.open('w', encoding="utf-8") as handle:
+            handle.writelines(lines)
+    except OSError as exc:
+        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+
+    click.echo(f"Wrote {key}={mask_str(value)} to {path}")
+
+
+def write_env_var_to_json(
+    key: str,
+    value: str,
+    output_file_path: str | Path,
+) -> None:
+    path = Path(output_file_path).expanduser()
+    if path.exists() and not path.is_file():
+        raise click.ClickException(f"{path} exists and is not a file")
+
+    data: dict[str, str] = {}
+
+    if path.is_file():
+        try:
+            with path.open('r', encoding="utf-8") as handle:
+                existing = json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(f"Invalid JSON in {path}: {exc}") from exc
+        except OSError as exc:
+            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+
+        if not isinstance(existing, dict):
+            raise click.ClickException(f"Expected JSON object in {path}")
+
+        for existing_key, existing_value in existing.items():
+            if existing_key == key:
+                continue
+            data[str(existing_key)] = (
+                existing_value if isinstance(existing_value, str) else str(existing_value)
+            )
+
+    data[key] = value
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        with path.open('w', encoding="utf-8") as handle:
+            json.dump(data, handle, indent=2, sort_keys=True)
+            handle.write('\n')
+    except OSError as exc:
+        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+
+    click.echo(f"Wrote {key}={mask_str(value)} to {path}")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, cast
 
 import click
@@ -123,6 +124,13 @@ class PromptedChoiceOption(click.Option):
         if isinstance(option_type, PromptedChoiceType):
             return option_type._prompt_user(self, ctx)
         return super().prompt_for_value(ctx)
+    
+
+def print_next_step(message: str, lines: Sequence[str]) -> None:
+    print(f"\n➡️  Next, {message}:")
+    for line in lines:
+        print(f"   {line}")
+    print("")
 
 
-__all__ = ["PromptedChoiceType", "PromptedChoiceOption"]
+__all__ = ["PromptedChoiceType", "PromptedChoiceOption", "print_next_step"]

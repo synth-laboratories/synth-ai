@@ -20,9 +20,9 @@ from synth_ai.utils.task_app_discovery import AppChoice, select_app_choice
 from synth_ai.utils.task_app_env import (
     ensure_env_credentials,
     ensure_port_free,
-    hydrate_user_environment,
     preflight_env_key,
 )
+from synth_ai.utils.user_config import load_user_env
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry
 from synth_ai.task.server import run_task_app
 
@@ -505,7 +505,7 @@ def fastapi_app():
 def _prepare_runtime_env(*, require_synth: bool, perform_preflight: bool) -> None:
     """Load persisted credentials into the process and ensure required keys exist."""
 
-    hydrate_user_environment(override=False)
+    load_user_env(override=False)
     ensure_env_credentials(require_synth=require_synth)
     if perform_preflight:
         preflight_env_key(crash_on_failure=True)
