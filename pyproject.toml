@@ -193,7 +193,11 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "YTT", "B", "C4", "T10", "SIM"]
-ignore = ["E501", "B008"]
+ignore = [
+    "E501",  # Line too long
+    "B008",  # Do not perform function call in argument defaults
+    "UP035", # Don't require `from __future__ import annotations` (not needed in 3.11+)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "synth_ai/http.py" = ["F403"]

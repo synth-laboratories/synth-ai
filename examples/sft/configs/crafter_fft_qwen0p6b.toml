@@ -1,4 +1,7 @@
-type = "sft"
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
 
 [job]
 model = "Qwen/Qwen3-0.6B"

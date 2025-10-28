@@ -1,7 +1,10 @@
 # Crafter Full Finetune (FFT) example on H100
 # Adjust paths and hyperparameters to your environment before running.
 
-type = "sft"
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
 
 [job]
 model = "Qwen/Qwen3-4B"               # base model to finetune

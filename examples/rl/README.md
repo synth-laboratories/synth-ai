@@ -5,8 +5,8 @@ This example trains a reinforcement learning policy on single-step math problems
 ## Quick Commands
 
 ```bash
-# Serve locally with tracing
-uvx synth-ai serve math-single-step --port 8101 --env-file examples/rl/.env --trace traces/math
+# Serve locally with tracing (uvicorn runtime)
+uvx synth-ai deploy --runtime uvicorn math-single-step --port 8101 --env-file examples/rl/.env --trace traces/math
 
 # Modal deployment
 uvx synth-ai deploy --name synth-math-single-step --env-file examples/rl/.env
@@ -45,10 +45,10 @@ The task app is defined in `synth_ai/task/apps/math_single_step.py` and register
   - `-0.5` if the tool call omits an answer or uses the wrong tool
   - `-1.0` when no tool call is provided
 
-Serve locally with tracing to capture trajectories:
+Run locally (uvicorn runtime) with tracing to capture trajectories:
 
 ```bash
-uvx synth-ai serve math-single-step \
+uvx synth-ai deploy --runtime uvicorn math-single-step \
   --port 8101 \
   --env-file examples/rl/.env \
   --trace traces/math \
@@ -162,7 +162,7 @@ For broader background on Synth task apps, CLI commands, and tracing, see the ne
 
 
 uv run python examples/rl/run_eval.py --toml examples/rl/configs/eval_base_qwen.toml
-uvx synth-ai serve math-single-step \
+uvx synth-ai deploy --runtime uvicorn math-single-step \
     --port 8101 \
     --env-file examples/rl/.env \
     --trace traces/math \

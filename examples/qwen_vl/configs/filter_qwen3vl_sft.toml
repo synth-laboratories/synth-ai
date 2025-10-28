@@ -1,0 +1,49 @@
+# Filter Qwen3-VL vision traces for SFT training
+# Mirrors the GPT-4o mini filter configuration for vision data
+
+[filter]
+input_db = "traces/qwen3vl_vision/rollouts.db"
+output_dir = "traces/qwen3vl_vision/sft"
+
+# Quality filters
+min_steps_per_episode = 5
+min_achievements_per_episode = 0
+max_steps_per_episode = 50
+
+# Behavioral filters
+detect_loops = true
+max_repeated_actions = 5
+min_unique_states = 3
+
+# Remove episodes with errors
+filter_errors = true
+filter_timeouts = true
+
+# Export format
+export_format = "sft_jsonl"
+include_images = true
+include_metadata = true
+
+# SFT-specific processing
+[sft]
+max_sequence_length = 2048
+deduplicate = true
+shuffle = true
+require_valid_tool_calls = true
+filter_empty_responses = true
+
+# Train/val split
+[split]
+enabled = true
+val_fraction = 0.1
+random_seed = 42
+stratify_by = "achievements"
+
+train_file = "train.jsonl"
+val_file = "val.jsonl"
+
+# Statistics
+[output]
+save_stats = true
+stats_file = "filter_stats.json"
+save_filtered_episode_ids = true

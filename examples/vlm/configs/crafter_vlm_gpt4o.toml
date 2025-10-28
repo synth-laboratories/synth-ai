@@ -1,4 +1,7 @@
-type = "sft"
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
 
 [job]
 model = "openai/gpt-4o-mini-2024-07-18"

@@ -1,45 +1,26 @@
-# Evaluation config for gpt-4o-mini with vision
-# Collects vision traces for SFT training
-# Note: gpt-5-nano doesn't support tool calling yet, use gpt-4o-mini instead
+# Evaluation config for gpt-4o-mini (vision)
+# Collects traces for SFT training; legacy gpt-5-nano naming kept for convenience
 
 [eval]
-model = "gpt-4o-mini-2024-07-18"  # Changed from gpt-5-nano (no tool support)
-provider = "openai"  # Use OpenAI API
+app_id = "grpo-crafter-task-app"
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app.modal.run"
+model = "gpt-4o-mini-2024-07-18"
+seeds = "0-99"
+max_turns = 50
+concurrency = 5
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "structured"
+return_trace = true
 
-# Task app endpoint (local or hosted)
-# task_app_url = "http://localhost:8000"  # Local
-task_app_url = "https://synth-laboratories--grpo-crafter-task-app.modal.run"  # Hosted
+[eval.env_config]
+env_params = {max_steps_per_episode = 50}
 
-# Vision settings (auto-detected from "gpt-5" in model name)
-use_vision = true
-image_only_mode = false  # Include both text + images
-
-# Rollout settings
-num_episodes = 100
-max_steps_per_episode = 50
-seeds = "0-99"  # Seeds 0 through 99
-
-# Sampling parameters
+[eval.policy_config]
+provider = "openai"
+model = "gpt-4o-mini-2024-07-18"
 temperature = 0.7
 max_tokens = 512
-
-# Trace collection
-collect_traces = true
-trace_db = "traces/gpt5nano_vision/rollouts.db"
-
-# Tools
+use_vision = true
+image_only_mode = false
 use_tools = true
-
-# Parallel rollouts (speeds up collection)
-parallel_episodes = 5  # Run 5 episodes in parallel
-
-[task]
-name = "crafter"
-environment = "crafter-classic"
-
-# Task-specific settings
-[task.config]
-seed_start = 0
-max_episode_length = 256
-render_size = [64, 64]  # 64x64 PNG images
-

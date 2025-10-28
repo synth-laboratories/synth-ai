@@ -1,0 +1,26 @@
+# Evaluation config for Qwen3-VL vision rollouts
+# Collects traces for SFT training via synth-ai hosted inference
+
+[eval]
+app_id = "grpo-crafter-task-app"
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app.modal.run"
+model = "Qwen/Qwen3-VL-8B-Instruct"
+seeds = "100-199"
+max_turns = 50
+concurrency = 5
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "structured"
+return_trace = true
+
+[eval.env_config]
+env_params = {max_steps_per_episode = 50}
+
+[eval.policy_config]
+provider = "synth"
+model = "Qwen/Qwen3-VL-8B-Instruct"
+temperature = 0.7
+max_tokens = 512
+use_vision = true
+image_only_mode = false
+use_tools = true

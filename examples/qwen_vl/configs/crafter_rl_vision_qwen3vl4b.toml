@@ -1,19 +1,9 @@
-# Crafter RL with Vision - Qwen3-VL-4B
-#
-# This configuration runs online RL (GRPO/GSPO) with a vision-language model
-# using the same Crafter task app that generates image observations for SFT data.
-#
-# Model: Qwen/Qwen3-VL-4B (smaller, faster for testing)
-# Task App: grpo-crafter-task-app (Modal deployed, supports vision)
-# Policy: crafter-react with use_vision=true, image_only_mode=true
-
 [algorithm]
 type = "online"
 method = "policy_gradient"
 variety = "gspo"
 
 [services]
-# Replace with the Modal URL printed by `uvx synth-ai modal-serve grpo-crafter`
 task_url = "https://YOUR-MODAL-TASK-APP.modal.run"
 
 [compute]
@@ -30,8 +20,6 @@ tensor_parallel = 1
 [vllm]
 tensor_parallel_size = 1
 max_model_len = 4096
-# Vision-specific settings
-limit_mm_per_prompt = { "image": 1 }  # Max 1 image per prompt
 
 [reference]
 placement = "none"
@@ -40,83 +28,48 @@ placement = "none"
 base = "Qwen/Qwen3-VL-4B-Instruct"
 trainer_mode = "lora"
 label = "crafter-rl-vision-qwen3vl4b"
-supports_vision = true  # Enable vision support
+supports_vision = true
 
 [lora]
 r = 16
 alpha = 32
 dropout = 0.05
-target_modules = ["all-linear"]
-# Note: will automatically include mm_projector for vision models
+target_modules = [ "all-linear",]
 
 [rollout]
 env_name = "crafter"
-max_turns = 10  # 10 steps per episode for faster testing
+max_turns = 10
 episodes_per_batch = 2
 policy_name = "crafter-react"
-max_concurrent_rollouts = 4  # Lower for vision models (memory)
+max_concurrent_rollouts = 4
 batches_per_step = 2
-ops = ["agent", "env"]
-
-  [rollout.env_config]
-  difficulty = "easy"
-  
-    [rollout.env_config.step_rewards]
-    enabled = true
-    mode = "decision_stepwise"
-    strategy = "consistent"
-    indicator_lambda = 1.0
-    step_beta = 0.0
-
-  [rollout.policy_config]
-  # Vision-specific policy settings
-  use_vision = true  # Enable vision input
-  image_only_mode = true  # Use only images, no text observations
-  temperature = 0.6  # Slightly higher for exploration
-  top_p = 0.95
-  max_tokens = 512
-  max_llm_calls = 10
+ops = [ "agent", "env",]
 
 [evaluation]
-instances = 8  # Lower for faster vision evals
+instances = 8
 every_n_iters = 5
-seeds = [0, 1, 2, 3, 4, 5, 6, 7]
+seeds = [ 0, 1, 2, 3, 4, 5, 6, 7,]
 
 [training]
 num_epochs = 1
-iterations_per_epoch = 3  # Shorter for integration test
+iterations_per_epoch = 3
 gradient_accumulation_steps = 2
 max_accumulated_minibatch = 1
 max_turns = 10
-batch_size = 2  # Smaller for vision models
+batch_size = 2
 group_size = 2
 learning_rate = 5e-5
 log_interval = 1
 weight_sync_interval = 1
 event_rewards_kind = "unique"
-async_semaphore_max = 2  # Lower concurrency for vision
-
-# Enable dense decision rewards
+async_semaphore_max = 2
 step_rewards_enabled = true
 step_rewards_mode = "decision_stepwise"
 step_rewards_indicator_lambda = 1.0
 step_rewards_beta = 0.0
 step_rewards_strategy = "consistent"
-
-# Vision-specific training settings
-max_images_per_message = 1  # Limit images for memory
-supports_vision = true  # Enable vision training path
-
-[training.weight_sync]
-enable = true
-targets = ["policy"]
-mode = "direct"
-direct = true
-verify_every_k = 0
-
-[judge]
-type = "env"  # Use environment rewards only (simpler for testing)
-timeout_s = 30
+max_images_per_message = 1
+supports_vision = true
 
 [tags]
 experiment = "crafter_rl_vision_qwen3vl4b"
@@ -125,3 +78,33 @@ model_size = "4b"
 vision_enabled = true
 image_only = true
 
+[vllm.limit_mm_per_prompt]
+image = 1
+
+[rollout.env_config]
+difficulty = "easy"
+
+[rollout.policy_config]
+use_vision = true
+image_only_mode = true
+temperature = 0.6
+top_p = 0.95
+max_tokens = 512
+max_llm_calls = 10
+
+[training.weight_sync]
+enable = true
+targets = [ "policy",]
+mode = "direct"
+direct = true
+verify_every_k = 0
+
+[judge.options]
+timeout_s = 30
+
+[rollout.env_config.step_rewards]
+enabled = true
+mode = "decision_stepwise"
+strategy = "consistent"
+indicator_lambda = 1.0
+step_beta = 0.0

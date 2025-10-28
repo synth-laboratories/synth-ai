@@ -2,7 +2,7 @@
 
 This mirrors the structure of the Crafter task app wrapper while delegating
 all configuration to the colocated `grpo_enron.py` module. Normal usage should
-prefer invoking `uvx synth-ai serve grpo-enron`, but this module remains for
+prefer invoking `uvx synth-ai deploy --runtime uvicorn grpo-enron`, but this module remains for
 direct execution or importing the FastAPI app object.
 """
 

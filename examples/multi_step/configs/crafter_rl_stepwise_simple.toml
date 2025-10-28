@@ -6,7 +6,7 @@ method = "policy_gradient"
 variety = "gspo"
 
 [services]
-# Replace with the Modal URL printed by `uvx synth-ai modal-serve grpo-crafter`
+# Replace with the Modal URL printed by `uvx synth-ai deploy --runtime modal --modal-mode serve grpo-crafter`
 task_url = "https://YOUR-MODAL-TASK-APP.modal.run"
 
 [compute]

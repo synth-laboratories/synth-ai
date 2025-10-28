@@ -25,7 +25,7 @@ You can generate traces with the Crafter task app and then export them to SFT JS
 
 ```bash
 # Serve the task app locally with tracing enabled (example)
-uvx synth-ai serve grpo-crafter \
+uvx synth-ai deploy --runtime uvicorn grpo-crafter \
   --trace traces/v3 \
   --trace-db traces/v3/task_app_traces_<timestamp>.db \
   --port 8001

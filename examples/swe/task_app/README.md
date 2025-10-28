@@ -28,13 +28,13 @@ endpoints.
 ## Using the task app
 
 ```
-uvx synth-ai serve swe-mini --port 8020
+uvx synth-ai deploy --runtime uvicorn swe-mini --port 8020
 ```
 
 ### Recommended: non-interactive serve + .env
 
 ```bash
-uvx synth-ai serve swe-mini \
+uvx synth-ai deploy --runtime uvicorn swe-mini \
   --port 8020 \
   --env-file .env \
   --trace traces/v3 \

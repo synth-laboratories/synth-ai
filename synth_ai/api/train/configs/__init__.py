@@ -5,10 +5,12 @@ from .rl import (
     JudgeConfig,
     JudgeOptionsConfig,
     ModelConfig,
+    RewardsConfig,
     RLConfig,
     RLServicesConfig,
     RLTrainingConfig,
     RolloutConfig,
+    RubricConfig,
     WeightSyncConfig,
 )
 from .sft import (
@@ -20,7 +22,7 @@ from .sft import (
     TrainingConfig,
     TrainingValidationConfig,
 )
-from .shared import AlgorithmConfig, ComputeConfig
+from .shared import AlgorithmConfig, ComputeConfig, LoraConfig, PolicyConfig, TopologyConfig
 
 __all__ = [
     "AlgorithmConfig",
@@ -31,13 +33,18 @@ __all__ = [
     "JobConfig",
     "JudgeConfig",
     "JudgeOptionsConfig",
+    "LoraConfig",
     "ModelConfig",
+    "PolicyConfig",
+    "RewardsConfig",
     "RLConfig",
     "RLServicesConfig",
     "RLTrainingConfig",
     "RolloutConfig",
+    "RubricConfig",
     "SFTConfig",
     "SFTDataConfig",
+    "TopologyConfig",
     "TrainingConfig",
     "TrainingValidationConfig",
     "WeightSyncConfig",

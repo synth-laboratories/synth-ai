@@ -55,21 +55,21 @@ uvx synth-ai train --type sft --config configs/vision_sft/crafter_qwen3vl_8b_gpt
 Run Crafter agent using Qwen-VL models via synth-ai's hosted inference.
 
 **Models supported:**
-- `Qwen/Qwen2-VL-7B-Instruct`
-- `Qwen/Qwen2-VL-2B-Instruct`
-- `Qwen/Qwen3-VL-8B` (or any Qwen VL variant)
+- `Qwen/Qwen3-VL-2B-Instruct`
+- `Qwen/Qwen3-VL-4B-Instruct`
+- `Qwen/Qwen3-VL-8B-Instruct` (or any Qwen3 VL variant)
 
 **Usage:**
 ```bash
-# Run with Qwen2-VL-7B
+# Run with Qwen3-VL-4B
 uv run python examples/qwen_vl/crafter_qwen_vl_agent.py \
-  --model Qwen/Qwen2-VL-7B-Instruct \
+  --model Qwen/Qwen3-VL-4B-Instruct \
   --seeds 10 \
   --steps 20
 
 # Run with Qwen3-VL-8B  
 uv run python examples/qwen_vl/crafter_qwen_vl_agent.py \
-  --model Qwen/Qwen3-VL-8B \
+  --model Qwen/Qwen3-VL-8B-Instruct \
   --seeds 10 \
   --steps 20
 ```
@@ -113,13 +113,13 @@ uv run python examples/qwen_vl/collect_vision_traces.py \
   --max-steps 50 \
   --output-dir traces/gpt5nano_vision
 
-# Collect traces with Qwen2-VL via synth
+# Collect traces with Qwen3-VL via synth
 uv run python examples/qwen_vl/collect_vision_traces.py \
-  --model Qwen/Qwen2-VL-7B-Instruct \
+  --model Qwen/Qwen3-VL-8B-Instruct \
   --provider synth \
   --episodes 100 \
   --max-steps 50 \
-  --output-dir traces/qwen2vl_vision
+  --output-dir traces/qwen3vl_vision
 ```
 
 **Output:** SQLite database with multimodal traces ready for SFT export.
@@ -132,8 +132,7 @@ CrafterPolicy automatically detects vision capability from model names:
 - ✅ `gpt-5*` → Vision enabled
 - ✅ `gpt-4o*` → Vision enabled  
 - ✅ `*qwen-vl*` → Vision enabled
-- ✅ `*qwen2-vl*` → Vision enabled
-- ✅ `qwen3-vl*` → Vision enabled
+- ✅ `*qwen3-vl*` → Vision enabled
 
 Or set explicitly: `policy.use_vision = True`
 
@@ -151,4 +150,3 @@ Crafter environment provides observations as:
 3. Export to SFT JSONL format (see `vision_sft_rl.txt`)
 4. Train VLM with LoRA (see monorepo SFT configs)
 5. Fine-tune with RL/GRPO
-

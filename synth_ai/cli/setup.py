@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import contextlib
 import os
 import time
@@ -13,9 +11,12 @@ from click.exceptions import Exit
 from synth_ai.demos import core as demo_core
 from synth_ai.utils.cli import print_next_step
 from synth_ai.utils.env import mask_str
-from synth_ai.utils.modal import is_modal_public_url
-from synth_ai.utils.process import popen_capture
 from synth_ai.utils.user_config import USER_CONFIG_PATH, update_user_config
+
+try:
+    from synth_ai.cli.commands.help import SETUP_HELP
+except ImportError:
+    SETUP_HELP = "Configure Synth AI credentials and environment."
 
 
 class HandshakeError(Exception):
@@ -188,50 +189,11 @@ def setup() -> int:
 
     env = demo_core.load_env()
 
-    def _refresh_env() -> None:
-        nonlocal env
-        env = demo_core.load_env()
-
-    def _maybe_fix_task_url() -> None:
-        if not env.task_app_name:
-            return
-        current = env.task_app_base_url
-        needs_lookup = not current or not is_modal_public_url(current)
-        if not needs_lookup:
-            return
-        code, out = popen_capture(
-            [
-                "uv",
-                "run",
-                "python",
-                "-m",
-                "modal",
-                "app",
-                "url",
-                env.task_app_name,
-            ]
-        )
-        if code != 0 or not out:
-            return
-        new_url = ""
-        for token in out.split():
-            if is_modal_public_url(token):
-                new_url = token.strip().rstrip("/")
-                break
-        if new_url and new_url != current:
-            print(f"Updating TASK_APP_BASE_URL from Modal CLI → {new_url}")
-            persist_path = demo_dir or os.getcwd()
-            demo_core.persist_task_url(new_url, name=env.task_app_name, path=persist_path)
-            os.environ["TASK_APP_BASE_URL"] = new_url
-            _refresh_env()
-
     modal_ok, modal_msg = demo_core.modal_auth_status()
     if modal_ok:
         print(f"✓ Modal authenticated: {modal_msg}")
     else:
         print(f"[setup] Modal authentication status: {modal_msg}")
-
-    _maybe_fix_task_url()
 
     if env.dev_backend_url:
         api = env.dev_backend_url.rstrip("/") + (
@@ -259,8 +221,17 @@ def setup() -> int:
 
 
 def register(group):
-    @group.command("setup")
+    @group.command(
+        "setup",
+        help=SETUP_HELP,
+        epilog="Run 'uvx synth-ai setup --help' for detailed usage information.",
+    )
     def demo_setup():
+        """Configure Synth AI credentials and environment.
+        
+        Authenticates with the Synth platform, saves API keys, and verifies
+        your environment is ready for deployment. Use --help for detailed usage.
+        """
         code = setup()
         if code:
             raise Exit(code)

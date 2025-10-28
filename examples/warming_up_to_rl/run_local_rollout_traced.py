@@ -448,7 +448,7 @@ async def main() -> None:
 
             print(f"Ops executed: {ops}")
             print(
-                "Tip: export TASKAPP_TRACING_ENABLED=1 and optionally TASKAPP_SFT_OUTPUT_DIR before running `uvx synth-ai serve …` to persist traces/SFT."
+                "Tip: export TASKAPP_TRACING_ENABLED=1 and optionally TASKAPP_SFT_OUTPUT_DIR before running `uvx synth-ai deploy --runtime uvicorn …` to persist traces/SFT."
             )
         except httpx.HTTPStatusError as exc:
             detail = (

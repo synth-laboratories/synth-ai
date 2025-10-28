@@ -9,7 +9,7 @@ This is the canonical contract that the backend MUST conform to.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -31,7 +31,7 @@ class ReviewPayload(BaseModel):
         description="Map of criterion keys to their scores"
     )
     total: float = Field(default=0.0, description="Aggregated total score")
-    summary: str | None = Field(None, description="Optional text summary")
+    summary: Optional[str] = Field(None, description="Optional text summary")
 
 
 class JudgeScoreResponse(BaseModel):
@@ -46,7 +46,7 @@ class JudgeScoreResponse(BaseModel):
         default_factory=list,
         description="List of per-event rubric reviews (one per step)"
     )
-    outcome_review: ReviewPayload | None = Field(
+    outcome_review: Optional[ReviewPayload] = Field(
         None,
         description="Optional outcome-level rubric review"
     )
@@ -63,7 +63,7 @@ class JudgeScoreResponse(BaseModel):
         description="Request metadata (provider, options, etc.)"
     )
 
-    def aggregate_event_reward(self) -> float | None:
+    def aggregate_event_reward(self) -> Optional[float]:
         """
         Aggregate all event totals into a single reward.
         
@@ -74,7 +74,7 @@ class JudgeScoreResponse(BaseModel):
             return None
         return sum(self.event_totals)
 
-    def aggregate_outcome_reward(self) -> float | None:
+    def aggregate_outcome_reward(self) -> Optional[float]:
         """
         Extract outcome reward from outcome_review.
         
@@ -92,15 +92,15 @@ class JudgeTaskApp(BaseModel):
     """Task application metadata."""
     
     id: str = Field(..., description="Task app identifier")
-    base_url: str | None = Field(None, description="Optional base URL for task app")
+    base_url: Optional[str] = Field(None, description="Optional base URL for task app")
 
 
 class JudgeOptions(BaseModel):
     """Judge provider and configuration options."""
     
-    provider: str | None = Field(None, description="Judge provider (e.g., 'openai', 'groq')")
-    model: str | None = Field(None, description="Model identifier")
-    rubric_id: str | None = Field(None, description="Rubric identifier")
+    provider: Optional[str] = Field(None, description="Judge provider (e.g., 'openai', 'groq')")
+    model: Optional[str] = Field(None, description="Model identifier")
+    rubric_id: Optional[str] = Field(None, description="Rubric identifier")
     event: bool = Field(True, description="Enable event-level judging")
     outcome: bool = Field(True, description="Enable outcome-level judging")
 
@@ -123,5 +123,5 @@ class JudgeScoreRequest(BaseModel):
     task_app: JudgeTaskApp = Field(..., description="Task application metadata")
     trace: JudgeTracePayload = Field(..., description="Trajectory trace to evaluate")
     options: JudgeOptions = Field(default_factory=lambda: JudgeOptions(), description="Judge options")
-    rubric: dict[str, Any] | None = Field(None, description="Optional explicit rubric criteria")
+    rubric: Optional[dict[str, Any]] = Field(None, description="Optional explicit rubric criteria")
 

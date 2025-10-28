@@ -7,7 +7,7 @@ method = "sft"
 variety = "lora"
 
 [job]
-model = "Qwen/Qwen2-VL-7B-Instruct"  # or Qwen/Qwen3-VL-8B
+model = "Qwen/Qwen3-VL-8B-Instruct"  # or Qwen/Qwen3-VL-4B-Instruct
 # Dataset from collect_vision_traces.py → export_to_sft.py
 data = "traces/gpt5nano_vision/train.jsonl"
 
@@ -57,4 +57,3 @@ task = "crafter"
 modality = "vision"
 data_source = "collected_traces"
 model_family = "qwen_vl"
-

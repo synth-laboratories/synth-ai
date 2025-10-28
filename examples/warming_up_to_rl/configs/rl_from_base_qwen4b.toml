@@ -1,7 +1,5 @@
 # RL training starting from base Qwen/Qwen3-4B (TOML-only model selection)
 
-type = "rl"
-
 [algorithm]
 type = "online"
 method = "policy_gradient"
@@ -40,6 +38,7 @@ health_interval_ms = 300
 [model]
 # Base model start
 base = "Qwen/Qwen3-4B"
+trainer_mode = "full"
 label = "crafter-rl-from-base"
 
 [rollout]
@@ -62,6 +61,7 @@ seeds = [
 [training]
 num_epochs = 1
 iterations_per_epoch = 10
+max_turns = 10
 batch_size = 16
 group_size = 4
 gradient_accumulation_steps = 1
