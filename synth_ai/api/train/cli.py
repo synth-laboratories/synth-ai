@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -36,20 +37,41 @@ from .utils import (
 )
 
 
-def _discover_dataset_candidates(config_path: Path, limit: int = 50) -> list[Path]:
+def _discover_dataset_candidates(
+    config_path: Path, limit: int = 50, timeout: float = 10.0
+) -> list[Path]:
+    root = config_path.parent
+    parent = root.parent
+    cwd = Path.cwd()
+
     search_dirs: list[Path] = [
-        config_path.parent,
-        config_path.parent / "datasets",
-        REPO_ROOT / "traces",
+        root,
+        root / "datasets",
+        parent,
+        parent / "datasets",
+        parent / "ft_data",
+        cwd,
+        cwd / "datasets",
+        cwd / "ft_data",
         REPO_ROOT / "datasets",
+        REPO_ROOT / "ft_data",
+        REPO_ROOT / "traces",
     ]
 
     candidates: list[Path] = []
     seen: set[Path] = set()
+    start = time.monotonic()
+    timed_out = False
     for directory in search_dirs:
+        if timed_out or time.monotonic() - start > timeout:
+            timed_out = True
+            break
         if not directory.exists() or not directory.is_dir():
             continue
         for path in directory.rglob("*.jsonl"):
+            if time.monotonic() - start > timeout:
+                timed_out = True
+                break
             try:
                 resolved = path.resolve()
             except OSError:

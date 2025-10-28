@@ -37,6 +37,7 @@ class TaskAppEntry:
     description: str
     config_factory: Callable[[], TaskAppConfig]
     aliases: Sequence[str] = field(default_factory=tuple)
+    env_files: Sequence[str] = field(default_factory=tuple)
     modal: ModalDeploymentConfig | None = None
 
 
@@ -49,10 +50,12 @@ class TaskAppRegistry:
 
     def register(self, entry: TaskAppEntry) -> None:
         if entry.app_id in self._entries:
-            raise ValueError(f"Task app already registered: {entry.app_id}")
+            # Allow idempotent registration when modules are imported multiple times.
+            return
         self._entries[entry.app_id] = entry
         for alias in entry.aliases:
-            if alias in self._alias_to_id:
+            existing = self._alias_to_id.get(alias)
+            if existing and existing != entry.app_id:
                 raise ValueError(f"Alias already registered: {alias}")
             self._alias_to_id[alias] = entry.app_id
 

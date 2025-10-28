@@ -10,12 +10,12 @@ from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import click
 import requests
+from synth_ai.demos import core as demo_core
 from synth_ai.utils.cli import print_next_step
 from synth_ai.utils.env import mask_str
 from synth_ai.utils.modal import is_modal_public_url
 from synth_ai.utils.process import popen_capture
 from synth_ai.utils.user_config import USER_CONFIG_PATH, update_user_config
-from synth_ai.demos import core as demo_core
 
 
 class HandshakeError(Exception):

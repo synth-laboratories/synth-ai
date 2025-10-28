@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any, cast
 
 import click
+from synth_ai.utils.env import resolve_env_var
 
 from . import task_app
 from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
-from synth_ai.utils.env import resolve_env_var
 
 
 def _load_saved_env_path() -> Path | None:
