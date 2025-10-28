@@ -7,18 +7,13 @@ import requests
 from requests import RequestException
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 
-PROD_INIT_URL = "https://www.usesynth.ai/api/sdk/handshake/init"
-PROD_TOKEN_URL = "https://www.usesynth.ai/api/sdk/handshake/token"
-DEV_INIT_URL = "http://localhost:3000/api/sdk/handshake/init"
-DEV_TOKEN_URL = "http://localhost:3000/api/sdk/handshake/token"
-
 
 def fetch_credentials_from_web_browser_session(prod: bool = True) -> None:
-    init_url = PROD_INIT_URL if prod else DEV_INIT_URL
-    token_url = PROD_TOKEN_URL if prod else DEV_TOKEN_URL
-    origin_label = "https://www.usesynth.ai" if prod else "http://localhost:3000"
+    origin = "https://www.usesynth.ai" if prod else "http://localhost:3000"
+    init_url = f"{origin}/api/sdk/handshake/init"
+    token_url =f"{origin}/api/sdk/handshake/token"
 
-    print(f"\n🌐 Connecting to {origin_label} to fetch your Synth credentials…\n")
+    print(f"\n🌐 Connecting to {origin} to fetch your Synth credentials…\n")
 
     # 1. Initialize browser handshake
     try:
@@ -109,4 +104,4 @@ def fetch_credentials_from_web_browser_session(prod: bool = True) -> None:
     write_env_var_to_json("ENVIRONMENT_API_KEY", env_api_key, "~/.synth-ai/config.json")
     write_env_var_to_dotenv("ENVIRONMENT_API_KEY", env_api_key)
 
-    print(f"\n✅ Connected to {org_name}")
+    print(f"\n✅ Connected to {org_name}\n")
