@@ -8,5 +8,5 @@ from synth_ai.auth.credentials import fetch_credentials_from_web_browser_session
     is_flag=True,
     help="Use the development environment instead of production.",
 )
-def setup(dev: bool) -> None:
+def setup_cmd(dev: bool) -> None:
     fetch_credentials_from_web_browser_session(prod=not dev)
