@@ -800,7 +800,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, MathDataset]:
 def _base_task_info() -> TaskInfo:
     return TaskInfo(
         task={"id": "math_single_step", "name": "Math Single Step", "version": "1.0.0"},
-        environments=["math"],
+        environment="math",
         action_space={
             "type": "tool_call",
             "tools": [
@@ -891,7 +891,7 @@ def provide_task_instances(dataset: MathDataset, seeds: Sequence[int]) -> Iterab
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
         yield TaskInfo(
             task=info.task,
-            environments=info.environments,
+            environment=info.environment,
             action_space=info.action_space,
             observation={**info.observation, "sample_index": sample["index"]},
             dataset={

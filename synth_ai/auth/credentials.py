@@ -46,7 +46,7 @@ def fetch_credentials_from_web_browser_session(
         try:
             expires_in = int(init_data.get("expires_in") or 600)
         except (TypeError, ValueError):
-            expires_in = 600
+            expires_in = 120
         try:
             interval = max(int(init_data.get("interval") or 3), 1)
         except (TypeError, ValueError):
@@ -99,7 +99,7 @@ def fetch_credentials_from_web_browser_session(
         synth_api_key = str(credentials.get("synth") or "").strip()
         env_api_key = str(credentials.get("rl_env") or "").strip()
 
-        print(f"\n✅ Connected to {org_name}\n")
+        print(f"\n✅ Connected to {org_name}")
 
     # Load credentials to process environment and save credentials to .env and ~/synth-ai/config.json
     if synth_api_key:
@@ -112,6 +112,7 @@ def fetch_credentials_from_web_browser_session(
     env_api_key = resolve_env_var("ENVIRONMENT_API_KEY")
 
     if browser:
+        print('')
         write_env_var_to_json("SYNTH_API_KEY", synth_api_key, "~/.synth-ai/config.json")
         write_env_var_to_dotenv("SYNTH_API_KEY", synth_api_key)
         write_env_var_to_json("ENVIRONMENT_API_KEY", env_api_key, "~/.synth-ai/config.json")

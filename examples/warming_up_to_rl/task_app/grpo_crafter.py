@@ -306,7 +306,7 @@ def build_dataset() -> tuple[TaskDatasetRegistry, CrafterDataset]:
 def _base_task_info(dataset: CrafterDataset) -> TaskInfo:
     return TaskInfo(
         task={"id": "crafter_classic", "name": "Crafter Classic", "version": "1.0.0"},
-        environments=["crafter"],
+        environment="crafter",
         action_space={
             "type": "discrete",
             "size": len(crafter_constants.actions),
@@ -402,7 +402,7 @@ def provide_task_instances(
         infos.append(
             TaskInfo(
                 task=base_info.task,
-                environments=base_info.environments,
+                environment=base_info.environment,
                 action_space=base_info.action_space,
                 observation={
                     **base_info.observation,
