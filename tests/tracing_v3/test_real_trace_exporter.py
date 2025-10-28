@@ -9,16 +9,24 @@ import pytest
 from pathlib import Path
 
 from examples.warming_up_to_rl import export_trace_sft as exporter
+from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"
 
 
 def _fixture_db(scenario: str) -> Path:
-    db_path = FIXTURE_ROOT / scenario / "synth_ai.db"
-    if not db_path.exists():
-        raise RuntimeError(f"Fixture database missing for scenario '{scenario}': {db_path}")
-    return db_path
+    scenario_dir = FIXTURE_ROOT / scenario
+    candidates = sorted(
+        scenario_dir.glob(f"{TRACE_DB_BASENAME}*.db"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        candidates = sorted(scenario_dir.glob("*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise RuntimeError(f"Fixture database missing for scenario '{scenario}' in {scenario_dir}")
+    return candidates[0]
 
 
 @pytest.mark.fast

@@ -38,7 +38,7 @@ uvx synth-ai serve swe-mini \
   --port 8020 \
   --env-file .env \
   --trace traces/v3 \
-  --trace-db traces/v3/synth_ai.db
+  --trace-db traces/v3/task_app_traces_<timestamp>.db
 ```
 
 This avoids interactive prompts (useful for CI) and loads `ENVIRONMENT_API_KEY`, `OPENAI_API_KEY`, etc. from `.env`.

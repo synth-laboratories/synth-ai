@@ -3,12 +3,13 @@ from pathlib import Path
 
 import pytest
 
+from synth_ai.tracing_v3.constants import canonical_trace_db_name
 
 @pytest.mark.asyncio
 @pytest.mark.fast
 async def test_session_tracer_persists_reward_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Arrange: isolate a fresh sqlite DB path
-    db_path = tmp_path / "synth_ai.db"
+    db_path = tmp_path / canonical_trace_db_name()
     db_url = f"sqlite+aiosqlite:///{db_path}"
     monkeypatch.setenv("TURSO_LOCAL_DB_URL", db_url)
 
@@ -55,7 +56,7 @@ async def test_session_tracer_persists_reward_metadata(tmp_path: Path, monkeypat
 @pytest.mark.fast
 async def test_manager_insert_outcome_reward_accepts_reward_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Arrange
-    db_path = tmp_path / "synth_ai.db"
+    db_path = tmp_path / canonical_trace_db_name()
     db_url = f"sqlite+aiosqlite:///{db_path}"
     monkeypatch.setenv("TURSO_LOCAL_DB_URL", db_url)
 

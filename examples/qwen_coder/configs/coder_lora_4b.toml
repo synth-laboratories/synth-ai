@@ -1,5 +1,7 @@
 # Qwen3 Coder 4B LoRA SFT – all-linear adapters
 
+type = "sft"
+
 [job]
 model = "Qwen/Qwen3-4B"
 
@@ -52,6 +54,5 @@ r = 16
 alpha = 32
 dropout = 0.05
 target_modules = ["all-linear"]
-
 
 

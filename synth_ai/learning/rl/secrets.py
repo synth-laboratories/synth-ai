@@ -1,4 +1,4 @@
-"""Helpers for generating RL environment credentials."""
+"""Helpers for generating Environment credentials."""
 
 from __future__ import annotations
 

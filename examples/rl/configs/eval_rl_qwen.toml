@@ -1,3 +1,5 @@
+type = "rl"
+
 provider = "synth"
 task_app_url = "https://your-math-task.modal.run"
 model = "rl:REPLACE_WITH_JOB_ID"

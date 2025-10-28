@@ -1,5 +1,7 @@
 # RL training starting from a finetuned model id (TOML-only model selection)
 
+type = "rl"
+
 [services]
 # Task app base URL used by the RL job for rollouts
 # task_url = "https://YOUR-TASK-APP.modal.run"

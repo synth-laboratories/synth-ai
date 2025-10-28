@@ -1,0 +1,1 @@
+### The instructions for how to create and configure a task app are documented at https://docs.usesynth.ai/sdk/task-apps

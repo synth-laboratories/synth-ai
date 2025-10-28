@@ -5,12 +5,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+
+from synth_ai._utils.prompts import ensure_required_args
+from synth_ai.tracing_v3.constants import (
+    TRACE_DB_BASENAME,
+    TRACE_DB_DIR,
+    canonical_trace_db_name,
+)
 
 Row = sqlite3.Row
 
@@ -489,55 +497,81 @@ def _validate_dataset(records: list[dict[str, Any]]) -> None:
 
 
 def _find_trace_database() -> Path | None:
-    """Automatically discover the trace database in common locations."""
+    """Automatically discover the most recent trace database in common locations."""
 
-    # Check for demo directory from state
-    try:
-        state_path = Path.home() / ".synth-ai" / "demo.json"
-        if state_path.exists():
-            import json
+    candidates: list[Path] = []
 
-            with state_path.open() as f:
-                data = json.load(f)
-                demo_dir = data.get("DEMO_DIR")
-                if demo_dir:
-                    candidate = Path(demo_dir) / "traces" / "v3" / "synth_ai.db"
-                    if candidate.exists():
-                        return candidate
-    except Exception:
-        pass
-
-    # Search upward from current directory
+    # Walk up parent directories from CWD
     cwd = Path.cwd()
     for parent in [cwd] + list(cwd.parents):
-        candidate = parent / "traces" / "v3" / "synth_ai.db"
-        if candidate.exists():
-            return candidate
+        candidates.append(parent / "traces" / "v3")
 
-    # Check standard locations
-    standard_locations = [
-        Path("traces/v3/synth_ai.db"),
-        Path("../traces/v3/synth_ai.db"),
-        Path.home() / "synth-ai" / "traces" / "v3" / "synth_ai.db",
-    ]
+    # Standard fallback locations
+    candidates.extend(
+        [
+            TRACE_DB_DIR,
+            Path("../traces"),
+            Path.home() / "synth-ai" / "traces" / "v3",
+        ]
+    )
 
-    for location in standard_locations:
+    found: list[Path] = []
+    for directory in candidates:
         try:
-            if location.exists():
-                return location.resolve()
+            if not directory.exists():
+                continue
+            for pattern in (
+                f"{TRACE_DB_BASENAME}_*.db",
+                canonical_trace_db_name(),
+            ):
+                for candidate in directory.glob(pattern):
+                    found.append(candidate.resolve())
         except Exception:
             continue
 
-    return None
+    if not found:
+        return None
+
+    found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return found[0]
+
+
+def _discover_local_trace_dbs(root: Path) -> list[Path]:
+    """Return trace DBs under *root* (recursively), newest first."""
+
+    candidates: set[Path] = set()
+    ignore_dirs = {".git", ".venv", "__pycache__", "node_modules", "dist", "build"}
+    target_exact = canonical_trace_db_name()
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in ignore_dirs]
+        for filename in filenames:
+            if filename == target_exact or (
+                filename.startswith(f"{TRACE_DB_BASENAME}_") and filename.endswith(".db")
+            ):
+                path = Path(dirpath) / filename
+                try:
+                    candidates.add(path.resolve())
+                except Exception:
+                    continue
+
+    return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--db", type=Path, default=None, help="Path to tracing_v3 SQLite DB")
     parser.add_argument(
-        "--output",
+        "--in",
+        dest="input_path",
         type=Path,
-        required=False,
+        default=None,
+        help="Path to tracing_v3 SQLite DB",
+    )
+    parser.add_argument(
+        "--out",
+        dest="output_path",
+        type=Path,
+        default=None,
         help="Destination JSONL path for the exported dataset",
     )
     parser.add_argument(
@@ -593,25 +627,109 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Auto-discover database if not specified
-    db_path = args.db
-    if db_path is None:
-        db_path = _find_trace_database()
-        if db_path:
-            print(f"Found trace database: {db_path}")
-        else:
-            print("\nTrace database configuration:")
-            db_input = input("Trace database path [traces/v3/synth_ai.db]: ").strip()
-            db_path = Path(db_input) if db_input else Path("traces/v3/synth_ai.db")
+    default_output_path = (Path.cwd() / "ft_data" / "crafter_sft.jsonl").resolve()
 
+    initial_path: Path | None = None
+    if args.input_path is not None:
+        initial_path = Path(args.input_path).expanduser().resolve()
+    else:
+        discovered = _find_trace_database()
+        if discovered is not None:
+            initial_path = discovered.expanduser().resolve()
+            args.input_path = initial_path
+
+    if args.output_path is None:
+        args.output_path = default_output_path
+
+    local_candidates = _discover_local_trace_dbs(Path.cwd())
+    if local_candidates:
+        print("\nDiscovered trace databases:")
+        for idx, path in enumerate(local_candidates, start=1):
+            marker = " <- most recent" if idx == 1 else ""
+            print(f"  {idx}) {path}{marker}")
+        print("  m) Enter path manually")
+        print("  0) Abort")
+
+        default_index = 1
+        if initial_path:
+            for idx, candidate in enumerate(local_candidates, start=1):
+                if candidate == initial_path:
+                    default_index = idx
+                    break
+
+        while True:
+            prompt = f"Select database [{default_index}]: "
+            choice = input(prompt).strip().lower()
+            if not choice:
+                args.input_path = local_candidates[default_index - 1]
+                break
+            if choice == "0":
+                raise SystemExit("Aborted by user.")
+            if choice in {"m", "manual"}:
+                manual = input("Enter trace database path: ").strip()
+                if manual:
+                    args.input_path = Path(manual)
+                    break
+                print("Path required; try again.")
+                continue
+            try:
+                idx = int(choice)
+            except ValueError:
+                print("Invalid selection; enter a number, 'm', or 0 to abort.")
+                continue
+            if 1 <= idx <= len(local_candidates):
+                args.input_path = local_candidates[idx - 1]
+                break
+            print(f"Select between 1 and {len(local_candidates)}, 'm', or 0.")
+    elif initial_path is not None:
+        args.input_path = initial_path
+
+    # If output wasn't overridden, derive it from the chosen DB name
+    if args.output_path == default_output_path and args.input_path:
+        db_name = Path(args.input_path).name  # e.g., task_app_traces_2025-10-23_13-23-02.db
+        timestamp = db_name[:-3] if db_name.endswith(".db") else db_name
+        if timestamp.startswith("task_app_traces_"):
+            timestamp = timestamp[len("task_app_traces_") :]
+        derived_name = f"sft_dataset_{timestamp}.jsonl"
+        args.output_path = (Path.cwd() / "ft_data" / derived_name).resolve()
+
+    input_default = (
+        Path(args.input_path).expanduser().resolve()
+        if args.input_path is not None
+        else (TRACE_DB_DIR / canonical_trace_db_name()).expanduser().resolve()
+    )
+    output_default = Path(args.output_path).expanduser().resolve() if args.output_path else default_output_path
+
+    args = ensure_required_args(
+        args,
+        {
+            "input_path": "Trace database path",
+            "output_path": "Output JSONL path",
+        },
+        coerce={
+            "input_path": lambda raw: Path(raw).expanduser().resolve(),
+            "output_path": lambda raw: Path(raw).expanduser().resolve(),
+        },
+        defaults={
+            "input_path": input_default,
+            "output_path": output_default,
+        },
+    )
+
+    db_path = Path(args.input_path).expanduser().resolve()
+    print(f"Trace database: {db_path}")
     if not db_path.exists():
-        print(f"Database not found: {db_path}", file=sys.stderr)
-        raise SystemExit(1)
+        discovered = _find_trace_database()
+        if discovered and discovered.exists():
+            discovered = discovered.resolve()
+            print(f"Discovered trace database: {discovered}")
+            db_path = discovered
+        else:
+            print(f"Database not found: {db_path}", file=sys.stderr)
+            raise SystemExit(1)
 
-    output_path = args.output
-    if not output_path:
-        output_path = Path("ft_data/crafter_traces.jsonl")
-        print(f"Output will be written to: {output_path.resolve()}")
+    output_path = Path(args.output_path).expanduser().resolve()
+    print(f"Output dataset: {output_path}")
 
     min_unique = args.min_unique
     if min_unique is None:
@@ -619,15 +737,11 @@ def main() -> None:
         print(f"Minimum unique achievements filter: {min_unique} (all traces)")
 
     # Override args with prompted values
-    args.db = db_path
-    args.output = output_path
+    args.input_path = db_path
+    args.output_path = output_path
     args.min_unique = min_unique
 
-    if not args.db.exists():
-        print(f"Database not found: {args.db}", file=sys.stderr)
-        raise SystemExit(1)
-
-    conn = connect(args.db)
+    conn = connect(args.input_path)
     try:
         (
             achievements_map,
@@ -708,11 +822,11 @@ def main() -> None:
             raise SystemExit(1)
 
         _validate_dataset(dataset)
-        write_jsonl(args.output, dataset)
+        write_jsonl(args.output_path, dataset)
         session_ids = {item.get("metadata", {}).get("session_id") for item in dataset}
         session_ids.discard(None)
         print(
-            f"Wrote {len(dataset)} examples from {len(session_ids)} session(s) -> {args.output.resolve()}",
+            f"Wrote {len(dataset)} examples from {len(session_ids)} session(s) -> {args.output_path.resolve()}",
             file=sys.stderr,
         )
     finally:

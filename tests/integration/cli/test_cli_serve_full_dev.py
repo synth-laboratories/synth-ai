@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import requests
+from synth_ai.tracing_v3.constants import canonical_trace_db_name
 
 
 pytestmark = pytest.mark.integration
@@ -106,7 +107,7 @@ def test_serve_math_single_step_and_rollout(tmp_path: Path):
     env.setdefault("MATH_DATASET_LOCAL_DIR", str(ds_dir))
 
     trace_dir = tmp_path / "traces"
-    trace_db = tmp_path / "traces" / "synth_ai.db"
+    trace_db = trace_dir / canonical_trace_db_name()
     trace_dir.mkdir(parents=True, exist_ok=True)
 
     env.setdefault("PYTHONUNBUFFERED", "1")
@@ -179,4 +180,3 @@ def test_serve_math_single_step_and_rollout(tmp_path: Path):
                 proc.wait(timeout=5)
             except Exception:
                 pass
-

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..http import AsyncHttpClient
+from .._utils.http import AsyncHttpClient
 
 
 def _api_base(b: str) -> str:

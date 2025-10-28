@@ -7,7 +7,7 @@ from typing import Optional
 
 import pytest
 
-from synth_ai.http import HTTPError
+from synth_ai._utils.http import HTTPError
 from synth_ai.jobs.client import JobsClient
 
 

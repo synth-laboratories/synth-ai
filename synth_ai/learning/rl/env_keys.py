@@ -1,4 +1,4 @@
-"""Helpers for uploading RL environment credentials to the backend."""
+"""Helpers for uploading Environment credentials to the backend."""
 
 from __future__ import annotations
 

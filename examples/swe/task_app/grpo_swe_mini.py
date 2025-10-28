@@ -556,7 +556,6 @@ register_task_app(
         description="mini-swe-agent task app with rollout + proxy endpoints",
         config_factory=build_config,
         aliases=("mini-swe", "swe-mini-task"),
-        env_files=(str(REPO_ROOT / "backend" / ".env.dev"),),
         modal=ModalDeploymentConfig(
             app_name="swe-mini-task-app",
             python_version="3.11",

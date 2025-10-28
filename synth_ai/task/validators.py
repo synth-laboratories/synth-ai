@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse, urlunparse
 
 import click
@@ -151,7 +151,7 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
         new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
     
     # Reconstruct URL with new path and original query/fragment
-    return urlunparse(parsed._replace(path=new_path))
+    return cast(str, urlunparse(parsed._replace(path=new_path)))
 
 
 def validate_task_app_url(url: str | None) -> str:

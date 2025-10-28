@@ -8,8 +8,9 @@ pyproject entry point `synth_ai.cli:cli`.
 from __future__ import annotations
 
 import importlib
+import sys
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -49,15 +50,19 @@ _maybe_call("synth_ai.cli._typer_patch", "patch_typer_make_metavar")
 _cli_module = _maybe_import("synth_ai.cli.root")
 if not _cli_module:
     raise ImportError("synth_ai.cli.root is required for CLI entrypoint")
-cli = cast(Any, _cli_module.cli)
+cli = _cli_module.cli  # type: ignore[attr-defined]
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
-for _module_path in (
-    "synth_ai.cli.demo",
-    "synth_ai.cli.turso",
-):
-    _maybe_call(_module_path, "register", cli)
+for _module_path in ("synth_ai.cli.demo", "synth_ai.cli.turso"):
+    module = _maybe_import(_module_path)
+    if not module:
+        continue
+    sub_name = _module_path.rsplit(".", 1)[-1]
+    setattr(sys.modules[__name__], sub_name, module)
+    fn = _callable_from(module, "register")
+    if fn:
+        fn(cli)
 
 # Train CLI lives under synth_ai.api.train
 _maybe_call("synth_ai.api.train", "register", cli)

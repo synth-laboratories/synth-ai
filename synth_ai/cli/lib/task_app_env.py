@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import click
+from click.exceptions import Abort
 from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
 from synth_ai.task.apps import TaskAppEntry
 
@@ -452,7 +453,7 @@ def interactive_fill_env(env_path: Path) -> Path | None:
                     default=default,
                     show_default=bool(default) or not required,
                 ).strip()
-            except (click.exceptions.Abort, EOFError, KeyboardInterrupt):
+            except (Abort, EOFError, KeyboardInterrupt):
                 click.echo("Aborted env creation.")
                 return None
             if value or not required:

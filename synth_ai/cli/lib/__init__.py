@@ -1,11 +1,10 @@
 """
-Shared utility helpers for Synth AI CLI commands.
+Support utilities reused across CLI subcommands.
 
-This package centralizes reusable logic (environment handling, tracing helpers,
-sqld management, etc.) so individual command modules can stay focused on Click
-CLI wiring.
+This module currently exposes helpers for env handling and discovery by
+re-exporting the maintained implementations under ``synth_ai.utils``.
 """
 
 from __future__ import annotations
 
-__all__ = []
+from .task_app_env import *  # noqa: F401,F403

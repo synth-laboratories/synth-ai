@@ -8,7 +8,7 @@ import pytest
 import asyncio
 
 from synth_ai.jobs.client import JobsClient
-from synth_ai.http import HTTPError
+from synth_ai._utils.http import HTTPError
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]
@@ -249,5 +249,4 @@ async def test_create_qlora_job_dev() -> None:
         assert job.get("job_id") and job.get("status")
         # Start and poll for terminal status (xfail on timeout unless LEARNING_TEST_REQUIRE_SUCCESS=1)
         _ = await _start_and_wait_for_success(client._http, job["job_id"])  # noqa: F841
-
 

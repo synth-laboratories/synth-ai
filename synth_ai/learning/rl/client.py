@@ -10,7 +10,7 @@ from synth_ai.api.models.supported import (
     normalize_model_identifier,
 )
 
-from ...http import AsyncHttpClient, HTTPError, sleep
+from ..._utils.http import AsyncHttpClient, HTTPError, sleep
 
 
 def _api_base(b: str) -> str:

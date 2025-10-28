@@ -9,7 +9,7 @@ See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for require
 
 import importlib
 import logging
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ def extract_trace_correlation_id(
     
     try:
         parsed = urlparse(inference_url)
-        query_params: dict[str, list[str]] = parse_qs(parsed.query or "")
+        query_params = cast(dict[str, list[str]], parse_qs(parsed.query or ""))
         # Try multiple possible query param names
         for param_name in ["cid", "trace_correlation_id", "trace"]:
             values = query_params.get(param_name)

@@ -21,8 +21,8 @@ plumbing with lightweight utilities for dataset curation and training.
 3. **Export multimodal SFT rows**  
    ```
    uv run python examples/warming_up_to_rl/export_trace_sft.py \
-       --db traces/v3/synth_ai.db \
-       --output examples/vlm/output/crafter_traces_full.jsonl
+      --db traces/v3/task_app_traces_<timestamp>.db \
+       --output examples/vlm/output/crafter_sft_full.jsonl
    ```
    The exporter now emits `metadata.has_image`, `metadata.user_has_image`, and
    `metadata.assistant_has_image` flags per turn.
@@ -30,7 +30,7 @@ plumbing with lightweight utilities for dataset curation and training.
 4. **Filter to image-rich turns**  
    ```
    uv run python examples/vlm/filter_image_rows.py \
-       --input examples/vlm/output/crafter_traces_full.jsonl \
+       --input examples/vlm/output/crafter_sft_full.jsonl \
        --output examples/vlm/output/crafter_vlm_dataset.jsonl
    ```
 

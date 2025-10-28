@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import click
+from synth_ai.utils.env import resolve_env_var
 
 from . import task_app
 from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
@@ -232,18 +233,16 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
             _maybe_persist(resolver, spec, env_val)
             os.environ[spec.name] = env_val
             return env_val
+
+        resolve_env_var(spec.name)
+        resolved_value = os.environ.get(spec.name)
+        if resolved_value:
+            click.echo(f"Found {spec.name} via secrets helper: {mask_value(resolved_value)}")
+            _maybe_persist(resolver, spec, resolved_value)
+            os.environ[spec.name] = resolved_value
+            return resolved_value
+
         options: list[tuple[str, Callable[[], str | None]]] = []
-
-        def _enter_manual() -> str:
-            prompt = f"Enter {spec.description}" if spec.description else f"Enter {spec.name}"
-            value = click.prompt(prompt, hide_input=spec.secret).strip()
-            if not value:
-                raise click.ClickException(f"{spec.name} cannot be empty")
-            _maybe_persist(resolver, spec, value)
-            os.environ[spec.name] = value
-            return value
-
-        options.append(("Enter manually", _enter_manual))
 
         def _pick_env() -> str | None:
             resolver.select_new_env()
@@ -276,6 +275,10 @@ def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
 
 def _maybe_persist(resolver: EnvResolver, spec: KeySpec, value: str) -> None:
     # Automatically save (no prompt)
+    # Skip auto-persisting TASK_APP_URL to prevent overwriting CLI overrides
+    if spec.name == "TASK_APP_URL":
+        click.echo(f"Skipping auto-persist for {spec.name} (use CLI flags to override)")
+        return
     resolver.set_value(spec.name, value)
     click.echo(f"Saved {spec.name} to {resolver.current_path}")
 

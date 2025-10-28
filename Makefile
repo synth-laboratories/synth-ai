@@ -32,4 +32,4 @@ coverage-ci:
 
 .PHONY: verify-trace-fixtures
 verify-trace-fixtures:
-	@python scripts/build_trace_fixtures.py --source traces/v3/synth_ai.db --dest tests/artifacts/traces --overwrite
+	@python scripts/build_trace_fixtures.py --dest tests/artifacts/traces --overwrite

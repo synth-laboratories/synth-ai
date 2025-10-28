@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from requests.adapters import HTTPAdapter
 from urllib3.poolmanager import PoolManager
 
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
+from synth_ai._utils.base_url import PROD_BASE_URL_DEFAULT
 
 from .abstractions import Dataset, SystemTrace
 from .events.store import event_store

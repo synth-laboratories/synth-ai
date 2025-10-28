@@ -5,7 +5,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
-from ..http import AsyncHttpClient, sleep
+from .._utils.http import AsyncHttpClient, sleep
 from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 
 

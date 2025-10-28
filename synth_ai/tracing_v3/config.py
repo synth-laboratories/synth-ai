@@ -3,27 +3,29 @@
 import os
 from dataclasses import dataclass
 
+from synth_ai.tracing_v3.constants import canonical_trace_db_path
+
+DEFAULT_DB_FILE = str(canonical_trace_db_path())
+
+
+def _default_sqlite_url() -> str:
+    base_path = os.path.abspath(os.getenv("SQLD_DB_PATH", DEFAULT_DB_FILE))
+    candidate = os.path.join(base_path, "dbs", "default", "data")
+    if os.path.isdir(base_path) and os.path.exists(candidate):
+        return f"sqlite+aiosqlite:///{candidate}"
+    return f"sqlite+aiosqlite:///{base_path}"
+
 
 @dataclass
 class TursoConfig:
     """Configuration for Turso/sqld connection."""
 
     # Default values matching serve.sh
-    DEFAULT_DB_FILE = "traces/v3/synth_ai.db"
+    DEFAULT_DB_FILE = DEFAULT_DB_FILE
     DEFAULT_HTTP_PORT = 8080
 
-    # Local embedded database for async SQLAlchemy
-    # Resolve to the actual SQLite file used by sqld if the base path is a directory
-    def _resolve_sqlite_db_url() -> str:  # type: ignore[no-redef]
-        base_path = os.path.abspath(os.getenv("SQLD_DB_PATH", "traces/v3/synth_ai.db"))
-        # If sqld is managing this DB, the real SQLite file lives under dbs/default/data
-        candidate = os.path.join(base_path, "dbs", "default", "data")
-        if os.path.isdir(base_path) and os.path.exists(candidate):
-            return f"sqlite+aiosqlite:///{candidate}"
-        return f"sqlite+aiosqlite:///{base_path}"
-
     # Use env override if provided; otherwise resolve based on SQLD layout
-    db_url: str = os.getenv("TURSO_LOCAL_DB_URL", _resolve_sqlite_db_url())
+    db_url: str = os.getenv("TURSO_LOCAL_DB_URL", _default_sqlite_url())
 
     # Remote database sync configuration
     sync_url: str = os.getenv("TURSO_DATABASE_URL", "")
@@ -48,7 +50,7 @@ class TursoConfig:
 
     # Daemon settings (for local sqld) - match serve.sh defaults
     sqld_binary: str = os.getenv("SQLD_BINARY", "sqld")
-    sqld_db_path: str = os.getenv("SQLD_DB_PATH", "traces/v3/synth_ai.db")
+    sqld_db_path: str = os.getenv("SQLD_DB_PATH", DEFAULT_DB_FILE)
     sqld_http_port: int = int(os.getenv("SQLD_HTTP_PORT", "8080"))
     sqld_idle_shutdown: int = int(os.getenv("SQLD_IDLE_SHUTDOWN", "0"))  # 0 = no idle shutdown
 
