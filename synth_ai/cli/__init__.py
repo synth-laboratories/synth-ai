@@ -84,7 +84,4 @@ if _task_apps_module:
     if register_task_apps:
         register_task_apps(cli)
 
-# Register TUI command if dependencies allow
-_maybe_call("synth_ai.cli.tui", "register", cli)
-
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead

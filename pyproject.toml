@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.15.dev0"
+version = "0.2.16"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -48,7 +48,6 @@ dependencies = [
     "google-generativeai>=0.8.5",
     "crafter>=1.8.3",
     "click>=8.1.7,<8.2", # For CLI (pin to signature compatible with Typer)
-    "textual>=1.1.0", # For interactive TUI dashboard
     "openai-harmony>=0.0.1", # For OSS-GPT Harmony encoding support
     "asyncpg>=0.30.0",
     "aiohttp>=3.8.0", # For async HTTP requests in Harmony integration
