@@ -3,7 +3,7 @@
 Regression tests for the trace SFT exporter using real fixtures.
 """
 
-from __future__ import annotations
+
 
 import pytest
 from pathlib import Path

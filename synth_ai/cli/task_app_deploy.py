@@ -1,6 +1,6 @@
 """Compatibility wrapper for task-app deploy command."""
 
-from __future__ import annotations
+
 
 import click
 

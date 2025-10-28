@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a local Crafter rollout, capture tracing metadata, and optionally persist the trace."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

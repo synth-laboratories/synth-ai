@@ -3,7 +3,7 @@
 Canonical CLI entrypoint for Synth AI (moved from synth_ai/cli.py).
 """
 
-from __future__ import annotations
+
 
 import contextlib
 import logging

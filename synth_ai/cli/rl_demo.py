@@ -13,7 +13,7 @@ For convenience, dotted aliases are also exposed:
   uvx synth-ai rl_demo.check
 """
 
-from __future__ import annotations
+
 
 import importlib
 from typing import Any, cast

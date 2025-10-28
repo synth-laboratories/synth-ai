@@ -12,7 +12,7 @@ Env:
   BACKEND_BASE_URL (defaults to https://agent-learning.onrender.com/api)
 """
 
-from __future__ import annotations
+
 
 import asyncio
 import os

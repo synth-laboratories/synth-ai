@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared helpers for Qwen coder SFT examples."""
 
-from __future__ import annotations
+
 
 import json
 import os

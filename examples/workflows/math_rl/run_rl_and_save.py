@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Submit math RL training jobs via Synth backend."""
 
-from __future__ import annotations
+
 
 import argparse
 import json

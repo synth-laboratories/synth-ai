@@ -10,7 +10,7 @@ Current scenarios:
     - ``high_volume``: single session with the highest total events
 """
 
-from __future__ import annotations
+
 
 import argparse
 import json

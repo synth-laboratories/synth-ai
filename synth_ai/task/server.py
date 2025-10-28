@@ -1,6 +1,6 @@
 """FastAPI scaffolding for Task Apps (local dev + deployment)."""
 
-from __future__ import annotations
+
 
 import asyncio
 import inspect

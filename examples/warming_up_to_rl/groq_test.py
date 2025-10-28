@@ -1,6 +1,6 @@
 """Quick smoke test that drives a rollout through the Groq proxy-backed Crafter Task App."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

@@ -8,7 +8,7 @@ These validators enforce stricter constraints than the general-purpose rubrics:
 Used primarily for validation in judge configurations.
 """
 
-from __future__ import annotations
+
 
 import json
 import math

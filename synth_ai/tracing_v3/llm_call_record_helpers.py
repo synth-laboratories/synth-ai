@@ -4,7 +4,7 @@ This module provides utilities to convert vendor responses to LLMCallRecord
 format and compute aggregates from call records.
 """
 
-from __future__ import annotations
+
 
 import uuid
 from dataclasses import dataclass, field

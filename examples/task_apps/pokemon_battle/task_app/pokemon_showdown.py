@@ -1,6 +1,6 @@
 """Task App configuration for a Horizons-backed Pokémon Showdown battle environment."""
 
-from __future__ import annotations
+
 
 import logging
 import math

@@ -10,7 +10,7 @@ For each mode we:
 Concurrency is capped by an asyncio semaphore (default parallelism = 10).
 """
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

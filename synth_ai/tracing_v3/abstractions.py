@@ -34,7 +34,7 @@ Concepts:
   as part of its input/output content, not as SessionEventMessages.
 """
 
-from __future__ import annotations
+
 
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime

@@ -3,7 +3,7 @@
 The proxy is tool-agnostic - each task app provides its own tools schema.
 """
 
-from __future__ import annotations
+
 
 import copy
 import json

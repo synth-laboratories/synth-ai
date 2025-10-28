@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Hit a locally running Crafter task app and request a rollout."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

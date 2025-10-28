@@ -5,7 +5,7 @@ construct OpenAI-style message lists. Response parsing delegates to shared
 utilities to keep a single parser.
 """
 
-from __future__ import annotations
+
 
 from typing import Any
 

@@ -1,6 +1,6 @@
 """Compatibility wrapper for task-app modal-serve command."""
 
-from __future__ import annotations
+
 
 import click
 

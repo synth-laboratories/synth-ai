@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Request a rollout from a remote Crafter task app (e.g., Modal deployment)."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

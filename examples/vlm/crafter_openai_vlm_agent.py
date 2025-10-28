@@ -17,7 +17,7 @@ Usage:
       --model gpt-4o-mini-2024-07-18 --seeds 10 --steps 10
 """
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

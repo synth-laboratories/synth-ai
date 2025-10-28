@@ -1,6 +1,6 @@
 """Task App configuration for the GRPO Crafter example."""
 
-from __future__ import annotations
+
 
 import json
 import logging

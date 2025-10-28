@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 """Minimal helpers for the math task app.
 

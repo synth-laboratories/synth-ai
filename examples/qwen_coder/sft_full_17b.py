@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Submit a full-parameter SFT job for Qwen/Qwen3-1.7B via Synth API."""
 
-from __future__ import annotations
+
 
 import asyncio
 import os

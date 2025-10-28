@@ -6,7 +6,7 @@ modules re-export the public symbols so existing downstream code (and our own
 older examples/tests) continue to work without modification.
 """
 
-from __future__ import annotations
+
 
 from importlib import import_module
 from types import ModuleType

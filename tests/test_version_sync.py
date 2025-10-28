@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError

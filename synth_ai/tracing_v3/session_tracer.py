@@ -1,6 +1,6 @@
 """Main SessionTracer class for tracing v3."""
 
-from __future__ import annotations
+
 
 import asyncio
 import json

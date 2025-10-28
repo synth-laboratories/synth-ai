@@ -1,6 +1,6 @@
 """Vendor API key helpers shared by Task Apps."""
 
-from __future__ import annotations
+
 
 import os
 

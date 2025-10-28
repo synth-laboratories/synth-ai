@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 import importlib
 from importlib import metadata as _metadata

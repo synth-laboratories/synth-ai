@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Rollout a Crafter task app using the Modal backend proxy."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

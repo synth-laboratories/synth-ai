@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Create a capped subset of a JSONL dataset for quick runs."""
 
-from __future__ import annotations
+
 
 import argparse
 from pathlib import Path

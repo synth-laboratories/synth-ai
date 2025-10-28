@@ -5,7 +5,7 @@ and exposes a top-level Click group named `cli` compatible with the
 pyproject entry point `synth_ai.cli:cli`.
 """
 
-from __future__ import annotations
+
 
 import importlib
 import sys

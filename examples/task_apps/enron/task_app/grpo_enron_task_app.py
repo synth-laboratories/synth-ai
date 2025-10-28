@@ -6,7 +6,7 @@ prefer invoking `uvx synth-ai serve grpo-enron`, but this module remains for
 direct execution or importing the FastAPI app object.
 """
 
-from __future__ import annotations
+
 
 import argparse
 from pathlib import Path

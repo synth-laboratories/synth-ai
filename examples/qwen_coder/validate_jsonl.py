@@ -5,7 +5,7 @@ Checks first N lines (default 50) for objects with `messages` including an
 assistant response (role == "assistant").
 """
 
-from __future__ import annotations
+
 
 import argparse
 import json

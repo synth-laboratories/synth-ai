@@ -1,6 +1,6 @@
 """Task app registry entry for the math demo Modal deployment."""
 
-from __future__ import annotations
+
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.apps.math_single_step import build_config as base_build_config

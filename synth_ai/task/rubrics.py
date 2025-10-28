@@ -1,6 +1,6 @@
 """Rubric schema, loading, and scoring helpers for Task Apps."""
 
-from __future__ import annotations
+
 
 import json
 from collections.abc import Iterable

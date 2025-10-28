@@ -4,7 +4,7 @@ Integration-style tests that validate real trace fixtures behave the same
 under the libsql-native trace manager.
 """
 
-from __future__ import annotations
+
 
 import json
 import sqlite3

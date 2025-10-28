@@ -1,6 +1,6 @@
 """Dataset registry and helpers shared by Task Apps."""
 
-from __future__ import annotations
+
 
 from collections.abc import Callable, Hashable
 from typing import Any

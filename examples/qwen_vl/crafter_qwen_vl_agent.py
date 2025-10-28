@@ -15,7 +15,7 @@ Usage:
       --model Qwen/Qwen2-VL-7B-Instruct --seeds 10 --steps 20
 """
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

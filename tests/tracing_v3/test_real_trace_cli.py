@@ -3,7 +3,7 @@
 CLI-level regression tests that exercise trace fixtures via Synth AI commands.
 """
 
-from __future__ import annotations
+
 
 import pytest
 import shutil

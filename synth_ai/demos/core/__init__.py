@@ -7,7 +7,7 @@ Upstream refactors moved the implementation under
 vision tests) still import the older path, so we re-export everything here.
 """
 
-from __future__ import annotations
+
 
 from synth_ai.demos.demo_task_apps import core as _demo_core
 

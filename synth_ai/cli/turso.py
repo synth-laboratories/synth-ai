@@ -1,6 +1,6 @@
 """Utility CLI command for managing Turso sqld binaries."""
 
-from __future__ import annotations
+
 
 import subprocess
 

@@ -1,6 +1,6 @@
 """Task app list command."""
 
-from __future__ import annotations
+
 
 import click
 from synth_ai.task.apps import registry

@@ -7,7 +7,7 @@ persists traces to its sqlite database. Use `export_dataset.py` afterwards
 to build an SFT JSONL.
 """
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Evaluate math single-step task policies against the task app."""
 
-from __future__ import annotations
+
 
 import argparse
 import asyncio

@@ -1,6 +1,6 @@
 """Tool schema for mini-SWE command execution."""
 
-from __future__ import annotations
+
 
 RUN_COMMAND_TOOL = {
     "type": "function",

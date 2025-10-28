@@ -6,7 +6,7 @@ This module now delegates to the TaskAppConfig defined in the colocated example 
 `uvx synth-ai serve grpo-crafter` for local development and testing.
 """
 
-from __future__ import annotations
+
 
 import argparse
 from pathlib import Path

@@ -1,4 +1,4 @@
-from __future__ import annotations
+
 
 import contextvars
 from contextlib import contextmanager

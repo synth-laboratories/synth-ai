@@ -10,7 +10,7 @@ Run:
   SYNTH_API_KEY=sk_... uv run python examples/qwen_coder/infer_prod_proxy.py
 """
 
-from __future__ import annotations
+
 
 import asyncio
 import os
