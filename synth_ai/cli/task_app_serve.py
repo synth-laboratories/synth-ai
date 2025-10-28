@@ -2,17 +2,7 @@
 
 from __future__ import annotations
 
-import click
-
-from .task_apps import serve_command as task_app_serve_command
-from .task_apps import task_app_group
-
-serve_command = task_app_serve_command
-
-_group_serve = task_app_group.commands.get("serve")
-if _group_serve is None:
-    raise RuntimeError("task_app_group does not define a 'serve' command")
-
-serve_task_group: click.Command = _group_serve
+from synth_ai.cli.commands.serve import command as serve_task_group
+from synth_ai.cli.task_apps import serve_command
 
 __all__ = ["serve_command", "serve_task_group"]

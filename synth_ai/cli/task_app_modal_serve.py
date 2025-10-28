@@ -2,15 +2,6 @@
 
 from __future__ import annotations
 
-import click
-
-from .task_apps import task_app_group
-
-_modal_serve = task_app_group.commands.get("modal-serve")
-
-if _modal_serve is None:
-    raise RuntimeError("task_app_group does not define a 'modal-serve' command")
-
-modal_serve_command: click.Command = _modal_serve
+from synth_ai.cli.commands.modal_serve import command as modal_serve_command
 
 __all__ = ["modal_serve_command"]
