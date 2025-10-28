@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 
 # Terminal statuses normalized across FT and RL
 TERMINAL_STATUSES = {

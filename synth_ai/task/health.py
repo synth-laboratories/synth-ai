@@ -1,6 +1,6 @@
 """Helpers for probing Task App health endpoints."""
 
-
+from __future__ import annotations
 
 from typing import Any
 

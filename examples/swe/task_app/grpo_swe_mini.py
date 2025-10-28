@@ -1,6 +1,6 @@
 """Task app configuration for the mini-SWE agent integration."""
 
-
+from __future__ import annotations
 
 import json
 import logging

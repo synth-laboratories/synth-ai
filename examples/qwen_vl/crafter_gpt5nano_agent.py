@@ -15,7 +15,7 @@ Usage:
       --model gpt-5-nano --seeds 10 --steps 20
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

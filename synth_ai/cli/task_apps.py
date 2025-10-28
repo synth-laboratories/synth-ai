@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 
 import argparse
 import ast
@@ -3128,7 +3128,7 @@ def _write_modal_entrypoint(
     volume_mounts = [(name, mount) for name, mount in modal_cfg.volume_mounts]
     inline_secret_values = {k: v for k, v in (inline_secret_values or {}).items() if v}
 
-    script = f"""
+    script = f"""from __future__ import annotations
 
 import importlib
 import importlib.util

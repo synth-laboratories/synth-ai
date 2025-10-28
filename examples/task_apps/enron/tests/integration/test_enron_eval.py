@@ -1,5 +1,5 @@
 """Integration tests for Enron task app with Groq evaluation."""
-
+from __future__ import annotations
 
 import os
 import socket

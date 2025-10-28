@@ -6,7 +6,7 @@ CLI: interactive launcher for example demos and RL demo helpers.
 - `synth-ai demo deploy|configure|run` -> invoke RL demo helpers directly.
 """
 
-
+from __future__ import annotations
 
 import importlib
 import os

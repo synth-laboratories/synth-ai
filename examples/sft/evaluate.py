@@ -6,7 +6,7 @@ and report outcome/step metrics. If tracing is enabled server-side, you can
 use the exported sqlite DB for further analysis.
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

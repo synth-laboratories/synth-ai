@@ -1,6 +1,6 @@
 """Integration tests for CLI eval and filter utilities against Crafter with Groq policy."""
 
-
+from __future__ import annotations
 
 import json
 import os

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summarise tracing_v3 SQLite data (models, rewards, achievements)."""
 
-
+from __future__ import annotations
 
 import argparse
 import json

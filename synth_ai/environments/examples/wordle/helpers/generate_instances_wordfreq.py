@@ -11,7 +11,7 @@ This script writes a deterministic list of 5-letter English words ranked by freq
 Commit the resulting instances.json to remove runtime dependencies.
 """
 
-
+from __future__ import annotations
 
 import argparse
 import json

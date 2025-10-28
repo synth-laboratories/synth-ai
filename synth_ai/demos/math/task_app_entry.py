@@ -1,6 +1,6 @@
 """Task app registry entry for the math demo Modal deployment."""
 
-
+from __future__ import annotations
 
 from contextlib import suppress
 from importlib import import_module

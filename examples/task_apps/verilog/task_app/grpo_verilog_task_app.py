@@ -5,7 +5,7 @@ This mirrors the Crafter task app wrapper while delegating configuration to
 but the module remains for direct execution or importing the FastAPI app.
 """
 
-
+from __future__ import annotations
 
 import argparse
 from pathlib import Path

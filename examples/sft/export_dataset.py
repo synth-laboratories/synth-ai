@@ -5,7 +5,7 @@ Thin wrapper over `examples/warming_up_to_rl/export_trace_sft.py` to keep the
 SFT workflow self-contained in this folder while reusing tested logic.
 """
 
-
+from __future__ import annotations
 
 import argparse
 from pathlib import Path

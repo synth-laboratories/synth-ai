@@ -1,6 +1,6 @@
 """Task app configuration for a single-step math reasoning environment."""
 
-
+from __future__ import annotations
 
 import contextlib
 import os

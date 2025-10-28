@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch multiple local rollouts concurrently and summarise rewards/achievements."""
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

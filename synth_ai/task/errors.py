@@ -1,6 +1,6 @@
 """Error helpers used across Task App implementations."""
 
-
+from __future__ import annotations
 
 from typing import Any
 

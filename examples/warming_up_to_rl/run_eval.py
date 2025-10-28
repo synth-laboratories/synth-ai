@@ -6,7 +6,7 @@ Baseline evaluation script (public-friendly skeleton)
 - Keeps structure aligned with research/testing/crafter eval harness
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

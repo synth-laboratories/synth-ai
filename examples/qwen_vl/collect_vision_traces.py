@@ -31,7 +31,7 @@ Usage:
       --output-dir traces/qwen2vl_vision
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

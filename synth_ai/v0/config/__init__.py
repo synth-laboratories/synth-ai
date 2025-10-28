@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 
 # Compatibility package to mirror historical import paths.
 # Re-export constants from the modern location under synth_ai.config.

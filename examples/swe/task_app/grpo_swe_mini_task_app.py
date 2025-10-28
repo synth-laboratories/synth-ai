@@ -1,6 +1,6 @@
 """Compatibility wrapper for the mini-SWE task app."""
 
-
+from __future__ import annotations
 
 import argparse
 from pathlib import Path

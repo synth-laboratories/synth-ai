@@ -32,7 +32,7 @@ Common Use Cases:
 - Custom filtering and sampling
 """
 
-
+from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable

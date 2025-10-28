@@ -13,7 +13,7 @@ Usage:
     uv run python examples/vlm/crafter_image_only_agent.py --seed 7 --steps 5
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

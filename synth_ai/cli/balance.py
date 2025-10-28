@@ -3,7 +3,7 @@
 CLI: check remaining credit balance from Synth backend.
 """
 
-
+from __future__ import annotations
 
 import importlib
 import os

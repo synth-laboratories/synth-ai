@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download subsets of the MATH dataset to local JSONL files."""
 
-
+from __future__ import annotations
 
 import argparse
 import json

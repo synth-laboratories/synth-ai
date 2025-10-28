@@ -7,7 +7,7 @@ to the judge scoring endpoint at POST /api/judge/v1/score.
 This is the canonical contract that the backend MUST conform to.
 """
 
-
+from __future__ import annotations
 
 from typing import Any, Literal
 

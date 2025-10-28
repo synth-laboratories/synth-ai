@@ -11,7 +11,7 @@ so you can implement things like LATS / MCTS without bringing in the
 big “backend.production” code-base.
 """
 
-
+from __future__ import annotations
 
 import gzip
 import hashlib

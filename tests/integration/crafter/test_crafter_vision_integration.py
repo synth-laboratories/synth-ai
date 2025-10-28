@@ -7,7 +7,7 @@ These tests verify end-to-end vision functionality:
 4. Traces properly capture image data
 """
 
-
+from __future__ import annotations
 
 import json
 import os

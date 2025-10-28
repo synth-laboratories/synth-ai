@@ -1,6 +1,6 @@
 """Modal task app for Hendrycks MATH single-step Environment."""
 
-
+from __future__ import annotations
 
 import os
 from collections.abc import Iterable

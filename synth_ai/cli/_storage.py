@@ -5,7 +5,7 @@ time, which keeps CLI modules usable in constrained environments while still
 allowing type checkers to resolve the symbols dynamically.
 """
 
-
+from __future__ import annotations
 
 import importlib
 from collections.abc import Callable

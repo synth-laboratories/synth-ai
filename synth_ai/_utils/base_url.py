@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 
 from synth_ai.utils.base_url import *  # noqa: F401,F403
 

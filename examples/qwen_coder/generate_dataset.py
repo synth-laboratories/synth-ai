@@ -10,7 +10,7 @@ Example:
     --output examples/qwen_coder/ft_data/coder_sft.small.jsonl \
     --n 50 --seed 42 --lang python
 """
-
+from __future__ import annotations
 
 import argparse
 import json

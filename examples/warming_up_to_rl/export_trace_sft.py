@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export behavioural-cloning datasets from tracing_v3 SQLite traces with filters."""
 
-
+from __future__ import annotations
 
 import argparse
 import json

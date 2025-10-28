@@ -1,4 +1,4 @@
-
+from __future__ import annotations
 
 from .client import RlClient
 from .config import RLJobConfig

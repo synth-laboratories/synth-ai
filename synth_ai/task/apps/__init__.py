@@ -1,6 +1,6 @@
 """Registry for Task Apps exposed via the shared FastAPI harness."""
 
-
+from __future__ import annotations
 
 import importlib
 import sys

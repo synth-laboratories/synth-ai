@@ -5,7 +5,7 @@ mirrors the public surface area of the historical SQLAlchemy manager while
 executing all operations directly via libsql.
 """
 
-
+from __future__ import annotations
 
 import asyncio
 import json

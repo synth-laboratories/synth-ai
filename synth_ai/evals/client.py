@@ -4,7 +4,7 @@ This surface is experimental and subject to change without notice.
 Set environment variable `SYNTH_SILENCE_EXPERIMENTAL=1` to silence warnings.
 """
 
-
+from __future__ import annotations
 
 import os
 import warnings

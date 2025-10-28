@@ -1,6 +1,6 @@
 """SQLAlchemy declarative models for tracing v3."""
 
-
+from __future__ import annotations
 
 import json
 

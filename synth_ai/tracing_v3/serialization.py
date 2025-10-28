@@ -10,7 +10,7 @@ Design goals:
 - Keep output compact (no unnecessary whitespace) while readable if needed
 """
 
-
+from __future__ import annotations
 
 import base64
 import json

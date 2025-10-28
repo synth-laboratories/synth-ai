@@ -1,6 +1,6 @@
 """Task App configuration for the GRPO Verilog spec-to-RTL example."""
 
-
+from __future__ import annotations
 
 import asyncio
 import contextlib

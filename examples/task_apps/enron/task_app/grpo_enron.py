@@ -1,6 +1,6 @@
 """Task App configuration for the GRPO Enron email QA example."""
 
-
+from __future__ import annotations
 
 import contextlib
 import json

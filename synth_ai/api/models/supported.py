@@ -1,6 +1,6 @@
 """Catalog of Synth-hosted base models and helpers (core vs experimental)."""
 
-
+from __future__ import annotations
 
 import os
 import warnings

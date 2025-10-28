@@ -12,7 +12,7 @@ Usage:
         --output examples/vlm/output/crafter_vlm_dataset.jsonl
 """
 
-
+from __future__ import annotations
 
 import argparse
 import json

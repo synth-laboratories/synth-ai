@@ -16,7 +16,7 @@ After deployment the FastAPI service will be reachable at a URL similar to
 `https://<org>--pokemon-showdown-task-app-example.modal.run`.
 """
 
-
+from __future__ import annotations
 
 import subprocess
 import sys

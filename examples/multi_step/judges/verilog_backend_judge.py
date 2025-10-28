@@ -1,6 +1,6 @@
 """Verilog backend judge that calls the Synth judge API with inline rubric."""
 
-
+from __future__ import annotations
 
 import json
 import os

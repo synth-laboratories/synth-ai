@@ -1,6 +1,6 @@
 """Compatibility re-export for rollout contracts used by RL tooling."""
 
-
+from __future__ import annotations
 
 from synth_ai.task.contracts import (
     RolloutEnvSpec,

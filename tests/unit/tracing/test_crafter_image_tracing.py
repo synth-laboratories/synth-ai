@@ -6,7 +6,7 @@ These tests use a deterministic crafter policy to verify that:
 3. LLMContentPart properly stores image metadata
 """
 
-
+from __future__ import annotations
 
 import base64
 import sqlite3

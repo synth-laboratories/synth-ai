@@ -9,7 +9,7 @@ Writes:
   examples/qwen_coder/ft_data/ft_infer_smoke.txt
 """
 
-
+from __future__ import annotations
 
 import asyncio
 import os

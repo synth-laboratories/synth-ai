@@ -16,7 +16,7 @@ Optionally you can point to a specific inference host (e.g., your vLLM or task-a
 The script defaults the backend base URL to the hosted service if BACKEND_BASE_URL is not set.
 """
 
-
+from __future__ import annotations
 
 import argparse
 import asyncio

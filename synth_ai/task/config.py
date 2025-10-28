@@ -1,6 +1,6 @@
 """Configuration dataclasses for task app CLI commands (eval, filter)."""
 
-
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path

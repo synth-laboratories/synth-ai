@@ -22,7 +22,7 @@ The decorators support both sync and async functions where appropriate,
 though async is preferred for consistency with the rest of the system.
 """
 
-
+from __future__ import annotations
 
 import asyncio
 import contextvars
