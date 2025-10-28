@@ -7,8 +7,8 @@ import requests
 from requests import RequestException
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 
-PROD_INIT_URL = "https://www.usesynth.ai/dashboard/api/sdk/handshake/init"
-PROD_TOKEN_URL = "https://www.usesynth.ai/dashboard/api/sdk/handshake/token"
+PROD_INIT_URL = "https://www.usesynth.ai/api/sdk/handshake/init"
+PROD_TOKEN_URL = "https://www.usesynth.ai/api/sdk/handshake/token"
 DEV_INIT_URL = "http://localhost:3000/api/sdk/handshake/init"
 DEV_TOKEN_URL = "http://localhost:3000/api/sdk/handshake/token"
 
@@ -18,7 +18,7 @@ def fetch_credentials_from_web_browser_session(prod: bool = True) -> None:
     token_url = PROD_TOKEN_URL if prod else DEV_TOKEN_URL
     origin_label = "https://www.usesynth.ai" if prod else "http://localhost:3000"
 
-    print(f"\n⏳ Connecting to {origin_label} to fetch your Synth credentials…")
+    print(f"\n🌐 Connecting to {origin_label} to fetch your Synth credentials…\n")
 
     # 1. Initialize browser handshake
     try:
@@ -99,14 +99,14 @@ def fetch_credentials_from_web_browser_session(prod: bool = True) -> None:
     # 5. Load credentials to process environment and save credentials to .env and ~/synth-ai/config.json
     if synth_api_key:
         os.environ["SYNTH_API_KEY"] = synth_api_key
-    resolved_synth_key = resolve_env_var("SYNTH_API_KEY")
-    write_env_var_to_json("SYNTH_API_KEY", resolved_synth_key, "~/.synth-ai/config.json")
-    write_env_var_to_dotenv("SYNTH_API_KEY", resolved_synth_key)
+    synth_api_key = resolve_env_var("SYNTH_API_KEY")
+    write_env_var_to_json("SYNTH_API_KEY", synth_api_key, "~/.synth-ai/config.json")
+    write_env_var_to_dotenv("SYNTH_API_KEY", synth_api_key)
 
     if env_api_key:
         os.environ["ENVIRONMENT_API_KEY"] = env_api_key
-    resolved_env_key = resolve_env_var("ENVIRONMENT_API_KEY")
-    write_env_var_to_json("ENVIRONMENT_API_KEY", resolved_env_key, "~/.synth-ai/config.json")
-    write_env_var_to_dotenv("ENVIRONMENT_API_KEY", resolved_env_key)
+    env_api_key = resolve_env_var("ENVIRONMENT_API_KEY")
+    write_env_var_to_json("ENVIRONMENT_API_KEY", env_api_key, "~/.synth-ai/config.json")
+    write_env_var_to_dotenv("ENVIRONMENT_API_KEY", env_api_key)
 
-    print(f"✅ Connected to {org_name}")
+    print(f"\n✅ Connected to {org_name}")
