@@ -12,7 +12,7 @@
 
 ---
 
-## 🚀 Install
+## 🚀 Install version 0.2.16
 
 ```bash
 pip install synth-ai

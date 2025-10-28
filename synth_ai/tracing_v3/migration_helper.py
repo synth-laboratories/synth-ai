@@ -68,7 +68,7 @@ def categorize_files(v2_files: list[tuple[str, list[str]]]) -> dict:
             categories["examples"].append((file_path, imports))
         elif any(
             core in file_path
-            for core in ["synth_ai/lm/", "synth_ai/tui/", "synth_ai/environments/"]
+            for core in ["synth_ai/lm/", "synth_ai/environments/"]
         ):
             categories["core_library"].append((file_path, imports))
         else:
@@ -104,7 +104,6 @@ def print_migration_report():
     print("2. Debug scripts: Can be deleted or archived")
     print("3. Core library files: Need careful migration to v3")
     print("   - synth_ai/lm/core/main_v2.py")
-    print("   - synth_ai/tui/cli/query_experiments.py")
     print("   - synth_ai/environments/service/core_routes.py")
     print("4. Examples: Should be updated to demonstrate v3 usage")
 
