@@ -5,11 +5,11 @@ import os
 import time
 import webbrowser
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-import click
 import requests
+from click.exceptions import Exit
 from synth_ai.demos import core as demo_core
 from synth_ai.utils.cli import print_next_step
 from synth_ai.utils.env import mask_str
@@ -45,7 +45,7 @@ def _get_canonical_origin() -> str:
 
 def _split_origin(origin: str) -> tuple[str, str]:
     parsed = urlsplit(origin)
-    bare = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+    bare = cast(str, urlunsplit((parsed.scheme, parsed.netloc, "", "", "")))
     path = parsed.path.rstrip("/")
     return bare, path
 
@@ -263,4 +263,4 @@ def register(group):
     def demo_setup():
         code = setup()
         if code:
-            raise click.exceptions.Exit(code)
+            raise Exit(code)

@@ -37,7 +37,10 @@ def validate_training_jsonl(path: str | Path, *, sample_lines: int = 50) -> None
 def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
     from synth_ai.task.validators import validate_task_app_url as _vt
 
-    _vt(url, name=name)
+    try:
+        _vt(url)
+    except ValueError as exc:
+        raise ValueError(f"{name}: {exc}") from exc
 
 
 def validate_trainer_cfg_rl(trainer: dict[str, Any]) -> None:

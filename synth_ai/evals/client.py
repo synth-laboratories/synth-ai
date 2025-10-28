@@ -10,7 +10,7 @@ import os
 import warnings
 from typing import Any, Literal, TypedDict
 
-from synth_ai.http import AsyncHttpClient, HTTPError
+from synth_ai.http_client import AsyncHttpClient, HTTPError
 from synth_ai.tracing_v3.serialization import normalize_for_json
 
 Provider = Literal["groq", "gemini"]

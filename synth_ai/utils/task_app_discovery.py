@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+from click.exceptions import Abort
 
 try:
     _task_apps_module = importlib.import_module("synth_ai.task.apps")
@@ -632,7 +633,7 @@ def _prompt_user_for_choice(choices: list[AppChoice]) -> AppChoice:
         click.echo(_format_choice(choice, idx))
     try:
         response = click.prompt("Enter choice", default="1", type=str).strip() or "1"
-    except (click.exceptions.Abort, EOFError, KeyboardInterrupt) as exc:
+    except (Abort, EOFError, KeyboardInterrupt) as exc:
         raise click.ClickException("Task app selection cancelled by user") from exc
     if not response.isdigit():
         raise click.ClickException("Selection must be a number")

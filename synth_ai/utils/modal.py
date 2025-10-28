@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse, urlunparse
 
 from synth_ai.demos import core as demo_core
@@ -63,7 +63,7 @@ def normalize_endpoint_url(url: str) -> str:
                     creds += f":{parsed.password}"
                 netloc = f"{creds}@{netloc}"
             parsed = parsed._replace(netloc=netloc)
-            return urlunparse(parsed)
+            return cast(str, urlunparse(parsed))
     except Exception:
         pass
     return url

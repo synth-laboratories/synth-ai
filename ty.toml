@@ -2,3 +2,10 @@
 include = [
     "synth_ai",
 ]
+exclude = [
+    "synth_ai/v0",
+    "synth_ai/cli/task_apps.py",
+    "synth_ai/demos",
+    "synth_ai/environments",
+    "synth_ai/utils/task_app_discovery.py",
+]
