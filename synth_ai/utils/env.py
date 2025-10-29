@@ -127,11 +127,17 @@ def filter_json_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, st
     return matches
 
 
-def resolve_env_var(key: str) -> None:
+def ensure_env_var(key: str, expected_value: str) -> None:
+    actual_value = os.getenv(key)
+    if expected_value != actual_value:
+        raise ValueError(f"Expected: {key}={expected_value}\nActual: {key}={actual_value}")
+
+
+def resolve_env_var(key: str) -> str:
     env_value = os.getenv(key)
     if env_value is not None:
         click.echo(f"Using {key}={mask_str(env_value)} from process environment")
-        return
+        return env_value
 
     value: str = ""
 
@@ -167,8 +173,7 @@ def resolve_env_var(key: str) -> None:
                     show_choices=False,
                 ).strip()
             except click.Abort:
-                return
-
+                raise click.Abort()
             if choice.lower() == 'm':
                 value = _prompt_manual_env_value(key)
                 break
@@ -186,20 +191,25 @@ def resolve_env_var(key: str) -> None:
             click.echo(f"Invalid selection. Enter a number between 1 and {len(options)} or 'm'.")
 
     else:
-        click.echo(f"No value found for {key}")
+        print(f"No value found for {key}")
         value = _prompt_manual_env_value(key)
     
     os.environ[key] = value
-    click.echo(f"Loaded {key}={mask_str(value)} into process environment")
-    return
+    ensure_env_var(key, value)
+    print(f"Loaded {key}={mask_str(value)} into process environment")
+    return value
 
 
 def write_env_var_to_dotenv(
     key: str,
     value: str,
-    output_file_path: str | Path,
+    output_file_path: str | Path | None = None,
 ) -> None:
-    path = Path(output_file_path).expanduser()
+    if output_file_path is None:
+        path = Path(".env")
+    else:
+        path = Path(output_file_path)
+    path = path.expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
 
     encoded_value = _format_env_value(value)
@@ -212,7 +222,7 @@ def write_env_var_to_dotenv(
             with path.open('r', encoding="utf-8") as handle:
                 lines = handle.readlines()
         except OSError as exc:
-            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+            raise RuntimeError(f"Failed to read {path}: {exc}") from exc
 
         for index, line in enumerate(lines):
             parsed = _parse_env_assignment(line)
@@ -238,9 +248,9 @@ def write_env_var_to_dotenv(
         with path.open('w', encoding="utf-8") as handle:
             handle.writelines(lines)
     except OSError as exc:
-        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+        raise RuntimeError(f"Failed to write {path}: {exc}") from exc
 
-    click.echo(f"Wrote {key}={mask_str(value)} to {path}")
+    print(f"Wrote {key}={mask_str(value)} to {path.resolve()}")
 
 
 def write_env_var_to_json(
@@ -250,7 +260,7 @@ def write_env_var_to_json(
 ) -> None:
     path = Path(output_file_path).expanduser()
     if path.exists() and not path.is_file():
-        raise click.ClickException(f"{path} exists and is not a file")
+        raise RuntimeError(f"{path} exists and is not a file")
 
     data: dict[str, str] = {}
 
@@ -259,12 +269,12 @@ def write_env_var_to_json(
             with path.open('r', encoding="utf-8") as handle:
                 existing = json.load(handle)
         except json.JSONDecodeError as exc:
-            raise click.ClickException(f"Invalid JSON in {path}: {exc}") from exc
+            raise RuntimeError(f"Invalid JSON in {path}: {exc}") from exc
         except OSError as exc:
-            raise click.ClickException(f"Failed to read {path}: {exc}") from exc
+            raise RuntimeError(f"Failed to read {path}: {exc}") from exc
 
         if not isinstance(existing, dict):
-            raise click.ClickException(f"Expected JSON object in {path}")
+            raise RuntimeError(f"Expected JSON object in {path}")
 
         for existing_key, existing_value in existing.items():
             if existing_key == key:
@@ -282,6 +292,6 @@ def write_env_var_to_json(
             json.dump(data, handle, indent=2, sort_keys=True)
             handle.write('\n')
     except OSError as exc:
-        raise click.ClickException(f"Failed to write {path}: {exc}") from exc
+        raise RuntimeError(f"Failed to write {path}: {exc}") from exc
 
-    click.echo(f"Wrote {key}={mask_str(value)} to {path}")
+    print(f"Wrote {key}={mask_str(value)} to {path}")
