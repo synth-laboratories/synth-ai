@@ -130,7 +130,7 @@ def _create_vision_sft_dataset(output_path: Path) -> None:
 
 @pytest.mark.slow
 @pytest.mark.vision
-def test_cli_train_sft_vision_qwen2vl(tmp_path: Path) -> None:
+def test_cli_train_sft_vision_qwen3vl(tmp_path: Path) -> None:
     """Test SFT training with vision model using CLI.
     
     This test verifies:
@@ -138,7 +138,7 @@ def test_cli_train_sft_vision_qwen2vl(tmp_path: Path) -> None:
     2. Job submission for vision SFT training
     3. Backend accepts vision training config
     
-    Uses Qwen2-VL-2B for faster testing.
+    Uses Qwen3-VL-2B for faster testing.
     
     Marks:
         @pytest.mark.slow - Training job submission takes time
@@ -552,4 +552,3 @@ if __name__ == "__main__":
         print(f"⚠️  test_cli_train_sft_vision_small_config: {e}")
     
     print("\n🎉 Vision SFT tests complete!")
-

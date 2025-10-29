@@ -22,13 +22,13 @@ Usage:
       --max-steps 50 \
       --output-dir traces/gpt5nano_vision
 
-  # Collect with Qwen2-VL via synth
+  # Collect with Qwen3-VL via synth
   uv run python examples/qwen_vl/collect_vision_traces.py \
-      --model Qwen/Qwen2-VL-7B-Instruct \
+      --model Qwen/Qwen3-VL-8B-Instruct \
       --provider synth \
       --episodes 100 \
       --max-steps 50 \
-      --output-dir traces/qwen2vl_vision
+      --output-dir traces/qwen3vl_vision
 """
 
 from __future__ import annotations
@@ -333,7 +333,7 @@ async def main() -> None:
     parser.add_argument(
         "--model",
         required=True,
-        help="Model name (e.g., gpt-5-nano, Qwen/Qwen2-VL-7B-Instruct)",
+        help="Model name (e.g., gpt-5-nano, Qwen/Qwen3-VL-8B-Instruct)",
     )
     parser.add_argument(
         "--provider",

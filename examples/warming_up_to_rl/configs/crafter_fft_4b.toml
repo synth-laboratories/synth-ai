@@ -1,7 +1,5 @@
 # FFT job config for Qwen/Qwen3-4B on Crafter SFT dataset
 
-type = "sft"
-
 [algorithm]
 type = "offline"
 method = "supervised_finetune"

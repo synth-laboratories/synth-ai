@@ -1,11 +1,9 @@
 # Qwen3 Coder 30B LoRA SFT – all-linear adapters
 
-type = "sft"
-
 [algorithm]
 type = "offline"
 method = "sft"
-variety = "lora"
+variety = "qlora"
 
 [job]
 model = "Qwen/Qwen3-Coder-30B-A3B-Instruct"

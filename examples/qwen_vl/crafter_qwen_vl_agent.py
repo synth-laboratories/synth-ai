@@ -2,7 +2,7 @@
 """
 Crafter agent using Qwen-VL models via synth-ai's hosted inference.
 
-This demonstrates vision-language models (Qwen2-VL, Qwen3-VL) playing Crafter
+This demonstrates vision-language models (Qwen3-VL family) playing Crafter
 with image observations. The CrafterPolicy automatically detects vision capability
 from the model name and includes base64-encoded PNG frames in the prompt.
 
@@ -12,7 +12,7 @@ Requirements:
 
 Usage:
   uv run python examples/qwen_vl/crafter_qwen_vl_agent.py \
-      --model Qwen/Qwen2-VL-7B-Instruct --seeds 10 --steps 20
+      --model Qwen/Qwen3-VL-8B-Instruct --seeds 10 --steps 20
 """
 
 from __future__ import annotations
@@ -142,7 +142,7 @@ async def _run_episode(
     env = CrafterClassicEnvironment(task_instance)
     wrapper = CrafterEnvironmentWrapper(env, seed=seed)
     
-    # Policy will auto-detect vision from model name (qwen-vl, qwen2-vl, qwen3-vl)
+    # Policy will auto-detect vision from model name (qwen-vl and qwen3-vl tokens)
     policy = CrafterPolicy(inference_url="synth://inference", model=model)
     await policy.initialize({
         "use_tools": True,
@@ -235,8 +235,8 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--model",
-        default="Qwen/Qwen2-VL-7B-Instruct",
-        help="Qwen-VL model name (e.g., Qwen/Qwen2-VL-7B-Instruct, Qwen/Qwen3-VL-8B)",
+        default="Qwen/Qwen3-VL-8B-Instruct",
+        help="Qwen-VL model name (e.g., Qwen/Qwen3-VL-2B-Instruct, Qwen/Qwen3-VL-8B-Instruct)",
     )
     parser.add_argument("--seeds", type=int, default=10, help="Number of random seeds to evaluate")
     parser.add_argument("--steps", type=int, default=20, help="Max steps per seed")

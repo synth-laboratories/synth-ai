@@ -44,7 +44,7 @@ async def main():
             print()
         except Exception as e:
             print(f"❌ Server not responding: {e}")
-            print("   Start it with: uv run -m synth_ai task-app serve pokemon_red --port 8913")
+            print("   Start it with: uv run -m synth_ai task-app deploy --runtime uvicorn pokemon_red --port 8913")
             return
         
         # Build rollout request with BATCHED actions (5-10 per sequence)

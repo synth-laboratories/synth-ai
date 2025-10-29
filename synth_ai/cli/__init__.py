@@ -62,7 +62,7 @@ except Exception:
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
-for _module_path in ("synth_ai.cli.demo", "synth_ai.cli.turso"):
+for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status", "synth_ai.cli.turso"):
     module = _maybe_import(_module_path)
     if not module:
         continue
@@ -71,6 +71,9 @@ for _module_path in ("synth_ai.cli.demo", "synth_ai.cli.turso"):
     fn = _callable_from(module, "register")
     if fn:
         fn(cli)
+
+# Register help command
+_maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 
 # Train CLI lives under synth_ai.api.train
 _maybe_call("synth_ai.api.train", "register", cli)

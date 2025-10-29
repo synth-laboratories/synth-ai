@@ -1,6 +1,9 @@
 # Qwen3 Coder 4B LoRA SFT – all-linear adapters
 
-type = "sft"
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "qlora"
 
 [job]
 model = "Qwen/Qwen3-4B"

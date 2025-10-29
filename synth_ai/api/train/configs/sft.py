@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import Field
 
 from ..utils import load_toml
-from .shared import AlgorithmConfig, ComputeConfig, ExtraModel
+from .shared import AlgorithmConfig, ComputeConfig, ExtraModel, LoraConfig, PolicyConfig
 
 
 class JobConfig(ExtraModel):
@@ -35,6 +35,7 @@ class TrainingConfig(ExtraModel):
     mode: str | None = None
     use_qlora: bool | None = None
     validation: TrainingValidationConfig | None = None
+    lora: LoraConfig | None = None  # NEW: nested LoRA config
 
 
 class HyperparametersParallelism(ExtraModel):
@@ -65,10 +66,12 @@ class HyperparametersConfig(ExtraModel):
 class SFTConfig(ExtraModel):
     algorithm: AlgorithmConfig | None = None
     job: JobConfig
+    policy: PolicyConfig | None = None  # NEW: unified policy section
     compute: ComputeConfig | None = None
     data: SFTDataConfig | None = None
     training: TrainingConfig | None = None
     hyperparameters: HyperparametersConfig = Field(default_factory=HyperparametersConfig)
+    lora: dict[str, Any] | None = None  # DEPRECATED: use training.lora instead
     tags: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -76,7 +79,8 @@ class SFTConfig(ExtraModel):
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> SFTConfig:
-        return cls.model_validate(dict(data))
+        """Load SFT config from dict/TOML mapping."""
+        return cls.model_validate(data)
 
     @classmethod
     def from_path(cls, path: Path) -> SFTConfig:

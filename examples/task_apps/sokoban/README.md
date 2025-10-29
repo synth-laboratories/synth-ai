@@ -20,7 +20,7 @@ Sokoban is a classic puzzle game where the player must push boxes onto target lo
 cd /path/to/synth-ai
 
 # Start the Sokoban task app on port 8911
-uvx synth-ai task-app serve sokoban --port 8911
+uvx synth-ai task-app deploy --runtime uvicorn sokoban --port 8911
 ```
 
 The server will be available at `http://localhost:8911`.
@@ -283,7 +283,7 @@ lsof -i :8911
 kill -9 $(lsof -ti :8911)
 
 # Restart
-uvx synth-ai task-app serve sokoban --port 8911
+uvx synth-ai task-app deploy --runtime uvicorn sokoban --port 8911
 ```
 
 ## Examples
@@ -304,4 +304,3 @@ To add new features:
 ## License
 
 MIT
-

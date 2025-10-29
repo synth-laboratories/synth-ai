@@ -13,6 +13,5 @@ __all__ = [
     "eval",
     "filter",
     "deploy",
-    "serve",
-    "modal_serve",
+    "status",
 ]

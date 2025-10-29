@@ -17,7 +17,7 @@ A reinforcement learning environment for Pokémon Red using PyBoy emulation with
 
 ```bash
 # From synth-ai root
-uv run -m synth_ai task-app serve pokemon_red --port 8913
+uv run -m synth_ai task-app deploy --runtime uvicorn pokemon_red --port 8913
 ```
 
 ### 2. Run a Random Rollout
@@ -232,7 +232,7 @@ uv add pyboy
 lsof -ti :8913 | xargs -r kill -9
 
 # Or use a different port
-uv run -m synth_ai task-app serve pokemon_red --port 8914
+uv run -m synth_ai task-app deploy --runtime uvicorn pokemon_red --port 8914
 ```
 
 ## Examples
@@ -249,7 +249,7 @@ cd /Users/joshpurtell/Documents/GitHub/synth-ai
 echo "OPENAI_API_KEY=sk-..." >> .env
 
 # 2. Start the task app server (in background)
-nohup sh -c 'printf "n\n" | uv run -m synth_ai task-app serve pokemon_red --port 8913 --no-reload' > nohup_pokemon.log 2>&1 &
+nohup sh -c 'printf "n\n" | uv run -m synth_ai task-app deploy --runtime uvicorn pokemon_red --port 8913 --no-reload' > nohup_pokemon.log 2>&1 &
 
 # Wait for startup
 sleep 8
@@ -354,4 +354,3 @@ TOTAL REWARD: 705 points
 - **PyBoy**: Game Boy emulator - https://github.com/Baekalfen/PyBoy
 - **Pokémon Red Disassembly**: RAM map reference - https://github.com/pret/pokered
 - **Datacrystal.org**: Memory address documentation
-

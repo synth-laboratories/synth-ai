@@ -1,11 +1,9 @@
 # Qwen3 Coder LoRA SFT – all-linear adapters
 
-type = "sft"
-
 [algorithm]
 type = "offline"
 method = "sft"
-variety = "fft"
+variety = "qlora"
 
 [job]
 # Smallest supported Qwen3 base; replace with the smallest Coder variant when available

@@ -52,11 +52,11 @@ async def main():
     provider = create_provider("synth")
     
     # Warm up model (cached for 10 minutes)
-    await provider.warmup("Qwen/Qwen2.5-7B-Instruct")
+    await provider.warmup("Qwen/Qwen3-4B-Instruct-2507")
     
     # Make request
     response = await provider.create_chat_completion(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model="Qwen/Qwen3-4B-Instruct-2507",
         messages=[
             {"role": "user", "content": "Hello!"}
         ]
@@ -76,7 +76,7 @@ asyncio.run(main())
 from synth_ai.lm import create_chat_completion_async
 
 response = await create_chat_completion_async(
-    model="Qwen/Qwen2.5-7B-Instruct",
+    model="Qwen/Qwen3-4B-Instruct-2507",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 ```
@@ -89,7 +89,7 @@ from synth_ai.lm import UnifiedLMClient
 async with UnifiedLMClient() as client:
     # Use Synth
     response = await client.create_chat_completion(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model="Qwen/Qwen3-4B-Instruct-2507",
         messages=[{"role": "user", "content": "Hello!"}],
         provider="synth"
     )
@@ -133,7 +133,7 @@ Async client with OpenAI-compatible interface:
 ```python
 async with AsyncSynthClient() as client:
     response = await client.chat_completions_create(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model="Qwen/Qwen3-4B-Instruct-2507",
         messages=[...],
         temperature=0.7,
         max_tokens=1000,
@@ -149,7 +149,7 @@ Synchronous version for non-async code:
 ```python
 with SyncSynthClient() as client:
     response = client.chat_completions_create(
-        model="Qwen/Qwen2.5-7B-Instruct",
+        model="Qwen/Qwen3-4B-Instruct-2507",
         messages=[...]
     )
 ```
@@ -192,7 +192,7 @@ tools = [{
 }]
 
 response = await provider.create_chat_completion(
-    model="Qwen/Qwen2.5-7B-Instruct",
+    model="Qwen/Qwen3-4B-Instruct-2507",
     messages=[{"role": "user", "content": "What's the weather in Paris?"}],
     tools=tools,
     tool_choice="auto"
@@ -235,7 +235,7 @@ response = httpx.post(
 # After (Synth Client)
 from synth_ai.lm import create_chat_completion_async
 response = await create_chat_completion_async(
-    model="Qwen/Qwen2.5-7B-Instruct",
+    model="Qwen/Qwen3-4B-Instruct-2507",
     messages=[...]
 )
 ```

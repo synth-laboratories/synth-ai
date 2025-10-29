@@ -6,57 +6,61 @@ Use `uvx synth-ai …` to run the CLI without installing the package globally. A
 
 Most commands honour the following environment helpers:
 
-- `.env` discovery: `uvx synth-ai setup` writes keys to `.env` files. `serve`, `deploy`, and `train` load those files automatically (`synth_ai/cli/task_apps.py:186`, `synth_ai/api/train/cli.py:159`).
+- `.env` discovery: `uvx synth-ai setup` writes keys to `.env` files. `deploy` and `train` load those files automatically (`synth_ai/cli/commands/deploy/core.py`, `synth_ai/api/train/cli.py:159`).
 - `SYNTH_API_KEY`: backend authentication for SFT/RL jobs.
 - `ENVIRONMENT_API_KEY`: task app authentication; forwarded as `X-API-Key`.
 
-## `uvx synth-ai serve`
+## `uvx synth-ai deploy`
 
-Start a task app locally. If you omit `APP_ID`, the CLI scans the repo (including `synth_ai/task/apps`, `examples/`, and `synth_ai/demos/`) and prompts you to pick one:
+The consolidated entrypoint for task apps. Use `--runtime` to choose between local uvicorn and Modal execution. Omitting `APP_ID` triggers discovery across registered task apps, demos, and downstream configs.
+
+### Local development (uvicorn runtime)
 
 ```bash
-# Interactive selection
-uvx synth-ai serve --port 8001 --env-file examples/warming_up_to_rl/.env
+# Interactive discovery
+uvx synth-ai deploy --runtime uvicorn --port 8001 --env-file examples/warming_up_to_rl/.env
 
-# Explicit app id (legacy behaviour)
-uvx synth-ai serve grpo-crafter --port 8001 --env-file examples/warming_up_to_rl/.env --reload
+# Explicit app id with tracing enabled
+uvx synth-ai deploy --runtime uvicorn grpo-crafter \
+  --port 8001 \
+  --env-file examples/warming_up_to_rl/.env \
+  --trace traces/v3 \
+  --trace-db traces/v3/task_app_traces.sqlite
 ```
 
-Options (`synth_ai/cli/task_apps.py:55`):
-- `app_id` (optional) – skip discovery and use a specific app (e.g., `grpo-crafter`).
+Key uvicorn flags (same as the legacy `serve` command):
+- `app_id` (optional) – skip discovery and run a specific app (`grpo-crafter`, `math-single-step`, …).
 - `--host` (default `0.0.0.0`).
 - `--port` (default `8001`).
 - `--env-file PATH` (repeatable) – additional env files to load.
 - `--reload/--no-reload` – uvicorn autoreload (default off).
 - `--force` – kill processes already bound to the chosen port.
-- `--trace DIR` – enable tracing, writing SFT JSONL outputs.
-- `--trace-db PATH` – override the tracing SQLite location.
+- `--trace DIR` / `--trace-db PATH` – enable tracing outputs.
 
-## `uvx synth-ai modal-serve`
-
-Launch a task app inside Modal for interactive testing without a full deploy (`synth_ai/cli/task_apps.py:347`). As with `serve`, leaving off `APP_ID` triggers discovery and an interactive picker:
+### Modal preview (`--modal-mode serve`)
 
 ```bash
-uvx synth-ai modal-serve --env-file examples/warming_up_to_rl/.env
+uvx synth-ai deploy \
+  --runtime modal \
+  --modal-mode serve \
+  --env-file examples/warming_up_to_rl/.env
 ```
 
-Options mirror `serve` plus Modal-specific flags:
-- `--modal-cli PATH` – alternate Modal binary.
+This proxies the Modal CLI to spin up a temporary container without performing a full deploy. Flags mirror the uvicorn runtime plus:
+- `--modal-cli PATH` – alternate Modal binary (defaults to `modal` on PATH).
 - `--name` – override the Modal app name.
-- `--env-file` – secrets to mount inside the container (required if not registered).
+- `--env-file` – secrets to mount inside the container (required if they are not registered with Modal).
+- `--dry-run` – print the generated Modal command (only valid when `--modal-mode deploy`).
 
-## `uvx synth-ai deploy`
-
-Package and deploy a task app to Modal (`synth_ai/cli/task_apps.py:270`). Omit `APP_ID` to pick from discovered apps (registered entries, demos, or downstream configs containing `TaskAppConfig`).
+### Modal deployment (`--modal-mode deploy`, default)
 
 ```bash
-uvx synth-ai deploy --name grpo-crafter-task-app
+uvx synth-ai deploy grpo-crafter --runtime modal --name grpo-crafter-task-app --env-file examples/warming_up_to_rl/.env
 ```
 
-Key options:
-- `--dry-run` – print the generated Modal command and exit.
-- `--modal-cli` – path to Modal binary.
-- `--env-file` – explicit secrets file(s). The command preflights `ENVIRONMENT_API_KEY` by encrypting it with Synth’s backend public key when both `SYNTH_API_KEY` and the env key are available.
+The command packages the task app, uploads inline secrets, and invokes `modal deploy`. It preflights `ENVIRONMENT_API_KEY` by encrypting the value with Synth’s backend key when both `SYNTH_API_KEY` and the env key are present.
+
+> **Note:** The legacy `uvx synth-ai serve` and `uvx synth-ai modal-serve` shims still exist for backwards compatibility but simply call `deploy --runtime uvicorn` and `deploy --runtime modal --modal-mode serve` under the hood. Prefer the new flags in scripts and documentation.
 
 ## `uvx synth-ai setup`
 
