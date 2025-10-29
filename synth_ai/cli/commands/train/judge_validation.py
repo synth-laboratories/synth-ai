@@ -302,4 +302,3 @@ def check_for_deprecated_fields(toml_config: MutableMapping[str, Any]) -> dict[s
                 deprecated["judge.options"] = options_found
     
     return deprecated
-

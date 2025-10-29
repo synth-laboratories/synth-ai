@@ -75,8 +75,8 @@ def build_rl_payload(
     allow_experimental: bool | None = None,
 ) -> RLBuildResult:
     # Load and validate config with SDK-level checks
-    from synth_ai.cli.commands.train.validation import validate_rl_config
     from synth_ai.api.train.utils import load_toml
+    from synth_ai.cli.commands.train.validation import validate_rl_config
     
     try:
         raw_config = load_toml(config_path)

@@ -3,8 +3,8 @@ from __future__ import annotations
 from synth_ai.cli.commands.deploy.errors import (
     DeployCliError,
     EnvFileDiscoveryError,
-    EnvKeyPreflightError,
     EnvironmentKeyLoadError,
+    EnvKeyPreflightError,
     MissingEnvironmentApiKeyError,
     ModalCliResolutionError,
     ModalExecutionError,

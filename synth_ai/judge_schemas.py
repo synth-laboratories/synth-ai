@@ -124,4 +124,3 @@ class JudgeScoreRequest(BaseModel):
     trace: JudgeTracePayload = Field(..., description="Trajectory trace to evaluate")
     options: JudgeOptions = Field(default_factory=lambda: JudgeOptions(), description="Judge options")
     rubric: Optional[dict[str, Any]] = Field(None, description="Optional explicit rubric criteria")
-

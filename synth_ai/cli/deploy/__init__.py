@@ -4,8 +4,8 @@ from .core import command, get_command
 from .errors import (
     DeployCliError,
     EnvFileDiscoveryError,
-    EnvKeyPreflightError,
     EnvironmentKeyLoadError,
+    EnvKeyPreflightError,
     MissingEnvironmentApiKeyError,
     ModalCliResolutionError,
     ModalExecutionError,
