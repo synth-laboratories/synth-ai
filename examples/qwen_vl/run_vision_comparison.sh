@@ -37,13 +37,13 @@ uv run python examples/qwen_vl/crafter_gpt5nano_agent.py \
 
 echo ""
 echo "======================================"
-echo "2. Running Qwen2-VL-7B (synth-ai)"
+echo "2. Running Qwen3-VL-8B (synth-ai)"
 echo "======================================"
 uv run python examples/qwen_vl/crafter_qwen_vl_agent.py \
-    --model Qwen/Qwen2-VL-7B-Instruct \
+    --model Qwen/Qwen3-VL-8B-Instruct \
     --seeds $SEEDS \
     --steps $STEPS \
-    --output-dir "$OUTPUT_DIR/qwen2vl"
+    --output-dir "$OUTPUT_DIR/qwen3vl"
 
 echo ""
 echo "======================================"
@@ -53,10 +53,9 @@ echo ""
 echo "gpt-5-nano (OpenAI):"
 cat "$OUTPUT_DIR/gpt5nano/gpt5nano_summary.json" | python -m json.tool
 echo ""
-echo "Qwen2-VL-7B (synth-ai):"
-cat "$OUTPUT_DIR/qwen2vl/qwen_vl_summary.json" | python -m json.tool
+echo "Qwen3-VL-8B (synth-ai):"
+cat "$OUTPUT_DIR/qwen3vl/qwen_vl_summary.json" | python -m json.tool
 echo ""
 echo "Frames saved in:"
 echo "  - $OUTPUT_DIR/gpt5nano/gpt5nano_frames/"
-echo "  - $OUTPUT_DIR/qwen2vl/qwen_vl_frames/"
-
+echo "  - $OUTPUT_DIR/qwen3vl/qwen_vl_frames/"

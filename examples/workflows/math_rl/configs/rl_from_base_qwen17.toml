@@ -8,6 +8,8 @@ task_url = "http://localhost:8101"
 
 [model]
 base = "Qwen/Qwen3-1.7B"
+trainer_mode = "full"
+label = "math-single-step-qwen3-1.7b"
 
 [policy]
 model = "Qwen/Qwen3-1.7B"
@@ -23,6 +25,8 @@ evaluation_split = "validation"
 evaluation_episodes = 50
 
 [training]
+num_epochs = 1
+iterations_per_epoch = 20
 max_turns = 1
 ops = ["agent", "env"]
 batch_size = 2
@@ -61,6 +65,7 @@ health_max_wait_s = 180
 health_interval_ms = 300
 
 [rollout]
+env_name = "math"
 policy_name = "math-single-step"
 max_turns = 1
 episodes_per_batch = 32  # group_size * batch_size

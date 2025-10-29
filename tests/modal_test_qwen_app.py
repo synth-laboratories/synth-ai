@@ -1,11 +1,11 @@
-"""Minimal Modal server for Qwen2.5-0.5B-Instruct.
+"""Minimal Modal server for Qwen3-4B-Instruct-2507.
 Deploy with:  modal deploy modal_test_qwen_app.py
 The resulting URL will look like  <org>--qwen-test.modal.run
 """
 
 import modal
 
-MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
+MODEL_NAME = "Qwen/Qwen3-4B-Instruct-2507"
 app = modal.App("qwen-test-v2")
 
 # Shared image with all dependencies

@@ -129,7 +129,7 @@ async def main():
             print("✓ Server is healthy")
         except Exception as e:
             print(f"❌ Server not responding: {e}")
-            print(f"   Start it with: uv run -m synth_ai task-app serve pokemon_red --port 8913")
+            print(f"   Start it with: uv run -m synth_ai task-app deploy --runtime uvicorn pokemon_red --port 8913")
             return
         
         # Check API key
@@ -222,4 +222,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

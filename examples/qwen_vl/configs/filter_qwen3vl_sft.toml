@@ -1,9 +1,9 @@
-# Filter Qwen2-VL vision traces for SFT training
-# Same settings as gpt5nano filter but for Qwen2-VL traces
+# Filter Qwen3-VL vision traces for SFT training
+# Mirrors the GPT-4o mini filter configuration for vision data
 
 [filter]
-input_db = "traces/qwen2vl_vision/rollouts.db"
-output_dir = "traces/qwen2vl_vision/sft"
+input_db = "traces/qwen3vl_vision/rollouts.db"
+output_dir = "traces/qwen3vl_vision/sft"
 
 # Quality filters
 min_steps_per_episode = 5
@@ -47,4 +47,3 @@ val_file = "val.jsonl"
 save_stats = true
 stats_file = "filter_stats.json"
 save_filtered_episode_ids = true
-

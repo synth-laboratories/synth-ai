@@ -542,7 +542,7 @@ class CrafterPolicy(Policy):
             "claude-3",         # All Claude 3 models support vision
             "gemini",           # Gemini models
             "qwen-vl",          # Qwen Vision-Language models
-            "qwen2-vl",         # Qwen2 VL
+            "qwen3-vl",         # Qwen3 VL
             "pixtral",          # Mistral's vision model
             "llava",            # LLaVA models
             "phi-3-vision",     # Microsoft Phi-3 Vision

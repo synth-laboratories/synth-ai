@@ -46,7 +46,7 @@ fi
 
 echo "Starting grpo-crafter on ${TASK_APP_URL} ..."
 # Non-interactive answers for tracing prompts; unset OPENAI_API_KEY in child env
-nohup env -u OPENAI_API_KEY bash -lc 'printf "Y\n\n\n" | uvx synth-ai serve grpo-crafter --port 8001 --env-file .env' > /tmp/crafter_serve.log 2>&1 &
+nohup env -u OPENAI_API_KEY bash -lc 'printf "Y\n\n\n" | uvx synth-ai deploy --runtime uvicorn grpo-crafter --port 8001 --env-file .env' > /tmp/crafter_serve.log 2>&1 &
 PID=$!
 echo "PID: $PID | Logs: /tmp/crafter_serve.log"
 sleep 1

@@ -6,7 +6,7 @@ underlying FastAPI plumbing.
 
 ## Local development
 ```bash
-uvx synth-ai serve grpo-crafter --port 8001
+uvx synth-ai deploy --runtime uvicorn grpo-crafter --port 8001
 # Optional extras:
 #   --env-file path/to/.env    # load additional environment variables
 #   --reload                   # enable uvicorn auto-reload

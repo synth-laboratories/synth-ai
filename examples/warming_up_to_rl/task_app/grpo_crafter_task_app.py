@@ -3,7 +3,7 @@
 This module now delegates to the TaskAppConfig defined in the colocated example at
 `examples/warming_up_to_rl/task_app/grpo_crafter.py`. It is kept for legacy usage
 (running the file directly or targeting `fastapi_app` from external tooling). Prefer using
-`uvx synth-ai serve grpo-crafter` for local development and testing.
+`uvx synth-ai deploy --runtime uvicorn grpo-crafter` for local development and testing.
 """
 
 from __future__ import annotations

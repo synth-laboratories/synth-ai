@@ -1,7 +1,7 @@
 """Compatibility wrapper for the GRPO Verilog task app.
 
 This mirrors the Crafter task app wrapper while delegating configuration to
-`grpo_verilog.py`. Normal usage should prefer `uvx synth-ai serve grpo-verilog`,
+`grpo_verilog.py`. Normal usage should prefer `uvx synth-ai deploy --runtime uvicorn grpo-verilog`,
 but the module remains for direct execution or importing the FastAPI app.
 """
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import os
 import time
@@ -17,10 +18,18 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load backend configuration helpers") from exc
 
+from synth_ai.streaming import (
+    CLIHandler,
+    JobStreamer,
+    LossCurveHandler,
+    StreamConfig,
+    StreamEndpoints,
+    StreamType,
+)
+
 from .builders import build_rl_payload, build_sft_payload
 from .config_finder import discover_configs, prompt_for_config
 from .env_resolver import KeySpec, resolve_env
-from .pollers import RLJobPoller, SFTJobPoller
 from .task_app import check_task_app_health
 from .utils import (
     REPO_ROOT,
@@ -135,6 +144,62 @@ def _default_backend() -> str:
     return f"{base}/api" if not base.endswith("/api") else base
 
 
+_DEFAULT_SFT_HIDDEN_EVENTS = {
+    "sft.created",
+    "sft.pricing.check.requested",
+    "sft.pricing.check.allowed",
+    "sft.stage",
+    "snapshot.fetch",
+    "hatchet.preflight",
+    "hatchet.submission.attempt",
+    "hatchet.submission.result",
+    "sft.running",
+    "sft.status",
+    "sft.worker.alive",
+    "sft.dispatch.selected",
+    "sft.config.prepared",
+    "sft.strategy.selected",
+    "sft.training.args",
+}
+
+_DEFAULT_RL_HIDDEN_SUBSTRINGS = {"modal", "hatchet"}
+
+
+def _build_stream_components(
+    stream_format: str,
+    *,
+    hidden_event_types: set[str] | None = None,
+    hidden_event_substrings: set[str] | None = None,
+) -> tuple[StreamConfig, list]:
+    """Return stream configuration and handlers for the requested format."""
+    if stream_format == "chart":
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            event_types={
+                "sft.progress",
+                "sft.training.started",
+                "sft.training.finish",
+                "sft.validation.summary",
+                "rl.train.step",
+                "rl.train.started",
+                "rl.train.completed",
+                "workflow.completed",
+                "workflow.failed",
+            },
+            metric_names={"train.loss"},
+        )
+        handlers = [LossCurveHandler()]
+    else:
+        config = StreamConfig.default()
+        handlers = [
+            CLIHandler(
+                hidden_event_types=hidden_event_types or set(),
+                hidden_event_substrings=hidden_event_substrings or set(),
+            )
+        ]
+    return config, handlers
+
+
 @click.command("train")
 @click.option(
     "--config",
@@ -184,6 +249,13 @@ def _default_backend() -> str:
 )
 @click.option("--poll-interval", default=5.0, type=float, help="Seconds between poll attempts")
 @click.option(
+    "--stream-format",
+    type=click.Choice(["cli", "chart"]),
+    default="cli",
+    show_default=True,
+    help="Streaming output style (cli = line updates, chart = live loss panel)",
+)
+@click.option(
     "--examples",
     "examples_limit",
     type=int,
@@ -204,6 +276,7 @@ def train_command(
     poll: bool,
     poll_timeout: float,
     poll_interval: float,
+    stream_format: str,
     examples_limit: int | None,
 ) -> None:
     """Interactive launcher for RL / SFT jobs."""
@@ -302,6 +375,7 @@ def train_command(
             poll=poll,
             poll_timeout=poll_timeout,
             poll_interval=poll_interval,
+            stream_format=stream_format,
         )
     else:
         dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
@@ -315,13 +389,22 @@ def train_command(
             poll=poll,
             poll_timeout=poll_timeout,
             poll_interval=poll_interval,
+            stream_format=stream_format,
             examples_limit=examples_limit,
         )
 
 
 def _wait_for_training_file(
-    backend_base: str, api_key: str, file_id: str, *, timeout: float = 120.0
+    backend_base: str, api_key: str, file_id: str, *, timeout: float = 10.0
 ) -> None:
+    """Wait for training file to be visible after upload.
+    
+    Reduced from 120s to 10s because:
+    - POST response already confirms file is uploaded
+    - Backend now forces read-your-writes consistency  
+    - By job creation time, replica lag has resolved
+    - Quick sanity check only, not critical path
+    """
     url = f"{backend_base.rstrip('/')}/files/{file_id}"
     headers = {"Authorization": f"Bearer {api_key}"}
     elapsed = 0.0
@@ -400,6 +483,7 @@ def handle_rl(
     poll: bool,
     poll_timeout: float,
     poll_interval: float,
+    stream_format: str,
 ) -> None:
     overrides: dict[str, Any] = {
         "backend": backend_base,
@@ -497,10 +581,25 @@ def handle_rl(
         click.echo(f"Created job {job_id} (polling disabled)")
         return
 
-    poller = RLJobPoller(backend_base, synth_key, interval=poll_interval, timeout=poll_timeout)
-    outcome = poller.poll_job(job_id)
-    click.echo(f"Final status: {outcome.status}")
-    click.echo(preview_json(outcome.payload, limit=600))
+    click.echo("\n=== Streaming Job Progress ===")
+    config, handlers = _build_stream_components(
+        stream_format, hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS
+    )
+    if stream_format == "chart":
+        click.echo("Using live loss chart (metric=train.loss)")
+    streamer = JobStreamer(
+        base_url=backend_base,
+        api_key=synth_key,
+        job_id=job_id,
+        endpoints=StreamEndpoints.rl(job_id),
+        config=config,
+        handlers=handlers,
+        interval_seconds=poll_interval,
+        timeout_seconds=poll_timeout,
+    )
+    final_status = asyncio.run(streamer.stream_until_terminal())
+    click.echo(f"Final status: {final_status.get('status', 'unknown')}")
+    click.echo(preview_json(final_status, limit=600))
 
 
 def handle_sft(
@@ -514,6 +613,7 @@ def handle_sft(
     poll: bool,
     poll_timeout: float,
     poll_interval: float,
+    stream_format: str,
     examples_limit: int | None,
 ) -> None:
     dataset_path = dataset_override
@@ -641,10 +741,25 @@ def handle_sft(
             click.echo(f"Started job {job_id} (polling disabled)")
             return
 
-        poller = SFTJobPoller(backend_base, synth_key, interval=poll_interval, timeout=poll_timeout)
-        outcome = poller.poll_job(job_id)
-        click.echo(f"Final status: {outcome.status}")
-        click.echo(preview_json(outcome.payload, limit=600))
+        click.echo("\n=== Streaming Job Progress ===")
+        config, handlers = _build_stream_components(
+            stream_format, hidden_event_types=_DEFAULT_SFT_HIDDEN_EVENTS
+        )
+        if stream_format == "chart":
+            click.echo("Using live loss chart (metric=train.loss)")
+        streamer = JobStreamer(
+            base_url=backend_base,
+            api_key=synth_key,
+            job_id=job_id,
+            endpoints=StreamEndpoints.learning(job_id),
+            config=config,
+            handlers=handlers,
+            interval_seconds=poll_interval,
+            timeout_seconds=poll_timeout,
+        )
+        final_status = asyncio.run(streamer.stream_until_terminal())
+        click.echo(f"Final status: {final_status.get('status', 'unknown')}")
+        click.echo(preview_json(final_status, limit=600))
     finally:
         if limited_path is not None:
             try:

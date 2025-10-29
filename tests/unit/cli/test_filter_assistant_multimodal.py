@@ -1,6 +1,8 @@
 import json
 from datetime import datetime, UTC
+from typing import Literal
 
+import click
 import pytest
 import asyncio
 
@@ -12,7 +14,19 @@ from synth_ai.tracing_v3.abstractions import (
 )
 from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
-from synth_ai.cli.task_apps import filter_command
+
+from synth_ai.cli.commands.filter import core as filter_core
+from synth_ai.cli.commands.filter.core import filter_command
+from synth_ai.cli.commands.filter.errors import (
+    FilterConfigNotFoundError,
+    FilterConfigParseError,
+    InvalidFilterConfigError,
+    MissingFilterTableError,
+    NoSessionsMatchedError,
+    NoTracesFoundError,
+    TomlUnavailableError,
+)
+from synth_ai.task.config import FilterConfig
 
 
 def test_filter_preserves_assistant_multimodal(tmp_path):
@@ -85,3 +99,73 @@ output = "{out_path}"
     assert any(p.get("type") == "image_url" for p in assistant["content"] if isinstance(p, dict))
 
 
+def _invoke_filter_with_error(
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    *,
+    phase: Literal["load", "run"],
+) -> click.testing.Result:
+    runner = CliRunner()
+    if phase == "load":
+        monkeypatch.setattr(
+            filter_core,
+            "_load_filter_config",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+        )
+    else:
+        config = FilterConfig.from_dict(
+            {
+                "db": "sqlite+aiosqlite:///dummy.db",
+                "output": "out.jsonl",
+            }
+        )
+        monkeypatch.setattr(
+            filter_core,
+            "_load_filter_config",
+            lambda *_args, **_kwargs: (config, {}),
+        )
+        monkeypatch.setattr(
+            filter_core.asyncio,
+            "run",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+        )
+    return runner.invoke(filter_command, ["--config", "dummy.toml"])
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (TomlUnavailableError(hint="Install tomli"), "TOML parser not available"),
+        (FilterConfigNotFoundError(path="missing.toml"), "Filter config not found: missing.toml"),
+        (
+            FilterConfigParseError(path="bad.toml", detail="boom"),
+            "Failed to parse TOML 'bad.toml': boom",
+        ),
+        (MissingFilterTableError(), "Config must contain a [filter] table."),
+        (
+            InvalidFilterConfigError(detail="missing db"),
+            "Invalid filter config: missing db",
+        ),
+    ],
+)
+def test_filter_formats_load_errors(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, expected: str
+) -> None:
+    result = _invoke_filter_with_error(monkeypatch, error, phase="load")
+    assert result.exit_code != 0
+    assert expected in result.output
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (NoTracesFoundError(db_url="sqlite+aiosqlite:///dummy.db"), "No traces found in database"),
+        (NoSessionsMatchedError(), "No sessions matched the provided filters"),
+    ],
+)
+def test_filter_formats_runtime_errors(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, expected: str
+) -> None:
+    result = _invoke_filter_with_error(monkeypatch, error, phase="run")
+    assert result.exit_code != 0
+    assert expected in result.output

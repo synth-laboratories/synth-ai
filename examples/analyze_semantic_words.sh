@@ -5,7 +5,7 @@
 # Output: Markdown tables and JSON data (no plotting dependencies)
 
 echo "🔍 Analyzing semantic map words from Crafter agent..."
-echo "Make sure the synth-ai service is running: uvx synth-ai serve"
+echo "Make sure the synth-ai service is running: uvx synth-ai deploy --runtime uvicorn"
 echo ""
 
 cd synth_ai/environments/examples/crafter_classic/agent_demos/

@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import model_validator
 
 from ..utils import load_toml
-from .shared import AlgorithmConfig, ComputeConfig, ExtraModel
+from .shared import AlgorithmConfig, ComputeConfig, ExtraModel, LoraConfig, PolicyConfig
 
 
 class RLServicesConfig(ExtraModel):
@@ -48,6 +48,16 @@ class WeightSyncConfig(ExtraModel):
     verify_every_k: int | None = None
 
 
+class RewardsConfig(ExtraModel):
+    """Rewards configuration for RL training."""
+    step_rewards_enabled: bool | None = None
+    step_rewards_mode: str | None = None
+    step_rewards_indicator_lambda: float | None = None
+    step_rewards_beta: float | None = None
+    step_rewards_strategy: str | None = None
+    event_rewards_kind: str | None = None
+
+
 class RLTrainingConfig(ExtraModel):
     num_epochs: int
     iterations_per_epoch: int
@@ -59,13 +69,17 @@ class RLTrainingConfig(ExtraModel):
     learning_rate: float
     log_interval: int | None = None
     weight_sync_interval: int | None = None
+    # DEPRECATED: flat reward fields (use rewards.* instead)
     step_rewards_enabled: bool | None = None
     step_rewards_mode: str | None = None
     step_rewards_indicator_lambda: float | None = None
     step_rewards_beta: float | None = None
     step_rewards_strategy: str | None = None
     event_rewards_kind: str | None = None
+    # NEW: nested configs
     weight_sync: WeightSyncConfig | None = None
+    lora: LoraConfig | None = None
+    rewards: RewardsConfig | None = None
 
 
 class EvaluationConfig(ExtraModel):
@@ -86,9 +100,18 @@ class JudgeOptionsConfig(ExtraModel):
     max_concurrency: int | None = None
 
 
+class RubricConfig(ExtraModel):
+    """Rubric configuration for reward blending."""
+    enabled: bool = False
+    reward_blend: dict[str, float] | None = None  # env, event, outcome weights
+
+
 class JudgeConfig(ExtraModel):
     type: str | None = None
     timeout_s: int | None = None
+    enabled: bool | None = None  # Master switch for judge/rubric
+    reward_blend: dict[str, float] | None = None  # NEW: nested reward blending (replaces rubric.weights)
+    rubric: RubricConfig | None = None  # DEPRECATED: use flat fields instead
     options: JudgeOptionsConfig | None = None
 
 
@@ -96,15 +119,16 @@ class RLConfig(ExtraModel):
     algorithm: AlgorithmConfig
     services: RLServicesConfig
     compute: ComputeConfig | None = None
-    topology: dict[str, Any] | None = None
+    topology: dict[str, Any] | None = None  # DEPRECATED: use compute.topology instead
     vllm: dict[str, Any] | None = None
-    reference: dict[str, Any] | None = None
-    model: ModelConfig
-    lora: dict[str, Any] | None = None
+    reference: dict[str, Any] | None = None  # DEPRECATED: use compute.topology.reference_placement instead
+    model: ModelConfig | None = None  # DEPRECATED: use policy instead
+    policy: PolicyConfig | None = None  # NEW: unified policy (preferred)
+    lora: dict[str, Any] | None = None  # DEPRECATED: use training.lora instead
     rollout: RolloutConfig | None = None
     evaluation: EvaluationConfig | None = None
     training: RLTrainingConfig | None = None
-    rubric: dict[str, Any] | None = None
+    rubric: dict[str, Any] | None = None  # DEPRECATED: use judge.reward_blend and judge.enabled instead
     judge: JudgeConfig | None = None
     tags: dict[str, Any] | None = None
 
@@ -113,7 +137,8 @@ class RLConfig(ExtraModel):
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> RLConfig:
-        return cls.model_validate(dict(data))
+        """Load RL config from dict/TOML mapping."""
+        return cls.model_validate(data)
 
     @classmethod
     def from_path(cls, path: Path) -> RLConfig:

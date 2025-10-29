@@ -2,8 +2,8 @@
 # Applies quality filters and exports to SFT JSONL format
 
 [filter]
-input_db = "traces/gpt4o_vision_test/rollouts.db"
-output_dir = "traces/gpt4o_vision_test/sft"
+input_db = "traces/gpt4omini_vision/rollouts.db"
+output_dir = "traces/gpt4omini_vision/sft"
 
 # Quality filters
 min_steps_per_episode = 5        # Remove very short episodes
@@ -50,4 +50,3 @@ val_file = "val.jsonl"
 save_stats = true
 stats_file = "filter_stats.json"
 save_filtered_episode_ids = true
-
