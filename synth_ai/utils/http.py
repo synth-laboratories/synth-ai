@@ -34,7 +34,10 @@ class AsyncHttpClient:
 
     async def __aenter__(self) -> AsyncHttpClient:
         if self._session is None:
-            headers = {"authorization": f"Bearer {self._api_key}"}
+            headers = {
+                "authorization": f"Bearer {self._api_key}",
+                "accept": "application/json",
+            }
             user_id = os.getenv("SYNTH_USER_ID") or os.getenv("X_USER_ID") or os.getenv("USER_ID")
             if user_id:
                 headers["X-User-ID"] = user_id

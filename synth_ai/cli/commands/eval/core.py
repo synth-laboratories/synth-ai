@@ -199,8 +199,8 @@ def _eval_command_impl(
     if cfg:
         try:
             normalized_cfg = validate_eval_options(cfg)
-            eval_cfg = EvalConfig.from_dict(normalized_cfg)
-            cfg = normalized_cfg
+            eval_cfg = EvalConfig.from_dict(dict(normalized_cfg))
+            cfg = dict(normalized_cfg)
             click.echo(f"✓ Config validated: {len(eval_cfg.seeds)} seeds, model={eval_cfg.model}")
         except (ValueError, TypeError) as validation_error:
             raise InvalidEvalConfigError(detail=str(validation_error)) from validation_error
@@ -723,7 +723,7 @@ def _eval_command_impl(
                     "mode": "eval",  # RolloutMode.EVAL: use inference URLs as-is, no transformations
                 }
                 if env_name:
-                    body["env"]["env_name"] = env_name
+                    body["env"]["env_name"] = env_name  # type: ignore[assignment]
                 
                 # Debug: print the body being sent
                 if seed_val == 0:

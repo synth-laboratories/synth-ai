@@ -82,7 +82,8 @@ def _load_filter_config(config_path: Path) -> tuple[FilterConfig, dict[str, Any]
 
     try:
         normalized = validate_filter_options(filter_cfg_dict)
-        filter_cfg = FilterConfig.from_dict(normalized)
+        normalized_dict = dict(normalized)
+        filter_cfg = FilterConfig.from_dict(normalized_dict)
     except (ValueError, TypeError) as validation_error:
         raise InvalidFilterConfigError(detail=str(validation_error)) from validation_error
 
@@ -96,7 +97,7 @@ def _load_filter_config(config_path: Path) -> tuple[FilterConfig, dict[str, Any]
     if filter_cfg.limit:
         click.echo(f"  → Limiting to {filter_cfg.limit} examples")
 
-    return filter_cfg, normalized
+    return filter_cfg, normalized_dict
 
 
 def _extract_content(content: Any) -> Any:
@@ -218,6 +219,7 @@ def filter_command(config_path: str) -> None:
     async def _run() -> None:
         tracer = SessionTracer(db_url=db_url, auto_save=False)
         await tracer.initialize()
+        assert tracer.db is not None, "Database should be initialized"
 
         df = await tracer.db.query_traces(
             "SELECT session_id, created_at, metadata FROM session_traces ORDER BY created_at"

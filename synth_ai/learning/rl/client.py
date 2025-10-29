@@ -107,7 +107,9 @@ class RlClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=30.0) as http:
             try:
                 js = await http.get(
-                    f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events", params=params
+                    f"{_api_base(self._base_url)}/learning/jobs/{job_id}/events",
+                    params=params,
+                    headers={"accept": "application/json"},
                 )
             except HTTPError as he:
                 with suppress(Exception):
