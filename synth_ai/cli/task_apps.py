@@ -32,7 +32,6 @@ except Exception:  # pragma: no cover - fallback
 
 import click
 from click.exceptions import Abort
-from synth_ai.cli.commands import deploy as _deploy_commands
 from synth_ai.cli.commands.eval import core as eval_core
 from synth_ai.cli.commands.filter import core as filter_core
 
@@ -2427,16 +2426,7 @@ def serve_command(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    _deploy_commands.run_uvicorn_runtime(
-        app_id,
-        host,
-        port,
-        env_file,
-        reload_flag,
-        force,
-        trace_dir,
-        trace_db,
-    )
+    return None
 
 
 @task_app_group.command("info")
@@ -2548,19 +2538,8 @@ def serve_task_group(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    _deploy_commands.run_uvicorn_runtime(
-        app_id,
-        host,
-        port,
-        env_file,
-        reload_flag,
-        force,
-        trace_dir,
-        trace_db,
-    )
+    return None
 
-
-_deploy_commands.register_task_app_commands(task_app_group)
 
 
 def _determine_env_files(

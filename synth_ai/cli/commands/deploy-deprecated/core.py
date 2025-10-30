@@ -507,6 +507,6 @@ def get_command() -> click.Command:
     return command
 
 
-def register_task_app_commands(task_app_group: click.Group) -> None:
-    task_app_group.add_command(command)
-    task_app_group.add_command(modal_serve_command)
+# def register_task_app_commands(task_app_group: click.Group) -> None:
+#     task_app_group.add_command(command)
+#     task_app_group.add_command(modal_serve_command)
