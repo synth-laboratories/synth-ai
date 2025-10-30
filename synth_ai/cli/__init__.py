@@ -60,6 +60,23 @@ try:
 except Exception:
     pass
 
+try:
+    from synth_ai.cli.deploy import deploy_cmd
+
+    cli.add_command(deploy_cmd, name="deploy")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register deploy command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+
+try:
+    from synth_ai.cli.eval import command as eval_cmd
+
+    cli.add_command(eval_cmd, name="eval")
+except Exception:
+    pass
+
 
 # Register optional subcommands packaged under synth_ai.cli.*
 for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status", "synth_ai.cli.turso"):
