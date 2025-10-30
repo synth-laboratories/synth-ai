@@ -3,6 +3,14 @@ from pydantic import BaseModel
 from pathlib import Path
 
 
+class LocalTaskAppConfig(BaseModel):
+    task_app_path: Path
+    trace: bool = True
+    host: str = "127.0.0.1"
+    port: int = 8000
+
+
+
 class ModalTaskAppConfig(BaseModel):
     task_app_path: Path
     modal_app_path: Path
@@ -10,10 +18,3 @@ class ModalTaskAppConfig(BaseModel):
     cmd_arg: Literal["deploy", "serve"] = "deploy"
     task_app_name: Optional[str] = None
     dry_run: bool = False
-    
-
-class LocalTaskAppConfig(BaseModel):
-    task_app_path: Path
-    trace: bool = True
-    host: str = "127.0.0.1"
-    port: int = 8000
