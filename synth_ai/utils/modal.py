@@ -34,9 +34,6 @@ __all__ = [
 ]
 
 
-
-# ------- START RE-WRITE ------ #
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 START_DIV = f"{'-' * 31} Modal start {'-' * 31}"
@@ -140,9 +137,10 @@ def deploy_modal_app(cfg: ModalTaskAppConfig) -> None:
     
     py_paths: list[str] = []
 
-    py_paths.append(str(cfg.modal_app_path))
-    if (cfg.modal_app_path / "__init__.py").exists(): # if modal app lives inside a package, then ensure package directory is importable
-        py_paths.append(str(cfg.modal_app_path.parent.resolve()))
+    source_dir = cfg.modal_app_path.parent.resolve()
+    py_paths.append(str(source_dir))
+    if (source_dir / "__init__.py").exists():  # if the modal app lives in a package, ensure the parent package is importable
+        py_paths.append(str(source_dir.parent.resolve()))
 
     py_paths.append(str(REPO_ROOT))
     
@@ -308,12 +306,6 @@ def deploy_modal_app(cfg: ModalTaskAppConfig) -> None:
             wrapper_path.unlink(missing_ok=True)
         shutil.rmtree(tmp_root, ignore_errors=True)
 
-# ------- END RE-WRITE -------
-
-
-
-
-# ------- START SLOP -------
 
 def is_modal_public_url(url: str | None) -> bool:
     try:

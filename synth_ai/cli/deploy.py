@@ -138,7 +138,14 @@ def deploy_cmd(
                 raise click.ClickException("Modal app path required")
             
             if opts["cmd_arg"] == "serve" and opts["dry_run"] is True:
-                raise ValueError("mode=deploy and dry_run=True invalid combo")
+                raise ValueError("--modal-mode=serve cannot be combined with --dry-run")
             
-            opts.setdefault("modal_bin_path", get_default_modal_bin_path())
+            modal_bin_path = opts.get("modal_bin_path") or get_default_modal_bin_path()
+            if not modal_bin_path:
+                raise click.ClickException(
+                    "Modal CLI not found. Install the `modal` package or pass --modal-cli with its path."
+                )
+            if isinstance(modal_bin_path, str):
+                modal_bin_path = Path(modal_bin_path)
+            opts["modal_bin_path"] = modal_bin_path
             deploy_modal_app(ModalTaskAppConfig(**opts, task_app_path=task_app_path))
