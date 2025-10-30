@@ -167,7 +167,7 @@ def resolve_env_var(key: str) -> str:
         while True:
             try:
                 choice = click.prompt(
-                    "Select option",
+                    "Select an option",
                     default=1,
                     type=str,
                     show_choices=False,
@@ -204,6 +204,8 @@ def write_env_var_to_dotenv(
     key: str,
     value: str,
     output_file_path: str | Path | None = None,
+    print_msg: bool = True,
+    mask_msg: bool = True
 ) -> None:
     if output_file_path is None:
         path = Path(".env")
@@ -250,7 +252,8 @@ def write_env_var_to_dotenv(
     except OSError as exc:
         raise RuntimeError(f"Failed to write {path}: {exc}") from exc
 
-    print(f"Wrote {key}={mask_str(value)} to {path.resolve()}")
+    if print_msg:
+        print(f"Wrote {key}={mask_str(value) if mask_msg else value} to {path.resolve()}")
 
 
 def write_env_var_to_json(
