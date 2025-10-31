@@ -4,6 +4,23 @@
 
 type = "rl"
 
+# [smoke] section is OPTIONAL and only used by `synth-ai smoke` command for local testing.
+# This section is completely IGNORED by the RL trainer and will not affect training jobs.
+# It allows you to quickly test your task app without passing many CLI arguments:
+#   uvx synth-ai smoke --config this-file.toml
+# All values are optional; CLI args override TOML values.
+[smoke]
+task_url = "https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run"
+env_name = "crafter"
+policy_name = "crafter-react"
+max_steps = 10
+policy = "mock"  # mock, gpt-5-nano, openai, groq
+model = "gpt-5-nano"
+mock_backend = "openai"  # synthetic or openai
+mock_port = 0  # 0 = auto-assign
+return_trace = true
+use_mock = true
+
 [algorithm]
 type = "online"
 method = "policy_gradient"
