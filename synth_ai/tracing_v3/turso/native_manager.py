@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import re
+from pathlib import Path
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -99,9 +100,21 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
         parsed = make_url(sanitised)
-        if parsed.drivername.startswith("sqlite"):
-            raise RuntimeError("SQLite URLs are not supported; use file:// or absolute paths.")
-        if parsed.drivername.startswith("libsql"):
+        driver = parsed.drivername.lower()
+        if driver.startswith("sqlite"):
+            database = parsed.database or ""
+            if database and database not in {":memory:", ":memory"}:
+                # Absolute paths are passed through; relative paths are resolved to cwd
+                if database.startswith("/"):
+                    db_path = database
+                else:
+                    db_path = str(Path(database).expanduser().resolve())
+            elif database in {":memory:", ":memory"}:
+                db_path = ":memory:"
+            else:
+                raise RuntimeError("SQLite URL missing database path.")
+            return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
+        if driver.startswith("libsql"):
             database = parsed.render_as_string(hide_password=False)
             return _ConnectionTarget(database=database, sync_url=database, auth_token=effective_token)
     except Exception:  # pragma: no cover - defensive guardrail

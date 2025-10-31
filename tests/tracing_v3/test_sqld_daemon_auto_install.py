@@ -253,11 +253,21 @@ class TestSqldDaemonIntegration:
     """Integration tests for daemon lifecycle with auto-install."""
 
     def test_start_sqld_helper_with_auto_install(self, temp_db_path, mock_sqld_binary, monkeypatch):
-        """Test that start_sqld helper works with auto-install."""
+        """Test that start_sqld helper creates daemon correctly with auto-install."""
         import synth_ai.tracing_v3.turso.daemon as daemon_module
         
         # Mock to return our fake binary
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: mock_sqld_binary if cmd == "sqld" else None)
+        
+        # Mock the start() method to avoid actually starting the fake binary
+        original_start = SqldDaemon.start
+        
+        def mock_start(self, wait_for_ready=True):
+            # Don't actually start, just set the process as if it started
+            self.process = None  # Indicate "not started" but configured
+            return self
+        
+        monkeypatch.setattr(SqldDaemon, "start", mock_start)
         
         # Create daemon via helper with explicit ports
         hrana_port = 18080

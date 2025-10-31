@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 import time
 import os
 import sys
@@ -12,6 +13,7 @@ from pathlib import Path
 
 import click
 import httpx
+import toml
 
 from synth_ai.task.client import TaskAppClient
 from synth_ai.task.contracts import RolloutRequest, RolloutEnvSpec, RolloutPolicySpec, RolloutRecordConfig, RolloutSafetyConfig, RolloutMode
@@ -105,6 +107,267 @@ def _refresh_tracing_config() -> None:
         connection_string=os.environ["SYNTH_TRACES_DB"],
         backend=storage_config_module.StorageBackend.TURSO_NATIVE,
     )
+
+
+def _load_smoke_config(config_path: Path | None) -> dict[str, Any]:
+    """Load [smoke] section from TOML config file.
+    
+    Returns an empty dict if no config file or no [smoke] section.
+    """
+    if not config_path:
+        return {}
+    
+    try:
+        with open(config_path, "r") as f:
+            full_config = toml.load(f)
+        
+        smoke_config = full_config.get("smoke", {})
+        
+        if smoke_config:
+            click.echo(f"[smoke] Loaded configuration from {config_path}", err=True)
+            click.echo(f"[smoke] Config keys: {', '.join(smoke_config.keys())}", err=True)
+        
+        return smoke_config
+    except Exception as exc:
+        click.echo(f"[smoke] Warning: Failed to load config from {config_path}: {exc}", err=True)
+        return {}
+
+
+def _kill_process_on_port(port: int) -> None:
+    """Kill any process listening on the given port."""
+    try:
+        # Use lsof to find and kill process on port
+        result = subprocess.run(
+            ["lsof", "-ti", f":{port}"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.stdout.strip():
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                try:
+                    subprocess.run(["kill", "-9", pid], timeout=2)
+                    click.echo(f"[smoke] Killed existing process {pid} on port {port}", err=True)
+                except Exception:
+                    pass
+            time.sleep(2.0)  # Give OS time to release port
+    except Exception as exc:
+        click.echo(f"[smoke] Warning: Could not check/kill port {port}: {exc}", err=True)
+
+
+def _start_task_app_server(
+    task_app_name: str,
+    port: int,
+    env_file: str | None,
+    force: bool
+) -> tuple[Any, str]:
+    """Start a task app server in the background.
+    
+    Returns (process, url) tuple.
+    """
+    import subprocess
+    import shutil
+    import time as time_module
+    
+    # Kill any existing process on this port first
+    # Let the --force flag handle port cleanup instead of doing it ourselves
+    
+    cmd = [
+
+        "nohup",
+        "uvx", "synth-ai",
+        "task-app", "serve", task_app_name,
+        "--port", str(port),
+    ]
+    
+    if env_file:
+        cmd.extend(["--env-file", env_file])
+    
+    if force:
+        cmd.append("--force")
+    
+    # Resolve the synth-ai root directory for task app discovery
+    # Task apps are discovered relative to the synth-ai package root
+    import synth_ai
+    synth_ai_root = Path(synth_ai.__file__).resolve().parent.parent
+    
+    # Convert env_file to absolute path if it's relative
+    if env_file:
+        env_file_abs = Path(env_file).resolve()
+        cmd_with_abs_env = cmd[:]
+        # Replace relative env file path with absolute
+        for i, arg in enumerate(cmd):
+            if arg == "--env-file" and i + 1 < len(cmd):
+                cmd[i + 1] = str(env_file_abs)
+                break
+    
+    click.echo(f"[smoke] Starting task app '{task_app_name}' on port {port}...", err=True)
+    click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)
+    click.echo(f"[smoke] Working directory: {synth_ai_root}", err=True)
+    
+    # nohup requires output redirection to a file
+    # Open file, start process, then close file handle so process is fully detached
+    # Run from synth-ai root so task app discovery works
+    nohup_log = Path(synth_ai_root) / "nohup_task_app.out"
+    log_file = open(nohup_log, "w")
+    
+    # Inherit SYNTH_QUIET environment variable to suppress patch messages
+    env = os.environ.copy()
+    if os.getenv("SYNTH_QUIET"):
+        env["SYNTH_QUIET"] = "1"
+    
+    proc = subprocess.Popen(
+        cmd,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        text=True,
+        cwd=str(synth_ai_root),
+        env=env,
+    )
+    log_file.close()  # Close immediately so process is detached
+    
+    # Wait for server to be ready
+    url = f"http://localhost:{port}"
+    click.echo(f"[smoke] Waiting for task app to be ready at {url}...", err=True)
+    
+    import httpx
+    deadline = time.time() + 120.0  # Give it 2 minutes for initial setup
+    attempt = 0
+    last_log_line = None
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            resp = httpx.get(f"{url}/health", timeout=1.0)
+            # Accept both 200 and 400 - 400 means server is up but auth is failing (which is fine for smoke test)
+            if resp.status_code in (200, 400):
+                click.echo(f"[smoke] Task app ready at {url} (status={resp.status_code})", err=True)
+                return proc, url
+        except Exception:
+            pass
+        
+        # Show polling progress every 5 seconds with last log line
+        if attempt % 10 == 0:
+            elapsed = int(time.time() - (deadline - 120.0))
+            # Try to read last line from nohup log
+            try:
+                if nohup_log.exists():
+                    with open(nohup_log, "r") as f:
+                        lines = f.readlines()
+                        if lines:
+                            # Get last non-empty line
+                            for line in reversed(lines[-10:]):
+                                stripped = line.strip()
+                                if stripped and stripped != last_log_line:
+                                    last_log_line = stripped
+                                    # Truncate if too long
+                                    if len(stripped) > 80:
+                                        stripped = stripped[:77] + "..."
+                                    click.echo(f"[smoke] Waiting ({elapsed}s): {stripped}", err=True)
+                                    break
+                            else:
+                                click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
+                        else:
+                            click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
+            except Exception:
+                click.echo(f"[smoke] Still waiting for task app... ({elapsed}s elapsed)", err=True)
+        
+        # Check if process died
+        if proc.poll() is not None:
+            # Build a manual command that the user can copy-paste
+            manual_cmd_parts = ["uvx", "synth-ai", "task-app", "serve", task_app_name, "--port", str(port)]
+            if env_file:
+                manual_cmd_parts.extend(["--env-file", env_file])
+            if force:
+                manual_cmd_parts.append("--force")
+            
+            raise click.ClickException(
+                f"Task app '{task_app_name}' process exited unexpectedly (code={proc.returncode}). "
+                f"Check that the task app name is correct and .env has required keys. "
+                f"Try running manually: {' '.join(manual_cmd_parts)}"
+            )
+        
+        time_module.sleep(0.5)
+    
+    proc.kill()
+    raise click.ClickException(f"Task app failed to start within 120 seconds")
+
+
+def _start_sqld_server(
+    db_path: str,
+    hrana_port: int,
+    http_port: int
+) -> Any:
+    """Start sqld server in the background.
+    
+    Returns the process handle.
+    """
+    import subprocess
+    import shutil
+    
+    # Check if sqld is available
+    sqld_bin = shutil.which("sqld")
+    if not sqld_bin:
+        click.echo("[smoke] Warning: sqld not found in PATH, skipping auto-start", err=True)
+        click.echo("[smoke] Install sqld: brew install sqld", err=True)
+        return None
+    
+    # Ensure db directory exists
+    db_path_obj = Path(db_path).expanduser().resolve()
+    db_path_obj.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Kill any existing processes on these ports
+    for port in [hrana_port, http_port]:
+        _kill_process_on_port(port)
+    
+    cmd = [
+        sqld_bin,
+        "--db-path", str(db_path_obj),
+        "--hrana-listen-addr", f"127.0.0.1:{hrana_port}",
+        "--http-listen-addr", f"127.0.0.1:{http_port}",
+    ]
+    
+    click.echo(f"[smoke] Starting sqld server...", err=True)
+    click.echo(f"[smoke] DB path: {db_path_obj}", err=True)
+    click.echo(f"[smoke] Hrana port: {hrana_port}, HTTP port: {http_port}", err=True)
+    click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)
+    
+    # Redirect to devnull to avoid process dying from pipe buffer issues
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    
+    # Wait for server to be ready
+    health_url = f"http://127.0.0.1:{http_port}/health"
+    click.echo(f"[smoke] Waiting for sqld to be ready at {health_url}...", err=True)
+    
+    deadline = time.time() + 10.0
+    while time.time() < deadline:
+        try:
+            resp = httpx.get(health_url, timeout=0.5)
+            if resp.status_code == 200:
+                click.echo(f"[smoke] sqld ready", err=True)
+                # Set environment variables for tracing
+                os.environ["SQLD_DB_PATH"] = str(db_path_obj)
+                os.environ["SQLD_HTTP_PORT"] = str(hrana_port)
+                os.environ["LIBSQL_URL"] = f"http://127.0.0.1:{http_port}"
+                os.environ["SYNTH_TRACES_DB"] = f"http://127.0.0.1:{http_port}"
+                return proc
+        except Exception:
+            pass
+        
+        # Check if process died
+        if proc.poll() is not None:
+            click.echo(f"[smoke] Warning: sqld process exited with code {proc.returncode}", err=True)
+            return None
+        
+        time.sleep(0.2)
+    
+    click.echo("[smoke] Warning: sqld health check timed out, continuing anyway...", err=True)
+    return proc
 
 class MockRLTrainer:
     """Minimal trainer emulator with a local FastAPI mock for GPT-5-Nano.
@@ -274,7 +537,8 @@ class MockRLTrainer:
                         choices = data_typed.get("choices") or []
                         first = choices[0] if choices else {}
                         message = first.get("message") if isinstance(first, dict) else {}
-                        tool_call_count = len(message.get("tool_calls") or [])
+                        if isinstance(message, dict):
+                            tool_call_count = len(message.get("tool_calls") or [])
                     except Exception:
                         tool_call_count = 0
 
@@ -342,7 +606,20 @@ class MockRLTrainer:
                 "synth": {"cid": correlation},
             }
             if finish_reason == "tool_calls":
-                tc = len(response["choices"][0]["message"].get("tool_calls") or [])
+                # Type-safe extraction of tool call count
+                tc = 0
+                try:
+                    choices = response.get("choices")
+                    if isinstance(choices, list) and choices:
+                        first_choice = choices[0]
+                        if isinstance(first_choice, dict):
+                            msg = first_choice.get("message")
+                            if isinstance(msg, dict):
+                                tool_calls = msg.get("tool_calls")
+                                if isinstance(tool_calls, list):
+                                    tc = len(tool_calls)
+                except Exception:
+                    pass
                 log.debug(
                     "MockRLTrainer synthetic response emitting %s tool calls (cid=%s)",
                     tc,
@@ -480,7 +757,14 @@ async def _run_smoke_async(
             pass
         try:
             if model == "gpt-5-nano":
-                if cfg.policy:
+                # Prefer smoke config model over policy model for smoke tests
+                smoke_cfg = getattr(cfg, "smoke", None)
+                smoke_model = None
+                if smoke_cfg and hasattr(smoke_cfg, "model"):
+                    smoke_model = smoke_cfg.model
+                if smoke_model:
+                    model = str(smoke_model).strip()
+                elif cfg.policy:
                     if getattr(cfg.policy, "model_name", None):
                         model = str(cfg.policy.model_name).strip()
                     elif getattr(cfg.policy, "source", None):
@@ -592,9 +876,12 @@ async def _run_smoke_async(
 
                     try:
                         click.echo(f">> POST /rollout run_id={run_id} env={env_name} policy={policy_name} url={inference_url_with_cid}")
+                        click.echo(f"   ops={ops[:10]}{'...' if len(ops) > 10 else ''}")
                         response = await client.rollout(request)
                     except Exception as exc:
                         click.echo(f"Rollout[{i}:{g}] failed: {type(exc).__name__}: {exc}", err=True)
+                        import traceback
+                        click.echo(f"Traceback: {traceback.format_exc()}", err=True)
                         continue
 
                     successes += 1
@@ -673,33 +960,58 @@ async def _run_smoke_async(
                         except Exception:
                             pass
 
+                        # Extract and display tool calls from v3 trace
+                        # 
+                        # IMPORTANT: Tool calls are extracted from the structured v3 trace format.
+                        # The trace must be requested with return_trace=True for this to work.
+                        # 
+                        # Trace structure:
+                        #   trace.event_history[] - list of events (policy calls, env steps)
+                        #     ├─ event.call_records[] - LLM calls made during this event
+                        #        ├─ call_record.output_tool_calls[] - tool calls from LLM response
+                        #           ├─ tool_call.name - function name (e.g., "interact_many")
+                        #           └─ tool_call.arguments_json - JSON string of arguments
+                        #
+                        # This provides visibility into what actions the policy is taking,
+                        # which is critical for debugging RL training issues.
                         tr = response.trace if isinstance(response.trace, dict) else None
-                        msgs = (tr or {}).get("messages") if isinstance(tr, dict) else None
-                        if isinstance(msgs, list):
-                            def _part_type_summary(parts: list) -> str:
-                                try:
-                                    kinds: dict[str, int] = {}
-                                    for p in parts:
-                                        t = p.get("type") if isinstance(p, dict) else type(p).__name__
-                                        kinds[str(t)] = kinds.get(str(t), 0) + 1
-                                    return ", ".join(f"{k}:{v}" for k, v in kinds.items())
-                                except Exception:
-                                    return "unknown"
-
-                            click.echo(f"  trace.messages: count={len(msgs)}")
-                            for mi, m in enumerate(msgs[:50]):
-                                if not isinstance(m, dict):
-                                    continue
-                                role = m.get("role")
-                                content = m.get("content")
-                                if isinstance(content, list):
-                                    summary = _part_type_summary(content)
-                                    click.echo(f"    [{mi}] role={role} content=list[{len(content)}] parts=({summary})")
-                                else:
-                                    ct = type(content).__name__
-                                    click.echo(f"    [{mi}] role={role} content_type={ct}")
-                    except Exception:
-                        pass
+                        if tr:
+                            event_history = tr.get("event_history", [])
+                            tool_call_count = 0
+                            
+                            # Extract tool calls from event_history call_records
+                            if event_history and isinstance(event_history, list):
+                                for event in event_history:
+                                    if not isinstance(event, dict):
+                                        continue
+                                    # Policy events contain call_records with LLM interactions
+                                    call_records = event.get("call_records")
+                                    if call_records and isinstance(call_records, list):
+                                        for call_record in call_records:
+                                            if isinstance(call_record, dict):
+                                                # Extract tool calls from this LLM call
+                                                output_tool_calls = call_record.get("output_tool_calls", [])
+                                                if output_tool_calls and isinstance(output_tool_calls, list):
+                                                    for tc in output_tool_calls:
+                                                        if isinstance(tc, dict):
+                                                            fn_name = tc.get("name", "unknown")
+                                                            fn_args = tc.get("arguments_json", "{}")
+                                                            # Display tool call with truncated args for readability
+                                                            click.echo(f"  TOOL_CALL[{tool_call_count}]: {fn_name}({fn_args[:100]}{'...' if len(fn_args) > 100 else ''})")
+                                                            tool_call_count += 1
+                            
+                            if tool_call_count > 0:
+                                click.echo(f"  ✓ {tool_call_count} tool calls executed")
+                            else:
+                                # No tool calls found - might indicate:
+                                # 1. return_trace=False (trace not requested)
+                                # 2. Policy didn't make tool calls (unlikely for most RL tasks)
+                                # 3. Trace format mismatch (structure changed)
+                                click.echo("  ⚠ No tool calls found in trace")
+                        else:
+                            click.echo("  ⚠ Trace not available")
+                    except Exception as e:
+                        click.echo(f"  trace error: {e}", err=True)
 
             click.echo("✓ Smoke rollouts complete")
             denom = num_outer * max(1, int(group_size))
@@ -908,7 +1220,103 @@ def command(
     OpenAI-compatible inference URL including a trace correlation id, and
     validates that the response contains the fields required by the RL trainer
     (e.g. pipeline_metadata.inference_url and per-step info.meta.inference_url).
+    
+    If --config is provided, loads settings from the [smoke] section in the TOML file.
+    CLI arguments override TOML values.
     """
+    
+    # Load [smoke] section from TOML if config is provided
+    smoke_config = _load_smoke_config(config)
+    
+    # Track background processes for cleanup
+    background_procs: list[Any] = []
+    
+    try:
+        # Auto-start sqld if configured
+        if smoke_config.get("sqld_auto_start"):
+            sqld_db_path = smoke_config.get("sqld_db_path", "./traces/local.db")
+            sqld_hrana_port = smoke_config.get("sqld_hrana_port", 8080)
+            sqld_http_port = smoke_config.get("sqld_http_port", 8081)
+            
+            sqld_proc = _start_sqld_server(
+                db_path=sqld_db_path,
+                hrana_port=sqld_hrana_port,
+                http_port=sqld_http_port,
+            )
+            if sqld_proc:
+                background_procs.append(("sqld", sqld_proc))
+        
+        # Auto-start task app if configured
+        task_app_override_url = None
+        if smoke_config.get("task_app_name"):
+            task_app_name = smoke_config["task_app_name"]
+            task_app_port = smoke_config.get("task_app_port", 8765)
+            task_app_env_file = smoke_config.get("task_app_env_file")
+            task_app_force = smoke_config.get("task_app_force", True)
+            
+            task_app_proc, task_app_url = _start_task_app_server(
+                task_app_name=task_app_name,
+                port=task_app_port,
+                env_file=task_app_env_file,
+                force=task_app_force,
+            )
+            background_procs.append(("task_app", task_app_proc))
+            task_app_override_url = task_app_url
+            click.echo(f"[smoke] Task app started, will use URL: {task_app_url}", err=True)
+    except Exception as exc:
+        # Cleanup any processes that did start
+        for proc_name, proc in background_procs:
+            if proc and proc.poll() is None:
+                click.echo(f"[smoke] Cleaning up {proc_name}...", err=True)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except Exception:
+                    proc.kill()
+        
+        click.echo(f"[smoke] ERROR: Auto-start failed: {exc}", err=True)
+        raise click.ClickException(f"Auto-start failed: {exc}")
+    
+    # Apply TOML defaults (CLI args take precedence)
+    # Override task_url with auto-started task app URL if applicable
+    if task_app_override_url:
+        task_app_url = task_app_override_url
+    # For string/int args: use TOML value if CLI value matches the default
+    ctx = click.get_current_context()
+    
+    # Helper to check if a CLI param was explicitly provided or is using default
+    def use_toml_default(param_name: str, cli_value: Any, toml_key: str) -> Any:
+        """Use TOML value if CLI param is at its default, otherwise use CLI value."""
+        if not smoke_config or toml_key not in smoke_config:
+            return cli_value
+        
+        param = next((p for p in ctx.command.params if p.name == param_name), None)
+        if not param:
+            return cli_value
+        
+        # Check if value was explicitly provided (not default)
+        # If it matches the default, use TOML value
+        param_default = param.default() if callable(param.default) else param.default
+        if cli_value == param_default:
+            toml_value = smoke_config[toml_key]
+            click.echo(f"[smoke] Using {toml_key}={toml_value} from config", err=True)
+            return toml_value
+        
+        return cli_value
+    
+    # Apply TOML defaults
+    task_app_url = use_toml_default("task_app_url", task_app_url, "task_url")
+    env_name = use_toml_default("env_name", env_name, "env_name")
+    policy_name = use_toml_default("policy_name", policy_name, "policy_name")
+    model = use_toml_default("model", model, "model")
+    inference_policy = use_toml_default("inference_policy", inference_policy, "policy")
+    inference_url = use_toml_default("inference_url", inference_url, "inference_url")
+    max_steps = use_toml_default("max_steps", max_steps, "max_steps")
+    return_trace = use_toml_default("return_trace", return_trace, "return_trace")
+    use_mock = use_toml_default("use_mock", use_mock, "use_mock")
+    mock_backend = use_toml_default("mock_backend", mock_backend, "mock_backend")
+    mock_port = use_toml_default("mock_port", mock_port, "mock_port")
+    api_key = use_toml_default("api_key", api_key, "api_key")
 
     # Auto-configure tracing to avoid interactive prompts
     try:
@@ -1020,6 +1428,19 @@ def command(
     except KeyboardInterrupt:
         click.echo("Interrupted", err=True)
         sys.exit(130)
+    finally:
+        # Cleanup background processes
+        for proc_name, proc in background_procs:
+            if proc and proc.poll() is None:
+                click.echo(f"[smoke] Stopping {proc_name}...", err=True)
+                proc.terminate()
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    proc.kill()
+        if background_procs:
+            click.echo("[smoke] Background services stopped", err=True)
+    
     sys.exit(exit_code)
 
 

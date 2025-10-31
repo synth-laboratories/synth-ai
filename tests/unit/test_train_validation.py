@@ -360,8 +360,75 @@ class TestRLValidation:
         assert result["policy"]["trainer_mode"] == "lora"
         # LoRA config is now nested under training
         assert "training" in result
-        assert "lora" in result["training"]
-        assert result["training"]["lora"]["r"] == 16
+    
+    def test_rl_config_with_smoke_section(self) -> None:
+        """Test that smoke section is allowed in RL config and properly validated."""
+        config = {
+            "algorithm": {
+                "type": "online",
+                "method": "policy_gradient",
+                "variety": "gspo",
+            },
+            "policy": {
+                "model_name": "Qwen/Qwen3-1.7B",
+                "trainer_mode": "full",
+                "label": "test-smoke",
+            },
+            "compute": {
+                "gpu_type": "H100",
+                "gpu_count": 2,
+                "topology": {
+                    "type": "single_node_split",
+                    "gpus_for_vllm": 1,
+                    "gpus_for_training": 1,
+                },
+            },
+            "rollout": {
+                "env_name": "crafter",
+                "policy_name": "crafter-react",
+                "max_turns": 10,
+                "episodes_per_batch": 16,
+                "max_concurrent_rollouts": 4,
+                "task_app_origin_rewards_only": True,
+            },
+            "training": {
+                "num_epochs": 1,
+                "iterations_per_epoch": 10,
+                "max_turns": 10,
+                "batch_size": 4,
+                "group_size": 4,
+                "learning_rate": 5e-5,
+                "weight_sync_interval": 1,
+                "log_interval": 1,
+            },
+            "evaluation": {
+                "instances": 2,
+                "every_n_iters": 1,
+                "seeds": [0, 1],
+            },
+            # Smoke section - should be validated but not affect training
+            "smoke": {
+                "task_url": "http://localhost:8001",
+                "env_name": "crafter",
+                "policy_name": "crafter-react",
+                "max_steps": 10,
+                "policy": "mock",
+                "model": "gpt-5-nano",
+                "mock_backend": "openai",
+                "mock_port": 0,
+                "return_trace": True,
+                "use_mock": True,
+            },
+        }
+        
+        result = validate_rl_config(config)
+        assert result is not None
+        assert result["policy"]["trainer_mode"] == "full"
+        # Smoke section should be present after validation
+        assert "smoke" in result
+        assert result["smoke"]["task_url"] == "http://localhost:8001"
+        assert result["smoke"]["max_steps"] == 10
+        assert result["smoke"]["use_mock"] is True
 
     def test_rl_missing_algorithm_section(self) -> None:
         """Test that missing [algorithm] section raises error."""

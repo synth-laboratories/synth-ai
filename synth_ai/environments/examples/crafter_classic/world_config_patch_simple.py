@@ -9,7 +9,8 @@ from typing import Any, Dict, Optional
 
 import crafter
 
-print("[PATCH] Attempting to apply simplified Crafter world configuration patch...")
+# Patch messages permanently disabled
+# print("[PATCH] Attempting to apply simplified Crafter world configuration patch...")
 
 # World configuration presets
 WORLD_CONFIGS = {
@@ -279,8 +280,8 @@ def patched_env_init(
 
 crafter.Env.__init__ = patched_env_init
 
-print("[PATCH] Simplified Crafter world configuration patch complete.")
-print("[PATCH] Available configs: easy, normal, hard, peaceful")
+# print("[PATCH] Simplified Crafter world configuration patch complete.")
+# print("[PATCH] Available configs: easy, normal, hard, peaceful")
 
 # Example custom config
 EXAMPLE_CUSTOM_CONFIG = {

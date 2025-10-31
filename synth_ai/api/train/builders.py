@@ -86,6 +86,11 @@ def build_rl_payload(
         raise click.ClickException(_format_validation_error(config_path, exc)) from exc
 
     data = rl_cfg.to_dict()
+    
+    # Remove smoke section - it's CLI-only and should not be sent to the trainer
+    if "smoke" in data:
+        del data["smoke"]
+    
     # Ensure required [reference] section for backend validators
     try:
         ref_cfg = data.get("reference") if isinstance(data, dict) else None

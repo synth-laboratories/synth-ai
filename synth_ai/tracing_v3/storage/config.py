@@ -72,7 +72,12 @@ class StorageConfig:
         scheme = connection_string.split(":", 1)[0].lower()
         
         # Plain SQLite files: file://, /absolute/path, or no scheme
-        if scheme == "file" or connection_string.startswith("/") or "://" not in connection_string:
+        if (
+            scheme == "file"
+            or scheme.startswith("sqlite")
+            or connection_string.startswith("/")
+            or "://" not in connection_string
+        ):
             return StorageBackend.SQLITE
         
         # Turso/sqld: libsql://, http://, https://

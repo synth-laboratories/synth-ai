@@ -232,12 +232,11 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
         )
 
         def _normalize_content(value: Any) -> Any:
-            if isinstance(value, list) or isinstance(value, dict):
-                try:
-                    return json.dumps(value)
-                except Exception:
-                    return str(value)
-            return value
+            if isinstance(value, (list, dict)):
+                return value
+            if value is None:
+                return ""
+            return value if isinstance(value, str) else str(value)
 
         conversation: list[dict[str, Any]] = []
         if system_payload is not None:
