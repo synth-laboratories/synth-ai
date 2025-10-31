@@ -8,6 +8,7 @@ from .cli import (
     prompt_choice,
     prompt_for_path,
 )
+from .codex import find_codex_config_path, install_codex, verify_codex_is_runnable
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 from .http import AsyncHttpClient, HTTPError, http_request
 from .modal import (
@@ -71,12 +72,14 @@ __all__ = [
     "ensure_task_app_ready",
     "find_asgi_apps",
     "find_bin_path",
+    "find_codex_config_path",
     "find_sqld_binary",
     "get_backend_from_env",
     "get_env_file_paths",
     "get_home_config_file_paths",
     "get_learning_v2_base_url",
     "http_request",
+    "install_codex",
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
@@ -109,6 +112,7 @@ __all__ = [
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
+    "verify_codex_is_runnable",
     "write_env_var_to_dotenv",
     "write_env_var_to_json",
     "write_task_app_config",
