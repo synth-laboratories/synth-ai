@@ -43,6 +43,7 @@ def _build_cli(include_traces: bool = False) -> click.Group:
 
 
 @pytest.mark.fast
+@pytest.mark.skip(reason="Status CLI now requires backend HTTP endpoints; local fixture flow removed.")
 def test_status_cli_reports_fixture_counts():
     """`synth-ai status` should read fixture DBs and emit aggregate counts."""
     runner = CliRunner()

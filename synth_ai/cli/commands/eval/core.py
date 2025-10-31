@@ -10,7 +10,7 @@ import sqlite3
 import sys
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -261,11 +261,11 @@ def _eval_command_impl(
             trace_path = Path(trace_db).expanduser()
             trace_path.parent.mkdir(parents=True, exist_ok=True)
             trace_db_url = f"sqlite+aiosqlite:///{trace_path}"
-    trace_tracer = (
-        session_tracer_cls(db_url=trace_db_url, auto_save=True)
-        if trace_db_url and session_tracer_cls is not None
-        else None
-    )
+    trace_tracer_factory: Callable[[], SessionTracer] | None = None
+    if trace_db_url and session_tracer_cls is not None:
+        def _trace_factory() -> SessionTracer:
+            return session_tracer_cls(db_url=trace_db_url, auto_save=True)
+        trace_tracer_factory = _trace_factory
 
     # Determine selection params (CLI takes precedence; TOML only fills unset model/seeds/env)
     if cfg.get("model") and not model:
@@ -637,8 +637,13 @@ def _eval_command_impl(
     async def _run_eval() -> None:
         nonlocal successes, failures, outcome_sum, outcome_count, outcome_correct, records, seed_values
 
-        if trace_tracer is not None and trace_tracer.db is None:
-            await trace_tracer.initialize()
+        if trace_tracer_factory is not None:
+            tracer = trace_tracer_factory()
+            try:
+                await tracer.initialize()
+            finally:
+                with contextlib.suppress(Exception):
+                    await tracer.close()
 
         if task_app_url is None:
             transport = httpx.ASGITransport(app=app)  # type: ignore[name-defined]
@@ -730,6 +735,7 @@ def _eval_command_impl(
                     click.echo(f"[DEBUG] rollout body env: {body['env']}")
                     click.echo(f"[DEBUG] rollout body policy: {body['policy']}")
                     click.echo(f"[DEBUG] rollout body mode: {body.get('mode', 'NOT SET')}")
+                    click.echo(f"[DEBUG] rollout record payload: {body.get('record')}")
                 rollout_elapsed: float | None = None
                 rollout_start = time.perf_counter()
                 try:
@@ -945,7 +951,7 @@ def _eval_command_impl(
                         judges_timings[spec.name] = judge_elapsed
                         judge_scores[spec.name] = score_value
 
-                if trace_tracer is not None and trace_namespace:
+                if trace_tracer_factory is not None and trace_namespace and store_trace is not None:
                     storage_metadata = {
                         "eval_seed": seed_val,
                         "prompt_index": prompt_index,
@@ -958,8 +964,12 @@ def _eval_command_impl(
                         "prompt": prompt_text,
                         "completion": completion,
                     }
-                    if store_trace is not None:
-                        await store_trace(trace_tracer, trace_namespace, storage_metadata)
+                    tracer_instance = trace_tracer_factory()
+                    try:
+                        await store_trace(tracer_instance, trace_namespace, storage_metadata)
+                    finally:
+                        with contextlib.suppress(Exception):
+                            await tracer_instance.close()
 
                 records.append(
                     {
@@ -978,12 +988,7 @@ def _eval_command_impl(
         finally:
             await async_client.aclose()
 
-    try:
-        asyncio.run(_run_eval())
-    finally:
-        if trace_tracer is not None and trace_tracer.db is not None:
-            asyncio.run(trace_tracer.db.close())
-
+    asyncio.run(_run_eval())
     click.echo(
         f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}"
     )

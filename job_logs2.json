@@ -1,0 +1,642 @@
+[PATCH] Attempting to apply Crafter deterministic patch...
+[PATCH] Patching crafter.Env._balance_object...
+[PATCH] crafter.Env._balance_object patched.
+[PATCH] Attempting to apply Crafter serialization patch v3...
+[PATCH] Adding enhanced save/load methods to crafter.Env...
+[PATCH] crafter.Env.save() and load() methods added (v3).
+[PATCH] Crafter serialization patch v3 complete.
+[PATCH] Attempting to apply simplified Crafter world configuration patch...
+[PATCH] Simplified Crafter world configuration patch complete.
+[PATCH] Available configs: easy, normal, hard, peaceful
+[
+  {
+    "id": 275487,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 1,
+    "type": "rl.job.created",
+    "level": "info",
+    "message": "RL job created",
+    "data": {
+      "work": [
+        "health_check",
+        "evaluate",
+        "train"
+      ]
+    },
+    "created_at": "2025-10-30T03:31:57.845555+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275488,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 2,
+    "type": "rl.workflow.preflight",
+    "level": "info",
+    "message": "Preflight Hatchet configuration",
+    "data": {
+      "base_url": "https://api.hatchet.run",
+      "sdk_version": null,
+      "api_key_prefix": "eyJhbG",
+      "api_key_present": true,
+      "http_health_status": null,
+      "http_health_snippet": "preflight_http_error: ConnectError: [Errno 8] nodename nor servname provided, or not known"
+    },
+    "created_at": "2025-10-30T03:31:58.076044+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275489,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 3,
+    "type": "rl.workflow.submission.attempt",
+    "level": "info",
+    "message": "Submitting RL workflow to Hatchet",
+    "data": {
+      "have_env_key": true,
+      "payload_keys": [
+        "job_type",
+        "environment_id",
+        "revision_id",
+        "task_url",
+        "training_start_url",
+        "work",
+        "compute",
+        "data",
+        "metadata",
+        "human_in_the_loop",
+        "tags"
+      ],
+      "plan_preview": "{'job_type': 'rl', 'environment_id': None, 'revision_id': None, 'task_url': None, 'training_start_url': None, 'work': ['health_check', 'evaluate', 'train'], 'compute': {'gpu_type': 'H200', 'gpu_count': 2, 'topology': {'reference_placement': 'none'}}, 'data': {'endpoint_base_url': 'https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run', 'config': {'algorithm': {'type': 'online', 'm",
+      "endpoint_base_url": "https://api.hatchet.run",
+      "training_start_url": "https://synth-laboratories-dev--gspo-training-service-start-dev-run.modal.run"
+    },
+    "created_at": "2025-10-30T03:31:58.391059+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275490,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": "40fbd558-14f7-431a-a743-108362e0e227",
+    "seq": 4,
+    "type": "hatchet.preflight",
+    "level": "info",
+    "message": "Hatchet connectivity preflight",
+    "data": {
+      "host": "api.hatchet.run",
+      "port": 443,
+      "base_url": "https://api.hatchet.run",
+      "dns_error": "[Errno 8] nodename nor servname provided, or not known",
+      "tcp_error": "[Errno 8] nodename nor servname provided, or not known",
+      "tls_error": "[Errno 8] nodename nor servname provided, or not known",
+      "http_error": "[Errno 8] nodename nor servname provided, or not known",
+      "sdk_version": null
+    },
+    "created_at": "2025-10-30T03:31:59.273444+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275491,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": "40fbd558-14f7-431a-a743-108362e0e227",
+    "seq": 5,
+    "type": "hatchet.submission.attempt",
+    "level": "info",
+    "message": "Submitting workflow to Hatchet",
+    "data": {
+      "base_url": "https://api.hatchet.run",
+      "workflow": "RLJobWorkflow",
+      "sdk_version": null,
+      "payload_keys": [
+        "job_id",
+        "job_type",
+        "plan",
+        "run_id",
+        "synth_api_key"
+      ],
+      "api_key_prefix": "eyJhbG",
+      "api_key_present": true,
+      "payload_preview": "{'job_id': 'job_19a332c1135844f24e0', 'job_type': 'rl', 'plan': {'job_type': 'rl', 'environment_id': None, 'revision_id': None, 'task_url': None, 'training_start_url': None, 'work': ['health_check', 'evaluate', 'train'], 'compute': {'gpu_type': 'H200', 'gpu_count': 2, 'topology': {'reference_placement': 'none'}}, 'data': {'endpoint_base_url': 'https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run', 'config': {'algorithm': {'type': 'online', 'method': 'policy_gradient', 'variety'",
+      "synth_api_key_prefix": "sk_liv",
+      "synth_api_key_present": true
+    },
+    "created_at": "2025-10-30T03:31:59.68883+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275492,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 6,
+    "type": "rl.billing.start",
+    "level": "info",
+    "message": "GPU usage tracking started for RL job",
+    "data": {
+      "job_type": "reinforcement_learning",
+      "started_at": 1761795120
+    },
+    "created_at": "2025-10-30T03:32:00.130008+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275493,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": "40fbd558-14f7-431a-a743-108362e0e227",
+    "seq": 7,
+    "type": "hatchet.submission.result",
+    "level": "info",
+    "message": "Received response from Hatchet",
+    "data": {
+      "dir": [
+        "construct",
+        "copy",
+        "dict",
+        "from_dict",
+        "from_json",
+        "from_orm",
+        "json",
+        "model_computed_fields",
+        "model_config",
+        "model_construct",
+        "model_copy",
+        "model_dump",
+        "model_dump_json",
+        "model_extra",
+        "model_fields",
+        "model_fields_set",
+        "model_json_schema",
+        "model_parametrized_name",
+        "model_post_init",
+        "model_rebuild",
+        "model_validate",
+        "model_validate_json",
+        "model_validate_strings",
+        "parse_file",
+        "parse_obj",
+        "parse_raw",
+        "run",
+        "schema",
+        "schema_json",
+        "shape",
+        "task_events",
+        "tasks",
+        "to_dict",
+        "to_json",
+        "to_str",
+        "update_forward_refs",
+        "validate",
+        "workflow_config"
+      ],
+      "repr": "V1WorkflowRunDetails(run=V1WorkflowRun(metadata=APIResourceMeta(id='dbd9dcb1-1b02-426f-8d7d-d86044e5e405', created_at=datetime.datetime(2025, 10, 30, 3, 31, 59, 952469, tzinfo=TzInfo(UTC)), updated_at=datetime.datetime(2025, 10, 30, 3, 31, 59, 952469, tzinfo=TzInfo(UTC))), status=<V1TaskStatus.RUNNING: 'RUNNING'>, started_at=datetime.datetime(2025, 10, 30, 3, 32, 0, 1205, tzinfo=TzInfo(UTC)), fini",
+      "id_run": "None",
+      "id_meta": "None",
+      "id_root": "None",
+      "run_type": "V1WorkflowRunDetails",
+      "has_metadata": false
+    },
+    "created_at": "2025-10-30T03:32:01.165194+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275494,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": "40fbd558-14f7-431a-a743-108362e0e227",
+    "seq": 8,
+    "type": "workflow.queued",
+    "level": "info",
+    "message": "Workflow queued",
+    "data": {
+      "workflow": "RLJobWorkflow",
+      "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405"
+    },
+    "created_at": "2025-10-30T03:32:01.650587+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275495,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": "40fbd558-14f7-431a-a743-108362e0e227",
+    "seq": 9,
+    "type": "rl.workflow.modal.provisioning",
+    "level": "info",
+    "message": "Modal run accepted; provisioning remote resources",
+    "data": {
+      "workflow": "RLJobWorkflow",
+      "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405"
+    },
+    "created_at": "2025-10-30T03:32:01.881641+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275496,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 10,
+    "type": "rl.job.created",
+    "level": "info",
+    "message": "RL job created and queued for execution",
+    "data": {
+      "compute": {
+        "gpu_type": "H200",
+        "topology": {
+          "reference_placement": "none"
+        },
+        "gpu_count": 2
+      },
+      "job_type": "rl",
+      "endpoint_base_url": "https://api.hatchet.run"
+    },
+    "created_at": "2025-10-30T03:32:02.088499+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275497,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 11,
+    "type": "sft.billing.start",
+    "level": "info",
+    "message": "GPU usage tracking started for SFT job",
+    "data": {
+      "job_type": "fine_tuning_sft",
+      "started_at": 1761795122
+    },
+    "created_at": "2025-10-30T03:32:02.491676+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275498,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 12,
+    "type": "snapshot.fetch",
+    "level": "info",
+    "message": "Fetching job snapshot",
+    "data": {},
+    "created_at": "2025-10-30T03:32:02.589207+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275499,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 13,
+    "type": "rl.config.fetched",
+    "level": "info",
+    "message": "Job config fetched",
+    "data": {
+      "has_config": true
+    },
+    "created_at": "2025-10-30T03:32:02.813346+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275500,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 14,
+    "type": "trainer.start",
+    "level": "info",
+    "message": "Starting trainer",
+    "data": {
+      "start_url": "https://synth-laboratories-dev--gspo-training-service-start-dev-run.modal.run"
+    },
+    "created_at": "2025-10-30T03:32:03.730323+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275501,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 15,
+    "type": "sft.status.persist",
+    "level": "info",
+    "message": "Set status=running after start accepted",
+    "data": {
+      "source": "worker",
+      "context": "post_start_accept"
+    },
+    "created_at": "2025-10-30T03:32:18.137341+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275502,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 16,
+    "type": "trainer.triggered",
+    "level": "info",
+    "message": "Trainer triggered",
+    "data": {
+      "upstream_id": "job_19a332c1135844f24e0",
+      "upstream_status": "started"
+    },
+    "created_at": "2025-10-30T03:32:18.233943+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275503,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 17,
+    "type": "rl.billing.compute",
+    "level": "info",
+    "message": "Resolved compute topology for billing",
+    "data": {
+      "nodes": null,
+      "gpu_type": "H200",
+      "gpu_count": 2,
+      "container_count": 2,
+      "topology_present": true
+    },
+    "created_at": "2025-10-30T03:32:18.326199+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275504,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 18,
+    "type": "rl.runtime.modal.started",
+    "level": "info",
+    "message": "Modal container started RL trainer bootstrap",
+    "data": {
+      "pid": 7,
+      "hostname": null,
+      "timestamp": 1761795149.5417356
+    },
+    "created_at": "2025-10-30T03:32:29.606883+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275505,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 19,
+    "type": "rl.training.config",
+    "level": "info",
+    "message": "Resolved RL training parameters",
+    "data": {
+      "batch_size": 64,
+      "group_size": 512,
+      "num_epochs": 1,
+      "iterations_per_epoch": 20,
+      "weight_sync_interval": 1,
+      "update_reference_interval": null
+    },
+    "created_at": "2025-10-30T03:32:33.444845+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275506,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 20,
+    "type": "rl.inference.spawn.preflight",
+    "level": "info",
+    "message": "About to spawn vLLM process",
+    "data": {
+      "module_file": "/root/backend/app/routes/clustered_training/core/algorithms/gspo/subproc.py",
+      "start_method": "fork",
+      "sys_path_head": [
+        "/root/monorepo/backend",
+        "/root",
+        "/root",
+        "/root/backend",
+        "/pkg"
+      ],
+      "target_module": "app.routes.clustered_training.core.algorithms.gspo.subproc",
+      "target_qualname": "run_vllm_server_subprocess"
+    },
+    "created_at": "2025-10-30T03:32:33.917288+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275507,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 21,
+    "type": "rl.finalization.signal",
+    "level": "info",
+    "message": "Trainer received shutdown signal",
+    "data": {
+      "signal": 2
+    },
+    "created_at": "2025-10-30T03:35:10.638583+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275508,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 22,
+    "type": "rl.runtime.modal.started",
+    "level": "info",
+    "message": "Modal container started RL trainer bootstrap",
+    "data": {
+      "pid": 6,
+      "hostname": null,
+      "timestamp": 1761795354.4967458
+    },
+    "created_at": "2025-10-30T03:35:54.554147+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275509,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 23,
+    "type": "rl.training.config",
+    "level": "info",
+    "message": "Resolved RL training parameters",
+    "data": {
+      "batch_size": 64,
+      "group_size": 512,
+      "num_epochs": 1,
+      "iterations_per_epoch": 20,
+      "weight_sync_interval": 1,
+      "update_reference_interval": null
+    },
+    "created_at": "2025-10-30T03:35:58.918004+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275510,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 24,
+    "type": "rl.inference.spawn.preflight",
+    "level": "info",
+    "message": "About to spawn vLLM process",
+    "data": {
+      "module_file": "/root/backend/app/routes/clustered_training/core/algorithms/gspo/subproc.py",
+      "start_method": "fork",
+      "sys_path_head": [
+        "/root/monorepo/backend",
+        "/root",
+        "/root",
+        "/root/backend",
+        "/pkg"
+      ],
+      "target_module": "app.routes.clustered_training.core.algorithms.gspo.subproc",
+      "target_qualname": "run_vllm_server_subprocess"
+    },
+    "created_at": "2025-10-30T03:35:59.400343+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275525,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 25,
+    "type": "rl.finalization.signal",
+    "level": "info",
+    "message": "Trainer received shutdown signal",
+    "data": {
+      "signal": 2
+    },
+    "created_at": "2025-10-30T03:36:28.134356+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275540,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 26,
+    "type": "cancel.requested",
+    "level": "info",
+    "message": "Cancellation requested",
+    "data": {
+      "attempt_id": "9795544e-a33f-472e-b3cc-345b30cd4c6e",
+      "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405",
+      "modal_call_ids": [
+        "fc-01K8SJRR7F7DVHRSY86DP66DKJ"
+      ]
+    },
+    "created_at": "2025-10-30T03:45:10.711867+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275541,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 27,
+    "type": "cancel.hatchet.sent",
+    "level": "info",
+    "message": "Cancel sent to Hatchet",
+    "data": {
+      "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405"
+    },
+    "created_at": "2025-10-30T03:45:11.285599+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275542,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 28,
+    "type": "cancel.hatchet.timeout",
+    "level": "info",
+    "message": "Hatchet cancel confirmation",
+    "data": {
+      "error": "RunsClient.get() got an unexpected keyword argument 'run_id'",
+      "status": "unknown",
+      "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405"
+    },
+    "created_at": "2025-10-30T03:45:56.383095+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275543,
+    "job_id": "1859552f-7ebf-4fb8-a576-a7f7847b52db",
+    "run_id": null,
+    "seq": 29,
+    "type": "cancel.failed",
+    "level": "info",
+    "message": "Cancellation finished",
+    "data": {
+      "modal": {
+        "calls": [
+          {
+            "error": "Token missing. Could not authenticate client. If you have token credentials, see modal.com/docs/reference/modal.config for setup help. If you are a new user, register an account at modal.com, then run `modal token new`.",
+            "status": "hydrate_failed",
+            "call_id": "fc-01K8SJRR7F7DVHRSY86DP66DKJ",
+            "cancelled": false,
+            "terminated": false
+          }
+        ]
+      },
+      "status": "failed",
+      "hatchet": {
+        "error": "RunsClient.get() got an unexpected keyword argument 'run_id'",
+        "status": "unknown",
+        "cancelled": true,
+        "confirmed": false,
+        "hatchet_run_id": "dbd9dcb1-1b02-426f-8d7d-d86044e5e405"
+      },
+      "attempt_id": "9795544e-a33f-472e-b3cc-345b30cd4c6e"
+    },
+    "created_at": "2025-10-30T03:45:57.435141+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  }
+]

@@ -253,6 +253,55 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
             detail="[rollout].policy_name is required"
         )
     
+    # Validate reward origin configuration
+    # Exactly one of rubric_rewards_only or task_app_origin_rewards_only must be set
+    rubric_rewards_only = rollout.get("rubric_rewards_only")
+    task_app_origin_rewards_only = rollout.get("task_app_origin_rewards_only")
+    
+    # Coerce to boolean (handle None, string "true"/"false", actual booleans)
+    def _coerce_bool(val):
+        if val is None:
+            return None
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, str):
+            return val.lower() in ("true", "1", "yes", "on")
+        return bool(val)
+    
+    rubric_flag = _coerce_bool(rubric_rewards_only)
+    task_flag = _coerce_bool(task_app_origin_rewards_only)
+    
+    # Check that exactly one is set to true
+    rubric_set = rubric_flag is True
+    task_set = task_flag is True
+    
+    if not rubric_set and not task_set:
+        raise InvalidRLConfigError(
+            detail="Exactly one of [rollout].rubric_rewards_only or [rollout].task_app_origin_rewards_only must be true",
+            hint="Set rubric_rewards_only=true for rubric-based rewards, or task_app_origin_rewards_only=true for task-app rewards"
+        )
+    
+    if rubric_set and task_set:
+        raise InvalidRLConfigError(
+            detail="Cannot set both [rollout].rubric_rewards_only and [rollout].task_app_origin_rewards_only to true",
+            hint="Set exactly one reward source: rubric_rewards_only=true OR task_app_origin_rewards_only=true"
+        )
+    
+    # Validate rubric config consistency
+    if rubric_set:
+        rubric = config.get("rubric", {})
+        judge = config.get("judge", {})
+        rubric_enabled = (
+            rubric.get("enabled") or 
+            judge.get("enabled") or 
+            judge.get("reward_blend", {}).get("enabled")
+        )
+        if not _coerce_bool(rubric_enabled):
+            raise InvalidRLConfigError(
+                detail="[rollout].rubric_rewards_only=true requires rubric/judge to be enabled",
+                hint="Set [rubric].enabled=true or [judge].enabled=true when using rubric_rewards_only"
+            )
+    
     # Validate topology section (can be top-level or under compute)
     topology = config.get("topology") or compute.get("topology", {})
     if not topology:

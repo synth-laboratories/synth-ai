@@ -1,9 +1,11 @@
 """Storage configuration for tracing v3."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+from ..config import resolve_trace_db_auth_token, resolve_trace_db_settings
 
 
 class StorageBackend(str, Enum):
@@ -24,12 +26,9 @@ def _is_enabled(value: str | None) -> bool:
 class StorageConfig:
     """Configuration for storage backend."""
 
-    backend: StorageBackend = StorageBackend.TURSO_NATIVE
     connection_string: str | None = None
-
-    # Turso-specific settings
-    turso_url: str = os.getenv("TURSO_DATABASE_URL", "sqlite+libsql://http://127.0.0.1:8080")
-    turso_auth_token: str = os.getenv("TURSO_AUTH_TOKEN", "")
+    backend: StorageBackend | None = None
+    turso_auth_token: str | None = field(default=None)
 
     # Common settings
     pool_size: int = int(os.getenv("STORAGE_POOL_SIZE", "8"))
@@ -44,9 +43,43 @@ class StorageConfig:
         # Allow legacy override while keeping compatibility with existing TURSO_NATIVE env flag
         native_env = os.getenv("TURSO_NATIVE")
         native_flag = _is_enabled(native_env) if native_env is not None else None
+        resolved_url: str | None = self.connection_string
+        resolved_token: str | None = self.turso_auth_token
+
+        if resolved_url is None:
+            resolved_url, inferred_token = resolve_trace_db_settings()
+            self.connection_string = resolved_url
+            resolved_token = inferred_token
+
+        if resolved_token is None:
+            resolved_token = resolve_trace_db_auth_token()
+
+        self.turso_auth_token = resolved_token or ""
+
+        if self.backend is None:
+            self.backend = self._infer_backend(self.connection_string or "")
 
         if native_flag is False:
-            self.backend = StorageBackend.SQLITE
+            raise RuntimeError("TURSO_NATIVE=false is no longer supported; only Turso/libSQL backend is available.")
+
+        # Allow both TURSO_NATIVE and SQLITE backends (both use libsql.connect)
+        if self.backend not in (StorageBackend.TURSO_NATIVE, StorageBackend.SQLITE):
+            raise RuntimeError(f"Unsupported backend: {self.backend}. Only Turso/libSQL and SQLite are supported.")
+
+    @staticmethod
+    def _infer_backend(connection_string: str) -> StorageBackend:
+        """Infer backend type from the connection string."""
+        scheme = connection_string.split(":", 1)[0].lower()
+        
+        # Plain SQLite files: file://, /absolute/path, or no scheme
+        if scheme == "file" or connection_string.startswith("/") or "://" not in connection_string:
+            return StorageBackend.SQLITE
+        
+        # Turso/sqld: libsql://, http://, https://
+        if scheme.startswith("libsql") or "libsql" in scheme or scheme in ("http", "https"):
+            return StorageBackend.TURSO_NATIVE
+        
+        raise RuntimeError(f"Unsupported tracing backend scheme: {scheme}")
 
     def get_connection_string(self) -> str:
         """Get the appropriate connection string for the backend."""
@@ -54,12 +87,8 @@ class StorageConfig:
             return self.connection_string
 
         if self.backend == StorageBackend.TURSO_NATIVE:
-            return self.turso_url
-        if self.backend == StorageBackend.SQLITE:
-            return "sqlite+aiosqlite:///traces.db"
-        if self.backend == StorageBackend.POSTGRES:
-            return os.getenv("POSTGRES_URL", "postgresql+asyncpg://localhost/traces")
-        raise ValueError(f"Unknown backend: {self.backend}")
+            return self.connection_string or ""
+        raise ValueError(f"Unsupported backend: {self.backend}")
 
     def get_backend_config(self) -> dict[str, Any]:
         """Get backend-specific configuration."""

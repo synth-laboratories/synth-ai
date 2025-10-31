@@ -1,0 +1,10 @@
+# Filters Crafter traces into an instruction-tuning dataset.
+# Assumes you stored rollouts in traces/v3/crafter_blog.db via `uvx synth-ai eval`.
+
+[filter]
+db = "sqlite+libsql://http://127.0.0.1:8080"
+output = "examples/blog_posts/warming_up_to_rl/ft_data/crafter_blog_high_reward.jsonl"
+min_official_score = 0.1
+models = ["qwen/qwen3-32b", "openai/gpt-oss-120b"]
+shuffle = true
+shuffle_seed = 42

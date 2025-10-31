@@ -251,14 +251,16 @@ class RolloutTracingContext:
             await self.tracer.initialize()
         except Exception as exc:
             logger.debug("TRACING_INIT_FAIL: %s", exc)
+            # Hard fail: tracing requested but cannot initialize
+            raise
         try:
             await self.tracer.start_session(
                 session_id=self.run_id, metadata=dict(self.metadata_base)
             )
         except Exception as exc:
             logger.warning("TRACING_START_FAIL: %s", exc)
-            self.enabled = False
-            self.tracer = None
+            # Hard fail: tracing requested but cannot start session
+            raise
 
     async def start_decision(self, turn_number: int) -> None:
         self.current_turn = turn_number

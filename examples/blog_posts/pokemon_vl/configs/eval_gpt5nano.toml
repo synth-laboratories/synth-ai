@@ -1,0 +1,26 @@
+[eval]
+app_id = "pokemon_red"
+task_app_url = "http://127.0.0.1:8914"
+model = "gpt-5-nano"
+seeds = [0]  # Single seed for testing
+max_turns = 10  # 10 LLM calls per episode to allow more progress
+concurrency = 1  # Run 1 rollout
+env_name = "pokemon_red"
+policy_name = "pokemon_vl_qwen3_vl"  # Reuse policy config, will override model
+trace_format = "full"
+return_trace = true
+
+[eval.policy_config]
+provider = "openai"  # Use OpenAI API for gpt-5-nano
+model = "gpt-5-nano"
+inference_url = "https://api.openai.com/v1"
+temperature = 0.7
+top_p = 0.95
+max_tokens = 512
+use_vision = true
+image_only_mode = false
+max_llm_calls = 10
+
+[eval.env_config.env_params]
+max_steps_per_episode = 100  # Allow time to achieve milestones
+

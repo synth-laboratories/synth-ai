@@ -18,6 +18,7 @@ from typing import Any
 from minisweagent.environments import get_environment
 from synth_ai.environments.environment.tools import EnvToolCall
 
+from examples.swe.task_app.morph_backend import MorphSandboxBackend
 from .shared import summarise_history
 from .tools import TOOLS_SCHEMA
 
@@ -25,8 +26,9 @@ logger = logging.getLogger(__name__)
 
 
 def _environment_type_from_config(config: dict[str, Any]) -> str:
+    default = "morph" if os.getenv("MORPH_API_KEY") else "local"
     value = (config or {}).get("environment_class") or os.getenv(
-        "SWE_MINI_ENVIRONMENT_CLASS", "local"
+        "SWE_MINI_ENVIRONMENT_CLASS", default
     )
     return str(value).strip() or "local"
 
@@ -91,6 +93,7 @@ class MiniSweEnvironmentWrapper:
         self._local_workspace_dir: Path | None = None
         self._remote_workspace: str | None = None
         self._cleanup_workspace = False
+        self._using_morph_backend = False
 
         if self.environment_type == "local":
             workspace = self._prepare_local_workspace(kwargs)
@@ -117,11 +120,11 @@ class MiniSweEnvironmentWrapper:
             timeout = self.env_config.get("timeout")
             if timeout and "timeout" not in kwargs:
                 kwargs["timeout"] = int(timeout)
-            if self.repo_url and "image" not in kwargs:
+            if self.environment_type in {"docker", "bubblewrap"} and self.repo_url and "image" not in kwargs:
                 image = self.metadata.get("image_name") or os.getenv("SWE_MINI_DOCKER_IMAGE")
                 if image:
                     kwargs["image"] = image
-            if self.environment_type in {"docker", "bubblewrap"}:
+            if self.environment_type in {"docker", "bubblewrap", "morph"}:
                 remote_env = dict(kwargs.get("env") or {})
                 remote_env.setdefault("GIT_TERMINAL_PROMPT", "0")
                 kwargs["env"] = remote_env
@@ -131,13 +134,34 @@ class MiniSweEnvironmentWrapper:
             self.environment_type,
             kwargs,
         )
-        self.env = get_environment(
-            {
-                "environment_class": self.environment_type,
-                **kwargs,
-            },
-            default_type="local",
-        )
+        if self.environment_type == "morph":
+            morph_kwargs = dict(kwargs)
+            image_value = morph_kwargs.pop("image", None)
+            if image_value and "image_id" not in morph_kwargs:
+                morph_kwargs["image_id"] = image_value
+            timeout_value = morph_kwargs.pop("timeout", None)
+            if timeout_value is not None and "startup_timeout" not in morph_kwargs:
+                try:
+                    morph_kwargs["startup_timeout"] = int(timeout_value)
+                except Exception:
+                    logger.warning("Invalid timeout value for morph backend: %r", timeout_value)
+            metadata_override = morph_kwargs.pop("metadata", {}) or {}
+            metadata_payload = {
+                "app": "swe-mini",
+                "instance_id": self.instance_id,
+            }
+            metadata_payload.update({str(k): str(v) for k, v in dict(metadata_override).items()})
+            morph_kwargs["metadata"] = metadata_payload
+            self.env = MorphSandboxBackend(**morph_kwargs)
+            self._using_morph_backend = True
+        else:
+            self.env = get_environment(
+                {
+                    "environment_class": self.environment_type,
+                    **kwargs,
+                },
+                default_type="local",
+            )
 
         if self.environment_type != "local":
             self._bootstrap_remote_workspace()
@@ -181,6 +205,9 @@ class MiniSweEnvironmentWrapper:
             with contextlib.suppress(Exception):
                 self.env.execute(f"rm -rf {shlex.quote(self._remote_workspace)}")
         self._remote_workspace = None
+        if self._using_morph_backend and hasattr(self.env, "close"):
+            with contextlib.suppress(Exception):
+                self.env.close()
 
     def _resolve_repo_url(self, metadata: dict[str, Any]) -> str | None:
         candidates = [

@@ -305,27 +305,54 @@ def run_uvicorn_runtime(
         if port is None:
             port = click.prompt("Port to serve on", type=int, default=8001)
 
+        auto_trace = os.getenv("SYNTH_AUTO_TRACE", "1")
+        auto_trace_enabled = auto_trace not in {"0", "false", "False", ""}
+
         if trace_dir is None:
-            click.echo(
-                "\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB."
-            )
-            click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
-            enable_tracing = click.confirm("Enable tracing?", default=True)
-            if enable_tracing:
+            if auto_trace_enabled:
                 demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
-                default_trace_dir = str((demo_base / "traces/v3").resolve())
-                trace_dir = click.prompt(
-                    "Trace directory", type=str, default=default_trace_dir, show_default=True
-                )
+                default_trace_dir = (demo_base / "traces" / "v3").resolve()
+                try:
+                    default_trace_dir.mkdir(parents=True, exist_ok=True)
+                except Exception as exc:
+                    raise click.ClickException(
+                        f"Failed to prepare trace directory {default_trace_dir}: {exc}"
+                    ) from exc
+                trace_dir = str(default_trace_dir)
+                click.echo(f"[trace] Using trace directory: {trace_dir}")
             else:
-                trace_dir = None
+                click.echo(
+                    "\nTracing captures rollout data (actions, rewards, model outputs) to a local SQLite DB."
+                )
+                click.echo("This data can be exported to JSONL for supervised fine-tuning (SFT).")
+                enable_tracing = click.confirm("Enable tracing?", default=True)
+                if enable_tracing:
+                    demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+                    default_trace_dir = str((demo_base / "traces/v3").resolve())
+                    trace_dir = click.prompt(
+                        "Trace directory", type=str, default=default_trace_dir, show_default=True
+                    )
+                else:
+                    trace_dir = None
 
         if trace_dir and trace_db is None:
-            demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
-            default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
-            trace_db = click.prompt(
-                "Trace DB path", type=str, default=default_trace_db, show_default=True
-            )
+            if auto_trace_enabled:
+                demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+                default_trace_db = (demo_base / "traces" / "v3" / "synth_ai.db").resolve()
+                try:
+                    default_trace_db.parent.mkdir(parents=True, exist_ok=True)
+                except Exception as exc:
+                    raise click.ClickException(
+                        f"Failed to prepare trace DB directory {default_trace_db.parent}: {exc}"
+                    ) from exc
+                trace_db = str(default_trace_db)
+                click.echo(f"[trace] Using trace DB: {trace_db}")
+            else:
+                demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+                default_trace_db = str((demo_base / "traces/v3/synth_ai.db").resolve())
+                trace_db = click.prompt(
+                    "Trace DB path", type=str, default=default_trace_db, show_default=True
+                )
 
         choice = module._select_app_choice(app_id, purpose="serve")
         entry = choice.ensure_entry()

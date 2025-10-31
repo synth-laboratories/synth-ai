@@ -44,6 +44,7 @@ policy_name = "crafter-react"
 max_concurrent_rollouts = 8
 batches_per_step = 2
 ops = [ "agent", "env",]
+rubric_rewards_only = true
 
 [evaluation]
 instances = 16

@@ -4,6 +4,7 @@ import contextlib
 import logging
 import os
 from datetime import datetime
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
@@ -34,6 +35,13 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Global concurrency limit for outbound inference to avoid backend overload/timeouts
+try:
+    _INFERENCE_CONCURRENCY = int(os.getenv("INFERENCE_CONCURRENCY", "2") or "2")
+except Exception:  # pragma: no cover
+    _INFERENCE_CONCURRENCY = 2
+_inference_sem = asyncio.Semaphore(max(1, _INFERENCE_CONCURRENCY))
 
 
 class PolicyCreateRequest(BaseModel):
@@ -250,6 +258,11 @@ async def step_policy(
         task_app = req.app.state.task_app
         policy = handle.policy
         tracing_context = getattr(req.state, "rollout_tracing", None)
+        if tracing_context is None:
+            print(
+                f"[TRACE_DEBUG] Missing tracing context on policy step; policy_id={request.policy_id}",
+                flush=True,
+            )
 
         obs_text = request.observation
         if isinstance(request.observation, dict):
@@ -462,6 +475,8 @@ async def step_policy(
                 )
 
             # Emit full system/user prompts for observability (no secrets included)
+            system_prompt_records: list[dict[str, Any]] = []
+            user_prompt_records: list[dict[str, Any]] = []
             try:
 
                 def _as_text(content: object) -> str:
@@ -481,8 +496,6 @@ async def step_policy(
                         return "".join(parts)
                     return str(content)
 
-                system_prompt_records: list[dict[str, Any]] = []
-                user_prompt_records: list[dict[str, Any]] = []
                 for message in msgs:
                     role = message.get("role")
                     raw_content = message.get("content")
@@ -525,6 +538,11 @@ async def step_policy(
 
             if tracing_context is not None:
                 try:
+                    logger.info(
+                        "[TRACE_DEBUG] record_policy_prompts sys=%s user=%s",
+                        len(system_prompt_records),
+                        len(user_prompt_records),
+                    )
                     await tracing_context.record_policy_prompts(
                         system_prompt_records, user_prompt_records
                     )
@@ -541,6 +559,14 @@ async def step_policy(
 
             # Ensure meta carries the final target URL for downstream logging/clients
             with contextlib.suppress(Exception):
+                # Bulletproof normalizer at the call site (in addition to client-side)
+                try:
+                    from examples.task_apps.crafter.task_app.synth_envs_hosted.utils import (
+                        force_normalize_chat_completions_url,
+                    )
+                    target_url = force_normalize_chat_completions_url(target_url)
+                except Exception:
+                    pass
                 sanitized_target = ensure_chat_completions_url(target_url)
                 if sanitized_target and sanitized_target != target_url:
                     logger.warning(
@@ -588,6 +614,28 @@ async def step_policy(
                     )
             except Exception:
                 api_key_override = None
+
+            # Fallback: If target is OpenAI but OPENAI_API_KEY is missing, route to Synth API
+            try:
+                import os as _os2
+                _low = str(target_url or "").lower()
+                if ("api.openai.com" in _low) and not (_os2.getenv("OPENAI_API_KEY")):
+                    # Prefer task_app.synth_base_url if available; else default
+                    synth_base = getattr(task_app, "synth_base_url", None)
+                    if isinstance(synth_base, str) and synth_base.strip():
+                        base = synth_base.rstrip("/")
+                        fallback = base + "/inference/v1/chat/completions"
+                    else:
+                        fallback = "https://api.synth.run/api/inference/v1/chat/completions"
+                    fixed = ensure_chat_completions_url(fallback)
+                    logger.warning(
+                        "POLICY_STEP: OPENAI key missing; falling back to Synth route %s",
+                        fixed,
+                    )
+                    meta["inference_url"] = fixed
+                    target_url = fixed
+            except Exception:
+                pass
 
             if api_key_override:
                 try:
@@ -780,9 +828,10 @@ async def step_policy(
                 "sokoban-react",
                 "crafter-react",
             ) and getattr(policy, "use_tools", True):
-                req_tools = meta["inference_request"]["tools"]
-                req_tool_choice = meta["inference_request"]["tool_choice"]
-                req_stop_after = meta["inference_request"]["stop_after_tool_calls"]
+                inf_req = meta.get("inference_request", {})
+                req_tools = inf_req.get("tools")
+                req_tool_choice = inf_req.get("tool_choice")
+                req_stop_after = inf_req.get("stop_after_tool_calls")
                 logger.info(
                     f"TOOLCALL_CONFIG: policy={policy_name} tools_present={bool(req_tools)} tool_choice={req_tool_choice} stop_after={req_stop_after}"
                 )
@@ -791,6 +840,8 @@ async def step_policy(
                         status_code=500,
                         detail=f"TOOLCALL_ASSERTION_FAIL: Missing tools or tool_choice!=required for policy {policy_name}",
                     )
+                if req_stop_after is None:
+                    inf_req["stop_after_tool_calls"] = 1
 
             # Call inference service with retries for Flash cold-start (503)
             import time as _t
@@ -967,13 +1018,14 @@ async def step_policy(
 
             _t_start = _t.time()
             call_started_at = datetime.utcnow()
-            inference_response = await client.generate_with_retries(
-                request=meta["inference_request"],
-                base_url=meta["inference_url"],
-                max_retries=12,
-                backoff_factor=2.0,
-                extra_headers=extra_headers,
-            )
+            async with _inference_sem:
+                inference_response = await client.generate_with_retries(
+                    request=meta["inference_request"],
+                    base_url=meta["inference_url"],
+                    max_retries=12,
+                    backoff_factor=2.0,
+                    extra_headers=extra_headers,
+                )
             meta["inference_ms"] = int((_t.time() - _t_start) * 1000)
             call_completed_at = datetime.utcnow()
 
@@ -1052,6 +1104,23 @@ async def step_policy(
                     )
                 except Exception as exc:
                     logger.debug(f"TRACING_LLM_FAIL: {exc}")
+
+        if not tool_calls:
+            preview = ""
+            try:
+                preview = str(meta.get("raw_response") or "")[:400]
+            except Exception:
+                preview = "<unavailable>"
+            logger.error(
+                {
+                    "rollout.policy_step": True,
+                    "policy_id": request.policy_id,
+                    "error": "no_tool_calls",
+                    "inference_url": meta.get("inference_url"),
+                    "raw_preview": preview,
+                }
+            )
+            raise RuntimeError("Policy step produced no tool calls; inference response unusable.")
 
         return PolicyStepResponse(
             tool_calls=tool_calls,

@@ -1,0 +1,40 @@
+# Full-finetune Qwen3-4B on filtered Crafter traces.
+# Update the `data` path once `uvx synth-ai filter` produces your JSONL.
+
+[algorithm]
+type = "offline"
+method = "sft"
+variety = "fft"
+
+[job]
+model = "Qwen/Qwen3-4B"
+data = "examples/blog_posts/warming_up_to_rl/ft_data/crafter_blog_high_reward.jsonl"
+poll_seconds = 1800
+
+[compute]
+gpu_type = "H100"
+gpu_count = 4
+nodes = 1
+
+[data.topology]
+container_count = 4
+
+[training]
+mode = "full_finetune"
+use_qlora = false
+
+[hyperparameters]
+n_epochs = 2
+world_size = 4
+sequence_length = 2048
+per_device_batch = 2
+gradient_accumulation_steps = 64
+learning_rate = 8e-6
+warmup_ratio = 0.03
+
+[hyperparameters.parallelism]
+use_deepspeed = true
+deepspeed_stage = 3
+fsdp = false
+bf16 = true
+fp16 = false

@@ -285,6 +285,8 @@ class TestRLValidation:
                 "batch_size": 1,
                 "group_size": 2,
                 "learning_rate": 5e-6,
+                "weight_sync_interval": 1,
+                "log_interval": 1,
             },
             "evaluation": {
                 "instances": 2,
@@ -337,6 +339,8 @@ class TestRLValidation:
                 "batch_size": 4,
                 "group_size": 4,
                 "learning_rate": 5e-5,
+                "weight_sync_interval": 1,
+                "log_interval": 1,
                 "lora": {  # NEW: nested under training
                     "r": 16,
                     "alpha": 32,
@@ -701,6 +705,8 @@ class TestRLValidation:
                 "batch_size": 1,
                 "group_size": 2,
                 "learning_rate": 5e-6,
+                "weight_sync_interval": 1,
+                "log_interval": 1,
             },
             "evaluation": {
                 "instances": 2,
@@ -747,6 +753,8 @@ class TestRLValidation:
                 "batch_size": 1,
                 "group_size": 2,
                 "learning_rate": 5e-6,
+                "weight_sync_interval": 1,
+                "log_interval": 1,
             },
             "evaluation": {
                 "instances": 2,
@@ -767,4 +775,3 @@ class TestRLValidation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

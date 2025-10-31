@@ -945,6 +945,23 @@ async def step_policy(
                 except Exception as exc:
                     logger.debug(f"TRACING_LLM_FAIL: {exc}")
 
+        if not tool_calls:
+            preview = ""
+            try:
+                preview = str(meta.get("raw_response") or "")[:400]
+            except Exception:
+                preview = "<unavailable>"
+            logger.error(
+                {
+                    "rollout.policy_step": True,
+                    "policy_id": request.policy_id,
+                    "error": "no_tool_calls",
+                    "inference_url": meta.get("inference_url"),
+                    "raw_preview": preview,
+                }
+            )
+            raise RuntimeError("Policy step produced no tool calls; inference response unusable.")
+
         return PolicyStepResponse(
             tool_calls=tool_calls,
             meta=meta,

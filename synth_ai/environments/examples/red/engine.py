@@ -14,12 +14,15 @@ from synth_ai.environments.stateful.engine import StatefulEngine, StatefulEngine
 from synth_ai.environments.tasks.core import TaskInstance
 
 from .engine_helpers.reward_components import (
-    BadgeRewardComponent,
-    BattleVictoryComponent,
-    LevelUpComponent,
-    MapTransitionComponent,
+    RouteExplorationReward,
+    StrategicTrainingReward,
+    BattleProgressionReward,
+    GymPreparationReward,
+    ItemCollectionReward,
+    HealingManagementReward,
+    EfficientExplorationReward,
+    BadgeVictoryReward,
     StepPenaltyComponent,
-    XPGainComponent,
 )
 from .engine_helpers.state_extraction import extract_game_state
 
@@ -268,15 +271,27 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
             # For testing purposes, use None emulator
             self.emulator = None
 
-        # Initialize reward stack with dense components
+        # Initialize reward stack with comprehensive progress-based components
         self.reward_stack = RewardStack(
             components=[
-                BadgeRewardComponent(),
-                MapTransitionComponent(),
-                BattleVictoryComponent(),
-                LevelUpComponent(),
-                XPGainComponent(),
-                StepPenaltyComponent(),
+                # Major progress rewards
+                BadgeVictoryReward(),        # +50.0 for Boulder Badge (main goal)
+                RouteExplorationReward(),    # +1.0-5.0 for reaching key areas
+                GymPreparationReward(),      # +3.0 for being gym-ready
+
+                # Training and battle rewards
+                StrategicTrainingReward(),   # +0.2-3.0 for level ups and milestones
+                BattleProgressionReward(),   # +0.1-1.0 for battles
+
+                # Resource management rewards
+                ItemCollectionReward(),      # +0.1-0.5 for collecting items
+                HealingManagementReward(),   # +0.05-0.8 for healing Pokemon
+
+                # Exploration efficiency
+                EfficientExplorationReward(), # +0.02 for discovering new positions
+
+                        # No penalty for unproductive actions
+                        StepPenaltyComponent(penalty=0.0),        # 0.0 per step
             ]
         )
 
@@ -640,6 +655,12 @@ class PokemonRedEngine(StatefulEngine, IReproducibleEngine):
                         "prev_text_box_active": bool(prev_state.get("text_box_active", False)),
                         "prev_enemy_hp_current": int(prev_state.get("enemy_hp_current", 0)),
                         "prev_enemy_hp_percentage": float(prev_state.get("enemy_hp_percentage", 0.0)),
+                        "prev_player_x": int(prev_state.get("player_x", 0)),
+                        "prev_player_y": int(prev_state.get("player_y", 0)),
+                        "prev_party": prev_state.get("party", []),
+                        "prev_inventory": prev_state.get("inventory", []),
+                        "prev_party_hp_current": int(prev_state.get("party_hp_current", 0)),
+                        "prev_party_hp_max": int(prev_state.get("party_hp_max", 0)),
                     },
                 )
             except Exception as e:

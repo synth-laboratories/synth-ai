@@ -48,6 +48,7 @@ policy_name = "crafter-react"
 max_concurrent_rollouts = 1
 batches_per_step = 1  # Single batch
 ops = ["agent", "env"]
+task_app_origin_rewards_only = true
 
   [rollout.env_config]
   difficulty = "easy"

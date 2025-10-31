@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import time
 from abc import ABC, abstractmethod
 from collections import deque
@@ -12,6 +13,37 @@ from typing import Any, Callable
 import click
 
 from .types import StreamMessage, StreamType
+
+
+def _mask_sensitive_urls(text: str) -> str:
+    """Mask S3/Wasabi URLs and sensitive paths in log messages.
+    
+    Replaces full S3/Wasabi URLs with masked versions to prevent leaking
+    bucket names, paths, and infrastructure details in public SDK logs.
+    
+    Examples:
+        s3://synth-artifacts/models/... -> s3://***/***/[masked]
+        Wasabi s3://bucket/path/file.tar.gz -> Wasabi s3://***/***/[masked]
+    """
+    if not text:
+        return text
+    
+    # Pattern matches:
+    # - Optional "Wasabi " prefix
+    # - s3:// or http(s):// scheme
+    # - Any bucket/host
+    # - Any path
+    # - Common model file extensions
+    pattern = r'(Wasabi\s+)?((s3|https?)://[^\s]+\.(tar\.gz|zip|pt|pth|safetensors|ckpt|bin))'
+    
+    def replace_url(match: re.Match) -> str:
+        prefix = match.group(1) or ""  # "Wasabi " or empty
+        url = match.group(2)
+        # Extract just the filename
+        filename = url.split("/")[-1] if "/" in url else "file"
+        return f'{prefix}s3://***/***/[{filename}]'
+    
+    return re.sub(pattern, replace_url, text, flags=re.IGNORECASE)
 
 
 class StreamHandler(ABC):
@@ -72,7 +104,9 @@ class CLIHandler(StreamHandler):
             prefix = f"[{timestamp}] [{message.seq}] {event_type}"
             if level:
                 prefix += f" ({level})"
-            click.echo(f"{prefix}: {msg}".rstrip(": "))
+            # Mask sensitive URLs before displaying
+            sanitized_msg = _mask_sensitive_urls(msg)
+            click.echo(f"{prefix}: {sanitized_msg}".rstrip(": "))
             return
 
         if message.stream_type is StreamType.METRICS:
@@ -387,7 +421,9 @@ class RichHandler(StreamHandler):
             event_type = message.data.get("type", "event")
             summary = message.data.get("message") or ""
             level = message.data.get("level")
-            formatted = f"[{event_type}] {summary}".strip()
+            # Mask sensitive URLs before displaying
+            sanitized_summary = _mask_sensitive_urls(summary)
+            formatted = f"[{event_type}] {sanitized_summary}".strip()
             if level:
                 formatted = f"{formatted} ({level})"
             self._event_log.append(formatted)

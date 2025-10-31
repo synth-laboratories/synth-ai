@@ -3,274 +3,246 @@ from typing import Any, Dict, Set
 from synth_ai.environments.environment.rewards.core import RewardComponent
 
 
-class BadgeRewardComponent(RewardComponent):
-    """Reward for earning gym badges"""
+# ===== COMPREHENSIVE POKEMON RED PROGRESS REWARD SYSTEM =====
+# Designed for deterministic rewards that guide toward beating Brock at Pewter Gym
+
+
+class RouteExplorationReward(RewardComponent):
+    """High rewards for reaching key areas on the path to Pewter Gym - guides exploration"""
+
+    def __init__(self):
+        self.key_areas_reached: Set[int] = set()
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        prev_badges = action.get("prev_badges", 0)
-        current_badges = state["badges"]
-        new_badges = current_badges & ~prev_badges
-        badge_count = bin(new_badges).count("1")
-        return badge_count * 1.0
-
-
-class MapTransitionComponent(RewardComponent):
-    """Reward for exploring new areas"""
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        prev_map = action.get("prev_map_id", -1)
         current_map = state["map_id"]
-        return 0.1 if current_map != prev_map else 0.0
+        prev_map = action.get("prev_map_id", -1)
 
+        # Key maps and rewards for progressing toward Pewter Gym
+        area_rewards = {
+            0: 0.0,  # Pallet Town (starting point)
+            1: 2.0,  # Route 1 - First step out of town (+2.0)
+            2: 1.5,  # Viridian City - Major hub (+1.5)
+            3: 1.0,  # Route 22 - Path to League (+1.0)
+            4: 1.0,  # Route 2 - To Viridian Forest (+1.0)
+            5: 2.0,  # Viridian Forest - Dense area (+2.0)
+            6: 1.5,  # Pewter City - Target city (+1.5)
+            7: 5.0,  # Pewter Gym - GOAL AREA (+5.0 for entering gym)
+        }
 
-class BattleVictoryComponent(RewardComponent):
-    """Reward for winning battles"""
+        if current_map in area_rewards and current_map not in self.key_areas_reached:
+            if prev_map != current_map:  # Only reward when actually entering new area
+                self.key_areas_reached.add(current_map)
+                return area_rewards[current_map]
 
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
-        battle_outcome = state["battle_outcome"]
-
-        # Transitioning from battle to not in battle with victory
-        if prev_in_battle and not current_in_battle and battle_outcome == 1:
-            return 0.5
         return 0.0
 
 
-class LevelUpComponent(RewardComponent):
-    """Reward for Pokemon leveling up"""
+class StrategicTrainingReward(RewardComponent):
+    """Rewards for building Pokemon strength strategically"""
+
+    def __init__(self):
+        self.level_milestones: Set[int] = set()
+        self.last_level = 0
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        current_level = state.get("party_level", 0)
         prev_level = action.get("prev_party_level", 0)
-        current_level = state["party_level"]
-        level_gain = max(0, current_level - prev_level)
-        return level_gain * 0.3
+
+        # Reward reaching key level milestones
+        milestone_rewards = {
+            8: 1.0,   # Level 8 - Good for early battles
+            12: 2.0,  # Level 12 - Ready for Brock
+            15: 3.0,  # Level 15 - Strong Pokemon
+        }
+
+        if current_level > prev_level and current_level in milestone_rewards:
+            if current_level not in self.level_milestones:
+                self.level_milestones.add(current_level)
+                return milestone_rewards[current_level]
+
+        # Small reward for any level up (0.2 points)
+        if current_level > prev_level:
+            return 0.2
+
+        return 0.0
 
 
-class XPGainComponent(RewardComponent):
-    """Small reward for XP gains"""
+class BattleProgressionReward(RewardComponent):
+    """Rewards for winning battles and gaining experience"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        prev_xp = action.get("prev_party_xp", 0)
-        current_xp = state["party_xp"]
-        xp_gain = max(0, current_xp - prev_xp)
-        return xp_gain * 0.001  # Very small multiplier
+        prev_in_battle = action.get("prev_in_battle", False)
+        current_in_battle = state.get("in_battle", False)
+        battle_outcome = state.get("battle_outcome", 0)
+
+        # Large reward for battle victory (+1.0)
+        if prev_in_battle and not current_in_battle and battle_outcome == 1:
+            return 1.0
+
+        # Small reward for entering battle (+0.1) - shows engagement
+        if not prev_in_battle and current_in_battle:
+            return 0.1
+
+        return 0.0
+
+
+class GymPreparationReward(RewardComponent):
+    """Rewards for preparing to challenge Brock"""
+
+    def __init__(self):
+        self.prepared_for_gym = False
+
+    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        if self.prepared_for_gym:
+            return 0.0
+
+        # Check if in Pewter City area and have decent Pokemon
+        if state["map_id"] in [6, 7]:  # Pewter City or Gym
+            party_level = state.get("party_level", 0)
+            party_count = len(state.get("party", []))
+
+            # Reward being prepared for gym battle
+            if party_level >= 10 and party_count >= 1:
+                self.prepared_for_gym = True
+                return 3.0  # Significant reward for being gym-ready
+
+        return 0.0
+
+
+class ItemCollectionReward(RewardComponent):
+    """Rewards for collecting useful items"""
+
+    def __init__(self):
+        self.items_collected: Set[int] = set()
+
+    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        prev_inventory = action.get("prev_inventory", [])
+        current_inventory = state.get("inventory", [])
+
+        # Check for new items
+        prev_item_ids = {item["item_id"] for item in prev_inventory}
+        current_item_ids = {item["item_id"] for item in current_inventory}
+
+        new_items = current_item_ids - prev_item_ids
+
+        # Reward valuable items for gym preparation
+        valuable_items = {1, 2, 3, 4, 5, 10, 11, 12, 13}  # Potions, Balls, etc.
+        reward = 0.0
+
+        for item_id in new_items:
+            if item_id not in self.items_collected:
+                self.items_collected.add(item_id)
+                if item_id in valuable_items:
+                    reward += 0.5  # +0.5 per valuable item
+                else:
+                    reward += 0.1  # +0.1 per other item
+
+        return reward
+
+
+class HealingManagementReward(RewardComponent):
+    """Rewards for keeping Pokemon healthy"""
+
+    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        prev_party = action.get("prev_party", [])
+        current_party = state.get("party", [])
+
+        if not prev_party or not current_party:
+            return 0.0
+
+        # Reward healing Pokemon back to full health
+        prev_hp_pct = sum(p.get("hp_percentage", 0) for p in prev_party) / len(prev_party)
+        current_hp_pct = sum(p.get("hp_percentage", 0) for p in current_party) / len(current_party)
+
+        # Significant improvement in health
+        if current_hp_pct > prev_hp_pct + 20:  # Healed at least 20% overall
+            return 0.8
+
+        # Small reward for maintaining good health
+        if current_hp_pct >= 80 and prev_hp_pct >= 80:
+            return 0.05
+
+        return 0.0
+
+
+class EfficientExplorationReward(RewardComponent):
+    """Rewards for exploring efficiently without getting lost"""
+
+    def __init__(self):
+        self.positions_visited: Set[tuple] = set()
+
+    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        # Track unique positions visited in each map
+        position_key = (state["map_id"], state["player_x"], state["player_y"])
+
+        if position_key not in self.positions_visited:
+            self.positions_visited.add(position_key)
+            return 0.02  # Small reward for discovering new areas
+
+        return 0.0
+
+
+class BadgeVictoryReward(RewardComponent):
+    """HUGE reward for achieving the main goal - Boulder Badge"""
+
+    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
+        prev_badges = action.get("prev_badges", 0)
+        current_badges = state.get("badges", 0)
+
+        # Check if Boulder Badge (bit 0) was newly earned
+        boulder_badge_mask = 0x01
+        prev_has_badge = prev_badges & boulder_badge_mask
+        current_has_badge = current_badges & boulder_badge_mask
+
+        if not prev_has_badge and current_has_badge:
+            return 50.0  # MASSIVE reward for completing the main objective
+
+        return 0.0
 
 
 class StepPenaltyComponent(RewardComponent):
     """Small penalty for each step to encourage efficiency"""
 
-    def __init__(self, penalty: float = -0.001):
+    def __init__(self, penalty: float = 0.0):  # Changed from -0.005 to 0.0
         self.penalty = penalty
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
         return self.penalty
 
 
-class MenuPenaltyComponent(RewardComponent):
-    """Penalty for excessive menu usage"""
+# ===== LEGACY COMPONENTS (kept for compatibility) =====
+
+
+class BadgeRewardComponent(RewardComponent):
+    """Legacy badge reward - now handled by BadgeVictoryReward"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        # This would need more sophisticated menu tracking
-        return 0.0
+        return 0.0  # Handled by BadgeVictoryReward
 
 
-# ===== NEW EARLY GAME PALLET TOWN REWARDS =====
-
-
-class ExitHouseReward(RewardComponent):
-    """High reward for first time leaving the starting house - +2.0 points"""
-
-    def __init__(self):
-        self.house_exited = False
+class MapTransitionComponent(RewardComponent):
+    """Legacy map transition - now handled by RouteExplorationReward"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.house_exited:
-            return 0.0
-
-        prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
-
-        # Exit from house to town (assuming house maps are 1,2 and town is 0)
-        if prev_map in [1, 2] and current_map == 0:
-            self.house_exited = True
-            return 2.0
-        return 0.0
+        return 0.0  # Handled by RouteExplorationReward
 
 
-class NPCInteractionReward(RewardComponent):
-    """Reward for talking to NPCs - +0.8 points per unique NPC"""
-
-    def __init__(self):
-        self.npcs_talked_to: Set[tuple] = set()
+class BattleVictoryComponent(RewardComponent):
+    """Legacy battle victory - now handled by BattleProgressionReward"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        # Detect NPC conversations
-        if state["text_box_active"] and not action.get("prev_text_box_active", False):
-            # Use position as NPC identifier
-            npc_key = (state["player_x"], state["player_y"], state["map_id"])
-            if npc_key not in self.npcs_talked_to:
-                self.npcs_talked_to.add(npc_key)
-                return 0.8
-        return 0.0
+        return 0.0  # Handled by BattleProgressionReward
 
 
-class OakLabDiscoveryReward(RewardComponent):
-    """High reward for finding and entering Oak's lab - +2.5 points"""
-
-    def __init__(self):
-        self.lab_discovered = False
+class LevelUpComponent(RewardComponent):
+    """Legacy level up - now handled by StrategicTrainingReward"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.lab_discovered:
-            return 0.0
-
-        prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
-
-        # Entering Oak's lab (assuming map 3)
-        if prev_map == 0 and current_map == 3:
-            self.lab_discovered = True
-            return 2.5
-        return 0.0
+        return 0.0  # Handled by StrategicTrainingReward
 
 
-class StarterPokemonReward(RewardComponent):
-    """Very high reward for getting first Pokemon - +10.0 points"""
-
-    def __init__(self):
-        self.starter_obtained = False
+class XPGainComponent(RewardComponent):
+    """Legacy XP gain - now handled by StrategicTrainingReward"""
 
     async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.starter_obtained:
-            return 0.0
-
-        # Detect getting first Pokemon
-        prev_party_count = len(action.get("prev_party", []))
-        current_party_count = len(state.get("party", []))
-
-        if prev_party_count == 0 and current_party_count == 1:
-            if state["map_id"] == 3:  # In Oak's lab
-                self.starter_obtained = True
-                return 10.0
-        return 0.0
-
-
-class FirstBattleReward(RewardComponent):
-    """High reward for engaging in first battle - +5.0 points"""
-
-    def __init__(self):
-        self.first_battle = False
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.first_battle:
-            return 0.0
-
-        prev_in_battle = action.get("prev_in_battle", False)
-        current_in_battle = state["in_battle"]
-
-        if not prev_in_battle and current_in_battle:
-            self.first_battle = True
-            return 5.0
-        return 0.0
-
-
-class DirectionExplorationReward(RewardComponent):
-    """Reward for trying all movement directions - +1.0 points when complete"""
-
-    def __init__(self):
-        self.directions_tried: Set[str] = set()
-        self.reward_given = False
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.reward_given:
-            return 0.0
-
-        # Track movement directions based on position changes
-        prev_x = action.get("prev_player_x", state["player_x"])
-        prev_y = action.get("prev_player_y", state["player_y"])
-        current_x = state["player_x"]
-        current_y = state["player_y"]
-
-        if current_x > prev_x:
-            self.directions_tried.add("RIGHT")
-        elif current_x < prev_x:
-            self.directions_tried.add("LEFT")
-        elif current_y > prev_y:
-            self.directions_tried.add("DOWN")
-        elif current_y < prev_y:
-            self.directions_tried.add("UP")
-
-        if len(self.directions_tried) >= 4:
-            self.reward_given = True
-            return 1.0
-        return 0.0
-
-
-class BuildingExplorationReward(RewardComponent):
-    """Reward for entering different buildings - +0.5 points per building"""
-
-    def __init__(self):
-        self.buildings_entered: Set[int] = set()
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        prev_map = action.get("prev_map_id", -1)
-        current_map = state["map_id"]
-
-        # Entering a new building from town
-        if (
-            prev_map == 0 and current_map > 0 and current_map not in [1, 2]
-        ):  # From town to new building
-            if current_map not in self.buildings_entered:
-                self.buildings_entered.add(current_map)
-                return 0.5
-        return 0.0
-
-
-class ObjectInteractionReward(RewardComponent):
-    """Reward for pressing A on various objects - +0.3 points per object"""
-
-    def __init__(self):
-        self.objects_interacted: Set[tuple] = set()
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        # Detect A button interactions that trigger text
-        if state["text_box_active"] and not action.get("prev_text_box_active", False):
-            object_key = (state["player_x"], state["player_y"], state["map_id"])
-            if object_key not in self.objects_interacted:
-                self.objects_interacted.add(object_key)
-                return 0.3
-        return 0.0
-
-
-class TownExplorationReward(RewardComponent):
-    """Reward for thorough town exploration - +0.1 per new position"""
-
-    def __init__(self):
-        self.positions_visited: Set[tuple] = set()
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if state["map_id"] == 0:  # In Pallet Town
-            position_key = (state["player_x"], state["player_y"])
-            if position_key not in self.positions_visited:
-                self.positions_visited.add(position_key)
-                return 0.1
-        return 0.0
-
-
-class RouteAttemptReward(RewardComponent):
-    """Reward for trying to leave town (triggers story) - +3.0 points"""
-
-    def __init__(self):
-        self.route_attempted = False
-
-    async def score(self, state: Dict[str, Any], action: Dict[str, Any]) -> float:
-        if self.route_attempted:
-            return 0.0
-
-        # Detect reaching the edge of Pallet Town (attempting to go north)
-        if state["map_id"] == 0:  # In Pallet Town
-            if state["player_y"] <= 1:  # At northern edge
-                self.route_attempted = True
-                return 3.0
-        return 0.0
+        return 0.0  # Handled by StrategicTrainingReward

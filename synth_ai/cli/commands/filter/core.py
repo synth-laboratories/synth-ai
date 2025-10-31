@@ -131,20 +131,77 @@ def _extract_text(content: Any) -> str:
     return str(content)
 
 
+def _infer_message_type(raw_type: str | None, content_raw: Any) -> str | None:
+    if raw_type in {
+        "user",
+        "assistant",
+        "system",
+        "tool_use",
+        "tool_result",
+    }:
+        return raw_type
+    policy_map = {
+        "policy_user_prompt": "user",
+        "policy_system_prompt": "system",
+        "policy_tool_call": "assistant",
+    }
+    if raw_type in policy_map:
+        return policy_map[raw_type]
+
+    try:
+        parsed = json.loads(content_raw) if isinstance(content_raw, str) else content_raw
+    except Exception:
+        parsed = None
+
+    if isinstance(parsed, dict):
+        role = parsed.get("role")
+        if role == "user":
+            return "policy_user_prompt"
+        if role == "system":
+            return "policy_system_prompt"
+    elif isinstance(parsed, list):
+        return "policy_tool_call"
+
+    return raw_type
+
+
 def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for index, msg_row in enumerate(message_rows):
-        msg_type = msg_row.get("message_type")
         content_raw = msg_row.get("content")
+        msg_type = _infer_message_type(msg_row.get("message_type"), content_raw)
         if msg_type not in {"user", "policy_user_prompt"}:
             continue
 
+        system_payload = None
+        for prior in range(index - 1, -1, -1):
+            prev_row = message_rows[prior]
+            prev_type = _infer_message_type(prev_row.get("message_type"), prev_row.get("content"))
+            if prev_type == "system":
+                raw = prev_row.get("content")
+                try:
+                    sys_content = json.loads(raw) if isinstance(raw, str) else raw
+                except Exception:
+                    sys_content = raw
+                sys_content = _extract_content(sys_content)
+                sys_text = _extract_text(sys_content)
+                if sys_text:
+                    system_payload = (
+                        sys_content if isinstance(sys_content, list) else sys_text
+                    )
+                break
+
         assistant_msg = None
         for follow in range(index + 1, len(message_rows)):
-            next_type = message_rows[follow].get("message_type")
-            if next_type in {"assistant", "policy_system_prompt"}:
+            next_row = message_rows[follow]
+            next_type = _infer_message_type(
+                next_row.get("message_type"), next_row.get("content")
+            )
+            if next_type in {"assistant", "policy_system_prompt", "policy_tool_call"}:
                 if next_type == "assistant":
-                    assistant_msg = message_rows[follow]
+                    assistant_msg = next_row
+                elif next_type == "policy_tool_call":
+                    assistant_msg = next_row
                 break
 
         try:
@@ -174,11 +231,23 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
             else (assistant_text or "[no response recorded]")
         )
 
+        def _normalize_content(value: Any) -> Any:
+            if isinstance(value, list) or isinstance(value, dict):
+                try:
+                    return json.dumps(value)
+                except Exception:
+                    return str(value)
+            return value
+
+        conversation: list[dict[str, Any]] = []
+        if system_payload is not None:
+            conversation.append({"role": "system", "content": _normalize_content(system_payload)})
         records.append(
             {
-                "messages": [
-                    {"role": "user", "content": user_payload},
-                    {"role": "assistant", "content": assistant_payload},
+                "messages": conversation
+                + [
+                    {"role": "user", "content": _normalize_content(user_payload)},
+                    {"role": "assistant", "content": _normalize_content(assistant_payload)},
                 ]
             }
         )

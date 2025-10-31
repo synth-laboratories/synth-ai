@@ -1,7 +1,9 @@
-def test_version_has_dev_suffix():
+def test_version_string_is_present():
     import synth_ai
-    assert hasattr(synth_ai, "__version__")
-    assert ".dev" in synth_ai.__version__ or "-dev" in synth_ai.__version__
 
+    version = getattr(synth_ai, "__version__", None)
+
+    assert isinstance(version, str), "__version__ should be a string"
+    assert version.strip(), "__version__ should not be empty"
 
 

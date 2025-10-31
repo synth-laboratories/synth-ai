@@ -1,0 +1,26 @@
+[eval]
+app_id = "grpo-crafter"
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-fastapi-app-dev.modal.run"
+model = "peft:Qwen/Qwen3-4B:job_f774218e6c954517"
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+max_turns = 20
+concurrency = 2
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "structured"
+return_trace = true
+
+[eval.policy_config]
+provider = "synth"
+model = "peft:Qwen/Qwen3-4B:job_f774218e6c954517"
+inference_url = "https://synth-laboratories-dev--learning-v2-service-fastapi-app.modal.run"
+temperature = 0.2
+top_p = 0.8
+max_tokens = 1024
+use_vision = false
+image_only_mode = false
+max_llm_calls = 10
+tool_choice = "auto"
+
+[eval.env_config.env_params]
+max_steps_per_episode = 20

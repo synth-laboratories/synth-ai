@@ -156,13 +156,13 @@ class OpenAIClient:
             keys_preview = sorted(processed_request.keys())
             logger.info(f"Request keys: {keys_preview}")
 
-        # Final hard-guard for OpenAI: ensure unsupported field is not present
+        # Final hard-guard for OpenAI/Groq: ensure unsupported field is not present
         try:
-            if "openai" in url.lower() and "stop_after_tool_calls" in processed_request:
-                processed_request.pop("stop_after_tool_calls", None)
-                logger.info("Removed stop_after_tool_calls for OpenAI request")
-            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             low_url = url.lower()
+            if ("openai" in low_url or "groq.com" in low_url or "/proxy/groq" in low_url) and "stop_after_tool_calls" in processed_request:
+                processed_request.pop("stop_after_tool_calls", None)
+                logger.info("Removed stop_after_tool_calls for Groq/OpenAI request")
+            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             if ("groq.com" in low_url or "/openai" in low_url) and isinstance(
                 processed_request, dict
             ):
@@ -340,40 +340,6 @@ class OpenAIClient:
                                 pass
                 except Exception:
                     pass
-                # Gracefully degrade on 422 so rollouts can still produce a trajectory
-                if status == 422:
-                    try:
-                        # Best-effort parse of error for diagnostics
-                        err = None
-                        try:
-                            err = e.response.json()
-                        except Exception:
-                            err = {"error": "unprocessable", "detail": (text or "")[:200]}
-                        logger.warning(
-                            {
-                                "inference_422_recovered": True,
-                                "detail": err,
-                            }
-                        )
-                    except Exception:
-                        pass
-                    # Return a minimal OpenAI-compatible response with no tool_calls/content
-                    import time as _t
-
-                    return {
-                        "id": f"cmpl-{int(_t.time())}",
-                        "object": "chat.completion",
-                        "created": int(_t.time()),
-                        "model": processed_request.get("model") or "unknown",
-                        "choices": [
-                            {
-                                "index": 0,
-                                "message": {"role": "assistant", "content": "", "tool_calls": []},
-                                "finish_reason": "stop",
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-                    }
                 raise
             except Exception as e:
                 logger.error(f"Unexpected error calling {url}: {e}")

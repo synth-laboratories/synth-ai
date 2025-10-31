@@ -48,6 +48,24 @@ class TestNormalizeInferenceUrl:
         url = "https://modal.host?cid=trace_run-123&debug=true"
         result = normalize_inference_url(url)
         assert result == "https://modal.host/v1/chat/completions?cid=trace_run-123&debug=true"
+    
+    def test_url_with_query_containing_path(self):
+        """URLs where the completions path leaked into the query string should be repaired."""
+        url = "https://host?cid=trace_run-abc/v1/chat/completions"
+        result = normalize_inference_url(url)
+        assert result == "https://host/v1/chat/completions?cid=trace_run-abc"
+        
+        url = "https://host:8000?cid=trace_run-def/v1/chat/completions&foo=bar"
+        result = normalize_inference_url(url)
+        assert result == "https://host:8000/v1/chat/completions?cid=trace_run-def&foo=bar"
+        
+        url = "https://host?cid=trace_run-ghi/v1/chat/completions?other=param"
+        result = normalize_inference_url(url)
+        assert result == "https://host/v1/chat/completions?cid=trace_run-ghi&other=param"
+        
+        url = "https://example.com/custom/path?cid=trace_run-jkl/v1/chat/completions&debug=true"
+        result = normalize_inference_url(url)
+        assert result == "https://example.com/custom/path/v1/chat/completions?cid=trace_run-jkl&debug=true"
         
     def test_url_with_path_and_query_params(self):
         """URL with existing path and query parameters."""
@@ -118,4 +136,3 @@ class TestNormalizeInferenceUrl:
         """URLs ending in /chat/completions should be preserved."""
         url = "https://api.example.com/chat/completions"
         assert normalize_inference_url(url) == url
-

@@ -404,6 +404,10 @@ def _ensure_env_has_task(
         if not instance_id:
             raise ValueError("mini-swe rollout request requires env.config.instance_id")
         config["task"] = dataset.get(instance_id)
+    env_cfg = dict(config.get("environment") or {})
+    if "environment_class" not in env_cfg and os.getenv("MORPH_API_KEY"):
+        env_cfg["environment_class"] = "morph"
+    config["environment"] = env_cfg
     return env_spec.model_copy(update={"config": config})
 
 
