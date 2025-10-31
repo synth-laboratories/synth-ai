@@ -168,52 +168,18 @@ def _start_task_app_server(
     env_file: str | None,
     force: bool
 ) -> tuple[Any, str]:
-    """Start a task app server in the background using the new deploy command.
+    """DEPRECATED: Task app auto-start is no longer supported.
     
-    Returns (process, url) tuple.
+    Users should manually start their task app using:
+      uvx synth-ai deploy --task-app <file.py> --runtime local --port <port>
+    
+    Then specify the URL in the smoke config with task_url.
     """
-    import subprocess
-    import time as time_module
-    
-    # Resolve task app name to file path using the registry
-    from synth_ai.task.apps import registry
-    try:
-        entry = registry.get(task_app_name)
-        # Get the module file path
-        import sys
-        module_name = entry.config_factory.__module__
-        module = sys.modules.get(module_name)
-        if module is None:
-            import importlib
-            module = importlib.import_module(module_name)
-        module_file = getattr(module, "__file__", None)
-        if not module_file:
-            raise ValueError(f"Could not determine file path for task app: {task_app_name}")
-        task_app_path = Path(module_file).resolve()
-    except KeyError:
-        raise click.ClickException(
-            f"Task app '{task_app_name}' not found. Use 'synth-ai task-app list' to see available apps."
-        )
-    
-    # Use the new deploy command with local runtime
-    cmd = [
-        "nohup",
-        "uvx", "synth-ai",
-        "deploy",
-        "--task-app", str(task_app_path),
-        "--runtime", "local",
-        "--port", str(port),
-        "--trace",  # Enable tracing by default
-    ]
-    
-    # Note: deploy command doesn't have --force flag, so handle port cleanup ourselves
-    if force:
-        _kill_process_on_port(port)
-        time_module.sleep(1.0)
-    
-    # Resolve the synth-ai root directory
-    import synth_ai
-    synth_ai_root = Path(synth_ai.__file__).resolve().parent.parent
+    raise click.ClickException(
+        "Task app auto-start is no longer supported. Please start your task app manually:\n"
+        "  uvx synth-ai deploy --task-app <file.py> --runtime local --port 8765 --trace\n"
+        "Or specify a remote task_url in your smoke config."
+    )
     
     # Convert env_file to absolute path if it's relative
     if env_file:
