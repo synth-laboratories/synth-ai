@@ -179,7 +179,6 @@ def _start_task_app_server(
     # Let the --force flag handle port cleanup instead of doing it ourselves
     
     cmd = [
-
         "nohup",
         "uvx", "synth-ai",
         "task-app", "serve", task_app_name,

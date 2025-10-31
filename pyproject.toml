@@ -58,6 +58,7 @@ dependencies = [
     "modal==1.1.4",
     "pyboy>=2.6.0",
     "setuptools>=80.9.0",
+    "libsql-experimental>=0.0.55",
 ]
 
 [project.scripts]
