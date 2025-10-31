@@ -1,6 +1,7 @@
-from typing import Literal, Optional
-from pydantic import BaseModel
 from pathlib import Path
+from typing import Literal, Optional
+
+from pydantic import BaseModel
 
 
 class LocalTaskAppConfig(BaseModel):

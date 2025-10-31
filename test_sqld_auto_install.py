@@ -151,10 +151,10 @@ def test_4_integration_with_start_sqld():
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             
-            print(f"Starting sqld daemon...")
+            print("Starting sqld daemon...")
             daemon = start_sqld(db_path=str(db_path), hrana_port=18080, http_port=18081)
             
-            print(f"✅ Daemon started successfully")
+            print("✅ Daemon started successfully")
             print(f"   Binary: {daemon.binary_path}")
             print(f"   Hrana port: {daemon.get_hrana_port()}")
             print(f"   HTTP port: {daemon.get_http_port()}")

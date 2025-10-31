@@ -10,7 +10,6 @@ SQLite fallback for contributors without remote access.
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -137,7 +136,7 @@ def resolve_trace_db_auth_token() -> str | None:
 # Config dataclasses
 # ---------------------------------------------------------------------------
 
-DEFAULT_DB_FILE = str((_normalise_path(_DEFAULT_TRACE_DIR) / _CANONICAL_DB_PATH.name))
+DEFAULT_DB_FILE = str(_normalise_path(_DEFAULT_TRACE_DIR) / _CANONICAL_DB_PATH.name)
 
 
 @dataclass

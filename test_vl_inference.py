@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Test script to verify Qwen3-VL inference endpoint is working."""
-import os
-import json
-import httpx
-import base64
 import asyncio
+import base64
+import json
+import os
+
+import httpx
 
 # Try to load from .env file
 try:
@@ -111,7 +112,7 @@ async def test_inference():
         
         async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout
             try:
-                print(f"Making request... (this may take a while on cold start)")
+                print("Making request... (this may take a while on cold start)")
                 resp = await client.post(inference_url, json=payload, headers=current_headers)
                 print(f"\n✓ Response status: {resp.status_code}")
                 
@@ -120,7 +121,7 @@ async def test_inference():
                     if resp.status_code == 400:
                         # Device errors might be temporary - retry anyway
                         if "Device string must not be empty" in resp.text and attempt < max_retries:
-                            print(f"Device selection error (may be temporary). Retrying...")
+                            print("Device selection error (may be temporary). Retrying...")
                             await asyncio.sleep(retry_delay)
                             continue
                         # Other 400 errors - don't retry
@@ -133,7 +134,7 @@ async def test_inference():
                     return
                 
                 data = resp.json()
-                print(f"\n✓ Response received!")
+                print("\n✓ Response received!")
                 print(f"Response keys: {list(data.keys())}")
                 
                 choices = data.get("choices", [])
@@ -160,12 +161,12 @@ async def test_inference():
                         print("⚠️  No tool calls in response")
                         print(f"  Full message: {json.dumps(message, indent=2)[:500]}")
                 else:
-                    print(f"\n⚠️  No choices in response")
+                    print("\n⚠️  No choices in response")
                     print(f"Full response: {json.dumps(data, indent=2)[:500]}")
                 
                 # Success - exit retry loop
                 print(f"\n{'='*60}")
-                print(f"✅ Request completed successfully!")
+                print("✅ Request completed successfully!")
                 print(f"{'='*60}")
                 return
                 
@@ -176,7 +177,7 @@ async def test_inference():
                     await asyncio.sleep(retry_delay)
                     continue
                 else:
-                    print(f"\n❌ Max retries reached. Last attempt timed out.")
+                    print("\n❌ Max retries reached. Last attempt timed out.")
                     return
                     
             except Exception as e:
