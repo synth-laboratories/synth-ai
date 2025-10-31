@@ -16,7 +16,7 @@ def get_env_file_paths(base_dir: str | Path = '.') -> list[Path]:
 
 def get_home_config_file_paths(
     dir_name: str,
-    file_extension: str = ".json"
+    file_extension: str = "json"
 ) -> list[Path]:
     dir = Path.home() / dir_name
     if not dir.exists():
