@@ -71,6 +71,14 @@ except Exception as e:
     traceback.print_exc()
 
 try:
+    from synth_ai.cli.codex import codex_cmd
+    cli.add_command(codex_cmd, name="codex")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register codex command: {e}", file=sys.stderr)
+    import traceback
+
+try:
     from synth_ai.cli.eval import command as eval_cmd
 
     cli.add_command(eval_cmd, name="eval")
