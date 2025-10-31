@@ -26,11 +26,25 @@ trace_db = "none"
         encoding="utf-8",
     )
 
+    env_file = tmp_path / ".env"
+    env_file.write_text("ENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+
     # Run in-process (url None)
     runner = CliRunner()
     result = runner.invoke(
         eval_command,
-        ["grpo-crafter-task-app", "--config", str(cfg), "--seeds", "1,2", "--trace-db", "none"],
+        [
+            "grpo-crafter-task-app",
+            "--config",
+            str(cfg),
+            "--seeds",
+            "1,2",
+            "--trace-db",
+            "none",
+            "--env-file",
+            str(env_file),
+        ],
     )
     assert result.exit_code == 0, result.output
 
@@ -44,7 +58,7 @@ trace_db = "none"
             "--url",
             "http://localhost:9999",
             "--env-file",
-            str(cfg),
+            str(env_file),
             "--seeds",
             "1,2",
             "--trace-db",
@@ -52,5 +66,4 @@ trace_db = "none"
         ],
     )
     assert result.exit_code == 0, result.output
-
 

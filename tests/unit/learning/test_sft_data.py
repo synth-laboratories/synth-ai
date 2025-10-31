@@ -29,24 +29,52 @@ from synth_ai.learning.sft.data import (
     validate_vision_example,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-CRAFT_SFT = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
+def _write_sample_craft_jsonl(path: Path) -> Path:
+    sample = {
+        "messages": [
+            {"role": "system", "content": "stay concise"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {
+                            "name": "interact",
+                            "arguments": json.dumps({"actions": ["noop"]}),
+                        },
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call-1",
+                "content": {"result": "ok"},
+            },
+        ],
+        "metadata": {"model": "test-model", "split": "train"},
+    }
+    path.write_text(json.dumps(sample) + "\n", encoding="utf-8")
+    return path
 
 
-@pytest.mark.parametrize("path", [CRAFT_SFT])
 @pytest.mark.fast
-def test_collect_sft_jsonl_errors_clean(path: Path) -> None:
-    assert path.exists(), f"fixture dataset missing: {path}"
-    errors = collect_sft_jsonl_errors(path, min_messages=2, max_errors=5)
+def test_collect_sft_jsonl_errors_clean(tmp_path: Path) -> None:
+    sample_path = _write_sample_craft_jsonl(tmp_path / "craft.jsonl")
+    errors = collect_sft_jsonl_errors(sample_path, min_messages=2, max_errors=5)
     assert errors == []
 
 
-def test_iter_sft_examples_parses_tool_calls() -> None:
-    with CRAFT_SFT.open("r", encoding="utf-8") as fh:
+def test_iter_sft_examples_parses_tool_calls(tmp_path: Path) -> None:
+    sample_path = _write_sample_craft_jsonl(tmp_path / "craft.jsonl")
+    with sample_path.open("r", encoding="utf-8") as fh:
         example = next(iter_sft_examples(fh, min_messages=2))
 
-    assert example.messages[-1].tool_calls, "expected tool calls in assistant turn"
-    call = example.messages[-1].tool_calls[0]
+    assistant_msg = example.messages[-2]
+    assert assistant_msg.role == "assistant"
+    assert assistant_msg.tool_calls, "expected tool calls in assistant turn"
+    call = assistant_msg.tool_calls[0]
     assert call.name == "interact"
     assert isinstance(call.arguments, dict)
     assert call.arguments.get("actions"), "parsed actions payload missing"

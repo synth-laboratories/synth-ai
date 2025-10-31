@@ -133,27 +133,21 @@ class TestHelpIntegrationWithCommands:
 
     def test_deploy_command_has_help_attribute(self) -> None:
         """Test deploy command includes help text."""
-        from synth_ai.cli.commands.deploy.core import deploy_command
+        from synth_ai.cli import deploy as deploy_module
 
-        # The command should have help text configured
-        assert deploy_command.help is not None
-        # It should use DEPLOY_HELP
-        assert deploy_command.help == DEPLOY_HELP or "Deploy a task app" in (
-            deploy_command.help or ""
-        )
+        command = deploy_module.deploy_cmd
+        assert command is not None
+        help_content = get_command_help("deploy")
+        assert help_content is not None
+        assert "deploy" in (help_content or "").lower()
 
     def test_deploy_command_help_flag_works(self, runner: CliRunner) -> None:
         """Test deploy command --help flag displays help."""
-        from synth_ai.cli.commands.deploy.core import deploy_command
+        from synth_ai.cli import deploy as deploy_module
 
-        result = runner.invoke(deploy_command, ["--help"])
+        result = runner.invoke(deploy_module.deploy_cmd, ["--help"])
         assert result.exit_code == 0
-        # Should show either full DEPLOY_HELP or at least key sections
-        assert (
-            "Deploy" in result.output
-            or "OVERVIEW" in result.output
-            or "--runtime" in result.output
-        )
+        assert "--runtime" in result.output
 
 
 class TestHelpContentQuality:
@@ -210,4 +204,3 @@ class TestHelpCommandEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

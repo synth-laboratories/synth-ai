@@ -40,12 +40,25 @@ use_vision = true
     # Remote vs in-process toggle
     url = "http://localhost:9999" if use_remote else None
 
+    env_file = tmp_path / ".env"
+    env_file.write_text("ENVIRONMENT_API_KEY=test-key\n", encoding="utf-8")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+
     # Run eval command via Click runner; network calls are mocked
     runner = CliRunner()
-    args = ["grpo-crafter-task-app", "--config", str(cfg), "--seeds", "0", "--trace-db", "none"]
+    args = [
+        "grpo-crafter-task-app",
+        "--config",
+        str(cfg),
+        "--seeds",
+        "0",
+        "--trace-db",
+        "none",
+        "--env-file",
+        str(env_file),
+    ]
     if url:
-        args += ["--url", url, "--env-file", str(cfg)]  # any file path satisfies option requirement
+        args += ["--url", url]
     result = runner.invoke(eval_command, args)
     assert result.exit_code == 0, result.output
-
 
