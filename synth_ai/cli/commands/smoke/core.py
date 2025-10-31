@@ -168,28 +168,30 @@ def _start_task_app_server(
     env_file: str | None,
     force: bool
 ) -> tuple[Any, str]:
-    """DEPRECATED: Task app auto-start is no longer supported.
+    """Start a task app server in the background using task-app serve.
     
-    Users should manually start their task app using:
-      uvx synth-ai deploy --task-app <file.py> --runtime local --port <port>
-    
-    Then specify the URL in the smoke config with task_url.
+    Returns (process, url) tuple.
     """
-    raise click.ClickException(
-        "Task app auto-start is no longer supported. Please start your task app manually:\n"
-        "  uvx synth-ai deploy --task-app <file.py> --runtime local --port 8765 --trace\n"
-        "Or specify a remote task_url in your smoke config."
-    )
+    import subprocess
+    import time as time_module
     
-    # Convert env_file to absolute path if it's relative
+    # Build command using task-app serve (for TaskAppConfig-based apps)
+    cmd = [
+        "nohup",
+        "uvx", "synth-ai",
+        "task-app", "serve", task_app_name,
+        "--port", str(port),
+    ]
+    
     if env_file:
-        env_file_abs = Path(env_file).resolve()
-        cmd_with_abs_env = cmd[:]
-        # Replace relative env file path with absolute
-        for i, arg in enumerate(cmd):
-            if arg == "--env-file" and i + 1 < len(cmd):
-                cmd[i + 1] = str(env_file_abs)
-                break
+        cmd.extend(["--env-file", env_file])
+    
+    if force:
+        cmd.append("--force")
+    
+    # Resolve the synth-ai root directory
+    import synth_ai
+    synth_ai_root = Path(synth_ai.__file__).resolve().parent.parent
     
     click.echo(f"[smoke] Starting task app '{task_app_name}' on port {port}...", err=True)
     click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)

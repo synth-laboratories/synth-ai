@@ -1,25 +1,96 @@
-Using ENVIRONMENT_API_KEY=sk_...263 from process environment
-Traceback (most recent call last):
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/bin/synth-ai", line 10, in <module>
-    sys.exit(cli())
-             ^^^^^
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1161, in __call__
-    return self.main(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1082, in main
-    rv = self.invoke(ctx)
-         ^^^^^^^^^^^^^^^^
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1697, in invoke
-    return _process_result(sub_ctx.command.invoke(sub_ctx))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1443, in invoke
-    return ctx.invoke(self.callback, **ctx.params)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 788, in invoke
-    return __callback(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/cli/deploy.py", line 132, in deploy_cmd
-    deploy_uvicorn_app(LocalTaskAppConfig(**opts, task_app_path=task_app_path))
-  File "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/utils/uvicorn.py", line 89, in deploy_uvicorn_app
-    raise RuntimeError("Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory.")
-RuntimeError: Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory.
+[trace] Using trace directory: /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+[trace] Using trace DB: /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db
+[task:tracing] enabled (db=http://127.0.0.1:8081)
+Tracing enabled. SFT JSONL will be written to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+Tracing DB path set to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db
+Tracing DB URL resolved to sqlite+aiosqlite:////Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db
+[preflight] backend=https://synth-backend-dev-docker.onrender.com/api
+[preflight] fetching public key…
+[preflight] posting to https://synth-backend-dev-docker.onrender.com/api/v1/env-keys
+[preflight] public_key: b64_len=44 sha256=e173cb5664e240ba1b0d97a36000b0c4c15f42506a227a82cd2b2c00be119c57 head=LYqK7q2klATZWxRq tail=bgj7pMsckDLn1j8=
+[preflight] plaintext: len=39 preview=sk_env……f263 has_ws=False
+[preflight] ciphertext: b64_len=116 sha256=d459cd9103318743396ace8ee1ea1bae95d140c8d8d9b8c306da78f1891b8b58 head=VjVBFD+MYa63/JS2 tail=ScyR1APU8qZeCPmR
+[preflight] upserting env key…
+[preflight] upsert status=201 body={"id":"da850fb6-8b37-42d6-9cdf-a82461908d93","name":"ENVIRONMENT_API_KEY","updated_at":"2025-10-31T04:58:17.346079Z","org_id":"e371b0ef-c61e-4372-a7ea-2a254ab22dc5","upserted":true}
+✅ ENVIRONMENT_API_KEY uploaded successfully (sk_env...f263)
+[preflight] verifying env key presence…
+✅ Key verified in backend
+[task:server] Loaded environment from: .env
+[task:tracing] enabled (db=http://127.0.0.1:8081)
+[task:sft] writing JSONL to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+[task:server] Starting 'grpo-crafter' on 0.0.0.0:8765
+INFO:     Started server process [19037]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8765 (Press CTRL+C to quit)
+{'task_auth_failed': True, 'allowed_first15': ['sk_env_30c78a78'], 'allowed_count': 1, 'got_first15': [], 'got_lens': [], 'have_x_api_key': False, 'have_x_api_keys': False, 'have_authorization': False}
+INFO:     127.0.0.1:50364 - "GET /health HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:50368 - "GET /health HTTP/1.1" 200 OK
+[rollout] begin run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e policy=crafter-react env=crafter
+[TRACE_DEBUG] RolloutTracingContext init: trace_format=structured return_trace=True
+[TRACE_DEBUG] tracer initialized
+[TRACE_DEBUG] start_session succeeded for run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e
+[task:crafter] user prompt: === CRAFTER GAME STATE ===
+Step: 0/10000
+Health: 9
+Position: [32, 32]
+Facing: [0, 1]
+Inventory: food:9, drink:9, energy:9
+Achievements: none
+
+Local Map View (5x5):
+grass grass grass grass grass
+grass grass grass grass grass
+grass grass player grass grass
+grass grass grass grass grass
+grass grass grass grass grass
+
+Choose your next actions.
+
+
+Previous tool calls (most recent first):
+- none
+[TRACE_DEBUG] record_policy_prompts sys=1 user=1
+[TRACE_DEBUG] After record_policy_prompts: 2 messages
+None of PyTorch, TensorFlow >= 2.0, or Flax have been found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+{'llm.call': True, 'policy': 'crafter-react', 'messages_preview': '[{"role": "system", "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\\n\\nCore rules:\\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\\n- You start with empty hands and low health/hunger.\\n- Interact (\'do\') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\\n\\nKey strategies:\\n1. Begin by moving around to find trees. Use \'do\' to collect wood when adjacent.\\n2. Craft a wood pickaxe as soon as you have enough wood (\'make_wood_pickaxe\').\\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\\n4. Build a table (\'place_table\') to unlock more crafting options (furnace, sword, etc.).\\n5. Manage hunger by collecting and eating plants or interacting with cows.\\n6. Fight zombies with a sword for achievements and resources.\\n7. Survive by balancing exploration, combat, and resource gathering.\\n\\n8. Keep moving to discover new resources and stay alive. If you\'re in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what\'s outside your field of view. Don\'t delay exploration when it\'s the right move.\\n\\nAchievements to aim for:\\n- Collecting resources (wood, stone, coal, iron, plants).\\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\\n- Placing structures (table, furnace, plant).\\n- Combat (killing a cow or zombie).\\n- Survival milestones (staying alive over time).\\n\\nAction policy:\\n- Always return a single tool call: interact_many({actions: [...]})\\n- Use 2\\u20135 actions per call; prefer long movement sequences to explore.\\n- Mix in \'do\' only when it makes sense (tree, stone, animal, enemy nearby).\\n\\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\\n"}, {"role": "user", "content": "=== CRAFTER GAME STATE ===\\nStep: 0/10000\\nHealth: 9\\nPosition: [32, 32]\\nFacing: [0, 1]\\nInventory: food:9, drink:9, energy:9\\nAchievements: none\\n\\nLocal Map View (5x5):\\ngrass grass grass grass grass\\ngrass grass grass grass grass\\ngrass grass player grass grass\\ngrass grass grass grass grass\\ngrass grass grass grass grass\\n\\nChoose your next actions.\\n\\n\\nPrevious tool calls (most recent first):\\n- none"}]', 'tools_preview': '[{"type": "function", "function": {"name": "interact_many", "description": "Execute a short sequence of Crafter actions in order (1-8).", "parameters": {"type": "object", "properties": {"actions": {"type": "array", "description": "List of Crafter actions to execute sequentially.", "items": {"type": "string", "enum": ["noop", "move_left", "move_right", "move_up", "move_down", "do", "sleep", "place_stone", "place_table", "place_furnace", "place_plant", "make_wood_pickaxe", "make_stone_pickaxe", "make_iron_pickaxe", "make_wood_sword", "make_stone_sword", "make_iron_sword"]}, "minItems": 1, "maxItems": 8}}, "required": ["actions"], "additionalProperties": false}}}]'}
+{'tool_calls_parsed': 1, 'tool_calls_preview': '[{"tool_name": "interact_many", "arguments": {"actions": ["move_up", "move_up", "move_up", "move_up", "move_up"]}}]'}
+{'rollout.policy_step': True, 'run_id': 'smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e', 'model': 'gpt-4o-mini', 'inference_url': 'http://127.0.0.1:50369/v1/chat/completions?cid=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e', 'tool_calls_count': 1}
+[rollout] agent tool_calls run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e count=1 summary=[{'tool': None, 'args_keys': []}]
+[rollout] env apply run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e tool_calls=1 reward=None done=False summary=[{'tool': None, 'args_keys': []}]
+[task:crafter] user prompt: === CRAFTER GAME STATE ===
+Step: 5/10000
+Health: 9
+Position: [32, 27]
+Facing: [0, -1]
+Inventory: food:9, drink:9, energy:9
+Achievements: none
+
+Local Map View (5x5):
+grass grass tree grass grass
+grass grass grass tree grass
+grass grass player grass grass
+grass grass grass grass grass
+cow grass grass grass grass
+
+Choose your next actions.
+
+
+Previous tool calls (most recent first):
+- interact_many: {"actions":["move_up","move_up","move_up","move_up","move_up"]}
+[TRACE_DEBUG] record_policy_prompts sys=1 user=1
+[TRACE_DEBUG] After record_policy_prompts: 5 messages
+{'llm.call': True, 'policy': 'crafter-react', 'messages_preview': '[{"role": "system", "content": "You are playing Crafter, a survival game by Danijar Hafner. Your goal is to collect resources, craft tools, survive, and unlock achievements.\\n\\nCore rules:\\n- The world contains trees (wood), stone, coal, iron, plants, cows, zombies, and water.\\n- Movement constraints: you cannot walk onto blocking tiles: tree, stone, water, lava, coal, iron. Navigate around obstacles.\\n- You start with empty hands and low health/hunger.\\n- Interact (\'do\') only when adjacent to a resource (tree, stone, cow, zombie, etc.).\\n- Movement is essential: you can and should move multiple steps in one turn to explore effectively.\\n- Achievements are unlocked by collecting resources, crafting tools, placing objects, fighting, and surviving longer.\\n\\nKey strategies:\\n1. Begin by moving around to find trees. Use \'do\' to collect wood when adjacent.\\n2. Craft a wood pickaxe as soon as you have enough wood (\'make_wood_pickaxe\').\\n3. Use the pickaxe to gather stone, then craft a stone pickaxe. Progress to iron tools as you find iron.\\n4. Build a table (\'place_table\') to unlock more crafting options (furnace, sword, etc.).\\n5. Manage hunger by collecting and eating plants or interacting with cows.\\n6. Fight zombies with a sword for achievements and resources.\\n7. Survive by balancing exploration, combat, and resource gathering.\\n\\n8. Keep moving to discover new resources and stay alive. If you\'re in the middle of nowhere, take 5-8 consecutive move-related actions to explore and see what\'s outside your field of view. Don\'t delay exploration when it\'s the right move.\\n\\nAchievements to aim for:\\n- Collecting resources (wood, stone, coal, iron, plants).\\n- Crafting tools (wood/stone/iron pickaxe, wood/stone/iron sword).\\n- Placing structures (table, furnace, plant).\\n- Combat (killing a cow or zombie).\\n- Survival milestones (staying alive over time).\\n\\nAction policy:\\n- Always return a single tool call: interact_many({actions: [...]})\\n- Use 2\\u20135 actions per call; prefer long movement sequences to explore.\\n- Mix in \'do\' only when it makes sense (tree, stone, animal, enemy nearby).\\n\\nAvailable actions: noop, move_up, move_down, move_left, move_right, do (interact), sleep, place_stone, place_table, place_furnace, place_plant, make_wood_pickaxe, make_stone_pickaxe, make_iron_pickaxe, make_wood_sword, make_stone_sword, make_iron_sword\\n"}, {"role": "user", "content": "=== CRAFTER GAME STATE ===\\nStep: 5/10000\\nHealth: 9\\nPosition: [32, 27]\\nFacing: [0, -1]\\nInventory: food:9, drink:9, energy:9\\nAchievements: none\\n\\nLocal Map View (5x5):\\ngrass grass tree grass grass\\ngrass grass grass tree grass\\ngrass grass player grass grass\\ngrass grass grass grass grass\\ncow grass grass grass grass\\n\\nChoose your next actions.\\n\\n\\nPrevious tool calls (most recent first):\\n- interact_many: {\\"actions\\":[\\"move_up\\",\\"move_up\\",\\"move_up\\",\\"move_up\\",\\"move_up\\"]}"}]', 'tools_preview': '[{"type": "function", "function": {"name": "interact_many", "description": "Execute a short sequence of Crafter actions in order (1-8).", "parameters": {"type": "object", "properties": {"actions": {"type": "array", "description": "List of Crafter actions to execute sequentially.", "items": {"type": "string", "enum": ["noop", "move_left", "move_right", "move_up", "move_down", "do", "sleep", "place_stone", "place_table", "place_furnace", "place_plant", "make_wood_pickaxe", "make_stone_pickaxe", "make_iron_pickaxe", "make_wood_sword", "make_stone_sword", "make_iron_sword"]}, "minItems": 1, "maxItems": 8}}, "required": ["actions"], "additionalProperties": false}}}]'}
+{'tool_calls_parsed': 1, 'tool_calls_preview': '[{"tool_name": "interact_many", "arguments": {"actions": ["move_left", "move_left", "do", "move_up", "move_up"]}}]'}
+{'rollout.policy_step': True, 'run_id': 'smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e', 'model': 'gpt-4o-mini', 'inference_url': 'http://127.0.0.1:50369/v1/chat/completions?cid=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e', 'tool_calls_count': 1}
+[rollout] agent tool_calls run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e count=1 summary=[{'tool': None, 'args_keys': []}]
+[rollout] env apply run_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e tool_calls=1 reward=1.0 done=False summary=[{'tool': None, 'args_keys': []}]
+[TRACE_DEBUG] Before end_session: 6 messages in trace
+[TRACE_DEBUG] Session ended successfully, session_id=smoke-a7e16c9d-341a-4436-b6e8-0c4878eccd3e
+[TRACE_DEBUG] session_trace.metadata keys: ['run_id', 'policy_name', 'policy_id', 'env_name', 'env_id', 'seed', 'training_session_id', 'synth_base_url', 'env_seed', 'final_achievements']
+[TRACE_DEBUG] build_trace_payload returning structured trace with messages=6
+INFO:     127.0.0.1:50368 - "POST /rollout HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [19037]
