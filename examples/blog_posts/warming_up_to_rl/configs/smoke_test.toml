@@ -3,13 +3,13 @@
 
 type = "rl"
 
-# Smoke testing configuration - AUTO-STARTS services in background!
+# Smoke testing configuration
 [smoke]
-# Auto-start the task app server
-task_app_name = "grpo-crafter"  # Your task app name (use "synth-ai task-app list" to see available apps)
-task_app_port = 8765
-task_app_env_file = ".env"  # Required for this task app
-task_app_force = true  # Kill any existing process on this port
+# Task app URL - Start your task app manually first:
+#   cd examples/blog_posts/warming_up_to_rl
+#   uvx synth-ai deploy --task-app task_app/grpo_crafter.py --runtime local --port 8765 --trace
+# Or use a remote URL:
+task_url = "http://localhost:8765"  # Or use a Modal deployment URL
 
 # Auto-start sqld for tracing
 sqld_auto_start = true

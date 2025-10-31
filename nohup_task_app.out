@@ -1,0 +1,25 @@
+Using ENVIRONMENT_API_KEY=sk_...263 from process environment
+Traceback (most recent call last):
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/bin/synth-ai", line 10, in <module>
+    sys.exit(cli())
+             ^^^^^
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1161, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1082, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1697, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 1443, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/joshpurtell/.local/share/uv/tools/synth-ai/lib/python3.11/site-packages/click/core.py", line 788, in invoke
+    return __callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/cli/deploy.py", line 132, in deploy_cmd
+    deploy_uvicorn_app(LocalTaskAppConfig(**opts, task_app_path=task_app_path))
+  File "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/utils/uvicorn.py", line 89, in deploy_uvicorn_app
+    raise RuntimeError("Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory.")
+RuntimeError: Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory.

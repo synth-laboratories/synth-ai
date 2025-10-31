@@ -2538,6 +2538,10 @@ def serve_task_group(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
+    """Deprecated: Use 'synth-ai deploy --runtime local' instead."""
+    click.echo("⚠️  The 'task-app serve' command is deprecated.", err=True)
+    click.echo("   Use: synth-ai deploy --task-app <file.py> --runtime local --port <port>", err=True)
+    click.echo("", err=True)
     return None
 
 
