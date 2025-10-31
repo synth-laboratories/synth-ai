@@ -9,7 +9,6 @@ import hashlib
 import importlib
 import importlib.util
 import inspect
-import json
 import os
 import shlex
 import shutil
@@ -33,7 +32,6 @@ except Exception:  # pragma: no cover - fallback
 
 import click
 from click.exceptions import Abort
-from synth_ai.cli.commands import deploy as _deploy_commands
 from synth_ai.cli.commands.eval import core as eval_core
 from synth_ai.cli.commands.filter import core as filter_core
 
@@ -52,10 +50,6 @@ try:
     from synth_ai.tracing_v3 import (  # type: ignore[import-untyped]
         SessionTrace as V3SessionTrace,
     )
-    from synth_ai.tracing_v3.constants import TRACE_DB_DIR, canonical_trace_db_path
-    from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
-    from synth_ai.tracing_v3.turso.daemon import start_sqld
-
     _TRACING_AVAILABLE = True
 except (ImportError, ModuleNotFoundError, TypeError):
     # Tracing system not available (missing optional dependencies)
@@ -63,9 +57,6 @@ except (ImportError, ModuleNotFoundError, TypeError):
     SessionEventMarkovBlanketMessage = SessionMessageContent = None  # type: ignore
     SessionTimeStep = SessionTracer = TimeRecord = None  # type: ignore
     V3SessionTrace = None  # type: ignore
-    TRACE_DB_DIR = canonical_trace_db_path = None  # type: ignore
-    StorageBackend = StorageConfig = None  # type: ignore
-    start_sqld = None  # type: ignore
     _TRACING_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
@@ -277,18 +268,7 @@ def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlan
         json_payload=content_payload.get("json_payload"),
     )
     raw_type = (payload.get("message_type") or "").lower()
-    metadata = dict(payload.get("metadata") or {})
-
-    policy_type_map = {
-        "policy_system_prompt": "system",
-        "policy_user_prompt": "user",
-        "policy_tool_call": "assistant",
-    }
-
-    if raw_type in policy_type_map:
-        normalized_type = policy_type_map[raw_type]
-        metadata.setdefault("original_message_type", raw_type)
-    elif raw_type == "observation":
+    if raw_type == "observation":
         normalized_type = "system"
     elif raw_type == "action":
         normalized_type = "assistant"
@@ -301,7 +281,7 @@ def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlan
         content=content,
         message_type=normalized_type,
         time_record=_time_record_from_dict(payload.get("time_record")),
-        metadata=metadata,
+        metadata=payload.get("metadata") or {},
     )
 
 
@@ -373,12 +353,8 @@ async def _store_trace(
     _logger.info(f"[STORE_TRACE_DEBUG] Called with tracer={tracer is not None}, trace_namespace={trace_namespace is not None}")
     
     if tracer is None or not isinstance(trace_namespace, dict):
-        message = (
-            f"Trace storage requires a tracer instance and dict payload. "
-            f"Got tracer_present={tracer is not None}, payload_type={type(trace_namespace)}"
-        )
-        _logger.error("[STORE_TRACE_DEBUG] %s", message)
-        raise ValueError(message)
+        _logger.warning(f"[STORE_TRACE_DEBUG] Early return: tracer={tracer is not None}, trace_namespace type={type(trace_namespace)}")
+        return
     
     _logger.info(f"[STORE_TRACE_DEBUG] trace_namespace keys: {list(trace_namespace.keys())}")
     
@@ -392,13 +368,8 @@ async def _store_trace(
             session_payload = trace_namespace
             _logger.info("[STORE_TRACE_DEBUG] Using trace_namespace directly as session_payload (no session_trace key)")
         else:
-            message = (
-                "Trace payload did not contain a 'session_trace' dict and lacked top-level "
-                "session fields (session_id, markov_blanket_message_history). "
-                f"Payload keys: {list(trace_namespace.keys())}"
-            )
-            _logger.error("[STORE_TRACE_DEBUG] %s", message)
-            raise ValueError(message)
+            _logger.warning(f"[STORE_TRACE_DEBUG] No session_trace found or wrong type: {type(session_payload)}")
+            return
     
     _logger.info(f"[STORE_TRACE_DEBUG] session_payload keys: {list(session_payload.keys())}")
     msg_count = len(session_payload.get("markov_blanket_message_history", []))
@@ -406,34 +377,8 @@ async def _store_trace(
     
     trace_obj = _session_trace_from_dict(session_payload)
     if trace_obj is None:
-        message = "Session trace payload could not be parsed into a SessionTrace object."
-        _logger.error("[STORE_TRACE_DEBUG] %s", message)
-        raise ValueError(message)
-
-    if not trace_obj.markov_blanket_message_history:
-        message = (
-            "Session trace is missing markov_blanket_message_history; "
-            "eval output must include all prompts/tool calls. "
-            f"session_id={trace_obj.session_id}"
-        )
-        _logger.error("[STORE_TRACE_DEBUG] %s", message)
-        # Temporarily save trace JSON for image extraction before failing
-        import json
-        from pathlib import Path
-        trace_json_path = Path("traces/v3/pokemon_vl_gpt5nano_debug.json")
-        trace_json_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(trace_json_path, "w") as f:
-            json.dump(session_payload, f, indent=2)
-        _logger.info(f"[STORE_TRACE_DEBUG] Saved trace JSON to {trace_json_path} for debugging")
-        raise ValueError(message)
-
-    if not trace_obj.event_history:
-        message = (
-            "Session trace is missing event_history; rollout should emit environment/LLM events. "
-            f"session_id={trace_obj.session_id}"
-        )
-        _logger.error("[STORE_TRACE_DEBUG] %s", message)
-        raise ValueError(message)
+        _logger.warning("[STORE_TRACE_DEBUG] _session_trace_from_dict returned None")
+        return
     
     _logger.info(f"[STORE_TRACE_DEBUG] Created SessionTrace object with {len(trace_obj.markov_blanket_message_history)} messages")
     
@@ -447,104 +392,6 @@ async def _store_trace(
     _logger.info(f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}")
     await tracer.db.insert_session_trace(trace_obj)
     _logger.info("[STORE_TRACE_DEBUG] Successfully inserted trace")
-
-    # Derive outcome and per-event rewards so downstream filters have structured data
-    if tracer.db is not None and EnvironmentEvent is not None:
-        environment_events = [
-            event for event in trace_obj.event_history if isinstance(event, EnvironmentEvent)
-        ]
-        if environment_events:
-            total_reward = float(
-                sum(float(getattr(evt, "reward", 0.0) or 0.0) for evt in environment_events)
-            )
-            total_steps = len(environment_events)
-            metadata = dict(trace_obj.metadata or {})
-            final_achievements = metadata.get("final_achievements")
-            achievements_count = len(final_achievements) if isinstance(final_achievements, list) else 0
-
-            reward_metadata: dict[str, Any] = {}
-            for key in ("official_score", "final_achievements", "decision_rewards"):
-                value = metadata.get(key)
-                if value is not None:
-                    reward_metadata[key] = value
-
-            try:
-                await tracer.db.insert_outcome_reward(
-                    trace_obj.session_id,
-                    total_reward=int(total_reward),
-                    achievements_count=achievements_count,
-                    total_steps=total_steps,
-                    reward_metadata=reward_metadata,
-                )
-            except Exception as exc:  # pragma: no cover - best effort
-                _logger.warning("[STORE_TRACE_DEBUG] Failed to insert outcome_reward: %s", exc)
-
-            try:
-                event_rows = await tracer.db.query_traces(
-                    """
-                    SELECT id, event_type, metadata
-                    FROM events
-                    WHERE session_id = :session_id
-                    ORDER BY id ASC
-                    """,
-                    {"session_id": trace_obj.session_id},
-                )
-                if hasattr(event_rows, "to_dict"):
-                    event_records = event_rows.to_dict("records")  # type: ignore[attr-defined]
-                else:
-                    event_records = list(event_rows) if isinstance(event_rows, list) else []
-            except Exception as exc:  # pragma: no cover - diagnostics only
-                _logger.warning("[STORE_TRACE_DEBUG] Failed to fetch event rows: %s", exc)
-                event_records = []
-
-            env_records = [
-                record for record in event_records if (record or {}).get("event_type") == "environment"
-            ]
-
-            if len(env_records) != len(environment_events):
-                _logger.warning(
-                    "[STORE_TRACE_DEBUG] Environment event count mismatch: trace=%d db=%d",
-                    len(environment_events),
-                    len(env_records),
-                )
-            else:
-                for env_event, record in zip(environment_events, env_records, strict=False):
-                    record_metadata = record.get("metadata") if isinstance(record, dict) else None
-                    if isinstance(record_metadata, str):
-                        with contextlib.suppress(Exception):
-                            record_metadata = json.loads(record_metadata)
-                    if not isinstance(record_metadata, dict):
-                        record_metadata = {}
-                    event_turn = env_event.metadata.get("turn") if isinstance(env_event.metadata, dict) else None
-                    key = record_metadata.get("step_id") or (
-                        env_event.metadata.get("step_id")
-                        if isinstance(env_event.metadata, dict)
-                        else None
-                    )
-                    annotation: dict[str, Any] = {}
-                    if isinstance(env_event.metadata, dict):
-                        annotation = {
-                            k: v
-                            for k, v in env_event.metadata.items()
-                            if k not in {"turn", "run_id", "step_id"}
-                        }
-                    try:
-                        await tracer.db.insert_event_reward(
-                            trace_obj.session_id,
-                            event_id=int(record.get("id")),
-                            turn_number=int(event_turn) if isinstance(event_turn, (int, float)) else None,
-                            reward_value=float(getattr(env_event, "reward", 0.0) or 0.0),
-                            reward_type="environment_reward",
-                            key=key,
-                            annotation=annotation or None,
-                            source="environment",
-                        )
-                    except Exception as exc:  # pragma: no cover - diagnostics only
-                        _logger.warning(
-                            "[STORE_TRACE_DEBUG] Failed to insert event_reward for event_id=%s: %s",
-                            record.get("id"),
-                            exc,
-                        )
 
 def _temporary_sys_path(paths: Sequence[Path]):
     """Context manager to prepend entries to sys.path temporarily."""
@@ -1090,13 +937,6 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
                             if name and mount:
                                 mounts.append((name, mount))
                 kwargs[kw.arg] = tuple(mounts)
-            elif kw.arg == "env_vars" and isinstance(kw.value, ast.Dict):
-                # Handle env_vars dict
-                env_dict = {}
-                for key_node, val_node in zip(kw.value.keys, kw.value.values):
-                    if isinstance(key_node, ast.Constant) and isinstance(val_node, ast.Constant):
-                        env_dict[key_node.value] = val_node.value
-                kwargs[kw.arg] = env_dict
 
         return ModalDeploymentConfig(**kwargs)
     except Exception:
@@ -2586,16 +2426,7 @@ def serve_command(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    _deploy_commands.run_uvicorn_runtime(
-        app_id,
-        host,
-        port,
-        env_file,
-        reload_flag,
-        force,
-        trace_dir,
-        trace_db,
-    )
+    return None
 
 
 @task_app_group.command("info")
@@ -2707,40 +2538,8 @@ def serve_task_group(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    try:
-        auto_trace = os.getenv("SYNTH_AUTO_TRACE", "1")
-        auto_trace_enabled = auto_trace not in {"0", "false", "False", ""}
-    except Exception:
-        auto_trace_enabled = True
+    return None
 
-    if auto_trace_enabled:
-        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
-        if trace_dir is None:
-            default_trace_dir = (demo_base / "traces" / "v3").resolve()
-            with contextlib.suppress(Exception):
-                default_trace_dir.mkdir(parents=True, exist_ok=True)
-            trace_dir = str(default_trace_dir)
-            click.echo(f"[trace] Using trace directory: {trace_dir}")
-        if trace_dir and trace_db is None:
-            default_trace_db = (Path(trace_dir) / "synth_ai.db").resolve()
-            with contextlib.suppress(Exception):
-                default_trace_db.parent.mkdir(parents=True, exist_ok=True)
-            trace_db = str(default_trace_db)
-            click.echo(f"[trace] Using trace DB: {trace_db}")
-
-    _deploy_commands.run_uvicorn_runtime(
-        app_id,
-        host,
-        port,
-        env_file,
-        reload_flag,
-        force,
-        trace_dir,
-        trace_db,
-    )
-
-
-_deploy_commands.register_task_app_commands(task_app_group)
 
 
 def _determine_env_files(
@@ -2945,93 +2744,6 @@ def _validate_required_env_keys() -> None:
             _save_to_env_file(env_file, "GROQ_API_KEY", groq_api_key)
 
 
-def _refresh_tracing_config() -> None:
-    try:
-        from synth_ai.tracing_v3 import config as tracing_config_module
-        from synth_ai.tracing_v3.storage import config as storage_config_module
-    except Exception:
-        return
-
-    dsn = os.getenv("SYNTH_TRACES_DB")
-    if not dsn:
-        return
-
-    tracing_config_module.CONFIG = tracing_config_module.TursoConfig()  # type: ignore[assignment]
-    storage_config_module.STORAGE_CONFIG = StorageConfig(  # type: ignore[assignment]
-        connection_string=dsn,
-        backend=StorageBackend.TURSO_NATIVE,
-    )
-
-
-def _force_libsql_backend(db_path: Path | None = None) -> str:
-    # Skip sqld setup in Modal - use SQLite fallback instead
-    if os.getenv("MODAL_IS_REMOTE") == "1" or os.getenv("MODAL_TASK_ID") or os.getenv("SERVICE", "").upper() == "MODAL":
-        # Clear any existing sqld env vars that would override Modal detection
-        os.environ.pop("LIBSQL_URL", None)
-        os.environ.pop("SYNTH_TRACES_DB", None)
-        os.environ.pop("TURSO_LOCAL_DB_URL", None)
-        # Return SQLite path; resolve_trace_db_settings() will detect Modal and use this
-        return "file:/tmp/synth_traces.db"
-    
-    if db_path is None:
-        base_dir = TRACE_DB_DIR.expanduser()
-        base_dir.mkdir(parents=True, exist_ok=True)
-        db_path = canonical_trace_db_path().resolve()
-    else:
-        db_path = db_path.resolve()
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    os.environ["SQLD_DB_PATH"] = str(db_path)
-    # Use SQLD_HTTP_PORT for Hrana WebSocket (libsql:// connections)
-    hrana_port = int(os.getenv("SQLD_HTTP_PORT", "8080"))
-    # HTTP API port for health checks is hrana_port + 1
-    http_port = hrana_port + 1
-
-    try:
-        daemon = start_sqld(db_path=str(db_path), hrana_port=hrana_port, http_port=http_port)
-    except RuntimeError as exc:
-        if "Address already in use" not in str(exc):
-            raise
-        click.echo(f"sqld already running on 127.0.0.1:{hrana_port} (hrana) and 127.0.0.1:{http_port} (http); reusing existing instance.")
-        # Import to get daemon reference for port info
-        from synth_ai.tracing_v3.turso.daemon import get_daemon
-        daemon = get_daemon()
-        if daemon:
-            hrana_port = daemon.get_hrana_port()
-            http_port = daemon.get_http_port()
-
-    # Use http:// for local sqld HTTP API port
-    # sqld has two ports: hrana_port (WebSocket) and http_port (HTTP API for Python libsql client)
-    dsn = f"http://127.0.0.1:{http_port}"
-    os.environ["LIBSQL_URL"] = dsn
-    os.environ["SYNTH_TRACES_DB"] = dsn
-    os.environ.pop("LIBSQL_AUTH_TOKEN", None)
-    os.environ.pop("TURSO_AUTH_TOKEN", None)
-
-    # Verify sqld health immediately; fail-fast if unreachable or unhealthy.
-    try:
-        import httpx  # local import to avoid global dependency if unused
-
-        health_url = f"http://127.0.0.1:{http_port}/health"
-        with httpx.Client(timeout=httpx.Timeout(1.0)) as client:
-            resp = client.get(health_url)
-            if resp.status_code != 200:
-                raise click.ClickException(
-                    f"Tracing datastore unhealthy at {health_url} (status={resp.status_code}).\n"
-                    f"Start sqld or disable tracing (TASKAPP_TRACING_ENABLED=0)."
-                )
-    except Exception as exc:
-        # Surface a clear, actionable error and abort startup
-        raise click.ClickException(
-            f"Tracing datastore not reachable at http://127.0.0.1:{http_port}/health.\n"
-            f"Start sqld with both ports:\n"
-            f"  sqld --db-path <path> --hrana-listen-addr 127.0.0.1:{hrana_port} --http-listen-addr 127.0.0.1:{http_port}\n"
-            f"Or disable tracing: TASKAPP_TRACING_ENABLED=0"
-        ) from exc
-
-    return dsn
-
-
 def _print_demo_next_steps_if_applicable() -> None:
     """Print next steps if currently in a demo directory."""
     try:
@@ -3084,21 +2796,24 @@ def _serve_entry(
                 ) from exc
             os.environ["TASKAPP_SFT_OUTPUT_DIR"] = str(dir_path)
             click.echo(f"Tracing enabled. SFT JSONL will be written to {dir_path}")
-        local_db_path: Path | None = None
         if trace_db is not None:
             db_path = Path(trace_db).expanduser()
             if not db_path.is_absolute():
                 db_path = (demo_base / db_path).resolve()
-            local_db_path = db_path
+            # Construct the sqlite URL from the absolute path
+            db_url = f"sqlite+aiosqlite:///{db_path}"
+            os.environ["SQLD_DB_PATH"] = str(db_path)
+            os.environ["TURSO_LOCAL_DB_URL"] = db_url
             click.echo(f"Tracing DB path set to {db_path}")
-        dsn = _force_libsql_backend(local_db_path)
-        click.echo(f"Tracing DB URL resolved to {dsn}")
-        _refresh_tracing_config()
+        tracing_config_module = _maybe_import("synth_ai.tracing_v3.config")
+        if tracing_config_module is not None:
+            trace_config = tracing_config_module.CONFIG
+            new_db_url = os.getenv("TURSO_LOCAL_DB_URL") or trace_config.db_url
+            trace_config.db_url = new_db_url
+            if new_db_url:
+                click.echo(f"Tracing DB URL resolved to {new_db_url}")
     elif os.getenv("TASKAPP_TRACING_ENABLED"):
         click.echo("Tracing enabled via environment variables")
-        dsn = _force_libsql_backend(None)
-        click.echo(f"Tracing DB URL resolved to {dsn}")
-        _refresh_tracing_config()
 
     _ensure_port_free(port, host, force=force)
 
@@ -3275,12 +2990,6 @@ for local_src, remote_dst in local_dirs:
     safe_src = _copy_tree_filtered(local_src)
     image = image.add_local_dir(safe_src, remote_dst)
 
-# Inject environment variables directly into the image
-env_vars = {modal_cfg.env_vars!r}
-if env_vars:
-    for key, value in env_vars.items():
-        image = image.env({{key: value}})
-
 secrets = {secret_names!r}
 secret_objs = [Secret.from_name(name) for name in secrets]
 
@@ -3362,9 +3071,10 @@ def fastapi_app():
 
 
 def register(cli: click.Group) -> None:
-    cli.add_command(task_app_group, name="task-app")
-    cli.add_command(eval_command, name="task-app-eval")
-    cli.add_command(filter_command, name="task-app-filter")
+    cli.add_command(serve_command)
+    cli.add_command(task_app_group)
+    cli.add_command(eval_command)
+    cli.add_command(filter_command)
 
 
 eval_command = eval_core.command

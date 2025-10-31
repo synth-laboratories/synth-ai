@@ -52,7 +52,6 @@ env_name = "math"
 policy_name = "math-single-step"
 max_turns = 1
 episodes_per_batch = 256
-task_app_origin_rewards_only = true
 
 [evaluation]
 instances = 256

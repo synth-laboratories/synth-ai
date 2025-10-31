@@ -253,78 +253,12 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
             detail="[rollout].policy_name is required"
         )
     
-    # Validate reward origin configuration
-    # Exactly one of rubric_rewards_only or task_app_origin_rewards_only must be set
-    rubric_rewards_only = rollout.get("rubric_rewards_only")
-    task_app_origin_rewards_only = rollout.get("task_app_origin_rewards_only")
-    
-    # Coerce to boolean (handle None, string "true"/"false", actual booleans)
-    def _coerce_bool(val):
-        if val is None:
-            return None
-        if isinstance(val, bool):
-            return val
-        if isinstance(val, str):
-            return val.lower() in ("true", "1", "yes", "on")
-        return bool(val)
-    
-    rubric_flag = _coerce_bool(rubric_rewards_only)
-    task_flag = _coerce_bool(task_app_origin_rewards_only)
-    
-    # Check that exactly one is set to true
-    rubric_set = rubric_flag is True
-    task_set = task_flag is True
-    
-    if not rubric_set and not task_set:
-        raise InvalidRLConfigError(
-            detail="Exactly one of [rollout].rubric_rewards_only or [rollout].task_app_origin_rewards_only must be true",
-            hint="Set rubric_rewards_only=true for rubric-based rewards, or task_app_origin_rewards_only=true for task-app rewards"
-        )
-    
-    if rubric_set and task_set:
-        raise InvalidRLConfigError(
-            detail="Cannot set both [rollout].rubric_rewards_only and [rollout].task_app_origin_rewards_only to true",
-            hint="Set exactly one reward source: rubric_rewards_only=true OR task_app_origin_rewards_only=true"
-        )
-    
-    # Validate rubric config consistency
-    if rubric_set:
-        rubric = config.get("rubric", {})
-        judge = config.get("judge", {})
-        rubric_enabled = (
-            rubric.get("enabled") or 
-            judge.get("enabled") or 
-            judge.get("reward_blend", {}).get("enabled")
-        )
-        if not _coerce_bool(rubric_enabled):
-            raise InvalidRLConfigError(
-                detail="[rollout].rubric_rewards_only=true requires rubric/judge to be enabled",
-                hint="Set [rubric].enabled=true or [judge].enabled=true when using rubric_rewards_only"
-            )
-    
     # Validate topology section (can be top-level or under compute)
     topology = config.get("topology") or compute.get("topology", {})
     if not topology:
         raise InvalidRLConfigError(
             detail="[topology] or [compute.topology] section is required",
             hint="Specify gpus_for_vllm, gpus_for_training, etc."
-        )
-    
-    # Validate vllm section and tensor_parallel consistency
-    vllm = config.get("vllm", {})
-    topology_tensor_parallel = topology.get("tensor_parallel")
-    vllm_tensor_parallel = vllm.get("tensor_parallel_size")
-    
-    if topology_tensor_parallel and not vllm_tensor_parallel:
-        raise InvalidRLConfigError(
-            detail="Both [topology].tensor_parallel and [vllm].tensor_parallel_size must be provided",
-            hint=f"Add [vllm] section with tensor_parallel_size={topology_tensor_parallel}"
-        )
-    
-    if vllm_tensor_parallel and not topology_tensor_parallel:
-        raise InvalidRLConfigError(
-            detail="Both [topology].tensor_parallel and [vllm].tensor_parallel_size must be provided",
-            hint=f"Add tensor_parallel={vllm_tensor_parallel} to [topology] section"
         )
     
     # Check for training section and its required fields
@@ -337,8 +271,6 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
             "batch_size": "batch size",
             "group_size": "group size",
             "learning_rate": "learning rate",
-            "weight_sync_interval": "weight sync interval",
-            "log_interval": "logging interval",
         }
         
         for field, description in required_training_fields.items():
@@ -347,44 +279,6 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
                     detail=f"[training].{field} is required ({description})",
                     hint=f"Add {field} to the [training] section"
                 )
-        
-        # Validate weight_sync_interval is positive
-        weight_sync_interval = training.get("weight_sync_interval")
-        if weight_sync_interval is not None and weight_sync_interval <= 0:
-            raise InvalidRLConfigError(
-                detail="[training].weight_sync_interval must be a positive integer",
-                hint="Set weight_sync_interval to a value >= 1"
-            )
-        
-        # Ensure weight_sync block exists with proper defaults
-        # Backend requires mode="direct" - always inject it
-        if "weight_sync" not in training:
-            training["weight_sync"] = {
-                "enable": True,
-                "mode": "direct",  # Backend requirement
-                "targets": ["policy"],
-                "interval": training.get("weight_sync_interval", 1),
-            }
-        else:
-            weight_sync = training["weight_sync"]
-            # Always force mode to "direct" (backend requirement)
-            weight_sync["mode"] = "direct"
-            
-            # Validate existing weight_sync block
-            if not weight_sync.get("enable"):
-                raise InvalidRLConfigError(
-                    detail="[training.weight_sync].enable must be true",
-                    hint="Set enable=true in the weight_sync section"
-                )
-            targets = weight_sync.get("targets", [])
-            if not targets or "policy" not in targets:
-                raise InvalidRLConfigError(
-                    detail="[training.weight_sync].targets must include 'policy'",
-                    hint="Add targets=['policy'] to the weight_sync section"
-                )
-            # Inject interval if not present
-            if "interval" not in weight_sync:
-                weight_sync["interval"] = training.get("weight_sync_interval", 1)
     
     # Check for evaluation section
     evaluation = config.get("evaluation", {})

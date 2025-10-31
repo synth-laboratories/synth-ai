@@ -1,6 +1,6 @@
 from . import task_app_state
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
-from .cli import PromptedChoiceOption, PromptedChoiceType, print_next_step
+from .cli import PromptedChoiceOption, PromptedChoiceType, PromptedPathOption, prompt_for_path, print_next_step
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 from .http import AsyncHttpClient, HTTPError, http_request
 from .modal import (
@@ -50,6 +50,8 @@ __all__ = [
     "PROD_BASE_URL_DEFAULT",
     "PromptedChoiceOption",
     "PromptedChoiceType",
+    "PromptedPathOption",
+    "prompt_for_path",
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
     "current_task_app_id",

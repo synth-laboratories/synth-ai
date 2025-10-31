@@ -10,7 +10,7 @@ import sqlite3
 import sys
 import time
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -200,8 +200,8 @@ def _eval_command_impl(
     if cfg:
         try:
             normalized_cfg = validate_eval_options(cfg)
-            eval_cfg = EvalConfig.from_dict(dict(normalized_cfg))
-            cfg = dict(normalized_cfg)
+            eval_cfg = EvalConfig.from_dict(normalized_cfg)
+            cfg = normalized_cfg
             click.echo(f"✓ Config validated: {len(eval_cfg.seeds)} seeds, model={eval_cfg.model}")
         except (ValueError, TypeError) as validation_error:
             raise InvalidEvalConfigError(detail=str(validation_error)) from validation_error
@@ -262,11 +262,9 @@ def _eval_command_impl(
             trace_path = Path(trace_db).expanduser()
             trace_path.parent.mkdir(parents=True, exist_ok=True)
             trace_db_url = f"sqlite+aiosqlite:///{trace_path}"
-    trace_tracer_factory: Callable[[], SessionTracer] | None = None
+    trace_tracer: SessionTracer | None = None
     if trace_db_url and session_tracer_cls is not None:
-        def _trace_factory() -> SessionTracer:
-            return session_tracer_cls(db_url=trace_db_url, auto_save=True)
-        trace_tracer_factory = _trace_factory
+        trace_tracer = cast(SessionTracer, session_tracer_cls(db_url=trace_db_url, auto_save=True))
 
     # Determine selection params (CLI takes precedence; TOML only fills unset model/seeds/env)
     if cfg.get("model") and not model:
@@ -638,13 +636,8 @@ def _eval_command_impl(
     async def _run_eval() -> None:
         nonlocal successes, failures, outcome_sum, outcome_count, outcome_correct, records, seed_values
 
-        if trace_tracer_factory is not None:
-            tracer = trace_tracer_factory()
-            try:
-                await tracer.initialize()
-            finally:
-                with contextlib.suppress(Exception):
-                    await tracer.close()
+        if trace_tracer is not None and trace_tracer.db is None:
+            await trace_tracer.initialize()
 
         if task_app_url is None:
             transport = httpx.ASGITransport(app=app)  # type: ignore[name-defined]
@@ -729,14 +722,13 @@ def _eval_command_impl(
                     "mode": "eval",  # RolloutMode.EVAL: use inference URLs as-is, no transformations
                 }
                 if env_name:
-                    body["env"]["env_name"] = env_name  # type: ignore[assignment]
+                    body["env"]["env_name"] = env_name
                 
                 # Debug: print the body being sent
                 if seed_val == 0:
                     click.echo(f"[DEBUG] rollout body env: {body['env']}")
                     click.echo(f"[DEBUG] rollout body policy: {body['policy']}")
                     click.echo(f"[DEBUG] rollout body mode: {body.get('mode', 'NOT SET')}")
-                    click.echo(f"[DEBUG] rollout record payload: {body.get('record')}")
                 rollout_elapsed: float | None = None
                 rollout_start = time.perf_counter()
                 try:
@@ -952,7 +944,7 @@ def _eval_command_impl(
                         judges_timings[spec.name] = judge_elapsed
                         judge_scores[spec.name] = score_value
 
-                if trace_tracer_factory is not None and trace_namespace and store_trace is not None:
+                if trace_tracer is not None and trace_namespace:
                     storage_metadata = {
                         "eval_seed": seed_val,
                         "prompt_index": prompt_index,
@@ -965,12 +957,8 @@ def _eval_command_impl(
                         "prompt": prompt_text,
                         "completion": completion,
                     }
-                    tracer_instance = trace_tracer_factory()
-                    try:
-                        await store_trace(tracer_instance, trace_namespace, storage_metadata)
-                    finally:
-                        with contextlib.suppress(Exception):
-                            await tracer_instance.close()
+                    if store_trace is not None:
+                        await store_trace(trace_tracer, trace_namespace, storage_metadata)
 
                 records.append(
                     {
@@ -989,7 +977,12 @@ def _eval_command_impl(
         finally:
             await async_client.aclose()
 
-    asyncio.run(_run_eval())
+    try:
+        asyncio.run(_run_eval())
+    finally:
+        if trace_tracer is not None and trace_tracer.db is not None:
+            asyncio.run(trace_tracer.db.close())
+
     click.echo(
         f"Eval complete: {successes} ok, {failures} failed; model={selected_model}, split={split}"
     )
