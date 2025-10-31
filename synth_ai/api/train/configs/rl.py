@@ -115,6 +115,33 @@ class JudgeConfig(ExtraModel):
     options: JudgeOptionsConfig | None = None
 
 
+class SmokeConfig(ExtraModel):
+    """Configuration for local smoke testing (CLI only, ignored by trainer)."""
+    # Test parameters
+    task_url: str | None = None
+    env_name: str | None = None
+    policy_name: str | None = None
+    max_steps: int | None = None
+    policy: str | None = None  # mock, gpt-5-nano, openai, groq
+    model: str | None = None
+    mock_backend: str | None = None  # synthetic or openai
+    mock_port: int | None = None
+    return_trace: bool | None = None
+    use_mock: bool | None = None
+    
+    # Task app auto-start configuration
+    task_app_name: str | None = None  # Task app to serve (e.g., "grpo-crafter")
+    task_app_port: int | None = None  # Port for task app (default: 8765)
+    task_app_env_file: str | None = None  # Path to .env file for task app
+    task_app_force: bool | None = None  # Use --force flag when serving
+    
+    # sqld auto-start configuration
+    sqld_auto_start: bool | None = None  # Auto-start sqld server
+    sqld_db_path: str | None = None  # Database path (default: ./traces/local.db)
+    sqld_hrana_port: int | None = None  # Hrana WebSocket port (default: 8080)
+    sqld_http_port: int | None = None  # HTTP API port (default: 8081)
+
+
 class RLConfig(ExtraModel):
     algorithm: AlgorithmConfig
     services: RLServicesConfig
@@ -131,6 +158,7 @@ class RLConfig(ExtraModel):
     rubric: dict[str, Any] | None = None  # DEPRECATED: use judge.reward_blend and judge.enabled instead
     judge: JudgeConfig | None = None
     tags: dict[str, Any] | None = None
+    smoke: SmokeConfig | None = None  # CLI-only: local smoke testing config (ignored by trainer)
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump(mode="python", exclude_none=True)
@@ -155,5 +183,6 @@ __all__ = [
     "RLServicesConfig",
     "RLTrainingConfig",
     "RolloutConfig",
+    "SmokeConfig",
     "WeightSyncConfig",
 ]

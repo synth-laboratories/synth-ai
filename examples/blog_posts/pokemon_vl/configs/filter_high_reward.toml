@@ -1,0 +1,10 @@
+# Filter high-quality vision-language rollouts for SFT training
+# Assumes traces stored in pokemon_vl_blog.db via eval commands
+
+[filter]
+db = "traces/v3/pokemon_vl_blog.db"
+output = "examples/blog_posts/pokemon_vl/ft_data/pokemon_vl_high_reward.jsonl"
+min_official_score = 0.3  # Require at least 30% completion (Pallet Town progression)
+models = ["Qwen/Qwen3-VL-4B-Instruct"]  # Vision models used for rollouts
+shuffle = true
+shuffle_seed = 42

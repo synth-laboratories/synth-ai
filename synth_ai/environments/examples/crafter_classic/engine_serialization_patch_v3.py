@@ -4,6 +4,7 @@ This version handles player references for Zombie and Skeleton objects.
 """
 
 import collections
+import os
 import pickle
 from typing import Any, Dict, Optional, Set
 
@@ -11,11 +12,12 @@ import crafter
 import numpy as np
 from crafter import objects
 
-print("[PATCH] Attempting to apply Crafter serialization patch v3...")
+# Patch messages permanently disabled
+# print("[PATCH] Attempting to apply Crafter serialization patch v3...")
 
 # Check if already patched
 if not hasattr(crafter.Env, "save"):
-    print("[PATCH] Adding enhanced save/load methods to crafter.Env...")
+    # print("[PATCH] Adding enhanced save/load methods to crafter.Env...")
 
     def _save(self) -> Dict[str, Any]:
         """Save complete environment state including all details."""
@@ -260,8 +262,10 @@ if not hasattr(crafter.Env, "save"):
     crafter.Env.save = _save
     crafter.Env.load = _load
 
-    print("[PATCH] crafter.Env.save() and load() methods added (v3).")
+    pass
+    # print("[PATCH] crafter.Env.save() and load() methods added (v3).")
 else:
-    print("[PATCH] crafter.Env already has save/load methods.")
+    pass
+    # print("[PATCH] crafter.Env already has save/load methods.")
 
-print("[PATCH] Crafter serialization patch v3 complete.")
+# print("[PATCH] Crafter serialization patch v3 complete.")

@@ -1,0 +1,27 @@
+[eval]
+app_id = "pokemon_red"
+task_app_url = "http://127.0.0.1:8914"
+model = "Qwen/Qwen3-VL-30B-A3B-Thinking"  # Larger thinking variant - needs more time to load
+seeds = [10, 11]  # 2 seeds for quick testing
+max_turns = 10  # 10 LLM calls per episode to allow more progress
+concurrency = 2  # Run 2 rollouts in parallel
+env_name = "pokemon_red"
+policy_name = "pokemon_vl_qwen3_vl"
+trace_format = "full"
+return_trace = true
+
+[eval.policy_config]
+provider = "synth"  # Use Synth internal API for vision models
+model = "Qwen/Qwen3-VL-30B-A3B-Thinking"  # Larger thinking variant - needs more time to load
+inference_url = "https://synth-laboratories-dev--learning-v2-service-fastapi-app.modal.run/chat/completions"
+temperature = 1.0  # Higher temperature to encourage exploration
+top_p = 0.95
+max_tokens = 2048  # Reduced to avoid token budget issues
+use_vision = true
+image_only_mode = false
+max_llm_calls = 10
+thinking_mode = "think"  # Enable thinking/reasoning mode
+thinking_budget = 3072  # Increased token budget for reasoning
+
+[eval.env_config.env_params]
+max_steps_per_episode = 100  # Increased from 3 to allow time to achieve milestones

@@ -1,11 +1,12 @@
-# Evaluation config for Pokemon Red with image-only input
+# Evaluation config for Pokemon Red with image-only input and NEW REWARD SYSTEM
 # This config uses GPT-4o mini with only image data (no text observations)
+# Uses the comprehensive reward system with deterministic progress milestones
 
 [eval]
 app_id = "pokemon_red"
 model = "gpt-4o-mini-2024-07-18"
-seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-max_turns = 10
+seeds = [0, 1, 2, 3, 4]  # Test with fewer seeds for quick results
+max_turns = 20  # Allow more turns to see progress
 concurrency = 1  # Keep low initially to avoid issues
 env_name = "pokemon_red"
 policy_name = "pokemon_red_policy"
@@ -13,7 +14,7 @@ trace_format = "full"
 return_trace = true
 
 [eval.env_config]
-max_steps_per_episode = 10
+max_steps_per_episode = 20
 
 [eval.policy_config]
 provider = "openai"
@@ -24,6 +25,6 @@ top_p = 0.95
 max_tokens = 512
 use_vision = true
 image_only_mode = true
-max_llm_calls = 10
+max_llm_calls = 20
 
 

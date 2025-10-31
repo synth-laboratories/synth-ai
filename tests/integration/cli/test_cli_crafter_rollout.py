@@ -109,7 +109,6 @@ def test_serve_crafter_rollout_returns_trace(tmp_path: Path):
     base = f"http://127.0.0.1:{port}"
 
     env = os.environ.copy()
-    env.setdefault("ENVIRONMENT_API_KEY", "test_env_key_456")
     env.setdefault("TASKAPP_TRACING_ENABLED", "1")
     env.setdefault("PYTHONUNBUFFERED", "1")
     env.setdefault("OPENAI_API_KEY", "dummy")

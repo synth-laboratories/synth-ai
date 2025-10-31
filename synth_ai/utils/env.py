@@ -173,7 +173,7 @@ def resolve_env_var(key: str) -> str:
                     show_choices=False,
                 ).strip()
             except click.Abort:
-                raise click.Abort()
+                raise
             if choice.lower() == 'm':
                 value = _prompt_manual_env_value(key)
                 break
@@ -207,10 +207,7 @@ def write_env_var_to_dotenv(
     print_msg: bool = True,
     mask_msg: bool = True
 ) -> None:
-    if output_file_path is None:
-        path = Path(".env")
-    else:
-        path = Path(output_file_path)
+    path = Path(".env") if output_file_path is None else Path(output_file_path)
     path = path.expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
 

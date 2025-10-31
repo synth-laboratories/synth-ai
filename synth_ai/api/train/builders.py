@@ -74,12 +74,23 @@ def build_rl_payload(
     idempotency: str | None,
     allow_experimental: bool | None = None,
 ) -> RLBuildResult:
+    # Load and validate config with SDK-level checks
+    from synth_ai.api.train.utils import load_toml
+    from synth_ai.cli.commands.train.validation import validate_rl_config
+    
     try:
-        rl_cfg = RLConfig.from_path(config_path)
+        raw_config = load_toml(config_path)
+        validated_config = validate_rl_config(raw_config)  # Adds defaults & validates
+        rl_cfg = RLConfig.from_mapping(validated_config)
     except ValidationError as exc:
         raise click.ClickException(_format_validation_error(config_path, exc)) from exc
 
     data = rl_cfg.to_dict()
+    
+    # Remove smoke section - it's CLI-only and should not be sent to the trainer
+    if "smoke" in data:
+        del data["smoke"]
+    
     # Ensure required [reference] section for backend validators
     try:
         ref_cfg = data.get("reference") if isinstance(data, dict) else None
@@ -110,8 +121,8 @@ def build_rl_payload(
             "Task app URL required (provide --task-url or set services.task_url in TOML)"
         )
 
-    model_source = (model_cfg.source or "").strip()
-    model_base = (model_cfg.base or "").strip()
+    model_source = (model_cfg.source or "").strip() if model_cfg else ""
+    model_base = (model_cfg.base or "").strip() if model_cfg else ""
     override_model = (overrides.get("model") or "").strip()
     if override_model:
         model_source = override_model

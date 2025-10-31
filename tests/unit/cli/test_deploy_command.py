@@ -1,21 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from pathlib import Path
+from typing import Any
 
 import pytest
-from click.testing import CliRunner
 import click
+from click.testing import CliRunner
 
-from synth_ai.cli.commands.deploy import core as deploy_core
-from synth_ai.cli.commands.deploy.errors import (
-    EnvFileDiscoveryError,
-    EnvKeyPreflightError,
-    EnvironmentKeyLoadError,
-    MissingEnvironmentApiKeyError,
-    ModalCliResolutionError,
-    ModalExecutionError,
-    TaskAppNotFoundError,
-)
+from synth_ai.cli.deploy import deploy_cmd
+from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
 
 
 @pytest.fixture()
@@ -23,265 +16,111 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def test_deploy_defaults_to_modal_runtime(monkeypatch: pytest.MonkeyPatch, runner: CliRunner) -> None:
+def _write_stub(path: Path, contents: str) -> Path:
+    path.write_text(contents, encoding="utf-8")
+    return path
+
+
+def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_modal_runtime(
-        app_id: str | None,
-        *,
-        command: str,
-        modal_name: str | None,
-        dry_run: bool,
-        modal_cli: str,
-        env_file: tuple[str, ...],
-        use_demo_dir: bool = True,
-    ) -> None:
-        captured.update(
-            {
-                "app_id": app_id,
-                "command": command,
-                "modal_name": modal_name,
-                "dry_run": dry_run,
-                "modal_cli": modal_cli,
-                "env_file": env_file,
-                "use_demo_dir": use_demo_dir,
-            }
-        )
+    def fake_deploy(cfg: LocalTaskAppConfig) -> None:
+        captured["cfg"] = cfg
 
-    monkeypatch.setattr(deploy_core, "run_modal_runtime", fake_modal_runtime)
-    result = runner.invoke(deploy_core.command, ["math-single-step"])
-    assert result.exit_code == 0, result.output
-    assert captured["command"] == "deploy"
-    assert captured["app_id"] == "math-single-step"
-    assert captured["use_demo_dir"] is True
+    monkeypatch.setattr("synth_ai.cli.deploy.deploy_uvicorn_app", fake_deploy)
 
+    task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
-def test_deploy_uvicorn_runtime(monkeypatch: pytest.MonkeyPatch, runner: CliRunner) -> None:
-    captured: dict[str, Any] = {}
-
-    def fake_uvicorn_runtime(
-        app_id: str | None,
-        host: str,
-        port: int | None,
-        env_file: tuple[str, ...],
-        reload_flag: bool,
-        force: bool,
-        trace_dir: str | None,
-        trace_db: str | None,
-    ) -> None:
-        captured.update(
-            {
-                "app_id": app_id,
-                "host": host,
-                "port": port,
-                "env_file": env_file,
-                "reload_flag": reload_flag,
-                "force": force,
-                "trace_dir": trace_dir,
-                "trace_db": trace_db,
-            }
-        )
-
-    monkeypatch.setattr(deploy_core, "run_uvicorn_runtime", fake_uvicorn_runtime)
     result = runner.invoke(
-        deploy_core.command,
+        deploy_cmd,
         [
-            "local-app",
+            "--task-app",
+            str(task_app),
             "--runtime",
-            "uvicorn",
+            "local",
             "--host",
-            "127.0.0.1",
+            "0.0.0.0",
             "--port",
             "9001",
-            "--reload",
+            "--no-trace",
         ],
     )
+
     assert result.exit_code == 0, result.output
-    assert captured["app_id"] == "local-app"
-    assert captured["host"] == "127.0.0.1"
-    assert captured["port"] == 9001
-    assert captured["reload_flag"] is True
+    cfg = captured["cfg"]
+    assert isinstance(cfg, LocalTaskAppConfig)
+    assert cfg.task_app_path == task_app
+    assert cfg.host == "0.0.0.0"
+    assert cfg.port == 9001
+    assert cfg.trace is False
 
 
-def test_deploy_rejects_uvicorn_only_options_in_modal_mode(runner: CliRunner) -> None:
-    result = runner.invoke(
-        deploy_core.command,
-        [
-            "math-single-step",
-            "--host",
-            "127.0.0.1",
-        ],
-    )
-    assert result.exit_code != 0
-    assert "cannot be used with --runtime=modal" in result.output
-
-
-def test_deploy_rejects_dry_run_for_modal_serve(runner: CliRunner) -> None:
-    result = runner.invoke(
-        deploy_core.command,
-        [
-            "--modal-mode",
-            "serve",
-            "--dry-run",
-        ],
-    )
-    assert result.exit_code != 0
-    assert "--dry-run is not supported with --modal-mode=serve" in result.output
-
-
-def test_modal_serve_command_invokes_runtime(monkeypatch: pytest.MonkeyPatch, runner: CliRunner) -> None:
+def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_modal_runtime(
-        app_id: str | None,
-        *,
-        command: str,
-        modal_name: str | None,
-        dry_run: bool,
-        modal_cli: str,
-        env_file: tuple[str, ...],
-        use_demo_dir: bool,
-    ) -> None:
-        captured.update(
-            {
-                "app_id": app_id,
-                "command": command,
-                "modal_name": modal_name,
-                "dry_run": dry_run,
-                "modal_cli": modal_cli,
-                "env_file": env_file,
-                "use_demo_dir": use_demo_dir,
-            }
-        )
+    def fake_modal(cfg: ModalTaskAppConfig) -> None:
+        captured["cfg"] = cfg
 
-    monkeypatch.setattr(deploy_core, "run_modal_runtime", fake_modal_runtime)
+    modal_cli_path = tmp_path / "modal"
+    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", fake_modal)
+    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: modal_cli_path)
+
+    task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
+    modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
+
     result = runner.invoke(
-        deploy_core.modal_serve_command,
+        deploy_cmd,
         [
-            "math-single-step",
-            "--modal-cli",
-            "echo",
+            "--task-app",
+            str(task_app),
+            "--runtime",
+            "modal",
+            "--modal-app",
+            str(modal_app),
             "--name",
-            "demo",
+            "demo-app",
         ],
     )
+
     assert result.exit_code == 0, result.output
-    assert captured["command"] == "serve"
-    assert captured["app_id"] == "math-single-step"
-    assert captured["modal_name"] == "demo"
-    assert captured["use_demo_dir"] is False
+    cfg = captured["cfg"]
+    assert isinstance(cfg, ModalTaskAppConfig)
+    assert cfg.task_app_path == task_app
+    assert cfg.modal_app_path == modal_app
+    assert cfg.task_app_name == "demo-app"
+    assert cfg.cmd_arg == "deploy"
+    assert cfg.dry_run is False
+    assert cfg.modal_bin_path == modal_cli_path
 
 
-def _invoke_with_error(
-    monkeypatch: pytest.MonkeyPatch,
-    error: Exception,
-    *,
-    runtime: Literal["uvicorn", "modal"],
-    invoke_args: list[str],
-) -> click.testing.Result:
-    if runtime == "uvicorn":
-        monkeypatch.setattr(
-            deploy_core,
-            "run_uvicorn_runtime",
-            lambda *args, **kwargs: (_ for _ in ()).throw(error),
+def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+
+    task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
+
+    with pytest.raises(click.ClickException) as exc:
+        deploy_cmd.callback(task_app_path=task_app, runtime="modal")
+
+    assert "Modal app path required" in str(exc.value)
+
+
+def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+
+    task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
+    modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
+    modal_cli = tmp_path / "modal"
+
+    with pytest.raises(click.ClickException) as exc:
+        deploy_cmd.callback(
+            task_app_path=task_app,
+            runtime="modal",
+            modal_app_path=modal_app,
+            cmd_arg="serve",
+            dry_run=True,
+            modal_bin_path=modal_cli,
         )
-    else:
-        monkeypatch.setattr(
-            deploy_core,
-            "run_modal_runtime",
-            lambda *args, **kwargs: (_ for _ in ()).throw(error),
-        )
-    runner = CliRunner()
-    return runner.invoke(deploy_core.command, invoke_args)
 
-
-@pytest.mark.parametrize(
-    ("error", "expected", "runtime", "args"),
-    [
-        (
-            MissingEnvironmentApiKeyError(hint="Supply via --env-file"),
-            "Supply via --env-file",
-            "uvicorn",
-            ["--runtime", "uvicorn"],
-        ),
-        (
-            EnvironmentKeyLoadError(path=".env"),
-            "Failed to persist or reload ENVIRONMENT_API_KEY from .env",
-            "uvicorn",
-            ["--runtime", "uvicorn"],
-        ),
-        (
-            EnvFileDiscoveryError(attempted=(".env",), hint="run setup"),
-            "Unable to locate a usable env file (.env)",
-            "uvicorn",
-            ["--runtime", "uvicorn"],
-        ),
-        (
-            TaskAppNotFoundError(app_id="foo", available=("bar", "baz")),
-            "Could not find task app 'foo'. Available choices: bar, baz.",
-            "uvicorn",
-            ["--runtime", "uvicorn"],
-        ),
-        (
-            ModalCliResolutionError(detail="Modal CLI not found"),
-            "Modal CLI not found",
-            "modal",
-            [],
-        ),
-        (
-            ModalExecutionError(command="deploy", exit_code=2),
-            "Modal deploy exited with status 2",
-            "modal",
-            [],
-        ),
-        (
-            EnvKeyPreflightError(detail="Upload failed"),
-            "Upload failed",
-            "modal",
-            [],
-        ),
-    ],
-)
-def test_deploy_formats_known_errors(
-    monkeypatch: pytest.MonkeyPatch,
-    error: Exception,
-    expected: str,
-    runtime: Literal["uvicorn", "modal"],
-    args: list[str],
-) -> None:
-    result = _invoke_with_error(monkeypatch, error, runtime=runtime, invoke_args=args)
-    assert result.exit_code != 0
-    assert expected in result.output
-
-
-def test_deploy_translates_env_click_exception(monkeypatch: pytest.MonkeyPatch) -> None:
-    error = click.ClickException("No .env file discovered automatically. Pass --env-file")
-    result = _invoke_with_error(
-        monkeypatch,
-        error,
-        runtime="uvicorn",
-        invoke_args=["--runtime", "uvicorn"],
-    )
-    assert result.exit_code != 0
-    assert "Unable to locate a usable env file" in result.output
-
-
-def test_deploy_translates_modal_cli_click_exception(monkeypatch: pytest.MonkeyPatch) -> None:
-    error = click.ClickException("Modal CLI not found (looked for 'modal')")
-    result = _invoke_with_error(monkeypatch, error, runtime="modal", invoke_args=[])
-    assert result.exit_code != 0
-    assert "Modal CLI not found" in result.output
-
-
-def test_modal_serve_formats_task_app_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        deploy_core,
-        "run_modal_runtime",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            TaskAppNotFoundError(app_id="foo", available=("bar",))
-        ),
-    )
-    runner = CliRunner()
-    result = runner.invoke(deploy_core.modal_serve_command, ["foo"])
-    assert result.exit_code != 0
-    assert "Could not find task app 'foo'. Available choices: bar." in result.output
+    assert "--modal-mode=serve cannot be combined with --dry-run" in str(exc.value)

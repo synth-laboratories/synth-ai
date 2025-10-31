@@ -60,6 +60,36 @@ Execution is handled by mini-swe's environment classes. Configure execution via
 `SWE_MINI_ENVIRONMENT_CLASS` (`local`, `docker`, `singularity`, …) and pass
 additional keyword arguments with `SWE_MINI_ENVIRONMENT_KWARGS` (JSON).
 
+### Morph Cloud backend
+
+The task app now ships with a Morph-powered environment class so you can run
+mini-SWE rollouts in managed sandboxes. When `MORPH_API_KEY` is present the app
+defaults to this backend automatically unless you override
+`SWE_MINI_ENVIRONMENT_CLASS`.
+
+1. Install the optional dependencies: `pip install "synth-ai[swe]"`.
+2. Export your API key: `export MORPH_API_KEY=...`.
+3. Point the task app at Morph by setting:
+
+   ```bash
+   export SWE_MINI_ENVIRONMENT_CLASS=morph
+   export SWE_MINI_ENVIRONMENT_KWARGS='{
+     "snapshot_id": "snap_your_pre_baked_swebench_image",
+     "cwd": "/workspace/swebench",
+     "env": {"PIP_PROGRESS_BAR": "off"},
+     "metadata": {"project": "synth-ai", "task": "swe-mini"}
+   }'
+   ```
+
+   If you do not have a pre-built snapshot, provide `"image_id"` (defaults to
+   `morphvm-minimal`) along with resource hints (`"vcpus"`, `"memory_mb"`,
+   `"disk_mb"`). You can also set `SWE_MINI_MORPH_SNAPSHOT_ID` globally.
+
+During cleanup the backend deletes the remote workspace and stops the Morph
+instance automatically. All shell commands (including submissions) now execute
+inside the Morph sandbox, enabling RL workflows that require persistent remote
+compute.
+
 ### Tracing & SFT
 
 Tracing works the same as Crafter; pass `--trace` / `--trace-db` to the CLI or

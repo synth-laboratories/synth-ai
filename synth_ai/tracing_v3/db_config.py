@@ -30,11 +30,12 @@ class DatabaseConfig:
 
         Args:
             db_path: Path to database file. If None, uses DEFAULT_DB_FILE from serve.sh.
-            http_port: HTTP port for sqld daemon. If None, uses DEFAULT_HTTP_PORT from serve.sh.
+            http_port: Hrana WebSocket port for sqld daemon (env: SQLD_HTTP_PORT). If None, uses DEFAULT_HTTP_PORT.
             use_sqld: Whether to use sqld daemon or direct SQLite.
         """
         self.use_sqld = use_sqld and self._sqld_binary_available()
-        self.http_port = http_port or int(os.getenv("SQLD_HTTP_PORT", self.DEFAULT_HTTP_PORT))
+        # Note: SQLD_HTTP_PORT is actually the hrana port (8080), not the HTTP API port
+        self.hrana_port = http_port or int(os.getenv("SQLD_HTTP_PORT", self.DEFAULT_HTTP_PORT))
         self._daemon: SqldDaemon | None = None
 
         # Set up database path to match serve.sh configuration
@@ -57,21 +58,16 @@ class DatabaseConfig:
         abs_path = os.path.abspath(self.db_file)
         sqld_data_path = os.path.join(abs_path, "dbs", "default", "data")
 
-        if os.path.exists(sqld_data_path):
-            # sqld is managing the database
-            logger.debug(f"✅ Using sqld-managed database at: {sqld_data_path}")
-            actual_db_path = sqld_data_path
-        else:
-            # Direct SQLite file
-            if not os.path.exists(abs_path):
-                logger.debug(f"⚠️  Database file not found at: {abs_path}")
-                logger.debug("🔧 Make sure to run './serve.sh' to start the turso/sqld service")
-            else:
-                logger.debug(f"📁 Using direct SQLite file at: {abs_path}")
-            actual_db_path = abs_path
+        if not os.path.exists(sqld_data_path) and not os.path.exists(abs_path):
+            raise RuntimeError(
+                "sqld data directory not found. Run `sqld --db-path <path>` before using the tracing database."
+            )
 
-        # SQLite URLs need 3 slashes for absolute paths
-        return f"sqlite+aiosqlite:///{actual_db_path}"
+        # Use http:// for local sqld HTTP API port
+        # sqld has two ports: hrana_port (Hrana WebSocket) and hrana_port+1 (HTTP API)
+        # Python libsql client uses HTTP API with http:// URLs
+        http_api_port = self.hrana_port + 1
+        return f"http://127.0.0.1:{http_api_port}"
 
     def _sqld_binary_available(self) -> bool:
         """Check if the sqld (Turso) binary is available on PATH."""
@@ -84,18 +80,12 @@ class DatabaseConfig:
                 return True
 
         if binary_override:
-            logger.warning(
-                "Configured SQLD_BINARY='%s' but the executable was not found on PATH. "
-                "Falling back to direct SQLite.",
-                binary_override,
+            raise RuntimeError(
+                f"Configured SQLD_BINARY='{binary_override}' but the executable was not found on PATH."
             )
-        else:
-            logger.warning(
-                "sqld binary not detected; falling back to SQLite-only mode. "
-                "Install Turso's sqld or set SQLD_BINARY to enable the Turso daemon."
-            )
-
-        return False
+        raise RuntimeError(
+            "sqld binary not detected; install Turso's sqld or set SQLD_BINARY so that libSQL can be used."
+        )
 
     def start_daemon(self, wait_time: float = 2.0):
         """
@@ -114,7 +104,7 @@ class DatabaseConfig:
             # Import here to avoid circular dependency
             from .turso.daemon import SqldDaemon
 
-            self._daemon = SqldDaemon(db_path=self.db_base_path, http_port=self.http_port)
+            self._daemon = SqldDaemon(db_path=self.db_base_path, hrana_port=self.hrana_port)
 
         self._daemon.start()
 
@@ -160,11 +150,13 @@ def get_default_db_config() -> DatabaseConfig:
         # Check if sqld is already running (started by serve.sh)
         import subprocess
 
-        sqld_port = int(os.getenv("SQLD_HTTP_PORT", DatabaseConfig.DEFAULT_HTTP_PORT))
+        sqld_hrana_port = int(os.getenv("SQLD_HTTP_PORT", DatabaseConfig.DEFAULT_HTTP_PORT))
+        sqld_http_port = sqld_hrana_port + 1
         sqld_running = False
         try:
+            # Check for either hrana or http port in the process command line
             result = subprocess.run(
-                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
+                ["pgrep", "-f", f"sqld.*(--hrana-listen-addr.*:{sqld_hrana_port}|--http-listen-addr.*:{sqld_http_port})"],
                 capture_output=True,
                 text=True,
             )
@@ -172,18 +164,12 @@ def get_default_db_config() -> DatabaseConfig:
                 # sqld is already running, don't start a new one
                 sqld_running = True
                 use_sqld = False
-                logger.debug(f"✅ Detected sqld already running on port {sqld_port}")
+                logger.debug(f"✅ Detected sqld already running on ports {sqld_hrana_port} (hrana) and {sqld_http_port} (http)")
         except Exception as e:
             logger.debug(f"Could not check for sqld process: {e}")
 
         if not sqld_running and use_sqld:
-            logger.warning("⚠️  sqld service not detected!")
-            logger.warning("🔧 Please start the turso/sqld service by running:")
-            logger.warning("   ./serve.sh")
-            logger.warning("")
-            logger.warning("This will start:")
-            logger.warning("  - sqld daemon (SQLite server) on port 8080")
-            logger.warning("  - Environment service on port 8901")
+            logger.warning("sqld service not detected. Start the Turso daemon (./serve.sh) before running tracing workloads.")
 
         _default_config = DatabaseConfig(db_path=db_path, use_sqld=use_sqld)
 

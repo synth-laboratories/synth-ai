@@ -1,0 +1,36 @@
+[TRACING_V3_CONFIG_LOADED] Python=3.11 MODAL_IS_REMOTE=None
+[PATCH] Attempting to apply Crafter deterministic patch...
+[PATCH] Patching crafter.Env._balance_object...
+[PATCH] crafter.Env._balance_object patched.
+[PATCH] Attempting to apply Crafter serialization patch v3...
+[PATCH] Adding enhanced save/load methods to crafter.Env...
+[PATCH] crafter.Env.save() and load() methods added (v3).
+[PATCH] Crafter serialization patch v3 complete.
+[PATCH] Attempting to apply simplified Crafter world configuration patch...
+[PATCH] Simplified Crafter world configuration patch complete.
+[PATCH] Available configs: easy, normal, hard, peaceful
+[trace] Using trace directory: /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+[trace] Using trace DB: /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db
+[task:tracing] enabled (db=http://127.0.0.1:8081)
+Tracing enabled. SFT JSONL will be written to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+Tracing DB path set to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3/synth_ai.db
+Tracing DB URL resolved to http://127.0.0.1:8081
+[preflight] backend=https://synth-backend-dev-docker.onrender.com/api
+[preflight] fetching public key…
+[preflight] posting to https://synth-backend-dev-docker.onrender.com/api/v1/env-keys
+[preflight] public_key: b64_len=44 sha256=e173cb5664e240ba1b0d97a36000b0c4c15f42506a227a82cd2b2c00be119c57 head=LYqK7q2klATZWxRq tail=bgj7pMsckDLn1j8=
+[preflight] plaintext: len=39 preview=sk_env……f263 has_ws=False
+[preflight] ciphertext: b64_len=116 sha256=19a6e609bf14f75847e7bcdc4f5c9ea9df5586b26edc4120727b0a17eb02b7c7 head=pXm5zrJS4RvmIznp tail=+2dKKXesTa6Btslz
+[preflight] upserting env key…
+[preflight] upsert status=201 body={"id":"d1a84f63-e8ba-41f3-bf3a-0112c8b3ea42","name":"ENVIRONMENT_API_KEY","updated_at":"2025-10-31T03:21:01.297680Z","org_id":"e371b0ef-c61e-4372-a7ea-2a254ab22dc5","upserted":true}
+✅ ENVIRONMENT_API_KEY uploaded successfully (sk_env...f263)
+[preflight] verifying env key presence…
+✅ Key verified in backend
+[task:server] Loaded environment from: /Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/warming_up_to_rl/.env
+[task:tracing] enabled (db=http://127.0.0.1:8081)
+[task:sft] writing JSONL to /Users/joshpurtell/Documents/GitHub/synth-ai/traces/v3
+[task:server] Starting 'grpo-crafter' on 0.0.0.0:8766
+INFO:     Started server process [56948]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8766 (Press CTRL+C to quit)

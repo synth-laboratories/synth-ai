@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 TRACE_DB_DIR = Path("traces")
-TRACE_DB_BASENAME = "task_app_traces"
+TRACE_DB_BASENAME = "turso_task_app_traces"
 
 
 def canonical_trace_db_name(*, timestamp: datetime | None = None) -> str:

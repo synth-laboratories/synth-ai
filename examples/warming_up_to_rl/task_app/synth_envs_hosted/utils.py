@@ -1,6 +1,7 @@
 """Utility functions for the task service."""
 
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import numpy as np
 
@@ -60,3 +61,69 @@ def sanitize_observation(observation: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = convert_numpy_to_python(value)
 
     return sanitized
+
+
+_CHAT_COMPLETIONS_SUFFIX = "/v1/chat/completions"
+
+
+def force_normalize_chat_completions_url(raw_url: Any) -> Any:
+    """
+    Convert ANY malformed inference URL into the correct chat-completions form.
+    Ensures path ends with /v1/chat/completions and that query has no '/' segments.
+    """
+    if not isinstance(raw_url, str):
+        return raw_url
+    url = raw_url.strip()
+    if not url:
+        return raw_url
+
+    parsed = urlparse(url)
+    path = (parsed.path or "").rstrip("/")
+    query = parsed.query or ""
+
+    # If query contains a path, extract and repair
+    if query and "/" in query:
+        before_slash, after_slash = query.split("/", 1)
+        cut_positions = [i for i in [after_slash.find("&"), after_slash.find("?")] if i >= 0]
+        cut = min(cut_positions) if cut_positions else len(after_slash)
+        path_from_query = "/" + after_slash[:cut]
+        extra_query = after_slash[cut + 1 :] if cut < len(after_slash) else ""
+        merged_query = before_slash if before_slash else ""
+        if extra_query:
+            merged_query = f"{merged_query}&{extra_query}" if merged_query else extra_query
+        final_path = (
+            path_from_query
+            if path_from_query.startswith(_CHAT_COMPLETIONS_SUFFIX)
+            else f"{path_from_query.rstrip('/')}{_CHAT_COMPLETIONS_SUFFIX}"
+        )
+        parsed = parsed._replace(path=final_path, query=merged_query)
+        url = urlunparse(parsed)
+        parsed = urlparse(url)
+        path = parsed.path or ""
+        query = parsed.query or ""
+
+    # Ensure path suffix
+    if not path.endswith(_CHAT_COMPLETIONS_SUFFIX):
+        new_path = f"{path}{_CHAT_COMPLETIONS_SUFFIX}" if path else _CHAT_COMPLETIONS_SUFFIX
+        parsed = parsed._replace(path=new_path)
+        url = urlunparse(parsed)
+        parsed = urlparse(url)
+        path = parsed.path or ""
+        query = parsed.query or ""
+
+    # Last-resort: strip any '/' from query
+    if query and "/" in query:
+        safe_query = query.split("/")[0]
+        parsed = parsed._replace(query=safe_query)
+        url = urlunparse(parsed)
+
+    return url
+
+
+def ensure_chat_completions_url(raw_url: Any, mode: Any = None) -> Any:
+    """
+    Mode-aware normalizer (RL/EVAL) that returns a valid chat completions URL and
+    preserves existing query parameters.
+    """
+    # For now reuse force normalizer in both modes to guarantee correctness
+    return force_normalize_chat_completions_url(raw_url)

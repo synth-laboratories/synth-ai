@@ -6,11 +6,16 @@ import json
 import logging
 import os
 import sys
+from urllib.parse import parse_qs, urlparse
 from collections.abc import Iterable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from fastapi import HTTPException
+from pydantic import BaseModel
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import RolloutMetrics, RolloutMode, RolloutRequest, RolloutResponse, TaskInfo
@@ -37,7 +42,16 @@ except Exception:  # pragma: no cover - utils unavailable if optional deps missi
         """Fallback to shared utility for URL normalization."""
         return normalize_inference_url(raw_url) if raw_url else raw_url
 
-    def extract_trace_correlation_id(_raw_url):
+    def extract_trace_correlation_id(_raw_url, mode=None):
+        if not isinstance(_raw_url, str):
+            return None
+        parsed = urlparse(_raw_url)
+        query_params = parse_qs(parsed.query or "")
+        for key in ("cid", "trace", "trace_correlation_id"):
+            values = query_params.get(key) or []
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
         return None
 logger = logging.getLogger(__name__)
 
@@ -651,11 +665,19 @@ def _resolve_trace_correlation_id(policy_cfg: dict[str, Any], mode: Any = None) 
             if stripped:
                 return stripped
 
-    return extract_trace_correlation_id(policy_cfg.get("inference_url"))
+    return extract_trace_correlation_id(policy_cfg.get("inference_url"), mode=mode)
 
 
 async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutResponse:
     request = _coerce_math_to_crafter(request)
+
+    record_cfg = request.record.model_copy(
+        update={
+            "return_trace": True,
+            "trace_format": "structured",
+        }
+    )
+    request = request.model_copy(update={"record": record_cfg})
 
     policy_cfg = dict(request.policy.config or {})
     logger.info(
@@ -800,11 +822,49 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         trace_correlation_id,
     )
     data = legacy_response.model_dump()
+    legacy_trace = getattr(legacy_response, "trace", None)
+    if legacy_trace is not None:
+        if isinstance(legacy_trace, dict):
+            legacy_trace_preview = list(legacy_trace.keys())[:5]
+        else:
+            legacy_trace_preview = type(legacy_trace)
+        logger.info(
+            "ROLLOUT_EXEC: legacy response trace present type=%s preview=%s",
+            type(legacy_trace),
+            legacy_trace_preview,
+        )
+    logger.debug(
+        "ROLLOUT_EXEC: legacy response keys=%s has_trace=%s",
+        sorted(data.keys()),
+        bool(data.get("trace")),
+    )
     metrics = data.get("metrics", {}) or {}
     metrics.setdefault("outcome_score", None)
     metrics.setdefault("events_score", None)
     metrics.setdefault("details", {})
     data["metrics"] = metrics
+
+    if data.get("trace") is None:
+        legacy_trace = getattr(legacy_response, "trace", None)
+        if legacy_trace is not None:
+            data["trace"] = legacy_trace
+        else:
+            tracer_factory = getattr(fastapi_request.app.state, "session_tracer_factory", None)
+            if callable(tracer_factory):
+                tracer = tracer_factory()
+                logger.debug("ROLLOUT_EXEC: trace backfill factory=%s", type(tracer))
+                if isinstance(tracer, SessionTracer):
+                    try:
+                        await tracer.initialize()
+                        if tracer.db is not None:
+                            trace_row = await tracer.db.get_session_trace(request.run_id)
+                            if trace_row is not None:
+                                data["trace"] = trace_row
+                    except Exception as exc:
+                        logger.warning("TRACE_BACKFILL_FAIL: %s", exc)
+                    finally:
+                        with suppress(Exception):
+                            await tracer.close()
     
     # Add trace_correlation_id at TOP-LEVEL (REQUIRED for RL training pipeline)
     # Use fallback if somehow missing
@@ -820,12 +880,30 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
     if isinstance(policy_cfg.get("inference_url"), str) and policy_cfg["inference_url"]:
         existing_meta.setdefault("inference_url", policy_cfg["inference_url"])
     data["pipeline_metadata"] = existing_meta
-    
+
     # Add trace_correlation_id to each trajectory (required for RL training pipeline)
     if "trajectories" in data:
+        normalized_trajs: list[dict[str, Any]] = []
         for traj in data.get("trajectories", []):
-            if isinstance(traj, dict):
-                traj["trace_correlation_id"] = final_cid
+            if isinstance(traj, BaseModel):
+                traj_dict = traj.model_dump()
+            elif isinstance(traj, dict):
+                traj_dict = dict(traj)
+            else:
+                continue
+            traj_dict["trace_correlation_id"] = final_cid
+            if not traj_dict.get("inference_url"):
+                inferred_url = policy_cfg.get("inference_url")
+                if inferred_url:
+                    traj_dict["inference_url"] = inferred_url
+            normalized_trajs.append(traj_dict)
+        if normalized_trajs:
+            data["trajectories"] = normalized_trajs
+            logger.info(
+                "ROLLOUT_EXEC: normalized trajectory sample run_id=%s inference_url=%s",
+                request.run_id,
+                normalized_trajs[0].get("inference_url") if normalized_trajs else None,
+            )
     logger.info(
         "ROLLOUT_EXEC: final pipeline metadata run_id=%s metadata=%s",
         request.run_id,
@@ -843,6 +921,12 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
             "ROLLOUT_EXEC: final metadata missing trace_correlation_id run_id=%s metadata=%s",
             request.run_id,
             existing_meta,
+        )
+
+    if data.get("trace") is None:
+        raise HTTPException(
+            status_code=500,
+            detail="trace_payload_missing: task app did not emit a SessionTrace",
         )
     
     # ASSERTION: Verify trace_correlation_id is present in response at all required levels
@@ -962,6 +1046,7 @@ register_task_app(
                 (str(RUBRICS_ROOT), "/opt/synth_ai_repo/examples/multi_step/rubrics"),
             ),
             secret_names=("groq-api-key", "openai-api-key"),
+            env_vars={"SERVICE": "MODAL"},
             memory=16384,
             cpu=4.0,
             max_containers=10,

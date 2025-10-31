@@ -1,6 +1,7 @@
 """Help command implementation."""
 
 import click
+from click.exceptions import Exit
 
 from . import COMMAND_HELP, get_command_help
 
@@ -53,7 +54,7 @@ def help_command(command_name: str | None) -> None:
         click.echo(f"No detailed help available for '{command_name}'", err=True)
         click.echo(f"\nTry: uvx synth-ai {command_name} --help", err=True)
         click.echo("Or: uvx synth-ai help (to see available topics)", err=True)
-        raise click.exceptions.Exit(1)
+        raise Exit(1)
     
     click.echo(help_text)
 
@@ -69,4 +70,3 @@ def register(group: click.Group) -> None:
 
 
 __all__ = ["help_command", "get_command", "register"]
-

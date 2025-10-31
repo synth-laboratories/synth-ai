@@ -49,6 +49,7 @@ policy_name = "crafter-react"
 max_concurrent_rollouts = 8
 batches_per_step = 2
 ops = ["agent", "env"]
+task_app_origin_rewards_only = true
 
 [evaluation]
 # Run baseline evaluation over the first 100 seeds every 20 training iterations

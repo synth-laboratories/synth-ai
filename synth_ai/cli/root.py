@@ -158,7 +158,7 @@ def cli():
 
 @cli.command()
 @click.option("--db-file", default="traces/v3/synth_ai.db", help="Database file path")
-@click.option("--sqld-port", default=8080, type=int, help="Port for sqld HTTP interface")
+@click.option("--sqld-port", default=8080, type=int, help="Port for sqld Hrana WebSocket interface (HTTP API will be port+1)")
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
@@ -204,21 +204,25 @@ def serve_deprecated(
 
     if not no_sqld:
         try:
+            hrana_port = sqld_port
+            http_port = sqld_port + 1
             result = subprocess.run(
-                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
+                ["pgrep", "-f", f"sqld.*(--hrana-listen-addr.*:{hrana_port}|--http-listen-addr.*:{http_port})"],
                 capture_output=True,
                 text=True,
             )
             if result.returncode != 0:
                 sqld_bin = find_sqld_binary() or install_sqld()
-                click.echo(f"🗄️  Starting sqld (local only) on port {sqld_port}")
+                click.echo(f"🗄️  Starting sqld (local only) on hrana port {hrana_port}, HTTP API port {http_port}")
                 proc = subprocess.Popen(
                     [
                         sqld_bin,
                         "--db-path",
                         db_file,
+                        "--hrana-listen-addr",
+                        f"127.0.0.1:{hrana_port}",
                         "--http-listen-addr",
-                        f"127.0.0.1:{sqld_port}",
+                        f"127.0.0.1:{http_port}",
                     ],
                     stdout=open("sqld.log", "w"),  # noqa: SIM115
                     stderr=subprocess.STDOUT,
@@ -274,7 +278,7 @@ def serve_deprecated(
         click.echo(f"   Working directory: {os.getcwd()}")
         click.echo("")
         click.echo("🔄 Starting services...")
-        click.echo(f"   - sqld daemon: http://127.0.0.1:{sqld_port}")
+        click.echo(f"   - sqld daemon: libsql://127.0.0.1:{sqld_port} (HTTP API: http://127.0.0.1:{sqld_port + 1})")
         click.echo(f"   - Environment service: http://127.0.0.1:{env_port}")
         click.echo("")
         click.echo("💡 Tips:")

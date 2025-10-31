@@ -1,0 +1,43 @@
+# Vision-Language RL: Continue training Qwen3-4B VL from SFT checkpoint
+# Update task_url with deployed Modal task app URL
+# Set model.source to the SFT job id from `uvx synth-ai train --type sft`
+
+type = "rl"
+
+[services]
+task_url = "http://127.0.0.1:8914"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 8
+
+[topology]
+gpus_for_vllm = 4
+gpus_for_training = 3
+gpus_for_ref = 1
+
+[vllm]
+tensor_parallel_size = 4
+
+[model]
+source = "fft:REPLACE-WITH-SFT-JOB-ID"  # Update with actual SFT job ID
+label = "pokemon_vl_rl_blog"
+supports_vision = true
+
+[rollout]
+max_turns = 10
+episodes_per_batch = 64
+task_app_origin_rewards_only = true
+
+[evaluation]
+instances = 100
+every_n_iters = 20
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+
+[training]
+log_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+weight_sync_interval = 1

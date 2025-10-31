@@ -14,4 +14,5 @@ __all__ = [
     "filter",
     "deploy",
     "status",
+    "smoke",
 ]

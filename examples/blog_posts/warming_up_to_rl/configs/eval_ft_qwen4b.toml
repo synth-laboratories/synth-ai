@@ -1,0 +1,25 @@
+# Evaluate the finetuned Qwen3-4B checkpoint on Crafter.
+# Replace model with the fft: job id returned by the SFT run.
+
+[eval]
+app_id = "grpo-crafter"
+task_app_url = "https://synth-laboratories--grpo-crafter-task-app-fastapi-app-dev.modal.run"
+model = "fft:REPLACE-WITH-SFT-JOB-ID"
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+max_turns = 10
+concurrency = 4
+env_name = "crafter"
+policy_name = "crafter-react"
+trace_format = "compact"
+return_trace = false
+
+[eval.policy_config]
+provider = "synth"
+model = "fft:REPLACE-WITH-SFT-JOB-ID"
+temperature = 0.2
+top_p = 0.8
+max_tokens = 512
+use_vision = true
+image_only_mode = false
+max_llm_calls = 10
+tool_choice = "auto"

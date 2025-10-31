@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 import base64
+import time
 from io import BytesIO
 
 from pydantic import BaseModel, Field
@@ -19,6 +20,8 @@ from synth_ai.environments.environment.tools import (
 )
 from synth_ai.environments.reproducibility.core import ReproducibleEnvironment
 from synth_ai.environments.stateful.core import StatefulEnvironment
+from synth_ai.tracing_v3.abstractions import EnvironmentEvent, TimeRecord
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 try:  # optional for image encoding
     import numpy as _np  # type: ignore
     from PIL import Image as _PILImage  # type: ignore
@@ -121,6 +124,7 @@ class PokemonRedEnvironment(StatefulEnvironment, ReproducibleEnvironment[Pokemon
         task_instance: Optional[PokemonRedTaskInstance] = None,
         custom_step_obs: Optional[GetObservationCallable] = None,
         custom_ckpt_obs: Optional[GetObservationCallable] = None,
+        tracer: Optional[SessionTracer] = None,
     ):
         self.name = "PokemonRed"
         self.task_instance = task_instance or DEFAULT_TASK_INSTANCE
@@ -129,6 +133,7 @@ class PokemonRedEnvironment(StatefulEnvironment, ReproducibleEnvironment[Pokemon
             custom_ckpt_obs or PokemonRedObservationCallable()
         )
         self.engine = PokemonRedEngine(self.task_instance)
+        self.tracer = tracer
 
         # Register tools
         self._press_button_tool = PressButtonTool(self.engine)
@@ -202,6 +207,27 @@ class PokemonRedEnvironment(StatefulEnvironment, ReproducibleEnvironment[Pokemon
                 # States are already dataclass objects, no need to reconstruct
                 if tool_result.error and hasattr(pub_state, "error_info"):
                     pub_state.error_info = tool_result.error
+
+        # Record EnvironmentEvent for tracing if tracer is available
+        if self.tracer and hasattr(priv_state, 'reward_last_step'):
+            # Get state information for the event
+            prev_state = getattr(self.engine, '_previous_state', None)
+            terminated = getattr(priv_state, 'terminated', False)
+            truncated = getattr(priv_state, 'truncated', False)
+
+            # Convert states to dict for serialization
+            pub_state_dict = pub_state.__dict__ if hasattr(pub_state, '__dict__') else pub_state
+
+            env_event = EnvironmentEvent(
+                system_instance_id="pokemon_red_env",
+                time_record=TimeRecord(event_time=time.time()),
+                reward=float(priv_state.reward_last_step),
+                terminated=terminated,
+                truncated=truncated,
+                system_state_before=prev_state if prev_state else None,
+                system_state_after=pub_state_dict,
+            )
+            await self.tracer.record_event(env_event)
 
         return await self._to_observation(
             priv_state, pub_state, self.custom_step_observation_callable

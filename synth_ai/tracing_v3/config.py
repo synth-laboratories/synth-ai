@@ -1,19 +1,143 @@
-"""Configuration for tracing v3 with Turso/sqld."""
+"""Configuration helpers for tracing v3.
+
+This module centralises the logic for discovering which datastore the tracer
+should use. Historically the project defaulted to a local SQLite file which
+breaks under parallel load. The new resolver inspects environment variables
+and defaults to Turso/libSQL whenever credentials are supplied, while keeping a
+SQLite fallback for contributors without remote access.
+"""
+
+from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from synth_ai.tracing_v3.constants import canonical_trace_db_path
 
-DEFAULT_DB_FILE = str(canonical_trace_db_path())
+# STARTUP DIAGNOSTIC - Commented out to reduce noise
+# print(f"[TRACING_V3_CONFIG_LOADED] Python={sys.version_info.major}.{sys.version_info.minor} MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')}", flush=True)
+
+# ---------------------------------------------------------------------------
+# DSN resolution helpers
+# ---------------------------------------------------------------------------
+
+_CANONICAL_DB_PATH = canonical_trace_db_path()
+_DEFAULT_TRACE_DIR = Path(os.getenv("SYNTH_TRACES_DIR", _CANONICAL_DB_PATH.parent))
 
 
-def _default_sqlite_url() -> str:
-    base_path = os.path.abspath(os.getenv("SQLD_DB_PATH", DEFAULT_DB_FILE))
-    candidate = os.path.join(base_path, "dbs", "default", "data")
-    if os.path.isdir(base_path) and os.path.exists(candidate):
-        return f"sqlite+aiosqlite:///{candidate}"
-    return f"sqlite+aiosqlite:///{base_path}"
+def _normalise_path(path: Path) -> Path:
+    """Resolve relative paths and expand user/home markers."""
+    path = path.expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    return path
+
+
+def _is_modal_environment() -> bool:
+    """Detect if running in Modal container.
+    
+    Modal automatically sets MODAL_IS_REMOTE=1 in all deployed containers.
+    We check this first, then fall back to other Modal env vars.
+    """
+    # Modal sets this in all deployed containers
+    if os.getenv("MODAL_IS_REMOTE") == "1":
+        return True
+    
+    # Additional Modal env vars as fallback
+    return bool(
+        os.getenv("MODAL_TASK_ID")
+        or os.getenv("MODAL_ENVIRONMENT")
+        or os.getenv("SERVICE", "").upper() == "MODAL"
+    )
+
+
+def _split_auth_from_url(url: str) -> tuple[str, str | None]:
+    """Strip any auth_token query parameter from a DSN."""
+    parsed = urlparse(url)
+    if not parsed.query:
+        return url, None
+
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    token = params.pop("auth_token", None)
+    query = urlencode(params, doseq=True)
+    # urlunparse will omit the '?' automatically when query is empty
+    sanitised = urlunparse(parsed._replace(query=query))
+    return sanitised, token
+
+
+def _default_sqlite_url(*, ensure_dir: bool = True) -> tuple[str, str | None]:
+    raise RuntimeError("SQLite fallback is disabled; configure LIBSQL_URL or run sqld locally.")
+
+
+def resolve_trace_db_settings(*, ensure_dir: bool = True) -> tuple[str, str | None]:
+    """Resolve the tracing database URL and optional auth token.
+
+    Resolution order:
+      1. `SYNTH_TRACES_DB` (explicit DSN override)
+      2. `LIBSQL_URL` / `TURSO_DATABASE_URL` (remote libSQL endpoints)
+      3. `TURSO_LOCAL_DB_URL` (legacy env for local sqld)
+      4. Modal environment: plain SQLite file (no sqld, no auth)
+      5. Local dev: sqld default
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    explicit = os.getenv("SYNTH_TRACES_DB")
+    if explicit:
+        logger.info(f"[TRACE_CONFIG] Using explicit SYNTH_TRACES_DB: {explicit}")
+        return _split_auth_from_url(explicit)
+
+    remote = os.getenv("LIBSQL_URL") or os.getenv("TURSO_DATABASE_URL")
+    if remote:
+        logger.info(f"[TRACE_CONFIG] Using remote Turso: {remote}")
+        url, token = _split_auth_from_url(remote)
+        if token:
+            return url, token
+        env_token = os.getenv("LIBSQL_AUTH_TOKEN") or os.getenv("TURSO_AUTH_TOKEN")
+        return url, env_token
+
+    local_override = os.getenv("TURSO_LOCAL_DB_URL")
+    if local_override:
+        logger.info(f"[TRACE_CONFIG] Using TURSO_LOCAL_DB_URL: {local_override}")
+        url, token = _split_auth_from_url(local_override)
+        if token:
+            return url, token
+        env_token = os.getenv("LIBSQL_AUTH_TOKEN") or os.getenv("TURSO_AUTH_TOKEN")
+        return url, env_token
+
+    # Modal environment: use plain SQLite file (no sqld daemon, no auth required)
+    is_modal = _is_modal_environment()
+    logger.info(f"[TRACE_CONFIG] Modal detection: {is_modal} (MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')})")
+    if is_modal:
+        logger.info("[TRACE_CONFIG] Using Modal SQLite: file:/tmp/synth_traces.db")
+        return "file:/tmp/synth_traces.db", None
+
+    # Local dev: default to sqld HTTP API
+    default_url = os.getenv("LIBSQL_DEFAULT_URL", "http://127.0.0.1:8081")
+    logger.info(f"[TRACE_CONFIG] Using local sqld: {default_url}")
+    return default_url, None
+
+
+def resolve_trace_db_url(*, ensure_dir: bool = True) -> str:
+    """Return just the DSN, discarding any auth token."""
+    url, _ = resolve_trace_db_settings(ensure_dir=ensure_dir)
+    return url
+
+
+def resolve_trace_db_auth_token() -> str | None:
+    """Return the resolved auth token for the tracing datastore."""
+    _, token = resolve_trace_db_settings()
+    return token
+
+
+# ---------------------------------------------------------------------------
+# Config dataclasses
+# ---------------------------------------------------------------------------
+
+DEFAULT_DB_FILE = str((_normalise_path(_DEFAULT_TRACE_DIR) / _CANONICAL_DB_PATH.name))
 
 
 @dataclass
@@ -24,12 +148,12 @@ class TursoConfig:
     DEFAULT_DB_FILE = DEFAULT_DB_FILE
     DEFAULT_HTTP_PORT = 8080
 
-    # Use env override if provided; otherwise resolve based on SQLD layout
-    db_url: str = os.getenv("TURSO_LOCAL_DB_URL", _default_sqlite_url())
+    # Resolve DB URL and auth token from environment (libSQL preferred)
+    db_url: str = field(default_factory=resolve_trace_db_url)
 
     # Remote database sync configuration
-    sync_url: str = os.getenv("TURSO_DATABASE_URL", "")
-    auth_token: str = os.getenv("TURSO_AUTH_TOKEN", "")
+    sync_url: str = os.getenv("LIBSQL_SYNC_URL") or os.getenv("TURSO_SYNC_URL", "")
+    auth_token: str = resolve_trace_db_auth_token() or ""
     sync_interval: int = int(
         os.getenv("TURSO_SYNC_SECONDS", "2")
     )  # 2 seconds for responsive local development

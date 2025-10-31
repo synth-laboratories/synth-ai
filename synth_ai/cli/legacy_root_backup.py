@@ -253,7 +253,7 @@ def view(url: str):
 
 @cli.command()
 @click.option("--db-file", default="synth_ai.db", help="Database file path")
-@click.option("--sqld-port", default=8080, type=int, help="Port for sqld HTTP interface")
+@click.option("--sqld-port", default=8080, type=int, help="Port for sqld Hrana WebSocket interface (HTTP API will be port+1)")
 @click.option("--env-port", default=8901, type=int, help="Port for environment service")
 @click.option("--no-sqld", is_flag=True, help="Skip starting sqld daemon")
 @click.option("--no-env", is_flag=True, help="Skip starting environment service")
@@ -298,32 +298,37 @@ def serve(
 
     # Start sqld if requested
     if not no_sqld:
+        hrana_port = sqld_port
+        http_port = sqld_port + 1
         # Check if sqld is already running
         try:
             result = subprocess.run(
-                ["pgrep", "-f", f"sqld.*--http-listen-addr.*:{sqld_port}"],
+                ["pgrep", "-f", f"sqld.*(--hrana-listen-addr.*:{hrana_port}|--http-listen-addr.*:{http_port})"],
                 capture_output=True,
                 text=True,
             )
             if result.returncode == 0:
-                click.echo(f"✅ sqld already running on port {sqld_port}")
+                click.echo(f"✅ sqld already running on hrana port {hrana_port}, HTTP API port {http_port}")
                 click.echo(f"   Database: {db_file}")
-                click.echo(f"   HTTP API: http://127.0.0.1:{sqld_port}")
+                click.echo(f"   libsql: libsql://127.0.0.1:{hrana_port}")
+                click.echo(f"   HTTP API: http://127.0.0.1:{http_port}")
             else:
                 # Find or install sqld
                 sqld_bin = find_sqld_binary()
                 if not sqld_bin:
                     sqld_bin = install_sqld()
 
-                click.echo(f"🗄️  Starting sqld (local only) on port {sqld_port}")
+                click.echo(f"🗄️  Starting sqld (local only) on hrana port {hrana_port}, HTTP API port {http_port}")
 
                 # Start sqld
                 sqld_cmd = [
                     sqld_bin,
                     "--db-path",
                     db_file,
+                    "--hrana-listen-addr",
+                    f"127.0.0.1:{hrana_port}",
                     "--http-listen-addr",
-                    f"127.0.0.1:{sqld_port}",
+                    f"127.0.0.1:{http_port}",
                 ]
 
                 # Create log file
@@ -346,7 +351,8 @@ def serve(
 
                 click.echo("✅ sqld started successfully!")
                 click.echo(f"   Database: {db_file}")
-                click.echo(f"   HTTP API: http://127.0.0.1:{sqld_port}")
+                click.echo(f"   libsql: libsql://127.0.0.1:{hrana_port}")
+                click.echo(f"   HTTP API: http://127.0.0.1:{http_port}")
                 click.echo(f"   Log file: {os.path.abspath('sqld.log')}")
 
         except FileNotFoundError:
@@ -417,7 +423,7 @@ def serve(
         click.echo(f"   Working directory: {os.getcwd()}")
         click.echo("")
         click.echo("🔄 Starting services...")
-        click.echo(f"   - sqld daemon: http://127.0.0.1:{sqld_port}")
+        click.echo(f"   - sqld daemon: libsql://127.0.0.1:{sqld_port} (HTTP API: http://127.0.0.1:{sqld_port + 1})")
         click.echo(f"   - Environment service: http://127.0.0.1:{env_port}")
         click.echo("")
         click.echo("💡 Tips:")

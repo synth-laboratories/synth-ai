@@ -1,0 +1,6 @@
+[filter]
+db = "sqlite+libsql://http://127.0.0.1:8080"
+output = "temp/test_output.jsonl"
+min_official_score = 0.0
+models = []
+shuffle = false

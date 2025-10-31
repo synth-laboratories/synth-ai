@@ -6,16 +6,18 @@ the hash-based set-iteration nondeterminism that caused the drift.
 """
 
 import collections
+import os
 
 import crafter
 
-print("[PATCH] Attempting to apply Crafter deterministic patch...")
+# Patch messages permanently disabled to reduce noise
+# print("[PATCH] Attempting to apply Crafter deterministic patch...")
 
 # -----------------------------------------------------------------------------
 # 1.  Make per–chunk object order stable
 # -----------------------------------------------------------------------------
 if not hasattr(crafter.Env, "_orig_balance_object"):
-    print("[PATCH] Patching crafter.Env._balance_object...")
+    # print("[PATCH] Patching crafter.Env._balance_object...")
     crafter.Env._orig_balance_object = crafter.Env._balance_object
 
     def _balance_object_det(self, chunk, objs, *args, **kwargs):
@@ -25,9 +27,10 @@ if not hasattr(crafter.Env, "_orig_balance_object"):
         return crafter.Env._orig_balance_object(self, chunk, objs, *args, **kwargs)
 
     crafter.Env._balance_object = _balance_object_det
-    print("[PATCH] crafter.Env._balance_object patched.")
+    # print("[PATCH] crafter.Env._balance_object patched.")
 else:
-    print("[PATCH] crafter.Env._balance_object already patched or _orig_balance_object exists.")
+    pass
+    # print("[PATCH] crafter.Env._balance_object already patched or _orig_balance_object exists.")
 
 # -----------------------------------------------------------------------------
 # 2.  Make *chunk* iteration order stable

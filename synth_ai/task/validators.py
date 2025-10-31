@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import click
@@ -133,13 +133,46 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
     if not candidate:
         candidate = default
     
-    # Parse the URL to separate path and query components
     parsed = urlparse(candidate)
-    
+    path = (parsed.path or "").rstrip("/")
+    query = parsed.query or ""
+
+    # Repair malformed URLs where the completions path ended up in the query string.
+    # Example: https://host?cid=trace/v1/chat/completions  ->  https://host/v1/chat/completions?cid=trace
+    if query and "/" in query:
+        base_query, remainder = query.split("/", 1)
+        remainder_path = remainder
+        extra_query = ""
+        for separator in ("&", "?"):
+            idx = remainder_path.find(separator)
+            if idx != -1:
+                extra_query = remainder_path[idx + 1 :]
+                remainder_path = remainder_path[:idx]
+                break
+
+        query_path = "/" + remainder_path.lstrip("/")
+        merged_query_parts: list[str] = []
+        if base_query:
+            merged_query_parts.append(base_query)
+        if extra_query:
+            merged_query_parts.append(extra_query)
+        merged_query = "&".join(part for part in merged_query_parts if part)
+
+        if query_path and query_path != "/":
+            combined_path = f"{path.rstrip('/')}{query_path}" if path else query_path
+        else:
+            combined_path = path
+
+        parsed = parsed._replace(path=combined_path or "", query=merged_query)
+        path = (parsed.path or "").rstrip("/")
+        query = parsed.query or ""
+
     # Check if path already ends with a completions endpoint
-    path = parsed.path.rstrip('/')
     if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
-        return candidate
+        final_query = parsed.query or ""
+        if final_query and "/" in final_query:
+            parsed = parsed._replace(query=final_query.split("/", 1)[0])
+        return urlunparse(parsed)
     
     # Determine what to append based on existing path
     if path.endswith("/v1"):
@@ -147,11 +180,14 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
     elif path.endswith("/chat"):
         new_path = f"{path}/completions"
     else:
-        # Default: append full path
         new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
-    
-    # Reconstruct URL with new path and original query/fragment
-    return cast(str, urlunparse(parsed._replace(path=new_path)))
+
+    parsed = parsed._replace(path=new_path)
+    final_query = parsed.query or ""
+    if final_query and "/" in final_query:
+        parsed = parsed._replace(query=final_query.split("/", 1)[0])
+
+    return urlunparse(parsed)
 
 
 def validate_task_app_url(url: str | None) -> str:

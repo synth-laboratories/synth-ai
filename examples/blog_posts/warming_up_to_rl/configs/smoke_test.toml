@@ -1,0 +1,75 @@
+# Example RL config with smoke testing enabled
+# This config demonstrates auto-starting task app and sqld for easy smoke testing
+
+type = "rl"
+
+# Smoke testing configuration - AUTO-STARTS services in background!
+[smoke]
+# Auto-start the task app server
+task_app_name = "grpo-crafter"  # Your task app name (use "synth-ai task-app list" to see available apps)
+task_app_port = 8765
+task_app_env_file = ".env"  # Required for this task app
+task_app_force = true  # Kill any existing process on this port
+
+# Auto-start sqld for tracing
+sqld_auto_start = true
+sqld_db_path = "./traces/local.db"
+sqld_hrana_port = 8080
+sqld_http_port = 8081
+
+# Test parameters
+env_name = "crafter"
+policy_name = "crafter-react"
+max_steps = 10
+policy = "gpt-5-nano"  # Use gpt-5-nano policy with mock backend
+model = "gpt-4o-mini"  # Real model to use via OpenAI
+mock_backend = "openai"  # Use OpenAI backend for real inference and tool calls
+return_trace = true
+use_mock = true  # Use mock proxy that routes to OpenAI
+
+# RL Training Configuration (used by actual training, not smoke tests)
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[policy]
+model_name = "Qwen/Qwen3-4B"
+trainer_mode = "full"
+label = "crafter-rl-demo"
+
+[compute]
+gpu_type = "H100"
+gpu_count = 2
+
+[compute.topology]
+type = "single_node_split"
+gpus_for_vllm = 1
+gpus_for_training = 1
+
+[services]
+task_url = "http://localhost:8765"
+
+[rollout]
+env_name = "crafter"
+policy_name = "crafter-react"
+max_turns = 10
+episodes_per_batch = 16
+max_concurrent_rollouts = 4
+task_app_origin_rewards_only = true
+
+[training]
+num_epochs = 1
+iterations_per_epoch = 10
+max_turns = 10
+batch_size = 4
+group_size = 4
+learning_rate = 5e-5
+weight_sync_interval = 1
+log_interval = 1
+
+[evaluation]
+instances = 2
+every_n_iters = 1
+seeds = [0, 1]
+

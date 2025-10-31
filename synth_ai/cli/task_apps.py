@@ -2538,7 +2538,50 @@ def serve_task_group(
     trace_dir: str | None,
     trace_db: str | None,
 ) -> None:
-    return None
+    """Serve a TaskAppConfig-based task app using uvicorn."""
+    import contextlib
+    
+    if not host:
+        host = "0.0.0.0"
+    
+    if port is None:
+        port = 8001
+    
+    # Auto-enable tracing by default
+    try:
+        auto_trace = os.getenv("SYNTH_AUTO_TRACE", "1")
+        auto_trace_enabled = auto_trace not in {"0", "false", "False", ""}
+    except Exception:
+        auto_trace_enabled = True
+
+    if auto_trace_enabled:
+        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
+        if trace_dir is None:
+            default_trace_dir = (demo_base / "traces" / "v3").resolve()
+            with contextlib.suppress(Exception):
+                default_trace_dir.mkdir(parents=True, exist_ok=True)
+            trace_dir = str(default_trace_dir)
+            click.echo(f"[trace] Using trace directory: {trace_dir}")
+        if trace_dir and trace_db is None:
+            default_trace_db = (Path(trace_dir) / "synth_ai.db").resolve()
+            with contextlib.suppress(Exception):
+                default_trace_db.parent.mkdir(parents=True, exist_ok=True)
+            trace_db = str(default_trace_db)
+            click.echo(f"[trace] Using trace DB: {trace_db}")
+    
+    # Select and serve the app
+    choice = _select_app_choice(app_id, purpose="serve")
+    entry = choice.ensure_entry()
+    _serve_entry(
+        entry,
+        host,
+        port,
+        env_file,
+        reload_flag,
+        force,
+        trace_dir=trace_dir,
+        trace_db=trace_db,
+    )
 
 
 

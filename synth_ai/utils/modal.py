@@ -10,7 +10,7 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import click
@@ -345,7 +345,7 @@ def normalize_endpoint_url(url: str) -> str:
                     creds += f":{parsed.password}"
                 netloc = f"{creds}@{netloc}"
             parsed = parsed._replace(netloc=netloc)
-            return cast(str, urlunparse(parsed))
+            return urlunparse(parsed)
     except Exception:
         pass
     return url
