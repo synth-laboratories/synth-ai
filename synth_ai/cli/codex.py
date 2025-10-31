@@ -1,6 +1,7 @@
 import contextlib
 import json
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def install_codex() -> bool:
     try:
         print(f"Installing Codex via {cmd}...")
         print('\n'+ DIV_INSTALL_START)
-        subprocess.run(cmd.split(), check=True)
+        subprocess.run(shlex.split(cmd), check=True)
         print(DIV_INSTALL_END + '\n')
         return True
     except subprocess.CalledProcessError as e:
