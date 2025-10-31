@@ -185,3 +185,4 @@ class TestSmokeConfig:
         assert isinstance(config.task_app_name, str)
         assert isinstance(config.sqld_db_path, str)
 
+

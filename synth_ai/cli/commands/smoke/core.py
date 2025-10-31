@@ -2,25 +2,31 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import subprocess
-import time
 import os
+import subprocess
 import sys
+import time
 import uuid
-from typing import Any
-from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
 from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
 import toml
-
 from synth_ai.task.client import TaskAppClient
-from synth_ai.task.contracts import RolloutRequest, RolloutEnvSpec, RolloutPolicySpec, RolloutRecordConfig, RolloutSafetyConfig, RolloutMode
+from synth_ai.task.contracts import (
+    RolloutEnvSpec,
+    RolloutMode,
+    RolloutPolicySpec,
+    RolloutRecordConfig,
+    RolloutRequest,
+    RolloutSafetyConfig,
+)
 from synth_ai.task.validators import (
-    validate_task_app_url,
     normalize_inference_url,
     validate_rollout_response_for_rl,
+    validate_task_app_url,
 )
 from synth_ai.tracing_v3.config import resolve_trace_db_settings
 from synth_ai.tracing_v3.turso.daemon import start_sqld
@@ -118,7 +124,7 @@ def _load_smoke_config(config_path: Path | None) -> dict[str, Any]:
         return {}
     
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             full_config = toml.load(f)
         
         smoke_config = full_config.get("smoke", {})
@@ -167,7 +173,6 @@ def _start_task_app_server(
     Returns (process, url) tuple.
     """
     import subprocess
-    import shutil
     import time as time_module
     
     # Kill any existing process on this port first
@@ -252,7 +257,7 @@ def _start_task_app_server(
             # Try to read last line from nohup log
             try:
                 if nohup_log.exists():
-                    with open(nohup_log, "r") as f:
+                    with open(nohup_log) as f:
                         lines = f.readlines()
                         if lines:
                             # Get last non-empty line
@@ -290,7 +295,7 @@ def _start_task_app_server(
         time_module.sleep(0.5)
     
     proc.kill()
-    raise click.ClickException(f"Task app failed to start within 120 seconds")
+    raise click.ClickException("Task app failed to start within 120 seconds")
 
 
 def _start_sqld_server(
@@ -302,8 +307,8 @@ def _start_sqld_server(
     
     Returns the process handle.
     """
-    import subprocess
     import shutil
+    import subprocess
     
     # Check if sqld is available
     sqld_bin = shutil.which("sqld")
@@ -327,7 +332,7 @@ def _start_sqld_server(
         "--http-listen-addr", f"127.0.0.1:{http_port}",
     ]
     
-    click.echo(f"[smoke] Starting sqld server...", err=True)
+    click.echo("[smoke] Starting sqld server...", err=True)
     click.echo(f"[smoke] DB path: {db_path_obj}", err=True)
     click.echo(f"[smoke] Hrana port: {hrana_port}, HTTP port: {http_port}", err=True)
     click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)
@@ -349,7 +354,7 @@ def _start_sqld_server(
         try:
             resp = httpx.get(health_url, timeout=0.5)
             if resp.status_code == 200:
-                click.echo(f"[smoke] sqld ready", err=True)
+                click.echo("[smoke] sqld ready", err=True)
                 # Set environment variables for tracing
                 os.environ["SQLD_DB_PATH"] = str(db_path_obj)
                 os.environ["SQLD_HTTP_PORT"] = str(hrana_port)
@@ -391,10 +396,10 @@ class MockRLTrainer:
         )
 
     def _build_app(self):
-        from fastapi import FastAPI, Body
-        from fastapi.responses import JSONResponse
         import json
-        import logging
+
+        from fastapi import Body, FastAPI
+        from fastapi.responses import JSONResponse
 
         try:
             logger = logging.getLogger(__name__)
@@ -641,8 +646,8 @@ class MockRLTrainer:
 
     async def start(self) -> None:
         import socket
+
         import uvicorn
-        import logging
 
         def _allocate_port() -> int:
             nonlocal socket
@@ -736,7 +741,9 @@ async def _run_smoke_async(
     cfg: Any | None = None
     if config_path is not None:
         try:
-            from synth_ai.api.train.configs.rl import RLConfig as _RLConfig  # lazy import to avoid heavy deps when unused
+            from synth_ai.api.train.configs.rl import (
+                RLConfig as _RLConfig,  # lazy import to avoid heavy deps when unused
+            )
             cfg = _RLConfig.from_path(config_path)
         except Exception as exc:
             click.echo(f"Failed to load RL config {config_path}: {exc}", err=True)
@@ -784,7 +791,7 @@ async def _run_smoke_async(
         # Probe basic info quickly
         try:
             _ = await client.health()
-        except Exception as exc:
+        except Exception:
             click.echo("Auth or connectivity check failed on /health. If this endpoint requires a key, pass --api-key or set ENVIRONMENT_API_KEY.", err=True)
             # Continue; rollout may still clarify the error
 
@@ -1373,7 +1380,8 @@ def command(
         else:
             # Best-effort auto-discovery from CWD
             try:
-                from dotenv import find_dotenv as _fd, load_dotenv as _ld
+                from dotenv import find_dotenv as _fd
+                from dotenv import load_dotenv as _ld
                 _ld(_fd(usecwd=True), override=False)
             except Exception:
                 pass
@@ -1446,4 +1454,3 @@ def command(
 
 def register(cli: click.Group) -> None:
     cli.add_command(command)
-from synth_ai.tracing_v3.config import resolve_trace_db_settings

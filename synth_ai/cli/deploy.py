@@ -138,7 +138,7 @@ def deploy_cmd(
                 raise click.ClickException("Modal app path required")
             
             if opts["cmd_arg"] == "serve" and opts["dry_run"] is True:
-                raise ValueError("--modal-mode=serve cannot be combined with --dry-run")
+                raise click.ClickException("--modal-mode=serve cannot be combined with --dry-run")
             
             modal_bin_path = opts.get("modal_bin_path") or get_default_modal_bin_path()
             if not modal_bin_path:
