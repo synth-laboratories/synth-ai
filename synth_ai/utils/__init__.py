@@ -1,6 +1,6 @@
 from . import task_app_state
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
-from .cli import PromptedChoiceOption, PromptedChoiceType, PromptedPathOption, prompt_for_path, print_next_step
+from .cli import PromptedChoiceOption, PromptedChoiceType, PromptedPathOption, prompt_for_path, print_next_step, prompt_choice
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 from .http import AsyncHttpClient, HTTPError, http_request
 from .modal import (
@@ -11,6 +11,7 @@ from .modal import (
     is_modal_public_url,
     normalize_endpoint_url,
 )
+from .paths import find_bin_path, get_env_file_paths, get_home_config_file_paths
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
 from .task_app_discovery import AppChoice, discover_eval_config_paths, select_app_choice
@@ -62,8 +63,11 @@ __all__ = [
     "ensure_port_free",
     "ensure_task_app_ready",
     "find_asgi_apps",
+    "find_bin_path",
     "find_sqld_binary",
     "get_backend_from_env",
+    "get_env_file_paths",
+    "get_home_config_file_paths",
     "get_learning_v2_base_url",
     "http_request",
     "install_sqld",
@@ -86,6 +90,7 @@ __all__ = [
     "popen_stream_capture",
     "preflight_env_key",
     "print_next_step",
+    "prompt_choice",
     "read_task_app_config",
     "record_task_app",
     "resolve_env_var",

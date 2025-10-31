@@ -5,6 +5,8 @@ from pathlib import Path
 
 import click
 
+from .paths import get_env_file_paths, get_home_config_file_paths
+
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
 
 
@@ -84,18 +86,6 @@ def mask_str(input: str, position: int = 3) -> str:
     return input[:position] + "..." + input[-position:] if len(input) > position * 2 else "***"
 
 
-def get_env_file_paths(base_dir: str | Path = '.') -> list[Path]:
-    base = Path(base_dir).resolve()
-    return [path for path in base.rglob(".env*") if path.is_file()]
-
-
-def get_synth_config_file_paths() -> list[Path]:
-    dir = Path.home() / ".synth-ai"
-    if not dir.exists():
-        return []
-    return [path for path in dir.glob("*.json") if path.is_file()]
-
-
 def filter_env_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str]]:
     matches: list[tuple[Path, str]] = []
     for path in paths:
@@ -142,7 +132,7 @@ def resolve_env_var(key: str) -> str:
     value: str = ""
 
     env_file_paths = filter_env_files_by_key(key, get_env_file_paths())
-    synth_file_paths = filter_json_files_by_key(key, get_synth_config_file_paths())
+    synth_file_paths = filter_json_files_by_key(key, get_home_config_file_paths(".synth-ai"))
 
     options: list[tuple[str, str]] = []
     for path, value in env_file_paths:
