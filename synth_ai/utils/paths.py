@@ -1,5 +1,5 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 
 def find_bin_path(name: str) -> Path | None:

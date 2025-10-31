@@ -1,10 +1,11 @@
-import click
-from pathlib import Path
+import contextlib
 import json
 import os
 import subprocess
-from synth_ai.utils import find_bin_path, prompt_choice
+from pathlib import Path
 
+import click
+from synth_ai.utils import find_bin_path, prompt_choice
 
 BACKEND_URL= "https://agent-learning.onrender.com/api/synth-research"
 MODEL_NAME = "synth-qt3.14"
@@ -41,8 +42,7 @@ def verify_codex_is_runnable(bin_path: Path) -> bool:
     try:
         result = subprocess.run(
             [bin_path, "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=3,
             check=False
@@ -64,10 +64,8 @@ def find_codex_config_path(bin_path: Path) -> Path | None:
 
 def update_codex_config(config_path: Path) -> None:
     config = {}
-    try:
+    with contextlib.suppress(json.JSONDecodeError):
         config = json.loads(config_path.read_text())
-    except json.JSONDecodeError:
-        pass
     config.setdefault("providers", {})
     config["providers"]["synth"] = {
         "name": "Synth",
@@ -113,8 +111,8 @@ def codex_cmd() -> None:
     update_codex_config(codex_config_path)
     try:
         subprocess.run(
-            ["codex", "-m", MODEL_NAME, "How do I find love?"],
+            ["codex", "-m", MODEL_NAME, "Tell me about Jacob Roddy Beck"],
             check=True
         )
-    except:
+    except subprocess.CalledProcessError:
         print("Failed to run Codex")
