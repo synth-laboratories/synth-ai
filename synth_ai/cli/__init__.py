@@ -71,6 +71,17 @@ except Exception as e:
     traceback.print_exc()
 
 try:
+    from synth_ai.cli.opencode import opencode_cmd
+
+    cli.add_command(opencode_cmd, name="opencode")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register opencode command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+
+
+try:
     from synth_ai.cli.codex import codex_cmd
     cli.add_command(codex_cmd, name="codex")
 except Exception as e:
