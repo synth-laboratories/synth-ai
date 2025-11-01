@@ -3,7 +3,7 @@ import subprocess
 
 import click
 from synth_ai.types import MODEL_NAMES, ModelName
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_CHAT_RESPONSES
+from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -30,7 +30,18 @@ DIV_END = f"{'-' * 25} CODEX CONFIG CHECK END {'-' * 24}"
     is_flag=True,
     help="Prompt for API keys even if cached values exist."
 )
-def codex_cmd(model_name: ModelName, force: bool = False) -> None:
+@click.option(
+    "--url",
+    "override_url",
+    type=str,
+    default=None,
+    required=False,
+)
+def codex_cmd(
+    model_name: ModelName,
+    force: bool = False,
+    override_url: str | None = None
+)-> None:
     print('\n' + DIV_START)
 
     print("Finding your installed Codex...")
@@ -53,28 +64,31 @@ def codex_cmd(model_name: ModelName, force: bool = False) -> None:
 
     print(DIV_END + '\n')
 
-    full_model_name = f"synth/{model_name}"
+    if override_url:
+        url = override_url
+        print(f"Using override URL:", url)
+    else:
+        url = BACKEND_URL_SYNTH_RESEARCH
+    provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
     config_overrides = [
-        'provider="synth"',
-        f'providers.synth={{"name":"Synth","baseURL":"{BACKEND_URL_SYNTH_RESEARCH_CHAT_RESPONSES}","envKey":"OPENAI_API_KEY"}}',
-        f'default_model="{full_model_name}"'
+        f"model_providers.synth={provider_config}",
+        f'model_provider="synth"',
+        f'default_model="{model_name}"'
     ]
     override_args = [arg for override in config_overrides for arg in ("-c", override)]
 
     env = os.environ.copy()
     env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+    env["SYNTH_API_KEY"] = env["OPENAI_API_KEY"]
     
     try:
-        subprocess.run(
-            [
-                "codex",
-                "-m",
-                full_model_name,
-                *override_args,
-                "Tell me about Jacob Roddy Beck"
-            ],
-            check=True,
-            env=env
-        )
+        cmd = [
+            "codex",
+            "-m",
+            model_name,
+            *override_args
+        ]
+        print("Launching Codex command:", " ".join(cmd))
+        subprocess.run(cmd, check=True, env=env)
     except subprocess.CalledProcessError:
         print("Failed to run Codex")
