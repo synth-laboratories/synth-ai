@@ -2,17 +2,16 @@ import os
 import subprocess
 
 import click
-from synth_ai.types import ModelName, MODEL_NAMES
+from synth_ai.types import MODEL_NAMES, ModelName
+from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_CHAT_RESPONSES
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
     find_bin_path,
     install_codex,
-    verify_codex_is_runnable,
+    resolve_env_var,
+    verify_codex,
 )
-
-BACKEND_URL= "https://agent-learning.onrender.com/api/synth-research"
-
 
 DIV_START = f"{'-' * 24} CODEX CONFIG CHECK START {'-' * 23}"
 DIV_END = f"{'-' * 25} CODEX CONFIG CHECK END {'-' * 24}"
@@ -26,40 +25,45 @@ DIV_END = f"{'-' * 25} CODEX CONFIG CHECK END {'-' * 24}"
     type=PromptedChoiceType(MODEL_NAMES),
     required=True
 )
-def codex_cmd(model_name: ModelName) -> None:
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Prompt for API keys even if cached values exist."
+)
+def codex_cmd(model_name: ModelName, force: bool = False) -> None:
     print('\n' + DIV_START)
 
-    print("[1/2] Finding your installed Codex...")
+    print("Finding your installed Codex...")
     while True:
         bin_path = find_bin_path("codex")
         if bin_path:
             break
-        print("[1/2] Failed to find your installed Codex")
         if not install_codex():
+            print("Failed to find your installed Codex")
             print(DIV_END + '\n')
             return
-    print(f"[1/2] Found your installed Codex at {bin_path}")
+    print(f"Found your installed Codex at {bin_path}")
 
-    print("[2/2] Verifying your Codex is runnable via `codex --version`...")
-    if not verify_codex_is_runnable(bin_path):
-        print("[2/2] Failed to verify your installed Codex is runnable")
+    print("Verifying your Codex is runnable via `codex --version`...")
+    if not verify_codex(bin_path):
+        print("Failed to verify your installed Codex is runnable")
         print(DIV_END + '\n')
         return
-    print("[2/2] Verified your installed Codex is runnable")
+    print("Verified your installed Codex is runnable")
 
     print(DIV_END + '\n')
 
     full_model_name = f"synth/{model_name}"
     config_overrides = [
         'provider="synth"',
-        f'providers.synth={{"name":"Synth","baseURL":"{BACKEND_URL}","envKey":"OPENAI_API_KEY"}}',
+        f'providers.synth={{"name":"Synth","baseURL":"{BACKEND_URL_SYNTH_RESEARCH_CHAT_RESPONSES}","envKey":"OPENAI_API_KEY"}}',
         f'default_model="{full_model_name}"'
     ]
     override_args = [arg for override in config_overrides for arg in ("-c", override)]
+
     env = os.environ.copy()
-    env["OPENAI_API_KEY"] = "dummy-key"
-    env["CODEX_LOG_LEVEL"] = "debug"
-    env["DEBUG"] = "1"
+    env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+    
     try:
         subprocess.run(
             [
