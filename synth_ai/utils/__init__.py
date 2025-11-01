@@ -8,9 +8,10 @@ from .cli import (
     prompt_choice,
     prompt_for_path,
 )
-from .codex import find_codex_config_path, install_codex, verify_codex_is_runnable
+from .codex import find_codex_config_path, install_codex, verify_codex
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 from .http import AsyncHttpClient, HTTPError, http_request
+from .json import create_and_write_json, load_json_to_dict, strip_json_comments
 from .modal import (
     ensure_modal_installed,
     ensure_task_app_ready,
@@ -19,6 +20,7 @@ from .modal import (
     is_modal_public_url,
     normalize_endpoint_url,
 )
+from .opencode import install_opencode, verify_opencode
 from .paths import find_bin_path, get_env_file_paths, get_home_config_file_paths
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
@@ -63,6 +65,7 @@ __all__ = [
     "prompt_for_path",
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
+    "create_and_write_json",
     "current_task_app_id",
     "discover_eval_config_paths",
     "ensure_env_credentials",
@@ -80,10 +83,12 @@ __all__ = [
     "get_learning_v2_base_url",
     "http_request",
     "install_codex",
+    "install_opencode",
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
     "load_demo_dir",
+    "load_json_to_dict",
     "load_template_id",
     "load_user_config",
     "load_user_env",
@@ -107,12 +112,14 @@ __all__ = [
     "resolve_task_app_entry",
     "save_user_config",
     "select_app_choice",
+    "strip_json_comments",
     "task_app_config_path",
     "task_app_id_from_path",
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
-    "verify_codex_is_runnable",
+    "verify_codex",
+    "verify_opencode",
     "write_env_var_to_dotenv",
     "write_env_var_to_json",
     "write_task_app_config",
