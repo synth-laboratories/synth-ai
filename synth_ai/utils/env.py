@@ -141,7 +141,7 @@ def resolve_env_var(
     if env_value is not None:
         if not override_process_env:
             return env_value
-        options.append(("Process environment", env_value))
+        options.append((f"(process environment)  {mask_str(env_value)}", env_value))
     for path, value in env_file_paths:
         resolved_path = path.resolve()
         try:
