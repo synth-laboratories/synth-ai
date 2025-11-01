@@ -26,38 +26,39 @@ SYNTH_PROVIDER_ID = "synth"
 
 
 
-def _ensure_synth_provider(config: dict) -> dict:
+def _ensure_synth_provider_in_config(
+    config: dict,
+    url: str,
+    model_name: ModelName
+) -> dict:
     provider_section = config.setdefault("provider", {})
     synth_provider = provider_section.setdefault(SYNTH_PROVIDER_ID, {})
+
     synth_provider["npm"] = "@ai-sdk/openai-compatible"
+
     synth_provider.setdefault("name", "Synth")
 
-    options = synth_provider.setdefault("options", {})
-    options["baseURL"] = BACKEND_URL_SYNTH_RESEARCH
+    models = synth_provider.setdefault("models", {})
+    models.setdefault(model_name, {})
 
-    synth_provider.setdefault("models", {})
+    options = synth_provider.setdefault("options", {})
+
+    options["baseURL"] = url
+
     return config
 
 
-def _ensure_synth_auth(api_key: str) -> bool:
-    auth_data = load_json_to_dict(AUTH_PATH)
-    desired_entry = {
+def _ensure_synth_api_key_in_auth_file(api_key: str) -> None:
+    data = load_json_to_dict(AUTH_PATH)
+    good_entry = {
         "type": "api",
         "key": api_key,
     }
-    if auth_data.get(SYNTH_PROVIDER_ID) == desired_entry:
-        return False
-    auth_data[SYNTH_PROVIDER_ID] = desired_entry
-    create_and_write_json(AUTH_PATH, auth_data)
-    return True
-
-
-def _ensure_model_entry(config: dict, model_name: str) -> dict:
-    provider_section = config.setdefault("provider", {})
-    synth_provider = provider_section.setdefault(SYNTH_PROVIDER_ID, {})
-    models = synth_provider.setdefault("models", {})
-    models.setdefault(model_name, {})
-    return config
+    if data.get(SYNTH_PROVIDER_ID) == good_entry:
+        return
+    data[SYNTH_PROVIDER_ID] = good_entry
+    create_and_write_json(AUTH_PATH, data)
+    return
 
 
 @click.command("opencode")
@@ -73,7 +74,18 @@ def _ensure_model_entry(config: dict, model_name: str) -> dict:
     is_flag=True,
     help="Prompt for API keys even if cached values exist."
 )
-def opencode_cmd(model_name: ModelName, force: bool = False) -> None:
+@click.option(
+    "--url",
+    "override_url",
+    type=str,
+    default=None,
+    required=False,
+)
+def opencode_cmd(
+    model_name: ModelName,
+    force: bool = False,
+    override_url: str | None = None
+) -> None:
     print("\n" + DIV_START)
 
     print("Finding your installed OpenCode...")
@@ -95,21 +107,20 @@ def opencode_cmd(model_name: ModelName, force: bool = False) -> None:
     print("Verified your installed OpenCode is runnable")
 
     print("Registering your Synth API key with OpenCode...")
-    synth_api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
-    if _ensure_synth_auth(synth_api_key):
-        print(f"Stored Synth API key ({mask_str(synth_api_key)}) in {AUTH_PATH}")
-    else:
-        print(f"Synth API key already present in {AUTH_PATH}")
+    _ensure_synth_api_key_in_auth_file(resolve_env_var("SYNTH_API_KEY", override_process_env=force))
 
-    print("Updating your OpenCode config...")
     config = load_json_to_dict(CONFIG_PATH)
     config.setdefault("$schema", SCHEMA_URL)
-    config = _ensure_synth_provider(config)
-    config = _ensure_model_entry(config, model_name)
+    if override_url:
+        url = override_url
+        print("Using override URL:", url)
+    else:
+        url = BACKEND_URL_SYNTH_RESEARCH
+    config = _ensure_synth_provider_in_config(config, url, model_name)
     full_model_name = f"{SYNTH_PROVIDER_ID}/{model_name}"
     config["model"] = full_model_name
     create_and_write_json(CONFIG_PATH, config)
-    print(f"Updated your OpenCode config at {CONFIG_PATH}")
+
     print(DIV_END + "\n")
 
     print("Launching OpenCode...")
