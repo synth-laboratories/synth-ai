@@ -28,7 +28,7 @@ def install_codex() -> bool:
         return False
 
 
-def verify_codex_is_runnable(bin_path: Path) -> bool:
+def verify_codex(bin_path: Path) -> bool:
     try:
         result = subprocess.run(
             [bin_path, "--version"],
