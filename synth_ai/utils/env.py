@@ -123,9 +123,12 @@ def ensure_env_var(key: str, expected_value: str) -> None:
         raise ValueError(f"Expected: {key}={expected_value}\nActual: {key}={actual_value}")
 
 
-def resolve_env_var(key: str) -> str:
+def resolve_env_var(
+    key: str,
+    override_process_env: bool = False
+) -> str:
     env_value = os.getenv(key)
-    if env_value is not None:
+    if env_value is not None and not override_process_env:
         click.echo(f"Using {key}={mask_str(env_value)} from process environment")
         return env_value
 
@@ -135,6 +138,10 @@ def resolve_env_var(key: str) -> str:
     synth_file_paths = filter_json_files_by_key(key, get_home_config_file_paths(".synth-ai"))
 
     options: list[tuple[str, str]] = []
+    if env_value is not None:
+        if not override_process_env:
+            return env_value
+        options.append(("Process environment", env_value))
     for path, value in env_file_paths:
         resolved_path = path.resolve()
         try:
