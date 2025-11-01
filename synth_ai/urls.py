@@ -1,0 +1,5 @@
+
+BACKEND_URL_BASE = "https://agent-learning.onrender.com"
+BACKEND_URL_BASE_DEV = "http://127.0.0.1:8000"
+BACKEND_URL_SYNTH_RESEARCH = BACKEND_URL_BASE + "/api/synth-research"
+BACKEND_URL_SYNTH_RESEARCH_CHAT_RESPONSES = BACKEND_URL_SYNTH_RESEARCH + "/chat/responses"
