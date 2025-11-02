@@ -55,32 +55,28 @@ cli = _cli_module.cli  # type: ignore[attr-defined]
 # Register core commands implemented as standalone modules
 try:
     from synth_ai.cli.setup import setup_cmd
-
     cli.add_command(setup_cmd, name="setup")
-except Exception:
-    pass
-
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register setup command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
 try:
     from synth_ai.cli.deploy import deploy_cmd
-
     cli.add_command(deploy_cmd, name="deploy")
 except Exception as e:
     import sys
     print(f"[DEBUG] Failed to register deploy command: {e}", file=sys.stderr)
     import traceback
     traceback.print_exc()
-
 try:
     from synth_ai.cli.opencode import opencode_cmd
-
     cli.add_command(opencode_cmd, name="opencode")
 except Exception as e:
     import sys
     print(f"[DEBUG] Failed to register opencode command: {e}", file=sys.stderr)
     import traceback
     traceback.print_exc()
-
-
 try:
     from synth_ai.cli.codex import codex_cmd
     cli.add_command(codex_cmd, name="codex")
@@ -89,13 +85,22 @@ except Exception as e:
     print(f"[DEBUG] Failed to register codex command: {e}", file=sys.stderr)
     import traceback
     traceback.print_exc()
-
 try:
     from synth_ai.cli.eval import command as eval_cmd
-
     cli.add_command(eval_cmd, name="eval")
-except Exception:
-    pass
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register eval command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.claude import claude_cmd
+    cli.add_command(claude_cmd, name="claude")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register claude command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
