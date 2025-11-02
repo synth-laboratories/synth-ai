@@ -3,7 +3,7 @@ import subprocess
 
 import click
 from synth_ai.types import MODEL_NAMES, ModelName
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH
+from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -68,7 +68,7 @@ def codex_cmd(
         url = override_url
         print(f"Using override URL:", url)
     else:
-        url = BACKEND_URL_SYNTH_RESEARCH
+        url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
     provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
     config_overrides = [
         f"model_providers.synth={provider_config}",

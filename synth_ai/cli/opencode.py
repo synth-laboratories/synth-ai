@@ -3,7 +3,7 @@ from pathlib import Path
 
 import click
 from synth_ai.types import MODEL_NAMES, ModelName
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH
+from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -115,7 +115,7 @@ def opencode_cmd(
         url = override_url
         print("Using override URL:", url)
     else:
-        url = BACKEND_URL_SYNTH_RESEARCH
+        url = BACKEND_URL_SYNTH_RESEARCH_BASE
     config = _ensure_synth_provider_in_config(config, url, model_name)
     full_model_name = f"{SYNTH_PROVIDER_ID}/{model_name}"
     config["model"] = full_model_name
