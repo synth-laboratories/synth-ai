@@ -52,12 +52,10 @@ def test_codex_cmd_codex_found_but_not_runnable(runner: CliRunner):
 def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     """Test codex_cmd with default URL (no override)."""
     mock_bin_path = "/usr/local/bin/codex"
-    mock_api_key = "test-api-key-123"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.codex.write_agents_md"), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, mock_env, clear=True):
 
@@ -75,16 +73,9 @@ def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     assert cmd[0] == "codex"
     assert "-m" not in cmd
 
-    # Check config overrides
-    assert "-c" in cmd
-    provider_config_idx = cmd.index("-c") + 1
-    # The provider config should contain the URL
-    assert BACKEND_URL_SYNTH_RESEARCH_OPENAI in cmd[provider_config_idx]
-
-    # Verify environment variables
-    env = call_args[1]["env"]
-    assert env["OPENAI_API_KEY"] == mock_api_key
-    assert env["SYNTH_API_KEY"] == mock_api_key
+    # No overrides or env mutations should occur
+    assert "-c" not in cmd
+    assert call_args[1]["env"] == mock_env
 
 
 def test_codex_cmd_with_override_url(runner: CliRunner, mock_env):
