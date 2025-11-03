@@ -5,25 +5,20 @@ import click
 from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
 from synth_ai.utils import (
-    PromptedChoiceOption,
-    PromptedChoiceType,
     find_bin_path,
-    install_codex,
+    install_bin,
     resolve_env_var,
-    verify_codex,
+    verify_bin,
+    write_agents_md
 )
-
-DIV_START = f"{'-' * 24} CODEX CONFIG CHECK START {'-' * 23}"
-DIV_END = f"{'-' * 25} CODEX CONFIG CHECK END {'-' * 24}"
 
 
 @click.command("codex")
 @click.option(
     "--model",
     "model_name",
-    cls=PromptedChoiceOption,
-    type=PromptedChoiceType(MODEL_NAMES),
-    required=True
+    type=str,
+    default=None
 )
 @click.option(
     "--force",
@@ -35,60 +30,61 @@ DIV_END = f"{'-' * 25} CODEX CONFIG CHECK END {'-' * 24}"
     "override_url",
     type=str,
     default=None,
-    required=False,
 )
 def codex_cmd(
-    model_name: ModelName,
+    model_name: ModelName | None = None,
     force: bool = False,
     override_url: str | None = None
 )-> None:
-    print('\n' + DIV_START)
 
-    print("Finding your installed Codex...")
     while True:
         bin_path = find_bin_path("codex")
         if bin_path:
             break
-        if not install_codex():
+        if not install_bin(
+            "Codex",
+            [
+                "brew install codex",
+                "npm install -g @openai/codex"
+            ]
+        ):
             print("Failed to find your installed Codex")
-            print(DIV_END + '\n')
+            print("Please install from: https://developers.openai.com/codex/cli/")
             return
-    print(f"Found your installed Codex at {bin_path}")
+    print(f"Using Codex at {bin_path}")
 
-    print("Verifying your Codex is runnable via `codex --version`...")
-    if not verify_codex(bin_path):
-        print("Failed to verify your installed Codex is runnable")
-        print(DIV_END + '\n')
+    if not verify_bin(bin_path):
+        print("Failed to verify Codex is runnable")
         return
-    print("Verified your installed Codex is runnable")
-
-    print(DIV_END + '\n')
-
-    if override_url:
-        url = override_url
-        print("Using override URL:", url)
-    else:
-        url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
-    provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
-    config_overrides = [
-        f"model_providers.synth={provider_config}",
-        'model_provider="synth"',
-        f'default_model="{model_name}"'
-    ]
-    override_args = [arg for override in config_overrides for arg in ("-c", override)]
-
+    
+    write_agents_md()
     env = os.environ.copy()
-    env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
-    env["SYNTH_API_KEY"] = env["OPENAI_API_KEY"]
+    override_args = []
+    
+    if model_name is not None:
+        if model_name not in MODEL_NAMES:
+            raise ValueError(f"model_name={model_name} is invalid. Valid values for model_name: {MODEL_NAMES}")
+        if override_url:
+            url = override_url
+            print("Using override URL:", url)
+        else:
+            url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
+        provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
+        config_overrides = [
+            f"model_providers.synth={provider_config}",
+            'model_provider="synth"',
+            f'default_model="{model_name}"'
+        ]
+        override_args = [arg for override in config_overrides for arg in ("-c", override)]
+        env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+        env["SYNTH_API_KEY"] = env["OPENAI_API_KEY"]
     
     try:
-        cmd = [
-            "codex",
-            "-m",
-            model_name,
-            *override_args
-        ]
-        print("Launching Codex command:", " ".join(cmd))
+        cmd = ["codex"]
+        if model_name is not None:
+            cmd.extend(["-m", model_name])
+        cmd.extend(override_args)
+        print(" ".join(cmd))
         subprocess.run(cmd, check=True, env=env)
     except subprocess.CalledProcessError:
         print("Failed to run Codex")
