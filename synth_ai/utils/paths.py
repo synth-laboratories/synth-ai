@@ -24,9 +24,9 @@ def get_home_config_file_paths(
     return [path for path in dir.glob(f"*.{file_extension}") if path.is_file()]
 
 
-def find_config_path(
+def find_config_in_home_or_near_binary(
     bin_path: Path,
-    dir: str,
+    home_subdir: str,
     filename: str,
 ) -> Path | None:
     """
@@ -37,11 +37,11 @@ def find_config_path(
         home_subdir: Directory under the user's home to inspect (e.g., ".codex").
         filename: Name of the config file to locate.
     """
-    home_candidate = Path.home() / dir / filename
+    home_candidate = Path.home() / home_subdir / filename
     if home_candidate.exists():
         return home_candidate
 
-    local_candidate = Path(bin_path).parent / dir / filename
+    local_candidate = Path(bin_path).parent / home_subdir / filename
     if local_candidate.exists():
         return local_candidate
 
