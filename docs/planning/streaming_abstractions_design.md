@@ -818,6 +818,7 @@ await streamer.stream_until_terminal()
 ## 9. Example: Complete Training Session
 
 ```python
+import os
 from synth_ai.streaming import (
     JobStreamer,
     StreamConfig,
@@ -850,7 +851,7 @@ handlers = [
 ]
 
 streamer = JobStreamer(
-    base_url="https://api.synth.ai",
+    base_url=os.environ["SYNTH_API_BASE"],
     api_key=os.getenv("SYNTH_API_KEY"),
     job_id="job_abc123",
     config=config,
@@ -940,4 +941,3 @@ This design provides:
 8. **Clear migration path** for users
 
 The architecture is production-ready and scales from simple CLI usage to complex programmatic control.
-

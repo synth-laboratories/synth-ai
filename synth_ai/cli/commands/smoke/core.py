@@ -801,13 +801,16 @@ async def _run_smoke_async(
             ops.append("agent")
             ops.append("env")
 
-        # Inference URL: user override > preset > local mock > Synth API default
-        synth_base = (os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or "https://api.synth.run").rstrip("/")
-        # Avoid double '/api' if base already includes it
-        if synth_base.endswith("/api"):
-            default_infer = f"{synth_base}/inference/v1/chat/completions"
-        else:
-            default_infer = f"{synth_base}/api/inference/v1/chat/completions"
+        # Inference URL: user override > preset > local mock > env-provided Synth base
+        synth_base_env = os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL")
+        default_infer = None
+        if synth_base_env:
+            synth_base = synth_base_env.rstrip("/")
+            # Avoid double '/api' if base already includes it
+            if synth_base.endswith("/api"):
+                default_infer = f"{synth_base}/inference/v1/chat/completions"
+            else:
+                default_infer = f"{synth_base}/api/inference/v1/chat/completions"
 
         # Helper to execute one or more rollouts and return exit code
         async def __do_rollouts(inference_url_raw: str) -> int:
@@ -1030,6 +1033,8 @@ async def _run_smoke_async(
             use_mock = True
         elif preset == "gpt-5-nano":
             if not inference_url_opt:
+                if default_infer is None:
+                    raise click.ClickException("gpt-5-nano preset requires --inference-url or SYNTH_API_BASE/SYNTH_BASE_URL")
                 inference_url_raw = default_infer
             if not model:
                 model = "gpt-5-nano"
@@ -1052,6 +1057,9 @@ async def _run_smoke_async(
             mock = MockRLTrainer(port=mock_port, backend=backend_choice)
             await mock.start()
             inference_url_raw = f"http://127.0.0.1:{mock.port}"
+
+        if inference_url_raw is None:
+            raise click.ClickException("No inference URL configured. Pass --inference-url, choose a preset with a known endpoint, or set SYNTH_API_BASE/SYNTH_BASE_URL.")
 
         try:
             result = await __do_rollouts(inference_url_raw)

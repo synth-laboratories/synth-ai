@@ -615,25 +615,27 @@ async def step_policy(
             except Exception:
                 api_key_override = None
 
-            # Fallback: If target is OpenAI but OPENAI_API_KEY is missing, route to Synth API
+            # Fallback: If target is OpenAI but OPENAI_API_KEY is missing, reroute using synth_base_url
             try:
                 import os as _os2
                 _low = str(target_url or "").lower()
                 if ("api.openai.com" in _low) and not (_os2.getenv("OPENAI_API_KEY")):
-                    # Prefer task_app.synth_base_url if available; else default
+                    # Prefer task_app.synth_base_url if available
                     synth_base = getattr(task_app, "synth_base_url", None)
                     if isinstance(synth_base, str) and synth_base.strip():
                         base = synth_base.rstrip("/")
                         fallback = base + "/inference/v1/chat/completions"
+                        fixed = ensure_chat_completions_url(fallback)
+                        logger.warning(
+                            "POLICY_STEP: OPENAI key missing; falling back to Synth route %s",
+                            fixed,
+                        )
+                        meta["inference_url"] = fixed
+                        target_url = fixed
                     else:
-                        fallback = "https://api.synth.run/api/inference/v1/chat/completions"
-                    fixed = ensure_chat_completions_url(fallback)
-                    logger.warning(
-                        "POLICY_STEP: OPENAI key missing; falling back to Synth route %s",
-                        fixed,
-                    )
-                    meta["inference_url"] = fixed
-                    target_url = fixed
+                        logger.error(
+                            "POLICY_STEP: OPENAI key missing and synth_base_url not configured; cannot reroute inference request."
+                        )
             except Exception:
                 pass
 
