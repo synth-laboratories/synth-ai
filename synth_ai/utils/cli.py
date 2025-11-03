@@ -5,6 +5,25 @@ from typing import Any, Callable, cast
 import click
 
 
+def prompt_choice(msg: str, choices: list[str]) -> str:
+    print(msg)
+    for i, label in enumerate(choices, start=1):
+        print(f" [{i}] {label}")
+    while True:
+        try:
+            choice = click.prompt(
+                "Select an option",
+                default=1,
+                type=int,
+                show_choices=False
+            )
+        except click.Abort:
+            raise
+        if 1 <= choice <= len(choices):
+            return choices[choice - 1]
+        print(f"Invalid selection. Enter a number between 1 and {len(choices)}")
+
+
 class PromptedChoiceType(click.Choice):
     """`click.Choice` variant that reprompts with an interactive menu on failure.
 
