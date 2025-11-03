@@ -101,6 +101,16 @@ except Exception as e:
     print(f"[DEBUG] Failed to register claude command: {e}", file=sys.stderr)
     import traceback
     traceback.print_exc()
+try:
+    from synth_ai.cli.commands.baseline import command as baseline_cmd
+    from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+    cli.add_command(baseline_cmd, name="baseline")
+    baseline_cmd.add_command(baseline_list_cmd, name="list")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register baseline command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
