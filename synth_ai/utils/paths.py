@@ -24,7 +24,7 @@ def get_home_config_file_paths(
     return [path for path in dir.glob(f"*.{file_extension}") if path.is_file()]
 
 
-def find_config_in_home_or_near_binary(
+def find_config_path(
     bin_path: Path,
     home_subdir: str,
     filename: str,
