@@ -1,5 +1,5 @@
 from . import task_app_state
-from .agents import write_agents_md
+from .agents import AgentGuide, agent_catalog, get_agent_guides, render_agents_markdown, write_agents_md
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .bin import install_bin, verify_bin
 from .cli import (
@@ -59,8 +59,10 @@ from .user_config import (
 )
 
 __all__ = [
+    "AgentGuide",
     "AppChoice",
     "AsyncHttpClient",
+    "agent_catalog",
     "DEFAULT_TASK_APP_SECRET_NAME",
     "HTTPError",
     "PROD_BASE_URL_DEFAULT",
@@ -112,6 +114,7 @@ __all__ = [
     "prompt_choice",
     "read_task_app_config",
     "record_task_app",
+    "render_agents_markdown",
     "resolve_env_var",
     "resolve_task_app_entry",
     "save_user_config",
@@ -123,8 +126,9 @@ __all__ = [
     "update_task_app_entry",
     "update_user_config",
     "verify_bin",
-    'write_agents_md',
+    "write_agents_md",
     "write_env_var_to_dotenv",
     "write_env_var_to_json",
     "write_task_app_config",
+    "get_agent_guides",
 ]

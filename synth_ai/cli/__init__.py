@@ -86,6 +86,14 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 try:
+    from synth_ai.cli.mcp_agents import serve_mcp_agents
+    cli.add_command(serve_mcp_agents, name="mcp-agents")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register mcp-agents command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
     from synth_ai.cli.eval import command as eval_cmd
     cli.add_command(eval_cmd, name="eval")
 except Exception as e:

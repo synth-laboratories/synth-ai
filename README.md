@@ -170,6 +170,22 @@ Place this file in `examples/baseline/` or name it `*_baseline.py` for auto-disc
 
 ---
 
+## 🛰️ MCP Agents Server
+
+Expose Synth's coding agent guidance to MCP clients (Cursor, Claude Code, etc.) with the built-in server:
+
+```bash
+uvx synth-ai mcp-agents
+```
+
+- Serves the catalog defined in `AGENTS.md` as MCP resources (Markdown + per-agent JSON metadata).
+- Offers tools named `claude`, `codex`, and `opencode` that mirror their CLI commands and take the same flags (`--model`, `--force`, `--url`).
+- Streams subprocess output back to the MCP client so you can launch agents directly from Cursor's MCP sidebar.
+
+Synth ships its own lightweight JSON-RPC implementation, so no extra MCP dependencies are required. Point Cursor (or another MCP consumer) at the command using the `stdio` transport to keep your agents and IDE in sync.
+
+---
+
 ## 🔐 SDK → Dashboard Pairing
 
 When you run `uvx synth-ai setup` (or legacy `uvx synth-ai rl_demo setup`):
