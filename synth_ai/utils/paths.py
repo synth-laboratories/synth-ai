@@ -22,3 +22,27 @@ def get_home_config_file_paths(
     if not dir.exists():
         return []
     return [path for path in dir.glob(f"*.{file_extension}") if path.is_file()]
+
+
+def find_config_path(
+    bin_path: Path,
+    dir: str,
+    filename: str,
+) -> Path | None:
+    """
+    Return a config file located in the user's home directory or alongside the binary.
+
+    Args:
+        bin_path: Resolved path to the executable.
+        home_subdir: Directory under the user's home to inspect (e.g., ".codex").
+        filename: Name of the config file to locate.
+    """
+    home_candidate = Path.home() / dir / filename
+    if home_candidate.exists():
+        return home_candidate
+
+    local_candidate = Path(bin_path).parent / dir / filename
+    if local_candidate.exists():
+        return local_candidate
+
+    return None
