@@ -11,7 +11,6 @@ from synth_ai.utils import (
     find_bin_path,
     install_opencode,
     load_json_to_dict,
-    mask_str,
     resolve_env_var,
     verify_opencode,
 )

@@ -66,13 +66,13 @@ def codex_cmd(
 
     if override_url:
         url = override_url
-        print(f"Using override URL:", url)
+        print("Using override URL:", url)
     else:
         url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
     provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
     config_overrides = [
         f"model_providers.synth={provider_config}",
-        f'model_provider="synth"',
+        'model_provider="synth"',
         f'default_model="{model_name}"'
     ]
     override_args = [arg for override in config_overrides for arg in ("-c", override)]
