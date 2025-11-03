@@ -33,6 +33,7 @@ uvx synth-ai setup
 uvx synth-ai demo
 uvx synth-ai deploy
 uvx synth-ai run
+uvx synth-ai baseline  # For coding agents: get baseline scores
 ```
 
 > Full quickstart: [https://docs.usesynth.ai/sdk/get-started](https://docs.usesynth.ai/sdk/get-started)
@@ -70,6 +71,102 @@ Synth-AI ships with a built-in RL example: training **Qwen3-0.6B** on math reaso
 
 3. To walk through your first RL run, see  
    👉 [Synth-AI SDK Docs](https://docs.usesynth.ai/sdk/get-started)
+
+---
+
+## 🤖 For Coding Agents: Get Started with Baselines
+
+**Baselines** are the fastest way for coding agents to evaluate changes and measure improvement on Synth tasks.
+
+### Why Use Baselines?
+
+Baselines provide a **self-contained evaluation system** that:
+- ✅ **No infrastructure required** — runs locally, no deployed task app needed
+- ✅ **Quick feedback loop** — get task-by-task results in seconds
+- ✅ **Compare changes** — establish a baseline score before making modifications
+- ✅ **Auto-discoverable** — finds baseline files automatically in your codebase
+
+### Quick Start for Coding Agents
+
+```bash
+# 1. List available baselines
+uvx synth-ai baseline list
+
+# 2. Run a quick 3-task baseline to get started
+uvx synth-ai baseline banking77 --split train --seeds 0,1,2
+
+# 3. Get your baseline score (full train split)
+uvx synth-ai baseline banking77 --split train
+
+# 4. Make your changes to the code...
+
+# 5. Re-run to compare performance
+uvx synth-ai baseline banking77 --split train --output results_after.json
+```
+
+### Available Baselines
+
+```bash
+# Filter by task type
+uvx synth-ai baseline list --tag rl          # RL tasks
+uvx synth-ai baseline list --tag nlp         # NLP tasks
+uvx synth-ai baseline list --tag vision      # Vision tasks
+
+# Run specific baselines
+uvx synth-ai baseline warming_up_to_rl       # Crafter survival game
+uvx synth-ai baseline pokemon_vl             # Pokemon Red (vision)
+uvx synth-ai baseline gepa                   # Banking77 classification
+```
+
+### Baseline Results
+
+Each baseline run provides:
+- **Task-by-task results** — see exactly which seeds succeed/fail
+- **Aggregate metrics** — success rate, mean/std rewards, total tasks
+- **Serializable output** — save to JSON with `--output results.json`
+- **Model comparison** — test different models with `--model`
+
+Example output:
+```
+============================================================
+Baseline Evaluation: Banking77 Intent Classification
+============================================================
+Split(s): train
+Tasks: 10
+Success: 8/10
+Execution time: 12.34s
+
+Aggregate Metrics:
+  mean_outcome_reward: 0.8000
+  success_rate: 0.8000
+  total_tasks: 10
+```
+
+### Creating Custom Baselines
+
+Coding agents can create new baseline files to test custom tasks:
+
+```python
+# my_task_baseline.py
+from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+
+class MyTaskRunner(BaselineTaskRunner):
+    async def run_task(self, seed: int) -> TaskResult:
+        # Your task logic here
+        return TaskResult(...)
+
+my_baseline = BaselineConfig(
+    baseline_id="my_task",
+    name="My Custom Task",
+    description="Evaluate my custom task",
+    task_runner=MyTaskRunner,
+    splits={
+        "train": DataSplit(name="train", seeds=list(range(10))),
+    },
+)
+```
+
+Place this file in `examples/baseline/` or name it `*_baseline.py` for auto-discovery.
 
 ---
 
