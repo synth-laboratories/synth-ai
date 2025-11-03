@@ -1,5 +1,7 @@
 from . import task_app_state
+from .agents import write_agents_md
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
+from .bin import install_bin, verify_bin
 from .cli import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -8,7 +10,6 @@ from .cli import (
     prompt_choice,
     prompt_for_path,
 )
-from .codex import find_codex_config_path, install_codex, verify_codex
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
@@ -20,8 +21,12 @@ from .modal import (
     is_modal_public_url,
     normalize_endpoint_url,
 )
-from .opencode import install_opencode, verify_opencode
-from .paths import find_bin_path, get_env_file_paths, get_home_config_file_paths
+from .paths import (
+    find_bin_path,
+    find_config_path,
+    get_env_file_paths,
+    get_home_config_file_paths,
+)
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
 from .task_app_discovery import AppChoice, discover_eval_config_paths, select_app_choice
@@ -75,15 +80,14 @@ __all__ = [
     "ensure_task_app_ready",
     "find_asgi_apps",
     "find_bin_path",
-    "find_codex_config_path",
+    "find_config_path",
     "find_sqld_binary",
     "get_backend_from_env",
     "get_env_file_paths",
     "get_home_config_file_paths",
     "get_learning_v2_base_url",
     "http_request",
-    "install_codex",
-    "install_opencode",
+    "install_bin",
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
@@ -118,8 +122,8 @@ __all__ = [
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
-    "verify_codex",
-    "verify_opencode",
+    "verify_bin",
+    'write_agents_md',
     "write_env_var_to_dotenv",
     "write_env_var_to_json",
     "write_task_app_config",

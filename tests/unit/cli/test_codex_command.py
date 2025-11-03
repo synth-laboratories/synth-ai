@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from synth_ai.cli.codex import codex_cmd, DIV_START, DIV_END
+from synth_ai.cli.codex import codex_cmd
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
 
 
@@ -27,13 +27,12 @@ def mock_env():
 def test_codex_cmd_codex_not_found_no_install(runner: CliRunner):
     """Test that codex_cmd exits when Codex is not found and install fails."""
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=None), \
-         mock.patch("synth_ai.cli.codex.install_codex", return_value=False):
+         mock.patch("synth_ai.cli.codex.install_bin", return_value=False):
 
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
     assert "Failed to find your installed Codex" in result.output
-    assert DIV_END in result.output
 
 
 def test_codex_cmd_codex_found_but_not_runnable(runner: CliRunner):
@@ -41,33 +40,29 @@ def test_codex_cmd_codex_found_but_not_runnable(runner: CliRunner):
     mock_bin_path = "/usr/local/bin/codex"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=False):
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=False):
 
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
-    assert f"Found your installed Codex at {mock_bin_path}" in result.output
-    assert "Failed to verify your installed Codex is runnable" in result.output
-    assert DIV_END in result.output
+    assert f"Using Codex at {mock_bin_path}" in result.output
+    assert "Failed to verify Codex is runnable" in result.output
 
 
 def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     """Test codex_cmd with default URL (no override)."""
     mock_bin_path = "/usr/local/bin/codex"
-    mock_api_key = "test-api-key-123"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
-         mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, mock_env, clear=True):
 
-        result = runner.invoke(codex_cmd, ["--model", "synth-small"])
+        result = runner.invoke(codex_cmd)
 
     assert result.exit_code == 0
-    assert "Verified your installed Codex is runnable" in result.output
-    assert DIV_START in result.output
-    assert DIV_END in result.output
+    assert f"Using Codex at {mock_bin_path}" in result.output
 
     # Verify subprocess.run was called correctly
     mock_run.assert_called_once()
@@ -76,19 +71,11 @@ def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     # Check command structure
     cmd = call_args[0][0]
     assert cmd[0] == "codex"
-    assert "-m" in cmd
-    assert "synth-small" in cmd
+    assert "-m" not in cmd
 
-    # Check config overrides
-    assert "-c" in cmd
-    provider_config_idx = cmd.index("-c") + 1
-    # The provider config should contain the URL
-    assert BACKEND_URL_SYNTH_RESEARCH_OPENAI in cmd[provider_config_idx]
-
-    # Verify environment variables
-    env = call_args[1]["env"]
-    assert env["OPENAI_API_KEY"] == mock_api_key
-    assert env["SYNTH_API_KEY"] == mock_api_key
+    # No overrides or env mutations should occur
+    assert "-c" not in cmd
+    assert call_args[1]["env"] == mock_env
 
 
 def test_codex_cmd_with_override_url(runner: CliRunner, mock_env):
@@ -98,7 +85,8 @@ def test_codex_cmd_with_override_url(runner: CliRunner, mock_env):
     override_url = "https://custom.example.com/api"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -121,7 +109,8 @@ def test_codex_cmd_with_force_flag(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-force"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key) as mock_resolve, \
          mock.patch("synth_ai.cli.codex.subprocess.run"), \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -140,7 +129,8 @@ def test_codex_cmd_subprocess_error(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-error"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -164,8 +154,9 @@ def test_codex_cmd_install_loop_success(runner: CliRunner, mock_env):
     find_calls = [None, mock_bin_path]
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", side_effect=find_calls), \
-         mock.patch("synth_ai.cli.codex.install_codex", return_value=True), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.install_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run"), \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -173,7 +164,7 @@ def test_codex_cmd_install_loop_success(runner: CliRunner, mock_env):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
-    assert f"Found your installed Codex at {mock_bin_path}" in result.output
+    assert f"Using Codex at {mock_bin_path}" in result.output
 
 
 def test_codex_cmd_config_structure(runner: CliRunner, mock_env):
@@ -183,7 +174,8 @@ def test_codex_cmd_config_structure(runner: CliRunner, mock_env):
     model = "synth-small"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -220,7 +212,8 @@ def test_codex_cmd_different_models(runner: CliRunner, mock_env):
 
     for model in models:
         with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-             mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+             mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+             mock.patch("synth_ai.cli.codex.write_agents_md"), \
              mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
              mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
              mock.patch.dict(os.environ, mock_env, clear=True):
@@ -240,7 +233,8 @@ def test_codex_cmd_prints_launch_command(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-launch"
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run"), \
          mock.patch.dict(os.environ, mock_env, clear=True):
@@ -248,8 +242,7 @@ def test_codex_cmd_prints_launch_command(runner: CliRunner, mock_env):
         result = runner.invoke(codex_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
-    assert "Launching Codex command:" in result.output
-    assert "codex" in result.output
+    assert "codex -m synth-small" in result.output
 
 
 def test_codex_cmd_preserves_existing_env_vars(runner: CliRunner):
@@ -264,7 +257,8 @@ def test_codex_cmd_preserves_existing_env_vars(runner: CliRunner):
     }
 
     with mock.patch("synth_ai.cli.codex.find_bin_path", return_value=mock_bin_path), \
-         mock.patch("synth_ai.cli.codex.verify_codex", return_value=True), \
+         mock.patch("synth_ai.cli.codex.verify_bin", return_value=True), \
+         mock.patch("synth_ai.cli.codex.write_agents_md"), \
          mock.patch("synth_ai.cli.codex.resolve_env_var", return_value=mock_api_key), \
          mock.patch("synth_ai.cli.codex.subprocess.run") as mock_run, \
          mock.patch.dict(os.environ, test_env, clear=True):

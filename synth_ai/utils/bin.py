@@ -5,37 +5,35 @@ from pathlib import Path
 from .cli import prompt_choice
 
 
-def install_opencode() -> bool:
+def install_bin(name: str, install_options: list[str]) -> bool:
     cmd = prompt_choice(
-        "How would you like to install OpenCode?",
-        [
-            "brew install sst/tap/opencode",
-            "npm install -g opencode-ai"
-        ]
+        f"How would you like to install {name}?",
+        install_options
     )
     div_start = f"{'-' * 29} INSTALL START {'-' * 29}"
     div_end = f"{'-' * 30} INSTALL END {'-' * 30}"
     try:
-        print(f"Installing OpenCode via `{cmd}`...")
-        print("\n" + div_start)
+        print(f"Installing {name} via `{cmd}`")
+        print('\n' + div_start)
         subprocess.run(shlex.split(cmd), check=True)
-        print(div_end + "\n")
+        print(div_end + '\n')
         return True
-    except subprocess.CalledProcessError:
-        print(f"Failed to install OpenCode via `{cmd}`")
-        print(div_end + "\n")
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install {name}: {e}")
+        print(div_end + '\n')
         return False
     
 
-def verify_opencode(bin_path: Path) -> bool:
+def verify_bin(bin_path: Path) -> bool:
     try:
         result = subprocess.run(
             [str(bin_path), "--version"],
             capture_output=True,
             text=True,
             timeout=3,
-            check=False,
+            check=False
         )
         return result.returncode == 0
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as e:
+        print(e)
         return False
