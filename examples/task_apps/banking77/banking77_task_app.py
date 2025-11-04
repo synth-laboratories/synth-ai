@@ -388,25 +388,32 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         rendered_messages.append({"role": role, "content": content})
     error_info: dict[str, Any] = {}
 
+    # Call proxy - HARD FAILS on any invalid/empty responses. No soft handling.
+    response_text, response_json, tool_calls = await call_chat_completion(
+        request.policy.config or {},
+        placeholders,
+        default_messages,
+    )
+    # Full upstream JSON must be present and non-empty
     try:
-        response_text, response_json, tool_calls = await call_chat_completion(
-            request.policy.config or {},
-            placeholders,
-            default_messages,
-        )
-        # FORCE log full upstream JSON from proxy
-        try:
-            raw_upstream = json.dumps(response_json, ensure_ascii=False)
-        except Exception:
-            raw_upstream = str(response_json)
-        print(f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
-        if not isinstance(response_json, dict) or not response_json:
-            raise HTTPException(status_code=502, detail="Missing/empty JSON from proxy")
-        print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
-    except HTTPException as http_err:
-        error_info = {"error": str(http_err.detail), "code": http_err.status_code}
-    except Exception as exc:
-        error_info = {"error": str(exc)}
+        raw_upstream = json.dumps(response_json, ensure_ascii=False)
+    except Exception:
+        raw_upstream = str(response_json)
+    print(f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
+    if not isinstance(response_json, dict) or not response_json:
+        raise RuntimeError("Proxy returned missing/empty JSON")
+    # Must have choices
+    choices = response_json.get("choices") or []
+    if not isinstance(choices, list) or len(choices) == 0:
+        raise RuntimeError("Proxy JSON missing choices")
+    first_msg = (choices[0] or {}).get("message", {}) if choices else {}
+    if not isinstance(first_msg, dict):
+        raise RuntimeError("Proxy JSON message malformed")
+    tc_list = first_msg.get("tool_calls") or []
+    content_text = str(first_msg.get("content", ""))
+    if not tc_list and not content_text.strip():
+        raise RuntimeError("Proxy JSON has neither tool_calls nor content")
+    print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
 
     predicted_intent = ""
     if tool_calls:
@@ -422,6 +429,10 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     elif response_text:
         predicted_intent = response_text.strip().split()[0] if response_text.strip() else ""
         print(f"[TASK_APP] CONTENT_FALLBACK_INTENT: {predicted_intent} text_len={len(response_text or '')}", flush=True)
+
+    # Hard-crash if no prediction produced at this point
+    if not str(predicted_intent or "").strip():
+        raise RuntimeError("No prediction produced from proxy response")
 
     expected_intent = sample["label"]
     is_correct = (predicted_intent.lower().replace("_", " ") == expected_intent.lower().replace("_", " "))
