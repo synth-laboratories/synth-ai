@@ -9,6 +9,8 @@ import uuid
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
+import socket
+from urllib.parse import urlparse
 
 # removed top-level httpx and datasets import to allow modal deploy without local deps
 from fastapi import APIRouter, HTTPException, Request
@@ -259,6 +261,25 @@ async def call_chat_completion(
         import httpx  # type: ignore
     except Exception as _exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
+
+    # Proxy/tunnel assertions and logs (no hardening): DNS + /health
+    try:
+        parsed = urlparse(inference_url)
+        host = parsed.hostname or ""
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        print(f"[TASK_APP] PROXY_TARGET: scheme={parsed.scheme} host={host} port={port} path={parsed.path}", flush=True)
+        addrinfo = socket.getaddrinfo(host, None)
+        ips = sorted({ai[4][0] for ai in addrinfo})
+        print(f"[TASK_APP] PROXY_DNS: ips={ips}", flush=True)
+        assert ips, "Proxy DNS resolved empty"
+        base = f"{parsed.scheme}://{parsed.netloc}"
+        async with httpx.AsyncClient(timeout=5.0) as _hc:
+            r = await _hc.get(base + "/health")
+            print(f"[TASK_APP] PROXY_HEALTH /health: {r.status_code}", flush=True)
+            assert r.status_code == 200, f"Proxy /health != 200: {r.status_code}"
+    except Exception as e:
+        print(f"[TASK_APP] PROXY_ASSERTION_FAILED: {e}", flush=True)
+        raise
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(inference_url, json=payload, headers=headers)
