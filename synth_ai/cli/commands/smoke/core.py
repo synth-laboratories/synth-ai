@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import subprocess
@@ -55,7 +56,7 @@ def _ensure_local_libsql() -> None:
     os.environ["SQLD_HTTP_PORT"] = str(hrana_port)
 
     try:
-        daemon = start_sqld(db_path=str(local_db_path), hrana_port=hrana_port, http_port=http_port)
+        start_sqld(db_path=str(local_db_path), hrana_port=hrana_port, http_port=http_port)
         started_new = True
     except Exception as exc:
         # If address in use, assume an existing sqld instance; verify health below
@@ -201,22 +202,22 @@ def _start_task_app_server(
     # Open file, start process, then close file handle so process is fully detached
     # Run from synth-ai root so task app discovery works
     nohup_log = Path(synth_ai_root) / "nohup_task_app.out"
-    log_file = open(nohup_log, "w")
     
     # Inherit SYNTH_QUIET environment variable to suppress patch messages
     env = os.environ.copy()
     if os.getenv("SYNTH_QUIET"):
         env["SYNTH_QUIET"] = "1"
     
-    proc = subprocess.Popen(
-        cmd,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        text=True,
-        cwd=str(synth_ai_root),
-        env=env,
-    )
-    log_file.close()  # Close immediately so process is detached
+    with open(nohup_log, "w") as log_file:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=str(synth_ai_root),
+            env=env,
+        )
+    # File is closed immediately so process is detached
     
     # Wait for server to be ready
     url = f"http://localhost:{port}"
@@ -696,10 +697,8 @@ class MockRLTrainer:
         if self._server is not None:
             self._server.should_exit = True
         if self._task is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await asyncio.wait_for(self._task, timeout=2.0)
-            except Exception:
-                pass
         self._task = None
         self._server = None
         click.echo("[mock-rl] server stopped", err=True)
@@ -737,9 +736,8 @@ async def _run_smoke_async(
 
         # Prefer explicit CLI --url; only use config services.task_url if URL not provided
         try:
-            if not task_app_url:
-                if cfg.services and getattr(cfg.services, "task_url", None):
-                    task_app_url = cfg.services.task_url
+            if not task_app_url and cfg.services and getattr(cfg.services, "task_url", None):
+                task_app_url = cfg.services.task_url
         except Exception:
             pass
         # Fill env and model if not explicitly set
@@ -1057,10 +1055,8 @@ async def _run_smoke_async(
             result = await __do_rollouts(inference_url_raw)
         finally:
             if mock is not None:
-                try:
+                with contextlib.suppress(Exception):
                     await mock.stop()
-                except Exception:
-                    pass
         return result
 async def _run_train_step(
     *,
@@ -1268,7 +1264,7 @@ def command(
                     proc.kill()
         
         click.echo(f"[smoke] ERROR: Auto-start failed: {exc}", err=True)
-        raise click.ClickException(f"Auto-start failed: {exc}")
+        raise click.ClickException(f"Auto-start failed: {exc}") from exc
     
     # Apply TOML defaults (CLI args take precedence)
     # Override task_url with auto-started task app URL if applicable
@@ -1320,10 +1316,8 @@ def command(
         if not traces_dir:
             traces_dir = str((Path.cwd() / "traces" / "v3").resolve())
             os.environ["SYNTH_TRACES_DIR"] = traces_dir
-        try:
+        with contextlib.suppress(Exception):
             Path(traces_dir).mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
         _ensure_local_libsql()
         # Prefer a libsql/turso/sqld URL when provided to enable concurrent writes
         libsql_url = (

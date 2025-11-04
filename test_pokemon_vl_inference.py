@@ -177,7 +177,7 @@ async def test_pokemon_inference():
                         try:
                             args_dict = json.loads(args) if isinstance(args, str) else args
                             print(f"    Parsed args: {json.dumps(args_dict, indent=4)}")
-                        except:
+                        except Exception:
                             print("    (Could not parse arguments)")
                 else:
                     print("\n⚠️  NO TOOL CALLS IN STRUCTURED FORMAT")

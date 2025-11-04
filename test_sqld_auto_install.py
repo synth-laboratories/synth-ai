@@ -227,7 +227,6 @@ def main():
     
     passed = sum(1 for v in results.values() if v is True)
     failed = sum(1 for v in results.values() if v is False)
-    skipped = sum(1 for v in results.values() if v is None or (isinstance(v, bool) and v))
     
     for test_name, result in results.items():
         status = "✅ PASS" if result else ("⏭️  SKIP" if result is None else "❌ FAIL")

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import os
 import time
 from collections.abc import Callable, Mapping
@@ -44,6 +45,16 @@ from .utils import (
     sleep,
     validate_sft_jsonl,
 )
+
+# Constants for prompt learning event types
+_PROMPT_LEARNING_EVENT_BEST_PROMPT = "prompt.learning.best.prompt"
+_PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
+_PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
+_PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
+
+# Constants for formatting
+_MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in output
+_RESULTS_FILE_MAX_EVENTS = 10000  # Max events to fetch for results file generation
 
 
 def _discover_dataset_candidates(
@@ -432,7 +443,7 @@ def _wait_for_training_file(
         if resp.status_code == 200:
             try:
                 data = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 data = {}
             status = str(
                 data.get("status") or data.get("state") or data.get("storage_state") or "ready"
@@ -457,7 +468,7 @@ def _wait_for_training_file(
             # Auth errors won't resolve by polling - fail immediately
             try:
                 error_body = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 error_body = resp.text[:400]
             click.echo("\n[ERROR] Authentication failed when checking training file:")
             click.echo(f"  URL: {url}")
@@ -472,7 +483,7 @@ def _wait_for_training_file(
             # Other errors - show details but keep polling
             try:
                 error_body = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 error_body = resp.text[:400]
             click.echo(f"[WARN] Unexpected response checking file {file_id}:")
             click.echo(f"  URL: {url}")
@@ -524,7 +535,7 @@ def handle_rl(
         )
         try:
             parsed_json = vresp.json()
-        except Exception:
+        except json.JSONDecodeError:
             parsed_json = None
 
         if isinstance(parsed_json, Mapping):
@@ -559,8 +570,9 @@ def handle_rl(
             )
             statuses = [attempt.get("status") for attempt in attempts]
             click.echo(f"Verification OK (candidates={cands}, statuses={statuses})")
-        except Exception:
-            pass
+        except (KeyError, ValueError, AttributeError):
+            # Parsing verification summary failed, but verification itself succeeded
+            click.echo("Verification OK")
 
     env_key = os.environ.get("ENVIRONMENT_API_KEY")
     if not env_key:
@@ -585,7 +597,8 @@ def handle_rl(
     resp = http_post(create_url, headers=headers, json_body=build.payload)
     try:
         js = resp.json()
-    except Exception:
+    except json.JSONDecodeError as e:
+        click.echo(f"⚠️  Failed to parse JSON response: {e}")
         js = {"status": resp.status_code, "text": resp.text[:400]}
     click.echo(f"Response {resp.status_code}: {preview_json(js, limit=400)}")
     if resp.status_code not in (200, 201):
@@ -795,11 +808,11 @@ def handle_sft(
         click.echo(preview_json(final_status, limit=600))
     finally:
         if limited_path is not None:
-            try:
+            with contextlib.suppress(OSError):
                 limited_path.unlink(missing_ok=True)
+            # Clean up empty parent directory if possible
+            with contextlib.suppress(OSError):
                 limited_path.parent.rmdir()
-            except Exception:
-                pass
 
 
 def _save_prompt_learning_results_locally(
@@ -814,7 +827,7 @@ def _save_prompt_learning_results_locally(
     
     try:
         # Fetch all events
-        url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit=10000"
+        url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit={_RESULTS_FILE_MAX_EVENTS}"
         headers = {"Authorization": f"Bearer {api_key}"}
         resp = http_get(url, headers=headers, timeout=30.0)
         
@@ -839,18 +852,21 @@ def _save_prompt_learning_results_locally(
             event_type = event.get("type", "")
             event_data = event.get("data", {})
             
-            if event_type == "prompt.learning.best.prompt":
+            if event_type == _PROMPT_LEARNING_EVENT_BEST_PROMPT:
                 best_score = event_data.get("best_score")
                 best_prompt = event_data.get("best_prompt")
-            elif event_type == "prompt.learning.final.results":
+            elif event_type == _PROMPT_LEARNING_EVENT_FINAL_RESULTS:
                 attempted_candidates = event_data.get("attempted_candidates", [])
                 optimized_candidates = event_data.get("optimized_candidates", [])
-            elif event_type == "prompt.learning.validation.scored":
-                # Check if this is the baseline
-                msg = event.get("message", "")
-                if "baseline" in msg:
+            elif event_type == _PROMPT_LEARNING_EVENT_VALIDATION_SCORED:
+                # Check if this is the baseline by checking for is_baseline flag or baseline in message
+                is_baseline = event_data.get("is_baseline", False)
+                if not is_baseline:
+                    msg = event.get("message", "")
+                    is_baseline = "baseline" in msg.lower()
+                if is_baseline:
                     baseline_score = event_data.get("accuracy")
-            elif event_type == "prompt.learning.gepa.complete" and best_score is None:
+            elif event_type == _PROMPT_LEARNING_EVENT_GEPA_COMPLETE and best_score is None:
                 best_score = event_data.get("best_score")
         
         if not (attempted_candidates or optimized_candidates):
@@ -894,24 +910,28 @@ def _save_prompt_learning_results_locally(
             lines.append("")
             
             for idx, cand in enumerate(optimized_candidates):
-                sc = cand.get("score") or {}
-                acc = sc.get("accuracy", 0.0)
-                plen = sc.get("prompt_length", 0)
+                candidate_score = cand.get("score") or {}
+                accuracy = candidate_score.get("accuracy", 0.0)
+                prompt_length = candidate_score.get("prompt_length", 0)
                 payload_kind = cand.get("payload_kind", "unknown")
                 
-                instance_scores = sc.get('instance_scores') or cand.get('instance_scores')
+                # Try score.instance_scores first, then cand.instance_scores (explicit check)
+                instance_scores = (
+                    candidate_score.get('instance_scores') 
+                    if 'instance_scores' in candidate_score 
+                    else cand.get('instance_scores')
+                )
                 n_eval = len(instance_scores) if instance_scores and isinstance(instance_scores, list) else 0
                 
-                lines.append(f"[{idx+1}] Accuracy: {acc:.4f} | Length: {plen} | Type: {payload_kind} | N: {n_eval}")
+                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}")
                 lines.append("-" * 80)
                 
                 obj = cand.get("object")
-                if obj and isinstance(obj, dict):
-                    if payload_kind == "transformation":
+                if obj and isinstance(obj, dict) and payload_kind == "transformation":
                         data_obj = obj.get("data", {})
                         text_replacements = data_obj.get("text_replacements", [])
                         if text_replacements:
-                            for replacement in text_replacements[:3]:
+                            for replacement in text_replacements[:_MAX_TEXT_REPLACEMENTS_DISPLAY]:
                                 if isinstance(replacement, dict):
                                     new_text = replacement.get("new_text", "")
                                     role = replacement.get("apply_to_role", "system")
@@ -928,20 +948,20 @@ def _save_prompt_learning_results_locally(
             lines.append("")
             
             for idx, cand in enumerate(attempted_candidates):
-                acc = cand.get('accuracy', 0.0)
-                plen = cand.get('prompt_length', 0)
+                accuracy = cand.get('accuracy', 0.0)
+                prompt_length = cand.get('prompt_length', 0)
                 tool_rate = cand.get('tool_call_rate', 0.0)
                 instance_scores = cand.get('instance_scores', [])
                 n_eval = len(instance_scores) if instance_scores else 0
                 
-                lines.append(f"[{idx+1}] Accuracy: {acc:.4f} | Length: {plen} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
+                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
                 lines.append("-" * 80)
                 
                 obj = cand.get("object")
                 if obj and isinstance(obj, dict):
                     text_replacements = obj.get("text_replacements", [])
                     if text_replacements and isinstance(text_replacements, list):
-                        for replacement in text_replacements[:3]:
+                        for replacement in text_replacements[:_MAX_TEXT_REPLACEMENTS_DISPLAY]:
                             if isinstance(replacement, dict):
                                 new_text = replacement.get("new_text", "")
                                 role = replacement.get("apply_to_role", "system")
@@ -967,8 +987,10 @@ def _save_prompt_learning_results_locally(
         
         click.echo(f"\n📄 Results saved locally to: {output_file}")
         
-    except Exception as e:
+    except (IOError, PermissionError, OSError) as e:
         click.echo(f"⚠️  Could not save results file locally: {e}")
+    except Exception as e:
+        click.echo(f"⚠️  Unexpected error saving results file: {e}")
 
 
 def handle_prompt_learning(
@@ -1019,7 +1041,8 @@ def handle_prompt_learning(
     resp = http_post(create_url, headers=headers, json_body=build.payload)
     try:
         js = resp.json()
-    except Exception:
+    except json.JSONDecodeError as e:
+        click.echo(f"⚠️  Failed to parse JSON response: {e}")
         js = {"status": resp.status_code, "text": resp.text[:400]}
     click.echo(f"Response {resp.status_code}: {preview_json(js, limit=400)}")
     if resp.status_code not in (200, 201):

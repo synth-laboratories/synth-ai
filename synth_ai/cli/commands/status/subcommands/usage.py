@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -85,22 +86,16 @@ def _extract_total_usd(events: list[dict[str, Any]]) -> tuple[float, int]:
         data = e.get("data") or {}
         # generic usage-style aggregation
         if "usage" in typ or typ.endswith("usage.recorded"):
-            try:
+            with contextlib.suppress(Exception):
                 usd_tokens = float(data.get("usd_tokens") or data.get("usd_estimate") or 0.0)
-            except Exception:
-                pass
             # accumulate tokens if any
             for k in token_fields:
-                try:
+                with contextlib.suppress(Exception):
                     token_count += int(data.get(k) or 0)
-                except Exception:
-                    pass
         # sandbox billing
         if typ.endswith("billing.sandboxes"):
-            try:
+            with contextlib.suppress(Exception):
                 sandbox_usd += float(data.get("usd") or 0.0)
-            except Exception:
-                pass
     return (total_usd or (usd_tokens + sandbox_usd)), token_count
 
 
@@ -131,7 +126,7 @@ def usage_command(
             try:
                 jobs = await client.list_jobs(created_after=weekly_cutoff)
             except StatusAPIError as exc:
-                raise click.ClickException(f"Backend error: {exc}")
+                raise click.ClickException(f"Backend error: {exc}") from exc
             for j in jobs or []:
                 job_id = str(j.get("job_id") or j.get("id") or "")
                 if not job_id:
@@ -151,10 +146,8 @@ def usage_command(
                 # sandbox seconds
                 for e in weekly_ev:
                     if str(e.get("type") or "").lower().endswith("billing.sandboxes"):
-                        try:
+                        with contextlib.suppress(Exception):
                             weekly["sandbox_seconds"] += float((e.get("data") or {}).get("seconds") or 0.0)
-                        except Exception:
-                            pass
                 # Daily
                 daily_ev = [e for e in events if (_parse_iso(e.get("created_at")) or now) >= datetime.fromisoformat(daily_cutoff)]
                 d_usd, d_tok = _extract_total_usd(daily_ev)
@@ -162,10 +155,8 @@ def usage_command(
                 daily["tokens"] += d_tok
                 for e in daily_ev:
                     if str(e.get("type") or "").lower().endswith("billing.sandboxes"):
-                        try:
+                        with contextlib.suppress(Exception):
                             daily["sandbox_seconds"] += float((e.get("data") or {}).get("seconds") or 0.0)
-                        except Exception:
-                            pass
                 # Monthly
                 monthly_ev = [e for e in events if (_parse_iso(e.get("created_at")) or now) >= datetime.fromisoformat(monthly_cutoff)]
                 m_usd, m_tok = _extract_total_usd(monthly_ev)
@@ -173,10 +164,8 @@ def usage_command(
                 monthly["tokens"] += m_tok
                 for e in monthly_ev:
                     if str(e.get("type") or "").lower().endswith("billing.sandboxes"):
-                        try:
+                        with contextlib.suppress(Exception):
                             monthly["sandbox_seconds"] += float((e.get("data") or {}).get("seconds") or 0.0)
-                        except Exception:
-                            pass
         return daily, weekly, monthly
 
     daily, weekly, monthly = __import__("asyncio").run(_run())

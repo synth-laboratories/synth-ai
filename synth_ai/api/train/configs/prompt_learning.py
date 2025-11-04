@@ -148,7 +148,7 @@ class PromptLearningConfig(ExtraModel):
         result = self.model_dump(mode="python", exclude_none=True)
         # Ensure prompt_learning section wraps everything
         if "prompt_learning" not in result:
-            pl_data = {k: v for k, v in result.items()}
+            pl_data = dict(result.items())
             result = {"prompt_learning": pl_data}
         return result
 

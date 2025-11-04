@@ -7,6 +7,22 @@ from typing import Any, Dict, List, Optional
 from .._utils.http import AsyncHttpClient
 
 
+def _validate_job_id(job_id: str) -> None:
+    """Validate that job_id has the expected prompt learning format.
+    
+    Args:
+        job_id: Job ID to validate
+        
+    Raises:
+        ValueError: If job_id doesn't start with 'pl_'
+    """
+    if not job_id.startswith("pl_"):
+        raise ValueError(
+            f"Invalid prompt learning job ID format: {job_id!r}. "
+            f"Expected format: 'pl_<identifier>' (e.g., 'pl_9c58b711c2644083')"
+        )
+
+
 class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
@@ -30,7 +46,11 @@ class PromptLearningClient:
             
         Returns:
             Job metadata including status, best_score, created_at, etc.
+            
+        Raises:
+            ValueError: If job_id format is invalid
         """
+        _validate_job_id(job_id)
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
@@ -46,7 +66,11 @@ class PromptLearningClient:
             
         Returns:
             List of event dictionaries with type, message, data, etc.
+            
+        Raises:
+            ValueError: If job_id format is invalid or response structure is unexpected
         """
+        _validate_job_id(job_id)
         params = {"since_seq": since_seq, "limit": limit}
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(
@@ -55,7 +79,11 @@ class PromptLearningClient:
             )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
-        return []
+        # Unexpected response structure - raise instead of silently returning empty list
+        raise ValueError(
+            f"Unexpected response structure from events endpoint. "
+            f"Expected dict with 'events' list, got: {type(js).__name__}"
+        )
 
     async def get_prompts(self, job_id: str) -> Dict[str, Any]:
         """Get the best prompts and scoring metadata from a completed job.
@@ -70,7 +98,11 @@ class PromptLearningClient:
                 - top_prompts: List of top-K prompts with train/val scores
                 - optimized_candidates: All frontier/Pareto-optimal candidates
                 - attempted_candidates: All candidates tried during optimization
+                
+        Raises:
+            ValueError: If job_id format is invalid
         """
+        _validate_job_id(job_id)
         events = await self.get_events(job_id, limit=10000)
         
         result: Dict[str, Any] = {
@@ -127,7 +159,13 @@ class PromptLearningClient:
             
         Returns:
             Full prompt text or None if not found
+            
+        Raises:
+            ValueError: If job_id format is invalid or rank < 1
         """
+        _validate_job_id(job_id)
+        if rank < 1:
+            raise ValueError(f"Rank must be >= 1, got: {rank}")
         prompts_data = await self.get_prompts(job_id)
         top_prompts = prompts_data.get("top_prompts", [])
         
@@ -150,7 +188,11 @@ class PromptLearningClient:
                 - num_candidates_tried: Total candidates evaluated
                 - num_frontier_candidates: Number in Pareto frontier
                 - score_distribution: Histogram of accuracy scores
+                
+        Raises:
+            ValueError: If job_id format is invalid
         """
+        _validate_job_id(job_id)
         prompts_data = await self.get_prompts(job_id)
         
         attempted = prompts_data.get("attempted_candidates", [])

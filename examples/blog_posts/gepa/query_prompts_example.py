@@ -37,23 +37,25 @@ def main():
     results = get_prompts(job_id, base_url, api_key)
     
     # Print best score
-    best_score = results.get("best_score")
-    print(f"\n🏆 Best Score: {best_score:.3f} ({best_score * 100:.1f}%)")
+    best_score = results["best_score"]
+    if best_score is not None:
+        print(f"\n🏆 Best Score: {best_score:.3f} ({best_score * 100:.1f}%)")
     
     # Print top-K prompts with scores
-    top_prompts = results.get("top_prompts", [])
+    top_prompts = results["top_prompts"]
     if top_prompts:
         print(f"\n📝 Top {len(top_prompts)} Prompts:")
         print("=" * 80)
         for prompt_info in sorted(top_prompts, key=lambda p: p.get("rank", 999)):
-            rank = prompt_info.get("rank")
-            train_acc = prompt_info.get("train_accuracy")
-            val_acc = prompt_info.get("val_accuracy")
+            rank = prompt_info["rank"]
+            train_accuracy = prompt_info.get("train_accuracy")
+            val_accuracy = prompt_info.get("val_accuracy")
             
             print(f"\nRank #{rank}:")
-            print(f"  Train Accuracy: {train_acc:.3f} ({train_acc * 100:.1f}%)")
-            if val_acc is not None:
-                print(f"  Val Accuracy:   {val_acc:.3f} ({val_acc * 100:.1f}%)")
+            if train_accuracy is not None:
+                print(f"  Train Accuracy: {train_accuracy:.3f} ({train_accuracy * 100:.1f}%)")
+            if val_accuracy is not None:
+                print(f"  Val Accuracy:   {val_accuracy:.3f} ({val_accuracy * 100:.1f}%)")
             print(f"  Prompt Text:")
             print("  " + "-" * 76)
             full_text = prompt_info.get("full_text", "")
