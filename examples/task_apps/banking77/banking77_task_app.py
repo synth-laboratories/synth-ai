@@ -272,9 +272,19 @@ async def call_chat_completion(
         ips = sorted({ai[4][0] for ai in addrinfo})
         print(f"[TASK_APP] PROXY_DNS: ips={ips}", flush=True)
         assert ips, "Proxy DNS resolved empty"
+        # Health path should include '/v1' prefix if present in the chat path
         base = f"{parsed.scheme}://{parsed.netloc}"
+        path_prefix = ""
+        try:
+            # e.g., '/v1/chat/completions' => '/v1'
+            if "/v1/" in parsed.path:
+                path_prefix = parsed.path.split("/v1/")[0] + "/v1"
+        except Exception:
+            path_prefix = ""
         async with httpx.AsyncClient(timeout=5.0) as _hc:
-            r = await _hc.get(base + "/health")
+            health_url = base + (path_prefix or "") + "/health"
+            print(f"[TASK_APP] PROXY_HEALTH URL: {health_url}", flush=True)
+            r = await _hc.get(health_url)
             print(f"[TASK_APP] PROXY_HEALTH /health: {r.status_code}", flush=True)
             assert r.status_code == 200, f"Proxy /health != 200: {r.status_code}"
     except Exception as e:
