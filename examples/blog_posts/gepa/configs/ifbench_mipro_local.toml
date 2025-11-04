@@ -1,0 +1,53 @@
+# MIPROv2 Prompt Learning for IFBench
+# Local backend configuration targeting the IFBench task app.
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8111"
+task_app_id = "ifbench"
+
+# Seeds evaluated during optimisation
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Held-out seeds for the final comparison
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[prompt_learning.initial_prompt]
+id = "ifbench_following"
+name = "IFBench Instruction Following"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an obedient assistant that follows instructions exactly. Ensure that every constraint is satisfied and mention explicitly if something cannot be completed."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Instruction: {instruction}\n\nInput: {input}\n\nReturn the response that best follows the instruction."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+instruction = "REQUIRED"
+input = "OPTIONAL"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "ifbench-mipro"
+
+[prompt_learning.mipro]
+env_name = "ifbench"
+num_iterations = 16
+num_evaluations_per_iteration = 6
+batch_size = 6
+max_concurrent = 16
+meta_model = "gpt-4.1-mini"
+meta_model_provider = "openai"
+meta_model_inference_url = "https://api.openai.com/v1"
+few_shot_score_threshold = 0.8
+test_pool = [20, 21, 22, 23, 24]
+bootstrap_train_seeds = [0, 1, 2, 3, 4]
+online_pool = [5, 6, 7, 8, 9]

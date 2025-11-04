@@ -1,0 +1,52 @@
+# MIPROv2 Prompt Learning for Banking77
+# Local backend configuration targeting the Banking77 intent classification task app.
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8102"
+task_app_id = "banking77"
+
+# Seeds evaluated during optimisation
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Held-out seeds for final scoring
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[prompt_learning.initial_prompt]
+id = "banking77_pattern"
+name = "Banking77 Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Return only the intent label using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-mipro"
+
+[prompt_learning.mipro]
+env_name = "banking77"
+num_iterations = 16
+num_evaluations_per_iteration = 6
+batch_size = 6
+max_concurrent = 16
+meta_model = "gpt-4.1-mini"
+meta_model_provider = "openai"
+meta_model_inference_url = "https://api.openai.com/v1"
+few_shot_score_threshold = 0.85
+test_pool = [20, 21, 22, 23, 24]
+bootstrap_train_seeds = [0, 1, 2, 3, 4]
+online_pool = [5, 6, 7, 8, 9]
