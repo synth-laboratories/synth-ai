@@ -394,6 +394,14 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             placeholders,
             default_messages,
         )
+        # FORCE log full upstream JSON from proxy
+        try:
+            raw_upstream = json.dumps(response_json, ensure_ascii=False)
+        except Exception:
+            raw_upstream = str(response_json)
+        print(f"[TASK_APP] UPSTREAM_RESPONSE_JSON ({len(raw_upstream)} bytes): {raw_upstream}", flush=True)
+        if not isinstance(response_json, dict) or not response_json:
+            raise HTTPException(status_code=502, detail="Missing/empty JSON from proxy")
         print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
     except HTTPException as http_err:
         error_info = {"error": str(http_err.detail), "code": http_err.status_code}
