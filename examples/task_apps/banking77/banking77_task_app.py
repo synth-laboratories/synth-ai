@@ -10,8 +10,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
 
-# removed top-level httpx import to allow modal deploy without local deps
-from datasets import load_dataset
+# removed top-level httpx and datasets import to allow modal deploy without local deps
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
