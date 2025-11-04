@@ -336,6 +336,14 @@ async def call_chat_completion(
 
 async def rollout_executor(request: RolloutRequest, fastapi_request: Request) -> RolloutResponse:
     dataset: Banking77Dataset = fastapi_request.app.state.banking77_dataset
+    # Inbound snapshot from GEPA
+    with contextlib.suppress(Exception):
+        cfg = (request.policy.config or {})
+        print(
+            f"[TASK_APP] INBOUND_ROLLOUT: run_id={request.run_id} seed={request.env.seed} env={request.env.env_name} "
+            f"policy.model={cfg.get('model')} provider={cfg.get('provider')} api_base={cfg.get('inference_url') or cfg.get('api_base') or cfg.get('base_url')}",
+            flush=True,
+        )
 
     split = str(((request.env.config or {}).get("split")) or DEFAULT_SPLIT)
     seed = request.env.seed or 0
@@ -382,6 +390,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             placeholders,
             default_messages,
         )
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
     except HTTPException as http_err:
         error_info = {"error": str(http_err.detail), "code": http_err.status_code}
     except Exception as exc:
@@ -395,14 +405,25 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 try:
                     args = json.loads(args_str)
                     predicted_intent = args.get("intent", "")
+                    with contextlib.suppress(Exception):
+                        print(f"[TASK_APP] PARSED_TOOL_INTENT: {predicted_intent}", flush=True)
                 except Exception:
-                    pass
+                    with contextlib.suppress(Exception):
+                        print(f"[TASK_APP] TOOL_PARSE_ERROR: {args_str}", flush=True)
     elif response_text:
         predicted_intent = response_text.strip().split()[0] if response_text.strip() else ""
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] CONTENT_FALLBACK_INTENT: {predicted_intent} text_len={len(response_text or '')}", flush=True)
 
     expected_intent = sample["label"]
     is_correct = (predicted_intent.lower().replace("_", " ") == expected_intent.lower().replace("_", " "))
     reward = 1.0 if is_correct else 0.0
+
+    with contextlib.suppress(Exception):
+        print(
+            f"[TASK_APP] PREDICTION: expected={expected_intent} predicted={predicted_intent} correct={is_correct}",
+            flush=True,
+        )
 
     info_payload = {
         "expected_intent": expected_intent,
