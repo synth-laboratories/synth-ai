@@ -267,9 +267,13 @@ async def call_chat_completion(
         response.raise_for_status()
         response_json = response.json()
         with contextlib.suppress(Exception):
-            # Dump full JSON (trim to 8KB for safety)
+            print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
+            try:
+                print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
+            except Exception:
+                pass
             raw = json.dumps(response_json, ensure_ascii=False)
-            print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw[:8192]}", flush=True)
+            print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
 
     with contextlib.suppress(Exception):
         usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}
