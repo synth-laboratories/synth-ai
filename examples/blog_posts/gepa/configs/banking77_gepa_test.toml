@@ -1,13 +1,16 @@
+# GEPA Prompt Learning for Banking77
+# Local backend configuration (localhost:8000)
+
 [prompt_learning]
 algorithm = "gepa"
 task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
 task_app_id = "banking77"
 
-# Seeds for evaluation (keep tiny for quick tests)
-evaluation_seeds = [0, 1]
+# Seeds for evaluation (episode IDs - reduced for faster testing)
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-# Test pool for final evaluation (small held-out set)
-test_pool = [2, 3]
+# Test pool for final evaluation (held-out episodes)
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 
 # Initial prompt pattern (pattern-based mode)
 [prompt_learning.initial_prompt]
@@ -40,23 +43,23 @@ policy_name = "banking77-classifier"  # Required for Banking77 task app
 # GEPA-specific configuration
 [prompt_learning.gepa]
 env_name = "banking77"
-initial_population_size = 8
-num_generations = 2
+initial_population_size = 20
+num_generations = 15
 mutation_rate = 0.3
 crossover_rate = 0.5
 selection_pressure = 1.0
 minibatch_size = 8
 pareto_set_size = 20
 feedback_fraction = 0.5
-children_per_generation = 4
-patience_generations = 2
-rollout_budget = 20
-archive_size = 16
+children_per_generation = 10
+patience_generations = 5
+rollout_budget = 500
+archive_size = 30
 pareto_eps = 1e-6
-max_concurrent_rollouts = 8  # Maximum concurrent rollouts across all transformations
+max_concurrent_rollouts = 20  # Maximum concurrent rollouts across all transformations
 
 # LLM-guided mutation configuration
-mutation_llm_model = "openai/gpt-oss-120b"
+mutation_llm_model = "openai/gpt-oss-20b"
 mutation_llm_provider = "groq"
 mutation_llm_inference_url = "https://api.groq.com/openai/v1"
 
