@@ -155,10 +155,10 @@ async def call_chat_completion(
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]]]:
     # STRICT: require all policy fields to come from TOML (no defaults)
     missing_fields: list[str] = []
-    for key in ("model", "provider"):
-        value = policy_config.get(key, None)
-        if not isinstance(value, str) or not value.strip():
-            missing_fields.append(key)
+    # Always require model; provider optional when routing via proxy
+    model_val = policy_config.get("model")
+    if not isinstance(model_val, str) or not model_val.strip():
+        missing_fields.append("model")
     # Resolve routing base from any of the accepted keys
     route_base = (
         (policy_config.get("inference_url") or "").strip()
@@ -175,11 +175,9 @@ async def call_chat_completion(
             ),
         )
     model = policy_config["model"].strip()
-    provider = policy_config["provider"].strip()
-    # Hard-block direct provider hosts: must be proxy/interceptor URL
+    provider = str(policy_config.get("provider", "")).strip() or "groq"
     lowered = route_base.lower()
-    if ("api.openai.com" in lowered) or ("api.groq.com" in lowered):
-        raise HTTPException(status_code=400, detail=f"Direct provider URL not allowed: {route_base}")
+    is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
     # Normalize inference URL: allow bases like .../v1 and auto-append /chat/completions
     def _normalize_chat_url(url: str) -> str:
         u = (url or "").rstrip("/")
@@ -205,16 +203,21 @@ async def call_chat_completion(
         content = pattern.format(**placeholders)
         messages.append({"role": role, "content": content})
 
-    api_key = None
-    if provider == "groq":
-        api_key = os.getenv("GROQ_API_KEY")
-    elif provider == "openai":
-        api_key = os.getenv("OPENAI_API_KEY")
-
-    if not api_key:
-        raise HTTPException(status_code=400, detail=f"Missing API key for provider: {provider}")
-
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # If routing to proxy/interceptor, DO NOT require or send provider API key
+    headers: dict[str, str]
+    if not is_provider_host:
+        headers = {"Content-Type": "application/json"}
+        with contextlib.suppress(Exception):
+            print("[TASK_APP] PROXY ROUTING (no provider key sent)", flush=True)
+    else:
+        api_key = None
+        if provider == "groq":
+            api_key = os.getenv("GROQ_API_KEY")
+        elif provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=400, detail=f"Missing API key for provider: {provider}")
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
     payload = {
         "model": model,
