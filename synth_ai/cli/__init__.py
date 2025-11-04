@@ -55,10 +55,62 @@ cli = _cli_module.cli  # type: ignore[attr-defined]
 # Register core commands implemented as standalone modules
 try:
     from synth_ai.cli.setup import setup_cmd
-
     cli.add_command(setup_cmd, name="setup")
-except Exception:
-    pass
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register setup command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.deploy import deploy_cmd
+    cli.add_command(deploy_cmd, name="deploy")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register deploy command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.opencode import opencode_cmd
+    cli.add_command(opencode_cmd, name="opencode")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register opencode command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.codex import codex_cmd
+    cli.add_command(codex_cmd, name="codex")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register codex command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.eval import command as eval_cmd
+    cli.add_command(eval_cmd, name="eval")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register eval command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.claude import claude_cmd
+    cli.add_command(claude_cmd, name="claude")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register claude command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
+    from synth_ai.cli.commands.baseline import command as baseline_cmd
+    from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+    cli.add_command(baseline_cmd, name="baseline")
+    baseline_cmd.add_command(baseline_list_cmd, name="list")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register baseline command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
@@ -72,6 +124,14 @@ for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status
     if fn:
         fn(cli)
 
+# Smoke command registration (CLI-only helper)
+try:
+    from synth_ai.cli.commands.smoke import register as register_smoke
+
+    register_smoke(cli)
+except Exception:
+    pass
+
 # Register help command
 _maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 
@@ -80,19 +140,19 @@ _maybe_call("synth_ai.api.train", "register", cli)
 
 # Task app group/commands are optional and have richer API surface
 _task_apps_module = _maybe_import("synth_ai.cli.task_apps")
-if _task_apps_module:
-    task_app_group = getattr(_task_apps_module, "task_app_group", None)
-    if task_app_group is not None:
-        cli.add_command(task_app_group, name="task-app")
-        # Expose common aliases when present
-        commands = getattr(task_app_group, "commands", None)
-        if isinstance(commands, dict):
-            for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
-                command = commands.get(name)
-                if command is not None:
-                    cli.add_command(command, name=alias)
-    register_task_apps = _callable_from(_task_apps_module, "register")
-    if register_task_apps:
-        register_task_apps(cli)
+#if _task_apps_module:
+task_app_group = getattr(_task_apps_module, "task_app_group", None)
+if task_app_group is not None:
+    cli.add_command(task_app_group, name="task-app")
+    # Expose common aliases when present
+    commands = getattr(task_app_group, "commands", None)
+    if isinstance(commands, dict):
+        for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
+            command = commands.get(name)
+            if command is not None:
+                cli.add_command(command, name=alias)
+register_task_apps = _callable_from(_task_apps_module, "register")
+if register_task_apps:
+    register_task_apps(cli)
 
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead

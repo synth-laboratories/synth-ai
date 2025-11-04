@@ -261,23 +261,6 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
             hint="Specify gpus_for_vllm, gpus_for_training, etc."
         )
     
-    # Validate vllm section and tensor_parallel consistency
-    vllm = config.get("vllm", {})
-    topology_tensor_parallel = topology.get("tensor_parallel")
-    vllm_tensor_parallel = vllm.get("tensor_parallel_size")
-    
-    if topology_tensor_parallel and not vllm_tensor_parallel:
-        raise InvalidRLConfigError(
-            detail="Both [topology].tensor_parallel and [vllm].tensor_parallel_size must be provided",
-            hint=f"Add [vllm] section with tensor_parallel_size={topology_tensor_parallel}"
-        )
-    
-    if vllm_tensor_parallel and not topology_tensor_parallel:
-        raise InvalidRLConfigError(
-            detail="Both [topology].tensor_parallel and [vllm].tensor_parallel_size must be provided",
-            hint=f"Add tensor_parallel={vllm_tensor_parallel} to [topology] section"
-        )
-    
     # Check for training section and its required fields
     training = config.get("training", {})
     if training:
@@ -288,8 +271,6 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
             "batch_size": "batch size",
             "group_size": "group size",
             "learning_rate": "learning rate",
-            "weight_sync_interval": "weight sync interval",
-            "log_interval": "logging interval",
         }
         
         for field, description in required_training_fields.items():
@@ -298,44 +279,6 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
                     detail=f"[training].{field} is required ({description})",
                     hint=f"Add {field} to the [training] section"
                 )
-        
-        # Validate weight_sync_interval is positive
-        weight_sync_interval = training.get("weight_sync_interval")
-        if weight_sync_interval is not None and weight_sync_interval <= 0:
-            raise InvalidRLConfigError(
-                detail="[training].weight_sync_interval must be a positive integer",
-                hint="Set weight_sync_interval to a value >= 1"
-            )
-        
-        # Ensure weight_sync block exists with proper defaults
-        # Backend requires mode="direct" - always inject it
-        if "weight_sync" not in training:
-            training["weight_sync"] = {
-                "enable": True,
-                "mode": "direct",  # Backend requirement
-                "targets": ["policy"],
-                "interval": training.get("weight_sync_interval", 1),
-            }
-        else:
-            weight_sync = training["weight_sync"]
-            # Always force mode to "direct" (backend requirement)
-            weight_sync["mode"] = "direct"
-            
-            # Validate existing weight_sync block
-            if not weight_sync.get("enable"):
-                raise InvalidRLConfigError(
-                    detail="[training.weight_sync].enable must be true",
-                    hint="Set enable=true in the weight_sync section"
-                )
-            targets = weight_sync.get("targets", [])
-            if not targets or "policy" not in targets:
-                raise InvalidRLConfigError(
-                    detail="[training.weight_sync].targets must include 'policy'",
-                    hint="Add targets=['policy'] to the weight_sync section"
-                )
-            # Inject interval if not present
-            if "interval" not in weight_sync:
-                weight_sync["interval"] = training.get("weight_sync_interval", 1)
     
     # Check for evaluation section
     evaluation = config.get("evaluation", {})

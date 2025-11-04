@@ -3,6 +3,12 @@ from synth_ai.task import task_app_health, validate_task_app_url
 from .client import LearningClient
 from .health import backend_health, balance_autumn_normalized, pricing_preflight
 from .jobs import JobHandle, JobsApiResolver
+from .prompt_learning_client import (
+    PromptLearningClient,
+    get_prompt_text,
+    get_prompts,
+    get_scoring_summary,
+)
 from .rl import (
     MAX_ENVIRONMENT_API_KEY_BYTES,
     RlClient,
@@ -32,6 +38,10 @@ __all__ = [
     "FtClient",
     "SFTJobConfig",
     "prepare_sft_job_payload",
+    "PromptLearningClient",
+    "get_prompts",
+    "get_prompt_text",
+    "get_scoring_summary",
     "RolloutEnvSpec",
     "RolloutPolicySpec",
     "RolloutRecordConfig",

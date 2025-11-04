@@ -1,0 +1,91 @@
+# Continue training the finetuned Crafter policy with GRPO-style RL.
+# Fill in task_url with your deployed task app and set model.source to the
+# finetuned model id returned by `uvx synth-ai train --type sft`.
+
+type = "rl"
+
+# [smoke] section is OPTIONAL and only used by `synth-ai smoke` command for local testing.
+# This section is completely IGNORED by the RL trainer and will not affect training jobs.
+# It allows you to quickly test your task app without passing many CLI arguments:
+#   uvx synth-ai smoke --config this-file.toml
+# All values are optional; CLI args override TOML values.
+[smoke]
+task_url = "https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run"
+env_name = "crafter"
+policy_name = "crafter-react"
+max_steps = 10
+policy = "mock"  # mock, gpt-5-nano, openai, groq
+model = "gpt-5-nano"
+mock_backend = "openai"  # synthetic or openai
+mock_port = 0  # 0 = auto-assign
+return_trace = true
+use_mock = true
+
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[services]
+task_url = "https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run"
+judge_url = "https://synth-backend-dev-docker.onrender.com/api"
+
+[compute]
+gpu_type = "H200"
+gpu_count = 2
+[compute.topology]
+reference_placement = "none"
+
+[topology]
+type = "single_node_split"
+reference_placement = "none"
+gpus_for_vllm = 1
+gpus_for_training = 1
+gpus_for_ref = 0
+tensor_parallel = 1
+
+[vllm]
+tensor_parallel_size = 1
+max_model_len = 8192
+
+[reference]
+placement = "none"
+
+[model]
+base = "Qwen/Qwen3-4B"
+trainer_mode = "lora"
+label = "crafter-rl-baseline"
+
+[rollout]
+env_name = "crafter"
+policy_name = "crafter-react"
+max_turns = 10
+episodes_per_batch = 20
+max_concurrent_rollouts = 8
+rubric_rewards_only = false
+task_app_origin_rewards_only = true
+
+[evaluation]
+instances = 100
+every_n_iters = 20
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+
+[training]
+num_epochs = 1
+iterations_per_epoch = 1
+max_turns = 10
+batch_size = 2
+group_size = 2
+learning_rate = 5e-6
+weight_sync_interval = 1
+log_interval = 1
+max_completion_tokens = 256
+async_semaphore_max = 4
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+weight_sync_interval = 1
+
+[rubric]
+enabled = false

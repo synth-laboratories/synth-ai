@@ -7,7 +7,9 @@ import logging
 import os
 import time
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
+import click
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -50,20 +52,19 @@ class OpenAIClient:
         # Make a copy to avoid modifying the original
         fixed_request = request.copy()
 
-        # Determine if target is OpenAI-compatible (OpenAI, Azure OpenAI, Groq);
-        # strip fields those endpoints don't accept
+        # Determine if target is OpenAI-compatible (OpenAI, Azure OpenAI).
+        # Groq shares the API surface but we keep tool enforcement fields intact.
         is_openai = False
+        is_groq = False
         try:
             if isinstance(target_url, str):
                 low = target_url.lower()
-                is_openai = (
-                    ("openai.com" in low)
-                    or ("azure" in low and ".openai." in low)
-                    or ("groq.com" in low)
-                    or ("/openai" in low)
-                    or ("/proxy/groq" in low)
-                    or ("/proxy/openai" in low)
-                )
+                if "groq.com" in low or "/proxy/groq" in low:
+                    is_groq = True
+                elif ("openai.com" in low) or ("azure" in low and ".openai." in low) or (
+                    "/proxy/openai" in low
+                ):
+                    is_openai = True
         except Exception:
             is_openai = False
 
@@ -149,11 +150,169 @@ class OpenAIClient:
             OpenAI-compatible chat completion response
         """
         base = (base_url or self.base_url).rstrip("/")
-        # Don't append /v1/chat/completions if the URL already contains it
-        if "/v1/chat/completions" in base:
+        # Ensure processed_request is defined for error logging paths
+        processed_request: dict[str, Any] = dict(request or {})
+        
+        # Bulletproof normalization BEFORE any parsing
+        def _local_force_normalize(u: str) -> str:
+            if not isinstance(u, str) or not u:
+                return u
+            p = urlparse(u)
+            path = (p.path or "").rstrip("/")
+            q = p.query or ""
+            # If query contains a path segment, extract and repair
+            if q and "/" in q:
+                before, after = q.split("/", 1)
+                # Split off any extra query parameters that were appended after the path
+                cut_positions = [i for i in [after.find("&"), after.find("?")] if i >= 0]
+                cut = min(cut_positions) if cut_positions else len(after)
+                path_from_query = "/" + after[:cut]
+                extra_query = after[cut + 1 :] if cut < len(after) else ""
+                merged_query = before
+                if extra_query:
+                    merged_query = f"{merged_query}&{extra_query}" if merged_query else extra_query
+                # Ensure final path
+                final_path = path_from_query if path_from_query.startswith("/v1/chat/completions") else f"{path_from_query.rstrip('/')}/v1/chat/completions"
+                p = p._replace(path=final_path, query=merged_query)
+                u = urlunparse(p)
+                p = urlparse(u)
+                path = p.path or ""
+                q = p.query or ""
+            if not path.endswith("/v1/chat/completions"):
+                new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+                p = p._replace(path=new_path)
+                u = urlunparse(p)
+                p = urlparse(u)
+                q = p.query or ""
+            if q and "/" in q:
+                # Last-resort: drop anything after first '/'
+                safe_q = q.split("/")[0]
+                p = p._replace(query=safe_q)
+                u = urlunparse(p)
+            return u
+        
+        norm_base = None
+        try:
+            # Try importing shared normalizer first
+            from examples.task_apps.crafter.task_app.synth_envs_hosted.utils import (
+                force_normalize_chat_completions_url,
+            )
+            norm_base = force_normalize_chat_completions_url(base)
+        except Exception:
+            norm_base = _local_force_normalize(base)
+        base = norm_base or base
+        # Parse URL to handle query parameters correctly
+        parsed = urlparse(base)
+        path = parsed.path.rstrip("/")
+        query = parsed.query
+        
+        # Debug: Log URL parsing
+        logger.error(f"[URL_PARSE] base={base} parsed.path={parsed.path} parsed.query={parsed.query}")
+        
+        # CRITICAL FIX: Handle malformed URLs where path is incorrectly in the query string
+        # Example: https://host?cid=trace_123/v1/chat/completions
+        # Should be: https://host/v1/chat/completions?cid=trace_123
+        
+        # ALWAYS check for malformed URLs - this is CRITICAL
+        # CRASH IMMEDIATELY if URL is malformed - don't let it through!
+        if query and "/" in query:
+            logger.error(f"[URL_FATAL] MALFORMED URL DETECTED AT START: base={base} query={query}")
+            # Try to fix it
+            logger.error(f"[URL_FIX_TRIGGERED] Query contains '/': query={query}")
+            # This is a malformed URL - extract path from query and fix it
+            logger.error(
+                f"[URL_FIX] Malformed URL detected: {base}\n"
+                f"Query contains path segments. Fixing..."
+            )
+            
+            # Find where the path starts in the query string
+            # The query format is: "cid=value/path" or similar
+            # We need to find the first "/" that starts a path segment
+            query_parts = query.split("/", 1)
+            if len(query_parts) == 2:
+                # query_parts[0] is the actual query (e.g., "cid=trace_123")
+                # query_parts[1] is the path that was incorrectly put in query
+                actual_query = query_parts[0]
+                path_and_more = query_parts[1]  # Could be "v1/chat/completions" or "v1/chat/completions&foo=bar"
+                
+                # Extract the path part (everything before "&" or "?" if present)
+                # Handle both "&" (query param separator) and "?" (another malformed query separator)
+                if "&" in path_and_more:
+                    # Path is followed by more query params (separated by &)
+                    path_segment, extra_query = path_and_more.split("&", 1)
+                    path_in_query = "/" + path_segment  # Restore leading slash
+                    # Merge extra query params with actual_query
+                    actual_query = f"{actual_query}&{extra_query}"
+                elif "?" in path_and_more:
+                    # Path is followed by more query params (separated by ?, which is malformed)
+                    path_segment, extra_query = path_and_more.split("?", 1)
+                    path_in_query = "/" + path_segment  # Restore leading slash
+                    # Merge extra query params with actual_query (use & as separator)
+                    actual_query = f"{actual_query}&{extra_query}"
+                else:
+                    # No extra query params, just the path
+                    path_in_query = "/" + path_and_more  # Restore leading slash
+                
+                # If the path_in_query already contains /v1/chat/completions, use it
+                # Otherwise, append /v1/chat/completions
+                if path_in_query.startswith("/v1/chat/completions"):
+                    final_path = path_in_query
+                else:
+                    # Append /v1/chat/completions to whatever path we found
+                    final_path = path_in_query.rstrip("/") + "/v1/chat/completions"
+                
+                # Reconstruct URL correctly: path comes before query
+                parsed = parsed._replace(path=final_path, query=actual_query)
+                url = urlunparse(parsed)
+                logger.warning(f"[URL_FIX] Fixed malformed URL:\n  FROM: {base}\n  TO:   {url}")
+            else:
+                # Can't parse, fall through to normal processing
+                logger.error(f"[URL_FIX] Could not parse malformed query: {query}")
+                path = parsed.path.rstrip("/")
+                if not path.endswith("/v1/chat/completions"):
+                    new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+                    parsed = parsed._replace(path=new_path)
+                    url = urlunparse(parsed)
+                else:
+                    url = base
+        # Normal case: query params are separate from path
+        elif path.endswith("/v1/chat/completions"):
             url = base
         else:
-            url = base + "/v1/chat/completions"
+            # Append /v1/chat/completions to the path, preserving query params
+            new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+            parsed = parsed._replace(path=new_path)
+            url = urlunparse(parsed)
+            logger.debug(f"[URL_CONSTRUCT] Added path to URL: {base} -> {url}")
+        
+        # FINAL VALIDATION: Ensure the constructed URL is correct
+        final_parsed = urlparse(url)
+        final_path = final_parsed.path or ""
+        final_query = final_parsed.query or ""
+        
+        # Verify path is correct
+        if not final_path.endswith("/v1/chat/completions"):
+            error_msg = (
+                f"FATAL [OpenAIClient]: URL missing /v1/chat/completions path!\n"
+                f"Original: {base}\n"
+                f"Constructed: {url}\n"
+                f"Path: {final_path}\n"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Verify query doesn't contain path segments
+        if final_query and "/" in final_query:
+            error_msg = (
+                f"FATAL [OpenAIClient]: Query still contains path segments after fix!\n"
+                f"Original: {base}\n"
+                f"Constructed: {url}\n"
+                f"Query: {final_query}\n"
+                f"This indicates a bug in URL construction logic."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         timeout = timeout_s or self.timeout_s
 
         # Merge headers
@@ -234,38 +393,104 @@ class OpenAIClient:
             logger.debug(f"🔊 [OPENAI_CLIENT_POST_FIX] Message[1] content value: {msg1_content_post if not isinstance(msg1_content_post, list) else f'list[{len(msg1_content_post)}]'}")
 
         # Log request (redact messages in production)
+        # CRITICAL: Verify URL is correct BEFORE making HTTP request
+        final_parsed_check = urlparse(url)
+        logger.error(f"[URL_FINAL_CHECK] Before HTTP request: url={url} path={final_parsed_check.path} query={final_parsed_check.query}")
+        
+        # CRASH IF URL IS STILL MALFORMED - DO NOT PROCEED
+        if final_parsed_check.query and "/" in final_parsed_check.query:
+            error_msg = (
+                f"FATAL [OpenAIClient]: URL IS STILL MALFORMED AFTER FIX ATTEMPT!\n"
+                f"Original base_url: {base_url or self.base_url}\n"
+                f"Constructed URL: {url}\n"
+                f"Path: {final_parsed_check.path}\n"
+                f"Query (contains path): {final_parsed_check.query}\n"
+                f"This will cause a 404 error. CRASHING NOW to prevent bad request."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Verify path is correct
+        if not final_parsed_check.path.endswith("/v1/chat/completions"):
+            error_msg = (
+                f"FATAL [OpenAIClient]: URL missing /v1/chat/completions path!\n"
+                f"URL: {url}\n"
+                f"Path: {final_parsed_check.path}\n"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        # Log request with detailed prompts/tools preview and sampling settings (Authorization is not logged)
         logger.info(f"Inference POST target: {url}")
         if extra_headers:
             logger.info(f"Extra headers: {extra_headers}")
         with contextlib.suppress(Exception):
             keys_preview = sorted(processed_request.keys())
             logger.info(f"Request keys: {keys_preview}")
-            # DEBUG: Log message structure for vision debugging
-            if "messages" in processed_request:
-                msgs = processed_request["messages"]
-                if isinstance(msgs, list):
-                    logger.debug(f"🔊 [OPENAI_CLIENT] Request has {len(msgs)} messages")
-                    for idx, msg in enumerate(msgs):
-                        if isinstance(msg, dict):
-                            role = msg.get("role")
-                            content = msg.get("content")
-                            if isinstance(content, list):
-                                logger.debug(f"🔊 [OPENAI_CLIENT] Message[{idx}] role={role}, content=list[{len(content)}]")
-                                for part_idx, part in enumerate(content):
-                                    if isinstance(part, dict):
-                                        part_type = part.get("type")
-                                        logger.debug(f"🔊 [OPENAI_CLIENT]   Part[{part_idx}]: type={part_type}")
-                            else:
-                                content_len = len(str(content)) if content else 0
-                                logger.debug(f"🔊 [OPENAI_CLIENT] Message[{idx}] role={role}, content_type={type(content).__name__}, len={content_len}")
-
-        # Final hard-guard for OpenAI: ensure unsupported field is not present
+        
+        # Detailed IO log: messages/tools/sampling and final payload fields
         try:
-            if "openai" in url.lower() and "stop_after_tool_calls" in processed_request:
-                processed_request.pop("stop_after_tool_calls", None)
-                logger.info("Removed stop_after_tool_calls for OpenAI request")
-            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
+            import json as _json
+
+            def _truncate(text: str, limit: int = 2000) -> str:
+                return text if len(text) <= limit else text[:limit] + "…"
+
+            def _messages_preview(msgs: Any) -> str:
+                try:
+                    out: list[dict[str, Any]] = []
+                    if isinstance(msgs, list):
+                        for m in msgs:
+                            if not isinstance(m, dict):
+                                continue
+                            role = m.get("role")
+                            content = m.get("content")
+                            if isinstance(content, str):
+                                text = content
+                            elif isinstance(content, list):
+                                parts: list[str] = []
+                                for seg in content:
+                                    if isinstance(seg, dict) and isinstance(seg.get("text"), str):
+                                        parts.append(seg["text"]) 
+                                text = "\n".join(parts)
+                            else:
+                                text = ""
+                            out.append({"role": role, "content": _truncate(str(text), 4000)})
+                    return _json.dumps(out)
+                except Exception:
+                    return "[]"
+
+            def _tools_preview(tools: Any) -> str:
+                try:
+                    return _truncate(_json.dumps(tools), 4000)
+                except Exception:
+                    return "[]"
+
+            msgs = processed_request.get("messages") if isinstance(processed_request, dict) else None
+            tools = processed_request.get("tools") if isinstance(processed_request, dict) else None
+            io_log: dict[str, Any] = {
+                "llm.call": True,
+                "model": processed_request.get("model") if isinstance(processed_request, dict) else None,
+                "tool_choice": processed_request.get("tool_choice") if isinstance(processed_request, dict) else None,
+                "parallel_tool_calls": processed_request.get("parallel_tool_calls") if isinstance(processed_request, dict) else None,
+                "stop_after_tool_calls": processed_request.get("stop_after_tool_calls") if isinstance(processed_request, dict) else None,
+                "temperature": processed_request.get("temperature") if isinstance(processed_request, dict) else None,
+                "top_p": processed_request.get("top_p") if isinstance(processed_request, dict) else None,
+                "max_tokens": processed_request.get("max_tokens") if isinstance(processed_request, dict) else None,
+                "max_completion_tokens": processed_request.get("max_completion_tokens") if isinstance(processed_request, dict) else None,
+                "messages_preview": _messages_preview(msgs),
+                "tools_preview": _tools_preview(tools),
+            }
+            logger.info(io_log)
+        except Exception:
+            pass
+        
+        # Final hard-guard for OpenAI/Groq: drop unsupported field
+        try:
             low_url = url.lower()
+            if ("openai" in low_url or "groq.com" in low_url or "/proxy/groq" in low_url) and "stop_after_tool_calls" in processed_request:
+                processed_request.pop("stop_after_tool_calls", None)
+                logger.info("Removed stop_after_tool_calls for %s request", "Groq/OpenAI")
+            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             if ("groq.com" in low_url or "/openai" in low_url) and isinstance(
                 processed_request, dict
             ):
@@ -330,10 +555,70 @@ class OpenAIClient:
                 logger.info(
                     f"Inference response status=200, content-type={content_type}, bytes={len(body_text)}"
                 )
-                # Do not log prompt or full response body
+                if body_text:
+                    # Log raw output with generous preview to debug no-tool-call issues
+                    preview_len = min(4000, len(body_text))
+                    logger.info({
+                        "llm.raw_response": True,
+                        "bytes": len(body_text),
+                        "preview": body_text[:preview_len],
+                    })
 
                 result = response.json()
                 logger.info(f"Inference response parsed_type={type(result).__name__}")
+
+                tool_call_count = -1
+                # Normalize tool calls so downstream always sees a function tool call
+                try:
+                    if isinstance(result, dict):
+                        choices = result.get("choices")
+                        if isinstance(choices, list) and choices:
+                            msg = choices[0].get("message")
+                            if isinstance(msg, dict):
+                                # Prefer tool_calls; if missing but function_call is present, synthesize tool_calls
+                                tc = msg.get("tool_calls")
+                                fc = msg.get("function_call")
+                                if (not isinstance(tc, list) or not tc) and isinstance(fc, dict):
+                                    name = fc.get("name") or "interact_many"
+                                    args = fc.get("arguments") or "{}"
+                                    msg["tool_calls"] = [
+                                        {
+                                            "id": "call_norm",
+                                            "type": "function",
+                                            "function": {"name": name, "arguments": args},
+                                        }
+                                    ]
+                                    if isinstance(choices[0], dict):
+                                        choices[0]["finish_reason"] = "tool_calls"
+                                # Log tool call count for debugging
+                                try:
+                                    tc2 = msg.get("tool_calls")
+                                    count = len(tc2) if isinstance(tc2, list) else 0
+                                    logger.info({
+                                        "llm.tool_calls": True,
+                                        "count": count,
+                                        "finish_reason": choices[0].get("finish_reason") if isinstance(choices[0], dict) else None,
+                                    })
+                                    if count == 0:
+                                        click.echo(
+                                            "[openai-client] ✗ upstream response missing tool_calls; dumping preview to logs",
+                                            err=True,
+                                        )
+                                        logger.error(
+                                            "Inference response missing tool_calls; failing fast. Raw body preview: %s",
+                                            body_text[:500] if body_text else "<empty>",
+                                        )
+                                        raise ValueError("Inference response missing tool_calls")
+                                    tool_call_count = count
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+
+                click.echo(
+                    f"[openai-client] ✓ response ok with tool_calls={tool_call_count}",
+                    err=True,
+                )
                 return result
 
             except httpx.TimeoutException:
@@ -342,11 +627,31 @@ class OpenAIClient:
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code if e.response is not None else None
                 text = e.response.text if e.response is not None else str(e)
-                # Log minimal error info only
-                logger.error({"openai_http_error": True, "status": status})
-                # For 4xx/5xx, print full sanitized request to aid debugging (especially Groq 400s)
-                # Suppress prompt/payload logging entirely
-                # Special case: token budget exceeded (OpenAI-compatible error schema)
+                # Log full body and request diagnostics for debugging remote failures
+                try:
+                    redacted_headers = dict(headers)
+                    if "Authorization" in redacted_headers:
+                        redacted_headers["Authorization"] = "***REDACTED***"
+                    logger.error(
+                        {
+                            "openai_http_error": True,
+                            "status": status,
+                            "url": url,
+                            "body": text,
+                        }
+                    )
+                    logger.error(
+                        {
+                            "request_debug": True,
+                            "status": status,
+                            "target": url,
+                            "headers": redacted_headers,
+                            "payload": processed_request,
+                        }
+                    )
+                except Exception:
+                    logger.error(f"HTTP error from {url}: {status} - {text}")
+                # Special case: token budget exceeded handled below, else 422 degrade, else re-raise
                 try:
                     if status == 400 and e.response is not None:
                         data = e.response.json()
@@ -399,6 +704,8 @@ class OpenAIClient:
                                     logger.warning(
                                         {
                                             "token_budget_recovery": True,
+                                            "messages_tokens": messages_tokens,
+                                            "model_limit": model_limit,
                                             "retry_max_tokens": new_max,
                                         }
                                     )
@@ -413,35 +720,6 @@ class OpenAIClient:
                                 pass
                 except Exception:
                     pass
-                # Gracefully degrade on 422 so rollouts can still produce a trajectory
-                if status == 422:
-                    try:
-                        # Best-effort parse of error for diagnostics
-                        err = None
-                        try:
-                            err = e.response.json()
-                        except Exception:
-                            err = {"error": "unprocessable"}
-                        logger.warning({"inference_422_recovered": True})
-                    except Exception:
-                        pass
-                    # Return a minimal OpenAI-compatible response with no tool_calls/content
-                    import time as _t
-
-                    return {
-                        "id": f"cmpl-{int(_t.time())}",
-                        "object": "chat.completion",
-                        "created": int(_t.time()),
-                        "model": processed_request.get("model") or "unknown",
-                        "choices": [
-                            {
-                                "index": 0,
-                                "message": {"role": "assistant", "content": "", "tool_calls": []},
-                                "finish_reason": "stop",
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-                    }
                 raise
             except Exception as e:
                 logger.error(f"Unexpected error calling {url}: {e}")
@@ -507,14 +785,29 @@ class OpenAIClient:
             OpenAI-compatible chat completion response
         """
         last_error = None
+        processed_request: dict[str, Any] = dict(request or {})
         wait_time = 1.0
 
         for attempt in range(max_retries + 1):
             try:
                 # Apply parameter fixes to the request
+                # CRITICAL: Use proper URL parsing, not string concatenation!
+                target_base = base_url or self.base_url
+                if target_base:
+                    parsed_target = urlparse(target_base)
+                    target_path = parsed_target.path.rstrip("/")
+                    if not target_path.endswith("/v1/chat/completions"):
+                        new_target_path = f"{target_path}/v1/chat/completions" if target_path else "/v1/chat/completions"
+                        parsed_target = parsed_target._replace(path=new_target_path)
+                        target_url = urlunparse(parsed_target)
+                    else:
+                        target_url = target_base
+                else:
+                    target_url = None
+                
                 processed_request = self._fix_model_parameters(
                     request,
-                    target_url=(base_url or self.base_url).rstrip("/") + "/v1/chat/completions",
+                    target_url=target_url,
                 )
                 return await self.generate(
                     request=processed_request,
@@ -546,47 +839,16 @@ class OpenAIClient:
                                     error_block.get("code") or error_block.get("type") or ""
                                 ).lower()
                             if error_code in {"tool_use_failed", "tool_call_failed"}:
-                                logger.warning(
+                                logger.error(
                                     {
                                         "tool_use_failed": True,
                                         "target": (base_url or self.base_url),
                                         "message": error_block.get("message") if isinstance(error_block, dict) else None,
                                     }
                                 )
-                                fallback_actions = ["move_right", "move_up", "do"]
-                                fallback_response = {
-                                    "id": f"fallback-{int(time.time() * 1000)}",
-                                    "object": "chat.completion",
-                                    "created": int(time.time()),
-                                    "model": processed_request.get("model"),
-                                    "choices": [
-                                        {
-                                            "index": 0,
-                                            "message": {
-                                                "role": "assistant",
-                                                "content": "",
-                                                "tool_calls": [
-                                                    {
-                                                        "id": f"call_fallback_{int(time.time() * 1000)}",
-                                                        "type": "function",
-                                                        "function": {
-                                                            "name": "interact_many",
-                                                            "arguments": json.dumps(
-                                                                {"actions": fallback_actions}
-                                                            ),
-                                                        },
-                                                    }
-                                                ],
-                                            },
-                                            "finish_reason": "tool_calls",
-                                        }
-                                    ],
-                                }
-                                if isinstance(response_data.get("usage"), dict):
-                                    fallback_response["usage"] = response_data["usage"]
-                                if isinstance(error_block, dict):
-                                    fallback_response["error"] = error_block
-                                return fallback_response
+                                raise RuntimeError(
+                                    f"Inference 400 response (tool call failed): {error_block.get('message') if isinstance(error_block, dict) else 'Tool call failed'}"
+                                ) from e
                             # This is a different type of 400 error, don't retry
                             try:
                                 redacted_headers = {}
@@ -651,7 +913,9 @@ class OpenAIClient:
                 await asyncio.sleep(wait_time)
                 wait_time *= backoff_factor
 
-        raise last_error
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("RL inference retries exhausted with no captured exception")
 
 
 def create_inference_client(
@@ -726,7 +990,8 @@ def create_inference_client(
             ) -> dict[str, Any]:
                 return {"status": "ok", "dummy": True}
 
-        return _DummyClient()
+        import typing as _t
+        return _t.cast(OpenAIClient, _DummyClient())
 
     return OpenAIClient(
         base_url=task_app.vllm_base_url,

@@ -466,11 +466,20 @@ async def step_policy(
 
             if tracing_context is not None:
                 try:
+                    print(
+                        f"[TRACE_DEBUG] record_policy_prompts sys={len(system_prompt_records)} user={len(user_prompt_records)}",
+                        flush=True,
+                    )
                     await tracing_context.record_policy_prompts(
                         system_prompt_records, user_prompt_records
                     )
                 except Exception as exc:
                     logger.debug(f"TRACING_PROMPTS_FAIL: {exc}")
+            else:
+                print(
+                    f"[TRACE_DEBUG] Missing tracing context on policy step; policy_id={request.policy_id}",
+                    flush=True,
+                )
 
             # Create inference client (choose API key by target provider)
             # Require inference_url to be set explicitly by the rollout policy config.
@@ -692,9 +701,10 @@ async def step_policy(
                 "sokoban-react",
                 "crafter-react",
             ) and getattr(policy, "use_tools", True):
-                req_tools = meta["inference_request"]["tools"]
-                req_tool_choice = meta["inference_request"]["tool_choice"]
-                req_stop_after = meta["inference_request"]["stop_after_tool_calls"]
+                inf_req = meta.get("inference_request", {})
+                req_tools = inf_req.get("tools")
+                req_tool_choice = inf_req.get("tool_choice")
+                req_stop_after = inf_req.get("stop_after_tool_calls")
                 logger.info(
                     f"TOOLCALL_CONFIG: policy={policy_name} tools_present={bool(req_tools)} tool_choice={req_tool_choice} stop_after={req_stop_after}"
                 )
@@ -703,6 +713,8 @@ async def step_policy(
                         status_code=500,
                         detail=f"TOOLCALL_ASSERTION_FAIL: Missing tools or tool_choice!=required for policy {policy_name}",
                     )
+                if req_stop_after is None:
+                    inf_req["stop_after_tool_calls"] = 1
 
             # Call inference service with retries for Flash cold-start (503)
             import time as _t
@@ -950,6 +962,23 @@ async def step_policy(
                     )
                 except Exception as exc:
                     logger.debug(f"TRACING_LLM_FAIL: {exc}")
+
+        if not tool_calls:
+            preview = ""
+            try:
+                preview = str(meta.get("raw_response") or "")[:400]
+            except Exception:
+                preview = "<unavailable>"
+            logger.error(
+                {
+                    "rollout.policy_step": True,
+                    "policy_id": request.policy_id,
+                    "error": "no_tool_calls",
+                    "inference_url": meta.get("inference_url"),
+                    "raw_preview": preview,
+                }
+            )
+            raise RuntimeError("Policy step produced no tool calls; inference response unusable.")
 
         return PolicyStepResponse(
             tool_calls=tool_calls,

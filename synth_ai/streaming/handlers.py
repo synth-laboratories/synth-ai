@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import time
 from abc import ABC, abstractmethod
 from collections import deque
@@ -12,6 +13,37 @@ from typing import Any, Callable
 import click
 
 from .types import StreamMessage, StreamType
+
+
+def _mask_sensitive_urls(text: str) -> str:
+    """Mask S3/Wasabi URLs and sensitive paths in log messages.
+    
+    Replaces full S3/Wasabi URLs with masked versions to prevent leaking
+    bucket names, paths, and infrastructure details in public SDK logs.
+    
+    Examples:
+        s3://synth-artifacts/models/... -> s3://***/***/[masked]
+        Wasabi s3://bucket/path/file.tar.gz -> Wasabi s3://***/***/[masked]
+    """
+    if not text:
+        return text
+    
+    # Pattern matches:
+    # - Optional "Wasabi " prefix
+    # - s3:// or http(s):// scheme
+    # - Any bucket/host
+    # - Any path
+    # - Common model file extensions
+    pattern = r'(Wasabi\s+)?((s3|https?)://[^\s]+\.(tar\.gz|zip|pt|pth|safetensors|ckpt|bin))'
+    
+    def replace_url(match: re.Match) -> str:
+        prefix = match.group(1) or ""  # "Wasabi " or empty
+        url = match.group(2)
+        # Extract just the filename
+        filename = url.split("/")[-1] if "/" in url else "file"
+        return f'{prefix}s3://***/***/[{filename}]'
+    
+    return re.sub(pattern, replace_url, text, flags=re.IGNORECASE)
 
 
 class StreamHandler(ABC):
@@ -52,6 +84,26 @@ class CLIHandler(StreamHandler):
             click.echo(f"[{timestamp}] status={status}")
             return
 
+        if message.stream_type is StreamType.METRICS:
+            name = message.data.get("name")
+            value = message.data.get("value")
+            step = message.data.get("step")
+            data = message.data.get("data", {})
+            
+            # Format metric display
+            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, (int, float)) else f"[{timestamp}] [metric] {name}={value}"
+            if step is not None:
+                metric_str += f" (step={step})"
+            
+            # Add any additional context from data field
+            if isinstance(data, dict):
+                n = data.get("n")
+                if n is not None:
+                    metric_str += f" n={n}"
+            
+            click.echo(metric_str)
+            return
+
         if message.stream_type is StreamType.EVENTS:
             event_type = message.data.get("type", "event")
             if event_type in self._hidden_event_types:
@@ -72,7 +124,35 @@ class CLIHandler(StreamHandler):
             prefix = f"[{timestamp}] [{message.seq}] {event_type}"
             if level:
                 prefix += f" ({level})"
-            click.echo(f"{prefix}: {msg}".rstrip(": "))
+            # Mask sensitive URLs before displaying
+            sanitized_msg = _mask_sensitive_urls(msg)
+            click.echo(f"{prefix}: {sanitized_msg}".rstrip(": "))
+            # Print concise billing/budget summaries when present
+            try:
+                data = message.data.get("data") or {}
+                if isinstance(data, dict):
+                    et = str(event_type or "").lower()
+                    if et.endswith("prompt.learning.completed") or et == "prompt.learning.completed":
+                        usd_tokens = float(data.get("usd_tokens") or 0.0)
+                        sandbox_usd = float(data.get("sandbox_usd") or 0.0)
+                        total_usd = float(data.get("total_usd") or (usd_tokens + sandbox_usd))
+                        click.echo(f"[{timestamp}] billed=${total_usd:.2f} (sandbox ${sandbox_usd:.2f} + tokens ${usd_tokens:.2f})")
+                        # Pin sandbox hours and token breakdowns if available
+                        try:
+                            sh = float(data.get("sandbox_hours") or 0.0)
+                            pol_in = int(data.get("policy_tokens_in") or data.get("rollouts_prompt_tokens") or 0)
+                            pol_out = int(data.get("policy_tokens_out") or (data.get("rollouts_completion_tokens") or 0) + (data.get("rollouts_unknown_tokens") or 0))
+                            prop_in = int(data.get("proposal_tokens_in") or data.get("mutation_prompt_tokens") or 0)
+                            prop_out = int(data.get("proposal_tokens_out") or (data.get("mutation_completion_tokens") or 0) + (data.get("mutation_unknown_tokens") or 0))
+                            click.echo(f"[{timestamp}] usage: sandbox={sh:.2f}h | policy in={pol_in} out={pol_out} | proposal in={prop_in} out={prop_out}")
+                        except Exception:
+                            pass
+                    if "budget.reached" in et:
+                        thr = float(data.get("threshold_usd") or 0.0)
+                        tusd = float(data.get("total_usd_est") or 0.0)
+                        click.echo(f"[{timestamp}] budget: reached ${tusd:.2f} (cap ${thr:.2f}) — stopping early")
+            except Exception:
+                pass
             return
 
         if message.stream_type is StreamType.METRICS:
@@ -387,7 +467,9 @@ class RichHandler(StreamHandler):
             event_type = message.data.get("type", "event")
             summary = message.data.get("message") or ""
             level = message.data.get("level")
-            formatted = f"[{event_type}] {summary}".strip()
+            # Mask sensitive URLs before displaying
+            sanitized_summary = _mask_sensitive_urls(summary)
+            formatted = f"[{event_type}] {sanitized_summary}".strip()
             if level:
                 formatted = f"{formatted} ({level})"
             self._event_log.append(formatted)

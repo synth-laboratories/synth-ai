@@ -148,8 +148,8 @@ class CrafterPolicy(Policy):
         if self.use_tools:
             payload["tools"] = TOOLS_SCHEMA
             payload["tool_choice"] = "required"
-            # Ensure the inference server injects family-specific stop sequences
-            # to terminate immediately after the first tool call for compliance.
+            payload["function_call"] = {"name": "interact_many"}
+            payload["parallel_tool_calls"] = False
             payload["stop_after_tool_calls"] = 1
         return payload
 
@@ -158,13 +158,7 @@ class CrafterPolicy(Policy):
         response: dict[str, Any],
         use_tools: bool = True,
     ) -> list[dict[str, Any]]:
-        """Turn an inference response into environment tool calls.
-
-        - If tools were used, expect tool_calls-compatible output and forward as-is
-          in our simple JSON format: {"tool_name": str, "arguments": {...}}.
-        - If no tools, parse plain-text actions using CrafterReActAgent parser and
-          wrap them into a single interact_many tool call.
-        """
+        """Turn an inference response into environment tool calls."""
         # First check if we got actual tool calls
         choices = response.get("choices", [])
         tool_calls: list[dict[str, Any]] = []
@@ -222,24 +216,6 @@ class CrafterPolicy(Policy):
                 else:
                     normalized.append(tc)
             return normalized
-
-        # Otherwise, parse plain text content for actions
-        text = ""
-        for choice in choices:
-            msg = choice.get("message", {})
-            content = msg.get("content", "")
-            if content:
-                text = content
-                break
-
-        if text:
-            # Try to parse actions from the text
-            from .shared import parse_actions
-
-            actions = parse_actions(text)
-            if actions:
-                # Wrap actions in interact_many tool call
-                return [{"tool_name": "interact_many", "arguments": {"actions": actions}}]
 
         # No actions found
         return []

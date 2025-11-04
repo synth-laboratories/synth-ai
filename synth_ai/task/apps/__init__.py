@@ -22,6 +22,7 @@ class ModalDeploymentConfig:
     extra_local_dirs: Sequence[tuple[str, str]] = field(default_factory=tuple)
     secret_names: Sequence[str] = field(default_factory=tuple)
     volume_mounts: Sequence[tuple[str, str]] = field(default_factory=tuple)
+    env_vars: dict[str, str] = field(default_factory=dict)
     timeout: int = 600
     memory: int = 4096
     cpu: float = 2.0

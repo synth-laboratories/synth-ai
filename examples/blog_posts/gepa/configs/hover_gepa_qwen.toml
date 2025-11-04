@@ -1,0 +1,36 @@
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run" # TODO: replace with HotpotQA task app URL
+task_app_id = "hotpotqa"
+
+# Seeds
+evaluation_seeds = [0,1,2,3,4,5,6,7,8,9]
+
+# Held-out validation
+validation_seeds = [10,11,12,13,14,15,16,17,18,19]
+validation_pool = "validation"
+validation_top_k = 3
+
+# Train split configuration
+[prompt_learning.env_config]
+pool = "train"
+
+# Policy model (synth Qwen via backend inference proxy)
+[prompt_learning.policy]
+provider = "synth"
+model = "Qwen/Qwen3-8B"
+# inference_url will be mapped to backend /api/inference/v1 by the optimizer
+
+# GEPA parameters (tune as needed)
+[prompt_learning.gepa]
+env_name = "hover"
+initial_population_size = 24
+num_generations = 6
+children_per_generation = 12
+minibatch_size = 10
+pareto_set_size = 32
+rollout_budget = 600
+max_concurrent_rollouts = 16
+mutation_llm_model = "openai/gpt-oss-120b"
+mutation_llm_provider = "groq"
+proposer_type = "dspy"

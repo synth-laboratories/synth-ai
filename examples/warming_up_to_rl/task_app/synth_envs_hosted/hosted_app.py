@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 
 from fastapi import FastAPI
@@ -8,6 +9,52 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.requests import Request
+
+logger = logging.getLogger(__name__)
+
+_VERSION_LOGGED = False
+
+
+def _resolve_task_app_version() -> str:
+    env_version = os.getenv("TASK_APP_VERSION")
+    if isinstance(env_version, str) and env_version.strip():
+        return env_version.strip()
+
+    try:
+        import importlib.metadata as importlib_metadata
+
+        pkg_version = importlib_metadata.version("synth-ai")
+        if isinstance(pkg_version, str) and pkg_version.strip():
+            return pkg_version.strip()
+    except Exception:
+        pass
+
+    try:
+        import synth_ai
+
+        attr_version = getattr(synth_ai, "__version__", None)
+        if isinstance(attr_version, str) and attr_version.strip():
+            return attr_version.strip()
+    except Exception:
+        pass
+
+    return "unknown"
+
+
+def _log_task_app_version_once() -> None:
+    global _VERSION_LOGGED
+    if _VERSION_LOGGED:
+        return
+
+    version = _resolve_task_app_version()
+    build_id = os.getenv("TASK_APP_BUILD_ID")
+
+    if build_id:
+        logger.info("TASK_APP_VERSION: %s (build=%s)", version, build_id)
+    else:
+        logger.info("TASK_APP_VERSION: %s", version)
+
+    _VERSION_LOGGED = True
 
 
 class TaskApp:
@@ -55,6 +102,8 @@ def create_app(allowed_environments: list[str] = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    _log_task_app_version_once()
 
     # Initialize task app configuration
     task_app = TaskApp()

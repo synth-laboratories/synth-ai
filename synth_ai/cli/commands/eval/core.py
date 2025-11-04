@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import click
 from synth_ai.task.config import EvalConfig
+from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.utils.task_app_discovery import discover_eval_config_paths
 
 from .errors import (
@@ -199,8 +200,9 @@ def _eval_command_impl(
     if cfg:
         try:
             normalized_cfg = validate_eval_options(cfg)
-            eval_cfg = EvalConfig.from_dict(dict(normalized_cfg))
-            cfg = dict(normalized_cfg)
+            normalized_cfg_dict = dict(normalized_cfg)
+            eval_cfg = EvalConfig.from_dict(normalized_cfg_dict)
+            cfg = normalized_cfg_dict
             click.echo(f"✓ Config validated: {len(eval_cfg.seeds)} seeds, model={eval_cfg.model}")
         except (ValueError, TypeError) as validation_error:
             raise InvalidEvalConfigError(detail=str(validation_error)) from validation_error
@@ -261,11 +263,9 @@ def _eval_command_impl(
             trace_path = Path(trace_db).expanduser()
             trace_path.parent.mkdir(parents=True, exist_ok=True)
             trace_db_url = f"sqlite+aiosqlite:///{trace_path}"
-    trace_tracer = (
-        session_tracer_cls(db_url=trace_db_url, auto_save=True)
-        if trace_db_url and session_tracer_cls is not None
-        else None
-    )
+    trace_tracer: SessionTracer | None = None
+    if trace_db_url and session_tracer_cls is not None:
+        trace_tracer = cast(SessionTracer, session_tracer_cls(db_url=trace_db_url, auto_save=True))
 
     # Determine selection params (CLI takes precedence; TOML only fills unset model/seeds/env)
     if cfg.get("model") and not model:
@@ -723,8 +723,12 @@ def _eval_command_impl(
                     "mode": "eval",  # RolloutMode.EVAL: use inference URLs as-is, no transformations
                 }
                 if env_name:
-                    body["env"]["env_name"] = env_name  # type: ignore[assignment]
-                
+                    env_section = body.get("env")
+                    if isinstance(env_section, dict):
+                        env_section["env_name"] = env_name
+                    else:
+                        body["env"] = {"env_name": env_name}
+
                 # Debug: print the body being sent
                 if seed_val == 0:
                     click.echo(f"[DEBUG] rollout body env: {body['env']}")

@@ -1,0 +1,60 @@
+[PATCH] Attempting to apply Crafter deterministic patch...
+[PATCH] Patching crafter.Env._balance_object...
+[PATCH] crafter.Env._balance_object patched.
+[PATCH] Attempting to apply Crafter serialization patch v3...
+[PATCH] Adding enhanced save/load methods to crafter.Env...
+[PATCH] crafter.Env.save() and load() methods added (v3).
+[PATCH] Crafter serialization patch v3 complete.
+[PATCH] Attempting to apply simplified Crafter world configuration patch...
+[PATCH] Simplified Crafter world configuration patch complete.
+[PATCH] Available configs: easy, normal, hard, peaceful
+Using config: /Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/warming_up_to_rl/configs/train_rl_from_sft.toml (rl)
+Found SYNTH_API_KEY in current sources: sk_l…a4
+Saved SYNTH_API_KEY to /Users/joshpurtell/Documents/GitHub/synth-ai/.env
+Found ENVIRONMENT_API_KEY in current sources: sk_e…63
+Saved ENVIRONMENT_API_KEY to /Users/joshpurtell/Documents/GitHub/synth-ai/.env
+Found TASK_APP_URL in current sources: http…un
+Skipping auto-persist for TASK_APP_URL (use CLI flags to override)
+Using env file: /Users/joshpurtell/Documents/GitHub/synth-ai/.env
+Backend base: http://localhost:8000/api (key sk_l…a4)
+Verification OK (candidates=['sk_env_30c78a78'], statuses=[200, 200, 200])
+Performing task app health check…
+Task app healthy
+POST http://localhost:8000/api/rl/jobs
+Payload preview:
+{
+  "job_type": "rl",
+  "compute": {
+    "gpu_type": "H100",
+    "gpu_count": 8,
+    "topology": {
+      "reference_placement": "none"
+    }
+  },
+  "data": {
+    "endpoint_base_url": "https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run",
+    "config": {
+      "algorithm": {
+        "type": "online",
+        "method": "policy_gradient",
+        "variety": "gspo"
+      },
+      "services": {
+        "task_url": "https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run"
+      },
+      "compute": {
+        "gpu_type": "H100",
+        "gpu_count": 8,
+        "topology": {
+          "reference_placement": "none"
+        }
+      },
+      "topology": {
+        "type": "single_node_split",
+        "gpus_for_vllm": 4,
+        "gpus_for_training": 3,
+        "gpus_for
+Response 422: {
+  "detail": "Missing or invalid [vllm].max_model_len; provide a positive integer (e.g., 8192)"
+}
+Error: Job creation failed

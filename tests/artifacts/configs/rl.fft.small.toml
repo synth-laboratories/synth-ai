@@ -34,6 +34,7 @@ max_turns = 1
 episodes_per_batch = 2
 max_concurrent_rollouts = 2
 batches_per_step = 1
+task_app_origin_rewards_only = true
 
 [training]
 num_epochs = 1

@@ -223,6 +223,7 @@ class RolloutTracingContext:
         ).lower()
         self.return_trace = bool(getattr(request.record, "return_trace", False))
         self.sft_output_dir = getattr(fastapi_request.app.state, "sft_output_dir", None)
+        print(f"[TRACE_DEBUG] RolloutTracingContext init: trace_format={self.trace_format} return_trace={self.return_trace}", flush=True)
         self.session_trace = None
         self.metadata_updates: dict[str, Any] = {}
         self.policy_name = request.policy.policy_name or ""
@@ -244,19 +245,24 @@ class RolloutTracingContext:
 
     async def start_session(self) -> None:
         if not self.enabled or self.tracer is None:
+            print("[TRACE_DEBUG] start_session skipped: tracer disabled", flush=True)
             return
         try:
             await self.tracer.initialize()
+            print("[TRACE_DEBUG] tracer initialized", flush=True)
         except Exception as exc:
             logger.debug("TRACING_INIT_FAIL: %s", exc)
+            # Hard fail: tracing requested but cannot initialize
+            raise
         try:
             await self.tracer.start_session(
                 session_id=self.run_id, metadata=dict(self.metadata_base)
             )
+            print(f"[TRACE_DEBUG] start_session succeeded for run_id={self.run_id}", flush=True)
         except Exception as exc:
             logger.warning("TRACING_START_FAIL: %s", exc)
-            self.enabled = False
-            self.tracer = None
+            # Hard fail: tracing requested but cannot start session
+            raise
 
     async def start_decision(self, turn_number: int) -> None:
         self.current_turn = turn_number
@@ -317,6 +323,9 @@ class RolloutTracingContext:
                 )
             except Exception as exc:
                 logger.debug("TRACING_USER_MSG_FAIL: %s", exc)
+        if self.tracer and self.tracer._current_trace:
+            msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
+            print(f"[TRACE_DEBUG] After record_policy_prompts: {msg_count} messages", flush=True)
 
     def _content_to_text(self, content: Any) -> str:
         if isinstance(content, str):
@@ -395,6 +404,11 @@ class RolloutTracingContext:
                     message_type="policy_tool_call",
                     metadata=self._message_metadata(),
                 )
+                if self.tracer._current_trace:
+                    print(
+                        f"[TRACE_DEBUG] After tool invocation: messages={len(self.tracer._current_trace.markov_blanket_message_history)}",
+                        flush=True,
+                    )
             except Exception as exc:
                 logger.debug("TRACING_TOOL_MSG_FAIL: %s", exc)
 
@@ -664,12 +678,24 @@ class RolloutTracingContext:
             except Exception as exc:
                 logger.debug("TRACING_OUTCOME_FAIL: %s", exc)
             try:
+                if self.tracer._current_trace:
+                    msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
+                    print(f"[TRACE_DEBUG] Before end_session: {msg_count} messages in trace", flush=True)
                 self.session_trace = await self.tracer.end_session()
                 if self.session_trace is not None:
                     self.session_trace.metadata.update(self.metadata_updates)
+                    print(
+                        f"[TRACE_DEBUG] Session ended successfully, session_id={self.session_trace.session_id}",
+                        flush=True,
+                    )
+                    print(
+                        f"[TRACE_DEBUG] session_trace.metadata keys: {list(self.session_trace.metadata.keys())}",
+                        flush=True,
+                    )
             except Exception as exc:
                 logger.debug("TRACING_END_SESSION_FAIL: %s", exc)
                 self.session_trace = None
+                print(f"[TRACE_DEBUG] end_session failed for run_id={self.run_id}: {exc}", flush=True)
             with contextlib.suppress(Exception):
                 await self.tracer.close()
 
@@ -700,9 +726,13 @@ class RolloutTracingContext:
     def build_trace_payload(self, session_trace: Any) -> dict[str, Any] | None:
         if not self.return_trace or session_trace is None:
             return None
-        if self.trace_format == "full":
+        if self.trace_format in ("full", "structured"):
             payload = session_trace.to_dict()
             payload.setdefault("metadata", {}).update(self.metadata_updates)
+            print(
+                f"[TRACE_DEBUG] build_trace_payload returning structured trace with messages={len(payload.get('markov_blanket_message_history') or [])}",
+                flush=True,
+            )
             return payload
         metadata = dict(session_trace.metadata)
         metadata.update(self.metadata_updates)

@@ -52,6 +52,25 @@ class StreamEndpoints:
         )
 
     @classmethod
+    def prompt_learning(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for prompt learning jobs (MIPRO/GEPA)."""
+        base = f"/prompt-learning/online/jobs/{job_id}"
+        return cls(
+            status=base,
+            events=f"{base}/events",
+            metrics=f"{base}/metrics",
+            timeline=None,
+            status_fallbacks=(
+                f"/learning/jobs/{job_id}",
+                f"/orchestration/jobs/{job_id}",
+            ),
+            event_fallbacks=(
+                f"/learning/jobs/{job_id}/events",
+                f"/orchestration/jobs/{job_id}/events",
+            ),
+        )
+
+    @classmethod
     def rl(cls, job_id: str) -> StreamEndpoints:
         base = f"/rl/jobs/{job_id}"
         return cls(

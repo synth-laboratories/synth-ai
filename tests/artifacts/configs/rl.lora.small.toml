@@ -52,6 +52,7 @@ ops = [
   "agent", "env",
   "agent", "env",
 ]
+task_app_origin_rewards_only = true
 
 [rollout.policy_config]
 max_llm_calls = 10

@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from synth_ai.cli.commands.deploy import command as deploy_command
+from synth_ai.cli.deploy import deploy_cmd as deploy_command
 
 __all__ = ["deploy_command"]

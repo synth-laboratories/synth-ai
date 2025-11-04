@@ -137,7 +137,31 @@ class OpenAIClient:
         Returns:
             OpenAI-compatible chat completion response
         """
-        url = (base_url or self.base_url).rstrip("/") + "/v1/chat/completions"
+        # Build target URL robustly: if a full endpoint is given (with query or already ending
+        # in /chat/completions), preserve it; otherwise, append the path BEFORE query params.
+        from urllib.parse import urlparse, urlunparse
+
+        candidate = (base_url or self.base_url).strip()
+        try:
+            parsed = urlparse(candidate)
+            # If no scheme, treat as relative base (pass-through)
+            if not parsed.scheme or not parsed.netloc:
+                base_no_slash = candidate.rstrip("/")
+                url = f"{base_no_slash}/v1/chat/completions"
+            else:
+                path = (parsed.path or "").rstrip("/")
+                if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
+                    new_path = path
+                elif path.endswith("/v1"):
+                    new_path = f"{path}/chat/completions"
+                elif path.endswith("/chat"):
+                    new_path = f"{path}/completions"
+                else:
+                    new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+                url = urlunparse(parsed._replace(path=new_path))
+        except Exception:
+            # Fallback to legacy behavior
+            url = (base_url or self.base_url).rstrip("/") + "/v1/chat/completions"
         timeout = timeout_s or self.timeout_s
 
         # Merge headers
@@ -148,7 +172,7 @@ class OpenAIClient:
         # Fix parameter compatibility for newer models
         processed_request = self._fix_model_parameters(request, target_url=url)
 
-        # Log request (redact messages in production)
+        # Log request with detailed prompts/tools preview and sampling settings (Authorization is not logged)
         logger.info(f"Inference POST target: {url}")
         if extra_headers:
             logger.info(f"Extra headers: {extra_headers}")
@@ -156,13 +180,69 @@ class OpenAIClient:
             keys_preview = sorted(processed_request.keys())
             logger.info(f"Request keys: {keys_preview}")
 
-        # Final hard-guard for OpenAI: ensure unsupported field is not present
+        # Detailed IO log: messages/tools/sampling and final payload fields
         try:
-            if "openai" in url.lower() and "stop_after_tool_calls" in processed_request:
-                processed_request.pop("stop_after_tool_calls", None)
-                logger.info("Removed stop_after_tool_calls for OpenAI request")
-            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
+            import json as _json
+
+            def _truncate(text: str, limit: int = 2000) -> str:
+                return text if len(text) <= limit else text[:limit] + "…"
+
+            def _messages_preview(msgs: Any) -> str:
+                try:
+                    out: list[dict[str, Any]] = []
+                    if isinstance(msgs, list):
+                        for m in msgs:
+                            if not isinstance(m, dict):
+                                continue
+                            role = m.get("role")
+                            content = m.get("content")
+                            if isinstance(content, str):
+                                text = content
+                            elif isinstance(content, list):
+                                parts: list[str] = []
+                                for seg in content:
+                                    if isinstance(seg, dict) and isinstance(seg.get("text"), str):
+                                        parts.append(seg["text"]) 
+                                text = "\n".join(parts)
+                            else:
+                                text = ""
+                            out.append({"role": role, "content": _truncate(str(text), 4000)})
+                    return _json.dumps(out)
+                except Exception:
+                    return "[]"
+
+            def _tools_preview(tools: Any) -> str:
+                try:
+                    return _truncate(_json.dumps(tools), 4000)
+                except Exception:
+                    return "[]"
+
+            msgs = processed_request.get("messages") if isinstance(processed_request, dict) else None
+            tools = processed_request.get("tools") if isinstance(processed_request, dict) else None
+            io_log: dict[str, Any] = {
+                "llm.call": True,
+                "model": processed_request.get("model") if isinstance(processed_request, dict) else None,
+                "tool_choice": processed_request.get("tool_choice") if isinstance(processed_request, dict) else None,
+                "parallel_tool_calls": processed_request.get("parallel_tool_calls") if isinstance(processed_request, dict) else None,
+                "stop_after_tool_calls": processed_request.get("stop_after_tool_calls") if isinstance(processed_request, dict) else None,
+                "temperature": processed_request.get("temperature") if isinstance(processed_request, dict) else None,
+                "top_p": processed_request.get("top_p") if isinstance(processed_request, dict) else None,
+                "max_tokens": processed_request.get("max_tokens") if isinstance(processed_request, dict) else None,
+                "max_completion_tokens": processed_request.get("max_completion_tokens") if isinstance(processed_request, dict) else None,
+                "messages_preview": _messages_preview(msgs),
+                "tools_preview": _tools_preview(tools),
+            }
+            logger.info(io_log)
+        except Exception:
+            pass
+
+        # Final hard-guard for OpenAI/Groq: ensure unsupported field is not present
+        try:
             low_url = url.lower()
+            if ("openai" in low_url or "groq.com" in low_url or "/proxy/groq" in low_url) and "stop_after_tool_calls" in processed_request:
+                processed_request.pop("stop_after_tool_calls", None)
+                logger.info("Removed stop_after_tool_calls for Groq/OpenAI request")
+            # Groq-specific requirement: when using JSON mode, one of the messages must contain the word 'json'
             if ("groq.com" in low_url or "/openai" in low_url) and isinstance(
                 processed_request, dict
             ):
@@ -228,13 +308,54 @@ class OpenAIClient:
                     f"Inference response status=200, content-type={content_type}, bytes={len(body_text)}"
                 )
                 if body_text:
-                    preview_len = min(800, len(body_text))
-                    logger.info(
-                        f"Inference response preview ({preview_len} bytes): {body_text[:preview_len]}"
-                    )
+                    # Log raw output with generous preview to debug no-tool-call issues
+                    preview_len = min(4000, len(body_text))
+                    logger.info({
+                        "llm.raw_response": True,
+                        "bytes": len(body_text),
+                        "preview": body_text[:preview_len],
+                    })
 
                 result = response.json()
                 logger.info(f"Inference response parsed_type={type(result).__name__}")
+
+                # Normalize tool calls so downstream always sees a function tool call
+                try:
+                    if isinstance(result, dict):
+                        choices = result.get("choices")
+                        if isinstance(choices, list) and choices:
+                            msg = choices[0].get("message")
+                            if isinstance(msg, dict):
+                                # Prefer tool_calls; if missing but function_call is present, synthesize tool_calls
+                                tc = msg.get("tool_calls")
+                                fc = msg.get("function_call")
+                                if (not isinstance(tc, list) or not tc) and isinstance(fc, dict):
+                                    name = fc.get("name") or "interact_many"
+                                    args = fc.get("arguments") or "{}"
+                                    msg["tool_calls"] = [
+                                        {
+                                            "id": "call_norm",
+                                            "type": "function",
+                                            "function": {"name": name, "arguments": args},
+                                        }
+                                    ]
+                                    # Encourage downstream to treat this as a tool call
+                                    if isinstance(choices[0], dict):
+                                        choices[0]["finish_reason"] = "tool_calls"
+                                # Log tool call count for debugging
+                                try:
+                                    tc2 = msg.get("tool_calls")
+                                    count = len(tc2) if isinstance(tc2, list) else 0
+                                    logger.info({
+                                        "llm.tool_calls": True,
+                                        "count": count,
+                                        "finish_reason": choices[0].get("finish_reason") if isinstance(choices[0], dict) else None,
+                                    })
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+
                 return result
 
             except httpx.TimeoutException:
@@ -340,40 +461,6 @@ class OpenAIClient:
                                 pass
                 except Exception:
                     pass
-                # Gracefully degrade on 422 so rollouts can still produce a trajectory
-                if status == 422:
-                    try:
-                        # Best-effort parse of error for diagnostics
-                        err = None
-                        try:
-                            err = e.response.json()
-                        except Exception:
-                            err = {"error": "unprocessable", "detail": (text or "")[:200]}
-                        logger.warning(
-                            {
-                                "inference_422_recovered": True,
-                                "detail": err,
-                            }
-                        )
-                    except Exception:
-                        pass
-                    # Return a minimal OpenAI-compatible response with no tool_calls/content
-                    import time as _t
-
-                    return {
-                        "id": f"cmpl-{int(_t.time())}",
-                        "object": "chat.completion",
-                        "created": int(_t.time()),
-                        "model": processed_request.get("model") or "unknown",
-                        "choices": [
-                            {
-                                "index": 0,
-                                "message": {"role": "assistant", "content": "", "tool_calls": []},
-                                "finish_reason": "stop",
-                            }
-                        ],
-                        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-                    }
                 raise
             except Exception as e:
                 logger.error(f"Unexpected error calling {url}: {e}")

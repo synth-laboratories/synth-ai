@@ -1,0 +1,24 @@
+[eval]
+app_id = "pokemon_red"
+task_app_url = "http://127.0.0.1:8914"
+model = "fft:REPLACE-WITH-RL-JOB-ID"  # Update with final RL job ID
+seeds = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109]
+max_turns = 15  # Allow more steps for trained model
+concurrency = 3
+env_name = "pokemon_red"
+policy_name = "pokemon_vl_rl_final"
+trace_format = "full"
+return_trace = true
+
+[eval.policy_config]
+provider = "synth"
+model = "fft:REPLACE-WITH-RL-JOB-ID"  # Update with final RL job ID
+temperature = 0.1  # Lower temperature for evaluation
+top_p = 0.9
+max_tokens = 4096
+use_vision = true
+image_only_mode = false
+max_llm_calls = 15
+
+[eval.env_config.env_params]
+max_steps_per_episode = 15

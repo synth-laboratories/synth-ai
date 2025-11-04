@@ -82,6 +82,136 @@ uvx synth-ai turso
 uvx synth-ai turso
 ```
 
+## `uvx synth-ai smoke`
+
+Smoke-tests a task app by emulating a trainer rollout using GPT-5-Nano. This command validates that your task app is ready for RL training by checking:
+- Task app is reachable and responding
+- Rollout endpoints return valid data
+- Inference URL routing works correctly
+- Trace correlation IDs are properly propagated
+
+See also: [Full smoke command documentation](../cli/smoke.mdx)
+
+### Quick start
+
+```bash
+# Basic smoke test with URL
+uvx synth-ai smoke --url http://localhost:8765 --env-name my-env
+
+# Using a config file (recommended)
+uvx synth-ai smoke --config my-rl-config.toml
+```
+
+### Using with RL configs (auto-start features)
+
+Add a `[smoke]` section to your RL config TOML to enable **auto-start** of required services. This is especially useful for local development workflows:
+
+```toml
+# my-rl-config.toml
+type = "rl"
+
+[smoke]
+# Auto-start the task app server
+task_app_name = "grpo-crafter"
+task_app_port = 8765
+task_app_env_file = ".env"
+task_app_force = true  # Kill any existing process on this port
+
+# Auto-start sqld for tracing
+sqld_auto_start = true
+sqld_db_path = "./traces/local.db"
+sqld_hrana_port = 8080
+sqld_http_port = 8081
+
+# Test parameters
+env_name = "crafter"
+policy_name = "crafter-react"
+max_steps = 10
+policy = "gpt-5-nano"
+model = "gpt-4o-mini"
+mock_backend = "openai"
+return_trace = true
+
+# ... RL training config continues below ...
+[algorithm]
+type = "online"
+# ...
+```
+
+Then simply run:
+
+```bash
+uvx synth-ai smoke --config my-rl-config.toml
+```
+
+The smoke command will:
+1. **Auto-start your task app** in the background on the specified port
+2. **Auto-start sqld** for trace capture (if enabled)
+3. Run the smoke test
+4. **Auto-cleanup** all background services when complete
+
+> **Note:** The `[smoke]` section is **only used by the smoke command** and is **completely ignored by the RL trainer**. It will not affect your training jobs.
+
+### Common usage patterns
+
+```bash
+# Test with multiple rollouts in parallel (emulate train step)
+uvx synth-ai smoke --config my-rl-config.toml --rollouts 4 --parallel 4
+
+# Use real OpenAI instead of mock
+uvx synth-ai smoke --config my-rl-config.toml --mock-backend openai
+
+# Override config settings via CLI (faster testing)
+uvx synth-ai smoke --config my-rl-config.toml --max-steps 5
+
+# Test with specific inference policy
+uvx synth-ai smoke --url http://localhost:8765 \
+  --env-name my-env \
+  --policy gpt-5-nano \
+  --max-steps 10
+```
+
+### Key flags
+
+- `--config PATH` – RL TOML config to derive URL/env/model and load `[smoke]` section
+- `--url URL` – Task app base URL (default: `$TASK_APP_URL` or `http://localhost:8765`)
+- `--env-name NAME` – Environment name (auto-detected if possible)
+- `--max-steps N` – Number of agent/env step pairs (default: 3)
+- `--rollouts N` – Number of rollouts using seeds 0..N-1 (default: 1)
+- `--parallel N` – Run rollouts concurrently to emulate train step (default: 0 = sequential)
+- `--policy PRESET` – Inference route preset: `mock`, `gpt-5-nano`, `openai`, or `groq`
+- `--mock-backend BACKEND` – Mock backend: `synthetic` (deterministic) or `openai` (passthrough)
+- `--return-trace` – Request v3 trace in response if supported
+- `--env-file PATH` – Path to .env file to load before running
+
+### Example workflow (warming_up_to_rl)
+
+This is how the smoke command is used in the Crafter RL blog post workflow:
+
+```bash
+# 1. Deploy your task app locally first
+uvx synth-ai deploy grpo-crafter \
+  --runtime uvicorn \
+  --port 8765 \
+  --trace traces/v3 \
+  --env-file .env
+
+# 2. Run smoke test to verify everything works
+cd examples/blog_posts/warming_up_to_rl
+uvx synth-ai smoke --config configs/smoke_test.toml --max-steps 10
+
+# 3. Once smoke test passes, proceed with RL training
+uvx synth-ai train --type rl --config configs/train_rl_from_base.toml --poll
+```
+
+Alternatively, use the auto-start feature to skip step 1:
+
+```bash
+# Smoke test auto-starts task app and sqld, no manual deployment needed
+cd examples/blog_posts/warming_up_to_rl
+uvx synth-ai smoke --config configs/smoke_test.toml --max-steps 10
+```
+
 ## `uvx synth-ai train`
 
 Interactive launcher for SFT (FFT, QLoRA) and RL jobs (`synth_ai/api/train/cli.py:95`).

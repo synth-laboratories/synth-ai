@@ -14,8 +14,11 @@ import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
+import httpx
 import libsql
 from sqlalchemy.engine import make_url
 
@@ -60,36 +63,70 @@ class _ConnectionTarget:
     auth_token: str | None = None
 
 
+def _strip_auth_component(url: str) -> tuple[str, str | None]:
+    """Remove auth_token query parameter from URL, returning the token separately."""
+    parsed = urlparse(url)
+    if not parsed.query:
+        return url, None
+
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    token = params.pop("auth_token", None)
+    query = urlencode(params, doseq=True)
+    sanitised = urlunparse(parsed._replace(query=query))
+    return sanitised, token
+
+
 def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _ConnectionTarget:
     """Normalise the configured database URL."""
     url = db_url or CONFIG.db_url
-
-    # Fast-path local SQLite URLs (`sqlite+aiosqlite:///path/to/db`)
-    if url.startswith("sqlite+aiosqlite:///"):
-        return _ConnectionTarget(database=url.replace("sqlite+aiosqlite:///", ""), auth_token=auth_token)
+    sanitised, token_from_url = _strip_auth_component(url)
+    effective_token = auth_token or token_from_url or CONFIG.auth_token
 
     # SQLAlchemy-compatible libsql scheme (`sqlite+libsql://<endpoint or path>`)
-    if url.startswith("sqlite+libsql://"):
-        target = url.replace("sqlite+libsql://", "", 1)
-        return _ConnectionTarget(database=target, sync_url=target if target.startswith("libsql://") else None, auth_token=auth_token)
+    if sanitised.startswith("sqlite+libsql://"):
+        raise RuntimeError("sqlite+libsql scheme is no longer supported; use libsql://")
+
+    # Plain SQLite files: file://, /absolute/path, or relative path
+    # libsql.connect() handles these without sync_url or auth_token
+    if sanitised.startswith("file://") or sanitised.startswith("/") or "://" not in sanitised:
+        # Strip file:// prefix if present, libsql.connect handles both formats
+        db_path = sanitised.replace("file://", "") if sanitised.startswith("file://") else sanitised
+        return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
 
     # Native libsql URLs (`libsql://...`).
-    if url.startswith("libsql://"):
-        return _ConnectionTarget(database=url, sync_url=url, auth_token=auth_token)
+    if sanitised.startswith("libsql://"):
+        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
 
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
-        parsed = make_url(url)
-        if parsed.drivername.startswith("sqlite") and parsed.database:
-            return _ConnectionTarget(database=parsed.database, auth_token=auth_token)
-        if parsed.drivername.startswith("libsql"):
+        parsed = make_url(sanitised)
+        driver = parsed.drivername.lower()
+        if driver.startswith("sqlite"):
+            database = parsed.database or ""
+            if database and database not in {":memory:", ":memory"}:
+                # Absolute paths are passed through; relative paths are resolved to cwd
+                if database.startswith("/"):
+                    db_path = database
+                else:
+                    db_path = str(Path(database).expanduser().resolve())
+            elif database in {":memory:", ":memory"}:
+                db_path = ":memory:"
+            else:
+                raise RuntimeError("SQLite URL missing database path.")
+            return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
+        if driver.startswith("libsql"):
             database = parsed.render_as_string(hide_password=False)
-            return _ConnectionTarget(database=database, sync_url=database, auth_token=auth_token)
+            return _ConnectionTarget(database=database, sync_url=database, auth_token=effective_token)
     except Exception:  # pragma: no cover - defensive guardrail
         logger.debug("Unable to parse db_url via SQLAlchemy", exc_info=True)
 
-    # As a last resort use the raw value (libsql.connect can handle absolute paths).
-    return _ConnectionTarget(database=url, auth_token=auth_token)
+    # Python libsql client uses HTTP API for http:// URLs, not Hrana WebSocket
+    # For local sqld with http:// URL, we need to ensure it points to the HTTP API port
+    # sqld uses two ports: Hrana WebSocket (e.g. 8080) and HTTP API (e.g. 8081)
+    # libsql.connect() with http:// uses HTTP API, so URL should point to HTTP API port
+    if sanitised.startswith(("http://", "https://", "libsql://")):
+        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
+    raise RuntimeError(f"Unsupported tracing database URL: {sanitised}")
 
 
 def _json_dumps(value: Any) -> str | None:
@@ -349,6 +386,45 @@ class NativeLibsqlTraceManager(TraceStorage):
         async with self._conn_lock:
             if self._initialized:
                 return
+
+            # Fast-fail preflight: if using remote endpoint or local sqld, check health
+            # Skip health check for plain SQLite files (sync_url is None)
+            if self._target.sync_url:
+                try:
+                    parsed = urlparse(self._target.database or "")
+                    # Check for local sqld: http://, https://, or libsql://
+                    if parsed.scheme in ("http", "https", "libsql"):
+                        host_port = parsed.netloc or ""
+                        host = (host_port.split(":", 1)[0] or "").strip().lower()
+                        if host in {"127.0.0.1", "localhost"} and host_port:
+                            # For http:// URLs, the port should already be the HTTP API port
+                            # For libsql:// URLs, we need to calculate health check port
+                            if ":" in host_port:
+                                port = int(host_port.split(":", 1)[1])
+                                if parsed.scheme == "libsql":
+                                    # libsql:// uses Hrana port, health check is on HTTP API port (Hrana + 1)
+                                    health_url = f"http://{host}:{port + 1}/health"
+                                else:
+                                    # http:// already points to HTTP API port
+                                    health_url = f"http://{host}:{port}/health"
+                            else:
+                                health_url = f"http://{host_port}/health"
+                            try:
+                                async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as client:
+                                    resp = await client.get(health_url)
+                                if resp.status_code != 200:
+                                    raise RuntimeError(
+                                        f"Tracing backend unhealthy at {health_url} (status={resp.status_code})"
+                                    )
+                            except Exception as exc:  # pragma: no cover - network env dependent
+                                raise RuntimeError(
+                                    f"Tracing backend not reachable at {health_url}. "
+                                    f"Start sqld with both ports: sqld --db-path <path> --hrana-listen-addr {host}:HRANA_PORT --http-listen-addr {host}:HTTP_PORT "
+                                    f"or disable tracing (TASKAPP_TRACING_ENABLED=0)."
+                                ) from exc
+                except Exception:
+                    # Propagate any preflight failure to abort early
+                    raise
 
             # Establish a libsql connection for future native operations.
             self._conn = self._open_connection()

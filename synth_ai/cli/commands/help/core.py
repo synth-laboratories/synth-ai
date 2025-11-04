@@ -70,4 +70,3 @@ def register(group: click.Group) -> None:
 
 
 __all__ = ["help_command", "get_command", "register"]
-

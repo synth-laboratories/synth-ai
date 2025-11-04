@@ -332,3 +332,47 @@ def job_logs(
             bail(f"Backend error: {exc}")
 
     asyncio.run(_loop())
+
+
+@jobs_group.command("best-prompt")
+@common_options()
+@click.argument("job_id")
+@click.option("--json", "output_json", is_flag=True)
+@click.pass_context
+def job_best_prompt(
+    ctx: click.Context,
+    base_url: str | None,
+    api_key: str | None,
+    timeout: float,
+    job_id: str,
+    output_json: bool,
+) -> None:
+    """Show best prompt artifact info (from completion event)."""
+    cfg = resolve_context_config(ctx, base_url=base_url, api_key=api_key, timeout=timeout)
+
+    async def _run() -> None:
+        try:
+            async with StatusAPIClient(cfg) as client:
+                events = await client.get_job_events(job_id)
+                best = None
+                for e in reversed(events or []):
+                    typ = str(e.get("type") or "").lower()
+                    if typ.endswith("prompt.learning.completed") or typ.endswith(".completed"):
+                        data = e.get("data") or {}
+                        best = {
+                            "artifact_id": data.get("artifact_id"),
+                            "artifact_path": data.get("artifact_path"),
+                            "snapshot_id": data.get("snapshot_id"),
+                            "best_prompt": data.get("best_prompt"),
+                        }
+                        break
+                if not best:
+                    bail("No completion event with artifact info found.")
+                if output_json:
+                    print_json(best)
+                else:
+                    console.print(best)
+        except StatusAPIError as exc:
+            bail(f"Backend error: {exc}")
+
+    asyncio.run(_run())

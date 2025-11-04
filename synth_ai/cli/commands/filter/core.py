@@ -219,7 +219,6 @@ def filter_command(config_path: str) -> None:
     async def _run() -> None:
         tracer = SessionTracer(db_url=db_url, auto_save=False)
         await tracer.initialize()
-        assert tracer.db is not None, "Database should be initialized"
 
         df = await tracer.db.query_traces(
             "SELECT session_id, created_at, metadata FROM session_traces ORDER BY created_at"

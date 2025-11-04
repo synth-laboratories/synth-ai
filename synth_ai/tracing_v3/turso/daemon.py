@@ -1,14 +1,19 @@
 """sqld daemon management utilities."""
 
+import logging
+import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import time
 
 import requests
 from requests import RequestException
 
 from ..config import CONFIG
+
+logger = logging.getLogger(__name__)
 
 
 class SqldDaemon:
@@ -18,28 +23,101 @@ class SqldDaemon:
         self,
         db_path: str | None = None,
         http_port: int | None = None,
+        hrana_port: int | None = None,
         binary_path: str | None = None,
     ):
         """Initialize sqld daemon manager.
 
         Args:
             db_path: Path to database file (uses config default if not provided)
-            http_port: HTTP port for daemon (uses config default if not provided)
+            http_port: HTTP port for health/API (uses config default + 1 if not provided)
+            hrana_port: Hrana WebSocket port for libsql connections (uses config default if not provided)
             binary_path: Path to sqld binary (auto-detected if not provided)
         """
         self.db_path = db_path or CONFIG.sqld_db_path
-        self.http_port = http_port or CONFIG.sqld_http_port
+        self.hrana_port = hrana_port or CONFIG.sqld_http_port  # Main port for libsql://
+        self.http_port = http_port or (self.hrana_port + 1)  # HTTP API on next port
         self.binary_path = binary_path or self._find_binary()
         self.process: subprocess.Popen[str] | None = None
 
     def _find_binary(self) -> str:
-        """Find sqld binary in PATH."""
+        """Find sqld binary in PATH, auto-installing if needed.
+        
+        Search order:
+        1. CONFIG.sqld_binary in PATH
+        2. libsql-server in PATH
+        3. Common install locations (~/.turso/bin, /usr/local/bin, etc.)
+        4. Auto-install via synth_ai.utils.sqld (if interactive terminal)
+        
+        Returns:
+            Path to sqld binary
+            
+        Raises:
+            RuntimeError: If binary not found and auto-install fails/disabled
+        """
+        # Check PATH first
         binary = shutil.which(CONFIG.sqld_binary) or shutil.which("libsql-server")
-        if not binary:
-            raise RuntimeError(
-                "sqld binary not found in PATH. Install with: brew install turso-tech/tools/sqld"
-            )
-        return binary
+        if binary:
+            logger.debug(f"Found sqld binary in PATH: {binary}")
+            return binary
+        
+        # Check common install locations
+        try:
+            from synth_ai.utils.sqld import find_sqld_binary
+            binary = find_sqld_binary()
+            if binary:
+                logger.debug(f"Found sqld binary in common location: {binary}")
+                return binary
+        except ImportError:
+            logger.debug("synth_ai.utils.sqld not available, skipping common location check")
+        
+        # Try auto-install if enabled and interactive
+        auto_install_enabled = os.getenv("SYNTH_AI_AUTO_INSTALL_SQLD", "true").lower() == "true"
+        
+        if auto_install_enabled and sys.stdin.isatty():
+            try:
+                from synth_ai.utils.sqld import install_sqld
+                logger.info("sqld binary not found. Attempting automatic installation...")
+                
+                # Use click if available for better UX, otherwise proceed automatically
+                try:
+                    import click
+                    if not click.confirm(
+                        "sqld not found. Install automatically via Homebrew?",
+                        default=True
+                    ):
+                        raise RuntimeError("User declined automatic installation")
+                except ImportError:
+                    # click not available, auto-install without prompt
+                    logger.info("Installing sqld automatically (non-interactive mode)")
+                
+                binary = install_sqld()
+                logger.info(f"Successfully installed sqld to: {binary}")
+                return binary
+                
+            except Exception as exc:
+                logger.warning(f"Auto-install failed: {exc}")
+                # Fall through to error message below
+        elif not auto_install_enabled:
+            logger.debug("Auto-install disabled via SYNTH_AI_AUTO_INSTALL_SQLD=false")
+        elif not sys.stdin.isatty():
+            logger.debug("Non-interactive terminal, skipping auto-install prompt")
+        
+        # If we get here, all methods failed
+        raise RuntimeError(
+            "sqld binary not found. Install using one of these methods:\n"
+            "\n"
+            "Quick install (recommended):\n"
+            "  synth-ai turso\n"
+            "\n"
+            "Manual install:\n"
+            "  brew install turso-tech/tools/sqld\n"
+            "  # or\n"
+            "  curl -sSfL https://get.tur.so/install.sh | bash && turso dev\n"
+            "\n"
+            "For CI/CD environments:\n"
+            "  Set SYNTH_AI_AUTO_INSTALL_SQLD=false and pre-install sqld"
+        )
 
     def start(self, wait_for_ready: bool = True) -> subprocess.Popen:
         """Start the sqld daemon."""
@@ -53,6 +131,8 @@ class SqldDaemon:
             self.binary_path,
             "--db-path",
             str(db_file),
+            "--hrana-listen-addr",
+            f"127.0.0.1:{self.hrana_port}",
             "--http-listen-addr",
             f"127.0.0.1:{self.http_port}",
         ]
@@ -112,6 +192,14 @@ class SqldDaemon:
         """Check if daemon is running."""
         return self.process is not None and self.process.poll() is None
 
+    def get_hrana_port(self) -> int:
+        """Get the Hrana WebSocket port for libsql:// connections."""
+        return self.hrana_port
+
+    def get_http_port(self) -> int:
+        """Get the HTTP API port for health checks."""
+        return self.http_port
+
     def __enter__(self):
         """Context manager entry."""
         self.start()
@@ -126,13 +214,27 @@ class SqldDaemon:
 _daemon: SqldDaemon | None = None
 
 
-def start_sqld(db_path: str | None = None, port: int | None = None) -> SqldDaemon:
-    """Start a global sqld daemon instance."""
+def start_sqld(
+    db_path: str | None = None,
+    port: int | None = None,
+    hrana_port: int | None = None,
+    http_port: int | None = None,
+) -> SqldDaemon:
+    """Start a global sqld daemon instance.
+    
+    Args:
+        db_path: Path to database file
+        port: Legacy parameter - used as hrana_port if hrana_port not specified
+        hrana_port: Hrana WebSocket port for libsql:// connections
+        http_port: HTTP API port for health checks
+    """
     global _daemon
     if _daemon and _daemon.is_running():
         return _daemon
 
-    _daemon = SqldDaemon(db_path=db_path, http_port=port)
+    # Support legacy 'port' parameter by using it as hrana_port
+    final_hrana_port = hrana_port or port
+    _daemon = SqldDaemon(db_path=db_path, hrana_port=final_hrana_port, http_port=http_port)
     _daemon.start()
     return _daemon
 

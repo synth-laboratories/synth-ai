@@ -1,0 +1,391 @@
+[PATCH] Attempting to apply Crafter deterministic patch...
+[PATCH] Patching crafter.Env._balance_object...
+[PATCH] crafter.Env._balance_object patched.
+[PATCH] Attempting to apply Crafter serialization patch v3...
+[PATCH] Adding enhanced save/load methods to crafter.Env...
+[PATCH] crafter.Env.save() and load() methods added (v3).
+[PATCH] Crafter serialization patch v3 complete.
+[PATCH] Attempting to apply simplified Crafter world configuration patch...
+[PATCH] Simplified Crafter world configuration patch complete.
+[PATCH] Available configs: easy, normal, hard, peaceful
+[
+  {
+    "id": 275571,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 1,
+    "type": "rl.job.created",
+    "level": "info",
+    "message": "RL job created",
+    "data": {
+      "work": [
+        "health_check",
+        "evaluate",
+        "train"
+      ]
+    },
+    "created_at": "2025-10-30T03:52:27.732271+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275572,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 2,
+    "type": "rl.workflow.preflight",
+    "level": "info",
+    "message": "Preflight Hatchet configuration",
+    "data": {
+      "base_url": "https://api.hatchet.run",
+      "sdk_version": null,
+      "api_key_prefix": "eyJhbG",
+      "api_key_present": true,
+      "http_health_status": null,
+      "http_health_snippet": "preflight_http_error: ConnectError: [Errno -2] Name or service not known"
+    },
+    "created_at": "2025-10-30T03:52:27.83637+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275573,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 3,
+    "type": "rl.workflow.submission.attempt",
+    "level": "info",
+    "message": "Submitting RL workflow to Hatchet",
+    "data": {
+      "have_env_key": true,
+      "payload_keys": [
+        "job_type",
+        "environment_id",
+        "revision_id",
+        "task_url",
+        "training_start_url",
+        "work",
+        "compute",
+        "data",
+        "metadata",
+        "human_in_the_loop",
+        "tags"
+      ],
+      "plan_preview": "{'job_type': 'rl', 'environment_id': None, 'revision_id': None, 'task_url': None, 'training_start_url': None, 'work': ['health_check', 'evaluate', 'train'], 'compute': {'gpu_type': 'H200', 'gpu_count': 2, 'topology': {'reference_placement': 'none'}}, 'data': {'endpoint_base_url': 'https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run', 'config': {'algorithm': {'type': 'online', 'm",
+      "endpoint_base_url": "https://api.hatchet.run",
+      "training_start_url": "https://synth-laboratories-dev--gspo-training-service-start-dev-run.modal.run"
+    },
+    "created_at": "2025-10-30T03:52:27.918115+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275574,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": "39b9911a-ca4a-4630-940a-2a55f41dee36",
+    "seq": 4,
+    "type": "hatchet.preflight",
+    "level": "info",
+    "message": "Hatchet connectivity preflight",
+    "data": {
+      "host": "api.hatchet.run",
+      "port": 443,
+      "base_url": "https://api.hatchet.run",
+      "dns_error": "[Errno -2] Name or service not known",
+      "tcp_error": "[Errno -2] Name or service not known",
+      "tls_error": "[Errno -2] Name or service not known",
+      "http_error": "[Errno -2] Name or service not known",
+      "sdk_version": null
+    },
+    "created_at": "2025-10-30T03:52:28.414167+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275575,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": "39b9911a-ca4a-4630-940a-2a55f41dee36",
+    "seq": 5,
+    "type": "hatchet.submission.attempt",
+    "level": "info",
+    "message": "Submitting workflow to Hatchet",
+    "data": {
+      "base_url": "https://api.hatchet.run",
+      "workflow": "RLJobWorkflow",
+      "sdk_version": null,
+      "payload_keys": [
+        "job_id",
+        "job_type",
+        "plan",
+        "run_id",
+        "synth_api_key"
+      ],
+      "api_key_prefix": "eyJhbG",
+      "api_key_present": true,
+      "payload_preview": "{'job_id': 'job_19a333ed6fbd4171185', 'job_type': 'rl', 'plan': {'job_type': 'rl', 'environment_id': None, 'revision_id': None, 'task_url': None, 'training_start_url': None, 'work': ['health_check', 'evaluate', 'train'], 'compute': {'gpu_type': 'H200', 'gpu_count': 2, 'topology': {'reference_placement': 'none'}}, 'data': {'endpoint_base_url': 'https://synth-laboratories--crafter-blogpost-fastapi-app-dev.modal.run', 'config': {'algorithm': {'type': 'online', 'method': 'policy_gradient', 'variety'",
+      "synth_api_key_prefix": "sk_liv",
+      "synth_api_key_present": true
+    },
+    "created_at": "2025-10-30T03:52:28.492139+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275576,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 6,
+    "type": "rl.billing.start",
+    "level": "info",
+    "message": "GPU usage tracking started for RL job",
+    "data": {
+      "job_type": "reinforcement_learning",
+      "started_at": 1761796348
+    },
+    "created_at": "2025-10-30T03:52:28.780105+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275577,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": "39b9911a-ca4a-4630-940a-2a55f41dee36",
+    "seq": 7,
+    "type": "hatchet.submission.result",
+    "level": "info",
+    "message": "Received response from Hatchet",
+    "data": {
+      "dir": [
+        "construct",
+        "copy",
+        "dict",
+        "from_dict",
+        "from_json",
+        "from_orm",
+        "json",
+        "model_computed_fields",
+        "model_config",
+        "model_construct",
+        "model_copy",
+        "model_dump",
+        "model_dump_json",
+        "model_extra",
+        "model_fields",
+        "model_fields_set",
+        "model_json_schema",
+        "model_parametrized_name",
+        "model_post_init",
+        "model_rebuild",
+        "model_validate",
+        "model_validate_json",
+        "model_validate_strings",
+        "parse_file",
+        "parse_obj",
+        "parse_raw",
+        "run",
+        "schema",
+        "schema_json",
+        "shape",
+        "task_events",
+        "tasks",
+        "to_dict",
+        "to_json",
+        "to_str",
+        "update_forward_refs",
+        "validate",
+        "workflow_config"
+      ],
+      "repr": "V1WorkflowRunDetails(run=V1WorkflowRun(metadata=APIResourceMeta(id='f04e7b54-e97b-4135-8609-88eabc3860e3', created_at=datetime.datetime(2025, 10, 30, 3, 52, 28, 663919, tzinfo=TzInfo(0)), updated_at=datetime.datetime(2025, 10, 30, 3, 52, 28, 663919, tzinfo=TzInfo(0))), status=<V1TaskStatus.RUNNING: 'RUNNING'>, started_at=datetime.datetime(2025, 10, 30, 3, 52, 28, 691251, tzinfo=TzInfo(0)), finishe",
+      "id_run": "None",
+      "id_meta": "None",
+      "id_root": "None",
+      "run_type": "V1WorkflowRunDetails",
+      "has_metadata": false
+    },
+    "created_at": "2025-10-30T03:52:29.827974+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275578,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": "39b9911a-ca4a-4630-940a-2a55f41dee36",
+    "seq": 8,
+    "type": "workflow.queued",
+    "level": "info",
+    "message": "Workflow queued",
+    "data": {
+      "workflow": "RLJobWorkflow",
+      "hatchet_run_id": "f04e7b54-e97b-4135-8609-88eabc3860e3"
+    },
+    "created_at": "2025-10-30T03:52:30.064466+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275579,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": "39b9911a-ca4a-4630-940a-2a55f41dee36",
+    "seq": 9,
+    "type": "rl.workflow.modal.provisioning",
+    "level": "info",
+    "message": "Modal run accepted; provisioning remote resources",
+    "data": {
+      "workflow": "RLJobWorkflow",
+      "hatchet_run_id": "f04e7b54-e97b-4135-8609-88eabc3860e3"
+    },
+    "created_at": "2025-10-30T03:52:30.143654+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275580,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 10,
+    "type": "rl.job.created",
+    "level": "info",
+    "message": "RL job created and queued for execution",
+    "data": {
+      "compute": {
+        "gpu_type": "H200",
+        "topology": {
+          "reference_placement": "none"
+        },
+        "gpu_count": 2
+      },
+      "job_type": "rl",
+      "endpoint_base_url": "https://api.hatchet.run"
+    },
+    "created_at": "2025-10-30T03:52:30.219136+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275581,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 11,
+    "type": "sft.billing.start",
+    "level": "info",
+    "message": "GPU usage tracking started for SFT job",
+    "data": {
+      "job_type": "fine_tuning_sft",
+      "started_at": 1761796352
+    },
+    "created_at": "2025-10-30T03:52:32.321614+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275582,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 12,
+    "type": "snapshot.fetch",
+    "level": "info",
+    "message": "Fetching job snapshot",
+    "data": {},
+    "created_at": "2025-10-30T03:52:32.384738+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275583,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 13,
+    "type": "rl.config.fetched",
+    "level": "info",
+    "message": "Job config fetched",
+    "data": {
+      "has_config": true
+    },
+    "created_at": "2025-10-30T03:52:32.583402+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275584,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 14,
+    "type": "trainer.start",
+    "level": "info",
+    "message": "Starting trainer",
+    "data": {
+      "start_url": "https://synth-laboratories-dev--gspo-training-service-start-dev-run.modal.run"
+    },
+    "created_at": "2025-10-30T03:52:33.101295+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275585,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 15,
+    "type": "sft.status.persist",
+    "level": "info",
+    "message": "Set status=running after start accepted",
+    "data": {
+      "source": "worker",
+      "context": "post_start_accept"
+    },
+    "created_at": "2025-10-30T03:52:50.066045+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275586,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 16,
+    "type": "trainer.triggered",
+    "level": "info",
+    "message": "Trainer triggered",
+    "data": {
+      "upstream_id": "job_19a333ed6fbd4171185",
+      "upstream_status": "started"
+    },
+    "created_at": "2025-10-30T03:52:50.129321+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  },
+  {
+    "id": 275587,
+    "job_id": "1f27e05f-017e-4d11-8b08-acf23377080e",
+    "run_id": null,
+    "seq": 17,
+    "type": "rl.billing.compute",
+    "level": "info",
+    "message": "Resolved compute topology for billing",
+    "data": {
+      "nodes": null,
+      "gpu_type": "H200",
+      "gpu_count": 2,
+      "container_count": 2,
+      "topology_present": true
+    },
+    "created_at": "2025-10-30T03:52:50.207517+00:00",
+    "step": null,
+    "component": null,
+    "schema_version": 1
+  }
+]

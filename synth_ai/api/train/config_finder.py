@@ -18,7 +18,7 @@ _STATE_FILE = _STATE_DIR / "train_cli.json"
 @dataclass(slots=True)
 class ConfigCandidate:
     path: Path
-    train_type: str  # "rl", "sft", or "unknown"
+    train_type: str  # "rl", "sft", "prompt_learning", or "unknown"
 
 
 def _load_last_config() -> Path | None:
@@ -94,6 +94,16 @@ def _iter_candidate_paths() -> Iterable[Path]:
 
 
 def _infer_config_type(data: dict) -> str:
+    # 0) Check for prompt_learning section (highest priority)
+    pl_section = data.get("prompt_learning")
+    if isinstance(pl_section, dict):
+        algorithm = pl_section.get("algorithm", "").lower()
+        if algorithm in {"mipro", "gepa"}:
+            return "prompt_learning"
+    # Also check if top-level has prompt_learning indicators
+    if isinstance(data.get("algorithm"), str) and data.get("algorithm").lower() in {"mipro", "gepa"}:
+        return "prompt_learning"
+    
     # 1) Strong signals from [algorithm]
     algo = data.get("algorithm")
     if isinstance(algo, dict):
@@ -152,7 +162,7 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
         cfg_type = _infer_config_type(data)
         if cfg_type == "unknown":
             raise click.ClickException(
-                f"Config {path} is missing algorithm.type/method metadata. Add type = 'rl' or 'sft'."
+                f"Config {path} is missing algorithm.type/method metadata. Add type = 'rl', 'sft', or 'prompt_learning'."
             )
         candidates.append(ConfigCandidate(path=path, train_type=cfg_type))
         seen.add(path)

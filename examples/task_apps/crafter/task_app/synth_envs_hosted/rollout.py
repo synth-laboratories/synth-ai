@@ -491,6 +491,10 @@ class RolloutTracingContext:
             getattr(request.record, "trace_format", "compact") or "compact"
         ).lower()
         self.return_trace = bool(getattr(request.record, "return_trace", False))
+        print(
+            f"[TRACE_DEBUG] RolloutTracingContext init: trace_format={self.trace_format} return_trace={self.return_trace}",
+            flush=True,
+        )
         self.sft_output_dir = getattr(fastapi_request.app.state, "sft_output_dir", None)
         self.session_trace = None
         self.metadata_updates: dict[str, Any] = {}
@@ -513,19 +517,24 @@ class RolloutTracingContext:
 
     async def start_session(self) -> None:
         if not self.enabled or self.tracer is None:
+            print("[TRACE_DEBUG] start_session skipped: tracer disabled", flush=True)
             return
         try:
             await self.tracer.initialize()
+            print("[TRACE_DEBUG] tracer initialized", flush=True)
         except Exception as exc:
             logger.debug("TRACING_INIT_FAIL: %s", exc)
+            # Hard fail: tracing requested but cannot initialize
+            raise
         try:
             await self.tracer.start_session(
                 session_id=self.run_id, metadata=dict(self.metadata_base)
             )
+            print(f"[TRACE_DEBUG] start_session succeeded for run_id={self.run_id}", flush=True)
         except Exception as exc:
             logger.info("TRACING_START_FAIL: %s", exc)
-            self.enabled = False
-            self.tracer = None
+            # Hard fail: tracing requested but cannot start session
+            raise
 
     async def start_decision(self, turn_number: int) -> None:
         self.current_turn = turn_number
@@ -590,7 +599,7 @@ class RolloutTracingContext:
         # Debug: Check message count
         if self.tracer and self.tracer._current_trace:
             msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
-            logger.info(f"[TRACE_DEBUG] After record_policy_prompts: {msg_count} messages in trace")
+            print(f"[TRACE_DEBUG] After record_policy_prompts: {msg_count} messages", flush=True)
 
     def _content_to_text(self, content: Any) -> str:
         if isinstance(content, str):
@@ -664,11 +673,20 @@ class RolloutTracingContext:
             return
         if self.enabled and self.tracer is not None:
             try:
+                payload = {
+                    "role": "assistant",
+                    "tool_calls": tool_calls,
+                }
                 await self.tracer.record_message(
-                    content=self._safe_json(tool_calls),
-                    message_type="assistant",  # Map to standard assistant message type
+                    content=payload,
+                    message_type="assistant",
                     metadata={**self._message_metadata(), "is_tool_call": True},
                 )
+                if self.tracer._current_trace:
+                    print(
+                        f"[TRACE_DEBUG] After tool invocation: messages={len(self.tracer._current_trace.markov_blanket_message_history)}",
+                        flush=True,
+                    )
             except Exception as exc:
                 logger.debug("TRACING_TOOL_MSG_FAIL: %s", exc)
 
@@ -774,9 +792,33 @@ class RolloutTracingContext:
             }
         )
 
+        assistant_structured = assistant_content if assistant_content is not None else ""
+        assistant_text = self._content_to_text(assistant_content)
+
+        if self.enabled and self.tracer is not None:
+            assistant_payload: dict[str, Any] = {
+                "role": "assistant",
+                "content": assistant_structured,
+                "text": assistant_text,
+            }
+            if isinstance(assistant_message, dict):
+                if assistant_message.get("tool_calls"):
+                    assistant_payload["tool_calls"] = assistant_message.get("tool_calls")
+                if assistant_message.get("reasoning"):
+                    assistant_payload["reasoning"] = assistant_message.get("reasoning")
+                if assistant_message.get("thinking"):
+                    assistant_payload["thinking"] = assistant_message.get("thinking")
+            try:
+                await self.tracer.record_message(
+                    content=assistant_payload,
+                    message_type="assistant",
+                    metadata=self._message_metadata(),
+                )
+            except Exception as exc:
+                logger.debug("TRACING_ASSISTANT_MSG_FAIL: %s", exc)
+
         if self.sft_output_dir is not None:
             assistant_structured = assistant_content if assistant_content is not None else ""
-            assistant_text = self._content_to_text(assistant_content)
             dialogue_structured: list[dict[str, Any]] = []
             for content in self.latest_system_prompt_content:
                 if content is None:
@@ -941,17 +983,23 @@ class RolloutTracingContext:
                 # Debug: Check message count before end_session
                 if self.tracer._current_trace:
                     msg_count = len(self.tracer._current_trace.markov_blanket_message_history)
-                    logger.info(f"[TRACE_DEBUG] Before end_session: {msg_count} messages in trace")
-                
+                    print(f"[TRACE_DEBUG] Before end_session: {msg_count} messages in trace", flush=True)
+
                 self.session_trace = await self.tracer.end_session()
                 
                 # Debug: Check if session was saved
                 if self.session_trace:
-                    logger.info(f"[TRACE_DEBUG] Session ended successfully, session_id={self.session_trace.session_id}")
+                    print(
+                        f"[TRACE_DEBUG] Session ended successfully, session_id={self.session_trace.session_id}",
+                        flush=True,
+                    )
                     self.session_trace.metadata.update(self.metadata_updates)
-                    logger.info(f"[TRACE_DEBUG] session_trace.metadata keys: {list(self.session_trace.metadata.keys())}")
+                    print(
+                        f"[TRACE_DEBUG] session_trace.metadata keys: {list(self.session_trace.metadata.keys())}",
+                        flush=True,
+                    )
                 else:
-                    logger.warning("[TRACE_DEBUG] end_session returned None!")
+                    print("[TRACE_DEBUG] end_session returned None!", flush=True)
             except Exception as exc:
                 logger.warning(f"TRACING_END_SESSION_FAIL: {exc}", exc_info=True)
                 self.session_trace = None
@@ -991,6 +1039,10 @@ class RolloutTracingContext:
         if self.trace_format in ("full", "structured"):
             payload = session_trace.to_dict()
             payload.setdefault("metadata", {}).update(self.metadata_updates)
+            print(
+                f"[TRACE_DEBUG] build_trace_payload returning structured trace with messages={len(payload.get('markov_blanket_message_history') or [])}",
+                flush=True,
+            )
             return payload
         
         # For "compact" format, return only summary stats
@@ -1929,6 +1981,15 @@ async def execute_rollout(
         if 'policy_config_snapshot' not in locals():
             policy_config_snapshot = {}
         
+        # Normalize inference URL for trajectory (and ensure no path in query)
+        try:
+            from .utils import force_normalize_chat_completions_url, ensure_chat_completions_url
+            inference_url = force_normalize_chat_completions_url(inference_url)
+            # apply mode-aware normalization too (keeps cid, appends path if missing)
+            inference_url = ensure_chat_completions_url(inference_url, mode=request.mode)
+        except Exception:
+            pass
+
         logger.info(
             "ROLLOUT_TRAJECTORY: run_id=%s policy_id=%s inference_url=%s trace_id=%s",
             request.run_id,
@@ -2042,6 +2103,16 @@ async def execute_rollout(
         # Hard-fail if no steps executed (avg_turns == 0 scenario)
         if metrics.num_steps <= 0:
             raise HTTPException(status_code=500, detail="no_steps_executed: avg_turns == 0")
+
+        # Ensure at least one tool call executed successfully
+        tool_call_executed = any(
+            isinstance(step.tool_calls, list) and len(step.tool_calls) > 0 for step in trajectory_steps
+        )
+        if not tool_call_executed:
+            raise HTTPException(
+                status_code=502,
+                detail="no_tool_calls_executed: model failed to produce actionable tool calls.",
+            )
 
         response = RolloutResponse(
             run_id=request.run_id,

@@ -12,7 +12,7 @@ from synth_ai.environments.examples.red.taskset import INSTANCE as RED_DEFAULT_I
 from synth_ai.environments.examples.red.engine_helpers.reward_library.pallet_town_progression import (
     PalletTownProgressionCompositeReward,
 )
-from synth_ai.task.apps import TaskAppEntry, register_task_app
+from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
@@ -29,6 +29,8 @@ from synth_ai.task.tracing_utils import (
     tracing_env_enabled,
 )
 from synth_ai.tracing_v3.session_tracer import SessionTracer
+from synth_ai.tracing_v3.abstractions import EnvironmentEvent, TimeRecord
+from datetime import datetime, UTC
 
 logger = logging.getLogger(__name__)
 
@@ -260,8 +262,14 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             {
                 "role": "system",
                 "content": (
-                    "You are controlling Pokémon Red. Respond with a single tool call named 'press_button' "
-                    "with JSON arguments {button: 'A|B|UP|DOWN|LEFT|RIGHT|START|SELECT', frames: 1-120}."
+                    "You are controlling Pokémon Red, a classic Game Boy game. You can see the game screen in the images provided. "
+                    "Your goal is to make progress in the game. "
+                    "IMPORTANT: Always use the 'execute_sequence' tool to submit 5-10 actions per call. "
+                    "Do not reason about which tool to use - execute_sequence is the only tool available. "
+                    "Choose appropriate button presses based on what you see in the game screen. "
+                    "Plan 5-10 actions ahead to play efficiently. "
+                    "CRITICAL: If stuck in a text box (text_box_active=True), try pressing B button first, then try A. "
+                    "Always respond with exactly one tool call containing 5-10 actions."
                 ),
             },
             {
@@ -277,7 +285,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                     "type": "function",
                     "function": {
                         "name": "execute_sequence",
-                        "description": "Execute multiple button presses in sequence. More efficient than separate calls. Recommended: 5-10 actions per call.",
+                        "description": "Execute multiple button presses in sequence. More efficient than separate calls. ALWAYS use this tool. Plan 5-10 actions ahead to play efficiently.",
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -300,28 +308,12 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                                         },
                                         "required": ["button", "frames"]
                                     },
-                                    "minItems": 1,
-                                    "maxItems": 20,
-                                    "description": "Sequence of button presses to execute"
+                                    "minItems": 5,
+                                    "maxItems": 10,
+                                    "description": "Sequence of 5-10 button presses to execute. Plan ahead to navigate efficiently."
                                 }
                             },
                             "required": ["actions"],
-                            "additionalProperties": False,
-                        },
-                    },
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "press_button",
-                        "description": "Press a single Game Boy button for N frames (use execute_sequence for multiple actions)",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "button": {"type": "string", "enum": ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "START", "SELECT"]},
-                                "frames": {"type": "integer", "minimum": 1, "maximum": 120},
-                            },
-                            "required": ["button"],
                             "additionalProperties": False,
                         },
                     },
@@ -350,35 +342,154 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             if "api.openai.com" in inference_url and not inference_url.endswith("/chat/completions"):
                 inference_url = inference_url + "/v1/chat/completions"
         
+        # Debug: print exact payload being sent
+        import json as _json_debug
+        print(f"\n{'='*80}")
+        print(f"[pokemon_red] INFERENCE REQUEST DEBUG")
+        print(f"{'='*80}")
+        print(f"Inference URL: {inference_url}")
+        print(f"Payload keys: {list(payload.keys())}")
+        print(f"Payload (formatted):")
+        print(_json_debug.dumps(payload, indent=2)[:2000])
+        print(f"{'='*80}\n")
+        
+        
         if is_external:
             # External API: use direct HTTP client with auth header
             headers = {}
+            import os
             if "api.openai.com" in inference_url:
-                import os
                 api_key = os.getenv("OPENAI_API_KEY")
                 if api_key:
                     headers["Authorization"] = f"Bearer {api_key}"
+            elif "modal.run" in inference_url or "synth" in inference_url.lower():
+                # Synth API: use SYNTH_API_KEY
+                api_key = os.getenv("SYNTH_API_KEY")
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                print(f"[pokemon_red] Using Synth API auth: {'Bearer ' + api_key[:10] + '...' if api_key else 'NONE'}")
+                # For 30B-A3B models, require H200 (A100 doesn't have enough memory)
+                model_id = payload.get("model", "")
+                if "30B-A3B" in model_id or "A3B" in model_id:
+                    headers["X-GPU-Preference"] = "H200"
+                    print(f"[pokemon_red] Setting X-GPU-Preference: H200 (required for A3B MoE)")
             
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30.0, read=1800.0, write=60.0, pool=60.0)) as client:  # 30 min read timeout for cold starts
                 resp = await client.post(inference_url, json=payload, headers=headers)
         else:
             # Internal proxy: use local base_url
             async with httpx.AsyncClient(
                 base_url="http://127.0.0.1:" + str(fastapi_request.url.port or 8913),
-                timeout=httpx.Timeout(60.0)
+                timeout=httpx.Timeout(connect=30.0, read=1800.0, write=60.0, pool=60.0)  # 30 min read timeout for cold starts
             ) as client:
                 resp = await client.post(inference_url, json=payload)
         
         resp.raise_for_status()
         data = resp.json()
-        # Extract first tool call
+        
+        # Record user message (system + user)
+        if tracer_instance is not None:
+            try:
+                print(f"[pokemon_red] Recording messages: tracer_instance={tracer_instance is not None}", flush=True)
+                # Record system message
+                await tracer_instance.record_message(
+                    content=messages[0].get("content", ""),
+                    message_type="system",
+                )
+                # Record user message
+                user_msg_content = messages[1].get("content", "")
+                if isinstance(user_msg_content, list):
+                    # For multimodal content, extract text summary
+                    text_parts = [item.get("text", "") for item in user_msg_content if item.get("type") == "text"]
+                    user_msg_content = " ".join(text_parts) if text_parts else str(user_msg_content)
+                await tracer_instance.record_message(
+                    content=user_msg_content,
+                    message_type="user",
+                )
+                print(f"[pokemon_red] Recorded user messages", flush=True)
+            except Exception as exc:
+                logger.debug(f"[pokemon_red] Failed to record user messages: {exc}")
+                print(f"[pokemon_red] ERROR recording user messages: {exc}", flush=True)
+        
+        # Debug logging for tool calls
+        print(f"\n{'='*80}")
+        print(f"[pokemon_red] INFERENCE RESPONSE DEBUG")
+        print(f"{'='*80}")
+        print(f"Response status: {resp.status_code}")
+        print(f"Response keys: {list(data.keys())}")
         choices = data.get("choices") or []
+        if choices:
+            message = choices[0].get("message") or {}
+            print(f"Message keys: {list(message.keys())}")
+            print(f"Message content preview: {str(message.get('content', ''))[:200]}")
+            print(f"Tool calls: {message.get('tool_calls', [])}")
+            print(f"Full message (formatted):")
+            print(_json_debug.dumps(message, indent=2)[:1500])
+        print(f"{'='*80}\n")
+        
+        # Record assistant message/tool calls
+        if tracer_instance is not None:
+            try:
+                message = choices[0].get("message", {}) if choices else {}
+                tool_calls = message.get("tool_calls", [])
+                content = message.get("content", "")
+                
+                if tool_calls:
+                    # Record tool calls as assistant message
+                    import json as _json_record
+                    await tracer_instance.record_message(
+                        content=_json_record.dumps(tool_calls) if tool_calls else (content or ""),
+                        message_type="assistant",
+                        metadata={"is_tool_call": True} if tool_calls else {},
+                    )
+                elif content:
+                    # Record text content as assistant message
+                    await tracer_instance.record_message(
+                        content=content,
+                        message_type="assistant",
+                    )
+            except Exception as exc:
+                logger.debug(f"[pokemon_red] Failed to record assistant message: {exc}")
+        
+        # Extract first tool call
         if not choices:
+            print("[pokemon_red] WARNING: No choices in inference response")
             return {}
         message = choices[0].get("message") or {}
         raw_calls = message.get("tool_calls") or []
+        
+        # If no structured tool_calls, try parsing XML tool calls from content
         if not raw_calls:
+            content = message.get("content", "")
+            if content and "<tool_call>" in content:
+                import re as _re
+                import json as _json_parse
+                # Parse XML tool calls: <tool_call>{...}</tool_call>
+                xml_pattern = r'<tool_call>\s*({.*?})\s*</tool_call>'
+                matches = _re.findall(xml_pattern, content, _re.DOTALL)
+                if matches:
+                    print(f"[pokemon_red] Parsed {len(matches)} XML tool call(s) from content")
+                    try:
+                        tool_data = _json_parse.loads(matches[0])
+                        tool_name = tool_data.get("name", "")
+                        args = tool_data.get("arguments", {})
+                        
+                        print(f"[pokemon_red] Parsed tool: {tool_name}, args: {str(args)[:200]}")
+                        
+                        # Handle execute_sequence tool
+                        if tool_name == "execute_sequence":
+                            return {"actions": args.get("actions", [])}
+                        
+                        # Handle press_button tool (legacy single action)
+                        if tool_name == "press_button":
+                            return {"button": args.get("button"), "frames": int(args.get("frames") or 30)}
+                    except Exception as parse_err:
+                        print(f"[pokemon_red] Error parsing XML tool call: {parse_err}")
+        
+        if not raw_calls:
+            print(f"[pokemon_red] WARNING: No tool_calls in response. Content: {message.get('content', '')[:200]}")
             return {}
+        
         f = raw_calls[0].get("function") or {}
         tool_name = f.get("name", "")
         args = f.get("arguments")
@@ -437,6 +548,23 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                     action_context = _build_action_context(prev_state, current_state)
                     step_reward = await reward_fn.score(current_state, action_context)
                     
+                    # Record environment event
+                    if tracer_instance is not None:
+                        try:
+                            event = EnvironmentEvent(
+                                system_instance_id="environment:pokemon_red",
+                                time_record=TimeRecord(event_time=datetime.now(UTC).timestamp()),
+                                reward=step_reward,
+                                terminated=False,
+                                truncated=False,
+                                system_state_before={"map_id": prev_state.get("map_id"), "position": f"({prev_state.get('player_x')},{prev_state.get('player_y')})"},
+                                system_state_after={"map_id": current_state.get("map_id"), "position": f"({current_state.get('player_x')},{current_state.get('player_y')})"},
+                                metadata={"step": step_idx + 1, "button": button, "run_id": request.run_id},
+                            )
+                            await tracer_instance.record_event(event)
+                        except Exception as exc:
+                            logger.debug(f"[pokemon_red] Failed to record environment event: {exc}")
+                    
                     sequence_reward += step_reward
                     sequence_tool_calls.append({"tool": "press_button", "args": {"button": button, "frames": frames}})
                     
@@ -488,6 +616,23 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
                 action_context = _build_action_context(prev_state, current_state)
                 step_reward = await reward_fn.score(current_state, action_context)
+                
+                # Record environment event
+                if tracer_instance is not None:
+                    try:
+                        event = EnvironmentEvent(
+                            system_instance_id="environment:pokemon_red",
+                            time_record=TimeRecord(event_time=datetime.now(UTC).timestamp()),
+                            reward=step_reward,
+                            terminated=False,
+                            truncated=False,
+                            system_state_before={"map_id": prev_state.get("map_id"), "position": f"({prev_state.get('player_x')},{prev_state.get('player_y')})"},
+                            system_state_after={"map_id": current_state.get("map_id"), "position": f"({current_state.get('player_x')},{current_state.get('player_y')})"},
+                            metadata={"step": step_idx + 1, "button": button, "run_id": request.run_id},
+                        )
+                        await tracer_instance.record_event(event)
+                    except Exception as exc:
+                        logger.debug(f"[pokemon_red] Failed to record environment event: {exc}")
                 total_reward += step_reward
                 
                 # Track reward components if non-zero
@@ -528,6 +673,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             # Attempt policy-driven step if policy.config present
             policy_cfg = request.policy.config or {}
             if policy_cfg:
+                print(f"[pokemon_red] Calling _call_inference: tracer_instance={tracer_instance is not None}", flush=True)
                 try:
                     action = await _call_inference(policy_cfg, final_obs if isinstance(final_obs, Mapping) else {})
                     
@@ -545,6 +691,23 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                             current_state = dict(obs1) if isinstance(obs1, Mapping) else {}
                             action_context = _build_action_context(prev_state, current_state)
                             step_reward = await reward_fn.score(current_state, action_context)
+                            
+                            # Record environment event
+                            if tracer_instance is not None:
+                                try:
+                                    event = EnvironmentEvent(
+                                        system_instance_id="environment:pokemon_red",
+                                        time_record=TimeRecord(event_time=datetime.now(UTC).timestamp()),
+                                        reward=step_reward,
+                                        terminated=False,
+                                        truncated=False,
+                                        system_state_before={"map_id": prev_state.get("map_id"), "position": f"({prev_state.get('player_x')},{prev_state.get('player_y')})"},
+                                        system_state_after={"map_id": current_state.get("map_id"), "position": f"({current_state.get('player_x')},{current_state.get('player_y')})"},
+                                        metadata={"step": step_idx + 1, "button": button, "run_id": request.run_id},
+                                    )
+                                    await tracer_instance.record_event(event)
+                                except Exception as exc:
+                                    logger.debug(f"[pokemon_red] Failed to record environment event: {exc}")
                             
                             sequence_reward += step_reward
                             sequence_tool_calls.append({"tool": "press_button", "args": {"button": button, "frames": frames}})
@@ -684,23 +847,58 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             # End session and get trace
             session_trace = await tracer_instance.end_session()
             
-            # Build trace payload if requested
+            # Build trace payload if requested - ALWAYS use full format when return_trace=True
+            # This ensures markov_blanket_message_history is always included
             record_config = getattr(request, 'record', None)
+            print(f"[pokemon_red] TRACE DEBUG: record_config={record_config}, return_trace={getattr(record_config, 'return_trace', None) if record_config else None}, session_trace={session_trace is not None}", flush=True)
+            if session_trace:
+                print(f"[pokemon_red] TRACE DEBUG: IMMEDIATELY AFTER end_session: session_trace has {len(session_trace.markov_blanket_message_history)} messages, {len(session_trace.event_history)} events", flush=True)
+                print(f"[pokemon_red] TRACE DEBUG: session_trace.markov_blanket_message_history type: {type(session_trace.markov_blanket_message_history)}", flush=True)
+                if session_trace.markov_blanket_message_history:
+                    print(f"[pokemon_red] TRACE DEBUG: First message type: {type(session_trace.markov_blanket_message_history[0])}, content: {str(session_trace.markov_blanket_message_history[0].content)[:100]}", flush=True)
+                else:
+                    print(f"[pokemon_red] TRACE DEBUG: WARNING - markov_blanket_message_history is EMPTY RIGHT AFTER end_session!", flush=True)
+            
             if record_config and getattr(record_config, 'return_trace', False) and session_trace:
-                trace_payload = {
-                    "session_id": session_trace.session_id,
-                    "created_at": session_trace.created_at.isoformat() if session_trace.created_at else None,
-                    "metadata": dict(session_trace.metadata or {}),
-                    "num_timesteps": session_trace.num_timesteps,
-                    "num_events": session_trace.num_events,
-                    "num_messages": session_trace.num_messages,
-                }
+                # Always return full trace with all messages and events (no compact format)
+                import dataclasses
+                trace_payload = session_trace.to_dict()
+                print(f"[pokemon_red] TRACE DEBUG: to_dict() returned keys: {list(trace_payload.keys())}", flush=True)
+                print(f"[pokemon_red] TRACE DEBUG: to_dict() markov_blanket_message_history length: {len(trace_payload.get('markov_blanket_message_history', []))}", flush=True)
+                
+                # Always manually serialize messages and events to ensure they're included
+                # asdict() may not recursively serialize nested dataclasses correctly
+                from synth_ai.tracing_v3.abstractions import SessionEventMarkovBlanketMessage, BaseEvent
+                if session_trace.markov_blanket_message_history:
+                    print(f"[pokemon_red] TRACE DEBUG: Manually serializing {len(session_trace.markov_blanket_message_history)} messages", flush=True)
+                    trace_payload["markov_blanket_message_history"] = [
+                        dataclasses.asdict(msg) if isinstance(msg, SessionEventMarkovBlanketMessage) else (msg if isinstance(msg, dict) else str(msg))
+                        for msg in session_trace.markov_blanket_message_history
+                    ]
+                else:
+                    print(f"[pokemon_red] TRACE DEBUG: WARNING - session_trace.markov_blanket_message_history is EMPTY!", flush=True)
+                if session_trace.event_history:
+                    print(f"[pokemon_red] TRACE DEBUG: Manually serializing {len(session_trace.event_history)} events", flush=True)
+                    trace_payload["event_history"] = [
+                        dataclasses.asdict(evt) if isinstance(evt, BaseEvent) else (evt if isinstance(evt, dict) else str(evt))
+                        for evt in session_trace.event_history
+                    ]
+                else:
+                    print(f"[pokemon_red] TRACE DEBUG: WARNING - session_trace.event_history is EMPTY!", flush=True)
+                print(f"[pokemon_red] TRACE DEBUG: Final trace payload has {len(trace_payload.get('markov_blanket_message_history', []))} messages, {len(trace_payload.get('event_history', []))} events", flush=True)
+                print(f"[pokemon_red] TRACE DEBUG: Final trace payload keys: {list(trace_payload.keys())}", flush=True)
+            else:
+                print(f"[pokemon_red] TRACE DEBUG: SKIPPING trace payload build - record_config={record_config}, return_trace={getattr(record_config, 'return_trace', None) if record_config else None}, session_trace={session_trace is not None}", flush=True)
         except Exception as exc:
             logger.warning(f"[pokemon_red] tracing finalization failed: {exc}")
+            print(f"[pokemon_red] TRACE DEBUG EXCEPTION: {exc}", flush=True)
+            import traceback
+            print(f"[pokemon_red] TRACE DEBUG EXCEPTION TRACEBACK: {traceback.format_exc()}", flush=True)
     
     # Fallback trace payload if no tracer but CLI needs it
     if trace_payload is None:
         record_config = getattr(request, 'record', None)
+        print(f"[pokemon_red] TRACE DEBUG: trace_payload is None, using fallback. record_config={record_config}, return_trace={getattr(record_config, 'return_trace', None) if record_config else None}", flush=True)
         if record_config and getattr(record_config, 'return_trace', False):
             trace_payload = {
                 "session_id": request.run_id,
@@ -718,8 +916,22 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 "num_events": len(steps),
                 "num_messages": len(steps) * 2,
             }
+            print(f"[pokemon_red] TRACE DEBUG: Created fallback trace_payload with keys: {list(trace_payload.keys())}", flush=True)
     
-    return RolloutResponse(
+    print(f"[pokemon_red] TRACE DEBUG: About to return RolloutResponse with trace_payload={trace_payload is not None}, keys={list(trace_payload.keys()) if trace_payload else []}", flush=True)
+    if trace_payload:
+        import json as _json_final
+        markov_msgs = trace_payload.get('markov_blanket_message_history', [])
+        event_history = trace_payload.get('event_history', [])
+        print(f"[pokemon_red] TRACE DEBUG: trace_payload markov_blanket_message_history length: {len(markov_msgs)}", flush=True)
+        print(f"[pokemon_red] TRACE DEBUG: trace_payload event_history length: {len(event_history)}", flush=True)
+        if markov_msgs:
+            print(f"[pokemon_red] TRACE DEBUG: First markov message type: {type(markov_msgs[0]) if markov_msgs else None}", flush=True)
+            print(f"[pokemon_red] TRACE DEBUG: First markov message (first 500 chars): {_json_final.dumps(markov_msgs[0] if markov_msgs else {}, indent=2, default=str)[:500]}", flush=True)
+        else:
+            print(f"[pokemon_red] TRACE DEBUG: WARNING - markov_blanket_message_history is EMPTY in final trace_payload!", flush=True)
+    
+    response = RolloutResponse(
         run_id=request.run_id,
         trajectories=[trajectory],
         branches={},
@@ -728,6 +940,14 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         ops_executed=len(request.ops or []),
         trace=trace_payload,
     )
+    
+    # Final check: inspect what's actually in the response
+    if response.trace:
+        import json as _json_response
+        resp_markov = response.trace.get('markov_blanket_message_history', []) if isinstance(response.trace, dict) else []
+        print(f"[pokemon_red] TRACE DEBUG: Response.trace markov_blanket_message_history length: {len(resp_markov)}", flush=True)
+    
+    return response
 
 
 def import_datetime():
@@ -788,11 +1008,40 @@ def build_config() -> TaskAppConfig:
 register_task_app(
     entry=TaskAppEntry(
         app_id="pokemon_red",
-        description="Pokémon Red demo task app",
+        description="Pokémon Red demo task app with vision support",
         config_factory=build_config,
         aliases=("pokemon_red_demo",),
         env_files=(),
-        modal=None,
+        modal=ModalDeploymentConfig(
+            app_name="pokemon-red-vision-task-app",
+            python_version="3.11",
+            pip_packages=(
+                "fastapi>=0.100.0",
+                "uvicorn>=0.23.0",
+                "pydantic>=2.0.0",
+                "numpy>=1.24.0",
+                "aiohttp>=3.8.0",
+                "httpx>=0.24.0",
+                "python-dotenv>=1.0.1",
+                # Tracing/DB runtime deps
+                "sqlalchemy>=2.0.42",
+                "aiosqlite>=0.21.0",
+                "greenlet>=3.2.3",
+                # Pokemon Red environment
+                "pyboy>=2.0.0",
+                "pillow>=9.0.0",
+            ),
+            extra_local_dirs=(
+                # Mount repo root so local modules resolve when deployed on Modal
+                ("/Users/joshpurtell/Documents/GitHub/synth-ai", "/opt/synth_ai_repo"),
+                ("/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai", "/opt/synth_ai_repo/synth_ai"),
+                ("/Users/joshpurtell/Documents/GitHub/synth-ai/examples/task_apps/pokemon_red", "/opt/synth_ai_repo/examples/task_apps/pokemon_red"),
+            ),
+            secret_names=("openai-api-key", "groq-api-key"),
+            memory=16384,
+            cpu=4.0,
+            max_containers=10,
+        ),
     )
 )
 

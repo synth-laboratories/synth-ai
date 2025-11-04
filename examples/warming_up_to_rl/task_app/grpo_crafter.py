@@ -5,14 +5,21 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from urllib.parse import parse_qs, urlparse
 from collections.abc import Iterable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+from pydantic import BaseModel
+
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from synth_ai.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.task.contracts import RolloutMetrics, RolloutMode, RolloutRequest, RolloutResponse, TaskInfo
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.json import to_jsonable  # noqa: F401  (imported for side-effect compatibility)
 from synth_ai.task.rubrics import load_rubric
@@ -114,6 +121,27 @@ try:
             sys.path.insert(0, _hard_examples_str)
 except Exception:
     pass
+
+try:
+    from .synth_envs_hosted.utils import (
+        ensure_chat_completions_url,
+        extract_trace_correlation_id,
+    )
+except Exception:  # pragma: no cover - fallback when optional deps missing
+    def ensure_chat_completions_url(raw_url, mode=None):
+        return raw_url
+
+    def extract_trace_correlation_id(_raw_url, mode=None):
+        if not isinstance(_raw_url, str):
+            return None
+        parsed = urlparse(_raw_url)
+        query_params = parse_qs(parsed.query or "")
+        for key in ("cid", "trace", "trace_correlation_id"):
+            values = query_params.get(key) or []
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return None
 
 HAS_HOSTED = True
 try:
@@ -397,6 +425,13 @@ def provide_task_instances(
     dataset: CrafterDataset, base_info: TaskInfo, seeds: Sequence[int]
 ) -> Iterable[TaskInfo]:
     infos: list[TaskInfo] = []
+    base_observation = getattr(base_info, "observation", None)
+    if hasattr(base_observation, "model_dump"):
+        observation_template = base_observation.model_dump()
+    elif isinstance(base_observation, dict):
+        observation_template = dict(base_observation)
+    else:
+        observation_template = {}
     for seed_value in seeds:
         summary = dataset.describe_seed(seed_value)
         infos.append(
@@ -405,14 +440,14 @@ def provide_task_instances(
                 environment=base_info.environment,
                 action_space=base_info.action_space,
                 observation={
-                    **base_info.observation,
+                    **observation_template,
                     "seed": seed_value,
                     "traits": summary["traits"],
                     "inventory": summary["inventory"],
                     "player_position": summary["player_position"],
                 },
                 dataset={
-                    **base_info.dataset,
+                    **base_info.dataset.model_dump(),
                     "seed": seed_value,
                     "difficulty": summary["difficulty"],
                     "config": summary["config"],
@@ -536,7 +571,47 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
 
     request = _coerce_math_to_crafter(request)
 
+    record_cfg = request.record.model_copy(
+        update={
+            "return_trace": True,
+            "trace_format": "structured",
+        }
+    )
+    request = request.model_copy(update={"record": record_cfg})
+
     policy_cfg = dict(request.policy.config or {})
+    logger.info(
+        "ROLLOUT_EXEC: incoming policy config keys=%s inference_url=%s run_id=%s mode=%s",
+        sorted(policy_cfg.keys()),
+        policy_cfg.get("inference_url"),
+        request.run_id,
+        request.mode,
+    )
+    inferred_url = ensure_chat_completions_url(policy_cfg.get("inference_url"), mode=request.mode)
+    if isinstance(inferred_url, str) and inferred_url:
+        policy_cfg["inference_url"] = inferred_url
+    else:
+        logger.warning(
+            "ROLLOUT_EXEC: inference_url missing or not normalized run_id=%s raw=%s",
+            request.run_id,
+            policy_cfg.get("inference_url"),
+        )
+
+    trace_correlation_id = extract_trace_correlation_id(policy_cfg.get("inference_url"), mode=request.mode)
+    if request.mode == RolloutMode.RL:
+        assert trace_correlation_id, (
+            f"FATAL: trace_correlation_id extraction failed for run_id={request.run_id}. "
+            f"policy_cfg_keys={sorted(policy_cfg.keys())} inference_url={policy_cfg.get('inference_url')}"
+        )
+    if trace_correlation_id:
+        policy_cfg["trace_correlation_id"] = trace_correlation_id
+
+    pipeline_metadata: dict[str, Any] = {}
+    if trace_correlation_id:
+        pipeline_metadata["trace_correlation_id"] = trace_correlation_id
+    if isinstance(policy_cfg.get("inference_url"), str) and policy_cfg["inference_url"]:
+        pipeline_metadata.setdefault("inference_url", policy_cfg["inference_url"])
+
     try:
         max_llm_calls = int(policy_cfg.get("max_llm_calls") or 10)
     except Exception:
@@ -585,17 +660,122 @@ async def rollout_executor(request: RolloutRequest, fastapi_request) -> RolloutR
         safety=LegacyRolloutSafetyConfig(**request.safety.model_dump()),
         training_session_id=request.training_session_id,
         synth_base_url=request.synth_base_url,
+        mode=request.mode,
     )
 
     legacy_response: LegacyRolloutResponse = await legacy_execute_rollout(
         legacy_request, fastapi_request
     )
     data = legacy_response.model_dump()
+    logger.debug(
+        "ROLLOUT_EXEC: legacy response keys=%s has_trace=%s",
+        sorted(data.keys()),
+        bool(data.get("trace")),
+    )
     metrics = data.get("metrics", {}) or {}
     metrics.setdefault("outcome_score", None)
     metrics.setdefault("events_score", None)
     metrics.setdefault("details", {})
     data["metrics"] = metrics
+
+    if data.get("trace") is None:
+        legacy_trace = getattr(legacy_response, "trace", None)
+        if legacy_trace is not None:
+            data["trace"] = legacy_trace
+        else:
+            tracer_factory = getattr(fastapi_request.app.state, "session_tracer_factory", None)
+            if callable(tracer_factory):
+                tracer = tracer_factory()
+                logger.debug(
+                    "ROLLOUT_EXEC: trace backfill factory=%s", type(tracer)
+                )
+                if isinstance(tracer, SessionTracer):
+                    try:
+                        await tracer.initialize()
+                        if tracer.db is not None:
+                            trace_row = await tracer.db.get_session_trace(request.run_id)
+                            if trace_row is not None:
+                                data["trace"] = trace_row
+                    except Exception as exc:
+                        logger.warning("TRACE_BACKFILL_FAIL: %s", exc)
+                    finally:
+                        with suppress(Exception):
+                            await tracer.close()
+
+    final_cid = trace_correlation_id or f"trace_{request.run_id}"
+    data["trace_correlation_id"] = final_cid
+
+    existing_meta = data.get("pipeline_metadata")
+    if not isinstance(existing_meta, dict):
+        existing_meta = {}
+    existing_meta.setdefault("trace_correlation_id", final_cid)
+    if isinstance(policy_cfg.get("inference_url"), str) and policy_cfg["inference_url"]:
+        existing_meta.setdefault("inference_url", policy_cfg["inference_url"])
+    data["pipeline_metadata"] = existing_meta
+
+    # Propagate inference_url into each legacy trajectory entry for downstream tooling.
+    inferred_url = policy_cfg.get("inference_url")
+    # Normalize the url before propagating into trajectories
+    try:
+        from .synth_envs_hosted.utils import (
+            ensure_chat_completions_url as _ensure_cc,
+            force_normalize_chat_completions_url as _force_cc,
+        )
+        if isinstance(inferred_url, str) and inferred_url:
+            inferred_url = _force_cc(inferred_url)
+            inferred_url = _ensure_cc(inferred_url, mode=request.mode)
+    except Exception:
+        pass
+
+    if "trajectories" in data:
+        normalized_trajs: list[dict[str, Any]] = []
+        for traj in data.get("trajectories", []):
+            if isinstance(traj, BaseModel):
+                traj_dict = traj.model_dump()
+            elif isinstance(traj, dict):
+                traj_dict = dict(traj)
+            else:
+                continue
+            traj_dict.setdefault("trace_correlation_id", final_cid)
+            if isinstance(inferred_url, str) and inferred_url and not traj_dict.get("inference_url"):
+                traj_dict["inference_url"] = inferred_url
+
+            # Inject nested info.meta.inference_url for each step (required by RL trainer)
+            try:
+                steps = traj_dict.get("steps", [])
+                if isinstance(steps, list):
+                    for step in steps:
+                        if not isinstance(step, dict):
+                            continue
+                        info = step.get("info")
+                        if not isinstance(info, dict):
+                            info = {}
+                        meta = info.get("meta")
+                        if not isinstance(meta, dict):
+                            meta = {}
+                        if isinstance(inferred_url, str) and inferred_url and not meta.get("inference_url"):
+                            meta["inference_url"] = inferred_url
+                        info["meta"] = meta
+                        step["info"] = info
+            except Exception:
+                pass
+
+            normalized_trajs.append(traj_dict)
+        if normalized_trajs:
+            data["trajectories"] = normalized_trajs
+
+    if data.get("trace") is None:
+        data["trace"] = {
+            "session_id": request.run_id,
+            "created_at": datetime.now(UTC).isoformat(),
+            "metadata": dict(existing_meta),
+            "event_history": [],
+            "markov_blanket_message_history": [],
+        }
+        raise HTTPException(
+            status_code=500, detail="trace_payload_missing: task app did not emit a SessionTrace"
+        )
+
     return RolloutResponse.model_validate(data)
 
 

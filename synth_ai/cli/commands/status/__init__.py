@@ -8,8 +8,10 @@ from .config import resolve_backend_config
 from .subcommands.files import files_group
 from .subcommands.jobs import jobs_group
 from .subcommands.models import models_group
+from .subcommands.pricing import pricing_command as pricing_status_command
 from .subcommands.runs import runs_group
 from .subcommands.summary import summary_command
+from .subcommands.usage import usage_command as usage_status_command
 
 
 def _attach_group(cli: click.Group, group: click.Group, name: str) -> None:
@@ -54,6 +56,8 @@ def register(cli: click.Group) -> None:
     status.add_command(files_group, name="files")
     status.add_command(runs_group, name="runs")
     status.add_command(summary_command, name="summary")
+    status.add_command(usage_status_command, name="usage")
+    status.add_command(pricing_status_command, name="pricing")
 
     cli.add_command(status, name="status")
     _attach_group(cli, jobs_group, "jobs")

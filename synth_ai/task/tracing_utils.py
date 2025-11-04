@@ -26,34 +26,34 @@ def tracing_env_enabled(default: bool = False) -> bool:
 
 
 def resolve_tracing_db_url() -> str | None:
-    """Resolve tracing database URL and prefer async drivers for SQLite."""
-
-    db_url = os.getenv("TURSO_LOCAL_DB_URL")
-    if db_url:
+    """Resolve tracing database URL using centralized tracing_v3 config logic.
+    
+    This delegates to synth_ai.tracing_v3.config.resolve_trace_db_settings() which
+    handles Modal detection, remote Turso, local sqld, and SQLite fallbacks.
+    """
+    try:
+        from synth_ai.tracing_v3.config import resolve_trace_db_settings
+        db_url, _ = resolve_trace_db_settings(ensure_dir=True)
         return db_url
-
-    sqld_path = os.getenv("SQLD_DB_PATH")
-    if sqld_path:
-        path = Path(sqld_path).expanduser()
-        if path.is_dir():
-            candidate = path / "dbs" / "default" / "data"
-            candidate.parent.mkdir(parents=True, exist_ok=True)
-            return f"sqlite+aiosqlite:///{candidate}"
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            return f"sqlite+aiosqlite:///{path}"
-
-    existing = os.getenv("TASKAPP_TRACE_DB_PATH")
-    if existing:
-        path = Path(existing).expanduser()
-    else:
+    except ImportError:
+        # Fallback if tracing_v3 is not available (shouldn't happen in normal usage)
+        db_url = (
+            os.getenv("TURSO_LOCAL_DB_URL")
+            or os.getenv("LIBSQL_URL")
+            or os.getenv("SYNTH_TRACES_DB")
+        )
+        if db_url:
+            return db_url
+        
+        # Auto-provision local sqld location for callers that rely on trace directories.
         base_dir = TRACE_DB_DIR.expanduser()
         base_dir.mkdir(parents=True, exist_ok=True)
-        path = base_dir / canonical_trace_db_name(timestamp=datetime.now())
-        os.environ["TASKAPP_TRACE_DB_PATH"] = str(path)
-        os.environ.setdefault("SQLD_DB_PATH", str(path))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return f"sqlite+aiosqlite:///{path}"
+        candidate = base_dir / canonical_trace_db_name(timestamp=datetime.now())
+        os.environ["TASKAPP_TRACE_DB_PATH"] = str(candidate)
+        os.environ.setdefault("SQLD_DB_PATH", str(candidate))
+        
+        default_url = os.getenv("LIBSQL_DEFAULT_URL", "http://127.0.0.1:8081")
+        return default_url
 
 
 def build_tracer_factory(

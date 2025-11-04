@@ -1,7 +1,27 @@
 from collections.abc import Sequence
-from typing import Any, cast
+from pathlib import Path
+from typing import Any, Callable, cast
 
 import click
+
+
+def prompt_choice(msg: str, choices: list[str]) -> str:
+    print(msg)
+    for i, label in enumerate(choices, start=1):
+        print(f" [{i}] {label}")
+    while True:
+        try:
+            choice = click.prompt(
+                "Select an option",
+                default=1,
+                type=int,
+                show_choices=False
+            )
+        except click.Abort:
+            raise
+        if 1 <= choice <= len(choices):
+            return choices[choice - 1]
+        print(f"Invalid selection. Enter a number between 1 and {len(choices)}")
 
 
 class PromptedChoiceType(click.Choice):
@@ -61,9 +81,15 @@ class PromptedChoiceType(click.Choice):
         for index, choice in enumerate(self.choices, 1):
             click.echo(f" [{index}] {choice}")
         while True:
-            selection = click.prompt("> ", type=int)
-            if 1 <= selection <= len(self.choices):
-                return cast(str, self.choices[selection - 1])
+            choice = click.prompt(
+                "Select an option",
+                default=1,
+                type=int,
+                show_choices=False
+            )
+            if 1 <= choice <= len(self.choices):
+                print('')
+                return cast(str, self.choices[choice - 1])
             click.echo(f"Invalid selection for {arg_name}, please try again")
 
     def _get_cmd_name(self, ctx: click.Context | None) -> str:
@@ -122,7 +148,125 @@ class PromptedChoiceOption(click.Option):
         if isinstance(option_type, PromptedChoiceType):
             return option_type._prompt_user(self, ctx)
         return super().prompt_for_value(ctx)
-    
+
+
+def prompt_for_path(
+    label: str,
+    *,
+    available_paths: Sequence[str | Path] | None = None,
+    file_type: str | None = None,
+    path_type: click.Path | None = None,
+) -> Path:
+    """Prompt for a filesystem path, optionally offering curated choices."""
+
+    def _normalize_suffix(ext: str | None) -> str | None:
+        if not ext:
+            return None
+        stripped = ext.strip()
+        if not stripped:
+            return None
+        if not stripped.startswith("."):
+            stripped = f".{stripped}"
+        return stripped.lower()
+
+    def _format_label(text: str) -> str:
+        return text.strip() or "path"
+
+    expected_suffix = _normalize_suffix(file_type)
+    prompt_label = _format_label(label)
+
+    path_type = path_type or click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        path_type=Path,
+    )
+
+    candidates: list[str] = []
+    if available_paths:
+        seen: set[str] = set()
+        for entry in available_paths:
+            candidate = str(Path(entry))
+            suffix = Path(candidate).suffix.lower()
+            if candidate in seen:
+                continue
+            if expected_suffix and suffix != expected_suffix:
+                continue
+            seen.add(candidate)
+            candidates.append(candidate)
+
+    ctx = click.get_current_context(silent=True)
+
+    while True:
+        if candidates:
+            click.echo(f"\nPlease choose a {prompt_label}:")
+            for index, option in enumerate(candidates, 1):
+                click.echo(f" [{index}] {option}")
+            custom_index = len(candidates) + 1
+            click.echo(f" [{custom_index}] Enter a custom path")
+
+            selection = click.prompt("> ", type=int)
+            if 1 <= selection <= len(candidates):
+                raw_value = candidates[selection - 1]
+            elif selection == custom_index:
+                raw_value = click.prompt(prompt_label, type=path_type)
+            else:
+                click.echo("Invalid selection, please try again")
+                continue
+        else:
+            raw_value = click.prompt(prompt_label, type=path_type)
+
+        try:
+            converted = path_type.convert(str(raw_value), None, ctx)
+        except click.BadParameter as exc:
+            click.echo(str(exc))
+            continue
+
+        result = converted if isinstance(converted, Path) else Path(converted)
+        if expected_suffix and result.suffix.lower() != expected_suffix:
+            click.echo(f"Expected a {expected_suffix} file. Received: {result}")
+            continue
+        
+        return result
+
+
+class PromptedPathOption(click.Option):
+    """Option that prompts for a filesystem path when omitted."""
+
+    def __init__(
+        self,
+        *args: Any,
+        available_paths: Sequence[str | Path] | None = None,
+        file_type: str | None = None,
+        path_type: click.Path | None = None,
+        prompt_guard: Callable[[click.Context], bool] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self._available_paths = available_paths
+        self._file_type = file_type
+        self._path_type = path_type
+        self._prompt_guard = prompt_guard
+        kwargs.setdefault("prompt", True)
+        kwargs.setdefault("prompt_required", True)
+        super().__init__(*args, **kwargs)
+
+    def prompt_for_value(self, ctx: click.Context) -> Any:
+        if not ctx:
+            return super().prompt_for_value(ctx)
+        if self._prompt_guard is not None:
+            try:
+                if not self._prompt_guard(ctx):
+                    return None
+            except Exception:
+                return None
+        label = self.help or self.name or "path"
+        return prompt_for_path(
+            label,
+            available_paths=self._available_paths,
+            file_type=self._file_type,
+            path_type=self._path_type or getattr(self, "type", None),
+        )
+
 
 def print_next_step(message: str, lines: Sequence[str]) -> None:
     print(f"\n➡️  Next, {message}:")
