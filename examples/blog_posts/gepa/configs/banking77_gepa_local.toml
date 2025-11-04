@@ -2,6 +2,7 @@
 algorithm = "gepa"
 task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
 task_app_id = "banking77"
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 # Training split config
 [prompt_learning.env_config]
 pool = "train"
