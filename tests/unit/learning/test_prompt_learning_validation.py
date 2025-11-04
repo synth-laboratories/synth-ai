@@ -678,7 +678,7 @@ class TestValidatePromptLearningConfig:
             path.unlink(missing_ok=True)
 
     def test_missing_mipro_section_raises_error(self) -> None:
-        """Test that missing mipro section raises error when algorithm is mipro."""
+        """Test that MIPRO algorithm raises not implemented error."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "mipro",
@@ -694,8 +694,12 @@ class TestValidatePromptLearningConfig:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             path = Path(f.name)
         try:
-            with pytest.raises(Exception, match="mipro"):
+            with pytest.raises(Exception) as exc_info:
                 validate_prompt_learning_config(config_data, path)
+            error_msg = str(exc_info.value).lower()
+            assert "not yet implemented" in error_msg
+            assert "mipro" in error_msg
+            assert "gepa" in error_msg  # Should suggest GEPA instead
         finally:
             path.unlink(missing_ok=True)
 

@@ -57,7 +57,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     elif algorithm not in ("gepa", "mipro"):
         errors.append(
             f"Invalid algorithm: '{algorithm}'\n"
-            f"  Must be one of: 'gepa', 'mipro'\n"
+            f"  Must be one of: 'gepa', 'mipro' (Note: MIPRO not yet implemented)\n"
             f"  Got: '{algorithm}'"
         )
     
@@ -150,19 +150,17 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     errors.append("prompt_learning.gepa.max_spend_usd must be numeric")
     
     elif algorithm == "mipro":
-        mipro_config = pl_section.get("mipro")
-        if not mipro_config:
-            errors.append(
-                "Missing [prompt_learning.mipro] section for MIPRO algorithm\n"
-                "  Example:\n"
-                "    [prompt_learning.mipro]\n"
-                "    num_candidates = 10\n"
-                "    num_threads = 4"
-            )
-        elif not isinstance(mipro_config, dict):
-            errors.append(
-                f"prompt_learning.mipro must be a table/dict, got {type(mipro_config).__name__}"
-            )
+        # MIPRO is not yet implemented in synth-ai
+        errors.append(
+            "MIPRO algorithm is not yet implemented in synth-ai.\n"
+            "  Please use 'gepa' algorithm for prompt optimization.\n"
+            "  MIPRO support is planned for a future release.\n"
+            "  Example:\n"
+            "    [prompt_learning]\n"
+            "    algorithm = \"gepa\"\n"
+            "    [prompt_learning.gepa]\n"
+            "    # ... gepa configuration"
+        )
     
     # Raise all errors at once for better UX
     if errors:
