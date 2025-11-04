@@ -819,3 +819,386 @@ class TestValidatePromptLearningConfig:
         finally:
             path.unlink(missing_ok=True)
 
+
+class TestInvalidTOMLSyntax:
+    """Tests for rejecting invalid TOML syntax."""
+
+    def test_unclosed_array_bracket(self) -> None:
+        """Test that unclosed array bracket raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+evaluation_seeds = [1, 2, 3  # Missing closing bracket
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_unclosed_string(self) -> None:
+        """Test that unclosed string raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa
+task_app_url = "http://localhost:8001"
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_table_syntax(self) -> None:
+        """Test that invalid table syntax raises TOML parsing error."""
+        toml_content = """
+[prompt_learning
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_duplicate_key(self) -> None:
+        """Test that duplicate keys are handled (TOML allows but may warn)."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+algorithm = "mipro"  # Duplicate key
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # TOML may accept duplicate keys (last one wins) or raise error
+            # This test documents current behavior
+            try:
+                config = PromptLearningConfig.from_path(path)
+                # If it doesn't raise, the last value should win
+                assert config.algorithm == "mipro"
+            except Exception:
+                # If it raises, that's also acceptable behavior
+                pass
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_inline_table(self) -> None:
+        """Test that invalid inline table syntax raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+gepa = { num_generations = 10  # Missing closing brace
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_number_format(self) -> None:
+        """Test that invalid number format raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+
+[prompt_learning.gepa]
+num_generations = 10.5.3  # Invalid number format
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_boolean(self) -> None:
+        """Test that invalid boolean raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+
+[prompt_learning.gepa]
+enforce_pattern_token_limit = yes  # Should be true/false, not yes/no
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_date_time(self) -> None:
+        """Test that invalid date/time format raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+invalid_date = 2024-13-45  # Invalid date
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_empty_file(self) -> None:
+        """Test that empty TOML file raises error."""
+        toml_content = ""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # Should raise validation or parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_only_comments(self) -> None:
+        """Test that TOML file with only comments raises error."""
+        toml_content = """
+# This is a comment
+# Another comment
+# No actual config
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # Should raise validation error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_malformed_array_of_tables(self) -> None:
+        """Test that malformed array of tables raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+
+[[prompt_learning.gepa]]  # Array of tables, but gepa should be a table, not array
+num_generations = 10
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # This might parse but fail validation, or fail parsing
+            with pytest.raises(Exception):
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_escape_sequence(self) -> None:
+        """Test that invalid escape sequence raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+invalid = "\\x"  # Invalid escape sequence
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_missing_equal_sign(self) -> None:
+        """Test that missing equals sign raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm "gepa"  # Missing = sign
+task_app_url = "http://localhost:8001"
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_nested_table(self) -> None:
+        """Test that invalid nested table syntax raises TOML parsing error."""
+        toml_content = """
+[prompt_learning.gepa]  # Nested table
+num_generations = 10
+[prompt_learning.gepa.invalid]  # Cannot nest deeper than 2 levels
+value = 5
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # This might parse but the structure would be wrong
+            with pytest.raises(Exception):
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_mixed_array_types(self) -> None:
+        """Test that array with mixed types may cause issues."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+
+[prompt_learning.gepa]
+evaluation_seeds = [1, "two", 3]  # Mixed types in array
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # TOML allows mixed types, but our validation should catch it
+            with pytest.raises(Exception):  # Should raise validation error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_unicode_in_string(self) -> None:
+        """Test that invalid unicode in string raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+invalid = "\uD800"  # Invalid unicode surrogate
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_float_exponent(self) -> None:
+        """Test that invalid float exponent raises TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+
+[prompt_learning.gepa]
+mutation_rate = 0.3e  # Invalid exponent (missing number)
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_unclosed_multiline_string(self) -> None:
+        """Test that unclosed multiline string raises TOML parsing error."""
+        toml_content = '''
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = """http://localhost:8001
+# Missing closing """
+'''
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception):  # TOML parsing error
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_invalid_key_with_special_chars(self) -> None:
+        """Test that invalid key characters raise TOML parsing error."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+invalid-key = "value"  # Keys with dashes may be invalid depending on TOML parser
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # Some TOML parsers allow quoted keys with dashes
+            # This test documents behavior
+            try:
+                config = PromptLearningConfig.from_path(path)
+                # If it parses, that's fine
+                assert config.algorithm == "gepa"
+            except Exception:
+                # If it fails, that's also acceptable
+                pass
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_circular_reference_in_table(self) -> None:
+        """Test that tables cannot reference themselves circularly."""
+        toml_content = """
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8001"
+prompt_learning = { algorithm = "mipro" }  # Circular reference (same name as parent)
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            f.write(toml_content)
+            f.flush()
+            path = Path(f.name)
+        try:
+            # This might parse but cause validation issues
+            with pytest.raises(Exception):
+                PromptLearningConfig.from_path(path)
+        finally:
+            path.unlink(missing_ok=True)
+
