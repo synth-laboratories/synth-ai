@@ -58,6 +58,9 @@ archive_size = 30
 pareto_eps = 1e-6
 max_concurrent_rollouts = 20  # Maximum concurrent rollouts across all transformations
 
+# Instruction proposer selection
+proposer_type = "dspy"
+
 # LLM-guided mutation configuration
 mutation_llm_model = "openai/gpt-oss-20b"
 mutation_llm_provider = "groq"
