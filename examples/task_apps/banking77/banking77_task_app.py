@@ -10,7 +10,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
 
-import httpx
+# removed top-level httpx import to allow modal deploy without local deps
 from datasets import load_dataset
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
@@ -222,6 +222,12 @@ async def call_chat_completion(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
+
+    # Lazy import httpx to avoid top-level import during modal code gen
+    try:
+        import httpx  # type: ignore
+    except Exception as _exc:  # pragma: no cover
+        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(inference_url, json=payload, headers=headers)
