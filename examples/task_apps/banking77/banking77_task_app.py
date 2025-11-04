@@ -212,21 +212,21 @@ async def call_chat_completion(
     ]
     print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
 
+    # Assert we are NOT hitting a provider host directly for policy
+    if is_provider_host:
+        # Print full policy config for forensics
+        with contextlib.suppress(Exception):
+            print(
+                f"[TASK_APP] POLICY_CONFIG: {json.dumps(policy_config, ensure_ascii=False)}",
+                flush=True,
+            )
+        raise HTTPException(status_code=502, detail=f"Direct provider URL not allowed for policy: {route_base}")
+
     # If routing to proxy/interceptor, DO NOT require or send provider API key
     headers: dict[str, str]
-    if not is_provider_host:
-        headers = {"Content-Type": "application/json"}
-        with contextlib.suppress(Exception):
-            print("[TASK_APP] PROXY ROUTING (no provider key sent)", flush=True)
-    else:
-        api_key = None
-        if provider == "groq":
-            api_key = os.getenv("GROQ_API_KEY")
-        elif provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise HTTPException(status_code=400, detail=f"Missing API key for provider: {provider}")
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json"}
+    with contextlib.suppress(Exception):
+        print("[TASK_APP] PROXY ROUTING (no provider key sent)", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
