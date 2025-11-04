@@ -203,6 +203,14 @@ async def call_chat_completion(
         content = pattern.format(**placeholders)
         messages.append({"role": role, "content": content})
 
+    # Loud logging of rendered messages (trim for safety)
+    with contextlib.suppress(Exception):
+        preview = [
+            {"role": m.get("role"), "len": len(m.get("content", "")), "head": (m.get("content", "")[:160])}
+            for m in messages
+        ]
+        print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
+
     # If routing to proxy/interceptor, DO NOT require or send provider API key
     headers: dict[str, str]
     if not is_provider_host:
@@ -219,12 +227,34 @@ async def call_chat_completion(
             raise HTTPException(status_code=400, detail=f"Missing API key for provider: {provider}")
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
+    # Define tool schema for banking77 classification (no enum to keep payload small)
+    classify_tool = {
+        "type": "function",
+        "function": {
+            "name": TOOL_NAME,
+            "description": "Return the predicted banking77 intent label in the `intent` field.",
+            "parameters": {
+                "type": "object",
+                "properties": {"intent": {"type": "string"}},
+                "required": ["intent"],
+            },
+        },
+    }
+
     payload = {
         "model": model,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        "tools": [classify_tool],
+        "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
     }
+
+    with contextlib.suppress(Exception):
+        print(
+            f"[TASK_APP] OUTBOUND: model={model} temp={temperature} max={max_tokens} tools=1 choice={TOOL_NAME}",
+            flush=True,
+        )
 
     # Lazy import httpx to avoid top-level import during modal code gen
     try:
@@ -236,6 +266,16 @@ async def call_chat_completion(
         response = await client.post(inference_url, json=payload, headers=headers)
         response.raise_for_status()
         response_json = response.json()
+
+    with contextlib.suppress(Exception):
+        usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}
+        ch = (response_json.get("choices") or [{}])[0]
+        txt = (ch.get("message", {}) or {}).get("content", "")
+        tc = (ch.get("message", {}) or {}).get("tool_calls", [])
+        print(
+            f"[TASK_APP] RESPONSE: usage={usage} choices={len(response_json.get('choices', []))} first_len={len(txt)} tool_calls={len(tc)}",
+            flush=True,
+        )
 
     response_text = ""
     tool_calls = []
