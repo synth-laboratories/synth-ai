@@ -262,7 +262,7 @@ async def call_chat_completion(
     except Exception as _exc:  # pragma: no cover
         raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
 
-    # Proxy/tunnel assertions and logs (no hardening): DNS + /health
+    # Proxy target diagnostics (no preflight health; we go straight to POST)
     try:
         parsed = urlparse(inference_url)
         host = parsed.hostname or ""
@@ -271,22 +271,15 @@ async def call_chat_completion(
         addrinfo = socket.getaddrinfo(host, None)
         ips = sorted({ai[4][0] for ai in addrinfo})
         print(f"[TASK_APP] PROXY_DNS: ips={ips}", flush=True)
-        assert ips, "Proxy DNS resolved empty"
-        # Health check should target the root '/health' of the proxy, not '/v1/health'
-        base = f"{parsed.scheme}://{parsed.netloc}"
-        path_prefix = ""  # intentionally unused for health
-        async with httpx.AsyncClient(timeout=5.0) as _hc:
-            health_url = base + "/health"
-            print(f"[TASK_APP] PROXY_HEALTH URL: {health_url}", flush=True)
-            r = await _hc.get(health_url)
-            print(f"[TASK_APP] PROXY_HEALTH /health: {r.status_code}", flush=True)
-            assert r.status_code == 200, f"Proxy /health != 200: {r.status_code}"
     except Exception as e:
-        print(f"[TASK_APP] PROXY_ASSERTION_FAILED: {e}", flush=True)
-        raise
+        print(f"[TASK_APP] PROXY_DNS_ERROR: {e}", flush=True)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(inference_url, json=payload, headers=headers)
+        try:
+            response = await client.post(inference_url, json=payload, headers=headers)
+        except Exception as e:
+            print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
+            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
         # Always print status/headers/body BEFORE any error is raised
         print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
         print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
