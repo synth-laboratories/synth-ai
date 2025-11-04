@@ -204,12 +204,11 @@ async def call_chat_completion(
         messages.append({"role": role, "content": content})
 
     # Loud logging of rendered messages (trim for safety)
-    with contextlib.suppress(Exception):
-        preview = [
-            {"role": m.get("role"), "len": len(m.get("content", "")), "head": (m.get("content", "")[:160])}
-            for m in messages
-        ]
-        print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
+    preview = [
+        {"role": m.get("role"), "len": len(m.get("content", "")), "head": (m.get("content", "")[:160])}
+        for m in messages
+    ]
+    print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
 
     # If routing to proxy/interceptor, DO NOT require or send provider API key
     headers: dict[str, str]
@@ -250,11 +249,10 @@ async def call_chat_completion(
         "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
     }
 
-    with contextlib.suppress(Exception):
-        print(
-            f"[TASK_APP] OUTBOUND: model={model} temp={temperature} max={max_tokens} tools=1 choice={TOOL_NAME}",
-            flush=True,
-        )
+    print(
+        f"[TASK_APP] OUTBOUND: model={model} temp={temperature} max={max_tokens} tools=1 choice={TOOL_NAME}",
+        flush=True,
+    )
 
     # Lazy import httpx to avoid top-level import during modal code gen
     try:
@@ -264,16 +262,22 @@ async def call_chat_completion(
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(inference_url, json=payload, headers=headers)
-        response.raise_for_status()
-        response_json = response.json()
-        with contextlib.suppress(Exception):
-            print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
-            try:
-                print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
-            except Exception:
-                pass
+        # Always print status/headers/body BEFORE any error is raised
+        print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
+        print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
+        # Try JSON, fallback to text
+        try:
+            response_json = response.json()
             raw = json.dumps(response_json, ensure_ascii=False)
             print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
+        except Exception:
+            response_text = response.text
+            print(f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}", flush=True)
+            response.raise_for_status()
+            # If we got here, raise_for_status didn't throw; keep an empty JSON
+            response_json = {}
+        # After logging, surface HTTP errors
+        response.raise_for_status()
 
     with contextlib.suppress(Exception):
         usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}
@@ -390,8 +394,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             placeholders,
             default_messages,
         )
-        with contextlib.suppress(Exception):
-            print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
+        print(f"[TASK_APP] RAW_TOOL_CALLS: {tool_calls}", flush=True)
     except HTTPException as http_err:
         error_info = {"error": str(http_err.detail), "code": http_err.status_code}
     except Exception as exc:
@@ -405,25 +408,21 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 try:
                     args = json.loads(args_str)
                     predicted_intent = args.get("intent", "")
-                    with contextlib.suppress(Exception):
-                        print(f"[TASK_APP] PARSED_TOOL_INTENT: {predicted_intent}", flush=True)
+                    print(f"[TASK_APP] PARSED_TOOL_INTENT: {predicted_intent}", flush=True)
                 except Exception:
-                    with contextlib.suppress(Exception):
-                        print(f"[TASK_APP] TOOL_PARSE_ERROR: {args_str}", flush=True)
+                    print(f"[TASK_APP] TOOL_PARSE_ERROR: {args_str}", flush=True)
     elif response_text:
         predicted_intent = response_text.strip().split()[0] if response_text.strip() else ""
-        with contextlib.suppress(Exception):
-            print(f"[TASK_APP] CONTENT_FALLBACK_INTENT: {predicted_intent} text_len={len(response_text or '')}", flush=True)
+        print(f"[TASK_APP] CONTENT_FALLBACK_INTENT: {predicted_intent} text_len={len(response_text or '')}", flush=True)
 
     expected_intent = sample["label"]
     is_correct = (predicted_intent.lower().replace("_", " ") == expected_intent.lower().replace("_", " "))
     reward = 1.0 if is_correct else 0.0
 
-    with contextlib.suppress(Exception):
-        print(
-            f"[TASK_APP] PREDICTION: expected={expected_intent} predicted={predicted_intent} correct={is_correct}",
-            flush=True,
-        )
+    print(
+        f"[TASK_APP] PREDICTION: expected={expected_intent} predicted={predicted_intent} correct={is_correct}",
+        flush=True,
+    )
 
     info_payload = {
         "expected_intent": expected_intent,
