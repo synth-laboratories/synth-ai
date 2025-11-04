@@ -134,6 +134,7 @@ def deploy_cmd(
     env_file: tuple[str, ...],
     **kwargs
 ) -> None:
+    """Deploy a task app to local or Modal runtime."""
     match runtime:
         case "local":
             opts = {k: v for k, v in kwargs.items() if k in LOCAL_RUNTIME_OPTIONS}
@@ -157,3 +158,5 @@ def deploy_cmd(
                 modal_bin_path = Path(modal_bin_path)
             opts["modal_bin_path"] = modal_bin_path
             deploy_modal_app(ModalTaskAppConfig(**opts, task_app_path=task_app_path))
+
+__all__ = ["deploy_cmd"]

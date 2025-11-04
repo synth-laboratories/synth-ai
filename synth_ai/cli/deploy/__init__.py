@@ -13,9 +13,13 @@ from .errors import (
 )
 from .validation import validate_deploy_options
 
+# Alias for backwards compatibility
+deploy_cmd = command
+
 __all__ = [
     "command",
     "get_command",
+    "deploy_cmd",
     "DeployCliError",
     "MissingEnvironmentApiKeyError",
     "EnvironmentKeyLoadError",

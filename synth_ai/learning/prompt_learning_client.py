@@ -223,7 +223,7 @@ class PromptLearningClient:
 
 
 # Synchronous wrapper for convenience
-def get_prompts(job_id: str, base_url: str, api_key: str) -> Dict[str, Any]:
+def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
     """Synchronous wrapper to get prompts from a job.
     
     Args:
@@ -232,7 +232,7 @@ def get_prompts(job_id: str, base_url: str, api_key: str) -> Dict[str, Any]:
         api_key: API key for authentication
         
     Returns:
-        Dictionary with best_prompt, best_score, top_prompts, etc.
+        PromptResults dataclass with prompt results
     """
     import asyncio
     

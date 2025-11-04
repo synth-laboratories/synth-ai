@@ -3,7 +3,7 @@ from __future__ import annotations
 import click
 from rich.table import Table
 
-from ....pricing.model_pricing import MODEL_PRICES
+from synth_ai.pricing.model_pricing import MODEL_PRICES
 from ..formatters import console
 
 

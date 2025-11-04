@@ -6,9 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
-if TYPE_CHECKING:
-    from synth_ai.baseline.config import TaskResult
-
 
 class BaselineTaskRunner:
     """

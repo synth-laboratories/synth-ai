@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
 import json
 import os
@@ -1026,7 +1027,7 @@ def _save_prompt_learning_results_locally(
         
         click.echo(f"\n📄 Results saved locally to: {output_file}")
         
-    except (IOError, PermissionError, OSError) as e:
+    except (PermissionError, OSError) as e:
         click.echo(f"⚠️  Could not save results file locally: {e}")
     except Exception as e:
         click.echo(f"⚠️  Unexpected error saving results file: {e}")

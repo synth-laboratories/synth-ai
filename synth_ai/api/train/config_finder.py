@@ -101,7 +101,8 @@ def _infer_config_type(data: dict) -> str:
         if algorithm in {"mipro", "gepa"}:
             return "prompt_learning"
     # Also check if top-level has prompt_learning indicators
-    if isinstance(data.get("algorithm"), str) and data.get("algorithm").lower() in {"mipro", "gepa"}:
+    algorithm = data.get("algorithm")
+    if isinstance(algorithm, str) and algorithm.lower() in {"mipro", "gepa"}:
         return "prompt_learning"
     
     # 1) Strong signals from [algorithm]

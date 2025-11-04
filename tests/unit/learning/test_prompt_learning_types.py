@@ -1,8 +1,7 @@
 """Unit tests for prompt learning type definitions."""
 
-import pytest
-from dataclasses import asdict
 
+import pytest
 from synth_ai.learning.prompt_learning_types import (
     BestPromptEventData,
     Candidate,

@@ -7,7 +7,20 @@ import pytest
 import click
 from click.testing import CliRunner
 
-from synth_ai.cli.deploy import deploy_cmd
+# Import from the file directly, not the package
+# There's both synth_ai/cli/deploy.py (file) and synth_ai/cli/deploy/ (package)
+# We need the file, not the package
+import importlib.util
+import sys
+from pathlib import Path
+
+_deploy_file = Path(__file__).parent.parent.parent.parent / "synth_ai" / "cli" / "deploy.py"
+_spec = importlib.util.spec_from_file_location("synth_ai.cli.deploy_file", _deploy_file)
+_deploy_module = importlib.util.module_from_spec(_spec)
+sys.modules["synth_ai.cli.deploy_file"] = _deploy_module
+if _spec.loader:
+    _spec.loader.exec_module(_deploy_module)
+deploy_cmd = _deploy_module.deploy_cmd
 from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
 
 
@@ -27,7 +40,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     def fake_deploy(cfg: LocalTaskAppConfig) -> None:
         captured["cfg"] = cfg
 
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_uvicorn_app", fake_deploy)
+    monkeypatch.setattr(_deploy_module, "deploy_uvicorn_app", fake_deploy)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
@@ -62,8 +75,8 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
         captured["cfg"] = cfg
 
     modal_cli_path = tmp_path / "modal"
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", fake_modal)
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: modal_cli_path)
+    monkeypatch.setattr(_deploy_module, "deploy_modal_app", fake_modal)
+    monkeypatch.setattr(_deploy_module, "get_default_modal_bin_path", lambda: modal_cli_path)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
@@ -94,20 +107,20 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
 
 def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+    monkeypatch.setattr(_deploy_module, "get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr(_deploy_module, "deploy_modal_app", lambda cfg: None)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(task_app_path=task_app, runtime="modal")
+        deploy_cmd.callback(task_app_path=task_app, runtime="modal", env_file=())
 
     assert "Modal app path required" in str(exc.value)
 
 
 def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+    monkeypatch.setattr(_deploy_module, "get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr(_deploy_module, "deploy_modal_app", lambda cfg: None)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
@@ -117,6 +130,7 @@ def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPat
         deploy_cmd.callback(
             task_app_path=task_app,
             runtime="modal",
+            env_file=(),
             modal_app_path=modal_app,
             cmd_arg="serve",
             dry_run=True,
