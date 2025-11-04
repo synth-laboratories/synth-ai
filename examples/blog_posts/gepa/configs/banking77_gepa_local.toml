@@ -30,7 +30,7 @@ query = "REQUIRED"  # Will be provided by task app at runtime
 # Policy configuration (model, provider, etc.)
 [prompt_learning.policy]
 inference_mode = "synth_hosted"
-model = "openai/gpt-oss-20b"
+model = "llama-3.1-70b-versatile"
 provider = "groq"
 inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
