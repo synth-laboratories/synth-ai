@@ -68,7 +68,8 @@ class Banking77Dataset:
             raise ValueError(f"Unknown split: {split}. Available: {AVAILABLE_SPLITS}")
         if split not in self._cache:
             try:
-                ds = load_dataset(DATASET_NAME, split=split, trust_remote_code=False)
+                from datasets import load_dataset as _load_dataset  # lazy import
+                ds = _load_dataset(DATASET_NAME, split=split, trust_remote_code=False)
                 self._cache[split] = ds
                 if self._label_names is None and hasattr(ds.features.get("label"), "names"):
                     self._label_names = ds.features["label"].names
