@@ -405,7 +405,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 def build_dataset() -> tuple[TaskDatasetRegistry, Banking77Dataset]:
     registry = TaskDatasetRegistry()
     dataset = Banking77Dataset()
-    dataset.ensure_ready([DEFAULT_SPLIT])
+    # Lazy load dataset on first use to avoid cold-start latency/timeouts
     registry.register(BANKING77_DATASET_SPEC, lambda _spec: dataset, cache=True)
     return registry, dataset
 
