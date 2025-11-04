@@ -277,6 +277,33 @@ async def call_chat_completion(
             flush=True,
         )
 
+    # Hard assertions: require either tool_calls or non-empty content
+    try:
+        choices = response_json.get("choices") or []
+        first_msg = (choices[0] or {}).get("message", {}) if choices else {}
+        tool_calls = first_msg.get("tool_calls", []) or []
+        content_text = str(first_msg.get("content", ""))
+        if not tool_calls and not content_text.strip():
+            raise HTTPException(status_code=502, detail="Empty model output: no tool_calls and no content")
+        # If tool_calls present, validate schema
+        if tool_calls:
+            for call in tool_calls:
+                fn = (call or {}).get("function", {}) or {}
+                if fn.get("name") != TOOL_NAME:
+                    raise HTTPException(status_code=502, detail=f"Unexpected tool name: {fn.get('name')}")
+                args_raw = fn.get("arguments", "{}")
+                try:
+                    args = json.loads(args_raw)
+                except Exception:
+                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON")
+                if not str(args.get("intent", "")).strip():
+                    raise HTTPException(status_code=502, detail="Tool call missing 'intent'")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Convert unexpected errors to HTTP for visibility
+        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}")
+
     response_text = ""
     tool_calls = []
 
