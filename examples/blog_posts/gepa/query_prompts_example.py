@@ -37,12 +37,11 @@ def main():
     results = get_prompts(job_id, base_url, api_key)
     
     # Print best score
-    best_score = results["best_score"]
-    if best_score is not None:
-        print(f"\n🏆 Best Score: {best_score:.3f} ({best_score * 100:.1f}%)")
+    if results.best_score is not None:
+        print(f"\n🏆 Best Score: {results.best_score:.3f} ({results.best_score * 100:.1f}%)")
     
     # Print top-K prompts with scores
-    top_prompts = results["top_prompts"]
+    top_prompts = results.top_prompts
     if top_prompts:
         print(f"\n📝 Top {len(top_prompts)} Prompts:")
         print("=" * 80)

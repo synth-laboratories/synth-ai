@@ -57,6 +57,35 @@ _MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in
 _RESULTS_FILE_MAX_EVENTS = 10000  # Max events to fetch for results file generation
 
 
+def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MAX_TEXT_REPLACEMENTS_DISPLAY) -> list[str]:
+    """Extract and format text replacements from a candidate object.
+    
+    Args:
+        obj: Candidate object dictionary containing text_replacements
+        max_display: Maximum number of replacements to display
+        
+    Returns:
+        List of formatted lines showing role and replacement text
+    """
+    lines = []
+    if not obj or not isinstance(obj, dict):
+        return lines
+    
+    text_replacements = obj.get("text_replacements", [])
+    if not text_replacements or not isinstance(text_replacements, list):
+        return lines
+    
+    for replacement in text_replacements[:max_display]:
+        if isinstance(replacement, dict):
+            new_text = replacement.get("new_text", "")
+            role = replacement.get("apply_to_role", "system")
+            if new_text:
+                lines.append(f"  [{role.upper()}]: {new_text}")
+                lines.append("")
+    
+    return lines
+
+
 def _discover_dataset_candidates(
     config_path: Path, limit: int = 50, timeout: float = 10.0
 ) -> list[Path]:
@@ -804,7 +833,8 @@ def handle_sft(
             timeout_seconds=poll_timeout,
         )
         final_status = asyncio.run(streamer.stream_until_terminal())
-        click.echo(f"Final status: {final_status.get('status', 'unknown')}")
+        status = final_status.get('status') if isinstance(final_status, dict) else 'unknown'
+        click.echo(f"Final status: {status}")
         click.echo(preview_json(final_status, limit=600))
     finally:
         if limited_path is not None:
@@ -836,7 +866,15 @@ def _save_prompt_learning_results_locally(
             return
         
         data = resp.json()
-        events = data.get("events", []) if isinstance(data, dict) else []
+        # Validate response structure
+        if not isinstance(data, dict):
+            click.echo(f"⚠️  Unexpected response type: {type(data).__name__}")
+            return
+        
+        events = data.get("events", [])
+        if not isinstance(events, list):
+            click.echo(f"⚠️  Events field is not a list: {type(events).__name__}")
+            return
         
         if not events:
             return
@@ -849,8 +887,13 @@ def _save_prompt_learning_results_locally(
         optimized_candidates = []
         
         for event in events:
+            if not isinstance(event, dict):
+                continue  # Skip malformed events
+            
             event_type = event.get("type", "")
             event_data = event.get("data", {})
+            if not isinstance(event_data, dict):
+                event_data = {}  # Fallback to empty dict for safety
             
             if event_type == _PROMPT_LEARNING_EVENT_BEST_PROMPT:
                 best_score = event_data.get("best_score")
@@ -891,11 +934,15 @@ def _save_prompt_learning_results_locally(
         lines.append("")
         
         # Add best prompt if available
-        if best_prompt:
+        if best_prompt and isinstance(best_prompt, dict):
             lines.append("🏆 BEST PROMPT")
             lines.append("-" * 80)
-            sections = best_prompt.get("sections", []) if isinstance(best_prompt, dict) else []
+            sections = best_prompt.get("sections", [])
+            if not isinstance(sections, list):
+                sections = []
             for sec in sections:
+                if not isinstance(sec, dict):
+                    continue
                 role = sec.get("role", "unknown")
                 content = sec.get("content", "")
                 lines.append(f"\n[{role.upper()}]:")
@@ -903,13 +950,15 @@ def _save_prompt_learning_results_locally(
             lines.append("")
         
         # Add optimized candidates
-        if optimized_candidates:
+        if optimized_candidates and isinstance(optimized_candidates, list):
             lines.append("=" * 80)
             lines.append(f"✨ TOP OPTIMIZED CANDIDATES ({len(optimized_candidates)})")
             lines.append("=" * 80)
             lines.append("")
             
             for idx, cand in enumerate(optimized_candidates):
+                if not isinstance(cand, dict):
+                    continue
                 candidate_score = cand.get("score") or {}
                 accuracy = candidate_score.get("accuracy", 0.0)
                 prompt_length = candidate_score.get("prompt_length", 0)
@@ -928,26 +977,22 @@ def _save_prompt_learning_results_locally(
                 
                 obj = cand.get("object")
                 if obj and isinstance(obj, dict) and payload_kind == "transformation":
-                        data_obj = obj.get("data", {})
-                        text_replacements = data_obj.get("text_replacements", [])
-                        if text_replacements:
-                            for replacement in text_replacements[:_MAX_TEXT_REPLACEMENTS_DISPLAY]:
-                                if isinstance(replacement, dict):
-                                    new_text = replacement.get("new_text", "")
-                                    role = replacement.get("apply_to_role", "system")
-                                    if new_text:
-                                        lines.append(f"  [{role.upper()}]: {new_text}")
-                                        lines.append("")
+                    # For transformations, text_replacements are nested in data
+                    data_obj = obj.get("data", {})
+                    replacement_lines = _format_text_replacements(data_obj)
+                    lines.extend(replacement_lines)
                 lines.append("")
         
         # Add all proposal candidates
-        if attempted_candidates:
+        if attempted_candidates and isinstance(attempted_candidates, list):
             lines.append("=" * 80)
             lines.append(f"💡 ALL PROPOSAL CANDIDATES ({len(attempted_candidates)})")
             lines.append("=" * 80)
             lines.append("")
             
             for idx, cand in enumerate(attempted_candidates):
+                if not isinstance(cand, dict):
+                    continue
                 accuracy = cand.get('accuracy', 0.0)
                 prompt_length = cand.get('prompt_length', 0)
                 tool_rate = cand.get('tool_call_rate', 0.0)
@@ -959,15 +1004,9 @@ def _save_prompt_learning_results_locally(
                 
                 obj = cand.get("object")
                 if obj and isinstance(obj, dict):
-                    text_replacements = obj.get("text_replacements", [])
-                    if text_replacements and isinstance(text_replacements, list):
-                        for replacement in text_replacements[:_MAX_TEXT_REPLACEMENTS_DISPLAY]:
-                            if isinstance(replacement, dict):
-                                new_text = replacement.get("new_text", "")
-                                role = replacement.get("apply_to_role", "system")
-                                if new_text:
-                                    lines.append(f"  [{role.upper()}]: {new_text}")
-                                    lines.append("")
+                    # For proposals, text_replacements are at top level of object
+                    replacement_lines = _format_text_replacements(obj)
+                    lines.extend(replacement_lines)
                 lines.append("")
         
         lines.append("=" * 80)

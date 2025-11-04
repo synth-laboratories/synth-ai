@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from .._utils.http import AsyncHttpClient
+from .prompt_learning_types import PromptResults
 
 
 def _validate_job_id(job_id: str) -> None:
@@ -55,7 +56,7 @@ class PromptLearningClient:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
-        self, job_id: str, *, since_seq: int = 0, limit: int = 1000
+        self, job_id: str, *, since_seq: int = 0, limit: int = 5000
     ) -> List[Dict[str, Any]]:
         """Get events for a prompt learning job.
         
@@ -85,14 +86,14 @@ class PromptLearningClient:
             f"Expected dict with 'events' list, got: {type(js).__name__}"
         )
 
-    async def get_prompts(self, job_id: str) -> Dict[str, Any]:
+    async def get_prompts(self, job_id: str) -> PromptResults:
         """Get the best prompts and scoring metadata from a completed job.
         
         Args:
             job_id: Job ID
             
         Returns:
-            Dictionary containing:
+            PromptResults dataclass containing:
                 - best_prompt: The top-performing prompt with sections and metadata
                 - best_score: The best accuracy score achieved
                 - top_prompts: List of top-K prompts with train/val scores
@@ -105,14 +106,7 @@ class PromptLearningClient:
         _validate_job_id(job_id)
         events = await self.get_events(job_id, limit=10000)
         
-        result: Dict[str, Any] = {
-            "best_prompt": None,
-            "best_score": None,
-            "top_prompts": [],
-            "optimized_candidates": [],
-            "attempted_candidates": [],
-            "validation_results": [],
-        }
+        result = PromptResults()
         
         # Extract results from events
         for event in events:
@@ -121,12 +115,12 @@ class PromptLearningClient:
             
             # Best prompt event
             if event_type == "prompt.learning.best.prompt":
-                result["best_prompt"] = event_data.get("best_prompt")
-                result["best_score"] = event_data.get("best_score")
+                result.best_prompt = event_data.get("best_prompt")
+                result.best_score = event_data.get("best_score")
             
             # Top-K prompt content events
             elif event_type == "prompt.learning.top.prompt.content":
-                result["top_prompts"].append({
+                result.top_prompts.append({
                     "rank": event_data.get("rank"),
                     "train_accuracy": event_data.get("train_accuracy"),
                     "val_accuracy": event_data.get("val_accuracy"),
@@ -136,17 +130,17 @@ class PromptLearningClient:
             
             # Final results event (contains all candidates)
             elif event_type == "prompt.learning.final.results":
-                result["optimized_candidates"] = event_data.get("optimized_candidates", [])
-                result["attempted_candidates"] = event_data.get("attempted_candidates", [])
+                result.optimized_candidates = event_data.get("optimized_candidates", [])
+                result.attempted_candidates = event_data.get("attempted_candidates", [])
             
             # Validation results
             elif event_type == "prompt.learning.validation.scored":
-                result["validation_results"].append(event_data)
+                result.validation_results.append(event_data)
             
             # Completion event (fallback for best_score)
             elif event_type == "prompt.learning.gepa.complete":
-                if result["best_score"] is None:
-                    result["best_score"] = event_data.get("best_score")
+                if result.best_score is None:
+                    result.best_score = event_data.get("best_score")
         
         return result
 
@@ -167,7 +161,7 @@ class PromptLearningClient:
         if rank < 1:
             raise ValueError(f"Rank must be >= 1, got: {rank}")
         prompts_data = await self.get_prompts(job_id)
-        top_prompts = prompts_data.get("top_prompts", [])
+        top_prompts = prompts_data.top_prompts
         
         for prompt_info in top_prompts:
             if prompt_info.get("rank") == rank:
@@ -195,18 +189,18 @@ class PromptLearningClient:
         _validate_job_id(job_id)
         prompts_data = await self.get_prompts(job_id)
         
-        attempted = prompts_data.get("attempted_candidates", [])
-        optimized = prompts_data.get("optimized_candidates", [])
-        validation = prompts_data.get("validation_results", [])
+        attempted = prompts_data.attempted_candidates
+        optimized = prompts_data.optimized_candidates
+        validation = prompts_data.validation_results
         
-        # Extract train accuracies
+        # Extract train accuracies (only from candidates that have accuracy field)
         train_accuracies = [
-            c.get("accuracy", 0.0) for c in attempted if "accuracy" in c
+            c["accuracy"] for c in attempted if "accuracy" in c
         ]
         
-        # Extract val accuracies
+        # Extract val accuracies (only from validations that have accuracy field)
         val_accuracies = [
-            v.get("accuracy", 0.0) for v in validation if "accuracy" in v
+            v["accuracy"] for v in validation if "accuracy" in v
         ]
         
         # Score distribution (bins)
