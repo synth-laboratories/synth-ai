@@ -9,7 +9,9 @@ try:
 except Exception as exc:  # pragma: no cover
     raise SystemExit(f"Modal is required to deploy: {exc}")
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+_here = Path(__file__).resolve()
+_parents = list(_here.parents)
+REPO_ROOT = _parents[3] if len(_parents) > 3 else Path.cwd()
 
 app = modal.App("synth-banking77-web")
 
@@ -25,6 +27,7 @@ _image = (
     )
     .env({"PYTHONPATH": "/opt/synth_ai_repo"})
     .add_local_dir(str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai", copy=True)
+    .add_local_dir(str(REPO_ROOT / "examples"), "/opt/synth_ai_repo/examples", copy=True)
 )
 _env_file = REPO_ROOT / ".env"
 if _env_file.exists():
@@ -39,5 +42,5 @@ def web():
     with contextlib.suppress(Exception):
         from dotenv import load_dotenv  # type: ignore
         load_dotenv(str(REPO_ROOT / ".env"), override=False)
-    from synth_ai.examples.task_apps.banking77.banking77_task_app import fastapi_app  # type: ignore
+    from examples.task_apps.banking77.banking77_task_app import fastapi_app  # type: ignore
     return fastapi_app()
