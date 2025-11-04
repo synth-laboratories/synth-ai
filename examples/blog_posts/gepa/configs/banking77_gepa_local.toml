@@ -4,7 +4,10 @@ task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.ru
 task_app_id = "banking77"
 
 # Seeds for evaluation (keep tiny for quick tests)
-evaluation_seeds = [0, 1]
+evaluation_seeds = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+  10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+]
 
 # Test pool for final evaluation (small held-out set)
 test_pool = [2, 3]
@@ -40,20 +43,21 @@ policy_name = "banking77-classifier"  # Required for Banking77 task app
 # GEPA-specific configuration
 [prompt_learning.gepa]
 env_name = "banking77"
-initial_population_size = 8
-num_generations = 2
+initial_population_size = 24
+num_generations = 6
 mutation_rate = 0.3
 crossover_rate = 0.5
 selection_pressure = 1.0
-minibatch_size = 8
-pareto_set_size = 20
+minibatch_size = 10
+pareto_set_size = 32
 feedback_fraction = 0.5
-children_per_generation = 4
-patience_generations = 2
-rollout_budget = 20
-archive_size = 16
+children_per_generation = 12
+patience_generations = 3
+rollout_budget = 600
+archive_size = 40
 pareto_eps = 1e-6
-max_concurrent_rollouts = 8  # Maximum concurrent rollouts across all transformations
+max_concurrent_rollouts = 16  # Maximum concurrent rollouts across all transformations
+proposer_type = "dspy"
 
 # LLM-guided mutation configuration
 mutation_llm_model = "openai/gpt-oss-120b"
