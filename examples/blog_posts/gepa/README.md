@@ -325,7 +325,7 @@ examples/blog_posts/gepa/
 ├── run_gepa_banking77.sh            # Helper: Run GEPA
 ├── test_gepa_local.sh               # Helper: Quick test
 ├── verify_banking77_setup.sh        # Helper: Verify setup
-├── gepa_baseline.py                 # Baseline runner
+├── (baseline: examples/baseline/banking77_baseline.py)
 ├── query_prompts_example.py         # Query results example
 └── task_apps.py                     # Task app registry
 ```
@@ -335,7 +335,7 @@ examples/blog_posts/gepa/
 ## Next Steps
 
 1. **Evaluate optimized prompts**: Test best prompts on held-out validation split
-2. **Compare with baseline**: Run `gepa_baseline.py` to measure improvement
+2. **Compare with baseline**: Run `uvx synth-ai baseline banking77` to measure improvement
 3. **Experiment with parameters**: Adjust mutation/crossover rates, population size
 4. **Try MIPRO**: Compare GEPA with MIPROv2 optimization
 5. **Benchmark across tasks**: Test on HotpotQA, IFBench, HoVer, PUPA
