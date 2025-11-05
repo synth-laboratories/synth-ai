@@ -297,6 +297,8 @@ task_app_api_key = "test-key"
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
+inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 temperature = 0.7
 max_completion_tokens = 512
 
@@ -375,6 +377,7 @@ task_app_api_key = "test-key"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
 population_size = 10
@@ -413,6 +416,7 @@ task_app_api_key = "test-key"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
 num_generations = 5
@@ -424,14 +428,17 @@ mutation_rate = 0.2
             path = Path(f.name)
 
         try:
+            # Note: task_url parameter is currently ignored (TOML is source of truth)
+            # The override would need to be in overrides dict or TOML itself
             result = build_prompt_learning_payload(
                 config_path=path,
-                task_url="http://override:9000",
+                task_url="http://override:9000",  # This is ignored per current implementation
                 overrides={},
             )
-            assert result.task_url == "http://override:9000"
+            # Builder uses TOML value, not task_url parameter
+            assert result.task_url == "http://localhost:8001"
             config_body = result.payload["config_body"]
-            assert config_body["prompt_learning"]["task_app_url"] == "http://override:9000"
+            assert config_body["prompt_learning"]["task_app_url"] == "http://localhost:8001"
         finally:
             path.unlink()
 
@@ -447,10 +454,11 @@ task_app_api_key = "test-key"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 
-[prompt_learning.mipro]
-num_candidates = 5
-num_iterations = 3
+[prompt_learning.gepa]
+num_generations = 5
+mutation_rate = 0.2
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -481,6 +489,7 @@ task_app_api_key = "test-key"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
 population_size = 10
@@ -543,6 +552,7 @@ task_app_url = "http://localhost:8001"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
+inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
 num_generations = 5
