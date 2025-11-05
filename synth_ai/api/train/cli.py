@@ -887,6 +887,7 @@ def _save_prompt_learning_results_locally(
         baseline_score = None
         attempted_candidates = []
         optimized_candidates = []
+        mipro_topk_candidates = []  # Collect MIPRO top-K candidates
         
         for event in events:
             if not isinstance(event, dict):
@@ -919,14 +920,47 @@ def _save_prompt_learning_results_locally(
                     best_score = event_data.get("best_score")
                 if best_prompt is None:
                     best_prompt = event_data.get("best_prompt")
+            elif event_type == "mipro.topk.evaluated":
+                # Extract MIPRO top-K candidate data
+                rank = event_data.get("rank")
+                train_score = event_data.get("train_score")
+                test_score = event_data.get("test_score")
+                if rank is not None and train_score is not None and test_score is not None:
+                    mipro_topk_candidates.append({
+                        "rank": rank,
+                        "train_score": train_score,
+                        "test_score": test_score,
+                        "lift_absolute": event_data.get("lift_absolute"),
+                        "lift_percent": event_data.get("lift_percent"),
+                        "instruction_text": event_data.get("instruction_text", ""),
+                        "demo_indices": event_data.get("demo_indices", []),
+                    })
+            elif event_type == "mipro.baseline.test":
+                # Extract baseline test score
+                if baseline_score is None:
+                    baseline_score = event_data.get("test_score")
         
-        if not (attempted_candidates or optimized_candidates):
+        # Check if we have any results to display (best_prompt, best_score, or candidates)
+        has_results = bool(attempted_candidates or optimized_candidates or best_prompt or best_score is not None)
+        if not has_results:
             return
+        
+        # Determine algorithm name from events
+        algorithm_name = "PROMPT LEARNING"
+        for event in events:
+            if isinstance(event, dict):
+                event_type = event.get("type", "")
+                if "gepa" in event_type.lower():
+                    algorithm_name = "GEPA"
+                    break
+                elif "mipro" in event_type.lower():
+                    algorithm_name = "MIPRO"
+                    break
         
         # Generate formatted report
         lines = []
         lines.append("=" * 80)
-        lines.append("GEPA PROMPT LEARNING RESULTS")
+        lines.append(f"{algorithm_name} PROMPT LEARNING RESULTS")
         lines.append("=" * 80)
         lines.append(f"Job ID: {job_id}")
         lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -989,6 +1023,37 @@ def _save_prompt_learning_results_locally(
                     data_obj = obj.get("data", {})
                     replacement_lines = _format_text_replacements(data_obj)
                     lines.extend(replacement_lines)
+                lines.append("")
+        
+        # Add MIPRO top-K candidates
+        if mipro_topk_candidates and isinstance(mipro_topk_candidates, list):
+            # Sort by rank
+            mipro_topk_candidates.sort(key=lambda x: x.get("rank", 999))
+            lines.append("=" * 80)
+            lines.append(f"🎯 TOP-K CANDIDATES ({len(mipro_topk_candidates)})")
+            lines.append("=" * 80)
+            lines.append("")
+            
+            for cand in mipro_topk_candidates:
+                rank = cand.get("rank", 0)
+                train_score = cand.get("train_score", 0.0)
+                test_score = cand.get("test_score", 0.0)
+                lift_abs = cand.get("lift_absolute")
+                lift_pct = cand.get("lift_percent")
+                instruction_text = cand.get("instruction_text", "")
+                demo_indices = cand.get("demo_indices", [])
+                
+                lift_str = ""
+                if lift_abs is not None and lift_pct is not None:
+                    lift_str = f" | Lift: {lift_abs:+.3f} ({lift_pct:+.1f}%)"
+                
+                lines.append(f"[Rank {rank}] Train: {train_score:.4f} ({train_score*100:.1f}%) | Test: {test_score:.4f} ({test_score*100:.1f}%){lift_str}")
+                lines.append("-" * 80)
+                
+                if instruction_text:
+                    lines.append(f"Instruction: {instruction_text[:200]}{'...' if len(instruction_text) > 200 else ''}")
+                if demo_indices:
+                    lines.append(f"Demo Indices: {demo_indices}")
                 lines.append("")
         
         # Add all proposal candidates
