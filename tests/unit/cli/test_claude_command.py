@@ -31,7 +31,7 @@ def test_claude_cmd_no_claude_binary_found(runner: CliRunner):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
     assert result.exit_code == 0
-    assert "Failed to find Claude Code installation" in result.output
+    assert "Failed to find your installed Claude Code" in result.output
     assert "Please install from: https://claude.com/claude-code" in result.output
 
 
