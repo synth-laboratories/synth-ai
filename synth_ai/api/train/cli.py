@@ -1138,7 +1138,7 @@ def handle_prompt_learning(
     try:
         from synth_ai.learning import PromptLearningClient
         client = PromptLearningClient(backend_base, synth_key)
-        events = client.get_events(job_id)
+        events = asyncio.run(client.get_events(job_id))
         
         # Extract optimized candidates with validation scores
         top_k_results = []
