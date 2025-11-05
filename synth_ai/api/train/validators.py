@@ -140,6 +140,21 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                         errors.append(f"prompt_learning.gepa.{name} must be an integer")
             for fld in ("initial_population_size", "num_generations", "children_per_generation", "max_concurrent_rollouts"):
                 _pos_int(fld)
+            
+            # Require validation_seeds (even if empty list) for final baseline comparison
+            evaluation_section = gepa_config.get("evaluation", {})
+            if "validation_seeds" not in evaluation_section and "validation_seeds" not in gepa_config and "validation_seeds" not in pl_section:
+                errors.append(
+                    "prompt_learning.gepa.evaluation.validation_seeds is required (even if empty []).\n"
+                    "  Validation seeds are a held-out set used ONLY for final comparison, never touched during optimization.\n"
+                    "  Example:\n"
+                    "    [prompt_learning.gepa.evaluation]\n"
+                    "    seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # Training seeds (used by GEPA)\n"
+                    "    validation_seeds = [10, 11, 12, 13, 14]  # Held-out seeds (baseline vs top-K comparison)\n"
+                    "  Or use an empty list if you don't want validation:\n"
+                    "    validation_seeds = []"
+                )
+            
             # Budget cap
             if "max_spend_usd" in gepa_config and gepa_config.get("max_spend_usd") is not None:
                 try:

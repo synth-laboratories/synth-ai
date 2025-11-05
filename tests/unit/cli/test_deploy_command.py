@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
-import pytest
 import click
+import pytest
 from click.testing import CliRunner
 
+# Import deploy_cmd after potential monkeypatching
 from synth_ai.cli.deploy import deploy_cmd
 from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
 
@@ -27,12 +29,16 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     def fake_deploy(cfg: LocalTaskAppConfig) -> None:
         captured["cfg"] = cfg
 
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_uvicorn_app", fake_deploy)
+    monkeypatch.setattr("synth_ai.utils.uvicorn.deploy_uvicorn_app", fake_deploy)
+    # Reload the deploy module to pick up the patched function
+    import synth_ai.cli.deploy
+    importlib.reload(synth_ai.cli.deploy)
+    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     result = runner.invoke(
-        deploy_cmd,
+        reloaded_deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -62,14 +68,18 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
         captured["cfg"] = cfg
 
     modal_cli_path = tmp_path / "modal"
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", fake_modal)
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: modal_cli_path)
+    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", fake_modal)
+    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: modal_cli_path)
+    # Reload the deploy module to pick up the patched function
+    import synth_ai.cli.deploy
+    importlib.reload(synth_ai.cli.deploy)
+    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
 
     result = runner.invoke(
-        deploy_cmd,
+        reloaded_deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -94,20 +104,20 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
 
 def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(task_app_path=task_app, runtime="modal")
+        deploy_cmd.callback(task_app_path=task_app, runtime="modal", env_file=())
 
     assert "Modal app path required" in str(exc.value)
 
 
 def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.cli.deploy.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.cli.deploy.deploy_modal_app", lambda cfg: None)
+    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
+    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
@@ -121,6 +131,7 @@ def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPat
             cmd_arg="serve",
             dry_run=True,
             modal_bin_path=modal_cli,
+            env_file=(),
         )
 
     assert "--modal-mode=serve cannot be combined with --dry-run" in str(exc.value)

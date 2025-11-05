@@ -11,15 +11,15 @@ import asyncio
 import json
 import logging
 import re
-from pathlib import Path
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import libsql
 import httpx
+import libsql
 from sqlalchemy.engine import make_url
 
 from ..abstractions import (

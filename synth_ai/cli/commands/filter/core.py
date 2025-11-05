@@ -139,12 +139,23 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
         if msg_type not in {"user", "policy_user_prompt"}:
             continue
 
+        # Look backwards for system prompt
+        system_msg = None
+        for prev in range(index - 1, -1, -1):
+            prev_type = message_rows[prev].get("message_type")
+            if prev_type == "policy_system_prompt":
+                system_msg = message_rows[prev]
+                break
+
         assistant_msg = None
+        tool_call_msg = None
         for follow in range(index + 1, len(message_rows)):
             next_type = message_rows[follow].get("message_type")
-            if next_type in {"assistant", "policy_system_prompt"}:
-                if next_type == "assistant":
-                    assistant_msg = message_rows[follow]
+            if next_type == "assistant":
+                assistant_msg = message_rows[follow]
+                break
+            elif next_type == "policy_tool_call":
+                tool_call_msg = message_rows[follow]
                 break
 
         try:
@@ -157,8 +168,34 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
         if not user_text:
             continue
 
+        messages = []
+        
+        # Add system prompt if found
+        if system_msg is not None:
+            try:
+                system_content_raw = system_msg.get("content")
+                system_content = json.loads(system_content_raw) if isinstance(system_content_raw, str) else system_content_raw
+                system_content = _extract_content(system_content)
+                system_text = _extract_text(system_content)
+                if system_text:
+                    messages.append({"role": "system", "content": system_text})
+            except Exception:
+                pass
+
+        # Add user message
+        user_payload = user_content if isinstance(user_content, list) else user_text
+        messages.append({"role": "user", "content": user_payload})
+
+        # Add assistant/tool call response
         assistant_content = None
-        if assistant_msg is not None:
+        if tool_call_msg is not None:
+            raw = tool_call_msg.get("content")
+            try:
+                assistant_content = json.loads(raw) if isinstance(raw, str) else raw
+            except Exception:
+                assistant_content = raw
+            assistant_content = _extract_content(assistant_content)
+        elif assistant_msg is not None:
             raw = assistant_msg.get("content")
             try:
                 assistant_content = json.loads(raw) if isinstance(raw, str) else raw
@@ -166,22 +203,14 @@ def _select_messages(message_rows: Sequence[dict[str, Any]]) -> list[dict[str, A
                 assistant_content = raw
             assistant_content = _extract_content(assistant_content)
 
-        assistant_text = _extract_text(assistant_content) if assistant_content is not None else ""
-        user_payload = user_content if isinstance(user_content, list) else user_text
         assistant_payload = (
             assistant_content
             if isinstance(assistant_content, list)
-            else (assistant_text or "[no response recorded]")
+            else (_extract_text(assistant_content) if assistant_content is not None else "[no response recorded]")
         )
+        messages.append({"role": "assistant", "content": assistant_payload})
 
-        records.append(
-            {
-                "messages": [
-                    {"role": "user", "content": user_payload},
-                    {"role": "assistant", "content": assistant_payload},
-                ]
-            }
-        )
+        records.append({"messages": messages})
     return records
 
 

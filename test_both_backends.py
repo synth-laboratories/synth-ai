@@ -4,8 +4,8 @@
 import asyncio
 import os
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime, UTC
 
 # Add synth-ai to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -25,15 +25,16 @@ async def test_local_sqld():
     
     # Force reload config modules
     import importlib
+
     import synth_ai.tracing_v3.config
     import synth_ai.tracing_v3.storage.config
     importlib.reload(synth_ai.tracing_v3.config)
     importlib.reload(synth_ai.tracing_v3.storage.config)
     
-    from synth_ai.tracing_v3.config import resolve_trace_db_settings, _is_modal_environment
-    from synth_ai.tracing_v3.storage.config import StorageConfig, StorageBackend
-    from synth_ai.tracing_v3.storage.factory import create_storage
     from synth_ai.tracing_v3.abstractions import SessionTrace
+    from synth_ai.tracing_v3.config import _is_modal_environment, resolve_trace_db_settings
+    from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
+    from synth_ai.tracing_v3.storage.factory import create_storage
     
     try:
         # 1. Verify Modal NOT detected
@@ -112,15 +113,16 @@ async def test_modal_sqlite():
     
     # Force reload config modules
     import importlib
+
     import synth_ai.tracing_v3.config
     import synth_ai.tracing_v3.storage.config
     importlib.reload(synth_ai.tracing_v3.config)
     importlib.reload(synth_ai.tracing_v3.storage.config)
     
-    from synth_ai.tracing_v3.config import resolve_trace_db_settings, _is_modal_environment
-    from synth_ai.tracing_v3.storage.config import StorageConfig, StorageBackend
-    from synth_ai.tracing_v3.storage.factory import create_storage
     from synth_ai.tracing_v3.abstractions import SessionTrace
+    from synth_ai.tracing_v3.config import _is_modal_environment, resolve_trace_db_settings
+    from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
+    from synth_ai.tracing_v3.storage.factory import create_storage
     
     try:
         # 1. Verify Modal IS detected

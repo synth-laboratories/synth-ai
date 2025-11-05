@@ -251,6 +251,9 @@ class TestPromptLearningConfig:
                 "initial_population_size": 10,
                 "num_generations": 5,
                 "mutation_rate": 0.2,
+                "evaluation": {
+                    "validation_seeds": [],
+                },
             },
         }
         config = PromptLearningConfig.from_mapping(data)
@@ -383,6 +386,9 @@ inference_mode = "synth_hosted"
 population_size = 10
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+validation_seeds = []
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -421,6 +427,9 @@ inference_mode = "synth_hosted"
 [prompt_learning.gepa]
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+validation_seeds = []
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -459,6 +468,9 @@ inference_mode = "synth_hosted"
 [prompt_learning.gepa]
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+validation_seeds = []
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -495,6 +507,9 @@ inference_mode = "synth_hosted"
 population_size = 10
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+validation_seeds = []
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -557,6 +572,9 @@ inference_mode = "synth_hosted"
 [prompt_learning.gepa]
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+validation_seeds = []
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)

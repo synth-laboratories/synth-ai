@@ -4,8 +4,9 @@ Final verification test for Modal tracing.
 This will make a rollout request and capture the exact Modal container logs.
 """
 import asyncio
-import httpx
 import os
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv("/Users/joshpurtell/Documents/GitHub/synth-ai/.env")

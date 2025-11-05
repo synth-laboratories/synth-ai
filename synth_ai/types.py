@@ -1,7 +1,5 @@
 import typing
-
 from typing import Literal
-
 
 ModelName = Literal[
     "synth-small",

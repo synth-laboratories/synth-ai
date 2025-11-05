@@ -11,9 +11,8 @@ from synth_ai.utils import (
     load_json_to_dict,
     resolve_env_var,
     verify_bin,
-    write_agents_md
+    write_agents_md,
 )
-
 
 CONFIG_PATH = Path.home() / ".config" / "opencode" / "opencode.json"
 AUTH_PATH = Path.home() / ".local" / "share" / "opencode" / "auth.json"

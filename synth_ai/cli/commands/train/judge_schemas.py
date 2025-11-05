@@ -8,9 +8,9 @@ gets sent in HTTP requests.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from synth_ai.api.train.configs.shared import ExtraModel
 
 __all__ = [

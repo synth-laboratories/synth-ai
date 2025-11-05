@@ -51,7 +51,7 @@ def test_url_masking():
         print(f"  Expected: {expected[:80]}...")
         print(f"  Got:      {result[:80]}...")
         if not passed:
-            print(f"  MISMATCH!")
+            print("  MISMATCH!")
     
     print("\n" + "=" * 80)
     if all_passed:
