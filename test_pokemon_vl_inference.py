@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Test script that replicates Pokemon Red task app inference request exactly."""
-import os
-import json
-import httpx
-import base64
 import asyncio
+import base64
+import json
+import os
+
+import httpx
 
 # Try to load from .env file
 try:
@@ -126,11 +127,11 @@ async def test_pokemon_inference():
     }
     
     print(f"{'='*80}")
-    print(f"POKEMON RED INFERENCE TEST")
+    print("POKEMON RED INFERENCE TEST")
     print(f"{'='*80}")
     print(f"Endpoint: {inference_url}")
     print(f"Model: {payload['model']}")
-    print(f"\nPayload (formatted):")
+    print("\nPayload (formatted):")
     print(json.dumps(payload, indent=2)[:2000])
     print(f"\n{'='*80}\n")
     
@@ -139,7 +140,7 @@ async def test_pokemon_inference():
             print("Making request...")
             resp = await client.post(inference_url, json=payload, headers=headers)
             print(f"\n{'='*80}")
-            print(f"RESPONSE")
+            print("RESPONSE")
             print(f"{'='*80}")
             print(f"Status: {resp.status_code}")
             
@@ -154,12 +155,12 @@ async def test_pokemon_inference():
             if choices:
                 message = choices[0].get("message", {})
                 print(f"\nMessage keys: {list(message.keys())}")
-                print(f"\nFull message:")
+                print("\nFull message:")
                 print(json.dumps(message, indent=2)[:2000])
                 
                 tool_calls = message.get("tool_calls", [])
                 print(f"\n{'='*80}")
-                print(f"TOOL CALLS ANALYSIS")
+                print("TOOL CALLS ANALYSIS")
                 print(f"{'='*80}")
                 print(f"Number of tool calls: {len(tool_calls)}")
                 
@@ -176,8 +177,8 @@ async def test_pokemon_inference():
                         try:
                             args_dict = json.loads(args) if isinstance(args, str) else args
                             print(f"    Parsed args: {json.dumps(args_dict, indent=4)}")
-                        except:
-                            print(f"    (Could not parse arguments)")
+                        except Exception:
+                            print("    (Could not parse arguments)")
                 else:
                     print("\n⚠️  NO TOOL CALLS IN STRUCTURED FORMAT")
                     content = message.get('content', '')
@@ -188,7 +189,7 @@ async def test_pokemon_inference():
                     xml_pattern = r'<tool_call>\s*({.*?})\s*</tool_call>'
                     matches = re.findall(xml_pattern, content, re.DOTALL)
                     if matches:
-                        print(f"\n✅ FOUND XML TOOL CALLS IN CONTENT!")
+                        print("\n✅ FOUND XML TOOL CALLS IN CONTENT!")
                         print(f"   Found {len(matches)} tool call(s)")
                         for i, match in enumerate(matches):
                             try:
@@ -200,7 +201,7 @@ async def test_pokemon_inference():
                                 print(f"     Error parsing: {e}")
                                 print(f"     Raw: {match[:200]}")
             else:
-                print(f"\nNo choices in response")
+                print("\nNo choices in response")
                 print(f"Full response: {json.dumps(data, indent=2)[:1000]}")
                 
         except Exception as e:
