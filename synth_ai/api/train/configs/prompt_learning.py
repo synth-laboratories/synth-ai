@@ -61,9 +61,8 @@ class PromptPatternConfig(ExtraModel):
 class MIPROConfig(ExtraModel):
     """MIPRO-specific configuration.
     
-    NOTE: MIPRO support is not yet implemented in synth-ai.
-    This configuration class exists for future compatibility.
-    Use GEPA algorithm for prompt optimization.
+    MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
+    to efficiently optimize prompts with fewer evaluations than genetic algorithms.
     """
     num_iterations: int = 20
     num_evaluations_per_iteration: int = 5

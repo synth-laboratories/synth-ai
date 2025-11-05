@@ -57,7 +57,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     elif algorithm not in ("gepa", "mipro"):
         errors.append(
             f"Invalid algorithm: '{algorithm}'\n"
-            f"  Must be one of: 'gepa', 'mipro' (Note: MIPRO not yet implemented)\n"
+            f"  Must be one of: 'gepa', 'mipro'\n"
             f"  Got: '{algorithm}'"
         )
     
@@ -150,17 +150,55 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     errors.append("prompt_learning.gepa.max_spend_usd must be numeric")
     
     elif algorithm == "mipro":
-        # MIPRO is not yet implemented in synth-ai
-        errors.append(
-            "MIPRO algorithm is not yet implemented in synth-ai.\n"
-            "  Please use 'gepa' algorithm for prompt optimization.\n"
-            "  MIPRO support is planned for a future release.\n"
-            "  Example:\n"
-            "    [prompt_learning]\n"
-            "    algorithm = \"gepa\"\n"
-            "    [prompt_learning.gepa]\n"
-            "    # ... gepa configuration"
-        )
+        mipro_config = pl_section.get("mipro")
+        if not mipro_config or not isinstance(mipro_config, dict):
+            errors.append("Missing [prompt_learning.mipro] section for MIPRO algorithm")
+        else:
+            # Validate required MIPRO fields
+            def _pos_int(name: str) -> None:
+                val = mipro_config.get(name)
+                if val is not None:
+                    try:
+                        ival = int(val)
+                        if ival <= 0:
+                            errors.append(f"prompt_learning.mipro.{name} must be > 0")
+                    except Exception:
+                        errors.append(f"prompt_learning.mipro.{name} must be an integer")
+            
+            # Required numeric fields
+            for fld in ("num_iterations", "num_evaluations_per_iteration", "batch_size", "max_concurrent"):
+                _pos_int(fld)
+            
+            # Validate meta_model is set
+            meta_model = mipro_config.get("meta_model")
+            if not meta_model:
+                errors.append("Missing required field: prompt_learning.mipro.meta_model")
+            
+            # Validate bootstrap seeds if provided
+            bootstrap_seeds = mipro_config.get("bootstrap_train_seeds")
+            if bootstrap_seeds is not None:
+                if not isinstance(bootstrap_seeds, list):
+                    errors.append("prompt_learning.mipro.bootstrap_train_seeds must be an array")
+                elif len(bootstrap_seeds) == 0:
+                    errors.append("prompt_learning.mipro.bootstrap_train_seeds cannot be empty")
+            
+            # Validate online_pool if provided
+            online_pool = mipro_config.get("online_pool")
+            if online_pool is not None:
+                if not isinstance(online_pool, list):
+                    errors.append("prompt_learning.mipro.online_pool must be an array")
+                elif len(online_pool) == 0:
+                    errors.append("prompt_learning.mipro.online_pool cannot be empty")
+            
+            # Validate few_shot_score_threshold
+            threshold = mipro_config.get("few_shot_score_threshold")
+            if threshold is not None:
+                try:
+                    f = float(threshold)
+                    if not (0.0 <= f <= 1.0):
+                        errors.append("prompt_learning.mipro.few_shot_score_threshold must be between 0.0 and 1.0")
+                except Exception:
+                    errors.append("prompt_learning.mipro.few_shot_score_threshold must be a number")
     
     # Raise all errors at once for better UX
     if errors:

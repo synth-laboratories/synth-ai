@@ -678,7 +678,7 @@ class TestValidatePromptLearningConfig:
             path.unlink(missing_ok=True)
 
     def test_missing_mipro_section_raises_error(self) -> None:
-        """Test that MIPRO algorithm raises not implemented error."""
+        """Test that MIPRO algorithm requires mipro section."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "mipro",
@@ -697,9 +697,8 @@ class TestValidatePromptLearningConfig:
             with pytest.raises(Exception) as exc_info:
                 validate_prompt_learning_config(config_data, path)
             error_msg = str(exc_info.value).lower()
-            assert "not yet implemented" in error_msg
             assert "mipro" in error_msg
-            assert "gepa" in error_msg  # Should suggest GEPA instead
+            assert "missing" in error_msg or "section" in error_msg
         finally:
             path.unlink(missing_ok=True)
 
