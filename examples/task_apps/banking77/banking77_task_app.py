@@ -378,7 +378,12 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         "available_intents": dataset.label_names,
     }
 
-    placeholders = {"query": sample["text"]}
+    # Format available intents as a numbered list for the prompt
+    intents_list = "\n".join(f"{i+1}. {label}" for i, label in enumerate(dataset.label_names))
+    placeholders = {
+        "query": sample["text"],
+        "available_intents": intents_list,
+    }
 
     default_messages = [
         {
