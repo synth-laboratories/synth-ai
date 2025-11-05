@@ -220,6 +220,9 @@ def filter_command(config_path: str) -> None:
         tracer = SessionTracer(db_url=db_url, auto_save=False)
         await tracer.initialize()
 
+        if tracer.db is None:
+            raise FilterCliError("Database not initialized")
+
         df = await tracer.db.query_traces(
             "SELECT session_id, created_at, metadata FROM session_traces ORDER BY created_at"
         )
@@ -260,6 +263,8 @@ def filter_command(config_path: str) -> None:
             total_reward = None
             achievements_count = None
             if min_official is not None or max_official is not None:
+                if tracer.db is None:
+                    raise FilterCliError("Database not initialized")
                 reward_rows = await tracer.db.query_traces(
                     "SELECT total_reward, achievements_count FROM outcome_rewards WHERE session_id = :session_id",
                     {"session_id": session_id},
@@ -295,6 +300,8 @@ def filter_command(config_path: str) -> None:
             messages_query = (
                 "\n            SELECT message_type, content, timestamp \n            FROM messages \n            WHERE session_id = :session_id\n            ORDER BY timestamp ASC, id ASC\n        "
             )
+            if tracer.db is None:
+                raise FilterCliError("Database not initialized")
             msg_df = await tracer.db.query_traces(messages_query, {"session_id": session_id})
             message_rows = (
                 msg_df.to_dict("records") if hasattr(msg_df, "to_dict") else []
@@ -352,7 +359,8 @@ def filter_command(config_path: str) -> None:
                 handle.write("\n")
 
         click.echo(f"Wrote {len(accepted)} examples -> {output_path}")
-        await tracer.db.close()
+        if tracer.db is not None:
+            await tracer.db.close()
 
     try:
         asyncio.run(_run())
