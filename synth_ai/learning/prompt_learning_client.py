@@ -56,7 +56,7 @@ class PromptLearningClient:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
-        self, job_id: str, *, since_seq: int = 0, limit: int = 5000
+        self, job_id: str, *, since_seq: int = 0, limit: int = 1000
     ) -> List[Dict[str, Any]]:
         """Get events for a prompt learning job.
         
