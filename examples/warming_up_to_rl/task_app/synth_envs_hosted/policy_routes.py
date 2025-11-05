@@ -501,7 +501,11 @@ async def step_policy(
                 if isinstance(target_url, str):
                     low_url = target_url.lower()
                     # Proxy endpoints should not receive a bearer; the server-side proxy holds the vendor key
-                    if "/proxy/groq" in low_url or "/proxy/openai" in low_url:
+                    if (
+                        "/proxy/groq" in low_url
+                        or "/proxy/openai" in low_url
+                        or "/proxy/v1" in low_url
+                    ):
                         api_key_override = None
                     elif "openai.com" in low_url:
                         api_key_override = _os.getenv("OPENAI_API_KEY") or getattr(
