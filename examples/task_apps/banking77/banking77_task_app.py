@@ -383,24 +383,19 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     placeholders = {
         "query": sample["text"],
         "available_intents": intents_list,
-        "tool_name": TOOL_NAME,
     }
 
     default_messages = [
         {
             "role": "system",
             "pattern": (
-                "You are an expert banking assistant. \n\n"
-                "**Available Banking Intents:**\n"
-                "{available_intents}\n\n"
-                "**Task:**\n"
-                "Call the `{tool_name}` tool with the `intent` parameter set to ONE of the intent labels listed above that best matches the customer query. "
-                "The intent must be an exact match from the list."
+                "You are an expert banking assistant that classifies customer queries into banking intents. "
+                "Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
             ),
         },
         {
             "role": "user",
-            "pattern": "Customer Query: {query}\n\nClassify this query by calling the tool with the correct intent label from the list above.",
+            "pattern": "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call.",
         },
     ]
 

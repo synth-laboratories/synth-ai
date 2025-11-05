@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from typing import Any
 
 import httpx
@@ -23,6 +24,15 @@ class OpenAIClient:
         self.api_key = api_key
         self.timeout_s = timeout_s
         self.headers = {}
+        self._env_api_key: str | None = None
+
+        try:
+            env_key = os.getenv("ENVIRONMENT_API_KEY") or ""
+            env_key = env_key.strip()
+            if env_key:
+                self._env_api_key = env_key
+        except Exception:
+            self._env_api_key = None
 
         if api_key:
             self.headers["Authorization"] = f"Bearer {api_key}"
@@ -166,6 +176,13 @@ class OpenAIClient:
 
         # Merge headers
         headers = self.headers.copy()
+        try:
+            parsed_target = urlparse(url)
+            path_for_auth = (parsed_target.path or "") if parsed_target else ""
+            if self._env_api_key and "/proxy/" in path_for_auth:
+                headers.setdefault("X-API-Key", self._env_api_key)
+        except Exception:
+            pass
         if extra_headers:
             headers.update(extra_headers)
 
@@ -486,7 +503,14 @@ class OpenAIClient:
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.get(url, headers=self.headers)
+                headers = self.headers.copy()
+                try:
+                    parsed = httpx.URL(url)
+                    if self._env_api_key and "/proxy/" in (parsed.path or ""):
+                        headers.setdefault("X-API-Key", self._env_api_key)
+                except Exception:
+                    pass
+                response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as e:

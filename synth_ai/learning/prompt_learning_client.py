@@ -56,7 +56,7 @@ class PromptLearningClient:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
-        self, job_id: str, *, since_seq: int = 0, limit: int = 1000
+        self, job_id: str, *, since_seq: int = 0, limit: int = 5000
     ) -> List[Dict[str, Any]]:
         """Get events for a prompt learning job.
         
@@ -80,13 +80,10 @@ class PromptLearningClient:
             )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
-        # Handle direct list response (some backends return list directly)
-        if isinstance(js, list):
-            return js
         # Unexpected response structure - raise instead of silently returning empty list
         raise ValueError(
             f"Unexpected response structure from events endpoint. "
-            f"Expected dict with 'events' list or list, got: {type(js).__name__}"
+            f"Expected dict with 'events' list, got: {type(js).__name__}"
         )
 
     async def get_prompts(self, job_id: str) -> PromptResults:
@@ -107,7 +104,7 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        events = await self.get_events(job_id, limit=1000)
+        events = await self.get_events(job_id, limit=10000)
         
         result = PromptResults()
         

@@ -518,9 +518,6 @@ class TestValidatePromptLearningConfig:
                 },
                 "gepa": {
                     "num_generations": 10,
-                    "evaluation": {
-                        "validation_seeds": [],
-                    },
                 },
             }
         }

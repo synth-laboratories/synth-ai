@@ -54,6 +54,14 @@ cli = _cli_module.cli  # type: ignore[attr-defined]
 
 # Register core commands implemented as standalone modules
 try:
+    from synth_ai.cli.demo import demo_cmd
+    cli.add_command(demo_cmd, name="demo")
+except Exception as e:
+    import sys
+    print(f"[DEBUG] Failed to register demo command: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+try:
     from synth_ai.cli.setup import setup_cmd
     cli.add_command(setup_cmd, name="setup")
 except Exception as e:
