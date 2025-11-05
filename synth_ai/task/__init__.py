@@ -27,6 +27,7 @@ from .contracts import (
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
+from .inference_api import InferenceAPIClient
 from .json import to_jsonable
 from .proxy import (
     extract_message_text,
@@ -118,4 +119,5 @@ __all__ = [
     "RubricBundle",
     "ProxyConfig",
     "TaskAppConfig",
+    "InferenceAPIClient",
 ]
