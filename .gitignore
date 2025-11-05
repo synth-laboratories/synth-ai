@@ -111,6 +111,8 @@ examples/finetuning/synth_qwen_v1/state.json
 !tests/artifacts/traces/**/*.db
 *.sqlite
 *.sqlite3
+# Prevent accidental "..." file commits
+...
 
 
 .github
@@ -153,6 +155,9 @@ groq_rollout.json
 latest_rollout.json
 last_rollout.json
 swe_mini_task_app.log.bak
+job_*.json
+nohup*.out
+*.bak
 
 # Large vendor/test data accidentally committed
 astropy/

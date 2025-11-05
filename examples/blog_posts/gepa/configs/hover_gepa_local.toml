@@ -1,0 +1,59 @@
+# GEPA Prompt Learning for HoVer
+# Local backend configuration targeting the HoVer task app.
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://127.0.0.1:8112"
+task_app_id = "hover"
+
+# Seeds for online evaluation during optimisation
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Held-out seeds for final reporting
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[prompt_learning.initial_prompt]
+id = "hover_verification"
+name = "HoVer Claim Verification"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You verify Wikipedia claims. For each example decide whether the claim is SUPPORTED, REFUTED, or INSUFFICIENT and cite the sentences that justify the label."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Claim: {claim}\n\nEvidence:\n{evidence}\n\nRespond with the format:\nLabel: <SUPPORTED|REFUTED|INSUFFICIENT>\nRationale: <brief explanation citing evidence lines>."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+claim = "REQUIRED"
+evidence = "REQUIRED"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "hover-gepa"
+
+[prompt_learning.gepa]
+env_name = "hover"
+initial_population_size = 24
+num_generations = 15
+mutation_rate = 0.33
+crossover_rate = 0.55
+selection_pressure = 1.0
+minibatch_size = 8
+pareto_set_size = 24
+feedback_fraction = 0.5
+children_per_generation = 12
+patience_generations = 5
+rollout_budget = 540
+archive_size = 36
+pareto_eps = 1e-6
+max_concurrent_rollouts = 20
+mutation_llm_model = "openai/gpt-oss-20b"
+mutation_llm_provider = "groq"
+mutation_llm_inference_url = "https://api.groq.com/openai/v1"

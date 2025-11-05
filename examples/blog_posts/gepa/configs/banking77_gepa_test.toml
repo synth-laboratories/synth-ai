@@ -1,0 +1,82 @@
+# GEPA Prompt Learning for Banking77
+# Local backend configuration (localhost:8000)
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
+task_app_id = "banking77"
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+
+# Held-out validation config
+validation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+validation_pool = "validation"
+validation_top_k = 3
+
+# Training split config
+[prompt_learning.env_config]
+pool = "train"
+
+# Seeds for evaluation (increase to score prompts with more rollouts)
+evaluation_seeds = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+  20, 21, 22, 23, 24, 25, 26, 27, 28, 29
+]
+
+# Test pool for final evaluation (held-out episodes)
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+# Initial prompt pattern (pattern-based mode)
+[prompt_learning.initial_prompt]
+id = "banking77_pattern"
+name = "Banking77 Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"  # Will be provided by task app at runtime
+
+# Policy configuration (model, provider, etc.)
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-120b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "banking77-classifier"  # Required for Banking77 task app
+
+# GEPA-specific configuration
+[prompt_learning.gepa]
+env_name = "banking77"
+initial_population_size = 40
+num_generations = 10
+mutation_rate = 0.3
+crossover_rate = 0.5
+selection_pressure = 1.0
+minibatch_size = 12
+pareto_set_size = 40
+feedback_fraction = 0.5
+children_per_generation = 16
+patience_generations = 5
+rollout_budget = 1500
+archive_size = 30
+pareto_eps = 1e-6
+max_concurrent_rollouts = 20  # Maximum concurrent rollouts across all transformations
+
+# Instruction proposer selection
+proposer_type = "dspy"
+
+# LLM-guided mutation configuration
+mutation_llm_model = "openai/gpt-oss-20b"
+mutation_llm_provider = "groq"
+mutation_llm_inference_url = "https://api.groq.com/openai/v1"
+

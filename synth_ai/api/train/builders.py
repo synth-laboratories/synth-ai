@@ -33,7 +33,7 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
 
-from .configs import RLConfig, SFTConfig
+from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
     AlgorithmValidationError,
     ensure_model_supported_for_algorithm,
@@ -54,6 +54,12 @@ class SFTBuildResult:
     payload: dict[str, Any]
     train_file: Path
     validation_file: Path | None
+
+
+@dataclass(slots=True)
+class PromptLearningBuildResult:
+    payload: dict[str, Any]
+    task_url: str
 
 
 def _format_validation_error(path: Path, exc: ValidationError) -> str:
@@ -354,9 +360,87 @@ def build_sft_payload(
     return SFTBuildResult(payload=payload, train_file=dataset_path, validation_file=validation_file)
 
 
+def build_prompt_learning_payload(
+    *,
+    config_path: Path,
+    task_url: str | None,
+    overrides: dict[str, Any],
+    allow_experimental: bool | None = None,
+) -> PromptLearningBuildResult:
+    """Build payload for prompt learning job (MIPRO or GEPA)."""
+    import os
+
+    from pydantic import ValidationError
+
+    from .configs.prompt_learning import load_toml
+
+    # SDK-SIDE VALIDATION: Catch errors BEFORE sending to backend
+    from .validators import validate_prompt_learning_config
+    
+    raw_config = load_toml(config_path)
+    validate_prompt_learning_config(raw_config, config_path)
+    
+    try:
+        pl_cfg = PromptLearningConfig.from_path(config_path)
+    except ValidationError as exc:
+        raise click.ClickException(_format_validation_error(config_path, exc)) from exc
+    
+    # Source of truth: TOML only (ignore shell/env and CLI overrides)
+    final_task_url = (pl_cfg.task_app_url or "").strip()
+    
+    if not final_task_url:
+        raise click.ClickException(
+            "Task app URL required (provide --task-url or set prompt_learning.task_app_url in TOML)"
+        )
+    
+    # Get task_app_api_key from config or environment
+    task_app_api_key = (
+        pl_cfg.task_app_api_key
+        or os.environ.get("ENVIRONMENT_API_KEY", "")
+    ).strip()
+    
+    if not task_app_api_key:
+        raise click.ClickException(
+            "Task app API key required (set prompt_learning.task_app_api_key in TOML or ENVIRONMENT_API_KEY env var)"
+        )
+    
+    # Build config dict for backend
+    config_dict = pl_cfg.to_dict()
+    
+    # Ensure task_app_url and task_app_api_key are set
+    pl_section = config_dict.get("prompt_learning", {})
+    if isinstance(pl_section, dict):
+        pl_section["task_app_url"] = final_task_url
+        pl_section["task_app_api_key"] = task_app_api_key
+    else:
+        config_dict["prompt_learning"] = {
+            "task_app_url": final_task_url,
+            "task_app_api_key": task_app_api_key,
+        }
+    
+    # Build payload matching backend API format
+    payload: dict[str, Any] = {
+        "algorithm": pl_cfg.algorithm,
+        "config_body": config_dict,
+        "overrides": overrides.get("overrides", {}),
+        "metadata": overrides.get("metadata", {}),
+        "auto_start": overrides.get("auto_start", True),
+    }
+    
+    backend = overrides.get("backend")
+    if backend:
+        metadata_default: dict[str, Any] = {}
+        metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
+        metadata["backend_base_url"] = ensure_api_base(str(backend))
+    
+    return PromptLearningBuildResult(payload=payload, task_url=final_task_url)
+
+
 __all__ = [
+    "PromptLearningBuildResult",
     "RLBuildResult",
     "SFTBuildResult",
+    "build_prompt_learning_payload",
     "build_rl_payload",
     "build_sft_payload",
 ]
