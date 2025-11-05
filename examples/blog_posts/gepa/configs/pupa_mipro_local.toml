@@ -1,0 +1,54 @@
+# MIPROv2 Prompt Learning for PUPA
+# Local backend configuration targeting the PUPA privacy-aware delegation task app.
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8113"
+task_app_id = "pupa"
+
+# Seeds evaluated during optimisation
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Held-out seeds for the final sweep
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[prompt_learning.initial_prompt]
+id = "pupa_privacy"
+name = "PUPA Privacy-Constrained Delegation"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an assistant that must complete tasks without violating the privacy policy. Redact any forbidden attributes and justify refusals."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Task: {task}\n\nPrivacy Policy: {policy}\n\nRecords:\n{records}\n\nProvide the delegated plan or answer, ensuring compliance with the privacy policy."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+task = "REQUIRED"
+policy = "REQUIRED"
+records = "REQUIRED"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "pupa-mipro"
+
+[prompt_learning.mipro]
+env_name = "pupa"
+num_iterations = 20
+num_evaluations_per_iteration = 6
+batch_size = 6
+max_concurrent = 16
+meta_model = "gpt-4.1-mini"
+meta_model_provider = "openai"
+meta_model_inference_url = "https://api.openai.com/v1"
+few_shot_score_threshold = 0.85
+test_pool = [20, 21, 22, 23, 24]
+bootstrap_train_seeds = [0, 1, 2, 3, 4]
+online_pool = [5, 6, 7, 8, 9]

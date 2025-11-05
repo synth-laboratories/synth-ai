@@ -110,10 +110,23 @@ class CLIHandler(StreamHandler):
             return
 
         if message.stream_type is StreamType.METRICS:
-            name = message.data.get("name", "metric")
+            name = message.data.get("name")
             value = message.data.get("value")
             step = message.data.get("step")
-            click.echo(f"[{timestamp}] {name}={value} (step={step})")
+            data = message.data.get("data", {})
+            
+            # Format metric display
+            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, (int, float)) else f"[{timestamp}] [metric] {name}={value}"
+            if step is not None:
+                metric_str += f" (step={step})"
+            
+            # Add any additional context from data field
+            if isinstance(data, dict):
+                n = data.get("n")
+                if n is not None:
+                    metric_str += f" n={n}"
+            
+            click.echo(metric_str)
             return
 
         if message.stream_type is StreamType.TIMELINE:

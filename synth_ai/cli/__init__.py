@@ -62,7 +62,7 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 try:
-    from synth_ai.cli.deploy import deploy_cmd
+    from synth_ai.cli.deploy import deploy_cmd  # type: ignore[attr-defined]
     cli.add_command(deploy_cmd, name="deploy")
 except Exception as e:
     import sys

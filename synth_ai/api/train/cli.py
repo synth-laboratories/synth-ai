@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
+import json
 import os
 import time
 from collections.abc import Callable, Mapping
@@ -27,7 +29,7 @@ from synth_ai.streaming import (
     StreamType,
 )
 
-from .builders import build_rl_payload, build_sft_payload
+from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .config_finder import discover_configs, prompt_for_config
 from .env_resolver import KeySpec, resolve_env
 from .task_app import check_task_app_health
@@ -44,6 +46,45 @@ from .utils import (
     sleep,
     validate_sft_jsonl,
 )
+
+# Constants for prompt learning event types
+_PROMPT_LEARNING_EVENT_BEST_PROMPT = "prompt.learning.best.prompt"
+_PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
+_PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
+_PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
+
+# Constants for formatting
+_MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in output
+_RESULTS_FILE_MAX_EVENTS = 10000  # Max events to fetch for results file generation
+
+
+def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MAX_TEXT_REPLACEMENTS_DISPLAY) -> list[str]:
+    """Extract and format text replacements from a candidate object.
+    
+    Args:
+        obj: Candidate object dictionary containing text_replacements
+        max_display: Maximum number of replacements to display
+        
+    Returns:
+        List of formatted lines showing role and replacement text
+    """
+    lines = []
+    if not obj or not isinstance(obj, dict):
+        return lines
+    
+    text_replacements = obj.get("text_replacements", [])
+    if not text_replacements or not isinstance(text_replacements, list):
+        return lines
+    
+    for replacement in text_replacements[:max_display]:
+        if isinstance(replacement, dict):
+            new_text = replacement.get("new_text", "")
+            role = replacement.get("apply_to_role", "system")
+            if new_text:
+                lines.append(f"  [{role.upper()}]: {new_text}")
+                lines.append("")
+    
+    return lines
 
 
 def _discover_dataset_candidates(
@@ -164,6 +205,10 @@ _DEFAULT_SFT_HIDDEN_EVENTS = {
 
 _DEFAULT_RL_HIDDEN_SUBSTRINGS = {"modal", "hatchet"}
 
+_DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS = {
+    "prompt.learning.policy.tokens",
+}
+
 
 def _build_stream_components(
     stream_format: str,
@@ -208,7 +253,7 @@ def _build_stream_components(
     type=click.Path(),
     help="Path to training TOML (repeatable)",
 )
-@click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft"]), default="auto")
+@click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft", "prompt_learning"]), default="auto")
 @click.option(
     "--env-file",
     "env_files",
@@ -279,7 +324,7 @@ def train_command(
     stream_format: str,
     examples_limit: int | None,
 ) -> None:
-    """Interactive launcher for RL / SFT jobs."""
+    """Interactive launcher for RL / SFT / Prompt Learning jobs."""
 
     candidates = discover_configs(
         list(config_paths), requested_type=train_type if train_type != "auto" else None
@@ -291,16 +336,16 @@ def train_command(
     )
 
     effective_type = train_type if train_type != "auto" else selection.train_type
-    if effective_type not in {"rl", "sft"}:
+    if effective_type not in {"rl", "sft", "prompt_learning"}:
         effective_type = click.prompt(
-            "Detected config type is ambiguous. Enter type", type=click.Choice(["rl", "sft"])
+            "Detected config type is ambiguous. Enter type", type=click.Choice(["rl", "sft", "prompt_learning"])
         )
 
     cfg_path = selection.path
     click.echo(f"Using config: {cfg_path} ({effective_type})")
 
     required_keys: list[KeySpec] = []
-    if effective_type == "rl":
+    if effective_type == "rl" or effective_type == "prompt_learning":
         required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
         required_keys.append(
             KeySpec(
@@ -377,6 +422,19 @@ def train_command(
             poll_interval=poll_interval,
             stream_format=stream_format,
         )
+    elif effective_type == "prompt_learning":
+        handle_prompt_learning(
+            cfg_path=cfg_path,
+            backend_base=backend_base,
+            synth_key=synth_key,
+            task_url_override=task_url,
+            allow_experimental=allow_experimental,
+            dry_run=dry_run,
+            poll=poll,
+            poll_timeout=poll_timeout,
+            poll_interval=poll_interval,
+            stream_format=stream_format,
+        )
     else:
         dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
         handle_sft(
@@ -415,7 +473,7 @@ def _wait_for_training_file(
         if resp.status_code == 200:
             try:
                 data = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 data = {}
             status = str(
                 data.get("status") or data.get("state") or data.get("storage_state") or "ready"
@@ -440,7 +498,7 @@ def _wait_for_training_file(
             # Auth errors won't resolve by polling - fail immediately
             try:
                 error_body = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 error_body = resp.text[:400]
             click.echo("\n[ERROR] Authentication failed when checking training file:")
             click.echo(f"  URL: {url}")
@@ -455,7 +513,7 @@ def _wait_for_training_file(
             # Other errors - show details but keep polling
             try:
                 error_body = resp.json()
-            except Exception:
+            except json.JSONDecodeError:
                 error_body = resp.text[:400]
             click.echo(f"[WARN] Unexpected response checking file {file_id}:")
             click.echo(f"  URL: {url}")
@@ -507,7 +565,7 @@ def handle_rl(
         )
         try:
             parsed_json = vresp.json()
-        except Exception:
+        except json.JSONDecodeError:
             parsed_json = None
 
         if isinstance(parsed_json, Mapping):
@@ -542,8 +600,9 @@ def handle_rl(
             )
             statuses = [attempt.get("status") for attempt in attempts]
             click.echo(f"Verification OK (candidates={cands}, statuses={statuses})")
-        except Exception:
-            pass
+        except (KeyError, ValueError, AttributeError):
+            # Parsing verification summary failed, but verification itself succeeded
+            click.echo("Verification OK")
 
     env_key = os.environ.get("ENVIRONMENT_API_KEY")
     if not env_key:
@@ -568,7 +627,8 @@ def handle_rl(
     resp = http_post(create_url, headers=headers, json_body=build.payload)
     try:
         js = resp.json()
-    except Exception:
+    except json.JSONDecodeError as e:
+        click.echo(f"⚠️  Failed to parse JSON response: {e}")
         js = {"status": resp.status_code, "text": resp.text[:400]}
     click.echo(f"Response {resp.status_code}: {preview_json(js, limit=400)}")
     if resp.status_code not in (200, 201):
@@ -582,11 +642,27 @@ def handle_rl(
         return
 
     click.echo("\n=== Streaming Job Progress ===")
-    config, handlers = _build_stream_components(
-        stream_format, hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS
-    )
+    
+    # Enable metrics for prompt learning
     if stream_format == "chart":
-        click.echo("Using live loss chart (metric=train.loss)")
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            event_types={
+                "prompt.learning.progress",
+                "prompt.learning.gepa.start",
+                "prompt.learning.gepa.complete",
+            },
+            metric_names={"gepa.transformation.mean_score"},
+        )
+        handlers = [LossCurveHandler()]
+        click.echo("Using live chart (metric=gepa.transformation.mean_score)")
+    else:
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            metric_names={"gepa.transformation.mean_score"},
+        )
+        handlers = [CLIHandler(hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS)]
+    
     streamer = JobStreamer(
         base_url=backend_base,
         api_key=synth_key,
@@ -758,15 +834,314 @@ def handle_sft(
             timeout_seconds=poll_timeout,
         )
         final_status = asyncio.run(streamer.stream_until_terminal())
-        click.echo(f"Final status: {final_status.get('status', 'unknown')}")
+        status = final_status.get('status') if isinstance(final_status, dict) else 'unknown'
+        click.echo(f"Final status: {status}")
         click.echo(preview_json(final_status, limit=600))
     finally:
         if limited_path is not None:
-            try:
+            with contextlib.suppress(OSError):
                 limited_path.unlink(missing_ok=True)
+            # Clean up empty parent directory if possible
+            with contextlib.suppress(OSError):
                 limited_path.parent.rmdir()
-            except Exception:
-                pass
+
+
+def _save_prompt_learning_results_locally(
+    *,
+    backend_base: str,
+    api_key: str,
+    job_id: str,
+    config_path: Path,
+) -> None:
+    """Fetch events and generate results file locally after prompt learning completes."""
+    from datetime import datetime
+    
+    try:
+        # Fetch all events
+        url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit={_RESULTS_FILE_MAX_EVENTS}"
+        headers = {"Authorization": f"Bearer {api_key}"}
+        resp = http_get(url, headers=headers, timeout=30.0)
+        
+        if resp.status_code != 200:
+            click.echo(f"⚠️  Could not fetch events to generate results file (status={resp.status_code})")
+            return
+        
+        data = resp.json()
+        # Validate response structure
+        if not isinstance(data, dict):
+            click.echo(f"⚠️  Unexpected response type: {type(data).__name__}")
+            return
+        
+        events = data.get("events", [])
+        if not isinstance(events, list):
+            click.echo(f"⚠️  Events field is not a list: {type(events).__name__}")
+            return
+        
+        if not events:
+            return
+        
+        # Extract key data from events
+        best_score = None
+        best_prompt = None
+        baseline_score = None
+        attempted_candidates = []
+        optimized_candidates = []
+        
+        for event in events:
+            if not isinstance(event, dict):
+                continue  # Skip malformed events
+            
+            event_type = event.get("type", "")
+            event_data = event.get("data", {})
+            if not isinstance(event_data, dict):
+                event_data = {}  # Fallback to empty dict for safety
+            
+            if event_type == _PROMPT_LEARNING_EVENT_BEST_PROMPT:
+                best_score = event_data.get("best_score")
+                best_prompt = event_data.get("best_prompt")
+            elif event_type == _PROMPT_LEARNING_EVENT_FINAL_RESULTS:
+                attempted_candidates = event_data.get("attempted_candidates", [])
+                optimized_candidates = event_data.get("optimized_candidates", [])
+            elif event_type == _PROMPT_LEARNING_EVENT_VALIDATION_SCORED:
+                # Check if this is the baseline by checking for is_baseline flag or baseline in message
+                is_baseline = event_data.get("is_baseline", False)
+                if not is_baseline:
+                    msg = event.get("message", "")
+                    is_baseline = "baseline" in msg.lower()
+                if is_baseline:
+                    baseline_score = event_data.get("accuracy")
+            elif event_type == _PROMPT_LEARNING_EVENT_GEPA_COMPLETE and best_score is None:
+                best_score = event_data.get("best_score")
+        
+        if not (attempted_candidates or optimized_candidates):
+            return
+        
+        # Generate formatted report
+        lines = []
+        lines.append("=" * 80)
+        lines.append("GEPA PROMPT LEARNING RESULTS")
+        lines.append("=" * 80)
+        lines.append(f"Job ID: {job_id}")
+        lines.append(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        lines.append("")
+        if baseline_score is not None:
+            lines.append(f"📊 Baseline Score: {baseline_score:.4f} ({baseline_score*100:.1f}%)")
+        if best_score is not None:
+            lines.append(f"🏆 Best Score:     {best_score:.4f} ({best_score*100:.1f}%)")
+        if baseline_score is not None and best_score is not None:
+            improvement = ((best_score - baseline_score) / baseline_score) * 100 if baseline_score > 0 else 0
+            lines.append(f"📈 Improvement:    {improvement:+.1f}% relative ({(best_score - baseline_score)*100:+.1f} pp absolute)")
+        lines.append("=" * 80)
+        lines.append("")
+        
+        # Add best prompt if available
+        if best_prompt and isinstance(best_prompt, dict):
+            lines.append("🏆 BEST PROMPT")
+            lines.append("-" * 80)
+            sections = best_prompt.get("sections", [])
+            if not isinstance(sections, list):
+                sections = []
+            for sec in sections:
+                if not isinstance(sec, dict):
+                    continue
+                role = sec.get("role", "unknown")
+                content = sec.get("content", "")
+                lines.append(f"\n[{role.upper()}]:")
+                lines.append(content)
+            lines.append("")
+        
+        # Add optimized candidates
+        if optimized_candidates and isinstance(optimized_candidates, list):
+            lines.append("=" * 80)
+            lines.append(f"✨ TOP OPTIMIZED CANDIDATES ({len(optimized_candidates)})")
+            lines.append("=" * 80)
+            lines.append("")
+            
+            for idx, cand in enumerate(optimized_candidates):
+                if not isinstance(cand, dict):
+                    continue
+                candidate_score = cand.get("score") or {}
+                accuracy = candidate_score.get("accuracy", 0.0)
+                prompt_length = candidate_score.get("prompt_length", 0)
+                payload_kind = cand.get("payload_kind", "unknown")
+                
+                # Try score.instance_scores first, then cand.instance_scores (explicit check)
+                instance_scores = (
+                    candidate_score.get('instance_scores') 
+                    if 'instance_scores' in candidate_score 
+                    else cand.get('instance_scores')
+                )
+                n_eval = len(instance_scores) if instance_scores and isinstance(instance_scores, list) else 0
+                
+                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Type: {payload_kind} | N: {n_eval}")
+                lines.append("-" * 80)
+                
+                obj = cand.get("object")
+                if obj and isinstance(obj, dict) and payload_kind == "transformation":
+                    # For transformations, text_replacements are nested in data
+                    data_obj = obj.get("data", {})
+                    replacement_lines = _format_text_replacements(data_obj)
+                    lines.extend(replacement_lines)
+                lines.append("")
+        
+        # Add all proposal candidates
+        if attempted_candidates and isinstance(attempted_candidates, list):
+            lines.append("=" * 80)
+            lines.append(f"💡 ALL PROPOSAL CANDIDATES ({len(attempted_candidates)})")
+            lines.append("=" * 80)
+            lines.append("")
+            
+            for idx, cand in enumerate(attempted_candidates):
+                if not isinstance(cand, dict):
+                    continue
+                accuracy = cand.get('accuracy', 0.0)
+                prompt_length = cand.get('prompt_length', 0)
+                tool_rate = cand.get('tool_call_rate', 0.0)
+                instance_scores = cand.get('instance_scores', [])
+                n_eval = len(instance_scores) if instance_scores else 0
+                
+                lines.append(f"[{idx+1}] Accuracy: {accuracy:.4f} | Length: {prompt_length} | Tool Rate: {tool_rate:.2f} | N: {n_eval}")
+                lines.append("-" * 80)
+                
+                obj = cand.get("object")
+                if obj and isinstance(obj, dict):
+                    # For proposals, text_replacements are at top level of object
+                    replacement_lines = _format_text_replacements(obj)
+                    lines.extend(replacement_lines)
+                lines.append("")
+        
+        lines.append("=" * 80)
+        lines.append("END OF REPORT")
+        lines.append("=" * 80)
+        
+        # Determine save location
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Try to save in config directory first
+        output_dir = config_path.parent / "results"
+        output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / f"gepa_results_{job_id}_{timestamp}.txt"
+        
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        
+        click.echo(f"\n📄 Results saved locally to: {output_file}")
+        
+    except (PermissionError, OSError) as e:
+        click.echo(f"⚠️  Could not save results file locally: {e}")
+    except Exception as e:
+        click.echo(f"⚠️  Unexpected error saving results file: {e}")
+
+
+def handle_prompt_learning(
+    *,
+    cfg_path: Path,
+    backend_base: str,
+    synth_key: str,
+    task_url_override: str | None,
+    allow_experimental: bool | None,
+    dry_run: bool,
+    poll: bool,
+    poll_timeout: float,
+    poll_interval: float,
+    stream_format: str,
+) -> None:
+    """Handle prompt learning job creation (MIPRO or GEPA)."""
+    import os
+    
+    overrides: dict[str, Any] = {
+        "backend": backend_base,
+    }
+    
+    build = build_prompt_learning_payload(
+        config_path=cfg_path,
+        task_url=None,  # Force using TOML only
+        overrides=overrides,
+        allow_experimental=allow_experimental,
+    )
+    
+    env_key = os.environ.get("ENVIRONMENT_API_KEY")
+    if not env_key:
+        raise click.ClickException("ENVIRONMENT_API_KEY required for prompt learning flow")
+    
+    click.echo("Performing task app health check…")
+    health = check_task_app_health(build.task_url, env_key)
+    if not health.ok:
+        click.echo(f"Task app health check failed: {health.detail}")
+        raise click.ClickException("Aborting due to failing health check")
+    else:
+        click.echo("Task app healthy")
+    
+    create_url = f"{backend_base}/prompt-learning/online/jobs"
+    headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
+    
+    click.echo(f"POST {create_url}")
+    click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
+    
+    resp = http_post(create_url, headers=headers, json_body=build.payload)
+    try:
+        js = resp.json()
+    except json.JSONDecodeError as e:
+        click.echo(f"⚠️  Failed to parse JSON response: {e}")
+        js = {"status": resp.status_code, "text": resp.text[:400]}
+    click.echo(f"Response {resp.status_code}: {preview_json(js, limit=400)}")
+    if resp.status_code not in (200, 201):
+        raise click.ClickException("Job creation failed")
+    job_id = js.get("job_id") or js.get("id")
+    if not job_id:
+        raise click.ClickException("Response missing job id")
+    
+    if not poll:
+        click.echo(f"Created job {job_id} (polling disabled)")
+        return
+    
+    click.echo("\n=== Streaming Job Progress ===")
+    
+    # Custom config for prompt learning to enable metrics
+    if stream_format == "chart":
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            event_types={
+                "prompt.learning.progress",
+                "prompt.learning.gepa.start",
+                "prompt.learning.gepa.complete",
+            },
+            metric_names={"gepa.transformation.mean_score"},
+        )
+        handlers = [LossCurveHandler()]
+        click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
+    else:
+        # Enable metrics for CLI mode too
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            metric_names={"gepa.transformation.mean_score"},
+        )
+        handlers = [CLIHandler(
+            hidden_event_types=_DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
+            hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS,
+        )]
+    
+    streamer = JobStreamer(
+        base_url=backend_base,
+        api_key=synth_key,
+        job_id=job_id,
+        endpoints=StreamEndpoints.prompt_learning(job_id),
+        config=config,
+        handlers=handlers,
+        interval_seconds=poll_interval,
+        timeout_seconds=poll_timeout,
+    )
+    final_status = asyncio.run(streamer.stream_until_terminal())
+    click.echo(f"Final status: {final_status.get('status', 'unknown')}")
+    click.echo(preview_json(final_status, limit=600))
+    
+    # Save results file locally
+    _save_prompt_learning_results_locally(
+        backend_base=backend_base,
+        api_key=synth_key,
+        job_id=job_id,
+        config_path=cfg_path,
+    )
 
 
 def register(cli: click.Group) -> None:

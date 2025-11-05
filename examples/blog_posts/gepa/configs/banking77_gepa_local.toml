@@ -1,0 +1,95 @@
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
+task_app_id = "banking77"
+
+# Initial prompt pattern (pattern-based mode)
+[prompt_learning.initial_prompt]
+id = "banking77_pattern"
+name = "Banking77 Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"  # Will be provided by task app at runtime
+
+# Policy configuration (model, provider, etc.)
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "banking77-classifier"  # Required for Banking77 task app
+
+# Training split config
+[prompt_learning.env_config]
+pool = "train"
+
+# GEPA-specific configuration with nested subsections (mirrors RL structure)
+[prompt_learning.gepa]
+env_name = "banking77"
+proposer_type = "dspy"
+
+# Rollout configuration (mirrors RL [rollout] section)
+[prompt_learning.gepa.rollout]
+budget = 1000
+max_concurrent = 20
+minibatch_size = 10
+
+# Evaluation configuration (mirrors RL [evaluation] section)
+[prompt_learning.gepa.evaluation]
+seeds = [
+  50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
+  60, 61, 62, 63, 64, 65, 66, 67, 68, 69,
+  70, 71, 72, 73, 74, 75, 76, 77, 78, 79
+]  # Training seeds (30 seeds from train pool)
+validation_seeds = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+  20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+  30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+  40, 41, 42, 43, 44, 45, 46, 47, 48, 49
+]  # Held-out validation seeds (50 seeds from validation pool - not in training)
+validation_pool = "validation"
+validation_top_k = 3
+test_pool = [2, 3]  # Test pool for final evaluation (small held-out set)
+
+# Mutation configuration (LLM-guided mutation settings)
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "openai/gpt-oss-120b"
+llm_provider = "groq"
+llm_inference_url = "https://api.groq.com/openai/v1"
+
+# Population configuration (evolution parameters)
+[prompt_learning.gepa.population]
+initial_size = 10
+num_generations = 3
+children_per_generation = 12
+crossover_rate = 0.5
+selection_pressure = 1.0
+patience_generations = 3
+
+# Archive configuration (Pareto archive settings)
+[prompt_learning.gepa.archive]
+size = 40
+pareto_set_size = 32
+pareto_eps = 1e-6
+feedback_fraction = 0.5
+
+# Token and budget configuration
+[prompt_learning.gepa.token]
+# max_limit = 1000  # Uncomment to set a token limit
+counting_model = "gpt-4"
+enforce_pattern_limit = true
+# max_spend_usd = 100.0  # Uncomment to set a budget cap
