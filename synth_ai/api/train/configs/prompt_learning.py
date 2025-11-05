@@ -78,6 +78,12 @@ class MIPROConfig(ExtraModel):
     max_wall_clock_seconds: float | None = None
     max_total_tokens: int | None = None
     
+    # Token and budget configuration (mirrors GEPA pattern)
+    max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
+    max_spend_usd: float | None = None  # Maximum spend in USD
+    token_counting_model: str = "gpt-4"  # Model for token estimation (tiktoken)
+    enforce_token_limit: bool = True  # Halt optimization if limit exceeded
+    
     # TPE configuration
     tpe: dict[str, Any] | None = None
     
