@@ -2,7 +2,6 @@
 
 import pytest
 from click.testing import CliRunner
-
 from synth_ai.cli.commands.help import COMMAND_HELP, DEPLOY_HELP, SETUP_HELP, get_command_help
 from synth_ai.cli.commands.help.core import help_command
 
@@ -117,7 +116,7 @@ class TestHelpCommand:
         """Test help command shows all available topics from COMMAND_HELP."""
         result = runner.invoke(help_command, [])
         assert result.exit_code == 0
-        for command_name in COMMAND_HELP.keys():
+        for command_name in COMMAND_HELP:
             assert command_name in result.output
 
     def test_help_command_suggests_standard_help_flag(self, runner: CliRunner) -> None:
@@ -135,12 +134,14 @@ class TestHelpIntegrationWithCommands:
         """Test deploy command is exposed under the new CLI module."""
         from synth_ai.cli.deploy import deploy_cmd
 
+        assert deploy_cmd is not None, "deploy_cmd should not be None"
         assert deploy_cmd.name == "deploy"
 
     def test_deploy_command_help_flag_works(self, runner: CliRunner) -> None:
         """Test deploy command --help flag displays help."""
         from synth_ai.cli.deploy import deploy_cmd
 
+        assert deploy_cmd is not None, "deploy_cmd should not be None"
         result = runner.invoke(deploy_cmd, ["--help"])
         assert result.exit_code == 0
         # Should show either full DEPLOY_HELP or at least key sections

@@ -268,20 +268,25 @@ def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlan
         json_payload=content_payload.get("json_payload"),
     )
     raw_type = (payload.get("message_type") or "").lower()
-    if raw_type == "observation":
+    original_type = payload.get("message_type") or raw_type
+    
+    if raw_type in ("observation", "policy_system_prompt"):
         normalized_type = "system"
-    elif raw_type == "action":
+    elif raw_type in ("action", "policy_tool_call"):
         normalized_type = "assistant"
     elif raw_type in {"user", "assistant", "system", "tool_use", "tool_result"}:
         normalized_type = raw_type
     else:
         normalized_type = "system"
 
+    metadata = dict(payload.get("metadata") or {})
+    metadata["original_message_type"] = original_type
+
     return SessionEventMarkovBlanketMessage(
         content=content,
         message_type=normalized_type,
         time_record=_time_record_from_dict(payload.get("time_record")),
-        metadata=payload.get("metadata") or {},
+        metadata=metadata,
     )
 
 

@@ -10,9 +10,9 @@ SQLite fallback for contributors without remote access.
 from __future__ import annotations
 
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from synth_ai.tracing_v3.constants import canonical_trace_db_path
@@ -69,6 +69,15 @@ def _split_auth_from_url(url: str) -> tuple[str, str | None]:
 
 
 def _default_sqlite_url(*, ensure_dir: bool = True) -> tuple[str, str | None]:
+    """Generate a SQLite URL from SYNTH_TRACES_DIR if set, otherwise raise."""
+    traces_dir = os.getenv("SYNTH_TRACES_DIR")
+    if traces_dir:
+        dir_path = _normalise_path(Path(traces_dir))
+        if ensure_dir:
+            dir_path.mkdir(parents=True, exist_ok=True)
+        db_path = dir_path / "synth_traces.db"
+        sqlite_url = f"sqlite+aiosqlite:///{db_path}"
+        return sqlite_url, None
     raise RuntimeError("SQLite fallback is disabled; configure LIBSQL_URL or run sqld locally.")
 
 
@@ -108,6 +117,16 @@ def resolve_trace_db_settings(*, ensure_dir: bool = True) -> tuple[str, str | No
         env_token = os.getenv("LIBSQL_AUTH_TOKEN") or os.getenv("TURSO_AUTH_TOKEN")
         return url, env_token
 
+    # Check for SYNTH_TRACES_DIR to generate SQLite URL
+    traces_dir = os.getenv("SYNTH_TRACES_DIR")
+    if traces_dir:
+        try:
+            sqlite_url, _ = _default_sqlite_url(ensure_dir=ensure_dir)
+            logger.info(f"[TRACE_CONFIG] Using SQLite from SYNTH_TRACES_DIR: {sqlite_url}")
+            return sqlite_url, None
+        except RuntimeError:
+            pass  # Fall through to other options
+
     # Modal environment: use plain SQLite file (no sqld daemon, no auth required)
     is_modal = _is_modal_environment()
     logger.info(f"[TRACE_CONFIG] Modal detection: {is_modal} (MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')})")
@@ -137,7 +156,7 @@ def resolve_trace_db_auth_token() -> str | None:
 # Config dataclasses
 # ---------------------------------------------------------------------------
 
-DEFAULT_DB_FILE = str((_normalise_path(_DEFAULT_TRACE_DIR) / _CANONICAL_DB_PATH.name))
+DEFAULT_DB_FILE = str(_normalise_path(_DEFAULT_TRACE_DIR) / _CANONICAL_DB_PATH.name)
 
 
 @dataclass
@@ -178,16 +197,16 @@ class TursoConfig:
     sqld_http_port: int = int(os.getenv("SQLD_HTTP_PORT", "8080"))
     sqld_idle_shutdown: int = int(os.getenv("SQLD_IDLE_SHUTDOWN", "0"))  # 0 = no idle shutdown
 
-    def get_connect_args(self) -> dict:
+    def get_connect_args(self) -> dict[str, str]:
         """Get SQLAlchemy connection arguments."""
-        args = {}
+        args: dict[str, str] = {}
         if self.auth_token:
             args["auth_token"] = self.auth_token
         return args
 
-    def get_engine_kwargs(self) -> dict:
+    def get_engine_kwargs(self) -> dict[str, Any]:
         """Get SQLAlchemy engine creation kwargs."""
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "echo": self.echo_sql,
             "future": True,
         }
