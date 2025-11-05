@@ -44,7 +44,9 @@ class BaselineGroup(click.Group):
             first_arg = args[0]
             if first_arg in self.commands:
                 # It's a known subcommand, let Click handle it normally
-                return super().resolve_command(ctx, args)
+                cmd_name, cmd, remaining = super().resolve_command(ctx, args)
+                # Click returns (name, cmd, args) but type checker expects (cmd, name, args)
+                return cmd, cmd_name or "", remaining
         
         # Not a subcommand - this means baseline_id is a positional argument
         # Store baseline_id in ctx for the callback to access
@@ -56,6 +58,8 @@ class BaselineGroup(click.Group):
             
             # Create a wrapper function that injects baseline_id into the callback
             original_callback = self.callback
+            if original_callback is None:
+                raise click.ClickException("Command callback is None")
             def wrapper_callback(ctx, **kwargs):
                 # Inject baseline_id into kwargs
                 kwargs['baseline_id'] = baseline_id
@@ -74,7 +78,9 @@ class BaselineGroup(click.Group):
         
         # No args or args start with --, so no baseline_id
         # Let Click handle it normally (will invoke main callback if invoke_without_command=True)
-        return super().resolve_command(ctx, args)
+        cmd_name, cmd, remaining = super().resolve_command(ctx, args)
+        # Click returns (name, cmd, args) but type checker expects (cmd, name, args)
+        return cmd, cmd_name or "", remaining
     
     def invoke(self, ctx: click.Context) -> Any:
         """Invoke command, handling baseline_id as positional arg."""
@@ -82,6 +88,8 @@ class BaselineGroup(click.Group):
         if 'baseline_id' in ctx.params and ctx.params['baseline_id']:
             baseline_id = ctx.params['baseline_id']
             # Invoke callback with baseline_id from params
+            if self.callback is None:
+                raise click.ClickException("Command callback is None")
             return self.callback(ctx, **ctx.params)
         
         # Manually call resolve_command with full args (including baseline_id if present)
@@ -90,9 +98,11 @@ class BaselineGroup(click.Group):
         
         # If no args, invoke callback directly (invoke_without_command=True behavior)
         if not full_args:
+            if self.callback is None:
+                raise click.ClickException("Command callback is None")
             return ctx.invoke(self.callback, **ctx.params)
         
-        cmd_name, cmd, resolved_args = self.resolve_command(ctx, full_args)  # Fixed: correct order
+        cmd, cmd_name, resolved_args = self.resolve_command(ctx, full_args)
         
         # Check if baseline_id was detected
         if 'baseline_id' in ctx.meta:
@@ -104,14 +114,18 @@ class BaselineGroup(click.Group):
             params['baseline_id'] = baseline_id
             # Don't pass ctx explicitly - Click's @click.pass_context decorator injects it
             # Use ctx.invoke to properly call the callback with the right context
+            if self.callback is None:
+                raise click.ClickException("Command callback is None")
             return ctx.invoke(self.callback, **params)
         
         # Normal flow - if it's a subcommand, invoke it
-        if cmd and cmd is not self:
+        if cmd and cmd is not self and isinstance(cmd, click.Command):
             with cmd.make_context(cmd_name, resolved_args, parent=ctx) as sub_ctx:
                 return cmd.invoke(sub_ctx)
         
         # No baseline_id and no subcommand - invoke callback if invoke_without_command=True
+        if self.callback is None:
+            raise click.ClickException("Command callback is None")
         return self.callback(ctx)
 
 
@@ -243,7 +257,7 @@ def command(
         return
     
     # Check if baseline_id is actually a subcommand (shouldn't happen, but handle gracefully)
-    if baseline_id and baseline_id in ctx.command.commands:
+    if baseline_id and isinstance(ctx.command, click.Group) and baseline_id in ctx.command.commands:
         # It's a subcommand, re-invoke with that subcommand
         subcmd = ctx.command.get_command(ctx, baseline_id)
         if subcmd:

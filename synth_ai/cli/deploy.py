@@ -121,11 +121,20 @@ RUNTIME_MSG = SimpleNamespace(
     is_flag=True,
     help=f"{RUNTIME_MSG.modal} Print Modal command without executing"
 )
+@click.option(
+    "--env-file",
+    "env_file",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="Path to .env file(s) to load"
+)
 def deploy_cmd(
     task_app_path: Path,
     runtime: RuntimeType,
+    env_file: tuple[str, ...],
     **kwargs
 ) -> None:
+    """Deploy a task app to local or Modal runtime."""
     match runtime:
         case "local":
             opts = {k: v for k, v in kwargs.items() if k in LOCAL_RUNTIME_OPTIONS}
@@ -149,3 +158,5 @@ def deploy_cmd(
                 modal_bin_path = Path(modal_bin_path)
             opts["modal_bin_path"] = modal_bin_path
             deploy_modal_app(ModalTaskAppConfig(**opts, task_app_path=task_app_path))
+
+__all__ = ["deploy_cmd"]

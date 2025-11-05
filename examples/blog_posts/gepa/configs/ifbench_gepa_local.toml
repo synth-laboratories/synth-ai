@@ -1,0 +1,59 @@
+# GEPA Prompt Learning for IFBench
+# Local backend configuration targeting the IFBench task app.
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://127.0.0.1:8111"
+task_app_id = "ifbench"
+
+# Candidate evaluation seeds during optimisation
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Held-out pool used for the final comparison sweep
+test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+
+[prompt_learning.initial_prompt]
+id = "ifbench_following"
+name = "IFBench Instruction Following"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are an obedient assistant that must follow instructions exactly. Ensure that every requirement is satisfied, avoid unsolicited commentary, and be explicit when information is missing."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Instruction: {instruction}\n\nInput: {input}\n\nProvide the response that best follows the instruction."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+instruction = "REQUIRED"
+input = "OPTIONAL"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+inference_url = "https://api.groq.com/openai/v1"
+temperature = 0.0
+max_completion_tokens = 512
+policy_name = "ifbench-gepa"
+
+[prompt_learning.gepa]
+env_name = "ifbench"
+initial_population_size = 24
+num_generations = 12
+mutation_rate = 0.3
+crossover_rate = 0.6
+selection_pressure = 1.0
+minibatch_size = 8
+pareto_set_size = 24
+feedback_fraction = 0.5
+children_per_generation = 12
+patience_generations = 4
+rollout_budget = 480
+archive_size = 32
+pareto_eps = 1e-6
+max_concurrent_rollouts = 20
+mutation_llm_model = "openai/gpt-oss-20b"
+mutation_llm_provider = "groq"
+mutation_llm_inference_url = "https://api.groq.com/openai/v1"

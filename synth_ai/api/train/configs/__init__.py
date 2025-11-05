@@ -1,5 +1,13 @@
-"""Typed training config loaders for RL and SFT jobs."""
+"""Typed training config loaders for RL, SFT, and Prompt Learning jobs."""
 
+from .prompt_learning import (
+    GEPAConfig,
+    MessagePatternConfig,
+    MIPROConfig,
+    PromptLearningConfig,
+    PromptLearningPolicyConfig,
+    PromptPatternConfig,
+)
 from .rl import (
     EvaluationConfig,
     JudgeConfig,
@@ -28,14 +36,20 @@ __all__ = [
     "AlgorithmConfig",
     "ComputeConfig",
     "EvaluationConfig",
+    "GEPAConfig",
     "HyperparametersConfig",
     "HyperparametersParallelism",
     "JobConfig",
     "JudgeConfig",
     "JudgeOptionsConfig",
     "LoraConfig",
+    "MIPROConfig",
+    "MessagePatternConfig",
     "ModelConfig",
     "PolicyConfig",
+    "PromptLearningConfig",
+    "PromptLearningPolicyConfig",
+    "PromptPatternConfig",
     "RewardsConfig",
     "RLConfig",
     "RLServicesConfig",
