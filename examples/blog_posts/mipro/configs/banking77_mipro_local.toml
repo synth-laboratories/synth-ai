@@ -41,8 +41,8 @@ pool = "train"
 # MIPROv2-specific configuration
 [prompt_learning.mipro]
 env_name = "banking77"
-num_iterations = 20  # More iterations
-num_evaluations_per_iteration = 3  # Fewer proposals per iteration (was 6)
+num_iterations = 5  # 5 iterations × 2 per iteration = 10 total prompt combos
+num_evaluations_per_iteration = 2  # 2 proposals per iteration
 batch_size = 6
 max_concurrent = 16
 meta_model = "gpt-4o-mini"
@@ -50,10 +50,10 @@ meta_model_provider = "openai"
 meta_model_inference_url = "https://api.openai.com/v1"
 few_shot_score_threshold = 0.85
 
-# Seed pools for different phases - expanded for more data
-bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # More seeds for bootstrap (was 5)
-online_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]  # Much larger online pool (was 5)
-test_pool = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39]  # Held-out seeds for final evaluation
+# Seed pools for different phases - tons of data for reliable evaluation
+bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # 15 seeds for bootstrap
+online_pool = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]  # 25 seeds for online evaluation
+test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]  # 10 held-out seeds for final evaluation
 
 # TPE hyperparameters
 [prompt_learning.mipro.tpe]
