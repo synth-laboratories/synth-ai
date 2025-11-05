@@ -3,7 +3,7 @@
 
 [prompt_learning]
 algorithm = "mipro"
-task_app_url = "http://127.0.0.1:8102"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
 task_app_id = "banking77"
 
 # Initial prompt pattern (pattern-based mode)
@@ -54,4 +54,36 @@ few_shot_score_threshold = 0.85
 bootstrap_train_seeds = [0, 1, 2, 3, 4]  # Seeds for bootstrap phase (few-shot examples)
 online_pool = [5, 6, 7, 8, 9]  # Seeds for mini-batch evaluation during optimization
 test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # Held-out seeds for final evaluation
+
+# TPE hyperparameters
+[prompt_learning.mipro.tpe]
+gamma = 0.25              # Quantile for splitting good/bad observations
+n_candidates = 32         # Number of candidates to evaluate Expected Improvement
+n_startup_trials = 10     # Uniform random trials before TPE kicks in
+epsilon = 0.1             # Exploration probability (uniform sample)
+categorical_alpha = 1.0   # Laplace smoothing for categorical variables
+prior_weight = 0.05       # Prior mixing weight to avoid zero-densities
+
+# Demo set selection hyperparameters
+[prompt_learning.mipro.demo]
+max_few_shot_examples = 5  # Maximum number of few-shot examples to include
+sets_per_size = 6          # Number of demo sets to generate per size
+include_empty = true       # Whether to include empty demo set (zero-shot)
+
+# Grounding configuration for instruction proposals
+[prompt_learning.mipro.grounding]
+n = 10                     # Number of instruction proposals to generate
+temperature = 0.7          # Temperature for LLM proposal generation
+max_tokens = 600           # Max tokens for proposal generation
+
+# Meta-update configuration
+[prompt_learning.mipro.meta_update]
+enabled = true             # Enable periodic meta-updates
+every_iterations = 3       # Regenerate instructions every N iterations
+topk_success = 5           # Number of top success examples to use for grounding
+topk_failure = 5           # Number of top failure examples to use for grounding
+validate_on_batch = 32     # Batch size for proposal validation
+keep_k = 12                # Maximum number of instruction variants to keep
+dedup_token_overlap = 0.8  # Token overlap threshold for deduplication
+regen_temperature_decay = 0.95  # Temperature decay factor per meta-update
 

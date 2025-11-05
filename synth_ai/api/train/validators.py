@@ -173,24 +173,39 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             meta_model = mipro_config.get("meta_model")
             if not meta_model:
                 errors.append("Missing required field: prompt_learning.mipro.meta_model")
-            
-            # Validate bootstrap seeds if provided
-            bootstrap_seeds = mipro_config.get("bootstrap_train_seeds")
-            if bootstrap_seeds is not None:
-                if not isinstance(bootstrap_seeds, list):
-                    errors.append("prompt_learning.mipro.bootstrap_train_seeds must be an array")
-                elif len(bootstrap_seeds) == 0:
-                    errors.append("prompt_learning.mipro.bootstrap_train_seeds cannot be empty")
-            
-            # Validate online_pool if provided
-            online_pool = mipro_config.get("online_pool")
-            if online_pool is not None:
-                if not isinstance(online_pool, list):
-                    errors.append("prompt_learning.mipro.online_pool must be an array")
-                elif len(online_pool) == 0:
-                    errors.append("prompt_learning.mipro.online_pool cannot be empty")
-            
-            # Validate few_shot_score_threshold
+        
+        # CRITICAL: Validate bootstrap_train_seeds and online_pool (can be at top level or under mipro)
+        bootstrap_seeds = pl_section.get("bootstrap_train_seeds") or (mipro_config.get("bootstrap_train_seeds") if isinstance(mipro_config, dict) else None)
+        online_pool = pl_section.get("online_pool") or (mipro_config.get("online_pool") if isinstance(mipro_config, dict) else None)
+        
+        if not bootstrap_seeds:
+            errors.append(
+                "Missing required field: prompt_learning.bootstrap_train_seeds\n"
+                "  MIPRO requires bootstrap seeds for the few-shot bootstrapping phase.\n"
+                "  Example:\n"
+                "    [prompt_learning]\n"
+                "    bootstrap_train_seeds = [0, 1, 2, 3, 4]"
+            )
+        elif not isinstance(bootstrap_seeds, list):
+            errors.append("prompt_learning.bootstrap_train_seeds must be an array")
+        elif len(bootstrap_seeds) == 0:
+            errors.append("prompt_learning.bootstrap_train_seeds cannot be empty")
+        
+        if not online_pool:
+            errors.append(
+                "Missing required field: prompt_learning.online_pool\n"
+                "  MIPRO requires online_pool seeds for mini-batch evaluation during optimization.\n"
+                "  Example:\n"
+                "    [prompt_learning]\n"
+                "    online_pool = [5, 6, 7, 8, 9]"
+            )
+        elif not isinstance(online_pool, list):
+            errors.append("prompt_learning.online_pool must be an array")
+        elif len(online_pool) == 0:
+            errors.append("prompt_learning.online_pool cannot be empty")
+        
+        # Validate few_shot_score_threshold (if mipro_config exists)
+        if isinstance(mipro_config, dict):
             threshold = mipro_config.get("few_shot_score_threshold")
             if threshold is not None:
                 try:
