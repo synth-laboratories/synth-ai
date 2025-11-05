@@ -107,6 +107,63 @@ class CLIHandler(StreamHandler):
             # Mask sensitive URLs before displaying
             sanitized_msg = _mask_sensitive_urls(msg)
             click.echo(f"{prefix}: {sanitized_msg}".rstrip(": "))
+
+            data = message.data.get("data") if isinstance(message.data.get("data"), dict) else {}
+            if event_type == "prompt.learning.mipro.complete" and data:
+                best_prompt = data.get("best_prompt")
+                if isinstance(best_prompt, dict):
+                    sections = best_prompt.get("sections")
+                    if isinstance(sections, list) and sections:
+                        click.echo("    --- BEST PROMPT ---")
+                        for section in sections:
+                            if not isinstance(section, dict):
+                                continue
+                            role = section.get("role", "unknown").upper()
+                            name = section.get("name")
+                            header = f"    [{role}]"
+                            if name:
+                                header += f" {name}"
+                            click.echo(header)
+                            content = section.get("content", "")
+                            if isinstance(content, str) and content:
+                                click.echo(f"        {content}")
+                        click.echo("    -------------------")
+
+            if event_type == "mipro.topk.evaluated" and data:
+                rank = data.get("rank")
+                train_score = data.get("train_score")
+                test_score = data.get("test_score")
+                instruction_text = data.get("instruction_text", "")
+                demo_indices = data.get("demo_indices", [])
+                lift_abs = data.get("lift_absolute")
+                lift_pct = data.get("lift_percent")
+                details: list[str] = []
+                if rank is not None:
+                    details.append(f"Rank {rank}")
+                if isinstance(train_score, (int, float)):
+                    details.append(f"train={train_score:.3f} ({train_score*100:.1f}%)")
+                if isinstance(test_score, (int, float)):
+                    details.append(f"test={test_score:.3f} ({test_score*100:.1f}%)")
+                if isinstance(lift_abs, (int, float)) and isinstance(lift_pct, (int, float)):
+                    details.append(f"lift={lift_abs:+.3f} ({lift_pct:+.1f}%)")
+                if details:
+                    click.echo("    --- TOP-K CANDIDATE ---")
+                    click.echo(f"    {' | '.join(details)}")
+                    if isinstance(instruction_text, str) and instruction_text.strip():
+                        snippet = instruction_text.strip()
+                        click.echo(f"        Instruction: {snippet}")
+                    if isinstance(demo_indices, list) and demo_indices:
+                        click.echo(f"        Demo indices: {demo_indices}")
+                    seed_scores = data.get("test_seed_scores")
+                    if isinstance(seed_scores, list) and seed_scores:
+                        formatted_scores = ", ".join(
+                            f"{item.get('seed')}: {item.get('score'):.2f}"
+                            for item in seed_scores
+                            if isinstance(item, dict) and isinstance(item.get("seed"), int) and isinstance(item.get("score"), (int, float))
+                        )
+                        if formatted_scores:
+                            click.echo(f"        Test per-seed: {formatted_scores}")
+                    click.echo("    ----------------------")
             return
 
         if message.stream_type is StreamType.METRICS:
