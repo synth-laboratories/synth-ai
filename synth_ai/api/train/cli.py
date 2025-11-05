@@ -52,6 +52,7 @@ _PROMPT_LEARNING_EVENT_BEST_PROMPT = "prompt.learning.best.prompt"
 _PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
 _PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
 _PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
+_PROMPT_LEARNING_EVENT_MIPRO_COMPLETE = "prompt.learning.mipro.complete"
 
 # Constants for formatting
 _MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in output
@@ -912,6 +913,12 @@ def _save_prompt_learning_results_locally(
                     baseline_score = event_data.get("accuracy")
             elif event_type == _PROMPT_LEARNING_EVENT_GEPA_COMPLETE and best_score is None:
                 best_score = event_data.get("best_score")
+            elif event_type == _PROMPT_LEARNING_EVENT_MIPRO_COMPLETE:
+                # MIPRO completion event includes best_prompt and best_score
+                if best_score is None:
+                    best_score = event_data.get("best_score")
+                if best_prompt is None:
+                    best_prompt = event_data.get("best_prompt")
         
         if not (attempted_candidates or optimized_candidates):
             return
