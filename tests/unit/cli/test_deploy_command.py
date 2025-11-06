@@ -29,7 +29,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     def fake_deploy(cfg: LocalDeployCfg) -> None:
         captured["cfg"] = cfg
 
-    monkeypatch.setattr("synth_ai.utils.uvicorn.deploy_uvicorn_app", fake_deploy)
+    monkeypatch.setattr("synth_ai.uvicorn.deploy_app_uvicorn", fake_deploy)
     # Reload the deploy module to pick up the patched function
     import synth_ai.cli.deploy
     importlib.reload(synth_ai.cli.deploy)
