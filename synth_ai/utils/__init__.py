@@ -2,6 +2,7 @@ from . import task_app_state
 from .agents import write_agents_md
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .bin import install_bin, verify_bin
+from .claude import ClaudeConfig
 from .cli import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -10,7 +11,12 @@ from .cli import (
     prompt_choice,
     prompt_for_path,
 )
-from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
+from .env import (
+    mask_str,
+    resolve_env_var,
+    write_env_var_to_dotenv,
+    write_env_var_to_json,
+)
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
 from .modal import (
@@ -70,6 +76,7 @@ __all__ = [
     "prompt_for_path",
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
+    "ClaudeConfig",
     "create_and_write_json",
     "current_task_app_id",
     "discover_eval_config_paths",
