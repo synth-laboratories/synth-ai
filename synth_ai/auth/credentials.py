@@ -47,7 +47,7 @@ def init_auth_session() -> AuthSession:
     )
 
 
-def fetch_data(device_code: str) -> Any | None:
+def fetch_data(device_code: str) -> requests.Response | None:
     try:
         return requests.post(
             TOKEN_URL,
