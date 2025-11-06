@@ -55,7 +55,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     assert result.exit_code == 0, result.output
     cfg = captured["cfg"]
     assert isinstance(cfg, LocalDeployCfg)
-    assert cfg.path == task_app
+    assert cfg.task_app_path == task_app
     assert cfg.host == "0.0.0.0"
     assert cfg.port == 9001
     assert cfg.trace is False
