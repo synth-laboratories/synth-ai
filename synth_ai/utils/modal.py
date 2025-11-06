@@ -15,9 +15,9 @@ from urllib.parse import urlparse, urlunparse
 
 import click
 from modal.config import config
+from synth_ai.cfgs import ModalDeployCfg
 from synth_ai.demos import core as demo_core
 from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
-from synth_ai.task_app_cfgs import ModalTaskAppConfig
 
 from .env import mask_str, resolve_env_var, write_env_var_to_dotenv
 from .http import http_request
@@ -131,7 +131,7 @@ def ensure_modal_config() -> None:
     run_modal_setup(modal_bin_path)
 
 
-def deploy_modal_app(cfg: ModalTaskAppConfig) -> None:
+def deploy_modal_app(cfg: ModalDeployCfg) -> None:
     ensure_py_file_defines_modal_app(cfg.modal_app_path)
     ensure_modal_config()
     
