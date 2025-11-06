@@ -34,7 +34,7 @@ RUNTIME_MSG = SimpleNamespace(
 )
 
 
-@click.command("deploy")
+@click.command()
 # --- Required options ---
 @click.option(
     "--task-app",
