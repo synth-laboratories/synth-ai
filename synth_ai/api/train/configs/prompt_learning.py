@@ -110,6 +110,9 @@ class MIPROConfig(ExtraModel):
     
     # Test pool (held-out seeds)
     test_pool: list[int] | None = None
+    
+    # Reference pool (for dataset context in meta-prompt, must not overlap with train/test)
+    reference_pool: list[int] | None = None
 
 
 # GEPA nested configs (mirroring RL structure)
