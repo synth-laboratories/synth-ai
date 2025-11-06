@@ -1,5 +1,16 @@
+import importlib.util as importlib
 import shutil
 from pathlib import Path
+from types import ModuleType
+
+
+def is_py_file(path: Path) -> bool:
+    path = path.resolve()
+    if not path.is_file():
+        return False
+    if path.suffix != ".py":
+        return False
+    return True
 
 
 def find_bin_path(name: str) -> Path | None:
@@ -46,3 +57,17 @@ def find_config_path(
         return local_candidate
 
     return None
+
+
+def load_file_to_module(path: Path) -> ModuleType:
+    if not is_py_file(path):
+        raise ValueError(f"{path} is not a .py file")
+    spec = importlib.spec_from_file_location(path.stem, str(path))
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load module spec for {path}")
+    module = importlib.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:
+        raise RuntimeError(f"Failed to import module: {exc}") from exc
+    return module
