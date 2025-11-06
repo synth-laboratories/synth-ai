@@ -65,7 +65,7 @@ def poll_handshake(device_code: str) -> str:
         for k, v in credentials.items():
             write_env_var_to_dotenv(k, v)
             write_env_var_to_json(k, v, "~/.synth-ai/config.json")
-            os.environ[k] = k
+            os.environ[k] = v
         masked_credentials = {
             key: mask_str(value or "") for key, value in credentials.items()
         }
