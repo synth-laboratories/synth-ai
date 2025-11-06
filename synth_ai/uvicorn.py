@@ -61,3 +61,4 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
         return f"[deploy_local] {msg}"
     print(msg)
     serve_app_uvicorn(app, cfg.host, cfg.port)
+    return
