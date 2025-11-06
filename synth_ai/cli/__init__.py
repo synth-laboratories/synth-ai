@@ -12,6 +12,17 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from synth_ai.cli.claude import claude_cmd
+from synth_ai.cli.codex import codex_cmd
+from synth_ai.cli.commands.baseline import command as baseline_cmd
+from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+from synth_ai.cli.demo import demo_cmd
+from synth_ai.cli.deploy import deploy_cmd
+from synth_ai.cli.eval import command as eval_cmd
+from synth_ai.cli.mcp import mcp_cmd
+from synth_ai.cli.opencode import opencode_cmd
+from synth_ai.cli.setup import setup_cmd
+
 # Load environment variables from a local .env if present (repo root)
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -56,34 +67,15 @@ cli = _cli_module.cli  # type: ignore[attr-defined]
 
 # Register core commands implemented as standalone modules
 
-from synth_ai.cli.commands.baseline import command as baseline_cmd
-from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
-
 cli.add_command(baseline_cmd, name="baseline")
 baseline_cmd.add_command(baseline_list_cmd, name="list")
-from synth_ai.cli.claude import claude_cmd
-
 cli.add_command(claude_cmd, name="claude")
-from synth_ai.cli.codex import codex_cmd
-
 cli.add_command(codex_cmd, name="codex")
-from synth_ai.cli.demo import demo_cmd
-
 cli.add_command(demo_cmd, name="demo")
-from synth_ai.cli.deploy import deploy_cmd
-
 cli.add_command(deploy_cmd, name="deploy")
-from synth_ai.cli.eval import command as eval_cmd
-
 cli.add_command(eval_cmd, name="eval")
-from synth_ai.cli.mcp import mcp_cmd
-
 cli.add_command(mcp_cmd, name="mcp")
-from synth_ai.cli.opencode import opencode_cmd
-
 cli.add_command(opencode_cmd, name="opencode")
-from synth_ai.cli.setup import setup_cmd
-
 cli.add_command(setup_cmd, name="setup")
 
 
