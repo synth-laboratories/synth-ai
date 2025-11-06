@@ -5,7 +5,7 @@ from synth_ai.auth.credentials import AuthSession, fetch_data, init_auth_session
 from synth_ai.utils import mask_str, write_env_var_to_dotenv, write_env_var_to_json
 
 
-def start_handshake() -> str:
+def mcp_init_auth_session() -> str:
     try:
         session: AuthSession = init_auth_session()
     except RuntimeError as err:
@@ -28,7 +28,7 @@ def start_handshake() -> str:
     )
 
 
-def poll_handshake(device_code: str) -> str:
+def mcp_poll_handshake(device_code: str) -> str:
     stage = "poll"
     res = fetch_data(device_code)
     if res is None:
