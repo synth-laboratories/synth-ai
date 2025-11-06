@@ -49,7 +49,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "task_app_path": {
                         "type": "string",
-                        "description": "Asbolute path to the task app Python file"
+                        "description": "Absolute path to the task app Python file"
                     },
                     "env_api_key": {
                         "type": "string",
