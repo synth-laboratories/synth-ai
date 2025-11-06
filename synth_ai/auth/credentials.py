@@ -36,7 +36,7 @@ def init_auth_session() -> AuthSession:
 
     device_code = str(data.get("device_code") or "").strip()
     verification_uri = str(data.get("verification_uri") or "").strip()
-    expires_in = int(data.get("expires_in"))
+    expires_in = int(data.get("expires_in"), 600)
     if not device_code or not verification_uri or not expires_in:
         raise RuntimeError("Handshake init response missing device_code or verification_uri or expires_in.")
 
