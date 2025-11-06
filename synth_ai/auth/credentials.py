@@ -49,14 +49,13 @@ def init_auth_session() -> AuthSession:
 
 def fetch_data(device_code: str) -> Any | None:
     try:
-        res = requests.post(
+        return requests.post(
             TOKEN_URL,
             json={"device_code": device_code},
             timeout=10,
         )
-    except Exception:
+    except RequestException:
         return None
-    return res
 
 
 def fetch_credentials_from_web_browser() -> dict:
