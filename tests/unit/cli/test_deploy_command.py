@@ -8,8 +8,6 @@ import click
 import pytest
 from click.testing import CliRunner
 
-# Import deploy_cmd after potential monkeypatching
-from synth_ai.cli.deploy import deploy_cmd
 from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
 
 
@@ -23,22 +21,28 @@ def _write_stub(path: Path, contents: str) -> Path:
     return path
 
 
+def _reload_deploy(monkeypatch: pytest.MonkeyPatch):
+    import synth_ai.cli.deploy as deploy_module
+
+    deploy_module = importlib.reload(deploy_module)
+    monkeypatch.setattr(deploy_module, "validate_task_app", lambda *_: None)
+    return deploy_module
+
+
 def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
     def fake_deploy(cfg: LocalDeployCfg) -> None:
         captured["cfg"] = cfg
 
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
     monkeypatch.setattr("synth_ai.uvicorn.deploy_app_uvicorn", fake_deploy)
-    # Reload the deploy module to pick up the patched function
-    import synth_ai.cli.deploy
-    importlib.reload(synth_ai.cli.deploy)
-    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
 
+    deploy_module = _reload_deploy(monkeypatch)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     result = runner.invoke(
-        reloaded_deploy_cmd,
+        deploy_module.deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -68,18 +72,16 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
         captured["cfg"] = cfg
 
     modal_cli_path = tmp_path / "modal"
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
     monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", fake_modal)
     monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: modal_cli_path)
-    # Reload the deploy module to pick up the patched function
-    import synth_ai.cli.deploy
-    importlib.reload(synth_ai.cli.deploy)
-    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
 
+    deploy_module = _reload_deploy(monkeypatch)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
 
     result = runner.invoke(
-        reloaded_deploy_cmd,
+        deploy_module.deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -104,34 +106,38 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
 
 def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
     monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
     monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
 
+    deploy_module = _reload_deploy(monkeypatch)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(task_app_path=task_app, runtime="modal", env_file=())
+        deploy_module.deploy_cmd.callback(task_app_path=task_app, runtime="modal", env_path=None)
 
     assert "Modal app path required" in str(exc.value)
 
 
 def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
     monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
     monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
 
+    deploy_module = _reload_deploy(monkeypatch)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
     modal_cli = tmp_path / "modal"
 
     with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(
+        deploy_module.deploy_cmd.callback(
             task_app_path=task_app,
             runtime="modal",
             modal_app_path=modal_app,
             cmd_arg="serve",
             dry_run=True,
             modal_bin_path=modal_cli,
-            env_file=(),
+            env_path=None,
         )
 
     assert "--modal-mode=serve cannot be combined with --dry-run" in str(exc.value)
