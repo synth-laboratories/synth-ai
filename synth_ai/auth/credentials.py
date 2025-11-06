@@ -2,7 +2,6 @@ import contextlib
 import time
 import webbrowser
 from dataclasses import dataclass
-from typing import Any
 
 import requests
 from requests import RequestException
