@@ -10,7 +10,7 @@ from click.testing import CliRunner
 
 # Import deploy_cmd after potential monkeypatching
 from synth_ai.cli.deploy import deploy_cmd
-from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
+from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
 
 
 @pytest.fixture()
@@ -26,7 +26,7 @@ def _write_stub(path: Path, contents: str) -> Path:
 def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_deploy(cfg: LocalTaskAppConfig) -> None:
+    def fake_deploy(cfg: LocalDeployCfg) -> None:
         captured["cfg"] = cfg
 
     monkeypatch.setattr("synth_ai.utils.uvicorn.deploy_uvicorn_app", fake_deploy)
@@ -54,8 +54,8 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
 
     assert result.exit_code == 0, result.output
     cfg = captured["cfg"]
-    assert isinstance(cfg, LocalTaskAppConfig)
-    assert cfg.task_app_path == task_app
+    assert isinstance(cfg, LocalDeployCfg)
+    assert cfg.path == task_app
     assert cfg.host == "0.0.0.0"
     assert cfg.port == 9001
     assert cfg.trace is False
@@ -64,7 +64,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
 def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_modal(cfg: ModalTaskAppConfig) -> None:
+    def fake_modal(cfg: ModalDeployCfg) -> None:
         captured["cfg"] = cfg
 
     modal_cli_path = tmp_path / "modal"
@@ -94,7 +94,7 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
     assert result.exit_code == 0, result.output
     cfg = captured["cfg"]
-    assert isinstance(cfg, ModalTaskAppConfig)
+    assert isinstance(cfg, ModalDeployCfg)
     assert cfg.task_app_path == task_app
     assert cfg.modal_app_path == modal_app
     assert cfg.task_app_name == "demo-app"
