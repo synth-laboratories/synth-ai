@@ -45,7 +45,10 @@ async def list_tools() -> list[Tool]:
             description="Deploy a task app to a local server",
             inputSchema={
                 "type": "object",
-                "required": ["task_app_path"],
+                "required": [
+                    "task_app_path",
+                    "env_api_key"
+                ],
                 "properties": {
                     "task_app_path": {
                         "type": "string",
