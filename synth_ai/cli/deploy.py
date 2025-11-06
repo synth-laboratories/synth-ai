@@ -1,18 +1,31 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal, TypeAlias, get_args
 
 import click
-from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
-from synth_ai.utils.cli import PromptedChoiceOption, PromptedChoiceType, PromptedPathOption
-from synth_ai.utils.modal import deploy_modal_app, get_default_modal_bin_path
-from synth_ai.utils.uvicorn import deploy_uvicorn_app
+from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
+from synth_ai.utils import (
+    PromptedChoiceOption,
+    PromptedChoiceType,
+    PromptedPathOption,
+    deploy_modal_app,
+    get_default_modal_bin_path,
+    read_env_var_from_file,
+    validate_task_app,
+)
+from synth_ai.uvicorn import deploy_app_uvicorn
 
 RuntimeType: TypeAlias = Literal[
     "local",
     "modal"
 ]
 RUNTIMES = get_args(RuntimeType)
+RUNTIME_MSG = SimpleNamespace(
+    init="[deploy]",
+    local="[deploy --runtime local]",
+    modal="[deploy --runtime modal]",
+)
 
 MODAL_RUNTIME_OPTIONS = [
     "task_app_name",
@@ -21,17 +34,6 @@ MODAL_RUNTIME_OPTIONS = [
     "dry_run",
     "modal_app_path",
 ]
-LOCAL_RUNTIME_OPTIONS = [
-    "trace",
-    "host",
-    "port"
-]
-
-RUNTIME_MSG = SimpleNamespace(
-    init="[deploy]",
-    local="[deploy --runtime local]",
-    modal="[deploy --runtime modal]",
-)
 
 
 @click.command()
@@ -56,7 +58,19 @@ RUNTIME_MSG = SimpleNamespace(
     type=PromptedChoiceType(RUNTIMES),
     required=True
 )
-# --- Local-only options ---
+# --- Optional option
+@click.option(
+    "--env",
+    "env_path",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        path_type=Path
+    ),
+    help="Path to .env file to use"
+)
+# --- Local runtime-only options ---
 @click.option(
     "--trace/--no-trace",
     "trace",
@@ -76,7 +90,7 @@ RUNTIME_MSG = SimpleNamespace(
     type=int,
     help=f"{RUNTIME_MSG.local} Port to bind to"
 )
-# --- Modal-only options ---
+# --- Modal runtime-only options ---
 @click.option(
     "--modal-app",
     "modal_app_path",
@@ -121,25 +135,31 @@ RUNTIME_MSG = SimpleNamespace(
     is_flag=True,
     help=f"{RUNTIME_MSG.modal} Print Modal command without executing"
 )
-@click.option(
-    "--env-file",
-    "env_file",
-    multiple=True,
-    type=click.Path(exists=True),
-    help="Path to .env file(s) to load"
-)
 def deploy_cmd(
     task_app_path: Path,
     runtime: RuntimeType,
-    env_file: tuple[str, ...],
     **kwargs
 ) -> None:
-    """Deploy a task app to local or Modal runtime."""
+    
+    env_file_path = kwargs.pop("env_path", None)
+    file_env_api_key = None
+    if env_file_path is not None:
+        file_env_api_key = read_env_var_from_file("ENVIRONMENT_API_KEY", env_file_path)
+    env_env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    if not file_env_api_key or not env_env_api_key:
+        raise click.ClickException("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+    
+    validate_task_app(task_app_path)
+
     match runtime:
         case "local":
-            opts = {k: v for k, v in kwargs.items() if k in LOCAL_RUNTIME_OPTIONS}
-            deploy_uvicorn_app(LocalTaskAppConfig(**opts, task_app_path=task_app_path))
-
+            deploy_app_uvicorn(LocalDeployCfg.create(
+                task_app_path,
+                env_api_key=file_env_api_key or env_env_api_key,
+                trace = bool(kwargs.get("trace", True)),
+                host = str(kwargs.get("host", "127.0.0.1")),
+                port = int(kwargs.get("port", 8000))
+            ))
         case "modal":
             opts = {k: v for k, v in kwargs.items() if k in MODAL_RUNTIME_OPTIONS}
 
@@ -157,6 +177,5 @@ def deploy_cmd(
             if isinstance(modal_bin_path, str):
                 modal_bin_path = Path(modal_bin_path)
             opts["modal_bin_path"] = modal_bin_path
-            deploy_modal_app(ModalTaskAppConfig(**opts, task_app_path=task_app_path))
-
-__all__ = ["deploy_cmd"]
+            deploy_modal_app(ModalDeployCfg(**opts, task_app_path=task_app_path))
+ 
