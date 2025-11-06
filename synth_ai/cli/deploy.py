@@ -140,13 +140,13 @@ def deploy_cmd(
     runtime: RuntimeType,
     **kwargs
 ) -> None:
-    
     env_file_path = kwargs.pop("env_path", None)
     file_env_api_key = None
     if env_file_path is not None:
         file_env_api_key = read_env_var_from_file("ENVIRONMENT_API_KEY", env_file_path)
     env_env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not file_env_api_key and not env_env_api_key:
+    env_api_key = file_env_api_key or env_env_api_key
+    if not env_api_key:
         raise click.ClickException("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
     
     validate_task_app(task_app_path)
@@ -155,7 +155,7 @@ def deploy_cmd(
         case "local":
             deploy_app_uvicorn(LocalDeployCfg.create(
                 task_app_path,
-                env_api_key=file_env_api_key or env_env_api_key,
+                env_api_key=env_api_key,
                 trace = bool(kwargs.get("trace", True)),
                 host = str(kwargs.get("host", "127.0.0.1")),
                 port = int(kwargs.get("port", 8000))
@@ -178,4 +178,3 @@ def deploy_cmd(
                 modal_bin_path = Path(modal_bin_path)
             opts["modal_bin_path"] = modal_bin_path
             deploy_modal_app(ModalDeployCfg(**opts, task_app_path=task_app_path))
- 
