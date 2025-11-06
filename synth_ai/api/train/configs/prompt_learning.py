@@ -96,6 +96,12 @@ class MIPROConfig(ExtraModel):
     # Meta-update configuration
     meta_update: dict[str, Any] | None = None
     
+    # System spec configuration
+    spec_path: str | None = None  # Path to system spec JSON file
+    spec_max_tokens: int = 5000  # Max tokens for spec context in meta-prompt
+    spec_include_examples: bool = True  # Include examples from spec
+    spec_priority_threshold: int | None = None  # Only include rules with priority >= threshold
+    
     # Bootstrap seeds (for few-shot examples)
     bootstrap_train_seeds: list[int] | None = None
     
@@ -158,6 +164,29 @@ class GEPATokenConfig(ExtraModel):
     max_spend_usd: float | None = None  # Maximum spend in USD
 
 
+class GEPAModuleConfig(ExtraModel):
+    """Configuration for a single GEPA pipeline module/stage (instruction-only)."""
+    module_id: str
+    max_instruction_slots: int = 3
+    allowed_tools: list[str] | None = None
+    max_tokens: int | None = None
+    
+    @field_validator("module_id")
+    @classmethod
+    def _validate_module_id(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("module_id cannot be empty")
+        return v
+    
+    @field_validator("max_instruction_slots")
+    @classmethod
+    def _validate_slots(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError("max_instruction_slots must be >= 1")
+        return v
+
+
 class GEPAConfig(ExtraModel):
     """GEPA-specific configuration with nested subsections."""
     # Top-level fields (for backwards compatibility)
@@ -165,6 +194,9 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "dspy"  # "dspy" or "synth"
+    
+    # Multi-stage pipeline support
+    modules: list[GEPAModuleConfig] | None = None
     
     # Nested subsections (preferred, mirrors RL structure)
     rollout: GEPARolloutConfig | None = None
@@ -362,7 +394,7 @@ class GEPAConfig(ExtraModel):
         flat_data = {}
         
         for key, value in data.items():
-            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token"):
+            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules"):
                 nested_data[key] = value
             else:
                 flat_data[key] = value
@@ -381,6 +413,13 @@ class GEPAConfig(ExtraModel):
                 nested_data["archive"] = GEPAArchiveConfig.model_validate(nested_data["archive"])
             if "token" in nested_data:
                 nested_data["token"] = GEPATokenConfig.model_validate(nested_data["token"])
+            if "modules" in nested_data:
+                modules_data = nested_data["modules"]
+                if isinstance(modules_data, list):
+                    nested_data["modules"] = [
+                        GEPAModuleConfig.model_validate(m) if isinstance(m, dict) else m
+                        for m in modules_data
+                    ]
         
         # Merge nested and flat data
         merged_data = {**flat_data, **nested_data}
@@ -433,6 +472,7 @@ class PromptLearningConfig(ExtraModel):
 
 __all__ = [
     "GEPAConfig",
+    "GEPAModuleConfig",
     "GEPARolloutConfig",
     "GEPAEvaluationConfig",
     "GEPAMutationConfig",
