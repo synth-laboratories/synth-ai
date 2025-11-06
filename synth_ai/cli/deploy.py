@@ -146,7 +146,7 @@ def deploy_cmd(
     if env_file_path is not None:
         file_env_api_key = read_env_var_from_file("ENVIRONMENT_API_KEY", env_file_path)
     env_env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not file_env_api_key or not env_env_api_key:
+    if not file_env_api_key and not env_env_api_key:
         raise click.ClickException("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
     
     validate_task_app(task_app_path)
