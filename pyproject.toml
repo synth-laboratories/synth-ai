@@ -60,6 +60,7 @@ dependencies = [
     "setuptools>=80.9.0",
     "libsql-experimental>=0.0.55",
     "mcp>=1.21.0",
+    "ruff>=0.12.9",
 ]
 
 [project.scripts]
