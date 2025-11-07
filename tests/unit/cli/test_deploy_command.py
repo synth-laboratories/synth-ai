@@ -8,9 +8,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-# Import deploy_cmd after potential monkeypatching
-from synth_ai.cli.deploy import deploy_cmd
-from synth_ai.task_app_cfgs import LocalTaskAppConfig, ModalTaskAppConfig
+from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
 
 
 @pytest.fixture()
@@ -23,22 +21,32 @@ def _write_stub(path: Path, contents: str) -> Path:
     return path
 
 
+def _reload_deploy(monkeypatch: pytest.MonkeyPatch):
+    import synth_ai.cli.deploy as deploy_module
+    import synth_ai.cfgs as deploy_cfgs
+
+    deploy_module = importlib.reload(deploy_module)
+    monkeypatch.setattr(deploy_module, "validate_task_app", lambda *_: None)
+    monkeypatch.setattr(deploy_cfgs, "validate_task_app", lambda path: path)
+    monkeypatch.setattr(deploy_cfgs, "validate_modal_app", lambda path: path)
+    return deploy_module
+
+
 def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_deploy(cfg: LocalTaskAppConfig) -> None:
+    def fake_deploy(cfg: LocalDeployCfg) -> None:
         captured["cfg"] = cfg
 
-    monkeypatch.setattr("synth_ai.utils.uvicorn.deploy_uvicorn_app", fake_deploy)
-    # Reload the deploy module to pick up the patched function
-    import synth_ai.cli.deploy
-    importlib.reload(synth_ai.cli.deploy)
-    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
+    monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+    monkeypatch.setattr("synth_ai.uvicorn.deploy_app_uvicorn", fake_deploy)
 
+    deploy_module = _reload_deploy(monkeypatch)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
     result = runner.invoke(
-        reloaded_deploy_cmd,
+        deploy_module.deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -54,7 +62,7 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
 
     assert result.exit_code == 0, result.output
     cfg = captured["cfg"]
-    assert isinstance(cfg, LocalTaskAppConfig)
+    assert isinstance(cfg, LocalDeployCfg)
     assert cfg.task_app_path == task_app
     assert cfg.host == "0.0.0.0"
     assert cfg.port == 9001
@@ -64,22 +72,20 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
 def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, runner: CliRunner, tmp_path: Path) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_modal(cfg: ModalTaskAppConfig) -> None:
+    def fake_modal(cfg: ModalDeployCfg) -> None:
         captured["cfg"] = cfg
 
     modal_cli_path = tmp_path / "modal"
-    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", fake_modal)
-    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: modal_cli_path)
-    # Reload the deploy module to pick up the patched function
-    import synth_ai.cli.deploy
-    importlib.reload(synth_ai.cli.deploy)
-    from synth_ai.cli.deploy import deploy_cmd as reloaded_deploy_cmd
-
+    modal_cli_path.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+    deploy_module = _reload_deploy(monkeypatch)
+    monkeypatch.setattr(deploy_module, "deploy_app_modal", fake_modal)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
 
     result = runner.invoke(
-        reloaded_deploy_cmd,
+        deploy_module.deploy_cmd,
         [
             "--task-app",
             str(task_app),
@@ -87,6 +93,8 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
             "modal",
             "--modal-app",
             str(modal_app),
+            "--modal-cli",
+            str(modal_cli_path),
             "--name",
             "demo-app",
         ],
@@ -94,7 +102,7 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
     assert result.exit_code == 0, result.output
     cfg = captured["cfg"]
-    assert isinstance(cfg, ModalTaskAppConfig)
+    assert isinstance(cfg, ModalDeployCfg)
     assert cfg.task_app_path == task_app
     assert cfg.modal_app_path == modal_app
     assert cfg.task_app_name == "demo-app"
@@ -104,34 +112,55 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
 
 
 def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
-
+    runner = CliRunner()
+    monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+    deploy_module = _reload_deploy(monkeypatch)
+    modal_cli = tmp_path / "modal"
+    modal_cli.write_text("#!/bin/sh\n", encoding="utf-8")
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
 
-    with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(task_app_path=task_app, runtime="modal", env_file=())
+    result = runner.invoke(
+        deploy_module.deploy_cmd,
+        [
+            "--task-app",
+            str(task_app),
+            "--runtime",
+            "modal",
+            "--modal-cli",
+            str(modal_cli),
+        ],
+    )
 
-    assert "Modal app path required" in str(exc.value)
+    assert result.exit_code == 1
+    assert "Modal app path required" in result.output
 
 
 def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr("synth_ai.utils.modal.get_default_modal_bin_path", lambda: tmp_path / "modal")
-    monkeypatch.setattr("synth_ai.utils.modal.deploy_modal_app", lambda cfg: None)
-
+    runner = CliRunner()
+    monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "test-key")
+    deploy_module = _reload_deploy(monkeypatch)
+    modal_cli = tmp_path / "modal"
+    modal_cli.write_text("#!/bin/sh\n", encoding="utf-8")
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
-    modal_cli = tmp_path / "modal"
+    result = runner.invoke(
+        deploy_module.deploy_cmd,
+        [
+            "--task-app",
+            str(task_app),
+            "--runtime",
+            "modal",
+            "--modal-app",
+            str(modal_app),
+            "--modal-cli",
+            str(modal_cli),
+            "--modal-mode",
+            "serve",
+            "--dry-run",
+        ],
+    )
 
-    with pytest.raises(click.ClickException) as exc:
-        deploy_cmd.callback(
-            task_app_path=task_app,
-            runtime="modal",
-            modal_app_path=modal_app,
-            cmd_arg="serve",
-            dry_run=True,
-            modal_bin_path=modal_cli,
-            env_file=(),
-        )
-
-    assert "--modal-mode=serve cannot be combined with --dry-run" in str(exc.value)
+    assert result.exit_code == 1
+    assert "--modal-mode=serve cannot be combined with --dry-run" in result.output

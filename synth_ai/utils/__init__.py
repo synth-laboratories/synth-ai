@@ -1,7 +1,15 @@
 from . import task_app_state
 from .agents import write_agents_md
+from .apps import (
+    extract_routes_from_app,
+    get_asgi_app,
+    load_file_to_module,
+    validate_modal_app,
+    validate_task_app,
+)
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .bin import install_bin, verify_bin
+from .claude import ClaudeConfig
 from .cli import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -10,7 +18,13 @@ from .cli import (
     prompt_choice,
     prompt_for_path,
 )
-from .env import mask_str, resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
+from .env import (
+    mask_str,
+    read_env_var_from_file,
+    resolve_env_var,
+    write_env_var_to_dotenv,
+    write_env_var_to_json,
+)
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
 from .modal import (
@@ -22,10 +36,14 @@ from .modal import (
     normalize_endpoint_url,
 )
 from .paths import (
-    find_bin_path,
+    REPO_ROOT,
+    cleanup_paths,
+    configure_import_paths,
     find_config_path,
+    get_bin_path,
     get_env_file_paths,
     get_home_config_file_paths,
+    is_py_file,
 )
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
@@ -70,20 +88,26 @@ __all__ = [
     "prompt_for_path",
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
+    "ClaudeConfig",
+    "cleanup_paths",
+    "REPO_ROOT",
     "create_and_write_json",
     "current_task_app_id",
+    "configure_import_paths",
     "discover_eval_config_paths",
     "ensure_env_credentials",
     "ensure_local_port_available",
     "ensure_modal_installed",
     "ensure_port_free",
     "ensure_task_app_ready",
+    "extract_routes_from_app",
     "find_asgi_apps",
-    "find_bin_path",
+    "get_bin_path",
     "find_config_path",
     "find_sqld_binary",
     "get_backend_from_env",
     "get_env_file_paths",
+    "get_asgi_app",
     "get_home_config_file_paths",
     "get_learning_v2_base_url",
     "http_request",
@@ -91,8 +115,10 @@ __all__ = [
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
+    "is_py_file",
     "load_demo_dir",
     "load_json_to_dict",
+    "load_file_to_module",
     "load_template_id",
     "load_user_config",
     "load_user_env",
@@ -110,6 +136,7 @@ __all__ = [
     "preflight_env_key",
     "print_next_step",
     "prompt_choice",
+    "read_env_var_from_file",
     "read_task_app_config",
     "record_task_app",
     "resolve_env_var",
@@ -122,6 +149,8 @@ __all__ = [
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
+    "validate_modal_app",
+    "validate_task_app",
     "verify_bin",
     'write_agents_md',
     "write_env_var_to_dotenv",

@@ -27,7 +27,7 @@ def empty_config():
 
 def test_opencode_cmd_not_found_no_install(runner: CliRunner):
     """Command exits when OpenCode missing and install declined."""
-    with mock.patch("synth_ai.cli.opencode.find_bin_path", return_value=None), \
+    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=None), \
          mock.patch("synth_ai.cli.opencode.install_bin", return_value=False):
 
         result = runner.invoke(opencode_cmd)
@@ -40,7 +40,7 @@ def test_opencode_cmd_found_but_not_runnable(runner: CliRunner):
     """Command exits when OpenCode fails verification."""
     mock_bin_path = "/usr/local/bin/opencode"
 
-    with mock.patch("synth_ai.cli.opencode.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.opencode.verify_bin", return_value=False):
 
         result = runner.invoke(opencode_cmd)
@@ -55,7 +55,7 @@ def test_opencode_cmd_configures_model(runner: CliRunner, empty_config):
     mock_bin_path = "/usr/local/bin/opencode"
     mock_api_key = "test-api-key"
 
-    with mock.patch("synth_ai.cli.opencode.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.opencode.write_agents_md"), \
          mock.patch("synth_ai.cli.opencode.resolve_env_var", return_value=mock_api_key), \
@@ -84,7 +84,7 @@ def test_opencode_cmd_override_url(runner: CliRunner, empty_config):
     mock_api_key = "test-api-key"
     override_url = "https://custom.example.com/api"
 
-    with mock.patch("synth_ai.cli.opencode.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.opencode.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.opencode.write_agents_md"), \
          mock.patch("synth_ai.cli.opencode.resolve_env_var", return_value=mock_api_key), \
@@ -107,7 +107,7 @@ def test_opencode_cmd_install_retry(runner: CliRunner, empty_config):
 
     find_calls = [None, mock_bin_path]
 
-    with mock.patch("synth_ai.cli.opencode.find_bin_path", side_effect=find_calls), \
+    with mock.patch("synth_ai.cli.opencode.get_bin_path", side_effect=find_calls), \
          mock.patch("synth_ai.cli.opencode.install_bin", return_value=True), \
          mock.patch("synth_ai.cli.opencode.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.opencode.write_agents_md"), \

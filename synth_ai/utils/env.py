@@ -104,6 +104,21 @@ def filter_env_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str
     return matches
 
 
+def read_env_var_from_file(key: str, path: Path) -> str | None:
+    try:
+        with path.open('r', encoding="utf-8") as f:
+            for line in f:
+                parsed = _parse_env_assignment(line)
+                if parsed is None:
+                    continue
+                parsed_key, value = parsed
+                if parsed_key == key:
+                    return value
+    except (OSError, UnicodeDecodeError):
+        return None
+    return None
+
+
 def filter_json_files_by_key(key: str, paths: list[Path]) -> list[tuple[Path, str]]:
     matches: list[tuple[Path, str]] = []
     for path in paths:

@@ -12,6 +12,17 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
+from synth_ai.cli.claude import claude_cmd
+from synth_ai.cli.codex import codex_cmd
+from synth_ai.cli.commands.baseline import command as baseline_cmd
+from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+from synth_ai.cli.demo import demo_cmd
+from synth_ai.cli.deploy import deploy_cmd
+from synth_ai.cli.eval import command as eval_cmd
+from synth_ai.cli.mcp import mcp_cmd
+from synth_ai.cli.opencode import opencode_cmd
+from synth_ai.cli.setup import setup_cmd
+
 # Load environment variables from a local .env if present (repo root)
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -52,73 +63,20 @@ if not _cli_module:
     raise ImportError("synth_ai.cli.root is required for CLI entrypoint")
 cli = _cli_module.cli  # type: ignore[attr-defined]
 
+
+
 # Register core commands implemented as standalone modules
-try:
-    from synth_ai.cli.demo import demo_cmd
-    cli.add_command(demo_cmd, name="demo")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register demo command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.setup import setup_cmd
-    cli.add_command(setup_cmd, name="setup")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register setup command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.deploy import deploy_cmd  # type: ignore[attr-defined]
-    cli.add_command(deploy_cmd, name="deploy")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register deploy command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.opencode import opencode_cmd
-    cli.add_command(opencode_cmd, name="opencode")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register opencode command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.codex import codex_cmd
-    cli.add_command(codex_cmd, name="codex")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register codex command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.eval import command as eval_cmd
-    cli.add_command(eval_cmd, name="eval")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register eval command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.claude import claude_cmd
-    cli.add_command(claude_cmd, name="claude")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register claude command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
-try:
-    from synth_ai.cli.commands.baseline import command as baseline_cmd
-    from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
-    cli.add_command(baseline_cmd, name="baseline")
-    baseline_cmd.add_command(baseline_list_cmd, name="list")
-except Exception as e:
-    import sys
-    print(f"[DEBUG] Failed to register baseline command: {e}", file=sys.stderr)
-    import traceback
-    traceback.print_exc()
+
+cli.add_command(baseline_cmd, name="baseline")
+baseline_cmd.add_command(baseline_list_cmd, name="list")
+cli.add_command(claude_cmd, name="claude")
+cli.add_command(codex_cmd, name="codex")
+cli.add_command(demo_cmd, name="demo")
+cli.add_command(deploy_cmd, name="deploy")
+cli.add_command(eval_cmd, name="eval")
+cli.add_command(mcp_cmd, name="mcp")
+cli.add_command(opencode_cmd, name="opencode")
+cli.add_command(setup_cmd, name="setup")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*

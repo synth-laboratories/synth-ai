@@ -1,119 +1,95 @@
 import contextlib
-import os
 import time
 import webbrowser
+from dataclasses import dataclass
 
 import requests
 from requests import RequestException
-from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv, write_env_var_to_json
 
 
-def fetch_credentials_from_web_browser_session(
-    browser: bool = True,
-    prod: bool = True
-) -> None:
-    synth_api_key = ''
-    env_api_key = ''
-    org_name = ''
+ORIGIN = "https://www.usesynth.ai"
+INIT_URL = ORIGIN + "/api/sdk/handshake/init"
+TOKEN_URL = ORIGIN + "/api/sdk/handshake/token"
+POLL_INTERVAL = 3
 
-    if browser:
-        origin = "https://www.usesynth.ai" if prod else "http://localhost:3000"
-        init_url = f"{origin}/api/sdk/handshake/init"
-        token_url =f"{origin}/api/sdk/handshake/token"
 
-        print(f"\n🌐 Connecting to {origin} to fetch your Synth credentials")
+@dataclass
+class AuthSession:
+    device_code: str
+    verification_uri: str
+    expires_at: float
 
-        # 1. Initialize browser handshake
-        try:
-            init_res = requests.post(init_url, timeout=10)
-        except RequestException as exc:
-            raise RuntimeError(f"Failed to reach handshake init endpoint: {exc}") from exc
 
-        if init_res.status_code != 200:
-            body = init_res.text.strip()
-            raise RuntimeError(f"Handshake init failed ({init_res.status_code}): {body or 'no response body'}")
+def init_auth_session() -> AuthSession:    
+    try:
+        res = requests.post(INIT_URL, timeout=10)
+    except RequestException as exc:
+        raise RuntimeError(f"Failed to reach handshake init endpoint: {exc}") from exc
+    if res.status_code != 200:
+        body = res.text.strip()
+        raise RuntimeError(f"Handshake init failed ({res.status_code}): {body or 'no response body'}")
 
-        try:
-            init_data = init_res.json()
-        except ValueError as exc:
-            raise RuntimeError("Handshake init returned malformed JSON.") from exc
+    try:
+        data = res.json()
+    except ValueError as err:
+        raise RuntimeError("Handshake init returned malformed JSON.") from err
 
-        device_code = str(init_data.get("device_code") or "").strip()
-        verification_uri = str(init_data.get("verification_uri") or "").strip()
-        if not device_code or not verification_uri:
-            raise RuntimeError("Handshake init response missing device_code or verification_uri.")
+    device_code = str(data.get("device_code") or "").strip()
+    verification_uri = str(data.get("verification_uri") or "").strip()
+    expires_in = int(data.get("expires_in") or 600)
+    if not device_code or not verification_uri or not expires_in:
+        raise RuntimeError("Handshake init response missing device_code or verification_uri or expires_in.")
 
-        try:
-            expires_in = int(init_data.get("expires_in") or 600)
-        except (TypeError, ValueError):
-            expires_in = 120
-        try:
-            interval = max(int(init_data.get("interval") or 3), 1)
-        except (TypeError, ValueError):
-            interval = 3
+    return AuthSession(
+        device_code=device_code,
+        verification_uri=verification_uri,
+        expires_at=time.time() + expires_in
+    )
 
-        # 2. Open browser to verification URL
-        with contextlib.suppress(Exception):
-            webbrowser.open(verification_uri)
 
-        deadline = time.time() + expires_in
-        handshake_data = None
+def fetch_data(device_code: str) -> requests.Response | None:
+    try:
+        return requests.post(
+            TOKEN_URL,
+            json={"device_code": device_code},
+            timeout=10,
+        )
+    except RequestException:
+        return None
 
-        # 3. Poll handshake token endpoint
-        while time.time() <= deadline:
+
+def fetch_credentials_from_web_browser() -> dict:
+    print(f"Fetching your credentials from {ORIGIN}")
+
+    auth_session = init_auth_session()
+
+    with contextlib.suppress(Exception):
+        webbrowser.open(auth_session.verification_uri)
+
+    data = None
+    while time.time() <= auth_session.expires_at:
+        res = fetch_data(auth_session.device_code)
+        if not res:
+            time.sleep(POLL_INTERVAL)
+            continue
+        if res.status_code == 200:
             try:
-                handshake_res = requests.post(
-                    token_url,
-                    json={"device_code": device_code},
-                    timeout=10,
-                )
-            except RequestException:
-                time.sleep(interval)
-                continue
+                data = res.json()
+            except ValueError as err:
+                raise RuntimeError("Handshake token returned malformed JSON.") from err
+            break
+        if res.status_code in (404, 410):
+            raise RuntimeError("Handshake failed: device code expired or was revoked.")
+        time.sleep(POLL_INTERVAL)
+    if data is None:
+        raise TimeoutError("Handshake timed out before credentials were returned.")
 
-            if handshake_res.status_code == 200:
-                try:
-                    handshake_data = handshake_res.json()
-                except ValueError as exc:
-                    raise RuntimeError("Handshake token returned malformed JSON.") from exc
-                break
+    print(f"Connected to {ORIGIN}")
+    credentials = data.get("keys")
+    if not isinstance(credentials, dict):
+        credentials = {}
 
-            if handshake_res.status_code in (404, 410):
-                raise RuntimeError("Handshake failed: device code expired or was revoked.")
-
-            time.sleep(interval)
-
-        if handshake_data is None:
-            raise TimeoutError("Handshake timed out before credentials were returned.")
-
-        # 4. Extract credentials from handshake payload
-        org = handshake_data.get("org")
-        if not isinstance(org, dict):
-            org = {}
-        org_name = str(org.get("name") or "your organization").strip()
-
-        credentials = handshake_data.get("keys")
-        if not isinstance(credentials, dict):
-            credentials = {}
-
-        synth_api_key = str(credentials.get("synth") or "").strip()
-        env_api_key = str(credentials.get("rl_env") or "").strip()
-
-        print(f"\n✅ Connected to {org_name}")
-
-    # Load credentials to process environment and save credentials to .env and ~/synth-ai/config.json
-    if synth_api_key:
-        print("\nLoading SYNTH_API_KEY into process environment")
-        os.environ["SYNTH_API_KEY"] = synth_api_key
-    synth_api_key = resolve_env_var("SYNTH_API_KEY")
-    if env_api_key:
-        print("\nLoading ENVIRONMENT_API_KEY into process environment")
-        os.environ["ENVIRONMENT_API_KEY"] = env_api_key
-    env_api_key = resolve_env_var("ENVIRONMENT_API_KEY")
-
-    if browser:
-        print('')
-        write_env_var_to_json("SYNTH_API_KEY", synth_api_key, "~/.synth-ai/config.json")
-        write_env_var_to_dotenv("SYNTH_API_KEY", synth_api_key)
-        write_env_var_to_json("ENVIRONMENT_API_KEY", env_api_key, "~/.synth-ai/config.json")
-        write_env_var_to_dotenv("ENVIRONMENT_API_KEY", env_api_key)
+    return {
+        "SYNTH_API_KEY": str(credentials.get("synth") or "").strip(),
+        "ENVIRONMENT_API_KEY": str(credentials.get("rl_env") or "").strip()
+    }
