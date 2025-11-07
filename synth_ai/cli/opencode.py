@@ -6,7 +6,7 @@ from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 from synth_ai.utils import (
     create_and_write_json,
-    find_bin_path,
+    get_bin_path,
     install_bin,
     load_json_to_dict,
     resolve_env_var,
@@ -44,7 +44,7 @@ def opencode_cmd(
 ) -> None:
 
     while True:
-        bin_path = find_bin_path("opencode")
+        bin_path = get_bin_path("opencode")
         if bin_path:
             break
         if not install_bin(

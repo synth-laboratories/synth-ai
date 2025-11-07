@@ -1,9 +1,9 @@
-import importlib.util as importlib
 import os
 import shutil
 import sys
 from pathlib import Path
-from types import ModuleType
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def is_py_file(path: Path) -> bool:
@@ -13,11 +13,9 @@ def is_py_file(path: Path) -> bool:
     return path.suffix == ".py"
 
 
-def find_bin_path(name: str) -> Path | None:
+def get_bin_path(name: str) -> Path | None:
     path = shutil.which(name)
-    if not path:
-        return None
-    return Path(path)
+    return Path(path) if path else None
 
 
 def get_env_file_paths(base_dir: str | Path = '.') -> list[Path]:
@@ -59,28 +57,6 @@ def find_config_path(
     return None
 
 
-def load_file_to_module(
-    path: Path,
-    module_name: str | None = None
-) -> ModuleType:
-    if not is_py_file(path):
-        raise ValueError(f"{path} is not a .py file")
-    name = module_name or path.stem
-    spec = importlib.spec_from_file_location(name, str(path))
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load module spec for {path}")
-    module = importlib.module_from_spec(spec)
-    if module_name:
-        sys.modules[module_name] = module
-    try:
-        spec.loader.exec_module(module)
-    except Exception as exc:
-        if module_name:
-            sys.modules.pop(module_name, None)
-        raise ImportError(f"Failed to import module: {exc}") from exc
-    return module
-
-
 def configure_import_paths(
     app_path: Path,
     repo_root: Path | None = None
@@ -110,3 +86,10 @@ def configure_import_paths(
     for dir in reversed(unique_dirs):
         if dir and dir not in sys.path:
             sys.path.insert(0, dir)
+
+
+def cleanup_paths(*, file: Path, dir: Path) -> None:
+    if not file.is_relative_to(dir):
+        raise ValueError(f"{file} is not inside {dir}")
+    file.unlink(missing_ok=True)
+    shutil.rmtree(dir, ignore_errors=True)

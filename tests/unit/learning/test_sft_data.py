@@ -30,7 +30,17 @@ from synth_ai.learning.sft.data import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CRAFT_SFT = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
+_DATASET_PATH = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
+_SAMPLE_PATH = Path(__file__).with_name("crafter_sft_sample.jsonl")
+
+
+def _crafter_sft() -> Path:
+    if _DATASET_PATH.exists():
+        return _DATASET_PATH
+    return _SAMPLE_PATH
+
+
+CRAFT_SFT = _crafter_sft()
 
 
 @pytest.mark.parametrize("path", [CRAFT_SFT])

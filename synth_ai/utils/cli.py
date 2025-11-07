@@ -236,7 +236,7 @@ class PromptedPathOption(click.Option):
     def __init__(
         self,
         *args: Any,
-        available_paths: Sequence[str | Path] | None = None,
+        available_paths: Sequence[str | Path] | Callable[[], Sequence[str | Path]] | None = None,
         file_type: str | None = None,
         path_type: click.Path | None = None,
         prompt_guard: Callable[[click.Context], bool] | None = None,
@@ -250,6 +250,14 @@ class PromptedPathOption(click.Option):
         kwargs.setdefault("prompt_required", True)
         super().__init__(*args, **kwargs)
 
+    def _resolve_available_paths(self) -> Sequence[str | Path] | None:
+        if callable(self._available_paths):
+            try:
+                return self._available_paths()
+            except Exception:
+                return None
+        return self._available_paths
+
     def prompt_for_value(self, ctx: click.Context) -> Any:
         if not ctx:
             return super().prompt_for_value(ctx)
@@ -260,9 +268,10 @@ class PromptedPathOption(click.Option):
             except Exception:
                 return None
         label = self.help or self.name or "path"
+        available_paths = self._resolve_available_paths()
         return prompt_for_path(
             label,
-            available_paths=self._available_paths,
+            available_paths=available_paths,
             file_type=self._file_type,
             path_type=self._path_type or getattr(self, "type", None),
         )

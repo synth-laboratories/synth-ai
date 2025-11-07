@@ -1,6 +1,12 @@
 from . import task_app_state
 from .agents import write_agents_md
-from .app import extract_routes_from_app, get_asgi_app, validate_task_app
+from .apps import (
+    extract_routes_from_app,
+    get_asgi_app,
+    load_file_to_module,
+    validate_modal_app,
+    validate_task_app,
+)
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .bin import install_bin, verify_bin
 from .claude import ClaudeConfig
@@ -22,23 +28,22 @@ from .env import (
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
 from .modal import (
-    deploy_modal_app,
     ensure_modal_installed,
     ensure_task_app_ready,
     find_asgi_apps,
-    get_default_modal_bin_path,
     is_local_demo_url,
     is_modal_public_url,
     normalize_endpoint_url,
 )
 from .paths import (
+    REPO_ROOT,
+    cleanup_paths,
     configure_import_paths,
-    find_bin_path,
     find_config_path,
+    get_bin_path,
     get_env_file_paths,
     get_home_config_file_paths,
     is_py_file,
-    load_file_to_module,
 )
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
@@ -84,9 +89,10 @@ __all__ = [
     "SQLD_VERSION",
     "USER_CONFIG_PATH",
     "ClaudeConfig",
+    "cleanup_paths",
+    "REPO_ROOT",
     "create_and_write_json",
     "current_task_app_id",
-    "deploy_modal_app",
     "configure_import_paths",
     "discover_eval_config_paths",
     "ensure_env_credentials",
@@ -96,7 +102,7 @@ __all__ = [
     "ensure_task_app_ready",
     "extract_routes_from_app",
     "find_asgi_apps",
-    "find_bin_path",
+    "get_bin_path",
     "find_config_path",
     "find_sqld_binary",
     "get_backend_from_env",
@@ -123,7 +129,6 @@ __all__ = [
     "persist_demo_dir",
     "persist_env_api_key",
     "persist_task_url",
-    "get_default_modal_bin_path",
     "persist_template_id",
     "popen_capture",
     "popen_stream",
@@ -144,6 +149,7 @@ __all__ = [
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
+    "validate_modal_app",
     "validate_task_app",
     "verify_bin",
     'write_agents_md',

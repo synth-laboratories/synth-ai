@@ -4,7 +4,7 @@ import subprocess
 import click
 from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
-from synth_ai.utils import find_bin_path, install_bin, resolve_env_var, verify_bin, write_agents_md
+from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bin, write_agents_md
 
 
 @click.command("codex")
@@ -32,7 +32,7 @@ def codex_cmd(
 )-> None:
 
     while True:
-        bin_path = find_bin_path("codex")
+        bin_path = get_bin_path("codex")
         if bin_path:
             break
         if not install_bin(

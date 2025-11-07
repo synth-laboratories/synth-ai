@@ -59,6 +59,7 @@ dependencies = [
     "pyboy>=2.6.0",
     "setuptools>=80.9.0",
     "libsql-experimental>=0.0.55",
+    "mcp>=1.21.0",
 ]
 
 [project.scripts]
@@ -206,7 +207,6 @@ ignore = [
     "B008",  # Do not perform function call in argument defaults
     "UP035", # Don't require `from __future__ import annotations` (not needed in 3.11+)
     "UP006", # Allow typing.Tuple
-    "UP038", # Allow tuple syntax in isinstance checks
     "UP045", # Allow Optional[...] annotations
 ]
 
