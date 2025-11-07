@@ -19,7 +19,6 @@ pool = "train"
 [prompt_learning.policy]
 provider = "synth"
 model = "Qwen/Qwen3-8B"
-# inference_url will be mapped to backend /api/inference/v1 by the optimizer
 
 # GEPA parameters (tune as needed)
 [prompt_learning.gepa]

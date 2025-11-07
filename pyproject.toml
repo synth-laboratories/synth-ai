@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.18.dev1"
+version = "0.2.22"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -163,6 +163,7 @@ addopts = "--durations=10"
 [tool.coverage.run]
 source = ["synth_ai"]
 omit = ["*/tests/*", "*/test_*", "synth_ai/v0/*"]
+data_file = "coverage/.coverage"
 
 [tool.coverage.report]
 precision = 2

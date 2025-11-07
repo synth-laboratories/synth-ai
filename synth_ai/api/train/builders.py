@@ -412,6 +412,26 @@ def build_prompt_learning_payload(
     if isinstance(pl_section, dict):
         pl_section["task_app_url"] = final_task_url
         pl_section["task_app_api_key"] = task_app_api_key
+        
+        # MIPRO: Move bootstrap_train_seeds and online_pool from top-level to mipro section if needed
+        # This ensures compatibility when fields are at top-level [prompt_learning] in TOML
+        if pl_cfg.algorithm == "mipro":
+            mipro_section = pl_section.get("mipro", {})
+            if not isinstance(mipro_section, dict):
+                mipro_section = {}
+            
+            # Check if seeds are at top level but not in mipro section
+            if not mipro_section.get("bootstrap_train_seeds") and pl_section.get("bootstrap_train_seeds"):
+                mipro_section["bootstrap_train_seeds"] = pl_section["bootstrap_train_seeds"]
+            
+            if not mipro_section.get("online_pool") and pl_section.get("online_pool"):
+                mipro_section["online_pool"] = pl_section["online_pool"]
+            
+            if not mipro_section.get("test_pool") and pl_section.get("test_pool"):
+                mipro_section["test_pool"] = pl_section["test_pool"]
+            
+            # Update mipro section
+            pl_section["mipro"] = mipro_section
     else:
         config_dict["prompt_learning"] = {
             "task_app_url": final_task_url,

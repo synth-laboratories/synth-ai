@@ -1,0 +1,96 @@
+# Multi-stage GEPA configuration for Banking77 Pipeline
+# Two-stage pipeline: classifier → calibrator
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-pipeline-web-web.modal.run"
+task_app_id = "banking77-pipeline"
+
+# Pipeline-level initial prompt (pattern format - now supported for multi-stage!)
+[prompt_learning.initial_prompt]
+id = "banking77_pipeline_gepa"
+name = "Banking77 Pipeline GEPA"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Pipeline placeholder. Actual instructions provided via metadata.pipeline_modules."
+order = 0
+
+[prompt_learning.initial_prompt.metadata]
+pipeline_modules = [
+  { name = "classifier", instruction_text = "You are an expert banking assistant. Classify the customer query into one of the Banking77 intents using the banking77_classify tool.", few_shots = [] },
+  { name = "calibrator", instruction_text = "Review the classifier's suggestion. Confirm if appropriate, or choose the best Banking77 intent and return it via banking77_classify.", few_shots = [] }
+]
+
+# Policy configuration (applies to all stages)
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "llama-3.3-70b-versatile"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-pipeline-gepa"
+
+[prompt_learning.env_config]
+pool = "train"
+
+# GEPA-specific configuration
+[prompt_learning.gepa]
+env_name = "banking77_pipeline"
+rng_seed = 42
+proposer_type = "dspy"
+
+# Multi-stage pipeline configuration
+# Note: These are called "modules" in the config but represent stages in the pipeline
+# One pipeline, multiple stages/calls
+[[prompt_learning.gepa.modules]]
+module_id = "classifier"
+max_instruction_slots = 3
+max_tokens = 1024
+
+[[prompt_learning.gepa.modules]]
+module_id = "calibrator"
+max_instruction_slots = 3
+max_tokens = 1024
+
+# Rollout configuration
+[prompt_learning.gepa.rollout]
+budget = 500
+max_concurrent = 10
+minibatch_size = 5
+
+# Evaluation configuration
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+validation_seeds = [10, 11, 12, 13, 14]
+validation_pool = "test"
+
+# Mutation configuration (LLM-guided)
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "llama-3.3-70b-versatile"
+llm_provider = "groq"
+
+# Population/evolution configuration
+[prompt_learning.gepa.population]
+initial_size = 15
+num_generations = 8
+children_per_generation = 5
+crossover_rate = 0.5
+selection_pressure = 1.0
+patience_generations = 3
+
+# Archive/Pareto configuration
+[prompt_learning.gepa.archive]
+size = 32
+pareto_set_size = 32
+pareto_eps = 1e-6
+feedback_fraction = 0.5
+
+# Token/budget configuration
+[prompt_learning.gepa.token]
+max_limit = 30000
+counting_model = "gpt-4"
+enforce_pattern_limit = true
+max_spend_usd = 50.0
+

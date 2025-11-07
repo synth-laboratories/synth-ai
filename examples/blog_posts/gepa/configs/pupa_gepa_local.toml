@@ -34,7 +34,6 @@ records = "REQUIRED"
 [prompt_learning.policy]
 model = "openai/gpt-oss-20b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 512
 policy_name = "pupa-gepa"
@@ -57,4 +56,3 @@ pareto_eps = 1e-6
 max_concurrent_rollouts = 20
 mutation_llm_model = "openai/gpt-oss-20b"
 mutation_llm_provider = "groq"
-mutation_llm_inference_url = "https://api.groq.com/openai/v1"
