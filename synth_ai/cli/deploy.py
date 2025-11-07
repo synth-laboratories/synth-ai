@@ -173,7 +173,7 @@ def deploy_cmd(
                     env_api_key=env_api_key,
                     **kwargs
                 ))
-        log_info("deploy command completed", context={"runtime": runtime})
+        log_info("deploy command completed", ctx={"runtime": runtime})
     except Exception as exc:
         failure_ctx = {
             "runtime": runtime,
