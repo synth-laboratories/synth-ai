@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+
 import pytest
+
+SMOKE_CORE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
 
 
 @pytest.mark.asyncio
@@ -9,8 +13,7 @@ async def test_mock_rl_trainer_emits_tool_calls_and_sets_cid() -> None:
     # Import the mock server by file path to avoid package side effects
     import importlib.util
     import sys as _sys
-    _path = "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/cli/commands/smoke/core.py"
-    spec = importlib.util.spec_from_file_location("smoke_core_isolated", _path)
+    spec = importlib.util.spec_from_file_location("smoke_core_isolated", SMOKE_CORE_PATH)
     assert spec and spec.loader
     smoke_core = importlib.util.module_from_spec(spec)
     _sys.modules[spec.name] = smoke_core
@@ -75,5 +78,3 @@ async def test_mock_rl_trainer_emits_tool_calls_and_sets_cid() -> None:
         synth_meta = data.get("synth")
         assert isinstance(synth_meta, dict)
         assert synth_meta.get("cid") == cid
-
-

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -91,13 +93,19 @@ class _FakeTaskAppClient:
         )
 
 
+SMOKE_CORE_PATH = Path(__file__).resolve().parents[2] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+
+
+SMOKE_CORE_PATH = Path(__file__).resolve().parents[3] / "synth_ai" / "cli" / "commands" / "smoke" / "core.py"
+
+
 @pytest.mark.asyncio
 async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pytest.MonkeyPatch) -> None:
     # Import by file path to avoid CLI package side effects
     import importlib.util
     import sys as _sys
-    _path = "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/cli/commands/smoke/core.py"
-    spec = importlib.util.spec_from_file_location("smoke_core_test", _path)
+
+    spec = importlib.util.spec_from_file_location("smoke_core_test", SMOKE_CORE_PATH)
     assert spec and spec.loader
     smoke_core = importlib.util.module_from_spec(spec)
     _sys.modules[spec.name] = smoke_core
@@ -150,8 +158,7 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
 async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     import importlib.util
     import sys as _sys
-    _path = "/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/cli/commands/smoke/core.py"
-    spec = importlib.util.spec_from_file_location("smoke_core_test2", _path)
+    spec = importlib.util.spec_from_file_location("smoke_core_test2", SMOKE_CORE_PATH)
     assert spec and spec.loader
     smoke_core = importlib.util.module_from_spec(spec)
     _sys.modules[spec.name] = smoke_core
@@ -191,5 +198,3 @@ async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: py
     assert inst.health_calls >= 1
     assert inst.task_info_calls >= 1
     assert inst.task_info_last_seeds == [0]
-
-

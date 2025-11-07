@@ -26,7 +26,7 @@ def mock_env():
 
 def test_claude_cmd_no_claude_binary_found(runner: CliRunner):
     """Test that claude_cmd exits gracefully when Claude Code is not found."""
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=None), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=None), \
          mock.patch("synth_ai.cli.claude.install_bin", return_value=False):
         result = runner.invoke(claude_cmd, ["--model", "synth-small"])
 
@@ -40,7 +40,7 @@ def test_claude_cmd_with_default_url(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-123"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -71,7 +71,7 @@ def test_claude_cmd_with_override_url(runner: CliRunner, mock_env):
     mock_api_key = "test-api-key-456"
     override_url = "https://custom.example.com/api"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -94,7 +94,7 @@ def test_claude_cmd_with_override_url_trailing_slash(runner: CliRunner, mock_env
     mock_api_key = "test-api-key-789"
     override_url = "https://custom.example.com/api/"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -115,7 +115,7 @@ def test_claude_cmd_with_force_flag(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-force"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key) as mock_resolve, \
@@ -135,7 +135,7 @@ def test_claude_cmd_subprocess_error(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-error"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -160,7 +160,7 @@ def test_claude_cmd_different_models(runner: CliRunner, mock_env):
     models = ["synth-small", "synth-medium"]
 
     for model in models:
-        with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+        with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
              mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
              mock.patch("synth_ai.cli.claude.write_agents_md"), \
              mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -188,7 +188,7 @@ def test_claude_cmd_preserves_existing_env_vars(runner: CliRunner):
         "ANOTHER_VAR": "another_value",
     }
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", return_value=mock_bin_path), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", return_value=mock_bin_path), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \
          mock.patch("synth_ai.cli.claude.resolve_env_var", return_value=mock_api_key), \
@@ -211,7 +211,7 @@ def test_claude_cmd_install_loop_success(runner: CliRunner, mock_env):
     mock_bin_path = "/usr/local/bin/claude"
     mock_api_key = "test-api-key-install"
 
-    with mock.patch("synth_ai.cli.claude.find_bin_path", side_effect=[None, mock_bin_path]), \
+    with mock.patch("synth_ai.cli.claude.get_bin_path", side_effect=[None, mock_bin_path]), \
          mock.patch("synth_ai.cli.claude.install_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.verify_bin", return_value=True), \
          mock.patch("synth_ai.cli.claude.write_agents_md"), \

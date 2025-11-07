@@ -26,11 +26,24 @@ trace_db = "none"
         encoding="utf-8",
     )
 
+    env_file = tmp_path / ".env"
+    env_file.write_text("SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8")
+
     # Run in-process (url None)
     runner = CliRunner()
     result = runner.invoke(
         eval_command,
-        ["grpo-crafter-task-app", "--config", str(cfg), "--seeds", "1,2", "--trace-db", "none"],
+        [
+            "grpo-crafter-task-app",
+            "--config",
+            str(cfg),
+            "--seeds",
+            "1,2",
+            "--trace-db",
+            "none",
+            "--env-file",
+            str(env_file),
+        ],
     )
     assert result.exit_code == 0, result.output
 
@@ -52,5 +65,4 @@ trace_db = "none"
         ],
     )
     assert result.exit_code == 0, result.output
-
 

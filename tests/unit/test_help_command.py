@@ -135,7 +135,7 @@ class TestHelpIntegrationWithCommands:
         from synth_ai.cli.deploy import deploy_cmd
 
         assert deploy_cmd is not None, "deploy_cmd should not be None"
-        assert deploy_cmd.name == "deploy"
+        assert deploy_cmd.name == "deploy-cmd"
 
     def test_deploy_command_help_flag_works(self, runner: CliRunner) -> None:
         """Test deploy command --help flag displays help."""
