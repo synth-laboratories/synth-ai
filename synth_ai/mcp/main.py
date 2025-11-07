@@ -170,7 +170,7 @@ async def call_tool(
                 missing.append("task_app_path")
             modal_app_path_raw = args.get("modal_app_path")
             if not modal_app_path_raw:
-                missing.append("modal_app_path_raw")
+                missing.append("modal_app_path")
             if len(missing) > 0:
                 return [TextContent(
                     type="text",
