@@ -149,7 +149,7 @@ def install_sqld() -> str:
 
 
 @click.group(
-    help=f"Synth AI v{__pkg_version__} - Software for aiding the best and multiplying the will."
+    help=f"Synth AI v{__pkg_version__}"
 )
 @click.version_option(version=__pkg_version__, prog_name="synth-ai")
 def cli():
