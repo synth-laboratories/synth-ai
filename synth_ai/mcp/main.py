@@ -56,6 +56,8 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="deploy_modal",
             description="Deploy a task app to Modal",
+            inputSchema={
+                "type": "object",
                 "required": [
                     "task_app_path",
                     "modal_app_path",
