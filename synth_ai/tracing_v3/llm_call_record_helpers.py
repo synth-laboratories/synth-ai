@@ -21,7 +21,49 @@ from .lm_call_record_abstractions import (
     ToolCallSpec,
 )
 
-BaseLMResponse = Any
+
+class BaseLMResponse:
+    """
+    Standard response format from language model API calls.
+    
+    This is a simple dataclass-like object for compatibility with tracing helpers.
+    Can be used as a dict-like object or with attributes.
+    
+    Attributes:
+        raw_response: The raw text response from the model
+        structured_output: Optional parsed Pydantic model if structured output was requested
+        tool_calls: Optional list of tool calls if tools were provided
+        response_id: Optional response ID for thread management (Responses API)
+        reasoning: Optional reasoning trace from the model (o1 models)
+        api_type: Optional API type used ("chat", "responses", or "harmony")
+        usage: Optional usage dictionary with token counts and costs
+    """
+    
+    def __init__(
+        self,
+        raw_response: str,
+        structured_output: Any | None = None,
+        tool_calls: list[dict] | None = None,
+        response_id: str | None = None,
+        reasoning: str | None = None,
+        api_type: str | None = None,
+        usage: dict[str, Any] | None = None,
+    ):
+        self.raw_response = raw_response
+        self.structured_output = structured_output
+        self.tool_calls = tool_calls
+        self.response_id = response_id
+        self.reasoning = reasoning
+        self.api_type = api_type
+        self.usage = usage
+    
+    def __getitem__(self, key: str) -> Any:
+        """Allow dict-like access for backward compatibility."""
+        return getattr(self, key)
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """Allow dict-like .get() for backward compatibility."""
+        return getattr(self, key, default)
 
 
 class _UsageDict(TypedDict, total=False):
@@ -168,11 +210,15 @@ def create_llm_call_record_from_response(
     )
 
     # Handle response-specific fields
-    finish_reason = None
+    finish_reason: str | None = None
     if hasattr(response, "finish_reason"):
-        finish_reason = response.finish_reason
+        finish_reason = getattr(response, "finish_reason", None)
+        if finish_reason is not None:
+            finish_reason = str(finish_reason)
     elif hasattr(response, "stop_reason"):
-        finish_reason = response.stop_reason
+        stop_reason = getattr(response, "stop_reason", None)
+        if stop_reason is not None:
+            finish_reason = str(stop_reason)
 
     # Create the call record
     record = LLMCallRecord(

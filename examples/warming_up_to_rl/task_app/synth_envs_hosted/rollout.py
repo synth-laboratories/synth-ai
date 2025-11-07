@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
-from synth_ai.lm.vendors.base import BaseLMResponse
+from synth_ai.tracing_v3 import BaseLMResponse
 from synth_ai.task.tracing_utils import unique_sft_path
 from synth_ai.tracing_v3.abstractions import EnvironmentEvent, LMCAISEvent, TimeRecord
 from synth_ai.tracing_v3.llm_call_record_helpers import create_llm_call_record_from_response
