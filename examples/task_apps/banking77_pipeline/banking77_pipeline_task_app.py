@@ -279,6 +279,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 "module": module_name,
                 "instruction_text": module.get("instruction_text"),
                 "few_shots": module.get("few_shots"),
+                "messages": messages,  # Store messages for baseline extraction
                 "response": response_json,
                 "tool_calls": tool_calls,
                 "predicted_intent": predicted_intent,
@@ -297,6 +298,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         flush=True,
     )
 
+    # Store messages from the first module for baseline extraction
+    first_module_messages = pipeline_records[0]["messages"] if pipeline_records else []
+    
     step = RolloutStep(
         obs=observation,
         tool_calls=pipeline_records[-1]["tool_calls"] if pipeline_records else [],
@@ -307,6 +311,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "predicted_intent": final_intent,
             "modules": pipeline_records,
             "correct": is_correct,
+            "messages": first_module_messages,  # For baseline extraction
         },
     )
 
