@@ -173,14 +173,14 @@ def deploy_cmd(
                     env_api_key=env_api_key,
                     **kwargs
                 ))
-        log_info("deploy command completed", context={"runtime": runtime})
+        log_info("deploy command completed", ctx={"runtime": runtime})
     except Exception as exc:
         failure_ctx = {
             "runtime": runtime,
             "task_app": str(task_app_path),
             "error": type(exc).__name__,
         }
-        log_error("deploy command failed", context=failure_ctx)
+        log_error("deploy command failed", ctx=failure_ctx)
         click.echo(f"{exc}", err=True)
     finally:
         flush_logger(0.5)
