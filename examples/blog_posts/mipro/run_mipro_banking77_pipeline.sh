@@ -17,8 +17,12 @@ _load_env_file() {
     if [ -f "$env_file" ]; then
         echo "📝 Loading environment variables from $env_file..."
         while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
             [[ "$line" =~ ^[[:space:]]*# ]] && continue
             [[ -z "${line// }" ]] && continue
+            # Only process lines with '=' character
+            [[ ! "$line" =~ = ]] && continue
+            
             if [[ "$line" =~ ^[[:space:]]*BACKEND_BASE_URL= ]]; then
                 if [ -z "$SAVED_BACKEND_BASE_URL" ]; then
                     export "$line" 2>/dev/null || true

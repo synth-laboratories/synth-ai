@@ -67,7 +67,7 @@ mini-SWE rollouts in managed sandboxes. When `MORPH_API_KEY` is present the app
 defaults to this backend automatically unless you override
 `SWE_MINI_ENVIRONMENT_CLASS`.
 
-1. Install the optional dependencies: `pip install "synth-ai[swe]"`.
+1. Install the optional dependencies: `pip install "synth-ai[all]"`.
 2. Export your API key: `export MORPH_API_KEY=...`.
 3. Point the task app at Morph by setting:
 

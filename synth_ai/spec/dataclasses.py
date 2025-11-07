@@ -146,3 +146,4 @@ class Spec:
             if rule.priority is not None and rule.priority >= min_priority
         ]
 
+

@@ -49,7 +49,6 @@ query = "REQUIRED"  # Will be provided by task app at runtime
 inference_mode = "synth_hosted"
 model = "openai/gpt-oss-120b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 512
 policy_name = "banking77-classifier"  # Required for Banking77 task app
@@ -78,5 +77,4 @@ proposer_type = "dspy"
 # LLM-guided mutation configuration
 mutation_llm_model = "openai/gpt-oss-20b"
 mutation_llm_provider = "groq"
-mutation_llm_inference_url = "https://api.groq.com/openai/v1"
 

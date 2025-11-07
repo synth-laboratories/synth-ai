@@ -135,3 +135,4 @@ class TestGEPAConfigWithModules:
         assert len(config.modules) == 1
         assert isinstance(config.modules[0], GEPAModuleConfig)
 
+

@@ -223,6 +223,20 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             f"env={request.env.env_name} policy.model={cfg.get('model')}",
             flush=True,
         )
+        
+        # Log received headers for debugging
+        headers_dict = dict(fastapi_request.headers)
+        headers_log = {k: (f"{v[:15]}..." if k.lower() in ("x-api-key", "authorization") and len(v) > 15 else v) 
+                      for k, v in headers_dict.items()}
+        print(f"[TASK_APP] 📥 Received headers ({len(headers_dict)} total):", flush=True)
+        for k, v in headers_log.items():
+            if k.lower() in ('x-api-key', 'x-api-keys', 'authorization'):
+                print(f"[TASK_APP]   🔑 {k}: {v}", flush=True)
+        
+        # Check specifically for auth headers
+        has_x_api_key = "x-api-key" in fastapi_request.headers or "X-API-Key" in fastapi_request.headers
+        has_auth = "authorization" in fastapi_request.headers or "Authorization" in fastapi_request.headers
+        print(f"[TASK_APP] Auth headers present: X-API-Key={has_x_api_key}, Authorization={has_auth}", flush=True)
 
     split = str(((request.env.config or {}).get("split")) or "train")
     seed = request.env.seed or 0
@@ -253,12 +267,24 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         messages, formatted_placeholders = _build_module_messages(module_name, module, placeholders)
 
         # Extract API key from request headers for forwarding to proxy
-        api_key = (
-            fastapi_request.headers.get("X-API-Key")
-            or fastapi_request.headers.get("x-api-key")
-            or (fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip() if fastapi_request.headers.get("Authorization") else None)
-            or None
-        )
+        api_key_from_x = fastapi_request.headers.get("X-API-Key") or fastapi_request.headers.get("x-api-key")
+        api_key_from_auth = None
+        if fastapi_request.headers.get("Authorization"):
+            auth_header = fastapi_request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                api_key_from_auth = auth_header.replace("Bearer ", "").strip()
+        
+        api_key = api_key_from_x or api_key_from_auth or None
+        
+        # Log API key extraction
+        with contextlib.suppress(Exception):
+            if api_key:
+                print(f"[TASK_APP] 🔑 Extracted API key for module '{module_name}': {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+                print(f"[TASK_APP] 🔑 Source: {'X-API-Key' if api_key_from_x else 'Authorization Bearer'}", flush=True)
+            else:
+                print(f"[TASK_APP] ❌ NO API KEY extracted for module '{module_name}'!", flush=True)
+                print(f"[TASK_APP] ❌ X-API-Key header: {fastapi_request.headers.get('X-API-Key', '<not present>')[:20] if fastapi_request.headers.get('X-API-Key') else '<not present>'}", flush=True)
+                print(f"[TASK_APP] ❌ Authorization header: {fastapi_request.headers.get('Authorization', '<not present>')[:30] if fastapi_request.headers.get('Authorization') else '<not present>'}", flush=True)
         
         response_text, response_json, tool_calls = await call_chat_completion(
             policy_config,

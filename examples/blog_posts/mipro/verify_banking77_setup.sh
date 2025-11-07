@@ -114,3 +114,4 @@ else
     echo "❌ Setup incomplete. Please fix the issues above."
     exit 1
 fi
+

@@ -26,21 +26,11 @@ class PromptLearningPolicyConfig(ExtraModel):
     """Policy configuration for prompt learning (model, provider, etc.)."""
     model: str
     provider: ProviderName
-    inference_url: str
+    inference_url: str | None = None  # Optional - trainer provides it in rollout requests (ignored if present)
     inference_mode: InferenceMode = InferenceMode.synth_hosted
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
-
-    @field_validator("inference_url")
-    @classmethod
-    def _normalize_inference_url(cls, v: str) -> str:
-        if not isinstance(v, str):
-            raise ValueError("inference_url must be a string")
-        v = v.strip()
-        if not v.startswith(("http://", "https://")):
-            raise ValueError("inference_url must start with http:// or https://")
-        return v
 
 
 class MessagePatternConfig(ExtraModel):

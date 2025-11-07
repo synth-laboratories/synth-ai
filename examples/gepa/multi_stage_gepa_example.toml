@@ -19,7 +19,6 @@ pipeline_modules = ["query_analyzer", "classifier"]
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 temperature = 0.0
 max_completion_tokens = 512
@@ -58,7 +57,6 @@ validation_seeds = [5, 6]
 rate = 0.3
 llm_model = "llama3-groq-70b-8192-tool-use-preview"
 llm_provider = "groq"
-llm_inference_url = "https://api.groq.com/openai/v1"
 
 # Population/evolution configuration
 [prompt_learning.gepa.population]
@@ -82,4 +80,5 @@ max_limit = 50000
 counting_model = "gpt-4"
 enforce_pattern_limit = true
 max_spend_usd = 100.0
+
 

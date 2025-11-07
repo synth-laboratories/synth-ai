@@ -26,7 +26,6 @@ pipeline_modules = [
 inference_mode = "synth_hosted"
 model = "openai/gpt-oss-20b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 128
 policy_name = "banking77-pipeline"
@@ -71,7 +70,6 @@ test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
 rate = 0.3
 llm_model = "llama3-groq-70b-8192-tool-use-preview"
 llm_provider = "groq"
-llm_inference_url = "https://api.groq.com/openai/v1"
 
 # Population/evolution configuration
 [prompt_learning.gepa.population]

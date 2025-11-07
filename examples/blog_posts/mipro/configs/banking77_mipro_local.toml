@@ -29,7 +29,6 @@ query = "REQUIRED"  # Will be provided by task app at runtime
 inference_mode = "synth_hosted"
 model = "openai/gpt-oss-20b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 128
 policy_name = "banking77-mipro"  # Required for Banking77 task app
@@ -47,7 +46,6 @@ batch_size = 6
 max_concurrent = 16
 meta_model = "gpt-4o-mini"
 meta_model_provider = "openai"
-meta_model_inference_url = "https://api.openai.com/v1"
 few_shot_score_threshold = 0.85
 max_instructions = 3
 

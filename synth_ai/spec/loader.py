@@ -100,3 +100,4 @@ def load_spec_from_file(path: str | Path) -> Spec:
     
     return load_spec_from_dict(data)
 
+

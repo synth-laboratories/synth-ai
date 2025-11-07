@@ -331,7 +331,7 @@ class LossCurveHandler(StreamHandler):
             from rich.text import Text
         except ImportError as exc:  # pragma: no cover - optional dependency guard
             raise RuntimeError(
-                "LossCurveHandler requires the 'rich' package. Install synth-ai[analytics] or rich>=13."
+                "LossCurveHandler requires the 'rich' package. Install synth-ai[all] or rich>=13."
             ) from exc
 
         self.metric_name = metric_name
@@ -460,7 +460,7 @@ class RichHandler(StreamHandler):
             from rich.table import Table
         except ImportError as exc:  # pragma: no cover - requires optional dependency
             raise RuntimeError(
-                "RichHandler requires the 'rich' package. Install synth-ai[analytics] or rich>=13."
+                "RichHandler requires the 'rich' package. Install synth-ai[all] or rich>=13."
             ) from exc
 
         self._console_class = Console

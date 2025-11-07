@@ -1,9 +1,9 @@
 # GEPA Prompt Learning for the Banking77 Two-Stage Pipeline
-# This config optimizes both query_analyzer and classifier stages using genetic evolution
+# This config optimizes both classifier and calibrator stages using genetic evolution
 
 [prompt_learning]
 algorithm = "gepa"
-task_app_url = "http://localhost:8000"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-pipeline-web-web.modal.run"
 task_app_id = "banking77-pipeline"
 
 [prompt_learning.initial_prompt]
@@ -18,15 +18,14 @@ order = 0
 [prompt_learning.initial_prompt.metadata]
 # Define the stages in the pipeline
 pipeline_modules = [
-  { name = "query_analyzer", stage_id = "query_analyzer", module_id = "query_analyzer", instruction_text = "You analyze customer banking queries to extract key information. Identify the main topic and any specific details mentioned.", few_shots = [] },
-  { name = "classifier", stage_id = "classifier", module_id = "classifier", instruction_text = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool.", few_shots = [] }
+  { name = "classifier", instruction_text = "You are an expert banking assistant. Classify the customer query into one of the known Banking77 intents. Always return the label using the `banking77_classify` tool.", few_shots = [] },
+  { name = "calibrator", instruction_text = "You refine intent predictions from an upstream classifier. Review the suggested intent alongside the original query. If the suggestion is valid, confirm it. Otherwise, choose the closest Banking77 intent. Always respond via the `banking77_classify` tool with the final label.", few_shots = [] }
 ]
 
 [prompt_learning.policy]
 inference_mode = "synth_hosted"
 model = "openai/gpt-oss-20b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 128
 policy_name = "banking77-pipeline"
@@ -38,21 +37,25 @@ pool = "train"
 [prompt_learning.gepa]
 env_name = "banking77_pipeline"
 rng_seed = 42
-proposer_type = "dspy"
+proposer_type = "spec"  # Use spec mode to include system specification in mutation prompts
+spec_path = "examples/task_apps/banking77_pipeline/banking77_pipeline_spec.json"
+spec_max_tokens = 5000
+spec_include_examples = true
+spec_priority_threshold = 8
 
 # Multi-stage module configuration (instruction-only for GEPA)
 # Each module defines constraints for its stage
-[[prompt_learning.gepa.modules]]
-module_id = "query_analyzer"
-max_instruction_slots = 2
-max_tokens = 512
-allowed_tools = []  # Analyzer doesn't use tools
-
 [[prompt_learning.gepa.modules]]
 module_id = "classifier"
 max_instruction_slots = 3
 max_tokens = 1024
 allowed_tools = ["banking77_classify"]  # Classifier must use this tool
+
+[[prompt_learning.gepa.modules]]
+module_id = "calibrator"
+max_instruction_slots = 3
+max_tokens = 1024
+allowed_tools = ["banking77_classify"]  # Calibrator must use this tool
 
 # Rollout configuration
 [prompt_learning.gepa.rollout]

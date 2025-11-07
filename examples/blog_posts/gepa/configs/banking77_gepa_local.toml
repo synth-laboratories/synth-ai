@@ -10,23 +10,23 @@ name = "Banking77 Classification Pattern"
 
 [[prompt_learning.initial_prompt.messages]]
 role = "system"
-pattern = "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the `banking77_classify` tool."
+pattern = "You are an expert banking assistant. \n\n**Available Banking Intents:**\n{available_intents}\n\n**Task:**\nCall the `banking77_classify` tool with the `intent` parameter set to ONE of the intent labels listed above that best matches the customer query. The intent must be an exact match from the list."
 order = 0
 
 [[prompt_learning.initial_prompt.messages]]
 role = "user"
-pattern = "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call."
+pattern = "Customer Query: {query}\n\nClassify this query by calling the tool with the correct intent label from the list above."
 order = 1
 
 [prompt_learning.initial_prompt.wildcards]
 query = "REQUIRED"  # Will be provided by task app at runtime
+available_intents = "OPTIONAL"  # Intent list (numbered 1-77) will be provided by task app
 
 # Policy configuration (model, provider, etc.)
 [prompt_learning.policy]
 inference_mode = "synth_hosted"
 model = "openai/gpt-oss-20b"
 provider = "groq"
-inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0
 max_completion_tokens = 512
 policy_name = "banking77-classifier"  # Required for Banking77 task app
@@ -42,7 +42,7 @@ proposer_type = "dspy"
 
 # Rollout configuration (mirrors RL [rollout] section)
 [prompt_learning.gepa.rollout]
-budget = 1000
+budget = 100
 max_concurrent = 20
 minibatch_size = 10
 
