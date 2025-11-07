@@ -71,6 +71,10 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Absolute path to the Modal app Python file"
                     },
+                    "synth_api_key": {
+                        "type": "string",
+                        "description": "SYNTH_API_KEY for authentication"
+                    },
                     "env_api_key": {
                         "type": "string",
                         "description": "ENVIRONMENT_API_KEY used to access the task app"
