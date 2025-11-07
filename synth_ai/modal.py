@@ -9,6 +9,7 @@ from pathlib import Path
 import click
 from modal.config import config
 from synth_ai.cfgs import ModalDeployCfg
+from synth_ai.utils import log_error, log_event
 from synth_ai.utils.env import write_env_var_to_dotenv
 from synth_ai.utils.paths import (
     REPO_ROOT,
@@ -31,13 +32,24 @@ def is_modal_setup_needed() -> bool:
 
 def run_modal_setup(modal_bin_path: Path) -> None:
     cmd = [str(modal_bin_path), "setup"]
+    log_event("info", "running modal setup", ctx={"modal_cli": str(modal_bin_path)})
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as err:
+        log_error("modal setup failed", ctx={"modal_cli": str(modal_bin_path), "exit_code": err.returncode})
         raise RuntimeError(f"`{' '.join(cmd)}` exited with status {err.returncode}") from err
 
 
 def create_modal_wrapper(cfg: ModalDeployCfg) -> tuple[Path, Path]:
+    log_event(
+        "info",
+        "creating modal wrapper",
+        ctx={
+            "task_app": str(cfg.task_app_path),
+            "modal_app": str(cfg.modal_app_path),
+            "modal_cli": str(cfg.modal_bin_path),
+        },
+    )
     src = textwrap.dedent(f"""
         from importlib import util as _util
         from pathlib import Path as _Path
@@ -131,6 +143,14 @@ def create_modal_wrapper(cfg: ModalDeployCfg) -> tuple[Path, Path]:
     dir = Path(tempfile.mkdtemp(prefix="synth_modal_app"))
     file = dir / "__modal_wrapper__.py"
     file.write_text(src + '\n', encoding="utf-8")
+    log_event(
+        "info",
+        "modal wrapper created",
+        ctx={
+            "task_app": str(cfg.task_app_path),
+            "wrapper_dir": str(dir),
+        },
+    )
     return (dir, file)
 
 
@@ -153,10 +173,12 @@ def stream_modal_cmd_output(
             if not url:
                 continue
             write_env_var_to_dotenv("TASK_APP_URL", url, print_msg=False)
+            log_event("info", "modal deploy URL detected", ctx={"task_app_url": url})
     return process.wait(), url
         
 
 def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
+    log_event("info", "starting modal cli", ctx={"cmd": cmd})
     try:
         return subprocess.Popen(
             cmd,
@@ -167,16 +189,29 @@ def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
             env=env
         )
     except FileNotFoundError as exc:
+        log_error("modal cli not found", ctx={"cmd": cmd, "error": str(exc)})
         raise click.ClickException(f"Modal CLI not found at {cmd[0]}: {exc}") from exc
     except Exception as exc:
+        log_error("modal cli launch failed", ctx={"cmd": cmd, "error": str(exc)})
         raise click.ClickException(f"Failed to start Modal CLI ({cmd[0]}): {exc}") from exc
 
 
 def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
     is_mcp = os.getenv("CTX") == "mcp"
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
+    ctx = {
+        "task_app": str(cfg.task_app_path),
+        "modal_app": str(cfg.modal_app_path),
+        "modal_cli": str(cfg.modal_bin_path),
+        "cmd_arg": cfg.cmd_arg,
+        "dry_run": cfg.dry_run,
+        "task_app_name": cfg.task_app_name,
+        "is_mcp": is_mcp,
+    }
+    log_event("info", "deploy_app_modal invoked", ctx=ctx)
 
     if is_modal_setup_needed():
+        log_event("info", "modal setup required", ctx={"modal_cli": str(cfg.modal_bin_path)})
         run_modal_setup(cfg.modal_bin_path)
 
     configure_import_paths(cfg.modal_app_path, REPO_ROOT)
@@ -192,6 +227,7 @@ def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
         if cfg.dry_run:
             cleanup_paths(file=wrapper_file, dir=wrapper_dir)
             print(f"deploy --runtime modal --dry-run → {shlex.join(cmd)}")
+            log_event("info", "modal dry-run completed", ctx={**ctx, "cmd": cmd})
             return None
         process = run_modal_cmd(cmd, os.environ.copy())
         if is_mcp:
@@ -209,7 +245,12 @@ def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
         print(f"{'-' * 32} Modal end {'-' * 32}")
         if task_app_url:
             print(f"Your task app is live on Modal at: {task_app_url}")
+        log_event("info", "modal deploy completed", ctx={**ctx, "task_app_url": task_app_url})
     except subprocess.CalledProcessError as err:
+        log_error(
+            "modal deploy failed",
+            ctx={**ctx, "cmd": cmd, "exit_code": err.returncode, "task_app_url": task_app_url},
+        )
         raise RuntimeError(f"modal {cfg.cmd_arg} failed with exit code: {err.returncode}") from err
     finally:
         cleanup_paths(file=wrapper_file, dir=wrapper_dir)
