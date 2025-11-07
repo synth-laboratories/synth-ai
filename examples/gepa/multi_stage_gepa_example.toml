@@ -1,0 +1,84 @@
+# Example: Multi-stage GEPA configuration for Banking77 pipeline
+# This demonstrates how to configure GEPA for a 2-stage pipeline
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://localhost:8000"
+task_app_api_key = "test-key"
+
+# Pipeline-level initial prompt with module metadata
+[prompt_learning.initial_prompt]
+id = "banking77_pipeline_baseline"
+name = "Banking77 Two-Stage Pipeline"
+
+[prompt_learning.initial_prompt.metadata]
+# Define the stages in the pipeline
+pipeline_modules = ["query_analyzer", "classifier"]
+
+# Policy configuration (applies to all stages)
+[prompt_learning.policy]
+model = "gpt-4o-mini"
+provider = "openai"
+inference_mode = "synth_hosted"
+temperature = 0.0
+max_completion_tokens = 512
+
+# GEPA-specific configuration
+[prompt_learning.gepa]
+env_name = "banking77_pipeline"
+rng_seed = 42
+proposer_type = "dspy"
+
+# Multi-stage module configuration (instruction-only for GEPA)
+[[prompt_learning.gepa.modules]]
+module_id = "query_analyzer"
+max_instruction_slots = 2
+max_tokens = 512
+
+[[prompt_learning.gepa.modules]]
+module_id = "classifier"
+max_instruction_slots = 3
+max_tokens = 1024
+allowed_tools = ["classify", "format_output"]
+
+# Rollout configuration
+[prompt_learning.gepa.rollout]
+budget = 1000
+max_concurrent = 20
+minibatch_size = 8
+
+# Evaluation configuration
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4]
+validation_seeds = [5, 6]
+
+# Mutation configuration (LLM-guided)
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "llama3-groq-70b-8192-tool-use-preview"
+llm_provider = "groq"
+
+# Population/evolution configuration
+[prompt_learning.gepa.population]
+initial_size = 20
+num_generations = 10
+children_per_generation = 5
+crossover_rate = 0.5
+selection_pressure = 1.0
+patience_generations = 3
+
+# Archive/Pareto configuration
+[prompt_learning.gepa.archive]
+size = 64
+pareto_set_size = 64
+pareto_eps = 1e-6
+feedback_fraction = 0.5
+
+# Token/budget configuration
+[prompt_learning.gepa.token]
+max_limit = 50000
+counting_model = "gpt-4"
+enforce_pattern_limit = true
+max_spend_usd = 100.0
+
+

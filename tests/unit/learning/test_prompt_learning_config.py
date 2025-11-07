@@ -329,7 +329,6 @@ rng_seed = 42
 class TestBuildPromptLearningPayload:
     """Test build_prompt_learning_payload function."""
 
-    @pytest.mark.skip(reason="MIPRO not yet implemented")
     def test_build_payload_mipro(self) -> None:
         """Test building payload for MIPRO job."""
         toml_content = """
@@ -339,13 +338,21 @@ task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
 
 [prompt_learning.policy]
+inference_mode = "synth_hosted"
 model = "gpt-4o-mini"
 provider = "openai"
 inference_url = "https://api.openai.com/v1"
 
 [prompt_learning.mipro]
-num_candidates = 5
 num_iterations = 3
+num_evaluations_per_iteration = 5
+batch_size = 5
+max_concurrent = 10
+meta_model = "gpt-4o-mini"
+meta_model_provider = "openai"
+meta_model_inference_url = "https://api.openai.com/v1"
+bootstrap_train_seeds = [0, 1, 2]
+online_pool = [3, 4, 5]
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)

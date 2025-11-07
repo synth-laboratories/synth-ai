@@ -3,7 +3,6 @@ from pathlib import Path
 
 import click
 
-
 DEMO_SOURCES: dict[str, str] = {
     "local": "crafter",
     "modal": "math"

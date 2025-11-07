@@ -154,6 +154,7 @@ async def call_chat_completion(
     policy_config: dict[str, Any],
     placeholders: dict[str, Any],
     default_messages: list[dict[str, str]],
+    api_key: str | None = None,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]]]:
     # STRICT: require all policy fields to come from TOML (no defaults)
     missing_fields: list[str] = []
@@ -161,12 +162,28 @@ async def call_chat_completion(
     model_val = policy_config.get("model")
     if not isinstance(model_val, str) or not model_val.strip():
         missing_fields.append("model")
-    # Resolve routing base from any of the accepted keys
-    route_base = (
-        (policy_config.get("inference_url") or "").strip()
-        or (policy_config.get("api_base") or "").strip()
-        or (policy_config.get("base_url") or "").strip()
-    )
+    # Resolve routing base - ALWAYS prioritize inference_url if provided (trainer-provided interceptor URL)
+    # If inference_url is set, use it exclusively and ignore api_base/base_url
+    inference_url_raw = policy_config.get("inference_url")
+    api_base_raw = policy_config.get("api_base")
+    base_url_raw = policy_config.get("base_url")
+    
+    if inference_url_raw:
+        # Trainer provided inference_url (interceptor URL) - use it exclusively
+        route_base = str(inference_url_raw).strip()
+        if api_base_raw or base_url_raw:
+            # Log warning if api_base/base_url are also present (they'll be ignored)
+            with contextlib.suppress(Exception):
+                print(
+                    f"[TASK_APP] ⚠️  inference_url is set ({route_base}), ignoring api_base/base_url",
+                    flush=True,
+                )
+    else:
+        # Fallback: use api_base or base_url if inference_url not provided
+        route_base = (
+            (api_base_raw or "").strip()
+            or (base_url_raw or "").strip()
+        )
     if not route_base:
         missing_fields.append("inference_url")
     if missing_fields:
@@ -222,11 +239,22 @@ async def call_chat_completion(
             )
         raise HTTPException(status_code=502, detail=f"Direct provider URL not allowed for policy: {route_base}")
 
-    # If routing to proxy/interceptor, DO NOT require or send provider API key
+    # If routing to proxy/interceptor, include task app API key if provided
     headers: dict[str, str]
     headers = {"Content-Type": "application/json"}
-    with contextlib.suppress(Exception):
-        print("[TASK_APP] PROXY ROUTING (no provider key sent)", flush=True)
+    if api_key:
+        headers["X-API-Key"] = api_key
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] 🔐 PROXY ROUTING with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+            print(f"[TASK_APP] 🔐 Headers being sent to proxy: {list(headers.keys())}", flush=True)
+            # Verify the key is actually in the headers
+            assert "X-API-Key" in headers, "X-API-Key missing from headers!"
+            assert headers["X-API-Key"] == api_key, "X-API-Key value mismatch!"
+            print(f"[TASK_APP] ✅ Header validation passed: X-API-Key present", flush=True)
+    else:
+        with contextlib.suppress(Exception):
+            print("[TASK_APP] ⚠️  PROXY ROUTING (NO API KEY PROVIDED!)", flush=True)
+            print(f"[TASK_APP] ⚠️  This will likely fail auth at the proxy endpoint", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
@@ -275,14 +303,48 @@ async def call_chat_completion(
         print(f"[TASK_APP] PROXY_DNS_ERROR: {e}", flush=True)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
+        # Log the actual request about to be sent
+        with contextlib.suppress(Exception):
+            headers_log = {k: (f"{v[:15]}..." if k == "X-API-Key" and len(v) > 15 else v) for k, v in headers.items()}
+            print(f"[TASK_APP] 📤 Sending POST to: {inference_url}", flush=True)
+            print(f"[TASK_APP] 📤 With headers: {headers_log}", flush=True)
+            print(f"[TASK_APP] 📤 Payload keys: {list(payload.keys())}", flush=True)
+            # Final assertion before sending
+            if "X-API-Key" in headers:
+                print(f"[TASK_APP] ✅ X-API-Key IS in headers (len={len(headers['X-API-Key'])})", flush=True)
+            else:
+                print(f"[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
+        
         try:
             response = await client.post(inference_url, json=payload, headers=headers)
         except Exception as e:
             print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
             raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+        
         # Always print status/headers/body BEFORE any error is raised
         print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
         print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
+        
+        # Handle error responses from interceptor/provider
+        if response.status_code != 200:
+            try:
+                error_json = response.json()
+                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))
+                print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Interceptor/provider error: {error_msg}"
+                )
+            except HTTPException:
+                raise
+            except Exception:
+                error_text = response.text[:500]
+                print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Interceptor/provider returned error: {error_text}"
+                )
+        
         # Try JSON, fallback to text
         try:
             response_json = response.json()
@@ -294,7 +356,7 @@ async def call_chat_completion(
             response.raise_for_status()
             # If we got here, raise_for_status didn't throw; keep an empty JSON
             response_json = {}
-        # After logging, surface HTTP errors
+        # After logging, surface HTTP errors (shouldn't reach here if status != 200)
         response.raise_for_status()
 
     with contextlib.suppress(Exception):
@@ -395,7 +457,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         },
         {
             "role": "user",
-            "pattern": "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call.",
+            "pattern": "Customer Query: {query}\n\nAvailable Intents:\n{available_intents}\n\nClassify this query into one of the above banking intents using the tool call.",
         },
     ]
 
@@ -411,11 +473,20 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         rendered_messages.append({"role": role, "content": content})
     error_info: dict[str, Any] = {}
 
+    # Extract API key from request headers for forwarding to proxy
+    api_key = (
+        fastapi_request.headers.get("X-API-Key")
+        or fastapi_request.headers.get("x-api-key")
+        or (fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip() if fastapi_request.headers.get("Authorization") else None)
+        or None
+    )
+    
     # Call proxy - HARD FAILS on any invalid/empty responses. No soft handling.
     response_text, response_json, tool_calls = await call_chat_completion(
         request.policy.config or {},
         placeholders,
         default_messages,
+        api_key=api_key,
     )
     # Full upstream JSON must be present and non-empty
     try:

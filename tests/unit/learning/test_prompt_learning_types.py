@@ -437,3 +437,4 @@ class TestPromptResults:
         assert len(results1.top_prompts) == 1
         assert len(results2.top_prompts) == 0  # Should be separate list
 
+

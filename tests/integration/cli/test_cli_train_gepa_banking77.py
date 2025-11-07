@@ -136,3 +136,4 @@ def test_train_gepa_banking77_no_poll():
     output = result.stdout + result.stderr
     assert len(output) > 0, "Command should produce output with job ID"
 
+

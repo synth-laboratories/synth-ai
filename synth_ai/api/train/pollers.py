@@ -68,8 +68,24 @@ class SFTJobPoller(JobPoller):
         return super().poll(f"/learning/jobs/{job_id}")
 
 
+class PromptLearningJobPoller(JobPoller):
+    """Poller for prompt learning jobs (MIPRO and GEPA)."""
+    
+    def poll_job(self, job_id: str) -> PollOutcome:
+        """Poll a prompt learning job by ID.
+        
+        Args:
+            job_id: Job ID (e.g., "pl_9c58b711c2644083")
+            
+        Returns:
+            PollOutcome with status and payload
+        """
+        return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
+
+
 __all__ = [
     "PollOutcome",
     "RLJobPoller",
     "SFTJobPoller",
+    "PromptLearningJobPoller",
 ]
