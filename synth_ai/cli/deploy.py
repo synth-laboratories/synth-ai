@@ -180,7 +180,7 @@ def deploy_cmd(
             "task_app": str(task_app_path),
             "error": type(exc).__name__,
         }
-        log_error("deploy command failed", context=failure_ctx)
+        log_error("deploy command failed", ctx=failure_ctx)
         click.echo(f"{exc}", err=True)
     finally:
         flush_logger(0.5)
