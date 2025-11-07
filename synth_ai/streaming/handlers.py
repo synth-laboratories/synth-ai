@@ -137,6 +137,7 @@ class CLIHandler(StreamHandler):
                 demo_indices = data.get("demo_indices", [])
                 lift_abs = data.get("lift_absolute")
                 lift_pct = data.get("lift_percent")
+                stage_payloads = data.get("stage_payloads", {})
                 details: list[str] = []
                 if rank is not None:
                     details.append(f"Rank {rank}")
@@ -154,6 +155,17 @@ class CLIHandler(StreamHandler):
                         click.echo(f"        Instruction: {snippet}")
                     if isinstance(demo_indices, list) and demo_indices:
                         click.echo(f"        Demo indices: {demo_indices}")
+                    
+                    # Display per-stage information if available
+                    if isinstance(stage_payloads, dict) and stage_payloads:
+                        click.echo("        Per-stage breakdown:")
+                        for stage_id, payload in stage_payloads.items():
+                            if isinstance(payload, dict):
+                                module_id = payload.get("module_id", stage_id)
+                                instr_ids = payload.get("instruction_indices", [])
+                                demo_ids = payload.get("demo_indices", [])
+                                click.echo(f"          [{module_id}/{stage_id}] instr_ids={instr_ids} demo_ids={demo_ids}")
+                    
                     seed_scores = data.get("test_seed_scores")
                     if isinstance(seed_scores, list) and seed_scores:
                         formatted_scores = ", ".join(

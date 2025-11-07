@@ -1266,3 +1266,170 @@ prompt_learning = { algorithm = "mipro" }  # Circular reference (same name as pa
         finally:
             path.unlink(missing_ok=True)
 
+
+class TestMultiStageGEPAValidation:
+    """Tests for multi-stage GEPA pipeline validation."""
+
+    def test_multi_stage_gepa_with_modules_passes(self) -> None:
+        """Test that multi-stage GEPA with modules config passes validation."""
+        config_data = {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "http://localhost:8001",
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                    "inference_url": "https://api.openai.com/v1",
+                    "inference_mode": "synth_hosted",
+                },
+                "initial_prompt": {
+                    "metadata": {
+                        "pipeline_modules": ["classifier", "calibrator"],
+                    },
+                },
+                "gepa": {
+                    "modules": [
+                        {"module_id": "classifier", "max_instruction_slots": 2},
+                        {"module_id": "calibrator", "max_instruction_slots": 3},
+                    ],
+                    "num_generations": 10,
+                },
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            path = Path(f.name)
+        try:
+            # Should not raise
+            validate_prompt_learning_config(config_data, path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_multi_stage_gepa_missing_modules_raises_error(self) -> None:
+        """Test that multi-stage GEPA without modules config raises error."""
+        config_data = {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "http://localhost:8001",
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                    "inference_url": "https://api.openai.com/v1",
+                    "inference_mode": "synth_hosted",
+                },
+                "initial_prompt": {
+                    "metadata": {
+                        "pipeline_modules": ["classifier", "calibrator"],
+                    },
+                },
+                "gepa": {
+                    "num_generations": 10,
+                    # Missing modules config
+                },
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception) as exc_info:
+                validate_prompt_learning_config(config_data, path)
+            error_msg = str(exc_info.value).lower()
+            assert "modules" in error_msg or "multi-stage" in error_msg
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_multi_stage_gepa_mismatched_module_ids_raises_error(self) -> None:
+        """Test that mismatched module IDs raise validation error."""
+        config_data = {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "http://localhost:8001",
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                    "inference_url": "https://api.openai.com/v1",
+                    "inference_mode": "synth_hosted",
+                },
+                "initial_prompt": {
+                    "metadata": {
+                        "pipeline_modules": ["classifier", "calibrator"],
+                    },
+                },
+                "gepa": {
+                    "modules": [
+                        {"module_id": "classifier", "max_instruction_slots": 2},
+                        # Missing "calibrator" module
+                    ],
+                    "num_generations": 10,
+                },
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            path = Path(f.name)
+        try:
+            with pytest.raises(Exception) as exc_info:
+                validate_prompt_learning_config(config_data, path)
+            error_msg = str(exc_info.value).lower()
+            assert "calibrator" in error_msg or "missing" in error_msg
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_single_stage_gepa_still_works(self) -> None:
+        """Test that single-stage GEPA (no pipeline_modules) still works."""
+        config_data = {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "http://localhost:8001",
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                    "inference_url": "https://api.openai.com/v1",
+                    "inference_mode": "synth_hosted",
+                },
+                "gepa": {
+                    "num_generations": 10,
+                    # No modules config - single stage
+                },
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            path = Path(f.name)
+        try:
+            # Should not raise - single-stage is still valid
+            validate_prompt_learning_config(config_data, path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_multi_stage_gepa_with_string_pipeline_modules(self) -> None:
+        """Test multi-stage GEPA when pipeline_modules is list of strings."""
+        config_data = {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "http://localhost:8001",
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                    "inference_url": "https://api.openai.com/v1",
+                    "inference_mode": "synth_hosted",
+                },
+                "initial_prompt": {
+                    "metadata": {
+                        "pipeline_modules": ["stage1", "stage2"],  # List of strings
+                    },
+                },
+                "gepa": {
+                    "modules": [
+                        {"module_id": "stage1", "max_instruction_slots": 2},
+                        {"module_id": "stage2", "max_instruction_slots": 3},
+                    ],
+                    "num_generations": 10,
+                },
+            }
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            path = Path(f.name)
+        try:
+            # Should not raise
+            validate_prompt_learning_config(config_data, path)
+        finally:
+            path.unlink(missing_ok=True)
+

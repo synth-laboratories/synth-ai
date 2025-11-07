@@ -22,13 +22,14 @@ Configuration files live under `configs/`:
 
 | Task | Description | Config Files |
 |------|-------------|--------------|
-| **Banking77** | Intent classification (77 banking intents) | `banking77_mipro_local.toml`, `banking77_mipro_test.toml` |
+| **Banking77** | Intent classification (single-step) | `banking77_mipro_local.toml`, `banking77_mipro_test.toml` |
+| **Banking77 Pipeline** | Classifier ➞ calibrator multi-step pipeline | `banking77_pipeline_mipro_local.toml`, `banking77_pipeline_mipro_test.toml` |
 
 *More task configs coming soon: HotpotQA, IFBench, HoVer, PUPA*
 
 ---
 
-## Quick Start (Banking77 Example)
+## Quick Start (Banking77 Single-Step)
 
 ### Prerequisites
 
@@ -123,9 +124,48 @@ Results are automatically saved and can be queried via the Python API or REST en
 
 ---
 
+## Quick Start (Banking77 Multi-Step Pipeline)
+
+The pipeline task app chains a classifier stage with a calibrator stage. Each evaluation now executes both modules, so configs are toned down for latency.
+
+### Step 1: Deploy Pipeline Task App
+
+```bash
+# Terminal 1
+./examples/blog_posts/mipro/deploy_banking77_pipeline_task_app.sh
+```
+
+This launches the `banking77-pipeline` task app on `http://127.0.0.1:8112`.
+
+### Step 2: Run Pipeline Optimisation
+
+```bash
+# Terminal 2
+./examples/blog_posts/mipro/run_mipro_banking77_pipeline.sh
+```
+
+The helper script checks backend health, ensures the pipeline task app is online, and runs `banking77_pipeline_mipro_local.toml`.
+
+### Step 3: Monitor Output
+
+```
+🔬 Running MIPROv2 on Banking77 Pipeline
+========================================
+✅ Pipeline task app is healthy
+✅ Backend is healthy
+
+🚀 Starting MIPROv2 training...
+Multi-Step Flow:
+  1. Bootstrap: two-module pipeline on seeds [0-7]
+  2. Optimisation: 8 iterations × 4 variants
+  3. Held-out evaluation on seeds [16-23]
+```
+
+Expect slightly higher per-iteration latency because each candidate runs both pipeline modules. The script summarises results when optimisation finishes.
+
 ## Configuration
 
-### Example: Banking77 MIPROv2 Configuration
+### Example: Banking77 MIPROv2 Configuration (Single-Step)
 
 ```toml
 [prompt_learning]
@@ -153,6 +193,30 @@ bootstrap_train_seeds = [0, 1, 2, 3, 4]    # Bootstrap phase seeds
 online_pool = [5, 6, 7, 8, 9]              # Online evaluation seeds
 test_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]  # Final test seeds
 ```
+
+### Example: Banking77 Pipeline Configuration (Multi-Step)
+
+```toml
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8112"
+task_app_id = "banking77-pipeline"
+
+[prompt_learning.initial_prompt.metadata]
+pipeline_modules = [
+  { name = "classifier", instruction_text = "...", few_shots = [] },
+  { name = "calibrator", instruction_text = "...", few_shots = [] }
+]
+
+[prompt_learning.mipro]
+num_iterations = 8
+num_evaluations_per_iteration = 4
+batch_size = 4
+max_concurrent = 12
+few_shot_score_threshold = 0.82
+```
+
+The `pipeline_modules` metadata tells the task app which instruction text and demonstrations belong to each stage.
 
 ### Key Parameters
 
@@ -348,4 +412,3 @@ For issues or questions:
 4. Review logs in both terminals for error messages
 
 Happy optimizing! 🔬🚀
-

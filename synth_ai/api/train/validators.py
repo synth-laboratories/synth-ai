@@ -122,12 +122,70 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
         elif not isinstance(inference_url, str) or not inference_url.startswith(("http://", "https://")):
             errors.append(f"policy.inference_url must start with http:// or https://, got: '{inference_url}'")
     
+    # Check for multi-stage/multi-module pipeline config
+    initial_prompt = pl_section.get("initial_prompt", {})
+    pipeline_modules: list[str | dict[str, Any]] = []
+    if isinstance(initial_prompt, dict):
+        metadata = initial_prompt.get("metadata", {})
+        pipeline_modules = metadata.get("pipeline_modules", [])
+        if not isinstance(pipeline_modules, list):
+            pipeline_modules = []
+    has_multi_stage = isinstance(pipeline_modules, list) and len(pipeline_modules) > 0
+    
     # Validate algorithm-specific config
     if algorithm == "gepa":
         gepa_config = pl_section.get("gepa")
         if not gepa_config or not isinstance(gepa_config, dict):
             errors.append("Missing [prompt_learning.gepa] section for GEPA algorithm")
         else:
+            # Multi-stage validation
+            modules_config = gepa_config.get("modules")
+            if has_multi_stage:
+                if not modules_config or not isinstance(modules_config, list) or len(modules_config) == 0:
+                    errors.append(
+                        f"GEPA multi-stage pipeline detected (found {len(pipeline_modules)} modules in "
+                        f"prompt_learning.initial_prompt.metadata.pipeline_modules), "
+                        f"but [prompt_learning.gepa.modules] is missing or empty. "
+                        f"Define module configs for each pipeline stage."
+                    )
+                else:
+                    # Validate module IDs match pipeline_modules
+                    module_ids = []
+                    for m in modules_config:
+                        if isinstance(m, dict):
+                            module_id = m.get("module_id") or m.get("stage_id")
+                            if module_id:
+                                module_ids.append(str(module_id).strip())
+                        elif hasattr(m, "module_id"):
+                            module_ids.append(str(m.module_id).strip())
+                        elif hasattr(m, "stage_id"):
+                            module_ids.append(str(m.stage_id).strip())
+                    
+                    # Extract pipeline module names (can be strings or dicts with 'name' field)
+                    pipeline_module_names = []
+                    for m in pipeline_modules:
+                        if isinstance(m, str):
+                            pipeline_module_names.append(m.strip())
+                        elif isinstance(m, dict):
+                            name = m.get("name") or m.get("module_id") or m.get("stage_id")
+                            if name:
+                                pipeline_module_names.append(str(name).strip())
+                    
+                    # Check for missing modules
+                    missing_modules = set(pipeline_module_names) - set(module_ids)
+                    if missing_modules:
+                        errors.append(
+                            f"Pipeline modules {sorted(missing_modules)} are missing from "
+                            f"[prompt_learning.gepa.modules]. Each pipeline module must have a corresponding "
+                            f"module config with matching module_id."
+                        )
+                    
+                    # Check for extra modules (warn but don't error)
+                    extra_modules = set(module_ids) - set(pipeline_module_names)
+                    if extra_modules:
+                        # This is a warning, not an error - extra modules are allowed
+                        pass
+            
             # Numeric sanity checks
             def _pos_int(name: str) -> None:
                 val = gepa_config.get(name)
@@ -141,12 +199,13 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             for fld in ("initial_population_size", "num_generations", "children_per_generation", "max_concurrent_rollouts"):
                 _pos_int(fld)
             # Budget cap
-            if "max_spend_usd" in gepa_config and gepa_config.get("max_spend_usd") is not None:
+            max_spend = gepa_config.get("max_spend_usd")
+            if max_spend is not None:
                 try:
-                    f = float(gepa_config.get("max_spend_usd"))
+                    f = float(max_spend)
                     if f <= 0:
                         errors.append("prompt_learning.gepa.max_spend_usd must be > 0 when provided")
-                except Exception:
+                except (ValueError, TypeError):
                     errors.append("prompt_learning.gepa.max_spend_usd must be numeric")
     
     elif algorithm == "mipro":

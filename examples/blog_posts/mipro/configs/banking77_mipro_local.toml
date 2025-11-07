@@ -49,6 +49,10 @@ meta_model = "gpt-4o-mini"
 meta_model_provider = "openai"
 meta_model_inference_url = "https://api.openai.com/v1"
 few_shot_score_threshold = 0.85
+max_instructions = 3
+
+# Retry guard for duplicate proposals/candidates
+duplicate_retry_limit = 10
 
 # Seed pools for different phases - tons of data for reliable evaluation
 bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # 15 seeds for bootstrap

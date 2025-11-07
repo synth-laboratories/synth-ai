@@ -22,7 +22,7 @@ pipeline_modules = [
 
 [prompt_learning.policy]
 inference_mode = "synth_hosted"
-model = "openai/gpt-oss-20b"
+model = "openai/gpt-oss-120b"
 provider = "groq"
 inference_url = "https://api.groq.com/openai/v1"
 temperature = 0.0

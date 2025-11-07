@@ -395,7 +395,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         },
         {
             "role": "user",
-            "pattern": "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call.",
+            "pattern": "Customer Query: {query}\n\nAvailable Intents:\n{available_intents}\n\nClassify this query into one of the above banking intents using the tool call.",
         },
     ]
 

@@ -1,145 +1,83 @@
-"""Integration test for MIPRO prompt learning with Banking77 task app.
+"""Tests for the Banking77 MIPRO CLI configs.
 
-This test verifies the end-to-end flow of running MIPRO optimization
-on the Banking77 classification task using the test configuration.
+These cover the new multi-step pipeline configs to make sure the CLI builder
+emits the expected module metadata without having to hit the live backend.
 """
+
 from __future__ import annotations
 
-import os
-import subprocess
 from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.integration
+from synth_ai.api.train.builders import build_prompt_learning_payload
 
 
-def _run(args: list[str], env: dict[str, str] | None = None, timeout: int | None = None) -> subprocess.CompletedProcess[str]:
-    """Run a command and return the result."""
-    return subprocess.run(
-        args,
-        text=True,
-        capture_output=True,
-        env=env,
-        timeout=timeout,
-        cwd=Path(__file__).parent.parent.parent.parent,
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PIPELINE_CONFIG = REPO_ROOT / "examples" / "blog_posts" / "mipro" / "configs" / "banking77_pipeline_mipro_local.toml"
+PIPELINE_TEST_CONFIG = REPO_ROOT / "examples" / "blog_posts" / "mipro" / "configs" / "banking77_pipeline_mipro_test.toml"
+
+
+@pytest.fixture(autouse=True)
+def _env_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provide the API keys expected by the builder."""
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "env-key")
+    monkeypatch.setenv("SYNTH_API_KEY", "synth-key")
+
+
+def _build_payload(config_path: Path):
+    return build_prompt_learning_payload(
+        config_path=config_path,
+        task_url=None,
+        overrides={"backend": "http://localhost:8000"},
     )
 
 
-@pytest.mark.slow
-def test_train_mipro_banking77_with_polling():
-    """Test MIPRO prompt learning on Banking77 with polling enabled.
-    
-    This test:
-    1. Verifies the train command accepts the MIPRO config
-    2. Starts a training job with polling enabled
-    3. Ensures the job can be created and tracked
-    
-    Note: This test requires:
-    - Backend running at http://localhost:8000
-    - Banking77 task app deployed (or using Modal URL)
-    - GROQ_API_KEY environment variable set
-    - OPENAI_API_KEY environment variable set (for meta-model)
-    - SYNTH_API_KEY environment variable set (if using auth)
-    """
-    # Get config path relative to repo root
-    repo_root = Path(__file__).parent.parent.parent.parent
-    config_path = repo_root / "examples" / "blog_posts" / "mipro" / "configs" / "banking77_mipro_test.toml"
-    
-    # Alternative: use monorepo config if blog post config doesn't exist
-    if not config_path.exists():
-        monorepo_config = Path(__file__).parent.parent.parent.parent.parent / "monorepo" / "backend" / "app" / "routes" / "prompt_learning" / "configs" / "banking77_mipro_test.toml"
-        if monorepo_config.exists():
-            config_path = monorepo_config
-        else:
-            pytest.skip(f"Config file not found: {config_path} or {monorepo_config}")
-    
-    # Set up environment
-    env = os.environ.copy()
-    env.setdefault("BACKEND_BASE_URL", "http://localhost:8000/api")
-    
-    # Run train command with polling (but with timeout to avoid hanging)
-    # Note: --poll will keep running until job completes, so we use a timeout
-    # In CI, you might want to use --no-poll and check job status separately
-    args = [
-        "uvx",
-        "synth-ai",
-        "train",
-        "--type",
-        "prompt_learning",
-        "--config",
-        str(config_path),
-        "--backend",
-        "http://localhost:8000",
-        "--poll",
-    ]
-    
-    # Run with timeout (adjust based on your needs)
-    # For a full test, you might want to run without --poll and check status separately
-    result = _run(args, env=env, timeout=600)  # 10 minute timeout for MIPRO
-    
-    # Check that command started successfully
-    # Note: If job fails or times out, we still want to verify the command works
-    assert result.returncode in (0, 124), (
-        f"Train command failed or timed out.\n"
-        f"STDOUT:\n{result.stdout}\n"
-        f"STDERR:\n{result.stderr}\n"
-    )
-    
-    # Verify we got some output (job ID, status, etc.)
-    output = result.stdout + result.stderr
-    assert len(output) > 0, "Command should produce some output"
-    
-    # Verify bootstrap phase mentioned (MIPRO-specific)
-    output_lower = output.lower()
-    assert "bootstrap" in output_lower or "mipro" in output_lower or "iteration" in output_lower, (
-        "Output should mention bootstrap, MIPRO, or iterations"
-    )
+def test_pipeline_builder_includes_module_metadata() -> None:
+    result = _build_payload(PIPELINE_CONFIG)
+    config_body = result.payload["config_body"]
+
+    prompt_cfg = config_body["prompt_learning"]
+    assert result.task_url == "http://127.0.0.1:8112"
+    assert prompt_cfg["task_app_api_key"] == "env-key"
+
+    modules = prompt_cfg["initial_prompt"]["metadata"]["pipeline_modules"]
+    module_names = [module["name"] for module in modules]
+    assert module_names == ["classifier", "calibrator"]
+    assert all("instruction_text" in module for module in modules)
+    assert all("few_shots" in module for module in modules)
 
 
-@pytest.mark.slow
-def test_train_mipro_banking77_no_poll():
-    """Test MIPRO prompt learning on Banking77 without polling.
-    
-    This variant creates the job and returns immediately,
-    which is better for CI environments.
-    """
-    repo_root = Path(__file__).parent.parent.parent.parent
-    config_path = repo_root / "examples" / "blog_posts" / "mipro" / "configs" / "banking77_mipro_test.toml"
-    
-    if not config_path.exists():
-        monorepo_config = Path(__file__).parent.parent.parent.parent.parent / "monorepo" / "backend" / "app" / "routes" / "prompt_learning" / "configs" / "banking77_mipro_test.toml"
-        if monorepo_config.exists():
-            config_path = monorepo_config
-        else:
-            pytest.skip(f"Config file not found: {config_path} or {monorepo_config}")
-    
-    env = os.environ.copy()
-    env.setdefault("BACKEND_BASE_URL", "http://localhost:8000/api")
-    
-    args = [
-        "uvx",
-        "synth-ai",
-        "train",
-        "--type",
-        "prompt_learning",
-        "--config",
-        str(config_path),
-        "--backend",
-        "http://localhost:8000",
-        # No --poll flag
-    ]
-    
-    result = _run(args, env=env, timeout=60)  # 1 minute timeout
-    
-    # Should succeed and return job ID
-    assert result.returncode == 0, (
-        f"Train command failed.\n"
-        f"STDOUT:\n{result.stdout}\n"
-        f"STDERR:\n{result.stderr}\n"
-    )
-    
-    # Should output job ID or status
-    output = result.stdout + result.stderr
-    assert len(output) > 0, "Command should produce output with job ID"
+def test_pipeline_builder_includes_module_limits() -> None:
+    result = _build_payload(PIPELINE_CONFIG)
+    config_body = result.payload["config_body"]
 
+    limits = {
+        module["module_id"]: module
+        for module in config_body["prompt_learning"]["mipro"]["modules"]
+    }
+
+    assert limits["classifier"]["max_instruction_slots"] == 3
+    assert limits["classifier"]["max_demo_slots"] == 5
+    assert limits["calibrator"]["max_instruction_slots"] == 3
+    assert limits["calibrator"]["max_demo_slots"] == 5
+
+
+def test_pipeline_test_config_uses_reduced_limits() -> None:
+    result = _build_payload(PIPELINE_TEST_CONFIG)
+    config_body = result.payload["config_body"]
+
+    limits = {
+        module["module_id"]: module
+        for module in config_body["prompt_learning"]["mipro"]["modules"]
+    }
+
+    assert limits["classifier"]["max_instruction_slots"] == 2
+    assert limits["calibrator"]["max_instruction_slots"] == 2
+    assert limits["classifier"]["max_demo_slots"] == 4
+    assert limits["calibrator"]["max_demo_slots"] == 4
+
+    seeds = config_body["prompt_learning"]["mipro"]
+    assert seeds["bootstrap_train_seeds"] == [0, 1, 2, 3]
+    assert seeds["online_pool"] == [4, 5, 6, 7]
+    assert seeds["test_pool"] == [8, 9, 10, 11]

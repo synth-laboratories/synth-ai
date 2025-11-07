@@ -55,10 +55,18 @@ echo ""
 # Check task app
 echo "📱 Task App Connection:"
 if curl -s -f -H "X-API-Key: ${ENVIRONMENT_API_KEY:-dummy}" http://127.0.0.1:8102/health > /dev/null 2>&1; then
-    echo "  ✅ Banking77 task app is running on http://127.0.0.1:8102"
+    echo "  ✅ Banking77 task app (single-step) is running on http://127.0.0.1:8102"
 else
     echo "  ❌ Banking77 task app is not running on http://127.0.0.1:8102"
     echo "     Start it with: ./examples/blog_posts/mipro/deploy_banking77_task_app.sh"
+    MISSING_VARS=$((MISSING_VARS + 1))
+fi
+
+if curl -s -f -H "X-API-Key: ${ENVIRONMENT_API_KEY:-dummy}" http://127.0.0.1:8112/health > /dev/null 2>&1; then
+    echo "  ✅ Banking77 pipeline task app is running on http://127.0.0.1:8112"
+else
+    echo "  ❌ Banking77 pipeline task app is not running on http://127.0.0.1:8112"
+    echo "     Start it with: ./examples/blog_posts/mipro/deploy_banking77_pipeline_task_app.sh"
     MISSING_VARS=$((MISSING_VARS + 1))
 fi
 echo ""
@@ -79,6 +87,20 @@ else
     echo "  ❌ banking77_mipro_test.toml not found"
     MISSING_VARS=$((MISSING_VARS + 1))
 fi
+
+if [ -f "$CONFIG_DIR/banking77_pipeline_mipro_local.toml" ]; then
+    echo "  ✅ banking77_pipeline_mipro_local.toml exists"
+else
+    echo "  ❌ banking77_pipeline_mipro_local.toml not found"
+    MISSING_VARS=$((MISSING_VARS + 1))
+fi
+
+if [ -f "$CONFIG_DIR/banking77_pipeline_mipro_test.toml" ]; then
+    echo "  ✅ banking77_pipeline_mipro_test.toml exists"
+else
+    echo "  ❌ banking77_pipeline_mipro_test.toml not found"
+    MISSING_VARS=$((MISSING_VARS + 1))
+fi
 echo ""
 
 # Summary
@@ -92,4 +114,3 @@ else
     echo "❌ Setup incomplete. Please fix the issues above."
     exit 1
 fi
-
