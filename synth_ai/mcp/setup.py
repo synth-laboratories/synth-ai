@@ -52,8 +52,8 @@ def mcp_poll_handshake(device_code: str) -> str:
                 },
                 ensure_ascii=False
             )
-        credentials = payload.get("keys") or {}
-        if not isinstance(credentials, dict):
+        raw_keys = payload.get("keys") or {}
+        if not isinstance(raw_keys, dict):
             return json.dumps(
                 {
                     "status": "error",
@@ -62,6 +62,10 @@ def mcp_poll_handshake(device_code: str) -> str:
                 },
                 ensure_ascii=False,
             )
+        credentials = {
+            "SYNTH_API_KEY": str(raw_keys.get("synth") or '').strip(),
+            "ENVIRONMENT_API_KEY": str(raw_keys.get("rl_env") or '').strip()
+        }
         for k, v in credentials.items():
             write_env_var_to_dotenv(k, v)
             write_env_var_to_json(k, v, "~/.synth-ai/config.json")
