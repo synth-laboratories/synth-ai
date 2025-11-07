@@ -1,7 +1,10 @@
 import asyncio
+import os
 from typing import Any
 
-from synth_ai.mcp.setup import poll_handshake, start_handshake
+from synth_ai.cfgs import LocalDeployCfg
+from synth_ai.mcp.setup import mcp_init_auth_session, mcp_poll_handshake
+from synth_ai.uvicorn import deploy_app_uvicorn
 
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
@@ -10,6 +13,7 @@ from mcp.types import ServerCapabilities, TextContent, Tool, ToolsCapability
 
 server = Server("synth-ai")
 
+os.environ["CTX"] = "mcp"
 
 @server.list_tools()
 async def list_tools() -> list[Tool]:
@@ -35,7 +39,40 @@ async def list_tools() -> list[Tool]:
                 "required": ["device_code"],
                 "properties": {"device_code": {"type": "string"}}
             }
-        )
+        ),
+        Tool(
+            name="deploy_local",
+            description="Deploy a task app to a local server",
+            inputSchema={
+                "type": "object",
+                "required": [
+                    "task_app_path",
+                    "env_api_key"
+                ],
+                "properties": {
+                    "task_app_path": {
+                        "type": "string",
+                        "description": "Absolute path to the task app Python file"
+                    },
+                    "env_api_key": {
+                        "type": "string",
+                        "description": "Use the ENVIRONMENT_API_KEY fetched via the setup function or supplied by user"
+                    },
+                    "trace": {
+                        "type": "boolean",
+                        "default": True
+                    },
+                    "host": {
+                        "type": "string",
+                        "default": "127.0.0.1"
+                    },
+                    "port": {
+                        "type": "integer",
+                        "default": 8000
+                    }
+                }
+            }
+        ),
     ]
 
 
@@ -45,17 +82,34 @@ async def call_tool(
     arguments: dict[str, Any] | None
 ) -> list[TextContent]:
     args = arguments or {}
-    if name == "setup_start":
-        return [TextContent(
-            type="text",
-            text=start_handshake()
-        )]
-    if name == "setup_poll":
-        device_code = args.get("device_code", '')
-        return [TextContent(
-            type="text",
-            text=poll_handshake(device_code)
-        )]
+    match name:
+        case "setup_start":
+            return [TextContent(
+                type="text",
+                text=mcp_init_auth_session()
+            )]
+        case "setup_poll":
+            device_code = args.get("device_code", '')
+            return [TextContent(
+                type="text",
+                text=mcp_poll_handshake(device_code)
+            )]
+        case "deploy_local":
+            try:
+                cfg = LocalDeployCfg.create_from_dict(args)
+            except Exception as exc:
+                return [TextContent(
+                    type="text",
+                    text=f"{name} invalid configuration: {exc}"
+                )]
+            try:
+                msg = deploy_app_uvicorn(cfg)
+            except Exception as exc:
+                msg = f"{name} failed: {exc}"
+            return [TextContent(
+                type="text",
+                text=msg or f"{name} task app deployed"
+            )]
     return [TextContent(
         type="text",
         text=f"Unknown tool '{name}'"

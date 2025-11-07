@@ -2,10 +2,10 @@ import contextlib
 import time
 import webbrowser
 from dataclasses import dataclass
-from typing import Any
 
 import requests
 from requests import RequestException
+
 
 ORIGIN = "https://www.usesynth.ai"
 INIT_URL = ORIGIN + "/api/sdk/handshake/init"
