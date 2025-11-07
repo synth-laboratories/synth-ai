@@ -252,10 +252,19 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         }
         messages, formatted_placeholders = _build_module_messages(module_name, module, placeholders)
 
+        # Extract API key from request headers for forwarding to proxy
+        api_key = (
+            fastapi_request.headers.get("X-API-Key")
+            or fastapi_request.headers.get("x-api-key")
+            or (fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip() if fastapi_request.headers.get("Authorization") else None)
+            or None
+        )
+        
         response_text, response_json, tool_calls = await call_chat_completion(
             policy_config,
             formatted_placeholders,
             messages,
+            api_key=api_key,
         )
 
         if not isinstance(response_json, dict) or not response_json:

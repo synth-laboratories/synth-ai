@@ -154,6 +154,7 @@ async def call_chat_completion(
     policy_config: dict[str, Any],
     placeholders: dict[str, Any],
     default_messages: list[dict[str, str]],
+    api_key: str | None = None,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]]]:
     # STRICT: require all policy fields to come from TOML (no defaults)
     missing_fields: list[str] = []
@@ -222,11 +223,16 @@ async def call_chat_completion(
             )
         raise HTTPException(status_code=502, detail=f"Direct provider URL not allowed for policy: {route_base}")
 
-    # If routing to proxy/interceptor, DO NOT require or send provider API key
+    # If routing to proxy/interceptor, include task app API key if provided
     headers: dict[str, str]
     headers = {"Content-Type": "application/json"}
-    with contextlib.suppress(Exception):
-        print("[TASK_APP] PROXY ROUTING (no provider key sent)", flush=True)
+    if api_key:
+        headers["X-API-Key"] = api_key
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] PROXY ROUTING (with task app API key: {api_key[:15]}...)", flush=True)
+    else:
+        with contextlib.suppress(Exception):
+            print("[TASK_APP] PROXY ROUTING (no API key provided)", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
@@ -411,11 +417,20 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         rendered_messages.append({"role": role, "content": content})
     error_info: dict[str, Any] = {}
 
+    # Extract API key from request headers for forwarding to proxy
+    api_key = (
+        fastapi_request.headers.get("X-API-Key")
+        or fastapi_request.headers.get("x-api-key")
+        or (fastapi_request.headers.get("Authorization", "").replace("Bearer ", "").strip() if fastapi_request.headers.get("Authorization") else None)
+        or None
+    )
+    
     # Call proxy - HARD FAILS on any invalid/empty responses. No soft handling.
     response_text, response_json, tool_calls = await call_chat_completion(
         request.policy.config or {},
         placeholders,
         default_messages,
+        api_key=api_key,
     )
     # Full upstream JSON must be present and non-empty
     try:
