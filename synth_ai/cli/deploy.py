@@ -150,7 +150,7 @@ def deploy_cmd(
         if not synth_api_key:
             raise RuntimeError("SYNTH_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
         if not env_api_key:
-            log_error("ENVIRONMENT_API_KEY_MISSING")
+            log_error("ENVIRONMENT_API_KEY_MISSING", ctx={"runtime", runtime})
             raise RuntimeError("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
         
         validate_task_app(task_app_path)
@@ -175,12 +175,12 @@ def deploy_cmd(
                 ))
         log_info("deploy command completed", ctx={"runtime": runtime})
     except Exception as exc:
-        failure_ctx = {
+        log_error("deploy command failed", ctx={
             "runtime": runtime,
             "task_app": str(task_app_path),
             "error": type(exc).__name__,
-        }
-        log_error("deploy command failed", ctx=failure_ctx)
+            "error_message": str(exc)
+        })
         click.echo(f"{exc}", err=True)
     finally:
         flush_logger(0.5)
