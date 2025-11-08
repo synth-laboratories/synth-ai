@@ -4,7 +4,7 @@ method = "policy_gradient"
 variety = "gspo"
 
 [services]
-task_url = "http://localhost:8101"
+task_url = "https://agent-learning.onrender.com"
 
 [model]
 base = "Qwen/Qwen3-1.7B"

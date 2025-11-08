@@ -4,7 +4,7 @@ method = "policy_gradient"
 variety = "gspo"
 
 [services]
-task_url = "https://your-math-task.modal.run"
+task_url = "https://agent-learning.onrender.com"
 
 [model]
 base = "Qwen/Qwen3-4B"
@@ -13,7 +13,7 @@ label = "math-single-step-qwen3-4b"
 
 [policy]
 model = "Qwen/Qwen3-4B"
-inference_url = "https://your-inference-host"
+inference_url = "https://agent-learning.onrender.com"
 max_tokens = 128
 temperature = 0.0
 

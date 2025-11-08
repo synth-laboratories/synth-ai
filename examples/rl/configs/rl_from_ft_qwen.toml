@@ -1,14 +1,14 @@
 type = "rl"
 
 [services]
-task_url = "https://your-math-task.modal.run"
+task_url = "https://agent-learning.onrender.com"
 
 [model]
 source = "ft:REPLACE_WITH_MODEL_ID"
 
 [policy]
 model = "ft:REPLACE_WITH_MODEL_ID"
-inference_url = "https://your-inference-host"
+inference_url = "https://agent-learning.onrender.com"
 max_tokens = 128
 temperature = 0.0
 
