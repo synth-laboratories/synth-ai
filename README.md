@@ -20,6 +20,7 @@ pip install synth-ai
 uv add synth-ai
 ```
 
+
 **Import:**
 
 ```python
