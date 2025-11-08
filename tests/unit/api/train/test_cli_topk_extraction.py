@@ -4,8 +4,9 @@ Unit tests for CLI top-K prompt extraction from events.
 Tests the logic that parses optimized.scored and validation.scored events
 to extract train/val accuracy pairs for display in final JSON output.
 """
-import pytest
 from typing import Any, Dict, List, Optional
+
+import pytest
 
 
 class TopKPromptResult:
@@ -564,4 +565,5 @@ class TestRealisticEventStream:
         
         # Should have 3 top-K validation scores (baseline not included)
         assert val_scores == {0: 0.620, 1: 0.640, 2: 0.620}
+
 

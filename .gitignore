@@ -77,6 +77,8 @@ session_metadata.json
 
 # Build artifacts and coverage
 .coverage
+.coverage.*
+coverage/
 coverage.xml
 htmlcov/
 *.egg-info/

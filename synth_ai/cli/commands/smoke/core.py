@@ -14,7 +14,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
-import toml
+import tomllib
 from synth_ai.task.client import TaskAppClient
 from synth_ai.task.contracts import (
     RolloutEnvSpec,
@@ -125,8 +125,8 @@ def _load_smoke_config(config_path: Path | None) -> dict[str, Any]:
         return {}
     
     try:
-        with open(config_path) as f:
-            full_config = toml.load(f)
+        with open(config_path, "rb") as f:
+            full_config = tomllib.load(f)
         
         smoke_config = full_config.get("smoke", {})
         

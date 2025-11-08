@@ -3,8 +3,8 @@
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-0.2.10-orange)](https://pypi.org/project/synth-ai/)
-![Coverage](https://img.shields.io/badge/coverage-9.09%25-red)
-![Tests](https://img.shields.io/badge/tests-37%2F38%20passing-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
+![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 ![Blacksmith CI](https://img.shields.io/badge/CI-Blacksmith%20Worker-blue)
 
 > **Synth-AI** — Reinforcement Learning-as-a-Service for agents.  
@@ -193,9 +193,85 @@ When you run `uvx synth-ai setup` (or legacy `uvx synth-ai rl_demo setup`):
 
 ---
 
+## 🎯 Prompt Optimization
+
+Automatically optimize prompts for classification, reasoning, and instruction-following tasks using evolutionary algorithms. Synth supports two state-of-the-art algorithms: **GEPA** (Genetic Evolution of Prompt Architectures) and **MIPRO** (Meta-Instruction PROposer).
+
+**References:**
+- **GEPA**: Agrawal et al. (2025). "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning." [arXiv:2507.19457](https://arxiv.org/abs/2507.19457)
+- **MIPRO**: Opsahl-Ong et al. (2024). "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs." [arXiv:2406.11695](https://arxiv.org/abs/2406.11695)
+
+### How It Works
+
+Prompt optimization uses an **interceptor pattern** that ensures optimized prompts never reach task apps. All prompt modifications happen in the backend via an inference interceptor that substitutes prompts before they reach the LLM.
+
+```
+✅ CORRECT FLOW:
+Backend → register_prompt → Interceptor → substitutes → LLM
+
+❌ WRONG FLOW:
+Backend → prompt_template in payload → Task App (NEVER DO THIS)
+```
+
+### Algorithms
+
+**GEPA (Genetic Evolution of Prompt Architectures)**
+- Population-based evolutionary search
+- LLM-guided mutations for intelligent prompt modifications
+- Pareto optimization balancing performance and prompt length
+- **Best for:** Broad exploration, diverse prompt variants, classification tasks
+- **Results:** Improves accuracy from 60-75% (baseline) to 85-90%+ over 15 generations
+
+**MIPRO (Meta-Instruction PROposer)**
+- Meta-LLM (e.g., GPT-4o-mini) generates instruction variants
+- TPE (Tree-structured Parzen Estimator) guides Bayesian search
+- Bootstrap phase collects few-shot examples from high-scoring seeds
+- **Best for:** Efficient optimization, task-specific improvements, faster convergence
+- **Results:** Achieves similar accuracy gains with fewer evaluations (~96 rollouts vs ~1000 for GEPA)
+
+### Quick Start
+
+1. **Build a prompt evaluation task app**
+   ```bash
+   # Task app evaluates prompt performance (classification accuracy, QA correctness, etc.)
+   ```
+
+2. **Create a prompt learning config**
+   ```toml
+   [prompt_learning]
+   algorithm = "gepa"  # or "mipro"
+   task_app_url = "https://my-task-app.modal.run"
+   
+   [prompt_learning.initial_prompt]
+   messages = [
+     { role = "system", content = "You are a banking assistant..." },
+     { role = "user", pattern = "Customer Query: {query}..." }
+   ]
+   
+   [prompt_learning.gepa]
+   initial_population_size = 20
+   num_generations = 15
+   ```
+
+3. **Launch optimization**
+   ```bash
+   uvx synth-ai train --type prompt_learning --config config.toml
+   ```
+
+4. **Query results**
+   ```python
+   from synth_ai.learning import get_prompt_text
+   best_prompt = get_prompt_text(job_id="pl_abc123", rank=1)
+   ```
+
+**Full documentation:** [Prompt Learning Guide →](https://docs.usesynth.ai/prompt-learning/overview)
+
+---
+
 ## 📚 Documentation
 
 - **SDK Docs:** [https://docs.usesynth.ai/sdk/get-started](https://docs.usesynth.ai/sdk/get-started)
+- **Prompt Learning:** [https://docs.usesynth.ai/prompt-learning/overview](https://docs.usesynth.ai/prompt-learning/overview)
 - **CLI Reference:** [https://docs.usesynth.ai/cli](https://docs.usesynth.ai/cli)
 - **API Reference:** [https://docs.usesynth.ai/api](https://docs.usesynth.ai/api)
 - **Changelog:** [https://docs.usesynth.ai/changelog](https://docs.usesynth.ai/changelog)

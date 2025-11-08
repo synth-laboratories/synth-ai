@@ -6,6 +6,31 @@ set -e
 echo "🧬 Running GEPA on Banking77"
 echo "============================="
 
+# Navigate to repo root first
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$REPO_ROOT"
+
+# Load environment variables from .env file if it exists
+_load_env_file() {
+    local env_file="$1"
+    if [ -f "$env_file" ]; then
+        echo "📝 Loading environment variables from $env_file..."
+        # Only export lines that look like KEY=VALUE (handles comments and empty lines)
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip comments and empty lines
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            [[ -z "${line// }" ]] && continue
+            # Only export if it looks like KEY=VALUE
+            if [[ "$line" =~ ^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*= ]]; then
+                export "$line" 2>/dev/null || true
+            fi
+        done < "$env_file"
+    fi
+}
+
+_load_env_file "$REPO_ROOT/.env"
+_load_env_file "$REPO_ROOT/examples/rl/.env"
+
 # Check for required environment variables
 if [ -z "$SYNTH_API_KEY" ]; then
     echo "❌ Error: SYNTH_API_KEY not set"

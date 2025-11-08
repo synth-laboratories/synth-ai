@@ -157,3 +157,4 @@ class TestFormatTextReplacements:
         assert "[USER]: Message" in lines[2]
         assert "[ASSISTANT]: Message" in lines[4]
 
+

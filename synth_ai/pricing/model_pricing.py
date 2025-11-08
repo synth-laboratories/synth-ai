@@ -19,11 +19,17 @@ class TokenRates:
 MODEL_PRICES: Dict[str, Dict[str, TokenRates]] = {
     # OpenAI official pricing
     "openai": {
-        # GPT-5 family
+        # GPT-5 family (gpt-5-pro excluded - too expensive)
         "gpt-5":       TokenRates(input_usd=0.00000125, output_usd=0.00001000),  # $1.25 / $10 per 1M
         "gpt-5-mini":  TokenRates(input_usd=0.00000025, output_usd=0.00000200),  # $0.25 / $2.00 per 1M
         "gpt-5-nano":  TokenRates(input_usd=0.00000005, output_usd=0.00000040),  # $0.05 / $0.40 per 1M
 
+        # GPT-4.1 family
+        "gpt-4.1":      TokenRates(input_usd=0.00000200, output_usd=0.00000800),  # $2.00 / $8.00 per 1M
+        "gpt-4.1-mini": TokenRates(input_usd=0.00000040, output_usd=0.00000160),  # $0.40 / $1.60 per 1M
+        "gpt-4.1-nano": TokenRates(input_usd=0.00000010, output_usd=0.00000040),  # $0.10 / $0.40 per 1M
+
+        # GPT-4o family
         "gpt-4o-mini": TokenRates(input_usd=0.00000015, output_usd=0.00000060),  # $0.15 / $0.60 per 1M
         "gpt-4o":      TokenRates(input_usd=0.00000250, output_usd=0.00001000),  # $2.50 / $10.00 per 1M
     },
@@ -54,4 +60,5 @@ MODEL_PRICES: Dict[str, Dict[str, TokenRates]] = {
         "gemini-2.5-flash-lite": TokenRates(input_usd=0.00000010, output_usd=0.00000040),
     },
 }
+
 
