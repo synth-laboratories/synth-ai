@@ -126,7 +126,46 @@ Valid intents: {', '.join(self.label_names)}"""
                     },
                     headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
                 )
+                
+                # Check for API errors
+                if resp.status_code != 200:
+                    error_msg = f"API call failed with status {resp.status_code}: {resp.text}"
+                    return TaskResult(
+                        seed=seed,
+                        success=False,
+                        outcome_reward=0.0,
+                        total_steps=1,
+                        metadata={
+                            "query": example["text"],
+                            "expected": self.label_names[example["label"]],
+                            "predicted": "",
+                            "correct": False,
+                            "split": split,
+                            "error": error_msg,
+                        },
+                        error=error_msg,
+                    )
+                
                 response = resp.json()
+                
+                # Check for API error in response
+                if "error" in response:
+                    error_msg = f"API error: {response['error']}"
+                    return TaskResult(
+                        seed=seed,
+                        success=False,
+                        outcome_reward=0.0,
+                        total_steps=1,
+                        metadata={
+                            "query": example["text"],
+                            "expected": self.label_names[example["label"]],
+                            "predicted": "",
+                            "correct": False,
+                            "split": split,
+                            "error": error_msg,
+                        },
+                        error=error_msg,
+                    )
         
         # Extract prediction
         predicted_label = ""
@@ -187,7 +226,7 @@ banking77_baseline = BaselineConfig(
         ),
     },
     default_policy_config={
-        "model": "groq:llama-3.1-70b-versatile",
+        "model": "groq:llama-3.3-70b-versatile",  # Updated from decommissioned llama-3.1-70b-versatile
         "temperature": 0.0,
         "max_tokens": 128,
     },
