@@ -1,13 +1,14 @@
 """Help content for CLI commands."""
 
 DEPLOY_HELP = """
-Deploy a Synth AI task app locally or to Modal.
+Deploy a Synth AI task app locally, to Modal, or via Cloudflare Tunnel.
 
 OVERVIEW
 --------
-The deploy command supports two runtimes:
+The deploy command supports three runtimes:
   • modal: Deploy to Modal's cloud platform (default)
-  • uvicorn: Run locally with FastAPI/Uvicorn
+  • local: Run locally with FastAPI/Uvicorn
+  • tunnel: Expose local app via Cloudflare Tunnel (for RL/prompt optimization)
 
 BASIC USAGE
 -----------
@@ -18,7 +19,10 @@ BASIC USAGE
   uvx synth-ai deploy my-math-app
 
   # Run locally for development
-  uvx synth-ai deploy --runtime=uvicorn --port 8001
+  uvx synth-ai deploy --runtime=local --port 8001
+
+  # Deploy via Cloudflare Tunnel (for training)
+  uvx synth-ai deploy --runtime=tunnel --tunnel-mode quick
 
 MODAL DEPLOYMENT
 ----------------
@@ -85,11 +89,15 @@ Common issues:
    → Check app_id matches your task_app.py configuration
    → Run: uvx synth-ai task-app list (if available)
 
-4. "Port already in use" (uvicorn)
+4. "Port already in use" (local/tunnel)
    → Use --force to kill existing process
    → Or specify different --port
 
-5. "No env file discovered"
+5. "cloudflared not found" (tunnel)
+   → Install: brew install cloudflare/cloudflare/cloudflared
+   → Or: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/
+
+6. "No env file discovered"
    → Create .env file with required keys
    → Or pass --env-file explicitly
 

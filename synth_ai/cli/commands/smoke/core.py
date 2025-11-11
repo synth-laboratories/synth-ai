@@ -1113,7 +1113,7 @@ async def _run_train_step(
     # Print summary
     def _exit_code(result: dict[str, Any]) -> int:
         value = result.get("exit")
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return int(value)
         if isinstance(value, str) and value.strip():
             try:

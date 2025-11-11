@@ -10,7 +10,26 @@ __all__ = [
     "popen_capture",
     "popen_stream",
     "popen_stream_capture",
+    "should_filter_log_line",
+    "get_subprocess_env",
 ]
+
+# Import log filter to avoid duplication
+from synth_ai.utils.log_filter import should_filter_log_line
+
+
+def get_subprocess_env(extra_env: dict[str, Any] | None = None) -> dict[str, str]:
+    """Get environment dict for subprocesses with RUST_LOG set to suppress noisy logs.
+    
+    Always includes RUST_LOG="codex_otel::otel_event_manager=warn" unless overridden.
+    """
+    env = os.environ.copy()
+    # Set RUST_LOG to suppress noisy codex_otel logs by default
+    if "RUST_LOG" not in env:
+        env["RUST_LOG"] = "codex_otel::otel_event_manager=warn"
+    if extra_env:
+        env.update(extra_env)
+    return env
 
 
 def popen_capture(
@@ -23,7 +42,7 @@ def popen_capture(
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env,
+            env=get_subprocess_env(env),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -45,7 +64,7 @@ def popen_stream(
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env,
+            env=get_subprocess_env(env),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -58,7 +77,8 @@ def popen_stream(
     def _pump(stdout) -> None:
         try:
             for line in stdout:
-                print(line.rstrip())
+                if not should_filter_log_line(line):
+                    print(line.rstrip())
         except Exception:
             pass
 
@@ -84,7 +104,7 @@ def popen_stream_capture(
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env,
+            env=get_subprocess_env(env),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -98,8 +118,9 @@ def popen_stream_capture(
         try:
             for line in stdout:
                 line = line.rstrip()
-                print(line)
-                buf_lines.append(line)
+                if not should_filter_log_line(line):
+                    print(line)
+                    buf_lines.append(line)
         except Exception:
             pass
 

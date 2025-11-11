@@ -5,21 +5,21 @@ Specs encode intent, policies, and rules as versioned, testable artifacts.
 """
 
 from synth_ai.spec.dataclasses import (
-    Spec,
+    Constraints,
+    Example,
+    GlossaryItem,
+    Interfaces,
     Metadata,
     Principle,
     Rule,
-    Constraints,
-    Example,
+    Spec,
     TestCase,
-    Interfaces,
-    GlossaryItem,
 )
-from synth_ai.spec.loader import load_spec_from_file, load_spec_from_dict
-from synth_ai.spec.serializer import spec_to_prompt_context, spec_to_compact_context
+from synth_ai.spec.loader import load_spec_from_dict, load_spec_from_file
+from synth_ai.spec.serializer import spec_to_compact_context, spec_to_prompt_context
 from synth_ai.spec.validation import (
-    SpecValidator,
     SpecValidationError,
+    SpecValidator,
     validate_spec_dict,
     validate_spec_file,
 )
