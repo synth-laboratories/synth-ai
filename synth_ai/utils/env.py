@@ -2,12 +2,49 @@ import json
 import os
 import string
 from pathlib import Path
+from typing import List, Optional, Sequence, Tuple
 
 import click
+from dotenv import find_dotenv, load_dotenv
 
 from .paths import get_env_file_paths, get_home_config_file_paths
 
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
+
+
+def load_env_file(
+    env_file: Optional[str] = None,
+    required_vars: Optional[Sequence[str]] = None,
+) -> Tuple[Optional[str], List[str]]:
+    """Load a .env file (if found) and validate that required variables exist."""
+    env_path_str = env_file or find_dotenv(usecwd=True)
+    env_path: Optional[Path] = None
+    if env_path_str:
+        candidate = Path(env_path_str).expanduser()
+        if candidate.exists():
+            env_path = candidate.resolve()
+
+    if env_path:
+        load_dotenv(env_path, override=False)
+        click.secho(f"✓ Loaded environment from {env_path}", err=True)
+
+    missing: List[str] = []
+    if required_vars:
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            click.secho(
+                f"⚠️  Missing environment variables: {', '.join(missing)}",
+                err=True,
+                fg="yellow",
+            )
+            if env_path:
+                click.secho(
+                    f"   Check {env_path} for KEY=value formatting (no spaces around '=')",
+                    err=True,
+                    fg="yellow",
+                )
+
+    return (str(env_path) if env_path else None, missing)
 
 
 def _format_env_value(value: str) -> str:

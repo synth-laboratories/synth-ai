@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,8 @@ try:
     )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
+
+from synth_ai.utils.config import ConfigResolver
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
@@ -116,16 +119,17 @@ def build_rl_payload(
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
     model_cfg = rl_cfg.model
 
-    final_task_url = (
-        overrides.get("task_url")
-        or task_url
-        or (services.get("task_url") if isinstance(services, dict) else None)
-        or ""
-    ).strip()
-    if not final_task_url:
-        raise click.ClickException(
-            "Task app URL required (provide --task-url or set services.task_url in TOML)"
-        )
+    cli_task_url = overrides.get("task_url")
+    env_task_url = task_url or os.environ.get("TASK_APP_URL")
+    config_task_url = services.get("task_url") if isinstance(services, dict) else None
+    final_task_url = ConfigResolver.resolve(
+        "task_app_url",
+        cli_value=cli_task_url,
+        env_value=env_task_url,
+        config_value=config_task_url,
+        required=True,
+    )
+    assert final_task_url is not None  # required=True guarantees non-None
 
     model_source = (model_cfg.source or "").strip() if model_cfg else ""
     model_base = (model_cfg.base or "").strip() if model_cfg else ""
@@ -368,8 +372,6 @@ def build_prompt_learning_payload(
     allow_experimental: bool | None = None,
 ) -> PromptLearningBuildResult:
     """Build payload for prompt learning job (MIPRO or GEPA)."""
-    import os
-
     from pydantic import ValidationError
 
     from .configs.prompt_learning import load_toml
@@ -385,24 +387,29 @@ def build_prompt_learning_payload(
     except ValidationError as exc:
         raise click.ClickException(_format_validation_error(config_path, exc)) from exc
     
-    # Source of truth: TOML only (ignore shell/env and CLI overrides)
-    final_task_url = (pl_cfg.task_app_url or "").strip()
-    
-    if not final_task_url:
-        raise click.ClickException(
-            "Task app URL required (provide --task-url or set prompt_learning.task_app_url in TOML)"
-        )
+    cli_task_url = overrides.get("task_url") or task_url
+    env_task_url = os.environ.get("TASK_APP_URL")
+    config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    final_task_url = ConfigResolver.resolve(
+        "task_app_url",
+        cli_value=cli_task_url,
+        env_value=env_task_url,
+        config_value=config_task_url,
+        required=True,
+    )
+    assert final_task_url is not None  # required=True guarantees non-None
     
     # Get task_app_api_key from config or environment
-    task_app_api_key = (
-        pl_cfg.task_app_api_key
-        or os.environ.get("ENVIRONMENT_API_KEY", "")
-    ).strip()
-    
-    if not task_app_api_key:
-        raise click.ClickException(
-            "Task app API key required (set prompt_learning.task_app_api_key in TOML or ENVIRONMENT_API_KEY env var)"
-        )
+    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
+    cli_api_key = overrides.get("task_app_api_key")
+    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    task_app_api_key = ConfigResolver.resolve(
+        "task_app_api_key",
+        cli_value=cli_api_key,
+        env_value=env_api_key,
+        config_value=config_api_key,
+        required=True,
+    )
     
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()

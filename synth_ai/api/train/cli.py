@@ -5,10 +5,9 @@ import contextlib
 import importlib
 import json
 import os
-import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, NoReturn, cast
 
 import click
 
@@ -28,13 +27,14 @@ from synth_ai.streaming import (
     StreamEndpoints,
     StreamType,
 )
+from synth_ai.utils.env import load_env_file
+from synth_ai.utils.errors import format_error_message, get_required_value
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .config_finder import discover_configs, prompt_for_config
 from .env_resolver import KeySpec, resolve_env
 from .task_app import check_task_app_health
 from .utils import (
-    REPO_ROOT,
     TrainError,
     ensure_api_base,
     http_get,
@@ -86,93 +86,6 @@ def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MA
                 lines.append("")
     
     return lines
-
-
-def _discover_dataset_candidates(
-    config_path: Path, limit: int = 50, timeout: float = 10.0
-) -> list[Path]:
-    root = config_path.parent
-    parent = root.parent
-    cwd = Path.cwd()
-
-    search_dirs: list[Path] = [
-        root,
-        root / "datasets",
-        parent,
-        parent / "datasets",
-        parent / "ft_data",
-        cwd,
-        cwd / "datasets",
-        cwd / "ft_data",
-        REPO_ROOT / "datasets",
-        REPO_ROOT / "ft_data",
-        REPO_ROOT / "traces",
-    ]
-
-    candidates: list[Path] = []
-    seen: set[Path] = set()
-    start = time.monotonic()
-    timed_out = False
-    for directory in search_dirs:
-        if timed_out or time.monotonic() - start > timeout:
-            timed_out = True
-            break
-        if not directory.exists() or not directory.is_dir():
-            continue
-        for path in directory.rglob("*.jsonl"):
-            if time.monotonic() - start > timeout:
-                timed_out = True
-                break
-            try:
-                resolved = path.resolve()
-            except OSError:
-                continue
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            if resolved.stat().st_size == 0:
-                continue
-            candidates.append(resolved)
-            if len(candidates) >= limit:
-                return candidates
-    return candidates
-
-
-def prompt_for_dataset(config_path: Path) -> Path:
-    candidates = _discover_dataset_candidates(config_path)
-    while True:
-        if candidates:
-            click.echo("Select dataset JSONL file:")
-            for idx, candidate in enumerate(candidates, start=1):
-                click.echo(f"  {idx}) {candidate}")
-            click.echo("  m) Enter path manually")
-            click.echo("  0) Abort")
-            choice = click.prompt("Choice", default="m").strip().lower()
-            if choice == "0":
-                raise click.ClickException("Aborted by user")
-            if choice in {"m", "manual"}:
-                selected = _prompt_manual_dataset()
-            else:
-                try:
-                    idx = int(choice)
-                except ValueError:
-                    click.echo("Invalid selection; try again")
-                    continue
-                if idx < 1 or idx > len(candidates):
-                    click.echo("Invalid selection; try again")
-                    continue
-                selected = candidates[idx - 1]
-        else:
-            selected = _prompt_manual_dataset()
-
-        if selected.exists() and selected.suffix == ".jsonl":
-            return selected.resolve()
-        click.echo("File not found or not a .jsonl; please try again.")
-
-
-def _prompt_manual_dataset() -> Path:
-    manual = click.prompt("Enter dataset JSONL path", type=str).strip()
-    return Path(manual).expanduser()
 
 
 def _default_backend() -> str:
@@ -326,6 +239,7 @@ def train_command(
     examples_limit: int | None,
 ) -> None:
     """Interactive launcher for RL / SFT / Prompt Learning jobs."""
+    load_env_file()
 
     candidates = discover_configs(
         list(config_paths), requested_type=train_type if train_type != "auto" else None
@@ -338,8 +252,18 @@ def train_command(
 
     effective_type = train_type if train_type != "auto" else selection.train_type
     if effective_type not in {"rl", "sft", "prompt_learning"}:
-        effective_type = click.prompt(
-            "Detected config type is ambiguous. Enter type", type=click.Choice(["rl", "sft", "prompt_learning"])
+        raise click.UsageError(
+            format_error_message(
+                summary="Training type required",
+                context="Determining which trainer to invoke",
+                problem="Config metadata did not specify rl / sft / prompt_learning and no --type flag was provided",
+                impact="CLI cannot select the correct builder without a type",
+                solutions=[
+                    ("Pass --type rl|sft|prompt_learning", "Explicitly tell the CLI which workflow to run"),
+                    ("Add algorithm.type metadata to the config", "Include algorithm.type or prompt_learning markers in the TOML"),
+                    ("Use separate config files per training mode", "Keeps intent unambiguous for automation"),
+                ],
+            )
         )
 
     cfg_path = selection.path
@@ -401,9 +325,11 @@ def train_command(
         )
     click.echo(f"Using env file: {env_path}")
 
-    synth_key = env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY")
-    if not synth_key:
-        raise click.ClickException("SYNTH_API_KEY required")
+    synth_key = get_required_value(
+        "synth_api_key",
+        env_value=env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY"),
+    )
+    os.environ["SYNTH_API_KEY"] = synth_key
 
     backend_base = ensure_api_base(backend)
     click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
@@ -605,9 +531,11 @@ def handle_rl(
             # Parsing verification summary failed, but verification itself succeeded
             click.echo("Verification OK")
 
-    env_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not env_key:
-        raise click.ClickException("ENVIRONMENT_API_KEY required for RL flow")
+    env_key = get_required_value(
+        "environment_api_key",
+        env_value=os.environ.get("ENVIRONMENT_API_KEY"),
+    )
+    os.environ["ENVIRONMENT_API_KEY"] = env_key
 
     click.echo("Performing task app health check…")
     health = check_task_app_health(build.task_url, env_key)
@@ -693,19 +621,14 @@ def handle_sft(
     stream_format: str,
     examples_limit: int | None,
 ) -> None:
-    dataset_path = dataset_override
-
-    while True:
-        try:
-            build = build_sft_payload(
-                config_path=cfg_path,
-                dataset_override=dataset_path,
-                allow_experimental=allow_experimental,
-            )
-            break
-        except TrainError as exc:
-            click.echo(str(exc))
-            dataset_path = prompt_for_dataset(cfg_path)
+    try:
+        build = build_sft_payload(
+            config_path=cfg_path,
+            dataset_override=dataset_override,
+            allow_experimental=allow_experimental,
+        )
+    except TrainError as exc:
+        _raise_sft_usage_error(exc)
 
     limited_path: Path | None = None
 
@@ -845,6 +768,45 @@ def handle_sft(
             # Clean up empty parent directory if possible
             with contextlib.suppress(OSError):
                 limited_path.parent.rmdir()
+
+
+def _raise_sft_usage_error(exc: TrainError) -> NoReturn:
+    message = str(exc).strip()
+    lower_msg = message.lower()
+    context = "Preparing SFT training job payload"
+    impact = "Cannot submit training job without a valid dataset path"
+
+    if "dataset not specified" in lower_msg:
+        raise click.UsageError(
+            format_error_message(
+                summary="Dataset path required",
+                context=context,
+                problem="No dataset path was provided via config or CLI",
+                impact=impact,
+                solutions=[
+                    ("Add [job].data = \"/path/to/data.jsonl\" to the config", "Persist the dataset path in the TOML file"),
+                    ("Re-run with --dataset /path/to/data.jsonl", "Override the dataset path from the CLI"),
+                    ("Use an absolute path accessible from the current working directory", "Relative paths are resolved from the shell cwd"),
+                ],
+            )
+        ) from exc
+
+    if "dataset not found" in lower_msg:
+        raise click.UsageError(
+            format_error_message(
+                summary="Dataset path not found",
+                context=context,
+                problem=message,
+                impact=impact,
+                solutions=[
+                    ("Verify the dataset path exists on disk", "Double-check spelling and that the file hasn't moved"),
+                    ("Provide an absolute path to the dataset file", "Avoid relying on relative paths that resolve incorrectly"),
+                    ("Sync the dataset to this machine before running the CLI", "Remote paths must be accessible locally"),
+                ],
+            )
+        ) from exc
+
+    raise click.ClickException(message) from exc
 
 
 def _save_prompt_learning_results_locally(
@@ -1121,22 +1083,23 @@ def handle_prompt_learning(
     stream_format: str,
 ) -> None:
     """Handle prompt learning job creation (MIPRO or GEPA)."""
-    import os
+    env_key = get_required_value(
+        "environment_api_key",
+        env_value=os.environ.get("ENVIRONMENT_API_KEY"),
+    )
+    os.environ["ENVIRONMENT_API_KEY"] = env_key
     
     overrides: dict[str, Any] = {
         "backend": backend_base,
+        "task_url": task_url_override,
     }
     
     build = build_prompt_learning_payload(
         config_path=cfg_path,
-        task_url=None,  # Force using TOML only
+        task_url=task_url_override,
         overrides=overrides,
         allow_experimental=allow_experimental,
     )
-    
-    env_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not env_key:
-        raise click.ClickException("ENVIRONMENT_API_KEY required for prompt learning flow")
     
     click.echo("Performing task app health check…")
     health = check_task_app_health(build.task_url, env_key)
