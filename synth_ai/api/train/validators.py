@@ -71,11 +71,7 @@ def _is_supported_groq_model(model: str) -> bool:
         return True
     
     # Check patterns (patterns already handle provider prefix)
-    for pattern in GROQ_SUPPORTED_PATTERNS:
-        if pattern.match(model.lower().strip()):
-            return True
-    
-    return False
+    return any(pattern.match(model.lower().strip()) for pattern in GROQ_SUPPORTED_PATTERNS)
 
 
 def _is_supported_google_model(model: str) -> bool:
@@ -116,10 +112,7 @@ def _validate_model_for_provider(model: str, provider: str, field_name: str, *, 
     model_lower = model.lower().strip()
     
     # Strip provider prefix if present (e.g., "openai/gpt-4o" -> "gpt-4o")
-    if "/" in model_lower:
-        model_without_prefix = model_lower.split("/", 1)[1]
-    else:
-        model_without_prefix = model_lower
+    model_without_prefix = model_lower.split("/", 1)[1] if "/" in model_lower else model_lower
     
     # Explicitly reject gpt-5-pro (too expensive)
     if model_without_prefix == "gpt-5-pro":
@@ -617,10 +610,9 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 token_counting_model = token_config.get("counting_model")
             if token_counting_model is None:
                 token_counting_model = gepa_config.get("token_counting_model")
-            if token_counting_model:
+            if token_counting_model and (not isinstance(token_counting_model, str) or not token_counting_model.strip()):
                 # Basic validation - should be a non-empty string
-                if not isinstance(token_counting_model, str) or not token_counting_model.strip():
-                    errors.append("prompt_learning.gepa.token.counting_model (or token_counting_model) must be a non-empty string")
+                errors.append("prompt_learning.gepa.token.counting_model (or token_counting_model) must be a non-empty string")
             
             # Module/stage validation for multi-stage
             if has_multi_stage:
@@ -922,7 +914,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                                             stage_ids_in_module.add(str(sid))
                             
                             for edge_idx, edge in enumerate(edges):
-                                if isinstance(edge, (list, tuple)) and len(edge) == 2:
+                                if isinstance(edge, list | tuple) and len(edge) == 2:
                                     source, target = edge
                                 elif isinstance(edge, dict):
                                     source = edge.get("from") or edge.get("source")

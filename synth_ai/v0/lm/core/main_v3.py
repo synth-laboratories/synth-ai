@@ -132,7 +132,6 @@ class LM:
                 grok_naming_regexes,
                 groq_naming_regexes,
                 openai_naming_regexes,
-                openrouter_naming_regexes,
                 together_naming_regexes,
             )
 
@@ -149,8 +148,6 @@ class LM:
                 vendor = "groq"
             elif any(regex.match(model) for regex in grok_naming_regexes):
                 vendor = "grok"
-            elif any(regex.match(model) for regex in openrouter_naming_regexes):
-                vendor = "openrouter"
             elif any(regex.match(model) for regex in custom_endpoint_naming_regexes):
                 vendor = "custom_endpoint"
             elif any(regex.match(model) for regex in together_naming_regexes):

@@ -18,6 +18,21 @@ import time
 
 import click
 
+# Set RUST_LOG to suppress noisy codex_otel logs by default
+# This suppresses verbose SSE event logs from Cursor's Rust logging
+if "RUST_LOG" not in os.environ:
+    os.environ["RUST_LOG"] = "codex_otel::otel_event_manager=warn"
+
+# Install log filter early to suppress noisy codex_otel logs
+try:
+    from synth_ai.utils.log_filter import install_log_filter
+    
+    # Only install if not already filtered (to avoid double-wrapping)
+    install_log_filter()
+except Exception:
+    # Silently fail if log filter can't be installed
+    pass
+
 try:
     from importlib.metadata import PackageNotFoundError
     from importlib.metadata import version as _pkg_version

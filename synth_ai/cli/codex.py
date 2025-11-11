@@ -25,10 +25,18 @@ from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bi
     type=str,
     default=None,
 )
+@click.option(
+    "--wire-api",
+    "wire_api",
+    type=click.Choice(["chat", "responses"], case_sensitive=False),
+    default=None,
+    help="API wire format: 'chat' for Chat Completions, 'responses' for Responses API"
+)
 def codex_cmd(
     model_name: ModelName | None = None,
     force: bool = False,
-    override_url: str | None = None
+    override_url: str | None = None,
+    wire_api: str | None = None
 )-> None:
 
     while True:
@@ -63,7 +71,22 @@ def codex_cmd(
             print("Using override URL:", url)
         else:
             url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
-        provider_config = f'{{name="Synth",base_url="{url}",env_key="OPENAI_API_KEY"}}'
+        
+        # Determine wire_api based on URL or explicit option
+        # If URL contains "/responses", default to responses API
+        # Otherwise, use explicit wire_api option or default to chat
+        if wire_api is None:
+            wire_api = "responses" if "/responses" in url or url.endswith("/responses") else "chat"
+        
+        # Build provider config with wire_api
+        provider_config_parts = [
+            f'name="Synth"',
+            f'base_url="{url}"',
+            f'env_key="OPENAI_API_KEY"',
+            f'wire_api="{wire_api}"'
+        ]
+        provider_config = "{" + ",".join(provider_config_parts) + "}"
+        
         config_overrides = [
             f"model_providers.synth={provider_config}",
             'model_provider="synth"',
@@ -72,6 +95,7 @@ def codex_cmd(
         override_args = [arg for override in config_overrides for arg in ("-c", override)]
         env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
         env["SYNTH_API_KEY"] = env["OPENAI_API_KEY"]
+        print(f"Configured with wire_api={wire_api}")
     
     try:
         cmd = ["codex"]

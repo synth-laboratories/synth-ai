@@ -6,6 +6,19 @@ set -e
 echo "🚀 Deploying Banking77 Task App..."
 echo "=================================="
 
+# Load .env file if it exists (for OneShot pair programming sessions)
+# Check multiple common locations
+ENV_FILES=(".env" "$(dirname "$0")/../../../../.env" "$HOME/.synth-ai/.env")
+for env_file in "${ENV_FILES[@]}"; do
+    if [ -f "$env_file" ]; then
+        echo "📝 Loading environment from: $env_file"
+        set -a  # automatically export all variables
+        source "$env_file"
+        set +a
+        break
+    fi
+done
+
 # Set up environment variables
 export ENVIRONMENT_API_KEY="${ENVIRONMENT_API_KEY:-$(python -c 'import secrets; print(secrets.token_urlsafe(32))')}"
 export GROQ_API_KEY="${GROQ_API_KEY}"

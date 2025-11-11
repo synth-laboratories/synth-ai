@@ -6,6 +6,7 @@ from types import ModuleType
 from typing import Any, Set, cast
 
 from synth_ai.utils.paths import is_py_file
+
 from uvicorn._types import ASGIApplication
 
 

@@ -1,11 +1,7 @@
 """Unit tests for Cloudflare Tunnel functionality."""
-import os
-import subprocess
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
 from synth_ai.tunnel import _which_cloudflared, open_quick_tunnel, stop_tunnel
 from synth_ai.utils.tunnel.config import store_tunnel_credentials

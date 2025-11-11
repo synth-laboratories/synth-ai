@@ -8,7 +8,6 @@ from synth_ai.v0.lm.vendors.supported.custom_endpoint import CustomEndpointAPI
 from synth_ai.v0.lm.vendors.supported.deepseek import DeepSeekAPI
 from synth_ai.v0.lm.vendors.supported.grok import GrokAPI
 from synth_ai.v0.lm.vendors.supported.groq import GroqAPI
-from synth_ai.v0.lm.vendors.supported.openrouter import OpenRouterAPI
 from synth_ai.v0.lm.vendors.supported.together import TogetherAPI
 
 
@@ -54,11 +53,6 @@ class CustomEndpointClient(CustomEndpointAPI):
         super().__init__(endpoint_url=endpoint_url)
 
 
-class OpenRouterClient(OpenRouterAPI):
-    def __init__(self):
-        super().__init__()
-
-
 __all__ = [
     "OpenAIClient",
     "AnthropicClient",
@@ -68,6 +62,5 @@ __all__ = [
     "GroqClient",
     "GrokClient",
     "CustomEndpointClient",
-    "OpenRouterClient",
     "OpenAIStructuredOutputClient",
 ]

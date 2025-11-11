@@ -96,7 +96,7 @@ class LM:
         provider: Optional provider override. If specified, forces the use of a specific vendor
                  implementation regardless of model name. Can also be set via SYNTH_AI_DEFAULT_PROVIDER
                  environment variable. Supported values: "openai", "anthropic", "groq", "gemini",
-                 "deepseek", "grok", "mistral", "openrouter", "together", or a custom string.
+                 "deepseek", "grok", "mistral", "together", or a custom string.
     """
 
     # if str
@@ -121,7 +121,6 @@ class LM:
             "deepseek",
             "grok",
             "mistral",
-            "openrouter",
             "together",
         ]
         | str

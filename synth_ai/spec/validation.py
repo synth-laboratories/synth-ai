@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from synth_ai.spec.dataclasses import Spec, Rule, Principle, Example
+from synth_ai.spec.dataclasses import Spec
 
 
 class SpecValidationError(Exception):
@@ -126,11 +126,10 @@ class SpecValidator:
                     )
             
             # Validate priority
-            if rule.priority is not None:
-                if not isinstance(rule.priority, int) or rule.priority < 1 or rule.priority > 10:
-                    self.errors.append(
-                        f"Rule {rule.id}: priority must be an integer between 1 and 10, got {rule.priority}"
-                    )
+            if rule.priority is not None and (not isinstance(rule.priority, int) or rule.priority < 1 or rule.priority > 10):
+                self.errors.append(
+                    f"Rule {rule.id}: priority must be an integer between 1 and 10, got {rule.priority}"
+                )
     
     def _validate_glossary(self, spec: Spec) -> None:
         """Validate glossary."""

@@ -7,8 +7,9 @@ from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
-from modal import App, Image, Secret, asgi_app
 from starlette.requests import Request
+
+from modal import App, Image, Secret, asgi_app
 
 try:  # Backward compatibility with older installed SDKs
     from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME
