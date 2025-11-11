@@ -12,30 +12,70 @@ Most commands honour the following environment helpers:
 
 ## `uvx synth-ai deploy`
 
-The consolidated entrypoint for task apps. Use `--runtime` to choose between local uvicorn and Modal execution. Omitting `APP_ID` triggers discovery across registered task apps, demos, and downstream configs.
+The consolidated entrypoint for task apps. Use `--runtime` to choose between local uvicorn, Modal execution, or Cloudflare Tunnel. Omitting `APP_ID` triggers discovery across registered task apps, demos, and downstream configs.
 
-### Local development (uvicorn runtime)
+### Local development (local runtime)
 
 ```bash
 # Interactive discovery
-uvx synth-ai deploy --runtime uvicorn --port 8001 --env-file examples/warming_up_to_rl/.env
+uvx synth-ai deploy --runtime local --port 8001 --env-file examples/warming_up_to_rl/.env
 
 # Explicit app id with tracing enabled
-uvx synth-ai deploy --runtime uvicorn grpo-crafter \
+uvx synth-ai deploy --runtime local grpo-crafter \
   --port 8001 \
   --env-file examples/warming_up_to_rl/.env \
   --trace traces/v3 \
   --trace-db traces/v3/task_app_traces.sqlite
 ```
 
-Key uvicorn flags (same as the legacy `serve` command):
+Key local flags (same as the legacy `serve` command):
 - `app_id` (optional) – skip discovery and run a specific app (`grpo-crafter`, `math-single-step`, …).
-- `--host` (default `0.0.0.0`).
+- `--host` (default `127.0.0.1`).
 - `--port` (default `8001`).
 - `--env-file PATH` (repeatable) – additional env files to load.
 - `--reload/--no-reload` – uvicorn autoreload (default off).
 - `--force` – kill processes already bound to the chosen port.
 - `--trace DIR` / `--trace-db PATH` – enable tracing outputs.
+
+### Cloudflare Tunnel deployment (`tunnel` runtime)
+
+Deploy via Cloudflare Tunnel to expose your local task app to Synth's backend for RL training and prompt optimization. Perfect for when you can't deploy to Modal or want to test locally with the production backend.
+
+**Quick tunnels** (free, ephemeral, no account required):
+```bash
+# Background mode (default, returns immediately)
+uvx synth-ai deploy --runtime tunnel --tunnel-mode quick --port 8000
+
+# Blocking mode (keeps terminal attached)
+uvx synth-ai deploy --runtime tunnel --tunnel-mode quick --keep-alive
+```
+
+**Managed tunnels** (requires SYNTH_API_KEY, stable subdomain):
+```bash
+uvx synth-ai deploy --runtime tunnel \
+  --tunnel-mode managed \
+  --tunnel-subdomain my-company \
+  --env .env
+```
+
+Key tunnel flags:
+- `--tunnel-mode [quick|managed]` – Quick (ephemeral) or managed (stable, requires SYNTH_API_KEY).
+- `--tunnel-subdomain TEXT` – Custom subdomain for managed tunnels (e.g., `my-company.usesynth.ai`).
+- `--keep-alive` – Block and keep tunnel alive (default: background mode, returns immediately).
+- `--port INTEGER` – Local port (default: 8000).
+- `--host TEXT` – Bind address (default: 127.0.0.1).
+
+**Requirements:**
+- `cloudflared` installed (macOS: `brew install cloudflare/cloudflare/cloudflared`)
+- Task app must have `/health` endpoint
+- For managed tunnels: `SYNTH_API_KEY` required
+
+**Use cases:**
+- **RL training**: Expose local task app to Synth backend for rollouts
+- **Prompt optimization**: Use with GEPA/MIPRO for prompt learning
+- **Development**: Test task apps with production backend without deploying
+
+See example: `examples/tunnel_gepa_banking77/run_gepa_with_tunnel.sh`
 
 ### Modal preview (`--modal-mode serve`)
 
@@ -60,7 +100,7 @@ uvx synth-ai deploy grpo-crafter --runtime modal --name grpo-crafter-task-app --
 
 The command packages the task app, uploads inline secrets, and invokes `modal deploy`. It preflights `ENVIRONMENT_API_KEY` by encrypting the value with Synth’s backend key when both `SYNTH_API_KEY` and the env key are present.
 
-> **Note:** The legacy `uvx synth-ai serve` and `uvx synth-ai modal-serve` shims still exist for backwards compatibility but simply call `deploy --runtime uvicorn` and `deploy --runtime modal --modal-mode serve` under the hood. Prefer the new flags in scripts and documentation.
+> **Note:** The legacy `uvx synth-ai serve` and `uvx synth-ai modal-serve` shims still exist for backwards compatibility but simply call `deploy --runtime local` and `deploy --runtime modal --modal-mode serve` under the hood. Prefer the new flags in scripts and documentation.
 
 ## `uvx synth-ai setup`
 
