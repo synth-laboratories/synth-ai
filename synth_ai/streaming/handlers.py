@@ -142,9 +142,11 @@ class CLIHandler(StreamHandler):
                 if rank is not None:
                     details.append(f"Rank {rank}")
                 if isinstance(train_score, int | float):
-                    details.append(f"train={train_score:.3f} ({train_score*100:.1f}%)")
+                    train_score_float = float(train_score)
+                    details.append(f"train={train_score_float:.3f} ({train_score_float*100:.1f}%)")
                 if isinstance(test_score, int | float):
-                    details.append(f"test={test_score:.3f} ({test_score*100:.1f}%)")
+                    test_score_float = float(test_score)
+                    details.append(f"test={test_score_float:.3f} ({test_score_float*100:.1f}%)")
                 if isinstance(lift_abs, int | float) and isinstance(lift_pct, int | float):
                     details.append(f"lift={lift_abs:+.3f} ({lift_pct:+.1f}%)")
                 if details:
