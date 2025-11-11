@@ -7,6 +7,8 @@ import textwrap
 from pathlib import Path
 
 import click
+from modal.config import config
+
 from synth_ai.cfgs import ModalDeployCfg
 from synth_ai.utils.env import write_env_var_to_dotenv
 from synth_ai.utils.paths import (
@@ -14,8 +16,6 @@ from synth_ai.utils.paths import (
     cleanup_paths,
     configure_import_paths,
 )
-
-from modal.config import config
 
 MODAL_URL_REGEX = re.compile(r"https?://[^\s]+modal\.run[^\s]*")
 
