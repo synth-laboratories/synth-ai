@@ -7,10 +7,8 @@ import os
 import re
 import shutil
 import subprocess
-import sys
 import time
 from typing import Optional, Tuple
-
 
 _URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
 
@@ -74,6 +72,9 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                 f"cloudflared exited early with code {proc.returncode}. "
                 f"Output: {stdout[:500] if stdout else 'no output'}"
             )
+        
+        if proc.stdout is None:
+            raise RuntimeError("cloudflared process has no stdout")
         
         line = proc.stdout.readline()
         if not line:

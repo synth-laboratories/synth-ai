@@ -14,18 +14,15 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-
-from synth_ai.api.tunnel import create_tunnel
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
 from synth_ai.tunnel import open_managed_tunnel, open_quick_tunnel, stop_tunnel
 from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.env import resolve_env_var
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 from synth_ai.utils.tunnel import store_tunnel_credentials
-from synth_ai.utils.env import resolve_env_var
 from uvicorn._types import ASGIApplication
 
 import uvicorn
-
 
 _TUNNEL_PROCESSES: dict[int, object] = {}  # Store tunnel process handles
 
@@ -160,6 +157,14 @@ async def deploy_app_tunnel(
             return url
         
         # Managed tunnel: provision via backend API
+        try:
+            from synth_ai.api.tunnel import create_tunnel  # type: ignore[import-untyped]
+        except ImportError as err:
+            raise RuntimeError(
+                "Managed tunnel mode requires synth_ai.api.tunnel module. "
+                "This is only available in the managed tunnel implementation."
+            ) from err
+        
         synth_api_key = resolve_env_var("SYNTH_API_KEY")
         data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
         
