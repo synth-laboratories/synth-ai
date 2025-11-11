@@ -212,7 +212,7 @@ def deploy_cmd(
                 )
                 # Default to background mode (non-blocking), use --keep-alive for blocking
                 keep_alive = bool(kwargs.get("keep_alive", False))
-                url = asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=keep_alive))
+                asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=keep_alive))
                 # Note: deploy_app_tunnel prints the URL and status message internally
     except Exception as exc:
         click.echo(f"{exc}", err=True)
