@@ -31,6 +31,22 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
+    
+    @field_validator("inference_url", mode="before")
+    @classmethod
+    def _strip_inference_url(cls, v: str | None) -> str | None:
+        """Strip whitespace from inference_url if provided."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = v.strip()
+            # Validate that URL starts with http:// or https:// if provided (non-empty)
+            if v and not v.startswith(("http://", "https://")):
+                raise ValueError("inference_url must start with http:// or https://")
+            # Reject empty strings after stripping
+            if not v:
+                raise ValueError("inference_url must start with http:// or https://")
+        return v
 
 
 class MessagePatternConfig(ExtraModel):

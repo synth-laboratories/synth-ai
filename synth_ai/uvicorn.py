@@ -4,9 +4,9 @@ import threading
 from synth_ai.cfgs import LocalDeployCfg
 from synth_ai.utils.apps import get_asgi_app, load_file_to_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
-from uvicorn._types import ASGIApplication
 
 import uvicorn
+from uvicorn._types import ASGIApplication
 
 _THREADS: dict[int, threading.Thread] = {}
 

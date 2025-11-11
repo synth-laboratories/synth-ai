@@ -130,3 +130,37 @@ class ModalDeployCfg(BaseModel):
             task_app_name=task_app_name,
             dry_run=dry_run,
         )
+
+
+class CloudflareTunnelDeployCfg(BaseModel):
+    task_app_path: Path
+    env_api_key: str
+    host: str = "127.0.0.1"
+    port: int = 8000
+    mode: Literal["quick", "managed"] = "quick"
+    tunnel_token: Optional[str] = None
+    subdomain: Optional[str] = None
+    trace: bool = True
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        task_app_path: Path,
+        env_api_key: str,
+        host: str = "127.0.0.1",
+        port: int = 8000,
+        mode: Literal["quick", "managed"] = "quick",
+        subdomain: Optional[str] = None,
+        trace: bool = True,
+    ) -> "CloudflareTunnelDeployCfg":
+        validate_task_app(task_app_path)
+        return cls(
+            task_app_path=task_app_path,
+            env_api_key=env_api_key,
+            host=host,
+            port=port,
+            mode=mode,
+            subdomain=subdomain,
+            trace=trace,
+        )

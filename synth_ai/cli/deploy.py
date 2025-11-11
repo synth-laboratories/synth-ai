@@ -1,12 +1,14 @@
+import asyncio
 import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Literal, TypeAlias, get_args
+from typing import Literal, TypeAlias, cast, get_args
 
 import click
-from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
+from synth_ai.cfgs import CloudflareTunnelDeployCfg, LocalDeployCfg, ModalDeployCfg
 from synth_ai.modal import deploy_app_modal
+from synth_ai.tunnel_deploy import deploy_app_tunnel
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
@@ -18,7 +20,8 @@ from synth_ai.uvicorn import deploy_app_uvicorn
 
 RuntimeType: TypeAlias = Literal[
     "local",
-    "modal"
+    "modal",
+    "tunnel"
 ]
 
 
@@ -26,6 +29,7 @@ RUNTIME_MSG = SimpleNamespace(
     init="[deploy]",
     local="[deploy --runtime local]",
     modal="[deploy --runtime modal]",
+    tunnel="[deploy --runtime tunnel]",
 )
 
 
@@ -83,6 +87,27 @@ RUNTIME_MSG = SimpleNamespace(
     type=int,
     help=f"{RUNTIME_MSG.local} Port to bind to"
 )
+# --- Tunnel runtime-only options ---
+@click.option(
+    "--tunnel-mode",
+    "tunnel_mode",
+    type=click.Choice(["quick", "managed"], case_sensitive=False),
+    default="quick",
+    help="Tunnel mode: quick (ephemeral) or managed (stable)"
+)
+@click.option(
+    "--tunnel-subdomain",
+    "tunnel_subdomain",
+    type=str,
+    default=None,
+    help="Custom subdomain for managed tunnel (e.g., 'my-company')"
+)
+@click.option(
+    "--keep-alive/--background",
+    "keep_alive",
+    default=False,
+    help="Keep tunnel alive (blocking mode). Default is background (non-blocking)"
+)
 # --- Modal runtime-only options ---
 @click.option(
     "--modal-app",
@@ -95,7 +120,7 @@ RUNTIME_MSG = SimpleNamespace(
         path_type=Path
     ),
     file_type=".py",
-    prompt_guard=lambda ctx: (ctx.params.get("runtime") != "local"),
+    prompt_guard=lambda ctx: (ctx.params.get("runtime") not in ("local", "tunnel")),
     help="Enter the path to your Modal app"
 )
 @click.option(
@@ -167,6 +192,28 @@ def deploy_cmd(
                     env_api_key=env_api_key,
                     **kwargs
                 ))
+            case "tunnel":
+                # For managed tunnels, SYNTH_API_KEY is required
+                tunnel_mode = kwargs.get("tunnel_mode", "managed")
+                if tunnel_mode == "managed" and not synth_api_key:
+                    raise RuntimeError(
+                        "SYNTH_API_KEY required for managed tunnel mode. "
+                        "Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
+                    )
+                
+                cfg = CloudflareTunnelDeployCfg.create(
+                    task_app_path=task_app_path,
+                    env_api_key=env_api_key,
+                    host=str(kwargs.get("host", "127.0.0.1")),
+                    port=int(kwargs.get("port", 8000)),
+                    mode=cast(Literal["quick", "managed"], tunnel_mode),
+                    subdomain=kwargs.get("tunnel_subdomain"),
+                    trace=bool(kwargs.get("trace", True)),
+                )
+                # Default to background mode (non-blocking), use --keep-alive for blocking
+                keep_alive = bool(kwargs.get("keep_alive", False))
+                asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=keep_alive))
+                # Note: deploy_app_tunnel prints the URL and status message internally
     except Exception as exc:
         click.echo(f"{exc}", err=True)
         sys.exit(1)

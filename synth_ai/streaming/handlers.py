@@ -141,11 +141,13 @@ class CLIHandler(StreamHandler):
                 details: list[str] = []
                 if rank is not None:
                     details.append(f"Rank {rank}")
-                if isinstance(train_score, (int, float)):
-                    details.append(f"train={train_score:.3f} ({train_score*100:.1f}%)")
-                if isinstance(test_score, (int, float)):
-                    details.append(f"test={test_score:.3f} ({test_score*100:.1f}%)")
-                if isinstance(lift_abs, (int, float)) and isinstance(lift_pct, (int, float)):
+                if isinstance(train_score, int | float):
+                    train_score_float = float(train_score)
+                    details.append(f"train={train_score_float:.3f} ({train_score_float*100:.1f}%)")
+                if isinstance(test_score, int | float):
+                    test_score_float = float(test_score)
+                    details.append(f"test={test_score_float:.3f} ({test_score_float*100:.1f}%)")
+                if isinstance(lift_abs, int | float) and isinstance(lift_pct, int | float):
                     details.append(f"lift={lift_abs:+.3f} ({lift_pct:+.1f}%)")
                 if details:
                     click.echo("    --- TOP-K CANDIDATE ---")
@@ -171,7 +173,7 @@ class CLIHandler(StreamHandler):
                         formatted_scores = ", ".join(
                             f"{item.get('seed')}: {item.get('score'):.2f}"
                             for item in seed_scores
-                            if isinstance(item, dict) and isinstance(item.get("seed"), int) and isinstance(item.get("score"), (int, float))
+                            if isinstance(item, dict) and isinstance(item.get("seed"), int) and isinstance(item.get("score"), int | float)
                         )
                         if formatted_scores:
                             click.echo(f"        Test per-seed: {formatted_scores}")
@@ -185,7 +187,7 @@ class CLIHandler(StreamHandler):
             data = message.data.get("data", {})
             
             # Format metric display
-            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, (int, float)) else f"[{timestamp}] [metric] {name}={value}"
+            metric_str = f"[{timestamp}] [metric] {name}={value:.4f}" if isinstance(value, int | float) else f"[{timestamp}] [metric] {name}={value}"
             if step is not None:
                 metric_str += f" (step={step})"
             
@@ -378,7 +380,7 @@ class LossCurveHandler(StreamHandler):
                 return
             value = message.data.get("value")
             step = message.data.get("step")
-            if not isinstance(value, (int, float)) or not isinstance(step, int):
+            if not isinstance(value, int | float) or not isinstance(step, int):
                 return
             self._values.append(float(value))
             self._steps.append(step)

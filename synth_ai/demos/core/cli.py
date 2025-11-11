@@ -20,6 +20,7 @@ from synth_ai.demo_registry import (
 from synth_ai.demos.demo_task_apps import core as demo_core
 from synth_ai.demos.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 from synth_ai.handshake import HandshakeError, run_handshake
+from synth_ai.utils.process import get_subprocess_env, should_filter_log_line
 
 
 def _key_preview(value: str, label: str) -> str:
@@ -198,7 +199,7 @@ def _popen_capture(
 
     try:
         proc = subprocess.Popen(
-            cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            cmd, cwd=cwd, env=get_subprocess_env(env), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         out, _ = proc.communicate()
         return int(proc.returncode or 0), out or ""
@@ -216,7 +217,7 @@ def _popen_stream(cmd: list[str], cwd: str | None = None, env: dict | None = Non
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env,
+            env=get_subprocess_env(env),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -229,7 +230,8 @@ def _popen_stream(cmd: list[str], cwd: str | None = None, env: dict | None = Non
     def _pump(stdout) -> None:
         try:
             for line in stdout:
-                print(line.rstrip())
+                if not should_filter_log_line(line):
+                    print(line.rstrip())
         except Exception:
             pass
 
@@ -255,7 +257,7 @@ def _popen_stream_capture(
         proc = subprocess.Popen(
             cmd,
             cwd=cwd,
-            env=env,
+            env=get_subprocess_env(env),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -269,8 +271,9 @@ def _popen_stream_capture(
         try:
             for line in stdout:
                 line = line.rstrip()
-                print(line)
-                buf_lines.append(line)
+                if not should_filter_log_line(line):
+                    print(line)
+                    buf_lines.append(line)
         except Exception:
             pass
 
@@ -785,6 +788,7 @@ def deploy(
                     "-c",
                     "from synth_ai.demos.demo_task_apps.math.app import run; run()",
                 ],
+                env=get_subprocess_env(),
                 stdout=sys.stdout,
                 stderr=sys.stderr,
             )

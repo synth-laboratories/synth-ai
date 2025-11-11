@@ -18,7 +18,6 @@ from synth_ai.v0.lm.core.all import (
     GroqClient,
     # OpenAIClient,
     OpenAIStructuredOutputClient,
-    OpenRouterClient,
     TogetherClient,
 )
 from synth_ai.v0.lm.core.synth_models import SYNTH_SUPPORTED_MODELS
@@ -72,13 +71,10 @@ grok_naming_regexes: list[Pattern] = [
 ]
 
 
-openrouter_naming_regexes: list[Pattern] = [
-    re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
+together_naming_regexes: list[Pattern] = [
+    re.compile(r"^together/.*$"),
 ]
 
-openrouter_naming_regexes: list[Pattern] = [
-    re.compile(r"^openrouter/.*$"),  # openrouter/model-name pattern
-]
 
 # Custom endpoint patterns - check these before generic patterns
 custom_endpoint_naming_regexes: list[Pattern] = [
@@ -95,7 +91,6 @@ PROVIDER_MAP: dict[str, Any] = {
     "gemini": GeminiClient,
     "deepseek": DeepSeekClient,
     "grok": GrokClient,
-    "openrouter": OpenRouterClient,
     "together": TogetherClient,
     "synth": OpenAIStructuredOutputClient,  # Synth uses OpenAI-compatible API
     "custom_endpoint": CustomEndpointClient,
@@ -175,8 +170,6 @@ def get_client(
         return GroqClient()
     elif any(regex.match(model_name) for regex in grok_naming_regexes):
         return GrokClient()
-    elif any(regex.match(model_name) for regex in openrouter_naming_regexes):
-        return OpenRouterClient()
     elif any(regex.match(model_name) for regex in custom_endpoint_naming_regexes):
         # Custom endpoints are passed as the endpoint URL
         return CustomEndpointClient(endpoint_url=model_name)

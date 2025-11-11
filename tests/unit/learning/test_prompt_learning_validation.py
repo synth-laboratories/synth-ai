@@ -603,6 +603,9 @@ class TestValidatePromptLearningConfig:
                     "inference_url": "not-a-url",
                     "inference_mode": "synth_hosted",
                 },
+                "gepa": {
+                    "num_generations": 10,
+                },
             }
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:

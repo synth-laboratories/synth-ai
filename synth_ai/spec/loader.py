@@ -29,10 +29,28 @@ def load_spec_from_dict(data: Dict[str, Any]) -> Spec:
         Spec instance
     """
     # Load metadata
-    md = Metadata(**data["metadata"])
+    metadata_dict = data["metadata"]
+    md = Metadata(
+        id=metadata_dict["id"],
+        title=metadata_dict["title"],
+        version=metadata_dict["version"],
+        owner=metadata_dict.get("owner"),
+        created_at=metadata_dict.get("created_at"),
+        updated_at=metadata_dict.get("updated_at"),
+        imports=metadata_dict.get("imports", []),
+        scope=metadata_dict.get("scope"),
+        description=metadata_dict.get("description"),
+    )
     
     # Load principles
-    principles = [Principle(**p) for p in data.get("principles", [])]
+    principles = [
+        Principle(
+            id=p["id"],
+            text=p["text"],
+            rationale=p.get("rationale"),
+        )
+        for p in data.get("principles", [])
+    ]
     
     # Load rules
     def load_rule(r: Dict[str, Any]) -> Rule:
@@ -40,10 +58,26 @@ def load_spec_from_dict(data: Dict[str, Any]) -> Spec:
         constraints = Constraints(**constraints_data)
         
         examples_data = r.get("examples", [])
-        examples = [Example(**e) for e in examples_data]
+        examples = [
+            Example(
+                kind=e["kind"],
+                prompt=e["prompt"],
+                response=e["response"],
+                description=e.get("description"),
+            )
+            for e in examples_data
+        ]
         
         tests_data = r.get("tests", [])
-        tests = [TestCase(**t) for t in tests_data]
+        tests = [
+            TestCase(
+                id=t["id"],
+                challenge=t["challenge"],
+                asserts=t.get("asserts", []),
+                expected_behavior=t.get("expected_behavior"),
+            )
+            for t in tests_data
+        ]
         
         return Rule(
             id=r["id"],
@@ -62,7 +96,14 @@ def load_spec_from_dict(data: Dict[str, Any]) -> Spec:
     interfaces = Interfaces(**interfaces_data)
     
     # Load glossary
-    glossary = [GlossaryItem(**g) for g in data.get("glossary", [])]
+    glossary = [
+        GlossaryItem(
+            term=g["term"],
+            definition=g["definition"],
+            aliases=g.get("aliases", []),
+        )
+        for g in data.get("glossary", [])
+    ]
     
     # Load changelog
     changelog = data.get("changelog", [])
@@ -95,7 +136,7 @@ def load_spec_from_file(path: str | Path) -> Spec:
     if not path.exists():
         raise FileNotFoundError(f"Spec file not found: {path}")
     
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
     
     return load_spec_from_dict(data)

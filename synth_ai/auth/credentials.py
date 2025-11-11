@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import requests
 from requests import RequestException
 
-
 ORIGIN = "https://www.usesynth.ai"
 INIT_URL = ORIGIN + "/api/sdk/handshake/init"
 TOKEN_URL = ORIGIN + "/api/sdk/handshake/token"
