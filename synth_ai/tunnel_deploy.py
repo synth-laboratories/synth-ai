@@ -17,22 +17,24 @@ This module provides a clean abstraction that shields users from:
 import asyncio
 import os
 import signal
-import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Optional
 
 import httpx
+import uvicorn
+from uvicorn._types import ASGIApplication
+
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
 from synth_ai.tunnel import open_managed_tunnel, open_quick_tunnel, stop_tunnel
 from synth_ai.utils.apps import get_asgi_app, load_file_to_module
 from synth_ai.utils.env import resolve_env_var
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 from synth_ai.utils.tunnel import store_tunnel_credentials
-from uvicorn._types import ASGIApplication
 
-import uvicorn
+
+import subprocess
 
 _TUNNEL_PROCESSES: dict[int, subprocess.Popen] = {}  # Store tunnel process handles for cleanup
 
