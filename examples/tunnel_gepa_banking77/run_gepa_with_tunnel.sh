@@ -80,10 +80,9 @@ echo ""
 # Create .env file if it doesn't exist (deploy command requires it to exist)
 touch "$ENV_FILE"
 
-# Deploy with quick tunnel (free, ephemeral)
-# The deploy command will block and keep the tunnel alive until interrupted
-# We'll run it in background and wait for the URL to be written
-echo "🚀 Starting tunnel deployment..."
+# Deploy with quick tunnel (free, ephemeral) in background mode
+# The deploy command returns immediately, keeping tunnel running headlessly
+echo "🚀 Starting tunnel deployment (background mode)..."
 uv run synth-ai deploy \
     --task-app "$TASK_APP_PATH" \
     --runtime tunnel \

@@ -102,6 +102,12 @@ RUNTIME_MSG = SimpleNamespace(
     default=None,
     help="Custom subdomain for managed tunnel (e.g., 'my-company')"
 )
+@click.option(
+    "--keep-alive/--background",
+    "keep_alive",
+    default=False,
+    help="Keep tunnel alive (blocking mode). Default is background (non-blocking)"
+)
 # --- Modal runtime-only options ---
 @click.option(
     "--modal-app",
@@ -204,10 +210,10 @@ def deploy_cmd(
                     subdomain=kwargs.get("tunnel_subdomain"),
                     trace=bool(kwargs.get("trace", True)),
                 )
-                # Tunnel deployments block by default (like local deployments)
-                # This keeps processes alive until user interrupts with Ctrl+C
-                url = asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=True))
-                # Note: deploy_app_tunnel prints the URL and keep-alive message internally
+                # Default to background mode (non-blocking), use --keep-alive for blocking
+                keep_alive = bool(kwargs.get("keep_alive", False))
+                url = asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=keep_alive))
+                # Note: deploy_app_tunnel prints the URL and status message internally
     except Exception as exc:
         click.echo(f"{exc}", err=True)
         sys.exit(1)

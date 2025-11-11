@@ -80,6 +80,7 @@ def _start_uvicorn_background(
     app: ASGIApplication,
     host: str,
     port: int,
+    daemon: bool = True,
 ) -> None:
     """
     Start uvicorn server in a background thread.
@@ -88,6 +89,7 @@ def _start_uvicorn_background(
         app: ASGI application
         host: Host to bind to
         port: Port to bind to
+        daemon: If True, thread dies when main process exits. If False, thread keeps running.
     """
     import threading
     
@@ -107,7 +109,7 @@ def _start_uvicorn_background(
     thread = threading.Thread(
         target=serve,
         name=f"synth-uvicorn-tunnel-{port}",
-        daemon=True,
+        daemon=daemon,
     )
     thread.start()
 
@@ -125,17 +127,21 @@ async def deploy_app_tunnel(
     2. Waiting for health check
     3. Opening tunnel (quick or managed)
     4. Writing tunnel URL and Access credentials to .env
-    5. Optionally keeping processes alive (blocking mode)
+    5. Optionally keeping processes alive (blocking vs non-blocking mode)
     
     When `keep_alive=True`, this function blocks and keeps the tunnel running
     until interrupted (Ctrl+C). This is similar to how `deploy_app_uvicorn`
     blocks for local deployments.
     
+    When `keep_alive=False`, this function returns immediately after deployment.
+    Processes run in the background and will continue until explicitly stopped
+    or the parent process exits. Use this for headless/background deployments.
+    
     Args:
         cfg: Tunnel deployment configuration
         env_file: Optional path to .env file (defaults to .env in current directory)
         keep_alive: If True, block and keep tunnel alive until interrupted.
-                   If False, return immediately after deployment (default).
+                   If False, return immediately after deployment (background mode).
     
     Returns:
         Public tunnel URL
@@ -144,8 +150,8 @@ async def deploy_app_tunnel(
         RuntimeError: If deployment fails at any step
     
     Example:
-        # Non-blocking (returns immediately)
-        url = await deploy_app_tunnel(cfg)
+        # Non-blocking (background mode, returns immediately)
+        url = await deploy_app_tunnel(cfg, keep_alive=False)
         
         # Blocking (keeps tunnel alive, similar to local deployment)
         url = await deploy_app_tunnel(cfg, keep_alive=True)
@@ -166,7 +172,9 @@ async def deploy_app_tunnel(
     app = get_asgi_app(module)
     
     # Start uvicorn in background
-    _start_uvicorn_background(app, cfg.host, cfg.port)
+    # Use daemon=False if keep_alive=True (so thread doesn't die when we block)
+    # Use daemon=True if keep_alive=False (background mode, dies with parent)
+    _start_uvicorn_background(app, cfg.host, cfg.port, daemon=not keep_alive)
     
     # Wait for health check (with API key for authentication)
     await _wait_for_health_check(cfg.host, cfg.port, cfg.env_api_key)
@@ -205,6 +213,12 @@ async def deploy_app_tunnel(
         # If keep_alive is True, block and keep processes alive until interrupted
         if keep_alive:
             _keep_tunnel_alive(cfg.port, url)
+        else:
+            # Background mode: print URL and return immediately
+            # Processes will keep running in background
+            print(f"✓ Tunnel ready: {url}")
+            print(f"⏳ Tunnel running in background (PID: {tunnel_proc.pid if tunnel_proc else 'N/A'})")
+            print("   Press Ctrl+C in this process to stop, or use: pkill -f cloudflared")
         
         return url
     

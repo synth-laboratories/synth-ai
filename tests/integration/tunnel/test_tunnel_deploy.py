@@ -94,7 +94,7 @@ class TestQuickTunnelDeployment:
             port=8001,
         )
         
-        url = await deploy_app_tunnel(cfg, env_file)
+        url = await deploy_app_tunnel(cfg, env_file, keep_alive=False)
         
         assert url == "https://test-abc123.trycloudflare.com"
         mock_start_uvicorn.assert_called_once()
@@ -123,7 +123,6 @@ class TestQuickTunnelDeployment:
         mock_start_uvicorn.return_value = None
         mock_health_check.return_value = None
         
-        mock_proc = Mock()
         mock_open_tunnel.side_effect = RuntimeError("Tunnel failed")
         
         cfg = CloudflareTunnelDeployCfg.create(
@@ -133,7 +132,7 @@ class TestQuickTunnelDeployment:
         )
         
         with pytest.raises(RuntimeError) as exc_info:
-            await deploy_app_tunnel(cfg, tmp_path / ".env")
+            await deploy_app_tunnel(cfg, tmp_path / ".env", keep_alive=False)
         
         assert "Failed to deploy tunnel" in str(exc_info.value)
 
@@ -218,7 +217,7 @@ class TestEndToEndQuickTunnel:
         )
         
         try:
-            url = await deploy_app_tunnel(cfg, env_file)
+            url = await deploy_app_tunnel(cfg, env_file, keep_alive=False)
             
             # Verify URL format
             assert url.startswith("https://")
