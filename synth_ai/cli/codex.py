@@ -80,9 +80,9 @@ def codex_cmd(
         
         # Build provider config with wire_api
         provider_config_parts = [
-            f'name="Synth"',
+            'name="Synth"',
             f'base_url="{url}"',
-            f'env_key="OPENAI_API_KEY"',
+            'env_key="OPENAI_API_KEY"',
             f'wire_api="{wire_api}"'
         ]
         provider_config = "{" + ",".join(provider_config_parts) + "}"

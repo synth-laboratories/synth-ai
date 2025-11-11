@@ -6,7 +6,6 @@ import re
 import sys
 from typing import TextIO
 
-
 # Patterns for noisy logs that should be filtered out
 # Using simple substring matching for better performance and broader matching
 _NOISY_LOG_SUBSTRINGS = [
