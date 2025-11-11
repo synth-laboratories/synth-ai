@@ -35,7 +35,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 IRIS_DATASET = "scikit-learn/iris"
 DEFAULT_SPLIT = "train"
-AVAILABLE_SPLITS: tuple[str, ...] = ("train", "test")
+# Note: Iris dataset from HuggingFace only has "train" split (150 examples)
+# No separate test split - use train split for both training and validation
+AVAILABLE_SPLITS: tuple[str, ...] = ("train",)
 
 iris_router = APIRouter()
 
@@ -199,14 +201,34 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     reward = float(label_correct)
 
+    # Store template messages (with placeholders) for GEPA baseline extraction
+    # GEPA expects templates with placeholders like {features} preserved
+    template_messages: list[dict[str, str]] = []
+    for msg_template in default_messages:
+        role = msg_template.get("role", "user")
+        pattern = msg_template.get("pattern", "")
+        template_messages.append({"role": role, "content": pattern})
+
+    # Build info payload - put messages LAST to ensure they're not overwritten by error_info
     info_payload = {
         "expected_label": expected_label,
         "predicted_label": predicted_label,
         "label_correct": bool(label_correct),
         "response_text": response_text[:500],
         "response_json": response_json,
-        **error_info,
+        **error_info,  # Spread error_info first
+        "messages": template_messages,  # For GEPA baseline extraction - LAST to ensure it's not overwritten
     }
+    
+    # Debug: verify messages are included
+    with contextlib.suppress(Exception):
+        if "messages" in info_payload:
+            print(f"[IRIS_DEBUG] ✅ Messages in info_payload: {len(info_payload['messages'])} messages", flush=True)
+            print(f"[IRIS_DEBUG] Messages content: {info_payload['messages']}", flush=True)
+        else:
+            print(f"[IRIS_DEBUG] ❌ WARNING: messages NOT in info_payload! Keys: {list(info_payload.keys())}", flush=True)
+            print(f"[IRIS_DEBUG] error_info keys: {list(error_info.keys())}", flush=True)
+        print(f"[IRIS_DEBUG] Full info_payload keys: {list(info_payload.keys())}", flush=True)
 
     with contextlib.suppress(Exception):
         print(
@@ -215,7 +237,25 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             f"reward={reward:.3f}",
             flush=True,
         )
+        if error_info:
+            print(
+                f"[IRIS_ERROR] run_id={request.run_id} error={error_info.get('error', 'unknown')} "
+                f"code={error_info.get('code', 'N/A')} response_text_len={len(response_text)}",
+                flush=True,
+            )
+        if predicted_label != expected_label:
+            print(
+                f"[IRIS_MISMATCH] run_id={request.run_id} expected={expected_label} "
+                f"predicted={predicted_label} response_text={response_text[:100]}",
+                flush=True,
+            )
 
+    # CRITICAL DEBUG: Print info_payload before creating step
+    print(f"[IRIS_DEBUG] BEFORE RolloutStep creation - info_payload keys: {list(info_payload.keys())}", flush=True)
+    print(f"[IRIS_DEBUG] info_payload['messages'] exists: {'messages' in info_payload}", flush=True)
+    if "messages" in info_payload:
+        print(f"[IRIS_DEBUG] messages value: {info_payload['messages']}", flush=True)
+    
     step = RolloutStep(
         obs=observation,
         tool_calls=tool_calls,
@@ -223,6 +263,18 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         done=True,
         info=info_payload,
     )
+    
+    # Debug: verify step.info has messages
+    print(f"[IRIS_DEBUG] AFTER RolloutStep creation - step.info type: {type(step.info)}", flush=True)
+    if step.info:
+        print(f"[IRIS_DEBUG] step.info keys: {list(step.info.keys())}", flush=True)
+        print(f"[IRIS_DEBUG] step.info['messages'] exists: {'messages' in step.info}", flush=True)
+        if "messages" in step.info:
+            print(f"[IRIS_DEBUG] ✅ step.info has messages: {len(step.info['messages'])}", flush=True)
+        else:
+            print(f"[IRIS_DEBUG] ❌ step.info missing messages", flush=True)
+    else:
+        print(f"[IRIS_DEBUG] ❌ step.info is None!", flush=True)
 
     inference_url = (request.policy.config or {}).get("inference_url")
 

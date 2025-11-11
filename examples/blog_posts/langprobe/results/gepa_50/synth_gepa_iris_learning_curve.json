@@ -1,0 +1,17 @@
+{
+  "framework": "synth_gepa",
+  "benchmark": "iris",
+  "total_rollouts": 50,
+  "checkpoints": [
+    {
+      "rollout_count": 50,
+      "performance": 1.0,
+      "checkpoint_pct": 1.0
+    },
+    {
+      "rollout_count": 50,
+      "performance": 1.0,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

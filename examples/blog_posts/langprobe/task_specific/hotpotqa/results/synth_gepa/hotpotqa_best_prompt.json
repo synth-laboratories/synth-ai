@@ -1,0 +1,36 @@
+{
+  "prompt_template_id": "gepa_transformation_2",
+  "prompt_template_name": "GEPA Transformation 2",
+  "prompt_sections": [
+    {
+      "name": "instruction",
+      "content": "- Run the `banking77_classify` tool on the passage first; call it only when the text contains ambiguous or multiple intents, and use the tool\u2019s output to guide which facts to extract.\n- For a multi\u2011hop query, split {query} into its constituent sub\u2011queries, classify each sub\u2011query with the tool, then extract the necessary facts for each step.\n- Return the result exactly as:\n`Answer: <short answer>`\n`Support: <justification>`\u2014the justification must quote the precise passages that support the answer.",
+      "role": "system",
+      "order": 0
+    },
+    {
+      "name": "query",
+      "content": "Question: {question}\n\nPassages:\n{context}\n\nProvide the final answer.",
+      "role": "user",
+      "order": 1
+    }
+  ],
+  "prompt_variables": {
+    "context": "required",
+    "query": "required",
+    "question": "required"
+  },
+  "prompt_metadata": {
+    "transformation": {
+      "text_replacements": [
+        {
+          "old_text": "You are a research assistant that answers multi-hop questions. Read the passages carefully and respond in the format:\nAnswer: <short answer>\nSupport: <brief justification citing passages>.",
+          "new_text": "- Run the `banking77_classify` tool on the passage first; call it only when the text contains ambiguous or multiple intents, and use the tool\u2019s output to guide which facts to extract.\n- For a multi\u2011hop query, split {query} into its constituent sub\u2011queries, classify each sub\u2011query with the tool, then extract the necessary facts for each step.\n- Return the result exactly as:\n`Answer: <short answer>`\n`Support: <justification>`\u2014the justification must quote the precise passages that support the answer.",
+          "apply_to_role": "system",
+          "apply_to_order": null
+        }
+      ],
+      "example_injections": []
+    }
+  }
+}

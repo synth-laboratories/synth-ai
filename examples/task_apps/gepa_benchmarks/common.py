@@ -12,18 +12,46 @@ from fastapi import HTTPException
 
 
 def _resolve_inference_url(base_url: str) -> str:
-    """Normalise a base inference URL to the chat completions endpoint."""
+    """Normalise a base inference URL to the chat completions endpoint.
+    
+    Handles:
+    - Standard OpenAI/Groq URLs: https://api.openai.com/v1 -> .../v1/chat/completions
+    - Interceptor URLs (GEPA): https://...modal.host/v1/gepa-... -> .../v1/gepa-.../chat/completions
+    - Already complete URLs: .../chat/completions -> unchanged
+    """
 
     normalised = (base_url or "").rstrip("/")
     if not normalised:
         raise RuntimeError("policy.config.inference_url required")
+    
+    # Already complete
     if normalised.endswith("/v1/chat/completions"):
         return normalised
     if normalised.endswith("/chat/completions"):
         return normalised
+    
+    # Check if this looks like an interceptor URL
+    # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/gepa-..., /v1/pl-..., /v1/iris-gepa-...)
+    # These URLs already have /v1/ in them, so we should append /chat/completions, not /v1/chat/completions
+    # We detect this by checking if the URL contains /v1/ followed by something (not just ending with /v1)
+    if "/v1/" in normalised and not normalised.endswith("/v1"):
+        # This is likely an interceptor URL - append /chat/completions
+        result = f"{normalised}/chat/completions"
+        # Debug logging
+        import os
+        if os.getenv("DEBUG_INFERENCE_URL"):
+            print(f"[DEBUG] Interceptor URL detected: {base_url} -> {result}", flush=True)
+        return result
+    
+    # Standard case: append /v1/chat/completions
     if normalised.endswith("/v1"):
         return f"{normalised}/chat/completions"
-    return f"{normalised}/v1/chat/completions"
+    result = f"{normalised}/v1/chat/completions"
+    # Debug logging
+    import os
+    if os.getenv("DEBUG_INFERENCE_URL"):
+        print(f"[DEBUG] Standard URL: {base_url} -> {result}", flush=True)
+    return result
 
 
 _PLACEHOLDER_PATTERN = re.compile(r"\{([^{}]+)\}")

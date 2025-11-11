@@ -234,6 +234,15 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
 
     reward = 0.7 * answer_correct + 0.3 * support_coverage
 
+    # Store template messages (with placeholders) for GEPA baseline extraction
+    # GEPA expects templates with placeholders like {question} and {context} preserved
+    template_messages: list[dict[str, str]] = []
+    for msg_template in default_messages:
+        role = msg_template.get("role", "user")
+        pattern = msg_template.get("pattern", "")
+        template_messages.append({"role": role, "content": pattern})
+
+    # Build info payload - put messages LAST to ensure they're not overwritten by error_info
     info_payload = {
         "expected_answer": expected_answer,
         "predicted_answer": answer_text,
@@ -241,7 +250,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         "answer_em": answer_correct,
         "support_coverage": support_coverage,
         "response_json": response_json,
-        **error_info,
+        **error_info,  # Spread error_info first
+        "messages": template_messages,  # For GEPA baseline extraction - LAST to ensure it's not overwritten
     }
 
     with contextlib.suppress(Exception):
