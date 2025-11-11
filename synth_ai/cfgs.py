@@ -137,7 +137,7 @@ class CloudflareTunnelDeployCfg(BaseModel):
     env_api_key: str
     host: str = "127.0.0.1"
     port: int = 8000
-    mode: Literal["quick", "managed"] = "managed"
+    mode: Literal["quick", "managed"] = "quick"
     tunnel_token: Optional[str] = None
     subdomain: Optional[str] = None
     trace: bool = True
@@ -150,7 +150,7 @@ class CloudflareTunnelDeployCfg(BaseModel):
         env_api_key: str,
         host: str = "127.0.0.1",
         port: int = 8000,
-        mode: Literal["quick", "managed"] = "managed",
+        mode: Literal["quick", "managed"] = "quick",
         subdomain: Optional[str] = None,
         trace: bool = True,
     ) -> "CloudflareTunnelDeployCfg":

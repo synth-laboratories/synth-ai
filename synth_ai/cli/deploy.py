@@ -92,7 +92,7 @@ RUNTIME_MSG = SimpleNamespace(
     "--tunnel-mode",
     "tunnel_mode",
     type=click.Choice(["quick", "managed"], case_sensitive=False),
-    default="managed",
+    default="quick",
     help="Tunnel mode: quick (ephemeral) or managed (stable)"
 )
 @click.option(
