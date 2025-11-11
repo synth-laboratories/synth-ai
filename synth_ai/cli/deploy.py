@@ -114,7 +114,7 @@ RUNTIME_MSG = SimpleNamespace(
         path_type=Path
     ),
     file_type=".py",
-    prompt_guard=lambda ctx: (ctx.params.get("runtime") != "local"),
+    prompt_guard=lambda ctx: (ctx.params.get("runtime") not in ("local", "tunnel")),
     help="Enter the path to your Modal app"
 )
 @click.option(
