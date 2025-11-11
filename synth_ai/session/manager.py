@@ -9,8 +9,8 @@ from typing import Any, Optional
 from uuid import UUID
 
 from synth_ai.session.client import AgentSessionClient
-from synth_ai.session.models import AgentSession, AgentSessionLimit, LimitCheckResult
 from synth_ai.session.exceptions import LimitExceededError, SessionNotFoundError
+from synth_ai.session.models import AgentSession
 
 
 class AgentSessionManager:
@@ -50,7 +50,10 @@ class AgentSessionManager:
                 await manager.record_usage(session.session_id, ...)
         """
         if not self.org_id:
-            raise ValueError("org_id required for session creation")
+            raise ValueError(
+                "org_id is required for session creation. "
+                "Either provide org_id explicitly, or ensure the client can fetch it from /api/v1/me endpoint."
+            )
 
         limits = limits or self.default_limits
         session = await self.client.create(
@@ -86,7 +89,10 @@ class AgentSessionManager:
 
         # Create new session
         if not self.org_id:
-            raise ValueError("org_id required for session creation")
+            raise ValueError(
+                "org_id is required for session creation. "
+                "Either provide org_id explicitly, or ensure the client can fetch it from /api/v1/me endpoint."
+            )
 
         return await self.client.create(
             org_id=self.org_id,

@@ -6,7 +6,14 @@ from typing import Any
 import click
 from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
-from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bin, write_agents_md, get_backend_from_env
+from synth_ai.utils import (
+    get_backend_from_env,
+    get_bin_path,
+    install_bin,
+    resolve_env_var,
+    verify_bin,
+    write_agents_md,
+)
 
 try:
     import tomllib  # Python 3.11+
@@ -189,7 +196,7 @@ def codex_cmd(
             # Users may need to configure Codex to pass X-Session-ID header
             # For now, session is created but not automatically passed to API calls
             click.echo(f"✓ Created agent session: {session_id}")
-            click.echo(f"  Note: Set X-Session-ID header in Codex config to use this session")
+            click.echo("  Note: Set X-Session-ID header in Codex config to use this session")
             if session_limit_tokens:
                 click.echo(f"  Token limit: {session_limit_tokens:,}")
             if session_limit_cost:
@@ -217,9 +224,9 @@ def codex_cmd(
         
         # Build provider config with wire_api
         provider_config_parts = [
-            f'name="Synth"',
+            'name="Synth"',
             f'base_url="{url}"',
-            f'env_key="OPENAI_API_KEY"',
+            'env_key="OPENAI_API_KEY"',
             f'wire_api="{wire_api}"'
         ]
         provider_config = "{" + ",".join(provider_config_parts) + "}"

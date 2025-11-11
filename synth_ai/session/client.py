@@ -8,18 +8,17 @@ from typing import Any, Optional
 from uuid import UUID
 
 from synth_ai.http_client import AsyncHttpClient, HTTPError
+from synth_ai.session.exceptions import (
+    InvalidLimitError,
+    SessionNotActiveError,
+    SessionNotFoundError,
+)
 from synth_ai.session.models import (
     AgentSession,
     AgentSessionLimit,
     AgentSessionUsage,
     LimitCheckResult,
     SessionUsageRecord,
-)
-from synth_ai.session.exceptions import (
-    LimitExceededError,
-    SessionNotFoundError,
-    SessionNotActiveError,
-    InvalidLimitError,
 )
 
 
@@ -104,6 +103,7 @@ class AgentSessionClient:
         expires_at: Optional[datetime] = None,
         metadata: Optional[dict[str, Any]] = None,
         session_id: Optional[str] = None,
+        make_active: bool = True,  # If True, ends existing active session and makes this one active
     ) -> AgentSession:
         """Create a new agent session.
         
@@ -116,7 +116,11 @@ class AgentSessionClient:
                     me_data = await self._http.get("/api/v1/me")
                     org_id = UUID(me_data["org_id"])
             except Exception as e:
-                raise ValueError(f"Failed to get org_id from API: {e}") from e
+                raise ValueError(
+                    f"Failed to get org_id from API endpoint '/api/v1/me': {e}. "
+                    f"Please provide org_id explicitly when creating a session, "
+                    f"or ensure your API key is valid and has access to the /api/v1/me endpoint."
+                ) from e
         
         payload: dict[str, Any] = {}
         if limits:
@@ -131,6 +135,8 @@ class AgentSessionClient:
             payload["metadata"] = metadata
         if session_id:
             payload["session_id"] = session_id
+        if make_active is not None:
+            payload["make_active"] = make_active
 
         try:
             async with self._http:
@@ -335,7 +341,7 @@ class AgentSessionClient:
             async with self._http:
                 data = await self._http.get("/api/v1/sessions", params=params)
                 return [self._parse_session(session_data) for session_data in data]
-        except HTTPError as e:
+        except HTTPError:
             raise
 
     async def get_usage(

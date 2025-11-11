@@ -38,7 +38,8 @@ def _append_query_param(url: str, key: str, value: str) -> str:
     params = dict(parse_qsl(parsed.query, keep_blank_values=True))
     params[key] = value
     new_query = urlencode(params)
-    return urlunparse(parsed._replace(query=new_query))
+    result = urlunparse(parsed._replace(query=new_query))
+    return str(result)
 
 
 def _ensure_local_libsql() -> None:

@@ -172,7 +172,8 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
         final_query = parsed.query or ""
         if final_query and "/" in final_query:
             parsed = parsed._replace(query=final_query.split("/", 1)[0])
-        return urlunparse(parsed)
+        result = urlunparse(parsed)
+        return str(result)
     
     # Determine what to append based on existing path
     if path.endswith("/v1"):
@@ -187,7 +188,8 @@ def normalize_inference_url(url: str | None, *, default: str = "https://api.open
     if final_query and "/" in final_query:
         parsed = parsed._replace(query=final_query.split("/", 1)[0])
 
-    return urlunparse(parsed)
+    result = urlunparse(parsed)
+    return str(result)
 
 
 def validate_task_app_url(url: str | None) -> str:

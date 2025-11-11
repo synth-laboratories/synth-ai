@@ -109,7 +109,8 @@ class AsyncHttpClient:
         text = await resp.text()
         body_snippet = text[:200] if text else None
         if 200 <= resp.status < 300:
-            ctype = resp.headers.get("content-type", "")
+            # resp.headers is always available on aiohttp.ClientResponse
+            ctype = resp.headers.get("content-type", "")  # type: ignore[possibly-unbound]
             if "application/json" in ctype:
                 try:
                     return await resp.json()
