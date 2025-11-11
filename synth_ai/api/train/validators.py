@@ -298,7 +298,18 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 errors.extend(_validate_model_for_provider(
                     model, provider, "prompt_learning.policy.model", allow_nano=True
                 ))
-        # inference_url is NOT required and NOT validated - trainer provides it in rollout requests
+        # Validate inference_url format if provided (even though trainer provides it in rollout requests)
+        inference_url = policy.get("inference_url")
+        if inference_url is not None:
+            if not isinstance(inference_url, str):
+                errors.append("prompt_learning.policy.inference_url must be a string")
+            else:
+                inference_url_stripped = inference_url.strip()
+                if inference_url_stripped and not inference_url_stripped.startswith(("http://", "https://")):
+                    errors.append("prompt_learning.policy.inference_url must start with http:// or https://")
+                if not inference_url_stripped:
+                    errors.append("prompt_learning.policy.inference_url must start with http:// or https://")
+        # inference_url is NOT required - trainer provides it in rollout requests
     
     # Check for multi-stage/multi-module pipeline config
     initial_prompt = pl_section.get("initial_prompt", {})
