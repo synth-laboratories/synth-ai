@@ -123,6 +123,8 @@ class AgentSessionClient:
                 ) from e
         
         payload: dict[str, Any] = {}
+        if org_id:
+            payload["org_id"] = str(org_id)
         if limits:
             payload["limits"] = limits
         if tracing_session_id:
