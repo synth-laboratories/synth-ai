@@ -868,14 +868,16 @@ def _save_prompt_learning_results_locally(
             return
         
         data = resp.json()
-        # Validate response structure
-        if not isinstance(data, dict):
+        # Handle both list response (backend) and dict response (legacy compatibility)
+        if isinstance(data, list):
+            events = data
+        elif isinstance(data, dict):
+            events = data.get("events", [])
+            if not isinstance(events, list):
+                click.echo(f"⚠️  Events field is not a list: {type(events).__name__}")
+                return
+        else:
             click.echo(f"⚠️  Unexpected response type: {type(data).__name__}")
-            return
-        
-        events = data.get("events", [])
-        if not isinstance(events, list):
-            click.echo(f"⚠️  Events field is not a list: {type(events).__name__}")
             return
         
         if not events:
