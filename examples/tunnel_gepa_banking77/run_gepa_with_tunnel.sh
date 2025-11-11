@@ -80,38 +80,52 @@ echo ""
 # Create .env file if it doesn't exist (deploy command requires it to exist)
 touch "$ENV_FILE"
 
-# Deploy with quick tunnel (free, ephemeral)
-uv run synth-ai deploy \
-    --task-app "$TASK_APP_PATH" \
-    --runtime tunnel \
-    --tunnel-mode quick \
-    --port 8102 \
-    --env "$ENV_FILE" \
-    --trace
+# Deploy with quick tunnel (free, ephemeral) and keep it running
+# Use Python script to keep tunnel alive while training runs
+echo "🚀 Starting tunnel deployment..."
+uv run python "$REPO_ROOT/examples/tunnel_gepa_banking77/keep_tunnel_running.py" \
+    8102 \
+    "$ENV_FILE" \
+    "$TASK_APP_PATH" > /tmp/tunnel_deploy.log 2>&1 &
+DEPLOY_PID=$!
 
-# Read tunnel URL from .env
-if [ -f "$ENV_FILE" ]; then
-    TASK_APP_URL=$(grep "^TASK_APP_URL=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
-    if [ -z "$TASK_APP_URL" ]; then
-        echo "❌ ERROR: TASK_APP_URL not found in $ENV_FILE"
-        exit 1
+# Wait for tunnel URL to be written to .env file
+echo "⏳ Waiting for tunnel to be ready..."
+TASK_APP_URL=""
+for i in {1..30}; do
+    if [ -f "$ENV_FILE" ] && grep -q "^TASK_APP_URL=" "$ENV_FILE"; then
+        TASK_APP_URL=$(grep "^TASK_APP_URL=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"' | tr -d "'")
+        if [ -n "$TASK_APP_URL" ]; then
+            echo "✅ Tunnel URL found: $TASK_APP_URL"
+            # Wait a bit more for DNS propagation and tunnel to be fully ready
+            echo "⏳ Waiting for tunnel to be accessible..."
+            for j in {1..15}; do
+                if curl -s -f -H "X-API-Key: $ENVIRONMENT_API_KEY" "$TASK_APP_URL/health" > /dev/null 2>&1; then
+                    echo "✅ Tunnel is accessible!"
+                    break
+                fi
+                if [ $j -eq 15 ]; then
+                    echo "⚠️  Tunnel not yet accessible, but continuing..."
+                fi
+                sleep 2
+            done
+            break
+        fi
     fi
-    echo ""
-    echo "✅ Tunnel deployed: $TASK_APP_URL"
-    echo "   Credentials saved to: $ENV_FILE"
-else
-    echo "❌ ERROR: $ENV_FILE not created"
+    sleep 1
+done
+
+if [ -z "$TASK_APP_URL" ]; then
+    echo "❌ ERROR: Tunnel deployment failed or timed out"
+    echo "   Check deployment logs: /tmp/tunnel_deploy.log"
+    kill $DEPLOY_PID 2>/dev/null || true
     exit 1
 fi
 
-# Verify tunnel is accessible
 echo ""
-echo "🔍 Verifying tunnel health..."
-if curl -s -f -H "X-API-Key: $ENVIRONMENT_API_KEY" "$TASK_APP_URL/health" > /dev/null 2>&1; then
-    echo "✅ Tunnel is healthy"
-else
-    echo "⚠️  Warning: Tunnel health check failed, but continuing..."
-fi
+echo "✅ Tunnel deployed: $TASK_APP_URL"
+echo "   Credentials saved to: $ENV_FILE"
+echo "   Deploy process PID: $DEPLOY_PID (keep this running)"
 
 # Verify backend is accessible
 echo ""
@@ -130,98 +144,24 @@ CONFIG_FILE="$CONFIG_DIR/banking77_gepa_tunnel.toml"
 
 echo ""
 echo "📝 Creating GEPA config: $CONFIG_FILE"
-cat > "$CONFIG_FILE" <<EOF
-# GEPA Prompt Learning for Banking77 via Cloudflare Tunnel
-# This config uses a Cloudflare Tunnel URL to expose the local task app
-# to Synth's production backend for prompt optimization.
-
-[prompt_learning]
-algorithm = "gepa"
-task_app_url = "$TASK_APP_URL"
-task_app_id = "banking77"
-
-# Initial prompt pattern
-[prompt_learning.initial_prompt]
-id = "banking77_classifier"
-name = "Banking77 Intent Classification"
-
-[[prompt_learning.initial_prompt.messages]]
-role = "system"
-pattern = "You are an expert banking assistant. \n\n**Available Banking Intents:**\n{available_intents}\n\n**Task:**\nCall the \`banking77_classify\` tool with the \`intent\` parameter set to ONE of the intent labels listed above that best matches the customer query. The intent must be an exact match from the list."
-order = 0
-
-[[prompt_learning.initial_prompt.messages]]
-role = "user"
-pattern = "Customer Query: {query}\n\nClassify this query by calling the tool with the correct intent label from the list above."
-order = 1
-
-[prompt_learning.initial_prompt.wildcards]
-query = "REQUIRED"
-available_intents = "OPTIONAL"
-
-# Policy configuration
-[prompt_learning.policy]
-inference_mode = "synth_hosted"
-model = "openai/gpt-oss-20b"
-provider = "groq"
-temperature = 0.0
-max_completion_tokens = 512
-policy_name = "banking77-classifier"
-
-# Training split config
-[prompt_learning.env_config]
-pool = "train"
-
-# GEPA-specific configuration
-[prompt_learning.gepa]
-env_name = "banking77"
-proposer_type = "dspy"
-
-# Rollout configuration
-[prompt_learning.gepa.rollout]
-budget = 100
-max_concurrent = 20
-minibatch_size = 10
-
-# Evaluation configuration
-[prompt_learning.gepa.evaluation]
-seeds = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
-validation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-validation_pool = "validation"
-validation_top_k = 3
-test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
-
-# Mutation configuration
-[prompt_learning.gepa.mutation]
-rate = 0.3
-llm_model = "openai/gpt-oss-120b"
-llm_provider = "groq"
-llm_inference_url = "https://api.groq.com/openai/v1"
-
-# Population configuration
-[prompt_learning.gepa.population]
-initial_size = 10
-num_generations = 3
-children_per_generation = 12
-crossover_rate = 0.5
-selection_pressure = 1.0
-patience_generations = 3
-
-# Archive configuration
-[prompt_learning.gepa.archive]
-size = 40
-pareto_set_size = 32
-pareto_eps = 1e-6
-feedback_fraction = 0.5
-
-# Token configuration
-[prompt_learning.gepa.token]
-counting_model = "gpt-4"
-enforce_pattern_limit = true
-EOF
-
-echo "✅ Config created"
-echo ""
+# Copy the base config from existing Banking77 GEPA example and update task_app_url
+BASE_CONFIG="$REPO_ROOT/examples/blog_posts/gepa/configs/banking77_gepa_local.toml"
+if [ -f "$BASE_CONFIG" ]; then
+    # Copy base config and update task_app_url
+    cp "$BASE_CONFIG" "$CONFIG_FILE"
+    # Update task_app_url using sed (works on macOS and Linux)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s|task_app_url = \".*\"|task_app_url = \"$TASK_APP_URL\"|" "$CONFIG_FILE"
+    else
+        sed -i "s|task_app_url = \".*\"|task_app_url = \"$TASK_APP_URL\"|" "$CONFIG_FILE"
+    fi
+    echo "✅ Config created from: $BASE_CONFIG"
+    echo "   Updated task_app_url to: $TASK_APP_URL"
+else
+    echo "❌ ERROR: Base config not found: $BASE_CONFIG"
+    echo "   Please ensure the Banking77 GEPA example config exists"
+    exit 1
+fi
 
 # Run GEPA optimization
 echo "🎯 Starting GEPA prompt optimization..."
@@ -237,28 +177,41 @@ export BACKEND_BASE_URL="$BACKEND_URL"
 export SYNTH_BASE_URL="$BACKEND_URL"
 
 # Run GEPA optimization
-# Note: The tunnel process must stay running in the background
-# In a real scenario, you'd run this in a separate terminal or as a background job
+# The tunnel is already running (uvicorn in background thread, cloudflared process)
+# We'll run GEPA training which will submit the job to the backend
 echo ""
-echo "🚀 Starting GEPA training..."
-echo "   This will submit a job to the backend. The tunnel must remain active."
-echo "   To keep tunnel running, deploy in a separate terminal:"
-echo "   uv run synth-ai deploy --task-app $TASK_APP_PATH --runtime tunnel --tunnel-mode quick --port 8102 --env $ENV_FILE"
+echo "🚀 Starting GEPA prompt optimization..."
+echo "   Config: $CONFIG_FILE"
+echo "   Backend: $BACKEND_URL"
+echo "   Task App: $TASK_APP_URL"
+echo ""
+echo "⚠️  Note: The tunnel process is running in the background."
+echo "   Keep this terminal open until training completes."
 echo ""
 
-# For testing, we'll just verify the config is valid and show what would be run
-echo "📋 GEPA Config Summary:"
-echo "   - Task App URL: $TASK_APP_URL"
-echo "   - Backend: $BACKEND_URL"
-echo "   - Config: $CONFIG_FILE"
-echo ""
-echo "✅ Example ready! To run GEPA training:"
-echo "   uv run synth-ai train --type prompt_learning --config $CONFIG_FILE --backend $BACKEND_URL --poll"
-echo ""
-echo "⚠️  Remember: Keep the tunnel running while training is active!"
+export BACKEND_BASE_URL="$BACKEND_URL"
+export SYNTH_BASE_URL="$BACKEND_URL"
+
+# Run GEPA training
+# Use --env-file to skip the interactive prompt
+uv run synth-ai train \
+    --type prompt_learning \
+    --config "$CONFIG_FILE" \
+    --backend "$BACKEND_URL" \
+    --env-file "$ENV_FILE" \
+    --poll
 
 echo ""
 echo "✅ GEPA optimization complete!"
+echo ""
+
+# Cleanup: stop tunnel processes
+echo "🧹 Cleaning up tunnel processes..."
+kill $DEPLOY_PID 2>/dev/null || true
+pkill -f "cloudflared.*8102" 2>/dev/null || true
+pkill -f "uvicorn.*8102" 2>/dev/null || true
+sleep 1
+
 echo ""
 echo "📊 Results:"
 echo "   - Config: $CONFIG_FILE"
