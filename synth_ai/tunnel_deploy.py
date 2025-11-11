@@ -6,9 +6,18 @@ Manages the full lifecycle of deploying a task app via Cloudflare Tunnel:
 2. Wait for health check
 3. Open tunnel (quick or managed)
 4. Write credentials to .env
+5. Optionally keep processes alive (blocking mode)
+
+This module provides a clean abstraction that shields users from:
+- Process management details (uvicorn threads, cloudflared subprocesses)
+- Health check polling logic
+- Credential storage
+- Cleanup on errors
 """
 import asyncio
 import os
+import signal
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -24,7 +33,7 @@ from uvicorn._types import ASGIApplication
 
 import uvicorn
 
-_TUNNEL_PROCESSES: dict[int, object] = {}  # Store tunnel process handles
+_TUNNEL_PROCESSES: dict[int, object] = {}  # Store tunnel process handles for cleanup
 
 
 async def _wait_for_health_check(
@@ -106,25 +115,40 @@ def _start_uvicorn_background(
 async def deploy_app_tunnel(
     cfg: CloudflareTunnelDeployCfg,
     env_file: Optional[Path] = None,
+    keep_alive: bool = False,
 ) -> str:
     """
     Deploy task app via Cloudflare Tunnel.
     
-    This function:
-    1. Starts the local task app (uvicorn) in background
-    2. Waits for health check
-    3. Opens tunnel (quick or managed)
-    4. Writes tunnel URL and Access credentials to .env
+    This function provides a clean abstraction that handles:
+    1. Starting the local task app (uvicorn) in background
+    2. Waiting for health check
+    3. Opening tunnel (quick or managed)
+    4. Writing tunnel URL and Access credentials to .env
+    5. Optionally keeping processes alive (blocking mode)
+    
+    When `keep_alive=True`, this function blocks and keeps the tunnel running
+    until interrupted (Ctrl+C). This is similar to how `deploy_app_uvicorn`
+    blocks for local deployments.
     
     Args:
         cfg: Tunnel deployment configuration
         env_file: Optional path to .env file (defaults to .env in current directory)
+        keep_alive: If True, block and keep tunnel alive until interrupted.
+                   If False, return immediately after deployment (default).
     
     Returns:
         Public tunnel URL
     
     Raises:
         RuntimeError: If deployment fails at any step
+    
+    Example:
+        # Non-blocking (returns immediately)
+        url = await deploy_app_tunnel(cfg)
+        
+        # Blocking (keeps tunnel alive, similar to local deployment)
+        url = await deploy_app_tunnel(cfg, keep_alive=True)
     """
     # Set up environment
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
@@ -154,30 +178,33 @@ async def deploy_app_tunnel(
             url, tunnel_proc = open_quick_tunnel(cfg.port)
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
             store_tunnel_credentials(url, None, None, env_file)
-            return url
+        else:
+            # Managed tunnel: provision via backend API
+            try:
+                from synth_ai.api.tunnel import create_tunnel  # type: ignore[import-untyped]
+            except ImportError as err:
+                raise RuntimeError(
+                    "Managed tunnel mode requires synth_ai.api.tunnel module. "
+                    "This is only available in the managed tunnel implementation."
+                ) from err
+            
+            synth_api_key = resolve_env_var("SYNTH_API_KEY")
+            data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
+            
+            tunnel_token = data["tunnel_token"]
+            hostname = data["hostname"]
+            access_client_id = data.get("access_client_id")
+            access_client_secret = data.get("access_client_secret")
+            
+            tunnel_proc = open_managed_tunnel(tunnel_token)
+            _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
+            
+            url = f"https://{hostname}"
+            store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
         
-        # Managed tunnel: provision via backend API
-        try:
-            from synth_ai.api.tunnel import create_tunnel  # type: ignore[import-untyped]
-        except ImportError as err:
-            raise RuntimeError(
-                "Managed tunnel mode requires synth_ai.api.tunnel module. "
-                "This is only available in the managed tunnel implementation."
-            ) from err
-        
-        synth_api_key = resolve_env_var("SYNTH_API_KEY")
-        data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
-        
-        tunnel_token = data["tunnel_token"]
-        hostname = data["hostname"]
-        access_client_id = data.get("access_client_id")
-        access_client_secret = data.get("access_client_secret")
-        
-        tunnel_proc = open_managed_tunnel(tunnel_token)
-        _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
-        
-        url = f"https://{hostname}"
-        store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
+        # If keep_alive is True, block and keep processes alive until interrupted
+        if keep_alive:
+            _keep_tunnel_alive(cfg.port, url)
         
         return url
     
@@ -187,4 +214,50 @@ async def deploy_app_tunnel(
             stop_tunnel(tunnel_proc)
             _TUNNEL_PROCESSES.pop(cfg.port, None)
         raise RuntimeError(f"Failed to deploy tunnel: {exc}") from exc
+
+
+def _keep_tunnel_alive(port: int, url: str) -> None:
+    """
+    Keep tunnel processes alive until interrupted.
+    
+    This function blocks and monitors the tunnel process, similar to how
+    local deployments block. Users can interrupt with Ctrl+C to stop.
+    
+    Args:
+        port: Port the tunnel is running on
+        url: Public tunnel URL (for display)
+    """
+    import subprocess
+    
+    def signal_handler(signum, frame):  # noqa: ARG001
+        """Handle SIGINT/SIGTERM to cleanup gracefully."""
+        if port in _TUNNEL_PROCESSES:
+            stop_tunnel(_TUNNEL_PROCESSES[port])
+            _TUNNEL_PROCESSES.pop(port, None)
+        sys.exit(0)
+    
+    # Register signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    print(f"✓ Tunnel ready: {url}")
+    print("⏳ Keeping tunnel running... (Press Ctrl+C to stop)")
+    
+    try:
+        # Monitor tunnel process and keep alive
+        while True:
+            if port in _TUNNEL_PROCESSES:
+                proc = _TUNNEL_PROCESSES[port]
+                if isinstance(proc, subprocess.Popen) and proc.poll() is not None:
+                    print(f"❌ Tunnel process exited with code {proc.returncode}")
+                    break
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Cleanup on exit
+        if port in _TUNNEL_PROCESSES:
+            stop_tunnel(_TUNNEL_PROCESSES[port])
+            _TUNNEL_PROCESSES.pop(port, None)
+        print("\n🛑 Tunnel stopped")
 

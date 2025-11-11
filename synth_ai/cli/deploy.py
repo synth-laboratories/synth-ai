@@ -204,8 +204,10 @@ def deploy_cmd(
                     subdomain=kwargs.get("tunnel_subdomain"),
                     trace=bool(kwargs.get("trace", True)),
                 )
-                url = asyncio.run(deploy_app_tunnel(cfg, env_file_path))
-                click.secho(f"✓ Tunnel ready: {url}", fg="green")
+                # Tunnel deployments block by default (like local deployments)
+                # This keeps processes alive until user interrupts with Ctrl+C
+                url = asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=True))
+                # Note: deploy_app_tunnel prints the URL and keep-alive message internally
     except Exception as exc:
         click.echo(f"{exc}", err=True)
         sys.exit(1)

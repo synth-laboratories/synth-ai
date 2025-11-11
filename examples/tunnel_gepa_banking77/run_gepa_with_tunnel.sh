@@ -80,13 +80,17 @@ echo ""
 # Create .env file if it doesn't exist (deploy command requires it to exist)
 touch "$ENV_FILE"
 
-# Deploy with quick tunnel (free, ephemeral) and keep it running
-# Use Python script to keep tunnel alive while training runs
+# Deploy with quick tunnel (free, ephemeral)
+# The deploy command will block and keep the tunnel alive until interrupted
+# We'll run it in background and wait for the URL to be written
 echo "🚀 Starting tunnel deployment..."
-uv run python "$REPO_ROOT/examples/tunnel_gepa_banking77/keep_tunnel_running.py" \
-    8102 \
-    "$ENV_FILE" \
-    "$TASK_APP_PATH" > /tmp/tunnel_deploy.log 2>&1 &
+uv run synth-ai deploy \
+    --task-app "$TASK_APP_PATH" \
+    --runtime tunnel \
+    --tunnel-mode quick \
+    --port 8102 \
+    --env "$ENV_FILE" \
+    --trace > /tmp/tunnel_deploy.log 2>&1 &
 DEPLOY_PID=$!
 
 # Wait for tunnel URL to be written to .env file
@@ -125,7 +129,7 @@ fi
 echo ""
 echo "✅ Tunnel deployed: $TASK_APP_URL"
 echo "   Credentials saved to: $ENV_FILE"
-echo "   Deploy process PID: $DEPLOY_PID (keep this running)"
+echo "   Tunnel process PID: $DEPLOY_PID (running in background)"
 
 # Verify backend is accessible
 echo ""
