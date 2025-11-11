@@ -23,8 +23,9 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT JSONL helpers") from exc
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from synth_ai.utils.ssl import SSLConfig
 
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 class TrainError(RuntimeError):
     """Raised for interactive CLI failures."""
@@ -117,14 +118,25 @@ def http_post(
     json_body: Any | None = None,
     timeout: float = 60.0,
 ) -> requests.Response:
-    resp = requests.post(url, headers=dict(headers or {}), json=json_body, timeout=timeout)
+    resp = requests.post(
+        url,
+        headers=dict(headers or {}),
+        json=json_body,
+        timeout=timeout,
+        verify=SSLConfig.get_verify_setting(),
+    )
     return resp
 
 
 def http_get(
     url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0
 ) -> requests.Response:
-    resp = requests.get(url, headers=dict(headers or {}), timeout=timeout)
+    resp = requests.get(
+        url,
+        headers=dict(headers or {}),
+        timeout=timeout,
+        verify=SSLConfig.get_verify_setting(),
+    )
     return resp
 
 
@@ -134,7 +146,14 @@ def post_multipart(
     headers = {"Authorization": f"Bearer {api_key}"}
     files = {file_field: (file_path.name, file_path.read_bytes(), "application/jsonl")}
     data = {"purpose": purpose}
-    return requests.post(url, headers=headers, files=files, data=data, timeout=300)
+    return requests.post(
+        url,
+        headers=headers,
+        files=files,
+        data=data,
+        timeout=300,
+        verify=SSLConfig.get_verify_setting(),
+    )
 
 
 def fmt_duration(seconds: float) -> str:
