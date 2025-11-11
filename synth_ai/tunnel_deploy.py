@@ -17,6 +17,7 @@ This module provides a clean abstraction that shields users from:
 import asyncio
 import os
 import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -33,7 +34,7 @@ from uvicorn._types import ASGIApplication
 
 import uvicorn
 
-_TUNNEL_PROCESSES: dict[int, object] = {}  # Store tunnel process handles for cleanup
+_TUNNEL_PROCESSES: dict[int, subprocess.Popen] = {}  # Store tunnel process handles for cleanup
 
 
 async def _wait_for_health_check(

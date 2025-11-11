@@ -31,6 +31,14 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
+    
+    @field_validator("inference_url", mode="before")
+    @classmethod
+    def _strip_inference_url(cls, v: str | None) -> str | None:
+        """Strip whitespace from inference_url if provided."""
+        if v is None:
+            return None
+        return v.strip() if isinstance(v, str) else v
 
 
 class MessagePatternConfig(ExtraModel):
