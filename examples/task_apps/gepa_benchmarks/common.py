@@ -107,18 +107,25 @@ async def call_chat_completion(
         "temperature": temperature,
         "max_completion_tokens": max_completion_tokens,
     }
+    # Add reasoning_effort if specified (for o1 models)
+    if "reasoning_effort" in policy_config:
+        payload["reasoning_effort"] = policy_config["reasoning_effort"]
     if tool_spec:
         payload["tools"] = list(tool_spec)
     if tool_choice:
         payload["tool_choice"] = tool_choice
 
-    # Prefer provider-specific keys, fall back to SYNTH/OPENAI.
-    proxy_keys = {
-        "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
-        "SYNTH_API_KEY": os.getenv("SYNTH_API_KEY"),
-    }
-    api_key = next((value for value in proxy_keys.values() if value), None)
+    # Choose API key based on inference URL
+    # Prefer provider-specific keys matching the URL, fall back to OPENAI/SYNTH
+    api_key = None
+    final_url_lower = final_url.lower()
+    if "groq" in final_url_lower:
+        api_key = os.getenv("GROQ_API_KEY")
+    elif "openai.com" in final_url_lower or "api.openai.com" in final_url_lower:
+        api_key = os.getenv("OPENAI_API_KEY")
+    else:
+        # Fallback: try OPENAI first, then SYNTH, then GROQ
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY") or os.getenv("GROQ_API_KEY")
 
     headers = {"Content-Type": "application/json"}
     if api_key:

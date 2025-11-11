@@ -3153,7 +3153,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.23.dev2"
+version = "0.2.23.dev3"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
