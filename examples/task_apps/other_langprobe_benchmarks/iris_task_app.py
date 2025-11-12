@@ -29,7 +29,17 @@ from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.task.vendors import normalize_vendor_keys
 
-from ..gepa_benchmarks.common import call_chat_completion, normalise_answer
+# Handle imports for both module and direct script execution
+try:
+    from ..gepa_benchmarks.common import call_chat_completion, normalise_answer
+except ImportError:
+    # When run as a script, add parent directory to path
+    import sys
+    _script_dir = Path(__file__).resolve().parent
+    _examples_dir = _script_dir.parent.parent
+    if str(_examples_dir) not in sys.path:
+        sys.path.insert(0, str(_examples_dir))
+    from task_apps.gepa_benchmarks.common import call_chat_completion, normalise_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

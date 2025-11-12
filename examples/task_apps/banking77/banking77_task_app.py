@@ -198,15 +198,46 @@ async def call_chat_completion(
     lowered = route_base.lower()
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
     # Normalize inference URL: allow bases like .../v1 and auto-append /chat/completions
+    # Properly handles query strings and interceptor URLs with trial IDs
+    # Matches the pattern used in gepa_benchmarks/common.py for consistency
     def _normalize_chat_url(url: str) -> str:
+        from urllib.parse import urlparse, urlunparse
+        
         u = (url or "").rstrip("/")
-        if u.endswith("/chat/completions"):
+        if not u:
+            return "/chat/completions"
+        
+        # Parse URL to separate path from query parameters
+        parsed = urlparse(u)
+        path = parsed.path.rstrip("/")
+        query = parsed.query
+        fragment = parsed.fragment
+        
+        # Already complete
+        if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
             return u
-        if u.endswith("/v1"):
-            return u + "/chat/completions"
-        if u.endswith("/completions"):
-            return u.rsplit("/", 1)[0] + "/chat/completions"
-        return u + "/chat/completions"
+        
+        # Check if this looks like an interceptor URL with trial_id
+        # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/cli-mipro-..., /v1/gepa-...)
+        # These URLs already have /v1/{trial_id} in them, so we should append /chat/completions
+        if "/v1/" in path and not path.endswith("/v1"):
+            # This is likely an interceptor URL with trial_id - append /chat/completions to path
+            new_path = f"{path}/chat/completions"
+            # Reconstruct URL with query parameters preserved
+            result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+            return result
+        
+        # Standard case: append /v1/chat/completions
+        if path.endswith("/v1"):
+            new_path = f"{path}/chat/completions"
+        elif path.endswith("/completions"):
+            new_path = path.rsplit("/", 1)[0] + "/chat/completions"
+        else:
+            new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+        
+        # Reconstruct URL with query parameters preserved
+        result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+        return result
     inference_url = _normalize_chat_url(str(route_base))
     temperature = policy_config.get("temperature", 0.7)
     max_tokens = policy_config.get("max_completion_tokens", 100)

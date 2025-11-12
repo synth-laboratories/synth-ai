@@ -112,6 +112,7 @@ temperature = 0.0
 max_completion_tokens = 128
 
 [prompt_learning.mipro]
+rollout_budget = {rollout_budget}
 bootstrap_train_seeds = {bootstrap_seeds}
 online_pool = {online_seeds}
 test_pool = {test_seeds}
@@ -123,9 +124,24 @@ meta_model = "{meta_model}"
 meta_model_provider = "groq"
 meta_model_inference_url = "https://api.groq.com"
 
+[prompt_learning.mipro.seeds]
+bootstrap = {bootstrap_seeds}
+online = {online_seeds}
+test = {test_seeds}
+
 [prompt_learning.mipro.meta]
 temperature = 0.7
 max_tokens = 512
+
+[[prompt_learning.mipro.modules]]
+module_id = "iris_classification"
+description = "Single-stage Iris classification module"
+
+[[prompt_learning.mipro.modules.stages]]
+stage_id = "classify"
+description = "Classify iris flower based on measurements"
+max_instruction_slots = 2
+max_demo_slots = 3
 
 [prompt_learning.trace_pipeline]
 base_url = "http://127.0.0.1:8081"
@@ -240,6 +256,7 @@ async def main():
             backend_url=args.backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,  # Explicitly pass task app API key for health check
+            overrides={"overrides": {"run_local": True}},  # Run locally in-process instead of Modal
         )
         
         # Validate config before submission

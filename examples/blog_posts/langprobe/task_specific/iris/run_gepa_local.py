@@ -231,6 +231,7 @@ async def main():
             backend_url=args.backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,  # Explicitly pass task app API key for health check
+            overrides={"overrides": {"run_local": True}},  # Run locally in-process instead of Modal
         )
         
         # Validate config before submission

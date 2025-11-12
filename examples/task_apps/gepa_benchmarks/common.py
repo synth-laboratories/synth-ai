@@ -32,23 +32,28 @@ def _resolve_inference_url(base_url: str) -> str:
     query = parsed.query
     fragment = parsed.fragment
     
+    # Debug: Always log the input URL
+    print(f"[RESOLVE_URL] Input: {base_url} -> path={path}", flush=True)
+    
     # Already complete
     if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
+        print(f"[RESOLVE_URL] Already complete: {normalised}", flush=True)
         return normalised
     
-    # Check if this looks like an interceptor URL
-    # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/gepa-..., /v1/pl-..., /v1/iris-gepa-...)
-    # These URLs already have /v1/ in them, so we should append /chat/completions, not /v1/chat/completions
+    # Check if this looks like an interceptor URL with trial_id
+    # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/gepa-..., /v1/pl-..., /v1/baseline-...)
+    # These URLs already have /v1/{trial_id} in them, so we should append /chat/completions
     # We detect this by checking if the URL contains /v1/ followed by something (not just ending with /v1)
     if "/v1/" in path and not path.endswith("/v1"):
-        # This is likely an interceptor URL - append /chat/completions to path
+        # Check if it already ends with /chat/completions
+        if path.endswith("/chat/completions"):
+            print(f"[RESOLVE_URL] Already has /chat/completions: {normalised}", flush=True)
+            return normalised
+        # This is likely an interceptor URL with trial_id - append /chat/completions to path
         new_path = f"{path}/chat/completions"
         # Reconstruct URL with query parameters preserved
         result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
-        # Debug logging
-        import os
-        if os.getenv("DEBUG_INFERENCE_URL"):
-            print(f"[DEBUG] Interceptor URL detected: {base_url} -> {result}", flush=True)
+        print(f"[RESOLVE_URL] Interceptor URL with trial_id: {base_url} -> {result}", flush=True)
         return result
     
     # Standard case: append /v1/chat/completions
@@ -59,10 +64,7 @@ def _resolve_inference_url(base_url: str) -> str:
     
     # Reconstruct URL with query parameters preserved
     result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
-    # Debug logging
-    import os
-    if os.getenv("DEBUG_INFERENCE_URL"):
-        print(f"[DEBUG] Standard URL: {base_url} -> {result}", flush=True)
+    print(f"[RESOLVE_URL] Standard URL: {base_url} -> {result}", flush=True)
     return result
 
 
