@@ -3,7 +3,7 @@ from .agents import write_agents_md
 from .apps import (
     extract_routes_from_app,
     get_asgi_app,
-    load_file_to_module,
+    load_py_file_to_module,
     validate_modal_app,
     validate_task_app,
 )
@@ -44,7 +44,6 @@ from .paths import (
     get_bin_path,
     get_env_file_paths,
     get_home_config_file_paths,
-    is_py_file,
 )
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
@@ -116,7 +115,6 @@ __all__ = [
     "install_sqld",
     "is_local_demo_url",
     "is_modal_public_url",
-    "is_py_file",
     "flush_logger",
     "log_batch",
     "log_error",
@@ -125,7 +123,7 @@ __all__ = [
     "log_warning",
     "load_demo_dir",
     "load_json_to_dict",
-    "load_file_to_module",
+    "load_py_file_to_module",
     "load_template_id",
     "load_user_config",
     "load_user_env",
