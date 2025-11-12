@@ -7,13 +7,13 @@ from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 from synth_ai.utils import (
     create_and_write_json,
+    get_backend_from_env,
     get_bin_path,
     install_bin,
     load_json_to_dict,
     resolve_env_var,
     verify_bin,
     write_agents_md,
-    get_backend_from_env,
 )
 
 CONFIG_PATH = Path.home() / ".config" / "opencode" / "opencode.json"

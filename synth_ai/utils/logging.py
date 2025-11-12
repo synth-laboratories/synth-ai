@@ -1,7 +1,7 @@
 import threading
 import time
-from contextlib import suppress
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
