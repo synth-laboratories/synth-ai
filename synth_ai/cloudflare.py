@@ -17,10 +17,8 @@ from typing import Any, Optional, Tuple
 import click
 import httpx
 import requests
-import uvicorn
-from uvicorn._types import ASGIApplication
-
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
+from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.apps import get_asgi_app, load_file_to_module
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
@@ -28,6 +26,9 @@ from synth_ai.utils.paths import (
     REPO_ROOT,
     configure_import_paths,
 )
+from uvicorn._types import ASGIApplication
+
+import uvicorn
 
 # Constants
 CLOUDFLARED_BIN_NAME = "cloudflared"
@@ -174,8 +175,11 @@ def _extract_tarball(archive_path: Path, target_dir: Path) -> None:
 
 
 def _extract_gzip(gz_path: Path, target: Path) -> None:
-    with open(target, "wb") as out_fh, open(gz_path, "rb") as in_fh:
-        shutil.copyfileobj(in_fh, out_fh)
+    import gzip
+
+    # gzip.open ensures the bytes are decompressed while copying to target
+    with gzip.open(gz_path, "rb") as gz_fh, open(target, "wb") as out_fh:
+        shutil.copyfileobj(gz_fh, out_fh)
     gz_path.unlink(missing_ok=True)
 
 
@@ -364,8 +368,7 @@ async def create_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    backend_url = os.getenv("SYNTH_BACKEND_BASE_URL", "http://localhost:8000")
-    url = f"{backend_url}/api/v1/tunnels/"
+    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -386,7 +389,7 @@ async def create_tunnel(
         ) from exc
     except httpx.RequestError as exc:
         raise RuntimeError(
-            f"Failed to connect to backend at {backend_url}: {exc}"
+            f"Failed to connect to backend at {url}: {exc}"
         ) from exc
 
 
