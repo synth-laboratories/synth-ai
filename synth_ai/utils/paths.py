@@ -6,13 +6,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def is_py_file(path: Path) -> bool:
-    path = path.resolve()
-    if not path.is_file():
-        return False
-    return path.suffix == ".py"
-
-
 def get_bin_path(name: str) -> Path | None:
     path = shutil.which(name)
     return Path(path) if path else None
