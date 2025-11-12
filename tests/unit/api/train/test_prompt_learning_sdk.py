@@ -85,7 +85,9 @@ class TestPromptLearningJob:
             {
                 "SYNTH_API_KEY": "test-key",
                 "BACKEND_BASE_URL": "https://custom.backend.com",
+                "ENVIRONMENT_API_KEY": "env-key",
             },
+            clear=True,
         ), patch("synth_ai.config.base_url.get_backend_from_env") as mock_get:
             mock_get.return_value = ("https://api.usesynth.ai", "key")
             job = PromptLearningJob.from_config(config_path=Path(__file__))
@@ -95,7 +97,14 @@ class TestPromptLearningJob:
     
     def test_from_job_id(self) -> None:
         """Test creating job from existing job ID."""
-        with patch.dict(os.environ, {"SYNTH_API_KEY": "test-key"}), patch(
+        with patch.dict(
+            os.environ,
+            {
+                "SYNTH_API_KEY": "test-key",
+                "ENVIRONMENT_API_KEY": "env-key",
+            },
+            clear=True,
+        ), patch(
             "synth_ai.config.base_url.get_backend_from_env"
         ) as mock_get:
             mock_get.return_value = ("https://api.usesynth.ai", "key")
@@ -207,4 +216,3 @@ class TestPromptLearningJobPoller:
         # ensure_api_base normalizes the URL in __init__
         assert poller.base_url.endswith("/api")
         assert poller.api_key == "test-key"
-

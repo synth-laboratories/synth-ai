@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
-from synth_ai.tunnel_deploy import _wait_for_health_check, deploy_app_tunnel
+from synth_ai.cloudflare import _wait_for_health_check, deploy_app_tunnel
 
 
 @pytest.fixture
@@ -230,9 +230,8 @@ class TestEndToEndQuickTunnel:
             
         finally:
             # Cleanup
-            from synth_ai.tunnel_deploy import _TUNNEL_PROCESSES
-            from synth_ai.tunnel import stop_tunnel
-            
+            from synth_ai.cloudflare import _TUNNEL_PROCESSES, stop_tunnel
+
             if 8002 in _TUNNEL_PROCESSES:
                 stop_tunnel(_TUNNEL_PROCESSES[8002])
                 _TUNNEL_PROCESSES.pop(8002, None)

@@ -6,8 +6,8 @@ from typing import Literal, TypeAlias, cast, get_args
 
 import click
 from synth_ai.cfgs import CloudflareTunnelDeployCfg, LocalDeployCfg, ModalDeployCfg
+from synth_ai.cloudflare import deploy_app_tunnel
 from synth_ai.modal import deploy_app_modal
-from synth_ai.tunnel_deploy import deploy_app_tunnel
 from synth_ai.utils import (
     PromptedChoiceOption,
     PromptedChoiceType,
