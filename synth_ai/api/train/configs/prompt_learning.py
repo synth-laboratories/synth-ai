@@ -1,10 +1,10 @@
 """Prompt Learning configuration models for MIPRO and GEPA."""
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 
@@ -64,12 +64,47 @@ class PromptPatternConfig(ExtraModel):
     wildcards: dict[str, str] = Field(default_factory=dict)
 
 
+class MIPROMetaConfig(ExtraModel):
+    """Configuration for the meta-model that proposes prompt updates."""
+    model: str
+    provider: str
+    inference_url: str | None = None
+    temperature: float = 0.8
+    max_tokens: int = 1024
+
+
+class MIPROStageConfig(ExtraModel):
+    """Configuration for a single MIPRO stage inside a module."""
+    stage_id: str
+    baseline_instruction: str
+    baseline_messages: list[dict[str, str]] = Field(default_factory=list)
+    max_instruction_slots: int | None = None
+    max_demo_slots: int | None = None
+
+
+class MIPROModuleConfig(ExtraModel):
+    """Configuration for a single module in a MIPRO pipeline."""
+    module_id: str
+    stages: list[MIPROStageConfig] = Field(default_factory=list)
+
+
+class MIPROSeedConfig(ExtraModel):
+    """Seed pools used across bootstrap, optimization, and evaluation."""
+    bootstrap: list[int] = Field(default_factory=list)
+    online: list[int] = Field(default_factory=list)
+    test: list[int] = Field(default_factory=list)
+    reference: list[int] = Field(default_factory=list)
+
+
 class MIPROConfig(ExtraModel):
     """MIPRO-specific configuration.
     
     MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
     to efficiently optimize prompts with fewer evaluations than genetic algorithms.
     """
+    task_app_url: str | None = None
+    task_app_api_key: str | None = None
+    task_app_id: str | None = None
     num_iterations: int = 20
     num_evaluations_per_iteration: int = 5
     batch_size: int = 32
@@ -83,7 +118,11 @@ class MIPROConfig(ExtraModel):
     results_file: str | None = None
     max_wall_clock_seconds: float | None = None
     max_total_tokens: int | None = None
-    
+    policy_config: dict[str, Any] | None = None
+    meta: MIPROMetaConfig | dict[str, Any] | None = None
+    modules: list[MIPROModuleConfig] | list[dict[str, Any]] | None = None
+    seeds: MIPROSeedConfig | dict[str, Any] | None = None
+
     # Token and budget configuration (mirrors GEPA pattern)
     max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
     max_spend_usd: float | None = None  # Maximum spend in USD
@@ -119,6 +158,223 @@ class MIPROConfig(ExtraModel):
     
     # Reference pool (for dataset context in meta-prompt, must not overlap with train/test)
     reference_pool: list[int] | None = None
+
+    @classmethod
+    def simple(
+        cls,
+        *,
+        task_app_url: str,
+        task_app_api_key: str,
+        env_name: str,
+        rollout_budget: int,
+        initial_prompt_messages: Sequence[Mapping[str, Any]] | Sequence[Any],
+        task_app_id: str | None = None,
+        bootstrap_seeds: list[int] | None = None,
+        online_seeds: list[int] | None = None,
+        test_seeds: list[int] | None = None,
+        reference_pool: list[int] | None = None,
+        env_config: dict[str, Any] | None = None,
+        num_iterations: int | None = None,
+        num_evaluations_per_iteration: int | None = None,
+        batch_size: int | None = None,
+        max_concurrent: int | None = None,
+        meta_preset: Literal["fast", "balanced", "high_quality"] = "balanced",
+        policy_model: str = "openai/gpt-oss-20b",
+        policy_provider: str = "groq",
+        policy_temperature: float = 1.0,
+        policy_max_completion_tokens: int = 512,
+        policy_name: str | None = None,
+        meta_model: str | None = None,
+        meta_provider: str | None = None,
+        meta_inference_url: str | None = None,
+    ) -> MIPROConfig:
+        """Convenience constructor for single-stage MIPRO tasks.
+        
+        Automatically infers reasonable defaults for seeds, iterations, and module layout
+        based on the rollout budget. This keeps simple benchmarks (e.g., Iris) readable
+        while leaving the full constructor available for complex multi-stage pipelines.
+        """
+        if rollout_budget <= 0:
+            raise ValueError("rollout_budget must be positive for MIPROConfig.simple()")
+        normalized_messages = _normalize_messages(initial_prompt_messages)
+        if not normalized_messages:
+            raise ValueError("initial_prompt_messages must contain at least one message")
+        
+        bootstrap = bootstrap_seeds or _auto_calculate_bootstrap_seeds(rollout_budget)
+        online = online_seeds or _auto_calculate_online_seeds(rollout_budget)
+        tests = test_seeds or []
+        reference = reference_pool or _auto_calculate_reference_pool(rollout_budget)
+        
+        iterations = num_iterations or _auto_calculate_iterations(rollout_budget)
+        evals_per_iteration = (
+            num_evaluations_per_iteration
+            or _auto_calculate_evaluations_per_iteration(rollout_budget)
+        )
+        derived_batch_size = batch_size or max(1, min(len(online), 32))
+        derived_max_concurrent = max_concurrent or 10
+        
+        baseline_instruction = _extract_baseline_instruction(normalized_messages)
+        meta_config = _create_meta_config_from_preset(meta_preset)
+        if meta_model:
+            meta_config.model = meta_model
+        if meta_provider:
+            meta_config.provider = meta_provider
+        if meta_inference_url is not None:
+            meta_config.inference_url = meta_inference_url
+        
+        stage = MIPROStageConfig(
+            stage_id="default_stage_0",
+            baseline_instruction=baseline_instruction,
+            baseline_messages=normalized_messages,
+        )
+        module = MIPROModuleConfig(
+            module_id="default",
+            stages=[stage],
+        )
+        seeds = MIPROSeedConfig(
+            bootstrap=bootstrap,
+            online=online,
+            test=tests,
+            reference=reference,
+        )
+        policy_config = {
+            "model": policy_model,
+            "provider": policy_provider,
+            "temperature": policy_temperature,
+            "max_completion_tokens": policy_max_completion_tokens,
+        }
+        if policy_name:
+            policy_config["policy_name"] = policy_name
+        
+        return cls(
+            task_app_url=task_app_url,
+            task_app_api_key=task_app_api_key,
+            task_app_id=task_app_id or env_name,
+            env_name=env_name,
+            env_config=env_config,
+            seeds=seeds,
+            num_iterations=iterations,
+            num_evaluations_per_iteration=evals_per_iteration,
+            batch_size=derived_batch_size,
+            max_concurrent=derived_max_concurrent,
+            policy_config=policy_config,
+            meta=meta_config,
+            modules=[module],
+        )
+
+
+def _auto_calculate_bootstrap_seeds(rollout_budget: int) -> list[int]:
+    """Auto-calculate bootstrap seeds from rollout budget."""
+    count = max(3, min(10, max(rollout_budget // 10, 1)))
+    return list(range(count))
+
+
+def _auto_calculate_online_seeds(rollout_budget: int) -> list[int]:
+    """Auto-calculate online pool seeds from rollout budget."""
+    count = max(5, min(50, max(rollout_budget // 3, 1)))
+    return list(range(10, 10 + count))
+
+
+def _auto_calculate_reference_pool(rollout_budget: int) -> list[int]:
+    """Auto-calculate reference pool seeds from rollout budget."""
+    count = max(5, min(30, max(rollout_budget // 5, 1)))
+    return list(range(20, 20 + count))
+
+
+def _auto_calculate_iterations(rollout_budget: int) -> int:
+    """Auto-calculate number of optimization iterations."""
+    online_pool_size = max(5, min(50, max(rollout_budget // 3, 1)))
+    evals_per_iteration = max(3, min(10, max(rollout_budget // max(online_pool_size * 2, 1), 1)))
+    iterations = max(5, min(20, max(rollout_budget // max(online_pool_size * evals_per_iteration, 1), 1)))
+    return iterations
+
+
+def _auto_calculate_evaluations_per_iteration(rollout_budget: int) -> int:
+    """Auto-calculate number of evaluations per iteration."""
+    online_pool_size = max(5, min(50, max(rollout_budget // 3, 1)))
+    iterations = max(5, min(20, max(rollout_budget // max(online_pool_size * 5, 1), 1)))
+    evals_per_iteration = max(3, min(10, max(rollout_budget // max(online_pool_size * iterations, 1), 1)))
+    return evals_per_iteration
+
+
+def _coerce_message_mapping(message: Mapping[str, Any] | Any) -> dict[str, Any]:
+    """Convert message objects or dicts into a mutable dict."""
+    if isinstance(message, Mapping):
+        return dict(message)
+    if hasattr(message, "model_dump"):
+        try:
+            data = message.model_dump()
+            if isinstance(data, dict):
+                return data
+        except Exception:  # pragma: no cover - defensive
+            pass
+    if hasattr(message, "__dict__"):
+        try:
+            return {
+                key: value
+                for key, value in vars(message).items()
+                if not key.startswith("_")
+            }
+        except Exception:  # pragma: no cover - defensive
+            return {}
+    return {}
+
+
+def _extract_baseline_instruction(messages: Sequence[Mapping[str, str]] | Sequence[Any]) -> str:
+    """Extract the baseline instruction string from message templates."""
+    for raw in messages:
+        msg = _coerce_message_mapping(raw)
+        if msg.get("role", "user") == "system":
+            text = (msg.get("content") or msg.get("pattern") or "").strip()
+            if text:
+                return text
+    for raw in messages:
+        msg = _coerce_message_mapping(raw)
+        if msg.get("role", "user") == "user":
+            text = (msg.get("content") or msg.get("pattern") or "").strip()
+            if text:
+                return text
+    return "Complete the task."
+
+
+def _normalize_messages(messages: Sequence[Mapping[str, str]] | Sequence[Any]) -> list[dict[str, str]]:
+    """Normalize message dictionaries so downstream tools can rely on `content`."""
+    normalized: list[dict[str, str]] = []
+    for raw in messages:
+        msg = _coerce_message_mapping(raw)
+        role = msg.get("role", "user") or "user"
+        content = msg.get("content") or msg.get("pattern") or ""
+        normalized.append({"role": str(role), "content": str(content)})
+    return normalized
+
+
+def _create_meta_config_from_preset(preset: str) -> MIPROMetaConfig:
+    """Create a meta config preset (fast/balanced/high_quality)."""
+    preset_key = preset.lower().strip()
+    presets: dict[str, MIPROMetaConfig] = {
+        "fast": MIPROMetaConfig(
+            model="gpt-4o-mini",
+            provider="openai",
+            temperature=0.7,
+            max_tokens=512,
+            inference_url=None,
+        ),
+        "balanced": MIPROMetaConfig(
+            model="gpt-4o-mini",
+            provider="openai",
+            temperature=0.8,
+            max_tokens=1024,
+            inference_url=None,
+        ),
+        "high_quality": MIPROMetaConfig(
+            model="gpt-4o",
+            provider="openai",
+            temperature=0.9,
+            max_tokens=2048,
+            inference_url=None,
+        ),
+    }
+    return presets.get(preset_key, presets["balanced"])
 
 
 # GEPA nested configs (mirroring RL structure)
@@ -489,6 +745,10 @@ __all__ = [
     "GEPAArchiveConfig",
     "GEPATokenConfig",
     "MIPROConfig",
+    "MIPROMetaConfig",
+    "MIPROModuleConfig",
+    "MIPROStageConfig",
+    "MIPROSeedConfig",
     "MessagePatternConfig",
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",

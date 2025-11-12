@@ -12,18 +12,60 @@ from fastapi import HTTPException
 
 
 def _resolve_inference_url(base_url: str) -> str:
-    """Normalise a base inference URL to the chat completions endpoint."""
+    """Normalise a base inference URL to the chat completions endpoint.
+    
+    Handles:
+    - Standard OpenAI/Groq URLs: https://api.openai.com/v1 -> .../v1/chat/completions
+    - Interceptor URLs (GEPA): https://...modal.host/v1/gepa-... -> .../v1/gepa-.../chat/completions
+    - URLs with query parameters: .../v1/trial-id?cid=trace_... -> .../v1/trial-id/chat/completions?cid=trace_...
+    - Already complete URLs: .../chat/completions -> unchanged
+    """
+    from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
     normalised = (base_url or "").rstrip("/")
     if not normalised:
         raise RuntimeError("policy.config.inference_url required")
-    if normalised.endswith("/v1/chat/completions"):
+    
+    # Parse URL to separate path from query parameters
+    parsed = urlparse(normalised)
+    path = parsed.path.rstrip("/")
+    query = parsed.query
+    fragment = parsed.fragment
+    
+    # Debug: Always log the input URL
+    print(f"[RESOLVE_URL] Input: {base_url} -> path={path}", flush=True)
+    
+    # Already complete
+    if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
+        print(f"[RESOLVE_URL] Already complete: {normalised}", flush=True)
         return normalised
-    if normalised.endswith("/chat/completions"):
-        return normalised
-    if normalised.endswith("/v1"):
-        return f"{normalised}/chat/completions"
-    return f"{normalised}/v1/chat/completions"
+    
+    # Check if this looks like an interceptor URL with trial_id
+    # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/gepa-..., /v1/pl-..., /v1/baseline-...)
+    # These URLs already have /v1/{trial_id} in them, so we should append /chat/completions
+    # We detect this by checking if the URL contains /v1/ followed by something (not just ending with /v1)
+    if "/v1/" in path and not path.endswith("/v1"):
+        # Check if it already ends with /chat/completions
+        if path.endswith("/chat/completions"):
+            print(f"[RESOLVE_URL] Already has /chat/completions: {normalised}", flush=True)
+            return normalised
+        # This is likely an interceptor URL with trial_id - append /chat/completions to path
+        new_path = f"{path}/chat/completions"
+        # Reconstruct URL with query parameters preserved
+        result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+        print(f"[RESOLVE_URL] Interceptor URL with trial_id: {base_url} -> {result}", flush=True)
+        return result
+    
+    # Standard case: append /v1/chat/completions
+    if path.endswith("/v1"):
+        new_path = f"{path}/chat/completions"
+    else:
+        new_path = f"{path}/v1/chat/completions"
+    
+    # Reconstruct URL with query parameters preserved
+    result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+    print(f"[RESOLVE_URL] Standard URL: {base_url} -> {result}", flush=True)
+    return result
 
 
 _PLACEHOLDER_PATTERN = re.compile(r"\{([^{}]+)\}")
@@ -107,18 +149,25 @@ async def call_chat_completion(
         "temperature": temperature,
         "max_completion_tokens": max_completion_tokens,
     }
+    # Add reasoning_effort if specified (for o1 models)
+    if "reasoning_effort" in policy_config:
+        payload["reasoning_effort"] = policy_config["reasoning_effort"]
     if tool_spec:
         payload["tools"] = list(tool_spec)
     if tool_choice:
         payload["tool_choice"] = tool_choice
 
-    # Prefer provider-specific keys, fall back to SYNTH/OPENAI.
-    proxy_keys = {
-        "GROQ_API_KEY": os.getenv("GROQ_API_KEY"),
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY"),
-        "SYNTH_API_KEY": os.getenv("SYNTH_API_KEY"),
-    }
-    api_key = next((value for value in proxy_keys.values() if value), None)
+    # Choose API key based on inference URL
+    # Prefer provider-specific keys matching the URL, fall back to OPENAI/SYNTH
+    api_key = None
+    final_url_lower = final_url.lower()
+    if "groq" in final_url_lower:
+        api_key = os.getenv("GROQ_API_KEY")
+    elif "openai.com" in final_url_lower or "api.openai.com" in final_url_lower:
+        api_key = os.getenv("OPENAI_API_KEY")
+    else:
+        # Fallback: try OPENAI first, then SYNTH, then GROQ
+        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY") or os.getenv("GROQ_API_KEY")
 
     headers = {"Content-Type": "application/json"}
     if api_key:

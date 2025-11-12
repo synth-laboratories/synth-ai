@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import importlib
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
-from typing import Any, cast
 
 # Install log filter as early as possible to suppress noisy codex_otel logs
 try:

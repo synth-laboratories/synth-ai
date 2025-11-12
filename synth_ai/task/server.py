@@ -229,7 +229,7 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
 
     if cfg.cors_origins is not None:
         app.add_middleware(
-            CORSMiddleware,
+            CORSMiddleware,  # type: ignore[arg-type]
             allow_origins=list(cfg.cors_origins) or ["*"],
             allow_credentials=True,
             allow_methods=["*"],
