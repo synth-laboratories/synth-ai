@@ -108,7 +108,6 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 30.0,
 
     task_resp: requests.Response | None = None
     task_ok = False
-    task_error: requests.RequestException | None = None
 
     # Retry task_info check with exponential backoff for DNS errors
     for attempt in range(max_retries):
