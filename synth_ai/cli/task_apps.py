@@ -2108,7 +2108,7 @@ def _modal_serve_entry(
     )
 
 
-@click.group(name="task-app", help="Utilities for serving and deploying Synth task apps.")
+@click.group(name="task-app-group", help="Utilities for serving and deploying Synth task apps.")
 def task_app_group() -> None:
     pass
 
