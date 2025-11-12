@@ -20,7 +20,7 @@ import requests
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
 from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps import get_asgi_app, load_py_file_to_module
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
 from synth_ai.utils.paths import (
     REPO_ROOT,
@@ -523,7 +523,7 @@ async def deploy_app_tunnel(
         os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
     configure_import_paths(cfg.task_app_path, REPO_ROOT)
-    module = load_file_to_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
+    module = load_py_file_to_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
     app = get_asgi_app(module)
 
     # Always use non-daemon thread so it survives when main process exits
