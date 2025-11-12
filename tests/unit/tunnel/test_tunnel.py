@@ -1,9 +1,15 @@
 """Unit tests for Cloudflare Tunnel functionality."""
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
-from synth_ai.cloudflare import open_quick_tunnel, stop_tunnel, store_tunnel_credentials
+from synth_ai.cloudflare import (
+    create_tunnel,
+    open_quick_tunnel,
+    stop_tunnel,
+    store_tunnel_credentials,
+)
 
 
 class TestWhichCloudflared:
@@ -204,7 +210,7 @@ class TestCloudflareTunnelDeployCfg:
         assert cfg.env_api_key == "test-key"
         assert cfg.host == "127.0.0.1"
         assert cfg.port == 8000
-        assert cfg.mode == "managed"
+        assert cfg.mode == "quick"
         assert cfg.trace is True
         mock_validate.assert_called_once_with(task_app)
     
@@ -268,3 +274,51 @@ class TestURLRegex:
         for url in invalid_urls:
             assert _URL_RE.search(url) is None, f"Should not match {url}"
 
+
+class TestCreateTunnel:
+    """Tests for create_tunnel helper."""
+
+    @pytest.mark.asyncio
+    async def test_posts_to_backend_url_base(self, monkeypatch):
+        """Should call backend using the shared BACKEND_URL_BASE constant."""
+        captured: dict[str, Any] = {}
+
+        class DummyResponse:
+            status_code = 200
+            text = "ok"
+
+            def raise_for_status(self) -> None:
+                return None
+
+            def json(self) -> dict[str, str]:
+                return {"tunnel_token": "token", "hostname": "cust.test"}
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                captured["client_kwargs"] = kwargs
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def post(self, url: str, headers: dict[str, str], json: dict[str, Any]):
+                captured["request"] = {"url": url, "headers": headers, "json": json}
+                return DummyResponse()
+
+        monkeypatch.setattr("synth_ai.cloudflare.httpx.AsyncClient", DummyClient)
+
+        result = await create_tunnel("api-key", port=8123, subdomain="custom")
+        assert result["hostname"] == "cust.test"
+
+        from synth_ai.cloudflare import BACKEND_URL_BASE
+
+        request = captured["request"]
+        assert request["url"] == f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+        assert request["headers"] == {"Authorization": "Bearer api-key"}
+        assert request["json"] == {
+            "subdomain": "custom",
+            "local_port": 8123,
+            "local_host": "127.0.0.1",
+        }
