@@ -97,7 +97,6 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 30.0,
             detail_parts.append(f"/health={health_resp.status_code}{suffix}")
             break  # Success, exit retry loop
         except requests.RequestException as exc:
-            health_error = exc
             if _is_dns_error(exc) and attempt < max_retries - 1:
                 # DNS error, retry with exponential backoff
                 delay = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s
