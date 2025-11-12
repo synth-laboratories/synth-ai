@@ -13,7 +13,7 @@ from synth_ai.utils.apps import run_ruff_check, validate_task_app
 )
 @click.argument(
     "task_app_path",
-    type=click.Path(path_type=Path, exists=False),
+    type=click.Path(path_type=Path, exists=True),
     metavar="[PATH]"
 )
 @click.option(
