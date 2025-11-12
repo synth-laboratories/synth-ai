@@ -6,7 +6,7 @@ from uvicorn._types import ASGIApplication
 
 from synth_ai.cfgs import LocalDeployCfg
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps import get_asgi_app, load_py_file_to_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 
 _THREADS: dict[int, threading.Thread] = {}
@@ -49,7 +49,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
             os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
         configure_import_paths(cfg.task_app_path, REPO_ROOT)
-        module = load_file_to_module(
+        module = load_py_file_to_module(
             cfg.task_app_path,
             f"_synth_local_task_app_{cfg.task_app_path.stem}"
         )

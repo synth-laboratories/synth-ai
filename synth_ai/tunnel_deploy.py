@@ -26,7 +26,7 @@ from typing import Optional
 import httpx
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
 from synth_ai.tunnel import open_managed_tunnel, open_quick_tunnel, stop_tunnel
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps import get_asgi_app, load_py_file_to_module
 from synth_ai.utils.env import resolve_env_var
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 from synth_ai.utils.tunnel import store_tunnel_credentials
@@ -166,7 +166,7 @@ async def deploy_app_tunnel(
     
     # Load and configure task app
     configure_import_paths(cfg.task_app_path, REPO_ROOT)
-    module = load_file_to_module(
+    module = load_py_file_to_module(
         cfg.task_app_path,
         f"_synth_tunnel_task_app_{cfg.task_app_path.stem}",
     )
