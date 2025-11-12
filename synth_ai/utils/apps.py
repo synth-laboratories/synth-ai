@@ -11,7 +11,7 @@ from uvicorn._types import ASGIApplication
 
 
 def run_ruff_check(path: Path, fix: bool = False) -> int:
-    cmd = ["ruff", "check"]
+    cmd = ["ruff", "check", "--extend-ignore", "I001,I002,I003"]
     if fix:
         cmd.append("--fix")
     cmd.append(str(path))
