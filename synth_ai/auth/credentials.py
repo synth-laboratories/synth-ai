@@ -1,4 +1,5 @@
 import contextlib
+import os
 import time
 import webbrowser
 from dataclasses import dataclass
@@ -6,7 +7,7 @@ from dataclasses import dataclass
 import requests
 from requests import RequestException
 
-ORIGIN = "https://www.usesynth.ai"
+ORIGIN = os.getenv("FRONTEND_OVERRIDE") or "https://www.usesynth.ai"
 INIT_URL = ORIGIN + "/api/sdk/handshake/init"
 TOKEN_URL = ORIGIN + "/api/sdk/handshake/token"
 POLL_INTERVAL = 3
