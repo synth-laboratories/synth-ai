@@ -87,7 +87,7 @@ def load_py_file_to_module(
 
 def validate_py_file_compiles(path: Path) -> None:
     path = path.resolve()
-    if not path.is_file() or not path.suffix == ".py":
+    if not path.is_file() or path.suffix != ".py":
         raise ValueError(f"{path} is not a .py file")
     try:
         py_compile.compile(str(path), doraise=True)
