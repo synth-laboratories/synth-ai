@@ -18,8 +18,10 @@ from synth_ai.cli.demo import demo_cmd
 from synth_ai.cli.deploy import deploy_cmd
 from synth_ai.cli.eval import command as eval_cmd
 from synth_ai.cli.mcp import mcp_cmd
+from synth_ai.cli.modal_app import modal_app_cmd
 from synth_ai.cli.opencode import opencode_cmd
 from synth_ai.cli.setup import setup_cmd
+from synth_ai.cli.task_app import task_app_cmd
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -73,8 +75,10 @@ cli.add_command(demo_cmd, name="demo")
 cli.add_command(deploy_cmd, name="deploy")
 cli.add_command(eval_cmd, name="eval")
 cli.add_command(mcp_cmd, name="mcp")
+cli.add_command(modal_app_cmd, name="modal-app")
 cli.add_command(opencode_cmd, name="opencode")
 cli.add_command(setup_cmd, name="setup")
+cli.add_command(task_app_cmd, name="task-app")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
@@ -107,7 +111,7 @@ _task_apps_module = _maybe_import("synth_ai.cli.task_apps")
 #if _task_apps_module:
 task_app_group = getattr(_task_apps_module, "task_app_group", None)
 if task_app_group is not None:
-    cli.add_command(task_app_group, name="task-app")
+    cli.add_command(task_app_group, name="task-app-group")
     # Expose common aliases when present
     commands = getattr(task_app_group, "commands", None)
     if isinstance(commands, dict):
