@@ -1,5 +1,7 @@
 import ast
 import importlib.util as importlib
+import py_compile
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -7,7 +9,16 @@ from typing import Any, Set, cast
 
 from uvicorn._types import ASGIApplication
 
-from synth_ai.utils.paths import is_py_file
+
+def run_ruff_check(path: Path, fix: bool = False) -> int:
+    cmd = ["ruff", "check"]
+    if fix:
+        cmd.append("--fix")
+    cmd.append(str(path))
+    try:
+        return subprocess.run(cmd, check=False).returncode
+    except FileNotFoundError:
+        return 0
 
 
 def extract_routes_from_app(app: object) -> list[str]:
@@ -54,12 +65,10 @@ def get_asgi_app(module: ModuleType) -> ASGIApplication:
     return app
 
 
-def load_file_to_module(
+def load_py_file_to_module(
     path: Path,
     module_name: str | None = None
 ) -> ModuleType:
-    if not is_py_file(path):
-        raise ValueError(f"{path} is not a .py file")
     name = module_name or path.stem
     spec = importlib.spec_from_file_location(name, str(path))
     if spec is None or spec.loader is None:
@@ -76,10 +85,22 @@ def load_file_to_module(
     return module
 
 
-def validate_task_app(path: Path | None) -> Path:
-    assert path is not None
+def validate_py_file_compiles(path: Path) -> None:
     path = path.resolve()
-    module = load_file_to_module(path)
+    if not path.is_file() or not path.suffix == ".py":
+        raise ValueError(f"{path} is not a .py file")
+    try:
+        py_compile.compile(str(path), doraise=True)
+    except py_compile.PyCompileError as exc:
+        raise ValueError(f"Failed to compile {path}: {exc.msg}") from exc
+    return None
+
+
+def validate_task_app(path: Path | None) -> Path:
+    if path is None:
+        raise ValueError("Path to Python file is required")
+    validate_py_file_compiles(path)
+    module = load_py_file_to_module(path)
     app = get_asgi_app(module)
     if app is None:
         raise ValueError(f"Failed to extract app attribute from module for {path}")
@@ -98,9 +119,9 @@ def validate_task_app(path: Path | None) -> Path:
 
 
 def validate_modal_app(path: Path | None) -> Path:
-    assert path is not None
-    if not is_py_file(path):
-        raise ValueError(f"{path} must be a .py file containing a Modal app definition.")
+    if path is None:
+        raise ValueError("Modal app path is required")
+    validate_py_file_compiles(path)
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
