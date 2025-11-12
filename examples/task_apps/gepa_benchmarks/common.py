@@ -17,26 +17,34 @@ def _resolve_inference_url(base_url: str) -> str:
     Handles:
     - Standard OpenAI/Groq URLs: https://api.openai.com/v1 -> .../v1/chat/completions
     - Interceptor URLs (GEPA): https://...modal.host/v1/gepa-... -> .../v1/gepa-.../chat/completions
+    - URLs with query parameters: .../v1/trial-id?cid=trace_... -> .../v1/trial-id/chat/completions?cid=trace_...
     - Already complete URLs: .../chat/completions -> unchanged
     """
+    from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
     normalised = (base_url or "").rstrip("/")
     if not normalised:
         raise RuntimeError("policy.config.inference_url required")
     
+    # Parse URL to separate path from query parameters
+    parsed = urlparse(normalised)
+    path = parsed.path.rstrip("/")
+    query = parsed.query
+    fragment = parsed.fragment
+    
     # Already complete
-    if normalised.endswith("/v1/chat/completions"):
-        return normalised
-    if normalised.endswith("/chat/completions"):
+    if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
         return normalised
     
     # Check if this looks like an interceptor URL
     # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/gepa-..., /v1/pl-..., /v1/iris-gepa-...)
     # These URLs already have /v1/ in them, so we should append /chat/completions, not /v1/chat/completions
     # We detect this by checking if the URL contains /v1/ followed by something (not just ending with /v1)
-    if "/v1/" in normalised and not normalised.endswith("/v1"):
-        # This is likely an interceptor URL - append /chat/completions
-        result = f"{normalised}/chat/completions"
+    if "/v1/" in path and not path.endswith("/v1"):
+        # This is likely an interceptor URL - append /chat/completions to path
+        new_path = f"{path}/chat/completions"
+        # Reconstruct URL with query parameters preserved
+        result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
         # Debug logging
         import os
         if os.getenv("DEBUG_INFERENCE_URL"):
@@ -44,9 +52,13 @@ def _resolve_inference_url(base_url: str) -> str:
         return result
     
     # Standard case: append /v1/chat/completions
-    if normalised.endswith("/v1"):
-        return f"{normalised}/chat/completions"
-    result = f"{normalised}/v1/chat/completions"
+    if path.endswith("/v1"):
+        new_path = f"{path}/chat/completions"
+    else:
+        new_path = f"{path}/v1/chat/completions"
+    
+    # Reconstruct URL with query parameters preserved
+    result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
     # Debug logging
     import os
     if os.getenv("DEBUG_INFERENCE_URL"):

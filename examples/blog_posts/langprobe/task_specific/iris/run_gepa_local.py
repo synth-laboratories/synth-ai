@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Run MIPRO locally on Iris via backend endpoint (localhost:8000).
+"""Run GEPA locally on Iris via backend endpoint (localhost:8000).
 
 This script uses the backend API endpoint with proper authentication, ensuring
 balance checking works correctly. It emulates the real flow but bypasses Modal.
 
 Usage:
-    python run_mipro_local.py --task-app-url http://127.0.0.1:8115 --rollout-budget 20
+    python run_gepa_local.py --task-app-url http://127.0.0.1:8115 --rollout-budget 20
 """
 
 import asyncio
@@ -18,13 +18,17 @@ from typing import Optional
 
 # Load environment variables
 from dotenv import load_dotenv
+# Load from monorepo backend .env.dev file
+monorepo_env = Path(__file__).parent.parent.parent.parent.parent.parent.parent / "monorepo" / "backend" / ".env.dev"
+if monorepo_env.exists():
+    load_dotenv(dotenv_path=monorepo_env)
+else:
+    load_dotenv()  # Fallback to default .env lookup
 
 # Add synth-ai source to path to use local changes (not installed package)
 synth_ai_root = Path(__file__).parent.parent.parent.parent.parent.parent
 if str(synth_ai_root) not in sys.path:
     sys.path.insert(0, str(synth_ai_root))
-
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -41,36 +45,29 @@ logging.getLogger('httpcore').setLevel(logging.WARNING)
 try:
     from synth_ai.api.train.prompt_learning import PromptLearningJob
     from synth_ai.learning.prompt_learning_client import PromptLearningClient
-    from synth_ai.api.train.task_app import check_task_app_health
 except ImportError:
     print("ERROR: synth-ai SDK not found. Install with: pip install synth-ai")
     sys.exit(1)
 
-def create_iris_mipro_toml(
+
+def create_iris_gepa_toml(
     task_app_url: str,
     rollout_budget: int = 20,
-    bootstrap_seeds: Optional[list[int]] = None,
-    online_seeds: Optional[list[int]] = None,
-    test_seeds: Optional[list[int]] = None,
+    train_seeds: Optional[list[int]] = None,
+    val_seeds: Optional[list[int]] = None,
 ) -> str:
-    """Create TOML config for Iris MIPRO."""
+    """Create TOML config for Iris GEPA."""
     
-    # Auto-scale seeds based on budget
-    if bootstrap_seeds is None:
-        bootstrap_seeds = list(range(0, min(5, rollout_budget // 4)))
+    # Auto-scale GEPA parameters
+    initial_population_size = max(2, min(5, rollout_budget // 10))
+    num_generations = max(2, min(5, rollout_budget // (initial_population_size * 2)))
     
-    if online_seeds is None:
-        max_bootstrap = max(bootstrap_seeds) if bootstrap_seeds else -1
-        online_size = min(10, rollout_budget // 2)
-        online_seeds = list(range(max_bootstrap + 1, max_bootstrap + 1 + online_size))
+    if train_seeds is None:
+        train_seeds = list(range(0, min(20, rollout_budget)))
     
-    if test_seeds is None:
-        max_online = max(online_seeds) if online_seeds else max(bootstrap_seeds) if bootstrap_seeds else -1
-        test_seeds = list(range(max_online + 1, max_online + 1 + 10))
-    
-    # Auto-scale iterations
-    num_iterations = max(2, min(5, rollout_budget // 10))
-    num_evaluations_per_iteration = max(2, min(5, rollout_budget // (num_iterations * 2)))
+    if val_seeds is None:
+        max_train = max(train_seeds) if train_seeds else -1
+        val_seeds = list(range(max_train + 1, max_train + 1 + 10))
     
     # Get API keys
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY") or os.getenv("SYNTH_API_KEY")
@@ -78,14 +75,16 @@ def create_iris_mipro_toml(
         raise ValueError("ENVIRONMENT_API_KEY or SYNTH_API_KEY must be set")
     
     policy_model = os.getenv("POLICY_MODEL", "openai/gpt-oss-20b")
-    meta_model = os.getenv("META_MODEL", "llama-3.3-70b-versatile")
+    mutation_model = os.getenv("MUTATION_MODEL", "llama-3.3-70b-versatile")
     
     # Build TOML config
     toml_content = f"""[prompt_learning]
-algorithm = "mipro"
+algorithm = "gepa"
 task_app_url = "{task_app_url}"
 task_app_api_key = "{task_app_api_key}"
 env_name = "iris"
+# Backwards compatibility: also include train_seeds at top level
+train_seeds = {train_seeds}
 
 [prompt_learning.initial_prompt]
 id = "iris_pattern"
@@ -111,30 +110,42 @@ provider = "groq"
 temperature = 0.0
 max_completion_tokens = 128
 
-[prompt_learning.mipro]
-bootstrap_train_seeds = {bootstrap_seeds}
-online_pool = {online_seeds}
-test_pool = {test_seeds}
-num_iterations = {num_iterations}
-num_evaluations_per_iteration = {num_evaluations_per_iteration}
-batch_size = {min(5, num_evaluations_per_iteration)}
-few_shot_score_threshold = 0.7
-meta_model = "{meta_model}"
-meta_model_provider = "groq"
-meta_model_inference_url = "https://api.groq.com"
+[prompt_learning.gepa.evaluation]
+train_seeds = {train_seeds}
+val_seeds = {val_seeds}
+validation_pool = "train"
+validation_top_k = 5
 
-[prompt_learning.mipro.meta]
+[prompt_learning.gepa.rollout]
+budget = {rollout_budget}
+max_concurrent = 5
+
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "{mutation_model}"
+llm_provider = "groq"
+llm_inference_url = "https://api.groq.com"
 temperature = 0.7
 max_tokens = 512
 
-[prompt_learning.trace_pipeline]
-base_url = "http://127.0.0.1:8081"
-lease_ttl = 30.0
+[prompt_learning.gepa.population]
+initial_size = {initial_population_size}
+num_generations = {num_generations}
+children_per_generation = {max(2, min(5, rollout_budget // (num_generations * 2)))}
+
+[prompt_learning.gepa.archive]
+max_size = 10
+min_score_threshold = 0.0
+
+[prompt_learning.gepa.token]
+max_limit = 4096
+counting_model = "gpt-4"
+enforce_limit = false
 
 [prompt_learning.termination_config]
 max_cost_usd = {max(0.10, rollout_budget * 0.001 * 10)}
-max_trials = {num_iterations * num_evaluations_per_iteration * 2}
-max_category_costs_usd = {{"rollout" = {max(0.10, rollout_budget * 0.001 * 10) * 0.7}, "proposal" = {max(0.10, rollout_budget * 0.001 * 10) * 0.3}}}
+max_trials = {rollout_budget * 2}
+max_category_costs_usd = {{"rollout" = {max(0.10, rollout_budget * 0.001 * 10) * 0.8}, "mutation" = {max(0.10, rollout_budget * 0.001 * 10) * 0.2}}}
 """
     
     return toml_content
@@ -143,7 +154,7 @@ max_category_costs_usd = {{"rollout" = {max(0.10, rollout_budget * 0.001 * 10) *
 async def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run MIPRO locally on Iris via backend endpoint")
+    parser = argparse.ArgumentParser(description="Run GEPA locally on Iris via backend endpoint")
     parser.add_argument(
         "--task-app-url",
         type=str,
@@ -157,22 +168,16 @@ async def main():
         help="Rollout budget (default: 20)",
     )
     parser.add_argument(
-        "--bootstrap-seeds",
+        "--train-seeds",
         type=int,
         nargs="+",
-        help="Bootstrap seeds (default: auto-scale)",
+        help="Training seeds (default: auto-scale)",
     )
     parser.add_argument(
-        "--online-seeds",
+        "--val-seeds",
         type=int,
         nargs="+",
-        help="Online pool seeds (default: auto-scale)",
-    )
-    parser.add_argument(
-        "--test-seeds",
-        type=int,
-        nargs="+",
-        help="Test seeds (default: auto-scale)",
+        help="Validation seeds (default: auto-scale)",
     )
     parser.add_argument(
         "--backend-url",
@@ -195,7 +200,7 @@ async def main():
         raise ValueError("API key required (provide --api-key or set SYNTH_API_KEY env var)")
     
     print("=" * 80)
-    print("MIPRO Local Test: Iris (via Backend Endpoint)")
+    print("GEPA Local Test: Iris (via Backend Endpoint)")
     print("=" * 80)
     print(f"Backend URL: {args.backend_url}")
     print(f"Task app URL: {args.task_app_url}")
@@ -204,12 +209,11 @@ async def main():
     print()
     
     # Create temporary TOML config
-    toml_content = create_iris_mipro_toml(
+    toml_content = create_iris_gepa_toml(
         task_app_url=args.task_app_url,
         rollout_budget=args.rollout_budget,
-        bootstrap_seeds=args.bootstrap_seeds,
-        online_seeds=args.online_seeds,
-        test_seeds=args.test_seeds,
+        train_seeds=args.train_seeds,
+        val_seeds=args.val_seeds,
     )
     
     with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
@@ -218,23 +222,10 @@ async def main():
     
     try:
         # Create job using SDK
-        task_app_api_key = (os.getenv("ENVIRONMENT_API_KEY") or os.getenv("SYNTH_API_KEY") or "").strip()
+        task_app_api_key = os.getenv("ENVIRONMENT_API_KEY") or os.getenv("SYNTH_API_KEY")
         if not task_app_api_key:
-            raise ValueError(
-                "ENVIRONMENT_API_KEY (or SYNTH_API_KEY) must be set for task app authentication."
-            )
-
-        # Validate task app availability before submitting job
-        health = check_task_app_health(args.task_app_url, task_app_api_key)
-        if not health.ok:
-            raise ValueError(f"Task app health check failed before submission: {health.detail}")
-        else:
-            print(f"Task app healthy (auth ok, detail: {health.detail})")
-
-        # Ensure downstream helpers see the same credentials
-        os.environ["ENVIRONMENT_API_KEY"] = task_app_api_key
-        os.environ["TASK_APP_URL"] = args.task_app_url
-
+            raise ValueError("ENVIRONMENT_API_KEY or SYNTH_API_KEY must be set")
+        
         job = PromptLearningJob.from_config(
             config_path=str(config_path),
             backend_url=args.backend_url,
@@ -243,10 +234,10 @@ async def main():
         )
         
         # Validate config before submission
-        print("Validating MIPRO config...")
+        print("Validating GEPA config...")
         try:
             from config_validator import validate_config
-            validate_config(config_path, algorithm="mipro")
+            validate_config(config_path, algorithm="gepa")
             print("✓ Config validated successfully")
         except ImportError:
             # Fallback to basic validation if validator not available
@@ -275,7 +266,7 @@ async def main():
         
         print()
         print("=" * 80)
-        print("✅ MIPRO Optimization Complete!")
+        print("✅ GEPA Optimization Complete!")
         print("=" * 80)
         print(f"Job ID: {job_id}")
         print(f"Status: {final_status.get('status')}")

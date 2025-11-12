@@ -165,6 +165,45 @@ Expect slightly higher per-iteration latency because each candidate runs both pi
 
 ## Configuration
 
+### Single-Stage vs Multi-Stage Configs
+
+For simple single-stage benchmarks (Iris, Banking77, etc.) you can now use `MIPROConfig.simple()` to auto-generate the `modules`, `seeds`, and meta-model defaults:
+
+```python
+from synth_ai.api.train.configs.prompt_learning import MIPROConfig
+
+mipro_cfg = MIPROConfig.simple(
+    task_app_url="http://localhost:8115",
+    task_app_api_key="your-env-key",
+    env_name="iris",
+    rollout_budget=100,
+    initial_prompt_messages=[
+        {"role": "system", "content": "Classify iris flowers."},
+        {"role": "user", "content": "Flower Measurements:\n{features}\n\nClassify the species."},
+    ],
+)
+```
+
+Attach `mipro_cfg` to `PromptLearningConfig.mipro` (or convert it to a dict) and you're ready to launch a job—no need to hand-author seed pools or module structures.
+
+When you need a multi-stage pipeline (e.g., classifier ➞ calibrator), keep using the explicit constructor so you can control every module/stage:
+
+```python
+config = MIPROConfig(
+    task_app_url="http://localhost:8112",
+    task_app_api_key="your-env-key",
+    env_name="banking77_pipeline",
+    modules=[
+        {"module_id": "classifier", "stages": [...]},
+        {"module_id": "calibrator", "stages": [...]},
+    ],
+    # ...
+)
+```
+
+- **Simple API wins**: automatic seeds, single-stage modules, sane meta-model presets.
+- **Full constructor wins**: precise multi-stage orchestration, per-module limits, heterogeneous stages.
+
 ### Example: Banking77 MIPROv2 Configuration (Single-Step)
 
 ```toml
@@ -412,4 +451,3 @@ For issues or questions:
 4. Review logs in both terminals for error messages
 
 Happy optimizing! 🔬🚀
-

@@ -31,11 +31,16 @@ class PromptLearningClient:
         """Initialize the prompt learning client.
         
         Args:
-            base_url: Base URL of the backend API (e.g., "http://localhost:8000")
+            base_url: Base URL of the backend API (e.g., "http://localhost:8000" or "http://localhost:8000/api")
             api_key: API key for authentication
             timeout: Request timeout in seconds
         """
-        self._base_url = base_url.rstrip("/")
+        base_url = base_url.rstrip("/")
+        # Validate base_url format - warn if it already ends with /api (will be handled by AsyncHttpClient)
+        if base_url.endswith("/api"):
+            # This is OK - AsyncHttpClient._abs() will handle double /api/api paths
+            pass
+        self._base_url = base_url
         self._api_key = api_key
         self._timeout = timeout
 
@@ -80,10 +85,13 @@ class PromptLearningClient:
             )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
+        # Handle case where response is directly a list
+        if isinstance(js, list):
+            return js
         # Unexpected response structure - raise instead of silently returning empty list
         raise ValueError(
             f"Unexpected response structure from events endpoint. "
-            f"Expected dict with 'events' list, got: {type(js).__name__}"
+            f"Expected dict with 'events' list or list directly, got: {type(js).__name__}"
         )
 
     async def get_prompts(self, job_id: str) -> PromptResults:

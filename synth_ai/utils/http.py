@@ -56,8 +56,11 @@ class AsyncHttpClient:
         if path.startswith("http://") or path.startswith("https://"):
             return path
         if self._base_url.endswith("/api") and path.startswith("/api"):
-            path = path[4:]
-        return f"{self._base_url}/{path.lstrip('/')}"
+            # Remove "/api" prefix from path to avoid double "/api/api"
+            path = path[4:].lstrip("/")
+        else:
+            path = path.lstrip("/")
+        return f"{self._base_url}/{path}"
 
     async def get(
         self,

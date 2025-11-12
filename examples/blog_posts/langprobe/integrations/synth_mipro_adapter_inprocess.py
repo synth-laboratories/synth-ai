@@ -80,6 +80,8 @@ except ImportError as e:
 
 class SynthMIPROAdapterInProcess:
     """Adapter for Synth MIPRO using in-process Python API."""
+    
+    _SIMPLE_API_EXCLUDE = {"hotpotqa", "hotpotqa_pipeline", "banking77_pipeline"}
 
     def __init__(
         self,
@@ -191,55 +193,9 @@ class SynthMIPROAdapterInProcess:
                 "Make sure .env file exists and contains one of these keys."
             )
 
-        # Create MIPRO config
-        # For single-stage tasks like Iris, we create a simple module with one stage
-        baseline_instruction = ""
-        if self.initial_prompt_messages:
-            # Extract system message as baseline instruction
-            for msg in self.initial_prompt_messages:
-                if msg.get("role") == "system":
-                    baseline_instruction = msg.get("pattern", msg.get("content", ""))
-                    break
-        
-        if not baseline_instruction:
-            baseline_instruction = "Classify the input."
-
-        config = MIPROConfig(
-            task_app_url=self.task_app_url,
-            task_app_api_key=api_key,
-            env_name=self.task_app_id,
-            seeds=MIPROSeedConfig(
-                bootstrap=self.bootstrap_seeds,
-                online=self.online_seeds,
-                test=self.test_seeds or [],
-            ),
-            num_iterations=self._get_num_iterations(),
-            num_evaluations_per_iteration=self._get_num_evaluations_per_iteration(),
-            batch_size=min(32, len(self.online_seeds)),
-            max_concurrent=10,
-            policy_config={
-                "model": "openai/gpt-oss-20b",
-                "provider": "groq",
-                "temperature": 1.0,
-                "max_completion_tokens": 512,
-            },
-            meta=MIPROMetaConfig(
-                model="gpt-4o-mini",  # Use gpt-4o-mini for meta-learning (better for instruction generation)
-                provider="openai",
-                inference_url=None,  # Use default OpenAI URL
-            ),
-            modules=[
-                MIPROModuleConfig(
-                    module_id="classifier",
-                    stages=[
-                        MIPROStageConfig(
-                            stage_id="classifier_stage_0",
-                            baseline_instruction=baseline_instruction,
-                        )
-                    ],
-                )
-            ],
-        )
+        # Build config via simple API when available, otherwise fall back to legacy constructor
+        baseline_messages = self._normalize_initial_prompt_messages()
+        config = self._build_mipro_config(api_key=api_key, baseline_messages=baseline_messages)
 
         # Create runtime and optimizer
         runtime = LocalRuntime()
@@ -328,6 +284,99 @@ class SynthMIPROAdapterInProcess:
             if self._progress_bar:
                 self._progress_bar.close()
 
+    def _normalize_initial_prompt_messages(self) -> list[dict[str, str]]:
+        """Normalize prompt messages to the {role, content} structure."""
+        normalized: list[dict[str, str]] = []
+        for msg in self.initial_prompt_messages or []:
+            role = msg.get("role", "user")
+            content = msg.get("content") or msg.get("pattern") or ""
+            normalized.append({"role": role, "content": str(content)})
+        return normalized
+
+    def _build_mipro_config(self, *, api_key: str, baseline_messages: list[dict[str, str]]):
+        """Build a MIPRO config, preferring the simple helper when available."""
+        if self._should_use_simple_api() and hasattr(MIPROConfig, "simple"):
+            try:
+                return self._build_simple_mipro_config(api_key=api_key, baseline_messages=baseline_messages)
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                print(f"[SYNTH_MIPRO] Falling back to legacy config builder: {exc}", flush=True)
+        return self._build_legacy_mipro_config(api_key=api_key, baseline_messages=baseline_messages)
+
+    def _build_simple_mipro_config(self, *, api_key: str, baseline_messages: list[dict[str, str]]):
+        """Create config via MIPROConfig.simple for single-stage tasks."""
+        return MIPROConfig.simple(  # type: ignore[attr-defined]
+            task_app_url=self.task_app_url,
+            task_app_api_key=api_key,
+            task_app_id=self.task_app_id,
+            env_name=self.task_app_id,
+            rollout_budget=self.rollout_budget,
+            initial_prompt_messages=baseline_messages,
+            bootstrap_seeds=self.bootstrap_seeds,
+            online_seeds=self.online_seeds,
+            test_seeds=self.test_seeds or [],
+            num_iterations=self._get_num_iterations(),
+            num_evaluations_per_iteration=self._get_num_evaluations_per_iteration(),
+            batch_size=max(1, min(32, len(self.online_seeds))),
+            policy_model="openai/gpt-oss-20b",
+            policy_provider="groq",
+            policy_temperature=1.0,
+            policy_max_completion_tokens=512,
+            meta_model="gpt-4o-mini",
+            meta_provider="openai",
+        )
+
+    def _build_legacy_mipro_config(self, *, api_key: str, baseline_messages: list[dict[str, str]]):
+        """Legacy config builder that mirrors the previous manual constructor."""
+        baseline_instruction = "Classify the input."
+        for msg in baseline_messages:
+            if msg.get("role") == "system" and msg.get("content"):
+                baseline_instruction = msg["content"]
+                break
+        return MIPROConfig(
+            task_app_url=self.task_app_url,
+            task_app_api_key=api_key,
+            env_name=self.task_app_id,
+            seeds=MIPROSeedConfig(
+                bootstrap=self.bootstrap_seeds,
+                online=self.online_seeds,
+                test=self.test_seeds or [],
+            ),
+            num_iterations=self._get_num_iterations(),
+            num_evaluations_per_iteration=self._get_num_evaluations_per_iteration(),
+            batch_size=max(1, min(32, len(self.online_seeds))),
+            max_concurrent=10,
+            policy_config={
+                "model": "openai/gpt-oss-20b",
+                "provider": "groq",
+                "temperature": 1.0,
+                "max_completion_tokens": 512,
+            },
+            meta=MIPROMetaConfig(
+                model="gpt-4o-mini",
+                provider="openai",
+                inference_url=None,
+            ),
+            modules=[
+                MIPROModuleConfig(
+                    module_id="classifier",
+                    stages=[
+                        MIPROStageConfig(
+                            stage_id="classifier_stage_0",
+                            baseline_instruction=baseline_instruction,
+                        )
+                    ],
+                )
+            ],
+        )
+
+    def _should_use_simple_api(self) -> bool:
+        """Whether the adapter should use the simple single-stage API."""
+        if not hasattr(MIPROConfig, "simple"):
+            return False
+        if not self.task_app_id:
+            return True
+        return self.task_app_id not in self._SIMPLE_API_EXCLUDE
+
     def save_results(self, output_dir: Path) -> None:
         """Save results to files.
 
@@ -347,4 +396,3 @@ class SynthMIPROAdapterInProcess:
 
 
 # Iris-specific runner moved to task_specific/iris/synth_iris_adapter.py
-
