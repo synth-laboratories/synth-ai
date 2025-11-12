@@ -1,15 +1,14 @@
 import contextlib
-import os
 import time
 import webbrowser
 from dataclasses import dataclass
 
 import requests
 from requests import RequestException
+from synth_ai.urls import FRONTEND_URL_BASE
 
-ORIGIN = os.getenv("FRONTEND_OVERRIDE") or "https://www.usesynth.ai"
-INIT_URL = ORIGIN + "/api/sdk/handshake/init"
-TOKEN_URL = ORIGIN + "/api/sdk/handshake/token"
+INIT_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/init"
+TOKEN_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/token"
 POLL_INTERVAL = 3
 
 
@@ -59,7 +58,7 @@ def fetch_data(device_code: str) -> requests.Response | None:
 
 
 def fetch_credentials_from_web_browser() -> dict:
-    print(f"Fetching your credentials from {ORIGIN}")
+    print(f"Fetching your credentials from {FRONTEND_URL_BASE}")
 
     auth_session = init_auth_session()
 
@@ -84,7 +83,7 @@ def fetch_credentials_from_web_browser() -> dict:
     if data is None:
         raise TimeoutError("Handshake timed out before credentials were returned.")
 
-    print(f"Connected to {ORIGIN}")
+    print(f"Connected to {FRONTEND_URL_BASE}")
     credentials = data.get("keys")
     if not isinstance(credentials, dict):
         credentials = {}
