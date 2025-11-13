@@ -71,7 +71,7 @@ ROUTE_CONTRACTS: dict[str, RouteContract] = {
         "method": "POST",
         "require_auth": True,
         "required_params": {"rollout_request"},
-        "response_validator": None,
+        "response_validator": lambda payload, _: _validate_rollout_payload(payload),
     },
 }
 
@@ -117,6 +117,168 @@ def _validate_task_info_payload(payload: Any) -> None:
     data = _ensure_mapping(payload, "/task_info")
     if "taskset" not in data:
         raise ValueError("`/task_info` without seeds must include a `taskset` field")
+
+def _validate_rollout_payload(payload: Any) -> None:
+    """Validate that /rollout returns a proper RolloutResponse schema.
+
+    This catches the common error: "Pattern validation failed: Failed to fetch
+    baseline messages: No trajectories in response" that occurs when manual
+    FastAPI implementations return simplified response formats instead of the
+    complete RolloutResponse schema required by training.
+    """
+    data = _ensure_mapping(payload, "/rollout")
+
+    # Check required top-level fields
+    required_fields = ["run_id", "trajectories", "metrics"]
+    for field in required_fields:
+        if field not in data:
+            raise ValueError(
+                f"`/rollout` response missing required field '{field}'. "
+                f"The response must include: run_id, trajectories, and metrics. "
+                f"This error often occurs with manual FastAPI implementations. "
+                f"Use create_task_app(build_config()) instead."
+            )
+
+    # Validate trajectories is a list
+    trajectories = data.get("trajectories")
+    if not isinstance(trajectories, list):
+        raise ValueError(
+            f"`/rollout` response field 'trajectories' must be a list, got {type(trajectories).__name__}. "
+            f"Make sure your rollout executor returns a proper RolloutResponse with a list of RolloutTrajectory objects."
+        )
+
+    # Ensure trajectories list is not empty (training will fail if it's empty)
+    if len(trajectories) == 0:
+        raise ValueError(
+            "`/rollout` response field 'trajectories' is an empty list. "
+            "Training will fail with 'No trajectories in response'. "
+            "Your rollout executor must return at least one trajectory with steps."
+        )
+
+    # Validate first trajectory has required fields
+    first_traj = trajectories[0]
+    if not isinstance(first_traj, Mapping):
+        raise ValueError(
+            f"`/rollout` trajectories must contain objects, got {type(first_traj).__name__}"
+        )
+
+    required_traj_fields = ["env_id", "policy_id", "steps", "length", "inference_url"]
+    for field in required_traj_fields:
+        if field not in first_traj:
+            raise ValueError(
+                f"`/rollout` trajectory missing required field '{field}'. "
+                f"Each trajectory must include: env_id, policy_id, steps, length, and inference_url."
+            )
+
+    # STRICT: Validate inference_url contains correlation ID for trace correlation
+    # This catches: "Rollout response is missing trace correlation IDs in inference_url entries"
+    inference_url = first_traj.get("inference_url")
+    if inference_url is None:
+        raise ValueError(
+            "`/rollout` trajectory.inference_url is None. "
+            "Each trajectory must include a valid inference_url with ?cid=trace_xxxxx parameter for trace correlation. "
+            "Example: 'http://example.com/v1/chat/completions?cid=trace_abc123'"
+        )
+
+    if not isinstance(inference_url, str):
+        raise ValueError(
+            f"`/rollout` trajectory.inference_url must be a string, got {type(inference_url).__name__}"
+        )
+
+    # Check for correlation ID parameter (can be ?cid= or &cid=)
+    if "?cid=" not in inference_url and "&cid=" not in inference_url:
+        raise ValueError(
+            "`/rollout` trajectory.inference_url missing correlation ID parameter. "
+            "URL must include ?cid=trace_xxxxx or &cid=trace_xxxxx for trace correlation. "
+            "Example: 'http://example.com/v1/chat/completions?cid=trace_abc123'. "
+            "Training requires this to hydrate traces, rubrics, and judge integrations."
+        )
+
+    # Validate steps is a list and not empty
+    steps = first_traj.get("steps")
+    if not isinstance(steps, list):
+        raise ValueError(
+            f"`/rollout` trajectory 'steps' must be a list, got {type(steps).__name__}"
+        )
+
+    # For prompt learning (MIPRO, etc), we need messages in step.info
+    # This catches: "Could not extract messages from rollout response - ensure task app stores messages in step.info"
+    if len(steps) > 0:
+        first_step = steps[0]
+        if not isinstance(first_step, Mapping):
+            raise ValueError(
+                f"`/rollout` steps must contain objects, got {type(first_step).__name__}"
+            )
+
+        # STRICT: Require step.info with messages for prompt learning compatibility
+        step_info = first_step.get("info")
+        if step_info is None:
+            raise ValueError(
+                "`/rollout` step.info is missing. "
+                "For prompt learning (MIPRO), each step must include an 'info' field with 'messages'. "
+                "Use create_task_app(build_config()) with a proper rollout executor."
+            )
+
+        if not isinstance(step_info, Mapping):
+            raise ValueError(
+                f"`/rollout` step.info must be an object, got {type(step_info).__name__}"
+            )
+
+        messages = step_info.get("messages")
+        if messages is None:
+            raise ValueError(
+                "`/rollout` step.info['messages'] is missing. "
+                "Prompt learning requires conversation history in step.info['messages']. "
+                "The SDK's rollout executor handles this automatically."
+            )
+
+        if not isinstance(messages, list):
+            raise ValueError(
+                f"`/rollout` step.info['messages'] must be a list, got {type(messages).__name__}"
+            )
+
+        if len(messages) == 0:
+            raise ValueError(
+                "`/rollout` step.info['messages'] is an empty list. "
+                "Prompt learning requires at least one message in the conversation history."
+            )
+
+    # Validate metrics structure
+    metrics = data.get("metrics")
+    if not isinstance(metrics, Mapping):
+        raise ValueError(
+            f"`/rollout` response field 'metrics' must be an object, got {type(metrics).__name__}"
+        )
+
+    # Metrics can be either:
+    # 1. Full RolloutMetrics with episode_returns (list), mean_return, num_steps
+    # 2. Simple dict with scalar values (episode_returns as float, mean_return, num_steps)
+    required_metrics_fields = ["episode_returns", "mean_return", "num_steps"]
+    for field in required_metrics_fields:
+        if field not in metrics:
+            raise ValueError(
+                f"`/rollout` metrics missing required field '{field}'. "
+                f"Metrics must include: episode_returns, mean_return, and num_steps."
+            )
+
+    # Validate types - episode_returns can be either a list or a scalar
+    episode_returns = metrics.get("episode_returns")
+    if not isinstance(episode_returns, (list, int, float)):
+        raise ValueError(
+            f"`/rollout` metrics.episode_returns must be a list or number, got {type(episode_returns).__name__}"
+        )
+
+    mean_return = metrics.get("mean_return")
+    if not isinstance(mean_return, (int, float)):
+        raise ValueError(
+            f"`/rollout` metrics.mean_return must be a number, got {type(mean_return).__name__}"
+        )
+
+    num_steps = metrics.get("num_steps")
+    if not isinstance(num_steps, int):
+        raise ValueError(
+            f"`/rollout` metrics.num_steps must be an integer, got {type(num_steps).__name__}"
+        )
 
 
 def validate_route_contracts(app: ASGIApp) -> None:
@@ -182,20 +344,24 @@ def test_route_contracts(app: ASGIApp) -> None:
                 if path == "/task_info":
                     params = {"seed": 0}
                 if path == "/rollout":
+                    # Send the actual RolloutRequest format used by training
                     json_payload = {
                         "run_id": "validate",
-                        "env": {"env_id": "dummy", "config": {}, "seed": 0},
-                        "policy": {"policy_id": "dummy", "config": {}},
-                        "ops": [],
-                        "record": {
-                            "trajectories": True,
-                            "logprobs": False,
-                            "value": False,
-                            "return_trace": False,
-                            "trace_format": "compact",
+                        "env": {
+                            "env_name": "validation",
+                            "config": {"index": 0},
+                            "seed": 0,
                         },
-                        "on_done": "reset",
-                        "safety": {"max_ops": 1, "max_time_s": 1.0},
+                        "policy": {
+                            "policy_name": "validation",
+                            "config": {
+                                "model": "gpt-4o-mini",
+                                "provider": "openai",
+                                "temperature": 0.7,
+                            },
+                        },
+                        "ops": ["agent", "env"],  # Critical: training sends this
+                        "record": {"trajectories": True},
                         "mode": "eval",
                     }
                 validator = spec.get("response_validator")
