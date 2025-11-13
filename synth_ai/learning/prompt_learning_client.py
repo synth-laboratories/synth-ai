@@ -140,6 +140,11 @@ class PromptLearningClient:
             elif event_type == "prompt.learning.final.results":
                 result.optimized_candidates = event_data.get("optimized_candidates", [])
                 result.attempted_candidates = event_data.get("attempted_candidates", [])
+                # Also extract best_prompt from final.results if not already set
+                if result.best_prompt is None:
+                    result.best_prompt = event_data.get("best_prompt")
+                if result.best_score is None:
+                    result.best_score = event_data.get("best_score")
             
             # Validation results
             elif event_type == "prompt.learning.validation.scored":

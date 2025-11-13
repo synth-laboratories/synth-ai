@@ -39,8 +39,8 @@ def validate_gepa_config(config_path: Path) -> Tuple[bool, List[str]]:
     if algorithm != "gepa":
         errors.append(f"❌ Expected algorithm='gepa', got '{algorithm}'")
     
-    # Check required top-level fields
-    required_top_level = ["task_app_url", "task_app_api_key", "env_name"]
+    # Check required top-level fields (env_name is now in gepa section)
+    required_top_level = ["task_app_url", "task_app_api_key"]
     for field in required_top_level:
         if not pl_section.get(field):
             errors.append(f"❌ [prompt_learning].{field} is required")
@@ -50,6 +50,10 @@ def validate_gepa_config(config_path: Path) -> Tuple[bool, List[str]]:
     if not isinstance(gepa_section, dict):
         errors.append("❌ [prompt_learning.gepa] section is missing or invalid")
         return False, errors
+    
+    # Check env_name in gepa section (required)
+    if not gepa_section.get("env_name"):
+        errors.append("❌ [prompt_learning.gepa].env_name is required")
     
     # Check required GEPA subsections
     required_sections = ["evaluation", "rollout", "mutation", "population", "archive", "token"]

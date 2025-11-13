@@ -1133,9 +1133,17 @@ def handle_prompt_learning(
         return
     
     click.echo("\n=== Streaming Job Progress ===")
-    
-    # Custom config for prompt learning to enable metrics
-    if stream_format == "chart":
+
+    algorithm = str(build.payload.get("algorithm") or "").lower()
+    metric_names: set[str] | None = None
+    if algorithm == "gepa":
+        metric_names = {"gepa.transformation.mean_score"}
+
+    chart_mode = stream_format == "chart" and algorithm == "gepa"
+    if stream_format == "chart" and not chart_mode:
+        click.echo("Chart streaming is only available for GEPA jobs; showing textual updates instead.")
+
+    if chart_mode:
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
             event_types={
@@ -1143,20 +1151,21 @@ def handle_prompt_learning(
                 "prompt.learning.gepa.start",
                 "prompt.learning.gepa.complete",
             },
-            metric_names={"gepa.transformation.mean_score"},
+            metric_names=metric_names,
         )
         handlers = [LossCurveHandler()]
         click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
     else:
-        # Enable metrics for CLI mode too
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
-            metric_names={"gepa.transformation.mean_score"},
+            metric_names=metric_names,
         )
-        handlers = [CLIHandler(
-            hidden_event_types=_DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
-            hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS,
-        )]
+        handlers = [
+            CLIHandler(
+                hidden_event_types=_DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
+                hidden_event_substrings=_DEFAULT_RL_HIDDEN_SUBSTRINGS,
+            )
+        ]
     
     streamer = JobStreamer(
         base_url=backend_base,

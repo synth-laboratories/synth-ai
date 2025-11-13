@@ -6,6 +6,7 @@ import contextlib
 import os
 import uuid
 from collections.abc import Iterable, Sequence
+import json
 from pathlib import Path
 from typing import Any, Mapping, cast
 
@@ -176,7 +177,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "role": "system",
             "pattern": (
                 "You are a botany classification assistant. Based on the flower's measurements, "
-                "classify the iris species. Respond with one of: setosa, versicolor, or virginica."
+                "classify the iris species. Respond with one of: setosa, versicolor, or virginica.\n\n"
+                "You have access to the function `iris_classify` which accepts your predicted species name. "
+                "Call this tool with your classification when you're ready to submit your answer."
             ),
         },
         {
@@ -186,6 +189,27 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 "Classify this iris flower. Respond with one of: setosa, versicolor, or virginica."
             ),
         },
+    ]
+
+    tool_spec = [
+        {
+            "type": "function",
+            "function": {
+                "name": "iris_classify",
+                "description": "Submit your classification prediction for the iris flower. Provide the species name you predict.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "species": {
+                            "type": "string",
+                            "description": "The predicted iris species: setosa, versicolor, or virginica",
+                            "enum": ["setosa", "versicolor", "virginica"],
+                        },
+                    },
+                    "required": ["species"],
+                },
+            },
+        }
     ]
 
     tool_calls: list[dict[str, Any]] = []
@@ -198,16 +222,75 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             request.policy.config or {},
             placeholders,
             default_messages,
+            tool_spec=tool_spec,
+            tool_choice="required" if tool_spec else None,
         )
     except HTTPException as http_err:  # pragma: no cover - passthrough to metrics
         error_info = {"error": str(http_err.detail), "code": http_err.status_code}
     except Exception as exc:  # pragma: no cover - defensive logging
         error_info = {"error": str(exc)}
 
+    if response_json:
+        choices = response_json.get("choices")
+        if isinstance(choices, list) and choices:
+            message = choices[0].get("message", {})
+            raw_tool_calls = message.get("tool_calls") or []
+            if isinstance(raw_tool_calls, list):
+                for call in raw_tool_calls:
+                    if not isinstance(call, dict):
+                        continue
+                    fn = call.get("function", {})
+                    if not isinstance(fn, dict):
+                        continue
+                    name = fn.get("name")
+                    arguments_str = fn.get("arguments") or "{}"
+                    try:
+                        arguments = json.loads(arguments_str)
+                    except Exception:
+                        arguments = {}
+                    output = None
+                    predicted_species = None
+                    if name == "iris_classify":
+                        # Extract the model's prediction from tool call arguments
+                        predicted_species = arguments.get("species", "").strip()
+                        # Tool just acknowledges the submission - doesn't reveal the answer
+                        # IMPORTANT: We do NOT return the correct answer here - just an acknowledgment
+                        output = "Prediction received."
+                        # Use the prediction as the response text for evaluation
+                        if predicted_species:
+                            response_text = predicted_species
+                        # Debug: Verify tool isn't leaking the answer
+                        if os.getenv("IRIS_DEBUG_TOOL"):
+                            print(
+                                f"[IRIS_TOOL_CALL] seed={seed} tool_output={output} "
+                                f"predicted_from_args={predicted_species} "
+                                f"expected_label={sample.get('label', 'N/A')}",
+                                flush=True,
+                            )
+                    tool_calls.append(
+                        {
+                            "id": call.get("id"),
+                            "name": name,
+                            "arguments": arguments,
+                            "output": output,
+                        }
+                    )
+
     # Normalize and compare
     predicted_label = _normalize_classification(response_text)
     expected_label = sample["label"]
     label_correct = int(predicted_label.lower() == expected_label.lower())
+
+    # Debug: Log the comparison to verify tool isn't leaking the answer
+    # Enable with IRIS_DEBUG_COMPARISON=1 to see all comparisons
+    if not label_correct or os.getenv("IRIS_DEBUG_COMPARISON"):
+        print(
+            f"[IRIS_COMPARISON] seed={seed} expected={expected_label} "
+            f"predicted={predicted_label} correct={label_correct} "
+            f"response_text={response_text[:50]} "
+            f"tool_output={tool_calls[0].get('output', 'N/A') if tool_calls else 'N/A'}",
+            flush=True,
+        )
 
     reward = float(label_correct)
 

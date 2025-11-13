@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import uuid
 from collections.abc import Iterable, Sequence
@@ -29,13 +30,25 @@ from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.task.vendors import normalize_vendor_keys
 
-from ..gepa_benchmarks.common import call_chat_completion, normalise_answer
+# Handle imports for both module and direct script execution
+try:
+    from ..gepa_benchmarks.common import call_chat_completion, normalise_answer
+except ImportError:
+    # When run as a script, add parent directory to path
+    import sys
+    _script_dir = Path(__file__).resolve().parent
+    _examples_dir = _script_dir.parent.parent
+    if str(_examples_dir) not in sys.path:
+        sys.path.insert(0, str(_examples_dir))
+    from task_apps.gepa_benchmarks.common import call_chat_completion, normalise_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 HEARTDISEASE_DATASET = "buio/heart-disease"
 DEFAULT_SPLIT = "train"
-AVAILABLE_SPLITS: tuple[str, ...] = ("train", "test")
+# Note: Heart Disease dataset from HuggingFace only has "train" split
+# No separate test split - use train split for both training and validation
+AVAILABLE_SPLITS: tuple[str, ...] = ("train",)
 
 heartdisease_router = APIRouter()
 
@@ -154,7 +167,9 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             "role": "system",
             "pattern": (
                 "You are a medical classification assistant. Based on the patient's features, "
-                "classify whether they have heart disease. Respond with '1' for heart disease or '0' for no heart disease."
+                "classify whether they have heart disease. Respond with '1' for heart disease or '0' for no heart disease.\n\n"
+                "You have access to the function `heart_disease_classify` which accepts your predicted classification. "
+                "Call this tool with your classification when you're ready to submit your answer."
             ),
         },
         {
@@ -164,6 +179,27 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 "Classify: Does this patient have heart disease? Respond with '1' for yes or '0' for no."
             ),
         },
+    ]
+
+    tool_spec = [
+        {
+            "type": "function",
+            "function": {
+                "name": "heart_disease_classify",
+                "description": "Submit your classification prediction for the patient. Provide '1' for heart disease or '0' for no heart disease.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "classification": {
+                            "type": "string",
+                            "description": "The predicted classification: '1' for heart disease, '0' for no heart disease",
+                            "enum": ["0", "1"],
+                        },
+                    },
+                    "required": ["classification"],
+                },
+            },
+        }
     ]
 
     tool_calls: list[dict[str, Any]] = []
@@ -176,16 +212,75 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             request.policy.config or {},
             placeholders,
             default_messages,
+            tool_spec=tool_spec,
+            tool_choice="required" if tool_spec else None,
         )
     except HTTPException as http_err:  # pragma: no cover - passthrough to metrics
         error_info = {"error": str(http_err.detail), "code": http_err.status_code}
     except Exception as exc:  # pragma: no cover - defensive logging
         error_info = {"error": str(exc)}
 
+    if response_json:
+        choices = response_json.get("choices")
+        if isinstance(choices, list) and choices:
+            message = choices[0].get("message", {})
+            raw_tool_calls = message.get("tool_calls") or []
+            if isinstance(raw_tool_calls, list):
+                for call in raw_tool_calls:
+                    if not isinstance(call, dict):
+                        continue
+                    fn = call.get("function", {})
+                    if not isinstance(fn, dict):
+                        continue
+                    name = fn.get("name")
+                    arguments_str = fn.get("arguments") or "{}"
+                    try:
+                        arguments = json.loads(arguments_str)
+                    except Exception:
+                        arguments = {}
+                    output = None
+                    predicted_classification = None
+                    if name == "heart_disease_classify":
+                        # Extract the model's prediction from tool call arguments
+                        predicted_classification = arguments.get("classification", "").strip()
+                        # Tool just acknowledges the submission - doesn't reveal the answer
+                        # IMPORTANT: We do NOT return the correct answer here - just an acknowledgment
+                        output = "Prediction received."
+                        # Use the prediction as the response text for evaluation
+                        if predicted_classification:
+                            response_text = predicted_classification
+                        # Debug: Verify tool isn't leaking the answer
+                        if os.getenv("HEARTDISEASE_DEBUG_TOOL"):
+                            print(
+                                f"[HEARTDISEASE_TOOL_CALL] seed={seed} tool_output={output} "
+                                f"predicted_from_args={predicted_classification} "
+                                f"expected_label={sample.get('target', 'N/A')}",
+                                flush=True,
+                            )
+                    tool_calls.append(
+                        {
+                            "id": call.get("id"),
+                            "name": name,
+                            "arguments": arguments,
+                            "output": output,
+                        }
+                    )
+
     # Normalize and compare
     predicted_label = _normalize_classification(response_text)
     expected_label = sample["target"]
     label_correct = int(predicted_label == expected_label)
+
+    # Debug: Log the comparison to verify tool isn't leaking the answer
+    # Enable with HEARTDISEASE_DEBUG_COMPARISON=1 to see all comparisons
+    if not label_correct or os.getenv("HEARTDISEASE_DEBUG_COMPARISON"):
+        print(
+            f"[HEARTDISEASE_COMPARISON] seed={seed} expected={expected_label} "
+            f"predicted={predicted_label} correct={label_correct} "
+            f"response_text={response_text[:50]} "
+            f"tool_output={tool_calls[0].get('output', 'N/A') if tool_calls else 'N/A'}",
+            flush=True,
+        )
 
     reward = float(label_correct)
 

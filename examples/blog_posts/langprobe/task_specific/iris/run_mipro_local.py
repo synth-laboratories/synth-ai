@@ -262,8 +262,8 @@ async def main():
         # Validate config before submission
         print("Validating MIPRO config...")
         try:
-            from config_validator import validate_config
-            validate_config(config_path, algorithm="mipro")
+            from synth_ai.api.train.validators import validate_prompt_learning_config_from_file
+            validate_prompt_learning_config_from_file(config_path, algorithm="mipro")
             print("✓ Config validated successfully")
         except ImportError:
             # Fallback to basic validation if validator not available

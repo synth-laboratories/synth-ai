@@ -116,7 +116,7 @@ async def call_chat_completion(
     default_messages: Sequence[Mapping[str, str]],
     *,
     tool_spec: Sequence[Mapping[str, Any]] | None = None,
-    tool_choice: Mapping[str, Any] | None = None,
+    tool_choice: str | Mapping[str, Any] | None = None,
     timeout: float = 60.0,
 ) -> tuple[str, dict[str, Any], list[dict[str, Any]]]:
     """Invoke an OpenAI-compatible chat/completions endpoint.

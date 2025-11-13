@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Run GEPA locally on Iris via backend endpoint (localhost:8000).
+"""Run GEPA locally on Heart Disease via backend endpoint (localhost:8000).
 
 This script uses the backend API endpoint with proper authentication, ensuring
 balance checking works correctly. It emulates the real flow but bypasses Modal.
 
 Usage:
-    python run_gepa_local.py --task-app-url http://127.0.0.1:8115 --rollout-budget 20
+    python run_gepa_local.py --task-app-url http://127.0.0.1:8114 --rollout-budget 20
 """
 
 import asyncio
@@ -55,26 +55,26 @@ except ImportError:
     sys.exit(1)
 
 
-def create_iris_gepa_toml(
+def create_heartdisease_gepa_toml(
     task_app_url: str,
     rollout_budget: int = 20,
     train_seeds: Optional[list[int]] = None,
     val_seeds: Optional[list[int]] = None,
 ) -> str:
-    """Create TOML config for Iris GEPA."""
+    """Create TOML config for Heart Disease GEPA."""
     
     # Auto-scale GEPA parameters
     initial_population_size = max(2, min(5, rollout_budget // 10))
     num_generations = max(2, min(5, rollout_budget // (initial_population_size * 2)))
     
     if train_seeds is None:
-        # Trial budget: 20 seeds for training/evaluation
-        train_seeds = list(range(0, 20))
+        # Trial budget: 30 seeds for training/evaluation
+        train_seeds = list(range(0, 30))
     
     if val_seeds is None:
-        # Heldout pool: 30 seeds, non-overlapping with train seeds
+        # Heldout pool: 50 seeds, non-overlapping with train seeds
         max_train = max(train_seeds) if train_seeds else -1
-        val_seeds = list(range(max_train + 1, max_train + 1 + 30))
+        val_seeds = list(range(max_train + 1, max_train + 1 + 50))
     
     # Get API keys
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY") or os.getenv("SYNTH_API_KEY")
@@ -93,17 +93,17 @@ task_app_api_key = "{task_app_api_key}"
 train_seeds = {train_seeds}
 
 [prompt_learning.initial_prompt]
-id = "iris_pattern"
-name = "Iris Classification Pattern"
+id = "heartdisease_pattern"
+name = "Heart Disease Classification Pattern"
 
 [[prompt_learning.initial_prompt.messages]]
 role = "system"
-pattern = "You are a botany classification assistant. Based on the flower's measurements, classify the iris species. Respond with one of: setosa, versicolor, or virginica."
+pattern = "You are a medical classification assistant. Based on the patient's features, classify whether they have heart disease. Respond with '1' for heart disease or '0' for no heart disease."
 order = 0
 
 [[prompt_learning.initial_prompt.messages]]
 role = "user"
-pattern = "Flower Measurements:\\n{{features}}\\n\\nClassify this iris flower. Respond with one of: setosa, versicolor, or virginica."
+pattern = "Patient Features:\\n{{features}}\\n\\nClassify: Does this patient have heart disease? Respond with '1' for yes or '0' for no."
 order = 1
 
 [prompt_learning.initial_prompt.wildcards]
@@ -117,7 +117,7 @@ temperature = 0.0
 max_completion_tokens = 512
 
 [prompt_learning.gepa]
-env_name = "iris"
+env_name = "heartdisease"
 
 [prompt_learning.gepa.evaluation]
 train_seeds = {train_seeds}
@@ -145,6 +145,7 @@ children_per_generation = {max(2, min(5, rollout_budget // (num_generations * 2)
 [prompt_learning.gepa.archive]
 max_size = 10
 min_score_threshold = 0.0
+feedback_fraction = 0.33
 
 [prompt_learning.gepa.token]
 max_limit = 4096
@@ -163,18 +164,23 @@ max_category_costs_usd = {{"rollout" = {max(0.10, rollout_budget * 0.001 * 10) *
 async def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run GEPA locally on Iris via backend endpoint")
+    parser = argparse.ArgumentParser(description="Run GEPA locally on Heart Disease via backend endpoint")
     parser.add_argument(
         "--task-app-url",
         type=str,
-        default="http://127.0.0.1:8115",
-        help="Task app URL (default: http://127.0.0.1:8115)",
+        default="http://127.0.0.1:8114",
+        help="Task app URL (default: http://127.0.0.1:8114)",
     )
     parser.add_argument(
         "--rollout-budget",
         type=int,
         default=20,
         help="Rollout budget (default: 20)",
+    )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="Enable live TUI dashboard (requires rich and plotille)",
     )
     parser.add_argument(
         "--train-seeds",
@@ -209,7 +215,7 @@ async def main():
         raise ValueError("API key required (provide --api-key or set SYNTH_API_KEY env var)")
     
     print("=" * 80)
-    print("GEPA Local Test: Iris (via Backend Endpoint)")
+    print("GEPA Local Test: Heart Disease (via Backend Endpoint)")
     print("=" * 80)
     print(f"Backend URL: {args.backend_url}")
     print(f"Task app URL: {args.task_app_url}")
@@ -218,7 +224,7 @@ async def main():
     print()
     
     # Create temporary TOML config
-    toml_content = create_iris_gepa_toml(
+    toml_content = create_heartdisease_gepa_toml(
         task_app_url=args.task_app_url,
         rollout_budget=args.rollout_budget,
         train_seeds=args.train_seeds,
@@ -304,16 +310,18 @@ async def main():
         else:
             os.environ['PYTHONUNBUFFERED'] = '1'
 
+        # Capture json module reference for nested function closure
+        _json = json
+        
+        # Capture tui_process for nested function
+        _tui_process = tui_process
+
         async def stream_job(job_client: PromptLearningClient, job_id: str, poll_interval: float = 1.0) -> tuple[dict[str, Any], int, list[tuple[int, float]]]:
             """Manual status/event polling loop to ensure visibility.
             
             Returns:
                 Tuple of (job_detail, total_events, optimization_curve)
             """
-            import json  # Import here to avoid closure scoping issues
-            
-            # Capture tui_process for nested function
-            _tui_process = tui_process
             next_seq = 0
             total_events = 0
             last_status: str | None = None
@@ -362,12 +370,11 @@ async def main():
                                 optimization_curve.append((trial_counter, best_score_so_far))
                         
                         # Skip verbose candidate dumps entirely - don't print message or JSON
+                        # Note: trial.results is NOT filtered - we want to see trial scores
                         verbose_event_types = [
                             "prompt.learning.proposal.scored",
-                            "prompt.learning.eval.summary",  # Will be renamed to trial.results
-                            "prompt.learning.trial.results",
+                            "prompt.learning.eval.summary",  # Old name, kept for compatibility
                             "prompt.learning.validation.scored",
-                            "prompt.learning.validation.summary",
                             "prompt.learning.final.results",
                         ]
                         skip_event = event_type in verbose_event_types
@@ -403,7 +410,7 @@ async def main():
                                     formatted_data[key] = round(float(value), 4)
                                 else:
                                     formatted_data[key] = value
-                            json_line = json.dumps(formatted_data, separators=(',', ':'))
+                            json_line = _json.dumps(formatted_data, separators=(',', ':'))
                             print(json_line, flush=True)
                             
                             # Also send JSON to TUI if running
@@ -570,7 +577,6 @@ async def main():
                             print(f"[{role}]:\n{content}\n")
                 else:
                     # Fallback: show the structure
-                    import json
                     print(json.dumps(best_prompt_data, indent=2))
             else:
                 # Try other extraction methods as fallback
@@ -591,7 +597,6 @@ async def main():
                                 if content:
                                     print(f"[{role}]:\n{content}\n")
                         else:
-                            import json
                             print(json.dumps(prompt_template, indent=2)[:800])
                     elif isinstance(prompt_template, str):
                         print(prompt_template)
@@ -608,7 +613,6 @@ async def main():
                         if isinstance(bp, str):
                             print(f"best_prompt (str): {bp[:400]}...")
                         else:
-                            import json
                             print(f"best_prompt: {json.dumps(bp, indent=2)[:800]}")
         elif best_snapshot_id:
             print(f"Best Prompt: Snapshot ID {best_snapshot_id} exists but payload not available (try fetching snapshot directly)")
@@ -632,26 +636,18 @@ async def main():
         final_balance = None
         balance_type = None
         
-        # Fetch events once for both billing and validation data
-        all_events = []
-        try:
-            all_events = await client.get_events(job_id, limit=500)
-        except Exception:
-            pass
+        # Try to get from billing.end events
+        all_events = await client.get_events(job_id, limit=1000)
+        billing_end_events = [e for e in all_events if e.get('type') == 'prompt.learning.billing.end']
+        if billing_end_events:
+            last_billing = billing_end_events[-1].get('data', {})
+            total_cost = last_billing.get('total_usd')
+            final_balance = last_billing.get('final_balance_usd')
+            balance_type = last_billing.get('balance_type')
         
-        # Try to get costs from billing.end event first
-        if all_events:
-            billing_events = [e for e in all_events if e.get('type') == 'prompt.learning.billing.end']
-            if billing_events:
-                latest_billing = billing_events[-1]
-                billing_data = latest_billing.get('data', {})
-                total_cost = billing_data.get('total_usd')
-                final_balance = billing_data.get('final_balance_usd')
-                balance_type = billing_data.get('balance_type')
-        
-        # Fallback to best_snapshot
-        if total_cost is None and best_snapshot:
-            total_cost = best_snapshot.get('total_cost_usd')
+        # Fallback to best_snapshot if events don't have it
+        if total_cost is None and best_snapshot and isinstance(best_snapshot, dict):
+            total_cost = best_snapshot.get('total_usd')
             final_balance = best_snapshot.get('final_balance_usd')
             balance_type = best_snapshot.get('balance_type')
         
@@ -756,8 +752,6 @@ async def main():
         # Extract boost metrics from validation summary
         baseline_acc_for_boost = None
         results_for_boost = []
-        
-        # Extract and display heldout set evaluations: baseline and top K candidates
         if all_events:
             validation_summary_events = [e for e in all_events if e.get('type') == 'prompt.learning.validation.summary']
             if validation_summary_events:
@@ -959,20 +953,45 @@ async def main():
         print()
         print("=" * 80)
         
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Interrupted by user")
+        # Clean up TUI process if running
+        if 'tui_process' in locals() and tui_process:
+            try:
+                tui_process.stdin.close()
+                tui_process.terminate()
+                tui_process.wait(timeout=2)
+            except Exception:
+                try:
+                    tui_process.kill()
+                except Exception:
+                    pass
+        sys.exit(1)
     except Exception as e:
-        print()
-        print("=" * 80)
+        print("\n" + "=" * 80)
         print("❌ Error during optimization")
         print("=" * 80)
         print(f"Error: {type(e).__name__}: {e}")
+        # Clean up TUI process if running
+        if 'tui_process' in locals() and tui_process:
+            try:
+                tui_process.stdin.close()
+                tui_process.terminate()
+                tui_process.wait(timeout=2)
+            except Exception:
+                try:
+                    tui_process.kill()
+                except Exception:
+                    pass
         import traceback
         traceback.print_exc()
         sys.exit(1)
-        
     finally:
-        # Cleanup temp file
-        if config_path.exists():
+        # Clean up temp config file
+        try:
             config_path.unlink()
+        except Exception:
+            pass
         
         # Clean up TUI process if running
         if 'tui_process' in locals() and tui_process:
@@ -988,8 +1007,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\n❌ Optimization interrupted by user")
-        sys.exit(1)
+    asyncio.run(main())
+
