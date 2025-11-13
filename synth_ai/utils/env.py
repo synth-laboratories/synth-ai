@@ -12,6 +12,23 @@ from .paths import get_env_file_paths, get_home_config_file_paths
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
 
 
+def get_synth_and_env_keys(env_file: Path | None) -> tuple[str, str]:
+    file_synth_api_key = None
+    file_env_api_key = None
+    if env_file is not None:
+        file_synth_api_key = read_env_var_from_file("SYNTH_API_KEY", env_file)
+        file_env_api_key = read_env_var_from_file("ENVIRONMENT_API_KEY", env_file)
+    env_synth_api_key = os.environ.get("SYNTH_API_KEY")
+    env_env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    synth_api_key = file_synth_api_key or env_synth_api_key
+    env_api_key = file_env_api_key or env_env_api_key
+    if not synth_api_key:
+        raise RuntimeError("SYNTH_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+    if not env_api_key:
+        raise RuntimeError("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+    return synth_api_key, env_api_key
+
+
 def load_env_file(
     env_file: Optional[str] = None,
     required_vars: Optional[Sequence[str]] = None,
