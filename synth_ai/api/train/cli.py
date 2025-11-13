@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import click
+from synth_ai.urls import BACKEND_URL_BASE
+from synth_ai.utils.env import get_synth_and_env_keys, mask_str
+from synth_ai.utils.paths import print_paths_formatted
+from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 
 try:
     _config_module = cast(
@@ -31,8 +35,6 @@ from synth_ai.utils.env import load_env_file
 from synth_ai.utils.errors import format_error_message, get_required_value
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
-from .config_finder import discover_configs, prompt_for_config
-from .env_resolver import KeySpec, resolve_env
 from .task_app import check_task_app_health
 from .utils import (
     TrainError,
@@ -160,22 +162,21 @@ def _build_stream_components(
 
 
 @click.command("train")
-@click.option(
-    "--config",
-    "config_paths",
-    multiple=True,
-    type=click.Path(),
-    help="Path to training TOML (repeatable)",
+@click.argument(
+    "cfg_path",
+    required=False
 )
-@click.option("--type", "train_type", type=click.Choice(["auto", "rl", "sft", "prompt_learning"]), default="auto")
 @click.option(
-    "--env-file",
-    "env_files",
-    multiple=True,
+    "--env",
+    "env_file",
     type=click.Path(),
     help=".env file(s) to preload (skips selection prompt)",
 )
-@click.option("--task-url", default=None, help="Override task app base URL (RL only)")
+@click.option(
+    "--task-url",
+    default=None,
+    help="Override task app base URL (RL only)"
+)
 @click.option(
     "--dataset",
     "dataset_path",
@@ -183,7 +184,6 @@ def _build_stream_components(
     default=None,
     help="Override dataset JSONL path (SFT)",
 )
-@click.option("--backend", default=_default_backend, help="Backend base URL")
 @click.option("--model", default=None, help="Override model identifier")
 @click.option(
     "--allow-experimental",
@@ -222,12 +222,10 @@ def _build_stream_components(
     help="Limit SFT training to the first N examples",
 )
 def train_command(
-    config_paths: tuple[str, ...],
-    train_type: str,
-    env_files: tuple[str, ...],
+    cfg_path: Path | None,
+    env_file: Path | None,
     task_url: str | None,
     dataset_path: str | None,
-    backend: str,
     model: str | None,
     allow_experimental: bool | None,
     idempotency: str | None,
@@ -238,145 +236,76 @@ def train_command(
     stream_format: str,
     examples_limit: int | None,
 ) -> None:
+    
     """Interactive launcher for RL / SFT / Prompt Learning jobs."""
     load_env_file()
 
-    candidates = discover_configs(
-        list(config_paths), requested_type=train_type if train_type != "auto" else None
-    )
-    selection = prompt_for_config(
-        candidates,
-        requested_type=train_type if train_type != "auto" else None,
-        allow_autoselect=bool(config_paths),
-    )
+    if not cfg_path:
+        available_cfgs = find_train_cfgs_in_cwd()
+        if len(available_cfgs) == 1:
+            train_type, cfg_path_str, _ = available_cfgs[0]
+            cfg_path = Path(cfg_path_str)
+            print(f"Automatically selected {train_type} training config at", cfg_path)
+        else:
+            if len(available_cfgs) == 0:
+                print("No training config found in cwd.")
+                print("Validate your training config: synth-ai train-cfg check [CFG_PATH]")
+            else:
+                print("Multiple training configs found. Please specify which one to use:")
+                print_paths_formatted(available_cfgs)
+            print("Usage: synth-ai train --config [CFG_PATH]")
+            return None
+        
+    train_type = validate_train_cfg(cfg_path)
 
-    effective_type = train_type if train_type != "auto" else selection.train_type
-    if effective_type not in {"rl", "sft", "prompt_learning"}:
-        raise click.UsageError(
-            format_error_message(
-                summary="Training type required",
-                context="Determining which trainer to invoke",
-                problem="Config metadata did not specify rl / sft / prompt_learning and no --type flag was provided",
-                impact="CLI cannot select the correct builder without a type",
-                solutions=[
-                    ("Pass --type rl|sft|prompt_learning", "Explicitly tell the CLI which workflow to run"),
-                    ("Add algorithm.type metadata to the config", "Include algorithm.type or prompt_learning markers in the TOML"),
-                    ("Use separate config files per training mode", "Keeps intent unambiguous for automation"),
-                ],
+    synth_api_key, _ = get_synth_and_env_keys(env_file)
+    backend_base = ensure_api_base(BACKEND_URL_BASE)
+    click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
+
+    match train_type:
+        case "prompt":
+            handle_prompt_learning(
+                cfg_path=cfg_path,
+                backend_base=backend_base,
+                synth_key=synth_api_key,
+                task_url_override=task_url,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
             )
-        )
-
-    cfg_path = selection.path
-    click.echo(f"Using config: {cfg_path} ({effective_type})")
-
-    required_keys: list[KeySpec] = []
-    if effective_type == "rl" or effective_type == "prompt_learning":
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-        required_keys.append(
-            KeySpec(
-                "ENVIRONMENT_API_KEY",
-                "Environment API key for task app",
-                allow_modal_secret=True,
-                modal_secret_pattern="env",
+        case "rl":
+            handle_rl(
+                cfg_path=cfg_path,
+                backend_base=backend_base,
+                synth_key=synth_api_key,
+                task_url_override=task_url,
+                model_override=model,
+                idempotency=idempotency,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
             )
-        )
-        required_keys.append(
-            KeySpec(
-                "TASK_APP_URL",
-                "Task app base URL",
-                secret=False,
-                allow_modal_app=True,
-                optional=bool(task_url),
+        case "sft":
+            dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
+            handle_sft(
+                cfg_path=cfg_path,
+                backend_base=backend_base,
+                synth_key=synth_api_key,
+                dataset_override=dataset_override_path,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
+                examples_limit=examples_limit,
             )
-        )
-    else:  # sft
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-
-    env_path, env_values = resolve_env(
-        config_path=cfg_path,
-        explicit_env_paths=env_files,
-        required_keys=required_keys,
-    )
-
-    missing_keys = [
-        spec.name
-        for spec in required_keys
-        if not spec.optional and not (env_values.get(spec.name) or os.environ.get(spec.name))
-    ]
-    if missing_keys:
-        try:
-            _task_apps_module = cast(
-                Any, importlib.import_module("synth_ai.cli.task_apps")
-            )
-            _interactive_fill_env = cast(
-                Callable[[Path], Path | None], _task_apps_module._interactive_fill_env
-            )
-        except Exception as exc:  # pragma: no cover - protective fallback
-            raise click.ClickException(f"Unable to prompt for env values: {exc}") from exc
-
-        target_dir = cfg_path.parent
-        generated = _interactive_fill_env(target_dir / ".env")
-        if generated is None:
-            raise click.ClickException("Required environment values missing; aborting.")
-        env_path, env_values = resolve_env(
-            config_path=cfg_path,
-            explicit_env_paths=(str(generated),),
-            required_keys=required_keys,
-        )
-    click.echo(f"Using env file: {env_path}")
-
-    synth_key = get_required_value(
-        "synth_api_key",
-        env_value=env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY"),
-    )
-    os.environ["SYNTH_API_KEY"] = synth_key
-
-    backend_base = ensure_api_base(backend)
-    click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
-
-    if effective_type == "rl":
-        handle_rl(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            task_url_override=task_url,
-            model_override=model,
-            idempotency=idempotency,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-        )
-    elif effective_type == "prompt_learning":
-        handle_prompt_learning(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            task_url_override=task_url,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-        )
-    else:
-        dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
-        handle_sft(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            dataset_override=dataset_override_path,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-            examples_limit=examples_limit,
-        )
 
 
 def _wait_for_training_file(
