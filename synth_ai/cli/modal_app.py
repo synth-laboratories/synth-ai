@@ -1,36 +1,38 @@
 from pathlib import Path
 
 import click
-from synth_ai.utils.apps import run_ruff_check, validate_modal_app
+from synth_ai.utils.apps.common import run_ruff_check
+from synth_ai.utils.apps.modal_app import (
+    validate_modal_app,
+    find_modal_apps_in_cwd
+)
+from synth_ai.utils.paths import print_paths_formatted
 
 
 @click.command()
 @click.argument(
     "action",
-    type=click.Choice(["check"]),
+    type=click.Choice(["check", "list"]),
     metavar="[ACTION]"
-
 )
 @click.argument(
-    "modal_app_path",
+    "path",
     type=click.Path(path_type=Path, exists=True),
-    metavar="[PATH]"
-)
-@click.option(
-    "--fix",
-    is_flag=True,
-    default=False,
-    help="Pass --fix through to Ruff so autofixable lint issues get patched.",
+    metavar="[PATH]",
+    required=False
 )
 def modal_app_cmd(
     action: str,
-    modal_app_path: Path,
-    fix: bool,
+    path: Path | None,
 ) -> None:
     try:
         match action:
             case "check":
-                validate_modal_app(modal_app_path)
-                raise SystemExit(run_ruff_check(modal_app_path, fix))
+                if path is None:
+                    raise click.ClickException("PATH is required for 'check'")
+                validate_modal_app(path)
+                raise SystemExit(run_ruff_check(path))
+            case "list":
+                print_paths_formatted(find_modal_apps_in_cwd())
     except Exception as exc:
         raise click.ClickException(str(exc)) from exc
