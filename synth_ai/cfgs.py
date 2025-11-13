@@ -4,7 +4,6 @@ from typing import Any, Literal, Optional, cast
 
 from pydantic import BaseModel
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps import validate_modal_app, validate_task_app
 from synth_ai.utils.paths import get_bin_path
 
 
@@ -33,7 +32,6 @@ class LocalDeployCfg(BaseModel):
         }
         log_event("info", "creating LocalDeployCfg", ctx=ctx)
         try:
-            validate_task_app(task_app_path)
             cfg = cls(
                 task_app_path=task_app_path,
                 env_api_key=env_api_key,
@@ -60,11 +58,14 @@ class LocalDeployCfg(BaseModel):
             "port": int(data.get("port", 8000)),
         }
         log_event("info", "creating LocalDeployCfg from dict", ctx=ctx)
-        validate_task_app(path)
+        env_api_key = data.get("env_api_key")
+        if not env_api_key or not isinstance(env_api_key, str):
+            raise ValueError("env_api_key is required in local deploy configuration")
+
         try:
             cfg = cls(
                 task_app_path=path,
-                env_api_key=str(data.get("env_api_key", "")),
+                env_api_key=env_api_key,
                 trace=bool(data.get("trace", True)),
                 host=str(data.get("host", "127.0.0.1")),
                 port=int(data.get("port", 8000)),
@@ -114,8 +115,8 @@ class ModalDeployCfg(BaseModel):
             raise ValueError("Modal CLI not found; install `modal` or pass --modal-cli with its path.")
         try:
             cfg = cls(
-                task_app_path=validate_task_app(task_app_path),
-                modal_app_path=validate_modal_app(modal_app_path),
+                task_app_path=task_app_path,
+                modal_app_path=modal_app_path,
                 modal_bin_path=modal_bin_path,
                 synth_api_key=synth_api_key,
                 env_api_key=env_api_key,
@@ -132,11 +133,11 @@ class ModalDeployCfg(BaseModel):
     @classmethod
     def create_from_kwargs(cls, **kwargs: Any) -> "ModalDeployCfg":
         synth_api_key = kwargs.get("synth_api_key")
-        if not synth_api_key:
-            raise ValueError("synth_api_key must be provided")
+        if not synth_api_key or not isinstance(synth_api_key, str):
+            raise ValueError("synth_api_key must be provided as a string")
         env_api_key = kwargs.get("env_api_key")
-        if not env_api_key:
-            raise ValueError("env_api_key must be provided")
+        if not env_api_key or not isinstance(env_api_key, str):
+            raise ValueError("env_api_key must be provided as a string")
 
         cmd_arg = str(kwargs.get("cmd_arg", "deploy")).strip().lower()
         if cmd_arg not in {"deploy", "serve"}:
@@ -174,11 +175,19 @@ class ModalDeployCfg(BaseModel):
             "task_app_name": task_app_name,
             "modal_cli": str(modal_bin_path) if modal_bin_path else None,
         }
+        task_app_path = kwargs.get("task_app_path")
+        modal_app_path = kwargs.get("modal_app_path")
+
+        if not isinstance(task_app_path, Path):
+            raise ValueError("task_app_path must be provided as a Path")
+        if not isinstance(modal_app_path, Path):
+            raise ValueError("modal_app_path must be provided as a Path")
+
         log_event("info", "creating ModalDeployCfg from kwargs", ctx=ctx)
         try:
             cfg = cls(
-                task_app_path=validate_task_app(kwargs.get("task_app_path")),
-                modal_app_path=validate_modal_app(kwargs.get("modal_app_path")),
+                task_app_path=task_app_path,
+                modal_app_path=modal_app_path,
                 modal_bin_path=modal_bin_path,
                 synth_api_key=synth_api_key,
                 env_api_key=env_api_key,
@@ -193,7 +202,7 @@ class ModalDeployCfg(BaseModel):
             raise
 
 
-class CloudflareTunnelDeployCfg(BaseModel):
+class CFDeployCfg(BaseModel):
     task_app_path: Path
     env_api_key: str
     host: str = "127.0.0.1"
@@ -214,8 +223,7 @@ class CloudflareTunnelDeployCfg(BaseModel):
         mode: Literal["quick", "managed"] = "quick",
         subdomain: Optional[str] = None,
         trace: bool = True,
-    ) -> "CloudflareTunnelDeployCfg":
-        validate_task_app(task_app_path)
+    ) -> "CFDeployCfg":
         return cls(
             task_app_path=task_app_path,
             env_api_key=env_api_key,
