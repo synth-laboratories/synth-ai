@@ -84,7 +84,7 @@ class ModalDeployCfg(BaseModel):
     synth_api_key: str
     env_api_key: str
     cmd_arg: Literal["deploy", "serve"] = "deploy"
-    task_app_name: Optional[str] = None
+    modal_app_name: Optional[str] = None
     dry_run: bool = False
 
     @classmethod
@@ -97,7 +97,7 @@ class ModalDeployCfg(BaseModel):
         env_api_key: str,
         modal_bin_path: Path | None = None,
         cmd_arg: Literal["deploy", "serve"] = "deploy",
-        task_app_name: Optional[str] = None,
+        modal_app_name: Optional[str] = None,
         dry_run: bool = False,
     ) -> "ModalDeployCfg":
         ctx = {
@@ -105,7 +105,7 @@ class ModalDeployCfg(BaseModel):
             "modal_app": str(modal_app_path),
             "cmd_arg": cmd_arg,
             "dry_run": dry_run,
-            "task_app_name": task_app_name,
+            "modal_app_name": modal_app_name,
             "modal_cli": str(modal_bin_path) if modal_bin_path else None,
         }
         log_event("info", "creating ModalDeployCfg", ctx=ctx)
@@ -121,7 +121,7 @@ class ModalDeployCfg(BaseModel):
                 synth_api_key=synth_api_key,
                 env_api_key=env_api_key,
                 cmd_arg=cmd_arg,
-                task_app_name=task_app_name,
+                modal_app_name=modal_app_name,
                 dry_run=dry_run,
             )
             log_event("info", "ModalDeployCfg created", ctx=ctx)
@@ -139,7 +139,7 @@ class ModalDeployCfg(BaseModel):
         if not env_api_key or not isinstance(env_api_key, str):
             raise ValueError("env_api_key must be provided as a string")
 
-        cmd_arg = str(kwargs.get("cmd_arg", "deploy")).strip().lower()
+        cmd_arg = str(kwargs.get("modal_mode", "deploy")).strip().lower()
         if cmd_arg not in {"deploy", "serve"}:
             raise ValueError("`--modal-mode` must be either 'deploy' or 'serve'.")
 
@@ -151,7 +151,7 @@ class ModalDeployCfg(BaseModel):
             log_error("ModalDeployCfg create_from_kwargs blocked", ctx={"reason": "dry_run_serve"})
             raise ValueError("`synth-ai deploy --runtime modal --modal-mode serve` cannot be used with `--dry-run`")
 
-        modal_bin_path_arg = kwargs.get("modal_bin_path")
+        modal_bin_path_arg = kwargs.get("modal_cli")
         modal_bin_path = Path(str(modal_bin_path_arg)).expanduser() if modal_bin_path_arg else get_bin_path("modal")
         if modal_bin_path is None or not modal_bin_path.exists():
             log_error(
@@ -161,9 +161,9 @@ class ModalDeployCfg(BaseModel):
             raise ValueError('Modal binary not found via shutil.which("modal"). Install `modal` or pass --modal-cli with its path.')
         modal_bin_path = modal_bin_path.resolve()
 
-        task_app_name = kwargs.get("task_app_name")
-        if task_app_name is not None:
-            task_app_name = str(task_app_name).strip() or None
+        modal_app_name = kwargs.get("name")
+        if modal_app_name is not None:
+            modal_app_name = str(modal_app_name).strip() or None
 
         literal_cmd = cast(Literal["deploy", "serve"], cmd_arg)
 
@@ -172,16 +172,21 @@ class ModalDeployCfg(BaseModel):
             "modal_app": str(kwargs.get("modal_app_path")),
             "cmd_arg": literal_cmd,
             "dry_run": dry_run,
-            "task_app_name": task_app_name,
+            "modal_app_name": modal_app_name,
             "modal_cli": str(modal_bin_path) if modal_bin_path else None,
         }
         task_app_path = kwargs.get("task_app_path")
-        modal_app_path = kwargs.get("modal_app_path")
+        modal_app_path = kwargs.get("modal_app")
+
+        if not task_app_path:
+            raise ValueError("task_app_path is required")
+        if not modal_app_path:
+            raise ValueError("modal_app is required")
 
         if not isinstance(task_app_path, Path):
-            raise ValueError("task_app_path must be provided as a Path")
+            task_app_path = Path(task_app_path)
         if not isinstance(modal_app_path, Path):
-            raise ValueError("modal_app_path must be provided as a Path")
+            modal_app_path = Path(modal_app_path)
 
         log_event("info", "creating ModalDeployCfg from kwargs", ctx=ctx)
         try:
@@ -192,7 +197,7 @@ class ModalDeployCfg(BaseModel):
                 synth_api_key=synth_api_key,
                 env_api_key=env_api_key,
                 cmd_arg=literal_cmd,
-                task_app_name=task_app_name,
+                modal_app_name=modal_app_name,
                 dry_run=dry_run,
             )
             log_event("info", "ModalDeployCfg from kwargs created", ctx=ctx)

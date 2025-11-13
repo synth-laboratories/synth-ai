@@ -33,6 +33,7 @@ RuntimeType: TypeAlias = Literal[
 )
 @click.argument(
     "task_app_path",
+    type=click.Path(path_type=Path),
     required=False
 )
 # --- Universal option(s) ---
