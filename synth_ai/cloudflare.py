@@ -532,7 +532,7 @@ async def deploy_app_tunnel(
 
     tunnel_proc: Optional[subprocess.Popen] = None
     try:
-        if cfg.mode == "quick":
+        if cfg.mode == "fast": 
             # Quick tunnel: ephemeral, no backend API call
             url, tunnel_proc = open_quick_tunnel(cfg.port)
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc

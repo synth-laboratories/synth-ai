@@ -92,10 +92,9 @@ RUNTIME_MSG = SimpleNamespace(
 # --- Tunnel runtime-only options ---
 @click.option(
     "--tunnel-mode",
-    "tunnel_mode",
-    type=click.Choice(["quick", "managed"], case_sensitive=False),
-    default="quick",
-    help="Tunnel mode: quick (ephemeral) or managed (stable)"
+    type=click.Choice(["fast", "managed"], case_sensitive=False),
+    default="fast",
+    help="Tunnel mode: fast (ephemeral) or managed (stable)"
 )
 @click.option(
     "--tunnel-subdomain",
@@ -199,28 +198,26 @@ def deploy_cmd(
                     **kwargs
                 ))
             case "tunnel":
-                # For managed tunnels, SYNTH_API_KEY is required
                 tunnel_mode = kwargs.get("tunnel_mode", "managed")
                 if tunnel_mode == "managed" and not synth_api_key:
                     raise RuntimeError(
                         "SYNTH_API_KEY required for managed tunnel mode. "
                         "Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
                     )
-                
-                cfg = CloudflareTunnelDeployCfg.create(
-                    task_app_path=task_app_path,
-                    env_api_key=env_api_key,
-                    host=str(kwargs.get("host", "127.0.0.1")),
-                    port=int(kwargs.get("port", 8000)),
-                    mode=cast(Literal["quick", "managed"], tunnel_mode),
-                    subdomain=kwargs.get("tunnel_subdomain"),
-                    trace=bool(kwargs.get("trace", True)),
-                )
-                # Default to background mode (non-blocking), use --keep-alive for blocking
-                keep_alive = bool(kwargs.get("keep_alive", False))
-                asyncio.run(deploy_app_tunnel(cfg, env_file_path, keep_alive=keep_alive))
-                # Note: deploy_app_tunnel prints the URL and status message internally
-        log_info("deploy command completed", ctx={"runtime": runtime})
+                asyncio.run(deploy_app_tunnel(
+                    CloudflareTunnelDeployCfg.create(
+                        task_app_path=task_app_path,
+                        env_api_key=env_api_key,
+                        host=str(kwargs.get("host", "127.0.0.1")),
+                        port=int(kwargs.get("port", 8000)),
+                        mode=cast(Literal["fast", "managed"], tunnel_mode),
+                        subdomain=kwargs.get("tunnel_subdomain"),
+                        trace=bool(kwargs.get("trace", True))
+                    ),
+                    env_file_path,
+                    keep_alive=bool(kwargs.get("keep_alive", False))
+                ))
+        
     except Exception as exc:
         log_error("deploy command failed", ctx={
             "runtime": runtime,
