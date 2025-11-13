@@ -164,12 +164,13 @@ def _build_stream_components(
 @click.command("train")
 @click.argument(
     "cfg_path",
-    required=False
+    required=False,
+    type=click.Path(exists=True, path_type=Path)
 )
 @click.option(
     "--env",
     "env_file",
-    type=click.Path(),
+    type=click.Path(exists=True, path_type=Path),
     help=".env file(s) to preload (skips selection prompt)",
 )
 @click.option(
