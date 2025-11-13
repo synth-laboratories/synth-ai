@@ -12,6 +12,7 @@ from modal.config import config
 from synth_ai.cfgs import ModalDeployCfg
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.env import write_env_var_to_dotenv
+from synth_ai.utils.apps.modal_app import validate_modal_app
 from synth_ai.utils.paths import (
     REPO_ROOT,
     cleanup_paths,
@@ -210,6 +211,8 @@ def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
         "is_mcp": is_mcp,
     }
     log_event("info", "deploy_app_modal invoked", ctx=ctx)
+
+    validate_modal_app(cfg.modal_app_path)
 
     if is_modal_setup_needed():
         log_event("info", "modal setup required", ctx={"modal_cli": str(cfg.modal_bin_path)})
