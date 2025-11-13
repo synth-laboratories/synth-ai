@@ -307,7 +307,7 @@ async def call_chat_completion(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "tools": [classify_tool],
-        "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
+        "tool_choice": "required" if classify_tool else None,
     }
 
     print(

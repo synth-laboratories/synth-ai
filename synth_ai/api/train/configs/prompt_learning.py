@@ -146,6 +146,8 @@ class MIPROConfig(ExtraModel):
     spec_max_tokens: int = 5000  # Max tokens for spec context in meta-prompt
     spec_include_examples: bool = True  # Include examples from spec
     spec_priority_threshold: int | None = None  # Only include rules with priority >= threshold
+    # Custom metaprompt (optional)
+    metaprompt: str | None = None  # Custom metaprompt text to include in instruction generation prompts
     
     # Bootstrap seeds (for few-shot examples)
     bootstrap_train_seeds: list[int] | None = None
@@ -459,6 +461,8 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "dspy"  # "dspy" or "synth"
+    # Custom metaprompt (optional)
+    metaprompt: str | None = None  # Custom metaprompt text to include in mutation prompts
     
     # Multi-stage pipeline support
     modules: list[GEPAModuleConfig] | None = None

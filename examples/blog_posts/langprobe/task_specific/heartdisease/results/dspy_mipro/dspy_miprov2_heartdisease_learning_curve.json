@@ -1,0 +1,17 @@
+{
+  "framework": "dspy_miprov2",
+  "benchmark": "heartdisease",
+  "total_rollouts": 50,
+  "checkpoints": [
+    {
+      "rollout_count": 0,
+      "performance": 0.58,
+      "checkpoint_pct": 0.0
+    },
+    {
+      "rollout_count": 50,
+      "performance": 0.7,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://127.0.0.1:8110"
+task_app_api_key = "${ENVIRONMENT_API_KEY}"
+env_file_path = "../../../../../.env"
+results_folder = "results"
+
+[prompt_learning.initial_prompt]
+id = "hotpotqa_pattern"
+name = "HotpotQA Multi-Hop Question Answering Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are a research assistant that answers multi-hop questions. Read the passages carefully and respond in the format:\nAnswer: <short answer>\nSupport: <brief justification citing passages>."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Question: {question}\n\nPassages:\n{context}\n\nProvide the final answer."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+question = "REQUIRED"
+context = "REQUIRED"
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "llama-3.1-8b-instant"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 512
+
+[prompt_learning.gepa]
+env_name = "hotpotqa"
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+val_seeds = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+validation_pool = "train"
+validation_top_k = 2
+
+[prompt_learning.gepa.rollout]
+budget = 200
+max_concurrent = 5
+
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "llama-3.3-70b-versatile"
+llm_provider = "groq"
+llm_inference_url = "https://api.groq.com"
+temperature = 0.7
+max_tokens = 512
+
+[prompt_learning.gepa.population]
+initial_size = 20
+num_generations = 5
+children_per_generation = 4
+
+[prompt_learning.gepa.archive]
+max_size = 10
+min_score_threshold = 0.0
+feedback_fraction = 0.33
+
+[prompt_learning.gepa.token]
+max_limit = 4096
+counting_model = "gpt-4"
+enforce_limit = false
+
+[prompt_learning.termination_config]
+max_cost_usd = 1.0
+max_trials = 200
+
+[display]
+local_backend = true
+tui = false
+show_curve = true
+verbose_summary = true
+show_trial_results = true
+show_transformations = false
+show_validation = true
+

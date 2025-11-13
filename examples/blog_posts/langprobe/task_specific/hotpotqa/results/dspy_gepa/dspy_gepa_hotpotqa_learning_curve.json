@@ -1,0 +1,12 @@
+{
+  "framework": "dspy_gepa",
+  "benchmark": "hotpotqa",
+  "total_rollouts": 200,
+  "checkpoints": [
+    {
+      "rollout_count": 200,
+      "performance": 0.0,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

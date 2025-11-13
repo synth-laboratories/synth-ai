@@ -1,0 +1,25 @@
+# Configuration for synth_gepa parallel comparison runs
+# Adjust these values to control job limits and behavior
+
+# Job termination limits
+limits:
+  rollout_limit: 1000          # Maximum number of rollouts per job
+  time_limit_seconds: 600     # Maximum time per job in seconds
+  max_trials: 50              # Maximum number of trials
+  max_cost_usd: 1          # Maximum cost per job in USD
+
+# GEPA population settings (controls how many generations and children per generation)
+gepa_population:
+  num_generations: 2          # Number of generations to run (should be small to respect max_trials)
+  children_per_generation: 5  # Number of children per generation (should match max_trials)
+
+# Display settings
+display:
+  tui: false                 # Disable TUI dashboard
+  show_curve: false          # Don't show optimization curve
+  verbose_summary: false     # Don't show verbose summary
+
+# Backend settings
+backend:
+  local_backend: true        # Use local backend
+

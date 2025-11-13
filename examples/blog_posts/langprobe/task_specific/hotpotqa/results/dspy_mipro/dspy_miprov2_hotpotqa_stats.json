@@ -1,0 +1,10 @@
+{
+  "total_time": 17.480396032333374,
+  "total_rollouts": 50,
+  "actual_rollouts": 342,
+  "baseline_score": 0.7167,
+  "val_score": 0.7667,
+  "val_n": 30,
+  "train_n": 50,
+  "auto_level": "light"
+}
