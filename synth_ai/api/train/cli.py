@@ -141,7 +141,7 @@ _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS = {
 def _load_toml_config(config_path: Path) -> dict[str, Any]:
     """Load TOML config file."""
     try:
-        import tomli
+        import tomli  # type: ignore[import-untyped]
     except ImportError:
         # Fallback to tomllib for Python 3.11+
         try:

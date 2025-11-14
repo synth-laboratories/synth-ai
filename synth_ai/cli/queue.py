@@ -82,7 +82,8 @@ def _kill_all_existing_workers() -> int:
                         click.echo(f"Killing existing worker (PID: {pid})", err=True)
                         try:
                             subprocess.run(['kill', '-TERM', pid], timeout=3)
-                            time.sleep(1)
+                            import time as time_module  # Import here to avoid F823 false positive
+                            time_module.sleep(1)
                             subprocess.run(['kill', '-9', pid], timeout=1)
                             killed += 1
                         except Exception:

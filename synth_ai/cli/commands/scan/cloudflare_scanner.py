@@ -27,7 +27,7 @@ def scan_cloudflare_processes() -> list[dict[str, Any]]:
 
     # Try using psutil if available
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
 
         for proc in psutil.process_iter(["pid", "name", "cmdline"]):
             try:
@@ -153,7 +153,7 @@ def _try_get_quick_tunnel_url(pid: int | None, port: int) -> str | None:
     
     # Try to read from process file descriptors (if accessible)
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         proc = psutil.Process(pid)
         # Try to read from stdout/stderr if they're pipes/files
         for fd in [proc.stdout, proc.stderr]:
