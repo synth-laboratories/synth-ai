@@ -328,7 +328,7 @@ def deploy_cmd(
                         "Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
                     )
                 
-                cfg = CloudflareTunnelDeployCfg.create(  # type: ignore[arg-type]
+                cfg = CloudflareTunnelDeployCfg.create(  # type: ignore[call-arg]
                     task_app_path=task_app_path,
                     env_api_key=env_api_key,
                     host=str(kwargs.get("host", "127.0.0.1")),
