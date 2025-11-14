@@ -11,8 +11,9 @@ import sys
 import tarfile
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Iterable, Optional, Tuple
 
 import click
 import httpx
@@ -40,6 +41,179 @@ _URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
 
 # Global state - store tunnel process handles for cleanup
 _TUNNEL_PROCESSES: dict[int, subprocess.Popen] = {}
+
+
+@dataclass(slots=True)
+class ManagedTunnelRecord:
+    """Managed tunnel metadata returned by backend."""
+
+    id: str
+    hostname: str
+    org_id: str
+    org_name: Optional[str]
+    local_host: str
+    local_port: int
+    metadata: dict[str, Any]
+    raw: dict[str, Any]
+
+    @property
+    def url(self) -> str:
+        if self.hostname.startswith(("http://", "https://")):
+            return self.hostname
+        return f"https://{self.hostname}"
+
+    @property
+    def subdomain(self) -> str:
+        return self.hostname.split(".", 1)[0]
+
+    def credential(self, key: str) -> Optional[str]:
+        return _extract_credential(self.raw, key)
+
+
+# ---------------------------------------------------------------------------
+# Managed tunnel discovery helpers
+# ---------------------------------------------------------------------------
+
+
+async def fetch_managed_tunnels(synth_api_key: str) -> list[ManagedTunnelRecord]:
+    """
+    Fetch managed tunnels tied to the provided Synth API key.
+
+    Raises:
+        RuntimeError: If backend returns an error or unexpected payload.
+    """
+    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+    headers = {"Authorization": f"Bearer {synth_api_key}"}
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            payload = response.json()
+    except httpx.HTTPStatusError as exc:
+        raise RuntimeError(
+            f"Failed to list managed tunnels (status {exc.response.status_code}): {exc.response.text}"
+        ) from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(f"Failed to reach Synth backend at {url}: {exc}") from exc
+
+    if not isinstance(payload, list):
+        raise RuntimeError("Unexpected tunnel API response: expected a list of tunnels.")
+
+    records: list[ManagedTunnelRecord] = []
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        hostname = entry.get("hostname")
+        org_id = entry.get("org_id")
+        tunnel_id = entry.get("id")
+        if not hostname or not org_id or not tunnel_id:
+            continue
+        metadata = entry.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+        records.append(
+            ManagedTunnelRecord(
+                id=str(tunnel_id),
+                hostname=str(hostname),
+                org_id=str(org_id),
+                org_name=entry.get("org_name"),
+                local_host=str(entry.get("local_host") or "127.0.0.1"),
+                local_port=int(entry.get("local_port") or 8000),
+                metadata=metadata,
+                raw=entry,
+            )
+        )
+    return records
+
+
+def _select_existing_tunnel(
+    tunnels: list[ManagedTunnelRecord],
+    desired_subdomain: Optional[str],
+) -> Optional[ManagedTunnelRecord]:
+    if not tunnels:
+        return None
+
+    if desired_subdomain:
+        target = _normalize_subdomain(desired_subdomain)
+        for tunnel in tunnels:
+            if _normalize_subdomain(tunnel.subdomain) == target or _normalize_subdomain(
+                tunnel.hostname
+            ) == target:
+                print(
+                    f"ℹ️  Using managed tunnel {tunnel.url} "
+                    f"(matched subdomain '{tunnel.subdomain}')"
+                )
+                return tunnel
+        _print_tunnel_choices(tunnels, header="Available managed tunnels:")
+        raise RuntimeError(
+            f"No managed tunnel matched subdomain '{desired_subdomain}'. "
+            "Re-run with a valid --tunnel-subdomain."
+        )
+
+    if len(tunnels) == 1:
+        tunnel = tunnels[0]
+        print(
+            f"ℹ️  Reusing existing managed tunnel for "
+            f"{tunnel.org_name or tunnel.org_id}: {tunnel.url}"
+        )
+        return tunnel
+
+    _print_tunnel_choices(
+        tunnels,
+        header=(
+            "Multiple managed tunnels found. Please re-run with "
+            "--tunnel-subdomain <subdomain> to choose one."
+        ),
+    )
+    raise RuntimeError("Multiple managed tunnels available; selection required.")
+
+
+def _print_tunnel_choices(
+    tunnels: Iterable[ManagedTunnelRecord],
+    header: Optional[str] = None,
+) -> None:
+    if header:
+        print(header)
+    for idx, tunnel in enumerate(tunnels, 1):
+        label = tunnel.org_name or tunnel.org_id
+        print(f"  {idx}. {label}: {tunnel.url} (subdomain '{tunnel.subdomain}')")
+
+
+def _normalize_subdomain(value: str) -> str:
+    value = value.strip().lower()
+    if value.startswith("https://"):
+        value = value[len("https://") :]
+    elif value.startswith("http://"):
+        value = value[len("http://") :]
+    return value.split(".", 1)[0]
+
+
+def _extract_credential(payload: dict[str, Any], key: str) -> Optional[str]:
+    """Extract secret from various nested metadata structures."""
+
+    def _dig(obj: Any, path: tuple[str, ...]) -> Optional[Any]:
+        current = obj
+        for part in path:
+            if isinstance(current, dict):
+                current = current.get(part)
+            else:
+                return None
+        return current
+
+    candidate_paths: tuple[tuple[str, ...], ...] = (
+        (key,),
+        ("metadata", key),
+        ("metadata", "secrets", key),
+        ("metadata", "credentials", key),
+        ("metadata", "cloudflare", key),
+        ("metadata", "cloudflare", "secrets", key),
+    )
+
+    for path in candidate_paths:
+        value = _dig(payload, path)
+        if isinstance(value, str) and value:
+            return value
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -516,6 +690,20 @@ async def deploy_app_tunnel(
 
     ensure_cloudflared_installed()
 
+    selected_managed: Optional[ManagedTunnelRecord] = None
+    synth_api_key: Optional[str] = None
+
+    if cfg.mode == "managed":
+        synth_api_key = resolve_env_var("SYNTH_API_KEY")
+        tunnels = await fetch_managed_tunnels(synth_api_key)
+        if tunnels:
+            selected_managed = _select_existing_tunnel(tunnels, cfg.subdomain)
+            if selected_managed:
+                cfg.host = selected_managed.local_host or cfg.host
+                cfg.port = selected_managed.local_port or cfg.port
+        else:
+            print("ℹ️  No managed tunnels found; provisioning a new managed tunnel.")
+
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
     if cfg.trace:
         os.environ["TASKAPP_TRACING_ENABLED"] = "1"
@@ -523,7 +711,9 @@ async def deploy_app_tunnel(
         os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
     configure_import_paths(cfg.task_app_path, REPO_ROOT)
-    module = load_file_to_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
+    module = load_file_to_module(
+        cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}"
+    )
     app = get_asgi_app(module)
 
     # Always use non-daemon thread so it survives when main process exits
@@ -538,19 +728,30 @@ async def deploy_app_tunnel(
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
             store_tunnel_credentials(url, None, None, env_file)
         else:
-            # Managed tunnel: provision via backend API
-            synth_api_key = resolve_env_var("SYNTH_API_KEY")
-            data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
+            # Managed tunnel: either reuse or provision via backend API
+            if selected_managed:
+                tunnel_token = selected_managed.credential("tunnel_token")
+                if not tunnel_token:
+                    raise RuntimeError(
+                        "Managed tunnel metadata missing tunnel_token. "
+                        "Delete the tunnel or contact Synth support."
+                    )
+                hostname = selected_managed.hostname
+                access_client_id = selected_managed.credential("access_client_id")
+                access_client_secret = selected_managed.credential("access_client_secret")
+            else:
+                if not synth_api_key:
+                    synth_api_key = resolve_env_var("SYNTH_API_KEY")
+                data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
+                tunnel_token = data["tunnel_token"]
+                hostname = data["hostname"]
+                access_client_id = data.get("access_client_id")
+                access_client_secret = data.get("access_client_secret")
 
-            tunnel_token = data["tunnel_token"]
-            hostname = data["hostname"]
-            access_client_id = data.get("access_client_id")
-            access_client_secret = data.get("access_client_secret")
-
-            tunnel_proc = open_managed_tunnel(tunnel_token)
+            tunnel_proc = open_managed_tunnel(str(tunnel_token))
             _TUNNEL_PROCESSES[cfg.port] = tunnel_proc
 
-            url = f"https://{hostname}"
+            url = hostname if hostname.startswith("http") else f"https://{hostname}"
             store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
 
         # If keep_alive is True, block and keep processes alive until interrupted
