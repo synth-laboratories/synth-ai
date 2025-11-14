@@ -303,13 +303,15 @@ def deploy_cmd(
         match runtime:
             case "local":
                 log_info("starting local deploy")
-                deploy_app_uvicorn(LocalDeployCfg.create(  # type: ignore[arg-type]
-                    task_app_path=task_app_path,
-                    env_api_key=env_api_key,
-                    trace = bool(kwargs.get("trace", True)),
-                    host = str(kwargs.get("host", "127.0.0.1")),
-                    port = int(kwargs.get("port", 8000))
-                ))
+                deploy_app_uvicorn(
+                    LocalDeployCfg.create(  # type: ignore[call-arg]
+                        task_app_path=task_app_path,
+                        env_api_key=env_api_key,
+                        trace = bool(kwargs.get("trace", True)),
+                        host = str(kwargs.get("host", "127.0.0.1")),
+                        port = int(kwargs.get("port", 8000))
+                    )
+                )
             case "modal":
                 log_info("starting modal deploy")
                 wait = bool(kwargs.get("wait", False))
