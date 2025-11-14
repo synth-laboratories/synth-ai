@@ -1,11 +1,11 @@
 """SDK-side validation for training configs - catch errors BEFORE sending to backend."""
 
 import re
-import toml
 from pathlib import Path
-from typing import Any, Tuple, List
+from typing import Any, List, Tuple
 
 import click
+import toml
 
 
 class ConfigValidationError(Exception):
@@ -1120,7 +1120,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
     errors = []
     
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config_dict = toml.load(f)
     except Exception as e:
         return False, [f"Failed to parse TOML: {e}"]
@@ -1323,7 +1323,7 @@ def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str)
     elif algorithm == "mipro":
         # MIPRO validation can be added here if needed
         # For now, fall back to general validation
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config_data = toml.load(f)
         validate_prompt_learning_config(config_data, config_path)
         return

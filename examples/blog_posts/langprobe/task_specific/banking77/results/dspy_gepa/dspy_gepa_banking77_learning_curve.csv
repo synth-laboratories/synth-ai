@@ -1,2 +1,3 @@
 framework,benchmark,rollout_count,performance,checkpoint_pct
-dspy_gepa,banking77,200,0.0,1.0
+dspy_gepa,banking77,0,0.43329999999999996,0.0
+dspy_gepa,banking77,500,0.7333,1.0

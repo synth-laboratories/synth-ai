@@ -294,6 +294,9 @@ async def run_dspy_miprov2_banking77(
 
     # Manual parameter control for consistent evaluation counts (~200 rollouts target)
     # num_candidates=20, num_trials=10 -> ~200 rollouts (20 candidates * 10 trials)
+    log_dir = output_dir / "mipro_logs"
+    log_dir.mkdir(exist_ok=True)
+
     optimizer = MIPROv2(
         metric=tracked_metric,
         num_candidates=20,
@@ -308,7 +311,7 @@ async def run_dspy_miprov2_banking77(
 
     # Reset counter for optimization phase (exclude baseline calls)
     metric_calls["count"] = 0
-    optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset)
+    optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset, num_trials=10)
     optimization_metric_calls = metric_calls["count"]
 
     # Evaluate optimized module
@@ -338,6 +341,72 @@ async def run_dspy_miprov2_banking77(
     # Save results
     learning_curve.save(output_dir)
 
+    # Save detailed optimization results
+    detailed_results_file = output_dir / "dspy_gepa_detailed_results.json"
+
+    # Extract detailed results if available
+    detailed_results = {
+        "best_score": val_score_pct,
+        "baseline_score": float(baseline_val),
+        "total_rollouts": rollout_budget,
+        "total_time": total_time,
+        "candidates": [],
+        "evolution": [],
+    }
+
+    if hasattr(optimized_module, "detailed_results"):
+        gepa_results = optimized_module.detailed_results
+
+        # Add actual metric calls if available
+        if hasattr(gepa_results, "total_metric_calls") and gepa_results.total_metric_calls is not None:
+            detailed_results["actual_rollouts"] = gepa_results.total_metric_calls
+
+        # Add log directory if available
+        if hasattr(gepa_results, "log_dir") and gepa_results.log_dir is not None:
+            detailed_results["log_dir"] = gepa_results.log_dir
+            detailed_results["note"] = "Candidate programs and full optimization logs are saved in the log_dir"
+
+        # Extract candidate information
+        for i, (candidate, score, discovery_count) in enumerate(zip(
+            gepa_results.candidates,
+            gepa_results.val_aggregate_scores,
+            gepa_results.discovery_eval_counts
+        )):
+            candidate_info = {
+                "candidate_num": i,
+                "score": float(score),
+                "discovery_rollout": discovery_count,
+                "is_best": i == gepa_results.best_idx,
+            }
+
+            # Extract instruction text for each predictor
+            candidate_info["instructions"] = {}
+            if isinstance(candidate, dict):
+                for pred_name, instruction in candidate.items():
+                    candidate_info["instructions"][pred_name] = str(instruction)
+            elif hasattr(candidate, 'named_predictors'):
+                # Module object - extract instructions from predictors
+                for pred_name, predictor in candidate.named_predictors():
+                    if hasattr(predictor, 'signature') and hasattr(predictor.signature, 'instructions'):
+                        candidate_info["instructions"][pred_name] = str(predictor.signature.instructions)
+
+            detailed_results["candidates"].append(candidate_info)
+
+        # Add evolution/lineage information
+        if hasattr(gepa_results, "parents"):
+            for i, parent_list in enumerate(gepa_results.parents):
+                evolution_info = {
+                    "candidate_num": i,
+                    "parents": parent_list if parent_list else [],
+                }
+                detailed_results["evolution"].append(evolution_info)
+
+    # Save to JSON
+    with open(detailed_results_file, "w") as f:
+        json.dump(detailed_results, f, indent=2)
+
+    print(f"📊 Saved detailed results to {detailed_results_file}")
+
     # Also save time and rollout info to JSON for parallel runner
     stats_file = output_dir / "dspy_miprov2_banking77_stats.json"
     with open(stats_file, "w") as f:
@@ -364,6 +433,64 @@ async def run_dspy_miprov2_banking77(
             "max_bootstrapped_demos": 10,
             "max_labeled_demos": 10,
     }
+
+    # Save detailed optimization results
+    detailed_results_file = output_dir / "dspy_miprov2_detailed_results.json"
+
+    # Extract trial logs and candidate programs if available
+    trial_logs = getattr(optimized_module, "trial_logs", {})
+    candidate_programs = getattr(optimized_module, "candidate_programs", [])
+
+    # Build detailed results with all instructions and scores
+    detailed_results = {
+        "best_score": val_score_pct,
+        "baseline_score": float(baseline_val),
+        "total_rollouts": rollout_budget,
+        "actual_rollouts": optimization_metric_calls,
+        "total_time": total_time,
+        "num_candidates": 20,
+        "num_trials": 10,
+        "log_dir": str(log_dir),
+        "note": "Trial programs and full optimization logs are saved in the log_dir",
+        "trials": [],
+        "candidate_programs": [],
+    }
+
+    # Add trial information
+    for trial_num, trial_data in trial_logs.items():
+        trial_info = {
+            "trial_num": trial_num,
+            "score": trial_data.get("full_eval_score", trial_data.get("score")),
+            "instructions": {},
+            "demos": {},
+            "total_eval_calls": trial_data.get("total_eval_calls_so_far"),
+        }
+
+        # Extract instruction indices for each predictor
+        for key, value in trial_data.items():
+            if "_predictor_instruction" in key:
+                predictor_idx = key.split("_")[0]
+                trial_info["instructions"][f"predictor_{predictor_idx}"] = value
+            elif "_predictor_demos" in key:
+                predictor_idx = key.split("_")[0]
+                trial_info["demos"][f"predictor_{predictor_idx}"] = value
+
+        detailed_results["trials"].append(trial_info)
+
+    # Add candidate program scores
+    for i, candidate in enumerate(candidate_programs):
+        detailed_results["candidate_programs"].append({
+            "rank": i + 1,
+            "score": candidate.get("score"),
+            "full_eval": candidate.get("full_eval", False),
+        })
+
+    # Save to JSON
+    with open(detailed_results_file, "w") as f:
+        json.dump(detailed_results, f, indent=2)
+
+    print(f"📊 Saved detailed results to {detailed_results_file}")
+
 
     # Save module info with full prompt details
     module_info = {
@@ -471,9 +598,14 @@ async def run_dspy_gepa_banking77(
     if not groq_api_key:
         raise ValueError("GROQ_API_KEY required")
 
-    # Main LM: gpt-oss-20b via Groq
-    lm = dspy.LM("groq/openai/gpt-oss-20b", api_key=groq_api_key)
+    # Main LM: llama-3.1-8b-instant via Groq (matching synth GEPA)
+    lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=groq_api_key)
     dspy.configure(lm=lm)
+
+    # Define GEPA metric
+    def tracked_metric_gepa(gold, pred, trace=None, pred_name=None, pred_trace=None):
+        """Wrapped metric for GEPA (doesn't need call counting)."""
+        return banking77_metric_gepa(gold, pred, trace, pred_name, pred_trace)
 
     # Load dataset and available intents
     banking77_examples = load_banking77_dataset(split="train")
@@ -506,10 +638,8 @@ async def run_dspy_gepa_banking77(
     # Evaluate baseline (before optimization)
     from dspy.evaluate import Evaluate
 
-    metric_calls["count"] = 0
-    evaluate = Evaluate(devset=valset, metric=tracked_metric, num_threads=1)
+    evaluate = Evaluate(devset=valset, metric=tracked_metric_gepa, num_threads=1)
     baseline_score = evaluate(module)
-    baseline_metric_calls = metric_calls["count"]
 
     # Extract the score (DSPy returns EvaluationResult with .score attribute)
     if isinstance(baseline_score, (int, float)):
@@ -537,7 +667,7 @@ async def run_dspy_gepa_banking77(
     max_metric_calls = int(rollout_budget)
     # GEPA requires a reflection LM (llama-3.3-70b-versatile, matching gepa config mutation LLM)
     reflection_lm = dspy.LM("groq/llama-3.3-70b-versatile", api_key=groq_api_key)
-    optimizer = GEPA(metric=tracked_metric_gepa, max_metric_calls=max_metric_calls, reflection_lm=reflection_lm)
+    optimizer = GEPA(metric=tracked_metric_gepa, max_metric_calls=max_metric_calls, reflection_lm=reflection_lm, track_stats=True)
 
     # Optimize with progress tracking
     print(f"🚀 DSPy GEPA (budget={rollout_budget}, max_metric_calls={max_metric_calls})")
@@ -569,6 +699,72 @@ async def run_dspy_gepa_banking77(
 
     # Save results
     learning_curve.save(output_dir)
+
+    # Save detailed optimization results
+    detailed_results_file = output_dir / "dspy_gepa_detailed_results.json"
+
+    # Extract detailed results if available
+    detailed_results = {
+        "best_score": val_score_pct,
+        "baseline_score": float(baseline_val),
+        "total_rollouts": rollout_budget,
+        "total_time": total_time,
+        "candidates": [],
+        "evolution": [],
+    }
+
+    if hasattr(optimized_module, "detailed_results"):
+        gepa_results = optimized_module.detailed_results
+
+        # Add actual metric calls if available
+        if hasattr(gepa_results, "total_metric_calls") and gepa_results.total_metric_calls is not None:
+            detailed_results["actual_rollouts"] = gepa_results.total_metric_calls
+
+        # Add log directory if available
+        if hasattr(gepa_results, "log_dir") and gepa_results.log_dir is not None:
+            detailed_results["log_dir"] = gepa_results.log_dir
+            detailed_results["note"] = "Candidate programs and full optimization logs are saved in the log_dir"
+
+        # Extract candidate information
+        for i, (candidate, score, discovery_count) in enumerate(zip(
+            gepa_results.candidates,
+            gepa_results.val_aggregate_scores,
+            gepa_results.discovery_eval_counts
+        )):
+            candidate_info = {
+                "candidate_num": i,
+                "score": float(score),
+                "discovery_rollout": discovery_count,
+                "is_best": i == gepa_results.best_idx,
+            }
+
+            # Extract instruction text for each predictor
+            candidate_info["instructions"] = {}
+            if isinstance(candidate, dict):
+                for pred_name, instruction in candidate.items():
+                    candidate_info["instructions"][pred_name] = str(instruction)
+            elif hasattr(candidate, 'named_predictors'):
+                # Module object - extract instructions from predictors
+                for pred_name, predictor in candidate.named_predictors():
+                    if hasattr(predictor, 'signature') and hasattr(predictor.signature, 'instructions'):
+                        candidate_info["instructions"][pred_name] = str(predictor.signature.instructions)
+
+            detailed_results["candidates"].append(candidate_info)
+
+        # Add evolution/lineage information
+        if hasattr(gepa_results, "parents"):
+            for i, parent_list in enumerate(gepa_results.parents):
+                evolution_info = {
+                    "candidate_num": i,
+                    "parents": parent_list if parent_list else [],
+                }
+                detailed_results["evolution"].append(evolution_info)
+
+    # Save to JSON
+    with open(detailed_results_file, "w") as f:
+        json.dump(detailed_results, f, indent=2)
+
+    print(f"📊 Saved detailed results to {detailed_results_file}")
 
     # Also save time and rollout info to JSON for parallel runner
     stats_file = output_dir / "dspy_gepa_banking77_stats.json"

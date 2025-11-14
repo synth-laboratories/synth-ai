@@ -307,7 +307,7 @@ def display_prompt_learning_summary(
                     result_acc = result.get('accuracy')
                     if result_acc is not None:
                         delta = result_acc - baseline_acc
-                        rows.append((f"Candidate 1", f"Accuracy: {result_acc:.4f} (Δ{delta:+.4f} vs baseline)"))
+                        rows.append(("Candidate 1", f"Accuracy: {result_acc:.4f} (Δ{delta:+.4f} vs baseline)"))
         
         # Display table
         max_label_len = max(len(row[0]) for row in rows) if rows else 0

@@ -45,7 +45,7 @@ def plot_optimization_curve(
     grid = [[' ' for _ in range(width)] for _ in range(height)]
     
     # Plot points
-    for i, (trial, score) in enumerate(zip(trial_counts, best_scores)):
+    for i, (trial, score) in enumerate(zip(trial_counts, best_scores, strict=True)):
         # Map trial to x position
         if max_trial == min_trial:
             x = width - 1

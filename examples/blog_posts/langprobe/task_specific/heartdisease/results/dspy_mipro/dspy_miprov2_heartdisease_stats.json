@@ -1,10 +1,13 @@
 {
-  "total_time": 4.583415985107422,
+  "total_time": 48.81018304824829,
   "total_rollouts": 50,
-  "actual_rollouts": 568,
+  "actual_rollouts": 682,
   "baseline_score": 0.58,
-  "val_score": 0.7,
+  "val_score": 0.72,
   "val_n": 50,
   "train_n": 30,
-  "auto_level": "light"
+  "num_candidates": 20,
+  "num_trials": 10,
+  "max_bootstrapped_demos": 10,
+  "max_labeled_demos": 10
 }

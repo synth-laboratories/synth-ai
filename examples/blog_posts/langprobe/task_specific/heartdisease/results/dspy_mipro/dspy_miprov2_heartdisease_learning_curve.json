@@ -10,7 +10,7 @@
     },
     {
       "rollout_count": 50,
-      "performance": 0.7,
+      "performance": 0.72,
       "checkpoint_pct": 1.0
     }
   ]

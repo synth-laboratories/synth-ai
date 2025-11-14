@@ -99,6 +99,9 @@ except Exception:
 # Register help command
 _maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 
+# Register scan command
+_maybe_call("synth_ai.cli.commands.scan", "register", cli)
+
 # Train CLI lives under synth_ai.api.train
 _maybe_call("synth_ai.api.train", "register", cli)
 
@@ -120,3 +123,10 @@ if register_task_apps:
     register_task_apps(cli)
 
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead
+
+# Experiment queue commands
+_maybe_call("synth_ai.cli.experiments", "register", cli)
+_maybe_call("synth_ai.cli.queue", "register", cli)
+
+# Artifacts commands
+_maybe_call("synth_ai.cli.commands.artifacts", "register", cli)

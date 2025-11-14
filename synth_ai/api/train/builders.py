@@ -391,21 +391,21 @@ def build_prompt_learning_payload(
     if pl_cfg.algorithm == "gepa":
         if not pl_cfg.gepa:
             raise click.ClickException(
-                f"GEPA config missing: [prompt_learning.gepa] section is required"
+                "GEPA config missing: [prompt_learning.gepa] section is required"
             )
         if not pl_cfg.gepa.evaluation:
             raise click.ClickException(
-                f"GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
+                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
             )
         train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(pl_cfg.gepa.evaluation, "seeds", None)
         if not train_seeds:
             raise click.ClickException(
-                f"GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+                "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
             )
         val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(pl_cfg.gepa.evaluation, "validation_seeds", None)
         if not val_seeds:
             raise click.ClickException(
-                f"GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+                "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
             )
     
     cli_task_url = overrides.get("task_url") or task_url

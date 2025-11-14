@@ -9,13 +9,11 @@ This script:
 """
 
 import asyncio
-import json
 import re
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 # Paths to config files
 REPO_ROOT = Path(__file__).parent
@@ -29,7 +27,7 @@ CONFIGS = {
 def modify_config_for_limits(config_path: Path, rollout_limit: int = 50, time_limit_seconds: int = 30) -> Path:
     """Create a temporary modified config with rollout and time limits."""
     # Read original config as text
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config_text = f.read()
     
     # Resolve env_file_path relative to original config directory
@@ -232,9 +230,9 @@ def modify_config_for_limits(config_path: Path, rollout_limit: int = 50, time_li
     # Debug: verify limits were set
     config_content = "\n".join(new_lines)
     if f"max_rollouts = {rollout_limit}" not in config_content:
-        print(f"⚠️  WARNING: max_rollouts not found in modified config!")
+        print("⚠️  WARNING: max_rollouts not found in modified config!")
     if f"max_seconds = {time_limit_seconds}" not in config_content:
-        print(f"⚠️  WARNING: max_seconds not found in modified config!")
+        print("⚠️  WARNING: max_seconds not found in modified config!")
     
     return temp_path
 
@@ -276,7 +274,7 @@ def extract_results_from_file(task_name: str, job_id: str, config_path: Optional
                 print(f"[{task_name}] Found policy_model: {policy_model}")
         else:
             # Fallback: try to parse manually
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 content = f.read()
             match = re.search(r'\[prompt_learning\.policy\].*?model\s*=\s*["\']?([^"\'\n]+)', content, re.DOTALL)
             if match:
@@ -315,7 +313,7 @@ def extract_results_from_file(task_name: str, job_id: str, config_path: Optional
     # Parse results file
     try:
         print(f"[{task_name}] Reading results file: {result_file}")
-        with open(result_file, "r") as f:
+        with open(result_file) as f:
             content = f.read()
         
         print(f"[{task_name}] File size: {len(content)} chars")
@@ -571,8 +569,9 @@ async def run_gepa_job(task_name: str, config_path: Path) -> Dict:
 def extract_results_from_events(job_id: str, backend_base: str = "http://localhost:8000/api", api_key: Optional[str] = None) -> Dict:
     """Extract results from job events."""
     import os
-    import requests
     import time
+
+    import requests
     
     print(f"[extract_events] Extracting results from events for job_id: {job_id}")
     
@@ -580,7 +579,7 @@ def extract_results_from_events(job_id: str, backend_base: str = "http://localho
         api_key = os.getenv("SYNTH_API_KEY") or os.getenv("ENVIRONMENT_API_KEY")
     
     if not api_key:
-        print(f"[extract_events] ERROR: No API key found")
+        print("[extract_events] ERROR: No API key found")
         return {"error": "No API key found"}
     
     # Wait for job to complete (poll status)
@@ -644,7 +643,7 @@ def extract_results_from_events(job_id: str, backend_base: str = "http://localho
             event_data = event.get("data", {})
             
             if event_type == "prompt.learning.validation.summary":
-                print(f"[extract_events] Found validation.summary event")
+                print("[extract_events] Found validation.summary event")
                 validation = event_data
                 baseline = validation.get("baseline", {})
                 results = validation.get("results", [])
@@ -662,10 +661,10 @@ def extract_results_from_events(job_id: str, backend_base: str = "http://localho
                         candidate1_lift = candidate1_score - baseline_score
                         print(f"[extract_events] Candidate 1 lift: {candidate1_lift}")
                 else:
-                    print(f"[extract_events] No results found in validation summary")
+                    print("[extract_events] No results found in validation summary")
             
             elif event_type == "prompt.learning.completed":
-                print(f"[extract_events] Found completed event")
+                print("[extract_events] Found completed event")
                 total_cost = event_data.get("total_cost_usd")
                 total_rollouts = event_data.get("total_rollouts")
                 print(f"[extract_events] Total cost: {total_cost}, rollouts: {total_rollouts}")

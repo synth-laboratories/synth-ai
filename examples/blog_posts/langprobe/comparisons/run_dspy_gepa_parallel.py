@@ -85,57 +85,45 @@ async def run_dspy_gepa_task(task_name: str, task_config: Dict, budget: Optional
             "error": error_msg,
         }
 
-    # Extract results from learning curve JSON file
+    # Extract results from detailed results JSON file
     # Results paths are relative to langprobe directory (parent of comparisons)
     results_dir = Path(__file__).parent.parent / task_config["results_dir"]
-    benchmark_name = task_config.get("benchmark_name", task_name.lower().replace(" ", ""))
-    results_file = results_dir / f"dspy_gepa_{benchmark_name}_learning_curve.json"
-    stats_file = results_dir / f"dspy_gepa_{benchmark_name}_stats.json"
+    detailed_results_file = results_dir / "dspy_gepa_detailed_results.json"
 
-    print(f"[{task_name}] Looking for results at: {results_file}")
+    print(f"[{task_name}] Looking for results at: {detailed_results_file}")
 
-    if results_file.exists():
+    if detailed_results_file.exists():
         try:
-            with open(results_file, "r") as f:
+            with open(detailed_results_file, "r") as f:
                 data = json.load(f)
 
-            print(f"[{task_name}] Found results JSON: {data}")
+            print(f"[{task_name}] Found results JSON with {len(data.get('candidates', []))} candidates")
 
-            # Extract final performance score (handle both "curve" and "checkpoints")
-            curve = data.get("curve") or data.get("checkpoints", [])
-            if curve:
-                final_entry = curve[-1]
-                final_score = final_entry.get("performance", 0.0)
+            # Extract final performance score and other stats
+            best_score = data.get("best_score", 0.0)
+            baseline_score = data.get("baseline_score", 0.0)
+            total_time = data.get("total_time")
+            total_rollouts = data.get("total_rollouts")
+            actual_rollouts = data.get("actual_rollouts")
 
-                # Try to get baseline (first entry or separate baseline field)
-                baseline_score = data.get("baseline_score") or (curve[0].get("performance") if curve else None)
+            print(f"✅ {task_name} completed: best={best_score:.4f}, baseline={baseline_score:.4f}, time={total_time}s")
 
-                # Try to read time from stats file
-                total_time = None
-                if stats_file.exists():
-                    try:
-                        with open(stats_file, "r") as f:
-                            stats_data = json.load(f)
-                            total_time = stats_data.get("total_time")
-                    except Exception as e:
-                        print(f"⚠️  {task_name}: Could not read stats file: {str(e)}")
+            # Get policy model from config
+            config = load_config()
+            policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
 
-                print(f"✅ {task_name} completed: final={final_score:.4f}, baseline={baseline_score}, time={total_time}s")
-
-                # Get policy model from config
-                config = load_config()
-                policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
-
-                return {
-                    "task": task_name,
-                    "status": "completed",
-                    "baseline_score": baseline_score,
-                    "final_score": final_score,
-                    "lift": final_score - baseline_score if baseline_score is not None else None,
-                    "total_rollouts": budget,
-                    "total_time": total_time,
-                    "policy_model": policy_model,
-                }
+            return {
+                "task": task_name,
+                "status": "completed",
+                "baseline_score": baseline_score,
+                "final_score": best_score,
+                "lift": best_score - baseline_score,
+                "total_rollouts": total_rollouts,
+                "actual_rollouts": actual_rollouts,
+                "total_time": total_time,
+                "policy_model": policy_model,
+                "num_candidates": len(data.get("candidates", [])),
+            }
         except Exception as e:
             print(f"⚠️  {task_name}: Error reading results: {str(e)}")
             import traceback
@@ -194,31 +182,33 @@ async def main():
     from datetime import datetime
 
     output_lines = []
-    output_lines.append("\n" + "=" * 160)
+    output_lines.append("\n" + "=" * 186)
     output_lines.append("AGGREGATE STATS ACROSS ALL TASKS (dspy_gepa)")
-    output_lines.append("=" * 160)
+    output_lines.append("=" * 186)
     output_lines.append("")
-    output_lines.append(f"{'Task':<20} {'Policy Model':<25} {'Baseline':<12} {'Candidate 1':<14} {'Lift':<12} {'Rollouts':<10} {'Time':<12}")
-    output_lines.append("-" * 160)
+    output_lines.append(f"{'Task':<20} {'Policy Model':<25} {'Baseline':<12} {'Best':<14} {'Lift':<12} {'Rollouts':<12} {'Time':<12} {'Candidates':<12}")
+    output_lines.append("-" * 186)
 
     valid_results = [r for r in results if r.get("status") == "completed" and "error" not in r]
 
     for result in results:
         task = result.get("task", "Unknown")
         if result.get("status") != "completed" or "error" in result:
-            output_lines.append(f"{task:<20} {'ERROR':<25} {'ERROR':<12} {'ERROR':<14} {'ERROR':<12} {'ERROR':<10} {'ERROR':<12}")
+            output_lines.append(f"{task:<20} {'ERROR':<25} {'ERROR':<12} {'ERROR':<14} {'ERROR':<12} {'ERROR':<12} {'ERROR':<12} {'ERROR':<12}")
         else:
             baseline = result.get("baseline_score")
             final = result.get("final_score")
             lift = result.get("lift")
-            rollouts = result.get("total_rollouts", 0) or 0
+            actual_rollouts = result.get("actual_rollouts")
             total_time = result.get("total_time")
             policy_model = result.get("policy_model", "N/A")
+            num_candidates = result.get("num_candidates")
 
             baseline_str = f"{baseline:.4f}" if baseline is not None else "N/A"
             final_str = f"{final:.4f}" if final is not None else "N/A"
             lift_str = f"{lift:+.4f}" if lift is not None else "N/A"
-            rollouts_str = str(rollouts) if rollouts > 0 else "N/A"
+            rollouts_str = str(actual_rollouts) if actual_rollouts is not None else "N/A"
+            candidates_str = str(num_candidates) if num_candidates is not None else "N/A"
 
             # Format time (convert to minutes if > 60 seconds)
             if total_time is not None:
@@ -229,15 +219,16 @@ async def main():
             else:
                 time_str = "N/A"
 
-            output_lines.append(f"{task:<20} {policy_model:<25} {baseline_str:<12} {final_str:<14} {lift_str:<12} {rollouts_str:<10} {time_str:<12}")
+            output_lines.append(f"{task:<20} {policy_model:<25} {baseline_str:<12} {final_str:<14} {lift_str:<12} {rollouts_str:<12} {time_str:<12} {candidates_str:<12}")
 
     if valid_results:
-        output_lines.append("-" * 160)
+        output_lines.append("-" * 186)
         avg_baseline = sum(r.get("baseline_score", 0) or 0 for r in valid_results) / len(valid_results)
         avg_final = sum(r.get("final_score", 0) or 0 for r in valid_results) / len(valid_results)
         avg_lift = sum(r.get("lift", 0) or 0 for r in valid_results) / len(valid_results)
-        total_rollouts = sum(r.get("total_rollouts", 0) or 0 for r in valid_results)
+        total_actual_rollouts = sum(r.get("actual_rollouts", 0) or 0 for r in valid_results)
         total_time = sum(r.get("total_time", 0) or 0 for r in valid_results)
+        total_candidates = sum(r.get("num_candidates", 0) or 0 for r in valid_results)
 
         # Format total time
         if total_time >= 60:
@@ -245,10 +236,10 @@ async def main():
         else:
             total_time_str = f"{total_time:.1f}s"
 
-        output_lines.append(f"{'TOTAL':<20} {'':<25} {'':<12} {'':<14} {'':<12} {total_rollouts:<10} {total_time_str:<12}")
-        output_lines.append(f"{'AVERAGE':<20} {'':<25} {avg_baseline:.4f}     {avg_final:.4f}     {avg_lift:+.4f} {'':<10} {'':<12}")
+        output_lines.append(f"{'TOTAL':<20} {'':<25} {'':<12} {'':<14} {'':<12} {total_actual_rollouts:<12} {total_time_str:<12} {total_candidates:<12}")
+        output_lines.append(f"{'AVERAGE':<20} {'':<25} {avg_baseline:.4f}     {avg_final:.4f}     {avg_lift:+.4f} {'':<12} {'':<12}")
 
-    output_lines.append("=" * 160)
+    output_lines.append("=" * 186)
 
     # Print to console
     output_text = "\n".join(output_lines)

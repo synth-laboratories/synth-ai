@@ -196,7 +196,7 @@ def run_modal_cmd(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
         raise click.ClickException(f"Failed to start Modal CLI ({cmd[0]}): {exc}") from exc
 
 
-def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
+def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
     is_mcp = os.getenv("CTX") == "mcp"
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
     ctx = {
@@ -230,22 +230,34 @@ def deploy_app_modal(cfg: ModalDeployCfg) -> str | None:
             log_event("info", "modal dry-run completed", ctx={**ctx, "cmd": cmd})
             return None
         process = run_modal_cmd(cmd, os.environ.copy())
-        if is_mcp:
-            rc, task_app_url = stream_modal_cmd_output(process, print_stdout=False)
+        
+        if wait:
+            # Blocking mode: wait for process to complete
+            if is_mcp:
+                rc, task_app_url = stream_modal_cmd_output(process, print_stdout=False)
+                if rc != 0:
+                    raise subprocess.CalledProcessError(rc, cmd)
+                summary = f"[deploy_modal] modal {cfg.cmd_arg} completed"
+                if task_app_url:
+                    summary = f"{summary} → {task_app_url}"
+                return summary
+            print(f"{'-' * 31} Modal start {'-' * 31}")
+            rc, task_app_url = stream_modal_cmd_output(process)
             if rc != 0:
                 raise subprocess.CalledProcessError(rc, cmd)
-            summary = f"[deploy_modal] modal {cfg.cmd_arg} completed"
+            print(f"{'-' * 32} Modal end {'-' * 32}")
             if task_app_url:
-                summary = f"{summary} → {task_app_url}"
-            return summary
-        print(f"{'-' * 31} Modal start {'-' * 31}")
-        rc, task_app_url = stream_modal_cmd_output(process)
-        if rc != 0:
-            raise subprocess.CalledProcessError(rc, cmd)
-        print(f"{'-' * 32} Modal end {'-' * 32}")
-        if task_app_url:
-            print(f"Your task app is live on Modal at: {task_app_url}")
-        log_event("info", "modal deploy completed", ctx={**ctx, "task_app_url": task_app_url})
+                print(f"Your task app is live on Modal at: {task_app_url}")
+            log_event("info", "modal deploy completed", ctx={**ctx, "task_app_url": task_app_url})
+        else:
+            # Non-blocking mode: start process and return immediately
+            # Process will continue in background
+            print(f"[deploy_modal] Starting modal {cfg.cmd_arg} in background (PID: {process.pid})")
+            print("[deploy_modal] Process will continue running. Check logs for URL when ready.")
+            # Don't wait for process - let it run in background
+            # The URL will be written to .env when detected by the background process
+            log_event("info", "modal deploy started in background", ctx={**ctx, "pid": process.pid})
+            return f"[deploy_modal] modal {cfg.cmd_arg} started in background (PID: {process.pid})"
     except subprocess.CalledProcessError as err:
         log_error(
             "modal deploy failed",

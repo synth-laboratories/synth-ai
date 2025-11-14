@@ -845,14 +845,21 @@ def fastapi_app():
     app = create_task_app(build_config())
     
     # Replace default health endpoints with auth-tolerant handlers
-    filtered_routes = []
-    for route in app.router.routes:
-        path = getattr(route, "path", None)
-        methods = getattr(route, "methods", set()) or set()
-        if path in {"/health", "/health/rollout"} and "GET" in methods:
-            continue
-        filtered_routes.append(route)
-    app.router.routes = filtered_routes
+    # FastAPI matches routes in order, so we need to remove old routes and add new ones
+    # Access the router's route registry directly
+    routes_to_remove = []
+    for route in list(app.router.routes):
+        # Check if this is a route (not middleware or other components)
+        if hasattr(route, "path") and hasattr(route, "methods"):
+            path = getattr(route, "path", None)
+            methods = getattr(route, "methods", set()) or set()
+            if path in {"/health", "/health/rollout"} and "GET" in methods:
+                routes_to_remove.append(route)
+    
+    # Remove routes from router
+    for route in routes_to_remove:
+        app.router.routes.remove(route)
+        print(f"[banking77] Removed default route: {getattr(route, 'path', 'unknown')}", flush=True)
     
     def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
         if not env_key:
@@ -930,7 +937,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    default_env = Path(__file__).resolve().parents[2] / ".env"
+    # Look for .env at repo root (3 levels up: banking77/ -> task_apps/ -> examples/ -> repo_root/)
+    default_env = Path(__file__).resolve().parents[3] / ".env"
     env_files = [str(default_env)] if default_env.exists() else []
     env_files.extend(args.env_file or [])
 

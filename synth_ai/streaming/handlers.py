@@ -651,7 +651,7 @@ class PromptLearningHandler(StreamHandler):
                 # Write header
                 from datetime import datetime
                 self._log_file_handle.write("=" * 80 + "\n")
-                self._log_file_handle.write(f"PROMPT LEARNING VERBOSE LOG\n")
+                self._log_file_handle.write("PROMPT LEARNING VERBOSE LOG\n")
                 self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 self._log_file_handle.write("=" * 80 + "\n\n")

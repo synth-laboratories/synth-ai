@@ -1,11 +1,16 @@
 {
   "framework": "dspy_gepa",
   "benchmark": "heartdisease",
-  "total_rollouts": 300,
+  "total_rollouts": 500,
   "checkpoints": [
     {
-      "rollout_count": 300,
-      "performance": 0.0,
+      "rollout_count": 0,
+      "performance": 0.36,
+      "checkpoint_pct": 0.0
+    },
+    {
+      "rollout_count": 500,
+      "performance": 0.38,
       "checkpoint_pct": 1.0
     }
   ]

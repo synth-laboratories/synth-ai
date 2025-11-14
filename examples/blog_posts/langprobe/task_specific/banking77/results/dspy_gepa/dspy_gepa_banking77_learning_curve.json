@@ -1,11 +1,16 @@
 {
   "framework": "dspy_gepa",
   "benchmark": "banking77",
-  "total_rollouts": 200,
+  "total_rollouts": 500,
   "checkpoints": [
     {
-      "rollout_count": 200,
-      "performance": 0.0,
+      "rollout_count": 0,
+      "performance": 0.43329999999999996,
+      "checkpoint_pct": 0.0
+    },
+    {
+      "rollout_count": 500,
+      "performance": 0.7333,
       "checkpoint_pct": 1.0
     }
   ]

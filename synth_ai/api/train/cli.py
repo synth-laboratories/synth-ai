@@ -21,9 +21,9 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 from synth_ai.streaming import (
     CLIHandler,
-    PromptLearningHandler,
     JobStreamer,
     LossCurveHandler,
+    PromptLearningHandler,
     StreamConfig,
     StreamEndpoints,
     StreamType,
@@ -308,6 +308,13 @@ def _build_stream_components(
     return config, handlers
 
 
+# Module-level logging to track import and registration
+import logging as _logging
+import sys
+
+_logger = _logging.getLogger(__name__)
+_logger.debug("[TRAIN_MODULE] Module synth_ai.api.train.cli imported")
+
 @click.command("train")
 @click.option(
     "--config",
@@ -416,141 +423,180 @@ def train_command(
     verbose_summary: bool | None,
 ) -> None:
     """Interactive launcher for RL / SFT / Prompt Learning jobs."""
-    load_env_file()
-
-    candidates = discover_configs(
-        list(config_paths), requested_type=train_type if train_type != "auto" else None
-    )
-    selection = prompt_for_config(
-        candidates,
-        requested_type=train_type if train_type != "auto" else None,
-        allow_autoselect=bool(config_paths),
-    )
-
-    effective_type = train_type if train_type != "auto" else selection.train_type
-    if effective_type not in {"rl", "sft", "prompt_learning"}:
-        raise click.UsageError(
-            format_error_message(
-                summary="Training type required",
-                context="Determining which trainer to invoke",
-                problem="Config metadata did not specify rl / sft / prompt_learning and no --type flag was provided",
-                impact="CLI cannot select the correct builder without a type",
-                solutions=[
-                    ("Pass --type rl|sft|prompt_learning", "Explicitly tell the CLI which workflow to run"),
-                    ("Add algorithm.type metadata to the config", "Include algorithm.type or prompt_learning markers in the TOML"),
-                    ("Use separate config files per training mode", "Keeps intent unambiguous for automation"),
-                ],
-            )
-        )
-
-    cfg_path = selection.path
-    click.echo(f"Using config: {cfg_path} ({effective_type})")
-
-    required_keys: list[KeySpec] = []
-    if effective_type == "rl" or effective_type == "prompt_learning":
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-        required_keys.append(
-            KeySpec(
-                "ENVIRONMENT_API_KEY",
-                "Environment API key for task app",
-                allow_modal_secret=True,
-                modal_secret_pattern="env",
-            )
-        )
-        required_keys.append(
-            KeySpec(
-                "TASK_APP_URL",
-                "Task app base URL",
-                secret=False,
-                allow_modal_app=True,
-                optional=bool(task_url),
-            )
-        )
-    else:  # sft
-        required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
-
-    # Parse env_file_path from TOML config if present
-    toml_env_file_path = parse_env_file_path_from_config(cfg_path)
+    import traceback
     
-    env_path, env_values = resolve_env(
-        config_path=cfg_path,
-        explicit_env_paths=env_files,
-        required_keys=required_keys,
-        toml_env_file_path=toml_env_file_path,
-    )
-    
-    click.echo(f"Using env file: {env_path}")
-
-    synth_key = get_required_value(
-        "synth_api_key",
-        env_value=env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY"),
-    )
-    os.environ["SYNTH_API_KEY"] = synth_key
-
-    backend_base = ensure_api_base(backend)
-    click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
-
-    if effective_type == "rl":
-        handle_rl(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            task_url_override=task_url,
-            model_override=model,
-            idempotency=idempotency,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-        )
-    elif effective_type == "prompt_learning":
-        # Parse display config from TOML
-        display_config = parse_display_config(cfg_path)
+    # Wrap entire function in try-except to catch ALL exceptions
+    try:
+        # Log entry point IMMEDIATELY - this should always appear
+        sys.stderr.write("[TRAIN_CMD] Starting train command\n")
+        sys.stderr.flush()
+        click.echo(f"[TRAIN_CMD] Args: config_paths={config_paths}, train_type={train_type}, poll={poll}", err=True)
+        click.echo(f"[TRAIN_CMD] Python executable: {sys.executable}", err=True)
+        click.echo(f"[TRAIN_CMD] Working directory: {os.getcwd()}", err=True)
         
-        # Merge CLI flags (override TOML)
-        effective_local_backend = local_backend if local_backend is not None else display_config.get("local_backend", False)
-        effective_tui = tui if tui is not None else display_config.get("tui", False)
-        effective_show_curve = show_curve if show_curve is not None else display_config.get("show_curve", True)
-        effective_verbose_summary = verbose_summary if verbose_summary is not None else display_config.get("verbose_summary", True)
+        try:
+            load_env_file()
+            click.echo("[TRAIN_CMD] Environment file loaded", err=True)
+        except Exception as e:
+            click.echo(f"[TRAIN_CMD] ERROR loading env file: {e}", err=True)
+            traceback.print_exc(file=sys.stderr)
+            raise
+
+        try:
+            candidates = discover_configs(
+                list(config_paths), requested_type=train_type if train_type != "auto" else None
+            )
+            click.echo(f"[TRAIN_CMD] Found {len(candidates)} config candidates", err=True)
+        except Exception as e:
+            click.echo(f"[TRAIN_CMD] ERROR discovering configs: {e}", err=True)
+            traceback.print_exc(file=sys.stderr)
+            raise
+        try:
+            click.echo(f"[TRAIN_CMD] Prompting for config selection (allow_autoselect={bool(config_paths)})", err=True)
+            selection = prompt_for_config(
+                candidates,
+                requested_type=train_type if train_type != "auto" else None,
+                allow_autoselect=bool(config_paths),
+            )
+            click.echo(f"[TRAIN_CMD] Selected config: {selection.path}", err=True)
+        except Exception as e:
+            click.echo(f"[TRAIN_CMD] ERROR in prompt_for_config: {e}", err=True)
+            traceback.print_exc(file=sys.stderr)
+            raise
+
+        effective_type = train_type if train_type != "auto" else selection.train_type
+        click.echo(f"[TRAIN_CMD] Effective type: {effective_type}", err=True)
         
-        # For local backend, ensure URL includes /api
-        local_backend_url = "http://localhost:8000"
-        if effective_local_backend:
-            local_backend_url = ensure_api_base(local_backend_url)
+        if effective_type not in {"rl", "sft", "prompt_learning"}:
+            raise click.UsageError(
+                format_error_message(
+                    summary="Training type required",
+                    context="Determining which trainer to invoke",
+                    problem="Config metadata did not specify rl / sft / prompt_learning and no --type flag was provided",
+                    impact="CLI cannot select the correct builder without a type",
+                    solutions=[
+                        ("Pass --type rl|sft|prompt_learning", "Explicitly tell the CLI which workflow to run"),
+                        ("Add algorithm.type metadata to the config", "Include algorithm.type or prompt_learning markers in the TOML"),
+                        ("Use separate config files per training mode", "Keeps intent unambiguous for automation"),
+                    ],
+                )
+            )
+
+        cfg_path = selection.path
+        click.echo(f"Using config: {cfg_path} ({effective_type})")
+
+        required_keys: list[KeySpec] = []
+        if effective_type == "rl" or effective_type == "prompt_learning":
+            required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
+            required_keys.append(
+                KeySpec(
+                    "ENVIRONMENT_API_KEY",
+                    "Environment API key for task app",
+                    allow_modal_secret=True,
+                    modal_secret_pattern="env",
+                )
+            )
+            required_keys.append(
+                KeySpec(
+                    "TASK_APP_URL",
+                    "Task app base URL",
+                    secret=False,
+                    allow_modal_app=True,
+                    optional=bool(task_url),
+                )
+            )
+        else:  # sft
+            required_keys.append(KeySpec("SYNTH_API_KEY", "Synth API key for backend"))
+
+        # Parse env_file_path from TOML config if present
+        toml_env_file_path = parse_env_file_path_from_config(cfg_path)
         
-        handle_prompt_learning(
-            cfg_path=cfg_path,
-            backend_base=local_backend_url if effective_local_backend else backend_base,
-            synth_key=synth_key,
-            task_url_override=task_url,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-            display_config=display_config,
-            tui=effective_tui,
-            show_curve=effective_show_curve,
-            verbose_summary=effective_verbose_summary,
+        env_path, env_values = resolve_env(
+            config_path=cfg_path,
+            explicit_env_paths=env_files,
+            required_keys=required_keys,
+            toml_env_file_path=toml_env_file_path,
         )
-    else:
-        dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
-        handle_sft(
-            cfg_path=cfg_path,
-            backend_base=backend_base,
-            synth_key=synth_key,
-            dataset_override=dataset_override_path,
-            allow_experimental=allow_experimental,
-            dry_run=dry_run,
-            poll=poll,
-            poll_timeout=poll_timeout,
-            poll_interval=poll_interval,
-            stream_format=stream_format,
-            examples_limit=examples_limit,
+        
+        click.echo(f"Using env file: {env_path}")
+
+        synth_key = get_required_value(
+            "synth_api_key",
+            env_value=env_values.get("SYNTH_API_KEY") or os.environ.get("SYNTH_API_KEY"),
         )
+        os.environ["SYNTH_API_KEY"] = synth_key
+
+        backend_base = ensure_api_base(backend)
+        click.echo(f"Backend base: {backend_base} (key {mask_value(synth_key)})")
+
+        if effective_type == "rl":
+            handle_rl(
+                cfg_path=cfg_path,
+                backend_base=backend_base,
+                synth_key=synth_key,
+                task_url_override=task_url,
+                model_override=model,
+                idempotency=idempotency,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
+            )
+        elif effective_type == "prompt_learning":
+            # Parse display config from TOML
+            display_config = parse_display_config(cfg_path)
+            
+            # Merge CLI flags (override TOML)
+            effective_local_backend = local_backend if local_backend is not None else display_config.get("local_backend", False)
+            effective_tui = tui if tui is not None else display_config.get("tui", False)
+            effective_show_curve = show_curve if show_curve is not None else display_config.get("show_curve", True)
+            effective_verbose_summary = verbose_summary if verbose_summary is not None else display_config.get("verbose_summary", True)
+            
+            # For local backend, ensure URL includes /api
+            local_backend_url = "http://localhost:8000"
+            if effective_local_backend:
+                local_backend_url = ensure_api_base(local_backend_url)
+            
+            handle_prompt_learning(
+                cfg_path=cfg_path,
+                backend_base=local_backend_url if effective_local_backend else backend_base,
+                synth_key=synth_key,
+                task_url_override=task_url,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
+                display_config=display_config,
+                tui=effective_tui,
+                show_curve=effective_show_curve,
+                verbose_summary=effective_verbose_summary,
+            )
+        else:
+            dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
+            handle_sft(
+                cfg_path=cfg_path,
+                backend_base=backend_base,
+                synth_key=synth_key,
+                dataset_override=dataset_override_path,
+                allow_experimental=allow_experimental,
+                dry_run=dry_run,
+                poll=poll,
+                poll_timeout=poll_timeout,
+                poll_interval=poll_interval,
+                stream_format=stream_format,
+                examples_limit=examples_limit,
+            )
+    except Exception as e:
+        # Catch ALL exceptions and log them before re-raising
+        sys.stderr.write(f"[TRAIN_CMD] FATAL ERROR: {type(e).__name__}: {e}\n")
+        sys.stderr.flush()
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
+        raise
 
 
 def _wait_for_training_file(
@@ -994,8 +1040,8 @@ def _save_verbose_log_file(
     
     If append_summary is True, only append the summary section (events were already streamed live).
     """
-    from datetime import datetime
     import json
+    from datetime import datetime
     
     try:
         lines = []
@@ -1488,7 +1534,7 @@ def _save_prompt_learning_results_locally(
                 
                 # Show transformation text
                 if transformation_text:
-                    lines.append(f"Transformation Text:")
+                    lines.append("Transformation Text:")
                     lines.append(f"  {transformation_text}")
                 
                 # Show transformation dict details if available
@@ -1622,9 +1668,17 @@ def handle_prompt_learning(
     
     click.echo("Performing task app health check…")
     click.echo(f"Task app URL: {build.task_url}")
-    health = check_task_app_health(build.task_url, env_key)
+    click.echo("⏳ Checking /health endpoint (timeout: 10s)...")
+    health = check_task_app_health(build.task_url, env_key, timeout=10.0)
     if not health.ok:
-        click.echo(f"Task app health check failed: {health.detail}")
+        click.echo(f"❌ Task app health check failed: {health.detail}")
+        click.echo(f"   Health status: {health.health_status}")
+        click.echo(f"   Task info status: {health.task_info_status}")
+        click.echo("💡 Troubleshooting:")
+        click.echo("   1. Ensure the task app is running: lsof -i :8102")
+        click.echo("   2. Test manually: curl -v http://127.0.0.1:8102/health")
+        click.echo("   3. Check task app logs for errors")
+        click.echo("   4. Restart the task app if it's hung")
         raise click.ClickException("Aborting due to failing health check")
     else:
         click.echo("Task app healthy")

@@ -169,6 +169,11 @@ def install_sqld() -> str:
 @click.version_option(version=__pkg_version__, prog_name="synth-ai")
 def cli():
     """Top-level command group for Synth AI."""
+    # Add logging to track CLI invocation
+    import sys
+    if "train" in sys.argv:
+        sys.stderr.write(f"[CLI_ROOT] CLI invoked with args: {sys.argv}\n")
+        sys.stderr.flush()
 
 
 @cli.command()

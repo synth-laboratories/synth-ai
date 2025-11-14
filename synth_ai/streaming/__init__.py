@@ -3,10 +3,10 @@ from .handlers import (
     BufferedHandler,
     CallbackHandler,
     CLIHandler,
-    PromptLearningHandler,
     IntegrationTestHandler,
     JSONHandler,
     LossCurveHandler,
+    PromptLearningHandler,
     RichHandler,
     StreamHandler,
 )

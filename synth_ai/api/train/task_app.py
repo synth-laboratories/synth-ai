@@ -39,7 +39,7 @@ def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
     return False, ""
 
 
-def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 30.0, max_retries: int = 5) -> TaskAppHealth:
+def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5) -> TaskAppHealth:
     # Send ALL known environment keys so the server can authorize any valid one
     import os
 
