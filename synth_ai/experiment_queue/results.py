@@ -106,7 +106,7 @@ def _extract_rollouts_from_output(stdout: str, stderr: str, results_folder: Path
     # Also check log files if results_folder is provided
     if results_folder and results_folder.exists():
         log_files = sorted(
-            list(results_folder.glob("*_log_*.log")),
+            results_folder.glob("*_log_*.log"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
@@ -261,7 +261,7 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
     if summary.best_score is None or summary.baseline_score is None:
         # Look for text result files (gepa_results_*.txt, mipro_results_*.txt)
         result_files = sorted(
-            list(results_folder.glob("*_results_*.txt")),
+            results_folder.glob("*_results_*.txt"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )

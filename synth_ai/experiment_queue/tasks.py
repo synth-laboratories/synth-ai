@@ -250,7 +250,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             " ".join(cmd),
             os.getcwd(),
             env.get("PYTHON", "python"),
-            ", ".join(sorted([k for k in env.keys() if "API" in k or "KEY" in k])),
+            ", ".join(sorted([k for k in env if "API" in k or "KEY" in k])),
         )
         
         try:

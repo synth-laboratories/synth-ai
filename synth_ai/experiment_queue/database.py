@@ -97,6 +97,7 @@ def init_db() -> None:
                 f"WAL mode not enabled! Got: {wal_result}. "
                 f"This may cause SQLite locking errors with Celery.",
                 RuntimeWarning,
+                stacklevel=2,
             )
     
     # Create our application tables

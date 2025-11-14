@@ -43,7 +43,7 @@ def display_prompt_learning_summary(
             write_output(f"⚠️  Could not fetch job status (status={resp.status_code})")
             return
         
-        job_detail = resp.json()
+        resp.json()  # Validate response is JSON
         
         # Fetch events
         events_url = f"{backend_base}/prompt-learning/online/jobs/{job_id}/events?limit=1000"
@@ -85,7 +85,6 @@ def display_prompt_learning_summary(
             if algorithm == "mipro" and not mipro_budget_events:
                 # Fallback: try to extract from billing.end if available
                 tokens_usd = billing_data.get('tokens_usd', 0.0) or 0.0
-                sandbox_usd = billing_data.get('sandbox_usd', 0.0) or 0.0
                 # Estimate policy/proposal split (conservative: assume policy is 80% of tokens)
                 if tokens_usd > 0:
                     policy_cost_usd = tokens_usd * 0.8
@@ -362,7 +361,7 @@ def _generate_summary_text(
     mipro_budget_events = [e for e in events if e.get('type') == 'mipro.budget.summary']
     mipro_baseline_events = [e for e in events if e.get('type') == 'mipro.baseline.test']
     mipro_topk_events = [e for e in events if e.get('type') == 'mipro.topk.evaluated']
-    mipro_completed_events = [e for e in events if e.get('type') == 'mipro.job.completed']
+    # mipro_completed_events not currently used but may be needed for future metrics
     
     # Extract from billing.end event
     billing_end_events = [e for e in events if e.get('type') == 'prompt.learning.billing.end']

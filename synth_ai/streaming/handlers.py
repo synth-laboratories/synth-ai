@@ -894,7 +894,6 @@ class PromptLearningHandler(StreamHandler):
         # Extract rollout progress
         rollouts_completed = data.get("rollouts_completed")
         rollouts_total = data.get("rollouts_total")
-        rollouts_remaining = data.get("rollouts_remaining")
         percent_rollouts = data.get("percent_rollouts")
         
         # Extract transformation progress

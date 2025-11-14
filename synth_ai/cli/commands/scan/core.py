@@ -174,7 +174,6 @@ async def run_scan(
     # Scan registry (for reference, but these don't have URLs)
     registry_apps = scan_registry()
     # Only add registry apps that weren't already discovered
-    registry_app_ids = {app.app_id for app in registry_apps if app.app_id}
     discovered_app_ids = {app.app_id for app in all_apps if app.app_id}
     new_registry_apps = [app for app in registry_apps if app.app_id and app.app_id not in discovered_app_ids]
     all_apps.extend(new_registry_apps)
