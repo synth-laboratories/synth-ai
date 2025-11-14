@@ -311,7 +311,7 @@ class InProcessTaskApp:
                             f"  - An ASGI app via `app = FastAPI(...)` or factory function\n"
                             f"  - A `build_config()` function that returns TaskAppConfig\n"
                             f"  - Be registered with register_task_app()"
-                        )
+                        ) from None
 
         # 2. Start uvicorn in background thread
         # Use daemon=False to ensure cleanup on exit

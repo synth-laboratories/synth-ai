@@ -181,12 +181,12 @@ except RuntimeError as e:
                                 # Re-register the task with the real app
                                 real_task = real_app.task(*args, **kwargs)(func)
                                 return real_task(*func_args, **func_kwargs)
-                            except RuntimeError:
+                            except RuntimeError as runtime_err:
                                 raise RuntimeError(
                                     "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
                                     "Set it before using the Celery app. "
                                     f"Original error: {self._original_error}"
-                                )
+                                ) from runtime_err
                         return wrapper
                     return decorator
                 return task_decorator

@@ -326,8 +326,8 @@ def scan_command(
         else:
             start_port = int(port_range.strip())
             end_port = start_port
-    except ValueError:
-        raise click.BadParameter(f"Invalid port range format: {port_range}. Use START:END (e.g., 8000:8100)")
+    except ValueError as e:
+        raise click.BadParameter(f"Invalid port range format: {port_range}. Use START:END (e.g., 8000:8100)") from e
 
     if start_port < 1 or end_port > 65535 or start_port > end_port:
         raise click.BadParameter(f"Invalid port range: {start_port}-{end_port}")

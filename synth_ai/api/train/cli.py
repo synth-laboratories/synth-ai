@@ -208,7 +208,7 @@ def parse_results_folder(config_path: Path) -> Path:
                     f"  Error: {e}\n"
                     f"  Config: {config_path}\n"
                     f"  TOML results_folder: {results_folder}"
-                )
+                ) from e
             
             return results_path
     
@@ -232,7 +232,7 @@ def parse_results_folder(config_path: Path) -> Path:
                 f"  Error: {e}\n"
                 f"  Config: {config_path}\n"
                 f"  TOML results_folder: {results_folder}"
-            )
+            ) from e
         
         return results_path
     

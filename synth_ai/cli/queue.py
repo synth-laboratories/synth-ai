@@ -393,10 +393,9 @@ def start_cmd(
     
     def cleanup_lock():
         """Remove lock file on exit."""
-        try:
+        from contextlib import suppress
+        with suppress(Exception):
             lock_file.unlink(missing_ok=True)
-        except Exception:
-            pass
     
     import atexit
     atexit.register(cleanup_lock)

@@ -216,10 +216,9 @@ def cancel_experiment(experiment_id: str) -> Experiment | None:
                 job.status = ExperimentJobStatus.CANCELED
                 job.completed_at = datetime.utcnow()
                 if job.celery_task_id:
-                    try:
+                    from contextlib import suppress
+                    with suppress(Exception):
                         app.control.revoke(job.celery_task_id, terminate=True)
-                    except Exception:
-                        pass
 
         session.flush()
         session.expunge(experiment)

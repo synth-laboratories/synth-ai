@@ -671,10 +671,9 @@ class PromptLearningHandler(StreamHandler):
                 self._log_file_handle.flush()
             except Exception:
                 # If write fails, close handle and continue without logging
-                try:
+                from contextlib import suppress
+                with suppress(Exception):
                     self._log_file_handle.close()
-                except Exception:
-                    pass
                 self._log_file_handle = None
         
     def handle(self, message: StreamMessage) -> None:
@@ -833,12 +832,7 @@ class PromptLearningHandler(StreamHandler):
                 completed = data.get("completed")
                 total = data.get("total")
                 
-                n_str = ""
-                if completed is not None:
-                    if total is not None:
-                        n_str = f" N={completed}/{total}"
-                    else:
-                        n_str = f" N={completed}"
+                n_str = f" N={completed}/{total}" if completed is not None and total is not None else (f" N={completed}" if completed is not None else "")
                 
                 self._write_log(f"[{timestamp}] [Trial {self.trial_counter}] Score: {mean_score:.4f} (Best: {self.best_score_so_far:.4f}){n_str}")
     
@@ -1359,10 +1353,7 @@ class PromptLearningHandler(StreamHandler):
                             eta_seconds = remaining_trials_estimate / rate
         
         if eta_seconds is not None and eta_seconds > 0:
-            if eta_seconds >= 60:
-                eta_str = f"{eta_seconds / 60:.1f}min"
-            else:
-                eta_str = f"{int(eta_seconds)}s"
+            eta_str = f"{eta_seconds / 60:.1f}min" if eta_seconds >= 60 else f"{int(eta_seconds)}s"
             parts.append(f"eta={eta_str}")
         
         if parts:
