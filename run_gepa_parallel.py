@@ -56,7 +56,7 @@ def modify_config_for_limits(config_path: Path, rollout_limit: int = 50, time_li
     in_prompt_learning = False
     env_file_path_updated = False
     
-    for i, line in enumerate(lines):
+    for _, line in enumerate(lines):
         # Update env_file_path to absolute path
         if "[prompt_learning]" in line:
             in_prompt_learning = True
@@ -222,10 +222,9 @@ def modify_config_for_limits(config_path: Path, rollout_limit: int = 50, time_li
         new_lines.insert(insert_idx + 5, "local_backend = true")
     
     # Write to temporary file
-    temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False)
-    temp_path = Path(temp_file.name)
-    temp_file.write("\n".join(new_lines))
-    temp_file.close()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as temp_file:
+        temp_path = Path(temp_file.name)
+        temp_file.write("\n".join(new_lines))
     
     # Debug: verify limits were set
     config_content = "\n".join(new_lines)
