@@ -167,6 +167,29 @@ except RuntimeError as e:
             self._original_error = original_error
         
         def __getattr__(self, name):
+            # Special handling for 'task' attribute used in decorators
+            # This allows @celery_app.task decorators to be defined without immediate error
+            if name == "task":
+                # Return a decorator factory that will raise error when task is actually called
+                def task_decorator(*args, **kwargs):
+                    def decorator(func):
+                        # Store the function, but wrap it to check env var on call
+                        def wrapper(*func_args, **func_kwargs):
+                            # Try to get real celery app now
+                            try:
+                                real_app = get_celery_app()
+                                # Re-register the task with the real app
+                                real_task = real_app.task(*args, **kwargs)(func)
+                                return real_task(*func_args, **func_kwargs)
+                            except RuntimeError:
+                                raise RuntimeError(
+                                    "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
+                                    "Set it before using the Celery app. "
+                                    f"Original error: {self._original_error}"
+                                )
+                        return wrapper
+                    return decorator
+                return task_decorator
             raise RuntimeError(
                 "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
                 "Set it before using the Celery app. "
