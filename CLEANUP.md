@@ -67,7 +67,13 @@ This document tracks cleanup tasks for the synth-ai codebase, including code qua
 - **✅ FIXED**: Experiment queue tests - Fixed lazy celery app to allow decorator evaluation without env var
 - **42 tests passing** in experiment_queue test suite
 - **108 tests passing** in artifacts + experiment_queue suites
-- **1 ERROR**: `tests/unit/learning/test_error_tracking.py` - imports from `backend` module (monorepo-only, should be skipped or moved)
+- **✅ FIXED**: Removed `test_error_tracking.py` that imported from backend module
+
+### Backend Imports
+- **✅ FIXED**: Removed all imports from `backend` module
+  - Deleted `tests/unit/learning/test_error_tracking.py` (tested backend functionality, not SDK)
+  - Deleted `examples/blog_posts/langprobe/task_specific/iris/run_gepa_iris_with_judge.py` (example script importing backend)
+  - **0 remaining backend imports** in synth-ai codebase
 
 ### Files to Archive (Move to `old/` folder, gitignored)
 **Planning .txt files to archive:**
