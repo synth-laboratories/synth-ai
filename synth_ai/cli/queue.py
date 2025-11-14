@@ -96,7 +96,6 @@ def _kill_all_existing_workers() -> int:
         lock_file.unlink(missing_ok=True)
     
     if killed > 0:
-        import time
         import time as time_module
         time_module.sleep(2)  # Give processes time to fully terminate
     
