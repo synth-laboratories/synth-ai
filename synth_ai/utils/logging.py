@@ -69,7 +69,9 @@ def log_batch(
     batch_id: str | None = None
 ) -> None:
     """Send a batch of pre-built entries. Invalid entries are skipped silently."""
-
+    
+    if DISABLE_LOGGING:
+        return
     try:
         prepared = [
             _build_entry(
