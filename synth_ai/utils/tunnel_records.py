@@ -134,7 +134,7 @@ def cleanup_stale_records() -> None:
         # Method 1: Check PID if available
         if pid is not None:
             try:
-                import psutil
+                import psutil  # type: ignore[import-untyped]
                 proc = psutil.Process(pid)
                 if not proc.is_running():
                     # Process is dead, remove record

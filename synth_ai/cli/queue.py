@@ -97,7 +97,8 @@ def _kill_all_existing_workers() -> int:
     
     if killed > 0:
         import time
-        time.sleep(2)  # Give processes time to fully terminate
+        import time as time_module
+        time_module.sleep(2)  # Give processes time to fully terminate
     
     return killed
 
@@ -109,7 +110,7 @@ def _get_running_workers() -> list[dict]:
     """
     workers = []
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 cmdline = proc.info.get('cmdline', [])
@@ -164,7 +165,7 @@ def _check_existing_worker() -> bool:
         # Read PID from lock file
         pid = int(lock_file.read_text().strip())
         # Check if process is still running
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         try:
             proc = psutil.Process(pid)
             # Check if it's actually a celery worker
@@ -333,7 +334,7 @@ def start_cmd(
     # CRITICAL: Verify this is the ONLY database path being used
     # Check for any other workers using different database paths
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         for proc in psutil.process_iter(['pid', 'cmdline']):
             try:
                 cmdline = proc.info.get('cmdline', [])
