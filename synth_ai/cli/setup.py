@@ -48,10 +48,9 @@ def setup_cmd(
                     "This will open your web browser for authentication. Continue?",
                     default=True
                 )
-            if approve:
-                credentials = fetch_credentials_from_web_browser()
-            else:
-                return
+                if not approve:
+                    return
+            credentials = fetch_credentials_from_web_browser()
 
     required = {
         "SYNTH_API_KEY",
