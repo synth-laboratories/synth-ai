@@ -96,8 +96,8 @@ This document tracks cleanup tasks for the synth-ai codebase, including code qua
 ### Linting Violations
 **Ruff found 132 errors initially:**
 - **✅ FIXED**: 80 auto-fixed violations
-- **✅ FIXED**: 2 manual fixes (zip strict, unused variable)
-- **Remaining**: 51 errors (down from 132)
+- **✅ FIXED**: 14 manual fixes (B904 raise-from, SIM118 dict.keys, SIM108 ternary, F841 unused vars, C414 sorted(list), B028 stacklevel)
+- **Remaining**: 28 errors (down from 132, 79% reduction)
 - 11 B904: raise-without-from-inside-except
 - 8 F841: unused-variable
 - 7 UP015: redundant-open-modes (fixable)
@@ -130,19 +130,19 @@ This document tracks cleanup tasks for the synth-ai codebase, including code qua
 
 ### Priority 1: Critical Fixes
 1. **✅ Fix Experiment Queue Tests**: Fixed lazy celery app to allow decorator evaluation
-2. **✅ Fix Ruff Violations**: Auto-fixed 80 violations, manually fixed 2 more
-3. **Fix Remaining Ruff Violations**: 51 errors remaining (mostly B904, F841, E402, SIM rules)
+2. **✅ Fix Ruff Violations**: Auto-fixed 80 violations, manually fixed 14 more
+3. **Fix Remaining Ruff Violations**: 28 errors remaining (mostly B904, E402, SIM rules, B007)
 4. **Fix Type Check Violations**: Address type errors found by `ty check`
 
 ### Priority 2: Code Quality
 1. **✅ Experiment Queue**: Fixed lazy celery app decorator support - all tests pass
 
 ### Priority 3: Cleanup
-1. **`old/` folder exists**: Already created and gitignored (line 99 in `.gitignore`)
-2. **Move Planning Files**: Move all planning `.txt` and `.md` files to `old/` folder:
+1. **✅ `old/` folder exists**: Already created and gitignored (line 99 in `.gitignore`)
+2. **✅ Move Planning Files**: Moved 15+ planning files to `old/` folder:
    - Root-level planning files (queue_notes.txt, experiment_queue.txt, etc.)
-   - `temp/integration_failures/*.txt` files
-   - Planning docs in examples directories (`*_ROAST.md`, `*_REVIEW.md`, `*_PLAN.md`)
+   - `temp/integration_failures/*.txt` files (25+ files)
+   - Planning docs (sdk_refactor_plan.md, REMAINING_WORK.md, etc.)
 3. **Review Documentation**: Consolidate duplicate README files (keep, just organize)
 
 ### Priority 4: Testing
