@@ -66,7 +66,8 @@ This document tracks cleanup tasks for the synth-ai codebase, including code qua
 ### Test Failures
 - **✅ FIXED**: Experiment queue tests - Fixed lazy celery app to allow decorator evaluation without env var
 - **42 tests passing** in experiment_queue test suite
-- Need to run full test suite to identify other failures
+- **108 tests passing** in artifacts + experiment_queue suites
+- **1 ERROR**: `tests/unit/learning/test_error_tracking.py` - imports from `backend` module (monorepo-only, should be skipped or moved)
 
 ### Files to Archive (Move to `old/` folder, gitignored)
 **Planning .txt files to archive:**
