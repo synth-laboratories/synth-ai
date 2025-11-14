@@ -104,13 +104,8 @@ This document tracks cleanup tasks for the synth-ai codebase, including code qua
 **Ruff found 132 errors initially:**
 - **✅ FIXED**: 80 auto-fixed violations
 - **✅ FIXED**: 19 manual fixes (B904 raise-from, SIM105 suppress, SIM108 ternary, SIM118 dict.keys, F841 unused vars, C414 sorted(list), B028 stacklevel)
-- **Remaining**: 11 errors (down from 132, 92% reduction)
-  - 5 E402: module-import-not-at-top-of-file (intentional in celery_app.py, train/cli.py)
-  - 2 SIM115: open-file-with-context-handler (run_gepa_parallel.py example script)
-  - 1 B007: unused-loop-control-variable (run_gepa_parallel.py example script)
-  - 1 F823: undefined-local (false positive in queue.py - time is imported)
-  - 1 F841: unused-variable
-  - 1 SIM102: collapsible-if
+- **Remaining**: 5 errors (down from 132, 96% reduction)
+  - 5 E402: module-import-not-at-top-of-file (intentional lazy imports in celery_app.py, train/cli.py)
 - 11 B904: raise-without-from-inside-except
 - 8 F841: unused-variable
 - 7 UP015: redundant-open-modes (fixable)
