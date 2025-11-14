@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 import click
@@ -46,7 +45,7 @@ def _kill_all_existing_workers() -> int:
     """
     killed = 0
     try:
-        import psutil
+        import psutil  # type: ignore[import-untyped]
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             try:
                 cmdline = proc.info.get('cmdline', [])
