@@ -647,8 +647,9 @@ class PromptLearningHandler(StreamHandler):
                 # Create parent directory if needed
                 self.log_file.parent.mkdir(parents=True, exist_ok=True)
                 # Open file in append mode for live streaming
+                # Note: File must remain open for streaming, so we can't use context manager
                 from datetime import datetime
-                self._log_file_handle = open(self.log_file, "a", encoding="utf-8")
+                self._log_file_handle = open(self.log_file, "a", encoding="utf-8")  # noqa: SIM115
                 # Write header
                 self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.write("PROMPT LEARNING VERBOSE LOG\n")
