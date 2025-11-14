@@ -647,12 +647,11 @@ class PromptLearningHandler(StreamHandler):
                 # Create parent directory if needed
                 self.log_file.parent.mkdir(parents=True, exist_ok=True)
                 # Open file in append mode for live streaming
+                from datetime import datetime
                 self._log_file_handle = open(self.log_file, "a", encoding="utf-8")
                 # Write header
-                from datetime import datetime
                 self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.write("PROMPT LEARNING VERBOSE LOG\n")
-                self._log_file_handle.write("=" * 80 + "\n")
                 self._log_file_handle.write(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 self._log_file_handle.write("=" * 80 + "\n\n")
                 self._log_file_handle.flush()
@@ -706,7 +705,7 @@ class PromptLearningHandler(StreamHandler):
                 return
             
             # Skip hidden MIPRO events (too verbose) - after handling needed ones
-            _HIDDEN_MIPRO_EVENTS = {
+            _hidden_mipro_events = {
                 "mipro.tpe.update",
                 "mipro.tpe.rankings",
                 "mipro.tpe.selected",
@@ -717,7 +716,7 @@ class PromptLearningHandler(StreamHandler):
                 "mipro.trial.duplicate",
                 "mipro.instruction.proposed",  # Hide proposed instructions (shown in results/logs only)
             }
-            if event_type in _HIDDEN_MIPRO_EVENTS:
+            if event_type in _hidden_mipro_events:
                 return
             
             # Skip hidden GEPA events (shown in results/logs only)
@@ -1295,10 +1294,9 @@ class PromptLearningHandler(StreamHandler):
         if self.mipro_rollouts_completed > 0:
             # Always try to show max if available (from TOML, event, or estimate)
             max_rollouts_to_show = self.mipro_max_rollouts
-            if max_rollouts_to_show is None:
+            if max_rollouts_to_show is None and self.mipro_total_trials and self.mipro_batch_size:
                 # Estimate max rollouts from total trials if available
-                if self.mipro_total_trials and self.mipro_batch_size:
-                    max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
+                max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
             
             if max_rollouts_to_show:
                 rollouts_pct = (self.mipro_rollouts_completed / max_rollouts_to_show) * 100

@@ -269,10 +269,9 @@ class PromptLearningClient:
                 
                 # First try: template field (may be serialized dict)
                 cand_template = cand.get("template")
-                if cand_template:
-                    if isinstance(cand_template, dict):
-                        template = cand_template
-                        full_text = self._extract_full_text_from_template(cand_template)
+                if cand_template and isinstance(cand_template, dict):
+                    template = cand_template
+                    full_text = self._extract_full_text_from_template(cand_template)
                     # If it's not a dict, skip (might be a backend object that wasn't serialized)
                 
                 # Second try: object field

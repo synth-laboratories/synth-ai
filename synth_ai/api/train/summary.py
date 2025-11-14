@@ -245,10 +245,9 @@ def display_prompt_learning_summary(
             if billing_end_events:
                 billing_data = billing_end_events[-1].get('data', {})
                 # Calculate from time_seconds and total_rollouts if available
-                if time_seconds and time_seconds > 0:
-                    if rollouts_per_min is None and n_rollouts is not None:
-                        rollouts_per_min = (n_rollouts / time_seconds * 60.0) if n_rollouts > 0 else None
-                    if tokens_per_min is None and rollout_tokens_millions is not None:
+                if time_seconds and time_seconds > 0 and rollouts_per_min is None and n_rollouts is not None:
+                    rollouts_per_min = (n_rollouts / time_seconds * 60.0) if n_rollouts > 0 else None
+                if time_seconds and time_seconds > 0 and tokens_per_min is None and rollout_tokens_millions is not None:
                         tokens_per_min = (rollout_tokens_millions * 1_000_000.0 / time_seconds * 60.0) if rollout_tokens_millions > 0 else None
         if rollouts_per_min is not None or tokens_per_min is not None:
             throughput_parts = []
@@ -299,14 +298,13 @@ def display_prompt_learning_summary(
             results = validation_summary.get('results', [])
             baseline_acc = baseline.get('accuracy')
             
-            if baseline_acc is not None and results:
+            if baseline_acc is not None and results and len(results) > 0:
                 # Only show candidate 1 (not candidate 2)
-                if len(results) > 0:
-                    result = results[0]
-                    result_acc = result.get('accuracy')
-                    if result_acc is not None:
-                        delta = result_acc - baseline_acc
-                        rows.append(("Candidate 1", f"Accuracy: {result_acc:.4f} (Δ{delta:+.4f} vs baseline)"))
+                result = results[0]
+                result_acc = result.get('accuracy')
+                if result_acc is not None:
+                    delta = result_acc - baseline_acc
+                    rows.append(("Candidate 1", f"Accuracy: {result_acc:.4f} (Δ{delta:+.4f} vs baseline)"))
         
         # Display table
         max_label_len = max(len(row[0]) for row in rows) if rows else 0
@@ -384,17 +382,16 @@ def _generate_summary_text(
         rollout_tokens_total = rollouts_prompt + rollouts_completion + rollouts_unknown
         rollout_tokens_millions = rollout_tokens_total / 1_000_000.0
     
-    if algorithm == "mipro":
-        if mipro_budget_events:
-            budget_data = mipro_budget_events[-1].get('data', {})
-            category_costs = budget_data.get('category_costs', {})
-            if category_costs:
-                policy_cost_usd = category_costs.get('rollout', 0.0) or category_costs.get('policy', 0.0) or 0.0
-                proposal_cost_usd = category_costs.get('proposal', 0.0) or 0.0
-            
-            policy_tokens = budget_data.get('policy_tokens', 0) or 0
-            proposer_tokens = budget_data.get('proposer_tokens', 0) or 0
-            rollout_tokens_millions = policy_tokens / 1_000_000.0
+    if algorithm == "mipro" and mipro_budget_events:
+        budget_data = mipro_budget_events[-1].get('data', {})
+        category_costs = budget_data.get('category_costs', {})
+        if category_costs:
+            policy_cost_usd = category_costs.get('rollout', 0.0) or category_costs.get('policy', 0.0) or 0.0
+            proposal_cost_usd = category_costs.get('proposal', 0.0) or 0.0
+        
+        policy_tokens = budget_data.get('policy_tokens', 0) or 0
+        proposer_tokens = budget_data.get('proposer_tokens', 0) or 0
+        rollout_tokens_millions = policy_tokens / 1_000_000.0
     
     # Extract rollout count
     if algorithm == "mipro":

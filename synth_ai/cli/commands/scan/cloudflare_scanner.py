@@ -362,7 +362,7 @@ async def scan_cloudflare_apps(
         records = load_service_records()
         # Filter for tunnels only
         records = {k: v for k, v in records.items() if v.get("type") == "tunnel"}
-        for port_str, record in records.items():
+        for _, record in records.items():
             tunnel_url = record.get("url")
             port = record.get("port")
             mode = record.get("mode", "quick")

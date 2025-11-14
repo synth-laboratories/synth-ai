@@ -239,7 +239,7 @@ async def scan_service_records(
         cleanup_stale_records()
         
         records = load_service_records()
-        for port_str, record in records.items():
+        for _, record in records.items():
             service_type = record.get("type", "local")
             if service_type == "local":
                 url = record.get("url")
