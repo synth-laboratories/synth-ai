@@ -24,10 +24,10 @@ if db_path_env:
 else:
     print("[celery_app] EXPERIMENT_QUEUE_DB_PATH not set, will use default", file=sys.stderr, flush=True)
 
-from celery import Celery
+from celery import Celery  # noqa: E402
 
-from .config import load_config, reset_config_cache
-from .database import init_db
+from .config import load_config, reset_config_cache  # noqa: E402
+from .database import init_db  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

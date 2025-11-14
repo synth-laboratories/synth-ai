@@ -309,8 +309,8 @@ def _build_stream_components(
 
 
 # Module-level logging to track import and registration
-import logging as _logging
-import sys
+import logging as _logging  # noqa: E402
+import sys  # noqa: E402
 
 _logger = _logging.getLogger(__name__)
 _logger.debug("[TRAIN_MODULE] Module synth_ai.api.train.cli imported")
