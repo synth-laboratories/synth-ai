@@ -34,7 +34,7 @@ SourceType = Literal[
     help="Approve automatically opening web browser for authentication"
 )
 def setup_cmd(
-    source: SourceType="web",
+    source: SourceType = "web",
     approve: bool = False
 ) -> None:
     credentials = {}
