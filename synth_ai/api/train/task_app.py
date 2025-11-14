@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import socket
+import subprocess
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
+from urllib.parse import urlparse, urlunparse
 
 import click
 import requests
@@ -16,6 +19,59 @@ class TaskAppHealth:
     health_status: int | None
     task_info_status: int | None
     detail: str | None = None
+
+
+def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
+    """
+    Resolve hostname using explicit resolvers (1.1.1.1, 8.8.8.8) first,
+    then fall back to system resolver.
+    
+    This fixes resolver path issues where system DNS is slow or blocking.
+    """
+    # Try Cloudflare / Google first via `dig`, then fall back to system resolver
+    for resolver_ip in ("1.1.1.1", "8.8.8.8"):
+        try:
+            result = subprocess.run(
+                ["dig", f"@{resolver_ip}", "+short", hostname],
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                first = result.stdout.strip().splitlines()[0].strip()
+                if first:
+                    return first
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            continue
+    
+    # Fallback: system resolver
+    return socket.gethostbyname(hostname)
+
+
+def _resolve_url_to_ip(url: str) -> tuple[str, str]:
+    """
+    Resolve URL's hostname to IP using explicit resolvers, return (ip_url, hostname).
+    
+    Returns:
+        Tuple of (url_with_ip, original_hostname)
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    
+    # Skip resolution for localhost
+    if not hostname or hostname in ("localhost", "127.0.0.1"):
+        return url, hostname or ""
+    
+    # Resolve using explicit resolvers
+    try:
+        resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
+        # Replace hostname with IP in URL
+        new_parsed = parsed._replace(netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip)
+        ip_url = urlunparse(new_parsed)
+        return ip_url, hostname
+    except Exception:
+        # If resolution fails, return original URL
+        return url, hostname or ""
 
 
 def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
@@ -68,10 +124,26 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
     health_resp: requests.Response | None = None
     health_ok = False
 
+    # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
+    health_url = f"{base}/health"
+
     # Retry health check with exponential backoff for DNS errors
+    # Re-resolve DNS on each retry attempt to handle DNS propagation delays
     for attempt in range(max_retries):
+        # Re-resolve DNS on each attempt (DNS might not be ready yet)
+        ip_health_url, original_hostname = _resolve_url_to_ip(health_url)
+        use_ip_directly = ip_health_url != health_url  # True if we resolved to IP
+        
+        # Ensure Host header is set if we resolved to IP
+        if use_ip_directly and original_hostname and original_hostname not in ("localhost", "127.0.0.1"):
+            headers["Host"] = original_hostname
+        
         try:
-            health_resp = http_get(f"{base}/health", headers=headers, timeout=timeout)
+            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
+            if use_ip_directly:
+                health_resp = requests.get(ip_health_url, headers=headers, timeout=timeout, verify=False)
+            else:
+                health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
             health_ok, note = _health_response_ok(health_resp)
             suffix = f" ({note})" if note else ""
             # On non-200, include brief JSON detail if present
@@ -109,10 +181,27 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
     task_resp: requests.Response | None = None
     task_ok = False
 
+    # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
+    task_info_url = f"{base}/task_info"
+    # Host header already set from health check above
+
     # Retry task_info check with exponential backoff for DNS errors
+    # Re-resolve DNS on each retry attempt to handle DNS propagation delays
     for attempt in range(max_retries):
+        # Re-resolve DNS on each attempt (DNS might not be ready yet)
+        ip_task_info_url, task_info_hostname = _resolve_url_to_ip(task_info_url)
+        use_ip_directly_task = ip_task_info_url != task_info_url  # True if we resolved to IP
+        
+        # Ensure Host header is set if we resolved to IP
+        if use_ip_directly_task and task_info_hostname and task_info_hostname not in ("localhost", "127.0.0.1"):
+            headers["Host"] = task_info_hostname
+        
         try:
-            task_resp = http_get(f"{base}/task_info", headers=headers, timeout=timeout)
+            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
+            if use_ip_directly_task:
+                task_resp = requests.get(ip_task_info_url, headers=headers, timeout=timeout, verify=False)
+            else:
+                task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
             task_ok = bool(task_resp.status_code == 200)
             if not task_ok and task_resp is not None:
                 try:
@@ -127,6 +216,7 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
         except requests.RequestException as exc:
             if _is_dns_error(exc) and attempt < max_retries - 1:
                 # DNS error, retry with exponential backoff
+                # DNS will be re-resolved on next iteration
                 delay = 2 ** attempt  # 1s, 2s, 4s, 8s, 16s
                 print(f"DNS resolution failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...", flush=True)
                 time.sleep(delay)

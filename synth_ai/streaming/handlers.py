@@ -1297,7 +1297,7 @@ class PromptLearningHandler(StreamHandler):
             max_rollouts_to_show = self.mipro_max_rollouts
             if max_rollouts_to_show is None and self.mipro_total_trials and self.mipro_batch_size:
                 # Estimate max rollouts from total trials if available
-                max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
+                    max_rollouts_to_show = self.mipro_total_trials * self.mipro_batch_size
             
             if max_rollouts_to_show:
                 rollouts_pct = (self.mipro_rollouts_completed / max_rollouts_to_show) * 100

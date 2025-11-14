@@ -270,12 +270,24 @@ class PromptLearningJob:
             "Content-Type": "application/json",
         }
         
+        # Debug: log the URL being called
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Submitting job to: {create_url}")
+        
         resp = http_post(create_url, headers=headers, json_body=build.payload)
         
         if resp.status_code not in (200, 201):
-            raise RuntimeError(
-                f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
-            )
+            error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
+            if resp.status_code == 404:
+                error_msg += (
+                    f"\n\nPossible causes:"
+                    f"\n1. Backend route /api/prompt-learning/online/jobs not registered"
+                    f"\n2. Backend server needs restart (lazy import may have failed)"
+                    f"\n3. Check backend logs for: 'Failed to import prompt_learning_online_router'"
+                    f"\n4. Verify backend is running at: {self.config.backend_url}"
+                )
+            raise RuntimeError(error_msg)
         
         try:
             js = resp.json()
@@ -391,7 +403,26 @@ class PromptLearningJob:
                 "validation_results": results.validation_results,
             }
         
-        return asyncio.run(_fetch())
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an event loop - can't use asyncio.run()
+            # Use nest_asyncio to allow nested event loops if available
+            try:
+                import nest_asyncio
+                nest_asyncio.apply()
+                return asyncio.run(_fetch())
+            except ImportError:
+                # Fallback: run the coroutine in the existing loop
+                # This requires the caller to be in an async context
+                raise RuntimeError(
+                    "get_results() cannot be called from an async context. "
+                    "Either install nest_asyncio (pip install nest-asyncio) or "
+                    "use await get_results_async() instead."
+                ) from None
+        except RuntimeError:
+            # No event loop running - safe to use asyncio.run()
+            return asyncio.run(_fetch())
     
     def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank.

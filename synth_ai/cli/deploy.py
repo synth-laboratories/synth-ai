@@ -305,11 +305,11 @@ def deploy_cmd(
                 log_info("starting local deploy")
                 deploy_app_uvicorn(
                     LocalDeployCfg.create(  # type: ignore[call-arg, arg-type]
-                        task_app_path=task_app_path,
+                    task_app_path=task_app_path,
                         env_api_key=env_api_key,  # type: ignore[arg-type]
-                        trace = bool(kwargs.get("trace", True)),
-                        host = str(kwargs.get("host", "127.0.0.1")),
-                        port = int(kwargs.get("port", 8000))
+                    trace = bool(kwargs.get("trace", True)),
+                    host = str(kwargs.get("host", "127.0.0.1")),
+                    port = int(kwargs.get("port", 8000))
                     )
                 )
             case "modal":

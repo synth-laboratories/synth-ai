@@ -1,0 +1,86 @@
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://127.0.0.1:8114"
+task_app_api_key = "${ENVIRONMENT_API_KEY}"
+env_file_path = "../../../../../.env"
+results_folder = "results"
+
+[prompt_learning.initial_prompt]
+id = "heartdisease_pattern"
+name = "Heart Disease Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are a medical classification assistant. Based on the patient's features, classify whether they have heart disease. Respond with '1' for heart disease or '0' for no heart disease.\n\nYou have access to the function `heart_disease_classify` which accepts your predicted classification. Call this tool with your classification when you're ready to submit your answer."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Patient Features:\n{features}\n\nClassify: Does this patient have heart disease? Respond with '1' for yes or '0' for no."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+features = "REQUIRED"
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "llama-3.1-8b-instant"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 512
+
+[prompt_learning.gepa]
+env_name = "heartdisease"
+proposer_mode = "synth"
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+val_seeds = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44]
+validation_pool = "train"
+validation_top_k = 2
+
+[prompt_learning.gepa.rollout]
+budget = 100
+max_concurrent = 5
+
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "llama-3.3-70b-versatile"
+llm_provider = "groq"
+llm_inference_url = "https://api.groq.com"
+temperature = 0.7
+max_tokens = 512
+# Synth-specific config
+synth_meta_model = "llama-3.3-70b-versatile"
+synth_meta_provider = "groq"
+synth_temperature = 0.7
+synth_max_tokens = 512
+
+[prompt_learning.gepa.population]
+initial_size = 3
+num_generations = 3
+children_per_generation = 8
+
+[prompt_learning.gepa.archive]
+max_size = 10
+min_score_threshold = 0.0
+feedback_fraction = 0.33
+
+[prompt_learning.gepa.token]
+max_limit = 4096
+counting_model = "gpt-4"
+enforce_limit = false
+
+[prompt_learning.termination_config]
+max_cost_usd = 2.0
+max_trials = 200
+
+[display]
+local_backend = true
+tui = false
+show_curve = true
+verbose_summary = true
+show_trial_results = true
+show_transformations = false
+show_validation = true
+

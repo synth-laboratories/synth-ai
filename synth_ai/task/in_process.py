@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import signal
 import socket
 from pathlib import Path
 from typing import Any, Callable, Optional
+from urllib.parse import urlparse
 
 from synth_ai.cloudflare import (
     ensure_cloudflared_installed,
-    open_quick_tunnel,
+    open_quick_tunnel_with_dns_verification,
     start_uvicorn_background,
     stop_tunnel,
     wait_for_health_check,
@@ -20,6 +22,8 @@ from synth_ai.task.server import TaskAppConfig, create_task_app
 from synth_ai.utils.apps import get_asgi_app, load_file_to_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 from uvicorn._types import ASGIApplication
+
+import uvicorn
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +71,8 @@ def _is_port_available(host: str, port: int) -> bool:
             return True
     except OSError:
         return False
+
+
 
 
 def _kill_process_on_port(host: str, port: int) -> None:
@@ -238,6 +244,7 @@ class InProcessTaskApp:
         self.url: Optional[str] = None
         self._tunnel_proc: Optional[Any] = None
         self._app: Optional[ASGIApplication] = None
+        self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
 
     async def __aenter__(self) -> InProcessTaskApp:
@@ -314,9 +321,28 @@ class InProcessTaskApp:
                         ) from None
 
         # 2. Start uvicorn in background thread
-        # Use daemon=False to ensure cleanup on exit
+        # Use daemon=True for local testing to allow quick exit
+        # The thread will be killed when the process exits
         logger.debug(f"Starting uvicorn server on {self.host}:{self.port}")
-        start_uvicorn_background(self._app, self.host, self.port, daemon=False)
+        import threading
+        def serve():
+            try:
+                uvicorn.run(
+                    self._app,
+                    host=self.host,
+                    port=self.port,
+                    reload=False,
+                    log_level="info",
+                )
+            except Exception as exc:
+                logger.debug(f"Uvicorn server stopped: {exc}")
+        
+        self._server_thread = threading.Thread(
+            target=serve,
+            name=f"synth-uvicorn-{self.port}",
+            daemon=True,  # Daemon thread dies when main process exits
+        )
+        self._server_thread.start()
 
         # 3. Wait for health check
         api_key = self.api_key or self._get_api_key()
@@ -329,13 +355,30 @@ class InProcessTaskApp:
         # 4. Ensure cloudflared is installed
         ensure_cloudflared_installed()
 
-        # 5. Open tunnel
-        if self.tunnel_mode == "quick":
+        # 5. Open tunnel with DNS verification and retry logic
+        mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
+        override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
+        
+        if mode == "local":
+            # Local mode: skip tunnel, use localhost
+            self.url = f"http://{self.host}:{self.port}"
+            self._tunnel_proc = None
+            logger.info(f"Using local mode: {self.url}")
+        elif mode == "quick":
+            # Quick tunnel mode: create tunnel with DNS verification and retry
             logger.info("Opening Cloudflare quick tunnel...")
-            self.url, self._tunnel_proc = open_quick_tunnel(self.port, wait_s=15.0)
-            logger.info(f"Tunnel opened: {self.url}")
+            api_key = self.api_key or self._get_api_key()
+            self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(self.port, api_key=api_key)
+            
+            # Apply hostname override if provided
+            if override_host:
+                parsed = urlparse(self.url)
+                self.url = f"{parsed.scheme}://{override_host}"
+                logger.info(f"Overriding hostname: {self.url}")
+            
+            logger.info(f"Tunnel opened and verified: {self.url}")
         else:
-            raise ValueError(f"Unsupported tunnel_mode: {self.tunnel_mode}")
+            raise ValueError(f"Unknown SYNTH_TUNNEL_MODE: {mode}")
 
         # Register for signal handling
         _registered_instances.add(self)
@@ -369,10 +412,29 @@ class InProcessTaskApp:
             stop_tunnel(self._tunnel_proc)
             self._tunnel_proc = None
             logger.info("Tunnel stopped")
+        
+        # Explicitly kill the server process on the port to ensure clean exit
+        # This prevents hanging when the daemon thread has active connections
+        if self._server_thread and self._server_thread.is_alive():
+            logger.debug(f"Killing server process on port {self.port} to ensure clean exit")
+            try:
+                _kill_process_on_port(self.host, self.port)
+                # Give it a moment to die
+                await asyncio.sleep(0.2)
+            except Exception as e:
+                logger.debug(f"Error killing process on port {self.port}: {e}")
+            self._server_thread = None
 
     def _get_api_key(self) -> str:
         """Get API key from environment or default."""
         import os
+        
+        # Try to load .env file if available
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(override=False)
+        except ImportError:
+            pass
 
         return os.getenv("ENVIRONMENT_API_KEY", "test")
 

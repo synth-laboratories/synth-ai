@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.23.dev3"
+version = "0.2.23.dev5"
 description = "RL as a service SDK - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"

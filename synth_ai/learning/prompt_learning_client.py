@@ -242,6 +242,16 @@ class PromptLearningClient:
             elif event_type == "prompt.learning.gepa.complete":
                 if result.best_score is None:
                     result.best_score = event_data.get("best_score")
+            
+            # MIPRO completion event - extract best_score
+            elif event_type == "mipro.job.completed":
+                if result.best_score is None:
+                    # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
+                    result.best_score = (
+                        event_data.get("best_score") 
+                        or event_data.get("best_full_score") 
+                        or event_data.get("best_minibatch_score")
+                    )
         
         # If top_prompts is empty but we have optimized_candidates, extract from them
         if not result.top_prompts and result.optimized_candidates:
@@ -270,8 +280,8 @@ class PromptLearningClient:
                 # First try: template field (may be serialized dict)
                 cand_template = cand.get("template")
                 if cand_template and isinstance(cand_template, dict):
-                    template = cand_template
-                    full_text = self._extract_full_text_from_template(cand_template)
+                        template = cand_template
+                        full_text = self._extract_full_text_from_template(cand_template)
                     # If it's not a dict, skip (might be a backend object that wasn't serialized)
                 
                 # Second try: object field
@@ -301,6 +311,12 @@ class PromptLearningClient:
             
             # Sort by rank to ensure correct order
             result.top_prompts.sort(key=lambda p: p.get("rank", 999))
+        
+        # If we have validation results, prefer validation score for best_score
+        # Rank 0 is the best prompt
+        if validation_by_rank and 0 in validation_by_rank:
+            # Use validation score for best_score when available
+            result.best_score = validation_by_rank[0]
         
         return result
 
