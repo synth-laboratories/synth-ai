@@ -303,7 +303,7 @@ def deploy_cmd(
         match runtime:
             case "local":
                 log_info("starting local deploy")
-                deploy_app_uvicorn(LocalDeployCfg.create(
+                deploy_app_uvicorn(LocalDeployCfg.create(  # type: ignore[arg-type]
                     task_app_path=task_app_path,
                     env_api_key=env_api_key,
                     trace = bool(kwargs.get("trace", True)),
@@ -328,7 +328,7 @@ def deploy_cmd(
                         "Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env"
                     )
                 
-                cfg = CloudflareTunnelDeployCfg.create(
+                cfg = CloudflareTunnelDeployCfg.create(  # type: ignore[arg-type]
                     task_app_path=task_app_path,
                     env_api_key=env_api_key,
                     host=str(kwargs.get("host", "127.0.0.1")),

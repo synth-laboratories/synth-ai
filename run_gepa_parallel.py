@@ -430,9 +430,6 @@ async def run_gepa_job(task_name: str, config_path: Path) -> Dict:
     
     print(f"[{task_name}] Starting job...")
     
-    # Record start time to find new results files
-    start_time = time.time()
-    
     # Create modified config with limits (small for quick testing)
     temp_config = modify_config_for_limits(config_path, rollout_limit=50, time_limit_seconds=30)
     assert temp_config.exists(), f"Temp config file not created: {temp_config}"

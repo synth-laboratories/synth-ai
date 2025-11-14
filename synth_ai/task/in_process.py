@@ -395,7 +395,7 @@ def _setup_signal_handlers() -> None:
 
     # Register handlers (only once)
     if not hasattr(_setup_signal_handlers, "_registered"):
-        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)  # type: ignore[attr-defined]
         signal.signal(signal.SIGTERM, signal_handler)
         _setup_signal_handlers._registered = True
 
