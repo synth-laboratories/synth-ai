@@ -6,6 +6,7 @@ import secrets
 from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, Callable, Set, cast
+from urllib.parse import parse_qs, urlparse
 
 from fastapi.routing import APIRoute, APIRouter
 from fastapi.testclient import TestClient
@@ -185,13 +186,27 @@ def _validate_rollout_payload(payload: Any) -> None:
             f"`/rollout` trajectory.inference_url must be a string, got {type(inference_url).__name__}"
         )
 
-    # Check for correlation ID parameter (can be ?cid= or &cid=)
-    if "?cid=" not in inference_url and "&cid=" not in inference_url:
+    parsed_inference_url = urlparse(inference_url)
+    if not parsed_inference_url.scheme or not parsed_inference_url.netloc:
+        raise ValueError(
+            "`/rollout` trajectory.inference_url must include a scheme and host. "
+            "Example: 'http://example.com?cid=trace_abc123'"
+        )
+
+    if parsed_inference_url.path not in ("", "/"):
+        raise ValueError(
+            f"`/rollout` trajectory.inference_url must be a base URL only (scheme + host). "
+            f"Found path: '{parsed_inference_url.path}'. "
+            f"Remove the path component - the backend will append it automatically. "
+            f"Expected format: 'http://example.com?cid=trace_xxx' (no '/v1' or '/v1/chat/completions')."
+        )
+
+    cid_values = parse_qs(parsed_inference_url.query).get("cid", [])
+    if not cid_values or not cid_values[0]:
         raise ValueError(
             "`/rollout` trajectory.inference_url missing correlation ID parameter. "
-            "URL must include ?cid=trace_xxxxx or &cid=trace_xxxxx for trace correlation. "
-            "Example: 'http://example.com/v1/chat/completions?cid=trace_abc123'. "
-            "Training requires this to hydrate traces, rubrics, and judge integrations."
+            "URL must include ?cid=trace_xxxxx for trace correlation. "
+            "Example: 'http://example.com?cid=trace_abc123' (note: no path, just base URL + query)."
         )
 
     # Validate steps is a list and not empty
@@ -314,6 +329,12 @@ def validate_route_contracts(app: ASGIApp) -> None:
 def test_route_contracts(app: ASGIApp) -> None:
     route_index = build_fastapi_route_index(app)
 
+    def _base_url(url: str) -> str:
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            raise ValueError("Inference URLs must include a scheme and host")
+        return f"{parsed.scheme}://{parsed.netloc}"
+
     def _get_route(path: str, method: str) -> APIRoute:
         candidates = route_index.get(path, [])
         if not candidates:
@@ -334,6 +355,9 @@ def test_route_contracts(app: ASGIApp) -> None:
     if original_env_key is None:
         os.environ["ENVIRONMENT_API_KEY"] = auth_key
     auth_headers = {"X-API-Key": auth_key}
+    rollout_interceptor_url = "http://0.0.0.0:54444/v1/chat/completions"
+    rollout_interceptor_base = _base_url(rollout_interceptor_url)
+    rollout_trace_id = "trace_contract_validation"
 
     try:
         with TestClient(cast(ASGIApp, app)) as client:
@@ -344,7 +368,8 @@ def test_route_contracts(app: ASGIApp) -> None:
                 if path == "/task_info":
                     params = {"seed": 0}
                 if path == "/rollout":
-                    # Send the actual RolloutRequest format used by training
+                    # Send the actual RolloutRequest format used by prompt learning backend
+                    # This matches the payload from evaluation.py:_execute_rollout_request()
                     json_payload = {
                         "run_id": "validate",
                         "env": {
@@ -358,7 +383,11 @@ def test_route_contracts(app: ASGIApp) -> None:
                                 "model": "gpt-4o-mini",
                                 "provider": "openai",
                                 "temperature": 0.7,
+                                "inference_url": rollout_interceptor_url,
+                                "trace_correlation_id": rollout_trace_id,
                             },
+                            "assert_proxy": True,   # Backend always sets this for prompt learning
+                            "proxy_only": True,     # Backend always sets this for prompt learning
                         },
                         "ops": ["agent", "env"],  # Critical: training sends this
                         "record": {"trajectories": True},
@@ -383,6 +412,25 @@ def test_route_contracts(app: ASGIApp) -> None:
                 except ValueError as exc:
                     raise ValueError(f"{path} did not return JSON during validation") from exc
                 validator(payload, path)
+
+                if path == "/rollout":
+                    trajectories = payload.get("trajectories") or []
+                    first_traj = trajectories[0]
+                    inference_url = first_traj.get("inference_url")
+                    parsed_inference_url = urlparse(inference_url)
+                    returned_base = f"{parsed_inference_url.scheme}://{parsed_inference_url.netloc}"
+                    if returned_base != rollout_interceptor_base:
+                        raise ValueError(
+                            "`/rollout` trajectory.inference_url must use the interceptor base URL "
+                            "provided in policy.config.inference_url."
+                        )
+
+                    cid_values = parse_qs(parsed_inference_url.query).get("cid", [])
+                    if rollout_trace_id not in cid_values:
+                        raise ValueError(
+                            "`/rollout` trajectory.inference_url must include the trace correlation "
+                            "ID from policy.config.trace_correlation_id."
+                        )
 
             # Ensure auth dependency rejects missing key for protected endpoints
             protected_paths = [p for p, spec in ROUTE_CONTRACTS.items() if spec["require_auth"]]
