@@ -36,10 +36,7 @@ def plot_optimization_curve(
     max_score = max(best_scores)
     
     # Handle edge case where all scores are the same
-    if max_score == min_score:
-        score_range = 1.0
-    else:
-        score_range = max_score - min_score
+    score_range = 1.0 if max_score == min_score else max_score - min_score
     
     # Create grid (height x width)
     grid = [[' ' for _ in range(width)] for _ in range(height)]

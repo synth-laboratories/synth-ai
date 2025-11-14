@@ -114,11 +114,7 @@ def download_command(
                 # Determine output directory
                 if output:
                     output_path = Path(output)
-                    if output_path.suffix:
-                        # It's a file, use parent directory
-                        output_dir = output_path.parent
-                    else:
-                        output_dir = output_path
+                    output_dir = output_path.parent if output_path.suffix else output_path
                 else:
                     output_dir = Path(f"./prompts/{job_id}")
                 
@@ -186,7 +182,7 @@ def download_command(
                 console.print(f"[green]✓ Downloaded to {output_path}[/green]")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise click.ClickException(str(e))
+            raise click.ClickException(str(e)) from e
     
     asyncio.run(_run())
 

@@ -75,10 +75,7 @@ async def _resolve_model_storage_path(
         if not weights_path:
             raise click.ClickException(f"RL model {model_id} has no weights_path")
         # Determine artifact kind from path
-        if "adapter" in weights_path.lower():
-            artifact_kind = "lora"
-        else:
-            artifact_kind = "training_file"
+        artifact_kind = "lora" if "adapter" in weights_path.lower() else "training_file"
         return weights_path, artifact_kind
     else:
         raise click.ClickException(f"Unknown model type: {model_type}")
@@ -147,7 +144,8 @@ def export_command(
                     f"Expected format: peft:BASE_MODEL:JOB_ID, ft:BASE_MODEL:JOB_ID, or rl:BASE_MODEL:JOB_ID"
                 )
             
-            parsed = parse_model_id(model_id)
+            # Validate model ID format (parsed is used for validation)
+            parse_model_id(model_id)
             
             # Resolve storage path
             console.print(f"[yellow]Resolving storage path for {model_id}...[/yellow]")
@@ -182,7 +180,7 @@ def export_command(
                 console.print(f"Visibility: {'private' if private else 'public'}")
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise click.ClickException(str(e))
+            raise click.ClickException(str(e)) from e
     
     asyncio.run(_run())
 

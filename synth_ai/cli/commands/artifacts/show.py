@@ -203,7 +203,7 @@ def _format_prompt_details(data: dict[str, Any], verbose: bool = False) -> None:
                         console.print(f"  [bold]{key}:[/bold] {value}")
             
             # Show other metadata keys
-            other_keys = [k for k in metadata.keys() if k not in important_keys]
+            other_keys = [k for k in metadata if k not in important_keys]
             if other_keys:
                 console.print(f"\n  [dim]Other metadata keys: {', '.join(other_keys[:10])}[/dim]")
         
@@ -278,7 +278,7 @@ def show_command(
                 try:
                     parsed = parse_model_id(artifact_id)
                 except ValueError as e:
-                    raise click.ClickException(f"Invalid model ID format: {e}")
+                    raise click.ClickException(f"Invalid model ID format: {e}") from e
                 
                 data = await client.get_model(artifact_id)
                 if output_format == "json":
@@ -291,7 +291,7 @@ def show_command(
                 try:
                     parsed = parse_prompt_id(artifact_id)
                 except ValueError as e:
-                    raise click.ClickException(f"Invalid prompt ID format: {e}")
+                    raise click.ClickException(f"Invalid prompt ID format: {e}") from e
                 
                 data = await client.get_prompt(parsed.job_id)
                 if output_format == "json":
@@ -325,12 +325,12 @@ def show_command(
                     raise click.ClickException(
                         f"Could not identify artifact type. Tried as model and prompt, but both failed. "
                         f"Last error: {e}"
-                    )
+                    ) from e
         except click.ClickException:
             raise
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise click.ClickException(str(e))
+            raise click.ClickException(str(e)) from e
     
     asyncio.run(_run())
 

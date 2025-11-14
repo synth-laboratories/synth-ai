@@ -150,7 +150,7 @@ def list_command(
                 _format_table(data)
         except Exception as e:
             console.print(f"[red]Error: {e}[/red]")
-            raise click.ClickException(str(e))
+            raise click.ClickException(str(e)) from e
     
     asyncio.run(_run())
 
