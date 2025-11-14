@@ -134,7 +134,7 @@ def create_experiment(request: ExperimentSubmitRequest) -> Experiment:
             session.add(job)
 
         session.flush()
-        dispatch_available_jobs(session, experiment_id)  # type: ignore[return-value]
+        dispatch_available_jobs(session, experiment_id)  # type: ignore[misc]
 
     return fetch_experiment(experiment_id)
 
