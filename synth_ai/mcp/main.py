@@ -126,6 +126,16 @@ async def list_tools() -> list[Tool]:
             ),
             inputSchema={"type": "object"}
         ),
+        Tool(
+            name="create_rl_task_app",
+            description="Instructions on how to create a reinforcement learning task app, required for all deployments",
+            inputSchema={},
+        ),
+        Tool(
+            name="create_sft_task_app",
+            description="Instructions on how to create a supervised fine-tuning task app, required for all deployments",
+            inputSchema={},
+        )
     ]
 
 
@@ -213,6 +223,16 @@ async def call_tool(
             return [TextContent(
                 type="text",
                 text=msg or f"{name} task app deployed"
+            )]
+        case "create_rl_task_app":
+            return [TextContent(
+                type="text",
+                text="Instructions for creating an RL task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-rl",
+            )]
+        case "create_sft_task_app":
+            return [TextContent(
+                type="text",
+                text="Instructions for creating an SFT task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-sft",
             )]
     return [TextContent(
         type="text",

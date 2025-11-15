@@ -34,7 +34,7 @@ def get_home_config_file_paths(
 
 
 def find_config_path(
-    bin_path: Path,
+    bin: Path,
     home_subdir: str,
     filename: str,
 ) -> Path | None:
@@ -50,7 +50,7 @@ def find_config_path(
     if home_candidate.exists():
         return home_candidate
 
-    local_candidate = Path(bin_path).parent / home_subdir / filename
+    local_candidate = Path(bin).parent / home_subdir / filename
     if local_candidate.exists():
         return local_candidate
 
@@ -58,10 +58,10 @@ def find_config_path(
 
 
 def configure_import_paths(
-    app_path: Path,
-    repo_root: Path | None = None
+    app: Path,
+    repo_root: Path | None = REPO_ROOT
 ) -> None:
-    app_dir = app_path.parent.resolve()
+    app_dir = app.parent.resolve()
 
     initial_dirs: list[Path] = [app_dir]
     if (app_dir / "__init__.py").exists():

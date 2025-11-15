@@ -194,6 +194,8 @@ def discover_configs(explicit: list[str], *, requested_type: str | None) -> list
 def prompt_for_config(
     candidates: list[ConfigCandidate], *, requested_type: str | None, allow_autoselect: bool = False
 ) -> ConfigCandidate:
+    import sys
+    
     if not candidates:
         raise click.ClickException("No training configs found. Pass --config explicitly.")
 
@@ -201,9 +203,21 @@ def prompt_for_config(
     last_config = _load_last_config()
     default_idx = 1
 
-    if allow_autoselect and len(candidates) == 1:
+    # Auto-select if only one candidate OR if allow_autoselect=True and we're in non-interactive mode
+    is_interactive = sys.stdin.isatty() if hasattr(sys.stdin, 'isatty') else False
+    
+    if allow_autoselect and (len(candidates) == 1 or not is_interactive):
+        # In non-interactive mode with allow_autoselect, use the first candidate (or last used if available)
+        if last_config:
+            for cand in candidates:
+                if cand.path.resolve() == last_config:
+                    chosen = cand
+                    _save_last_config(chosen.path)
+                    return chosen
         chosen = candidates[0]
         _save_last_config(chosen.path)
+        if not is_interactive:
+            click.echo(f"[AUTO-SELECT] Non-interactive mode: using config {chosen.path}", err=True)
         return chosen
 
     if last_config:
@@ -212,6 +226,13 @@ def prompt_for_config(
                 # Move last used config to the front
                 candidates.insert(0, candidates.pop(idx))
                 break
+
+    # If not interactive and allow_autoselect is False, we can't prompt - use first candidate
+    if not is_interactive:
+        click.echo(f"[AUTO-SELECT] Non-interactive mode: using first config {candidates[0].path}", err=True)
+        chosen = candidates[0]
+        _save_last_config(chosen.path)
+        return chosen
 
     click.echo("Select a training config:")
     for idx, cand in enumerate(candidates, start=1):

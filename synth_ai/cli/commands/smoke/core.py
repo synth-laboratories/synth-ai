@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+import tomllib
 import uuid
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,6 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
-import toml
 from synth_ai.task.client import TaskAppClient
 from synth_ai.task.contracts import (
     RolloutEnvSpec,
@@ -38,7 +38,8 @@ def _append_query_param(url: str, key: str, value: str) -> str:
     params = dict(parse_qsl(parsed.query, keep_blank_values=True))
     params[key] = value
     new_query = urlencode(params)
-    return urlunparse(parsed._replace(query=new_query))
+    result = urlunparse(parsed._replace(query=new_query))
+    return str(result)
 
 
 def _ensure_local_libsql() -> None:
@@ -125,8 +126,8 @@ def _load_smoke_config(config_path: Path | None) -> dict[str, Any]:
         return {}
     
     try:
-        with open(config_path) as f:
-            full_config = toml.load(f)
+        with open(config_path, "rb") as f:
+            full_config = tomllib.load(f)
         
         smoke_config = full_config.get("smoke", {})
         

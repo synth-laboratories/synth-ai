@@ -1,0 +1,12 @@
+{
+  "framework": "dspy_gepa",
+  "benchmark": "iris",
+  "total_rollouts": 20,
+  "checkpoints": [
+    {
+      "rollout_count": 20,
+      "performance": 0.0,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

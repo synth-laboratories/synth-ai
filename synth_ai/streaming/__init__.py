@@ -6,6 +6,7 @@ from .handlers import (
     IntegrationTestHandler,
     JSONHandler,
     LossCurveHandler,
+    PromptLearningHandler,
     RichHandler,
     StreamHandler,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "BufferedHandler",
     "CallbackHandler",
     "CLIHandler",
+    "PromptLearningHandler",
     "IntegrationTestHandler",
     "JSONHandler",
     "LossCurveHandler",

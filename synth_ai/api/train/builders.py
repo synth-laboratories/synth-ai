@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,8 @@ try:
     )
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
+
+from synth_ai.utils.config import ConfigResolver
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
@@ -116,16 +119,17 @@ def build_rl_payload(
     services = data.get("services") if isinstance(data.get("services"), dict) else {}
     model_cfg = rl_cfg.model
 
-    final_task_url = (
-        overrides.get("task_url")
-        or task_url
-        or (services.get("task_url") if isinstance(services, dict) else None)
-        or ""
-    ).strip()
-    if not final_task_url:
-        raise click.ClickException(
-            "Task app URL required (provide --task-url or set services.task_url in TOML)"
-        )
+    cli_task_url = overrides.get("task_url")
+    env_task_url = task_url or os.environ.get("TASK_APP_URL")
+    config_task_url = services.get("task_url") if isinstance(services, dict) else None
+    final_task_url = ConfigResolver.resolve(
+        "task_app_url",
+        cli_value=cli_task_url,
+        env_value=env_task_url,
+        config_value=config_task_url,
+        required=True,
+    )
+    assert final_task_url is not None  # required=True guarantees non-None
 
     model_source = (model_cfg.source or "").strip() if model_cfg else ""
     model_base = (model_cfg.base or "").strip() if model_cfg else ""
@@ -368,8 +372,6 @@ def build_prompt_learning_payload(
     allow_experimental: bool | None = None,
 ) -> PromptLearningBuildResult:
     """Build payload for prompt learning job (MIPRO or GEPA)."""
-    import os
-
     from pydantic import ValidationError
 
     from .configs.prompt_learning import load_toml
@@ -385,24 +387,68 @@ def build_prompt_learning_payload(
     except ValidationError as exc:
         raise click.ClickException(_format_validation_error(config_path, exc)) from exc
     
-    # Source of truth: TOML only (ignore shell/env and CLI overrides)
-    final_task_url = (pl_cfg.task_app_url or "").strip()
+    # Early validation: Check required fields for GEPA
+    if pl_cfg.algorithm == "gepa":
+        if not pl_cfg.gepa:
+            raise click.ClickException(
+                "GEPA config missing: [prompt_learning.gepa] section is required"
+            )
+        if not pl_cfg.gepa.evaluation:
+            raise click.ClickException(
+                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
+            )
+        train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(pl_cfg.gepa.evaluation, "seeds", None)
+        if not train_seeds:
+            raise click.ClickException(
+                "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+            )
+        val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(pl_cfg.gepa.evaluation, "validation_seeds", None)
+        if not val_seeds:
+            raise click.ClickException(
+                "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+            )
     
-    if not final_task_url:
-        raise click.ClickException(
-            "Task app URL required (provide --task-url or set prompt_learning.task_app_url in TOML)"
+    cli_task_url = overrides.get("task_url") or task_url
+    env_task_url = os.environ.get("TASK_APP_URL")
+    config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    
+    # For prompt learning, prefer config value over env if config is explicitly set
+    # This allows TOML files to specify task_app_url without env var interference
+    # But CLI override always wins
+    if cli_task_url:
+        # CLI override takes precedence
+        final_task_url = ConfigResolver.resolve(
+            "task_app_url",
+            cli_value=cli_task_url,
+            env_value=None,  # Don't check env when CLI is set
+            config_value=config_task_url,
+            required=True,
         )
+    elif config_task_url:
+        # Config explicitly set - use it (ignore env var to avoid conflicts)
+        final_task_url = config_task_url
+    else:
+        # No config, fall back to env or error
+        final_task_url = ConfigResolver.resolve(
+            "task_app_url",
+            cli_value=None,
+            env_value=env_task_url,
+            config_value=None,
+            required=True,
+        )
+    assert final_task_url is not None  # required=True guarantees non-None
     
     # Get task_app_api_key from config or environment
-    task_app_api_key = (
-        pl_cfg.task_app_api_key
-        or os.environ.get("ENVIRONMENT_API_KEY", "")
-    ).strip()
-    
-    if not task_app_api_key:
-        raise click.ClickException(
-            "Task app API key required (set prompt_learning.task_app_api_key in TOML or ENVIRONMENT_API_KEY env var)"
-        )
+    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
+    cli_api_key = overrides.get("task_app_api_key")
+    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    task_app_api_key = ConfigResolver.resolve(
+        "task_app_api_key",
+        cli_value=cli_api_key,
+        env_value=env_api_key,
+        config_value=config_api_key,
+        required=True,
+    )
     
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
@@ -413,12 +459,55 @@ def build_prompt_learning_payload(
         pl_section["task_app_url"] = final_task_url
         pl_section["task_app_api_key"] = task_app_api_key
         
+        # GEPA: Extract train_seeds from nested structure for backwards compatibility
+        # Backend checks for train_seeds at top level before parsing nested structure
+        if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
+            # Try to get train_seeds directly from the gepa config object first
+            train_seeds = None
+            if pl_cfg.gepa.evaluation:
+                train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(pl_cfg.gepa.evaluation, "seeds", None)
+            
+            # If not found, try from serialized dict
+            if not train_seeds:
+                gepa_section = pl_section.get("gepa", {})
+                # Handle case where gepa_section might still be a Pydantic model
+                if hasattr(gepa_section, "model_dump"):
+                    gepa_section = gepa_section.model_dump(mode="python")
+                elif hasattr(gepa_section, "dict"):
+                    gepa_section = gepa_section.dict()
+                
+                if isinstance(gepa_section, dict):
+                    eval_section = gepa_section.get("evaluation", {})
+                    # Handle case where eval_section might still be a Pydantic model
+                    if hasattr(eval_section, "model_dump"):
+                        eval_section = eval_section.model_dump(mode="python")
+                    elif hasattr(eval_section, "dict"):
+                        eval_section = eval_section.dict()
+                    
+                    if isinstance(eval_section, dict):
+                        train_seeds = eval_section.get("train_seeds") or eval_section.get("seeds")
+                    
+                    # Update gepa_section back to pl_section in case we converted it
+                    pl_section["gepa"] = gepa_section
+            
+            # Add train_seeds to top level for backwards compatibility
+            if train_seeds and not pl_section.get("train_seeds"):
+                pl_section["train_seeds"] = train_seeds
+            if train_seeds and not pl_section.get("evaluation_seeds"):
+                pl_section["evaluation_seeds"] = train_seeds
+        
         # MIPRO: Move bootstrap_train_seeds and online_pool from top-level to mipro section if needed
+        # Also extract env_name from mipro section to top-level for backend compatibility
         # This ensures compatibility when fields are at top-level [prompt_learning] in TOML
         if pl_cfg.algorithm == "mipro":
             mipro_section = pl_section.get("mipro", {})
             if not isinstance(mipro_section, dict):
                 mipro_section = {}
+            
+            # Extract env_name from mipro section to top-level (backend expects it there)
+            mipro_env_name = mipro_section.get("env_name")
+            if mipro_env_name and not pl_section.get("env_name") and not pl_section.get("task_app_id"):
+                pl_section["env_name"] = mipro_env_name
             
             # Check if seeds are at top level but not in mipro section
             if not mipro_section.get("bootstrap_train_seeds") and pl_section.get("bootstrap_train_seeds"):

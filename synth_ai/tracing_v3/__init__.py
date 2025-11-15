@@ -81,6 +81,7 @@ from .abstractions import (
     TimeRecord,
 )
 from .config import TursoConfig
+from .llm_call_record_helpers import BaseLMResponse
 from .session_tracer import SessionTracer
 
 __all__ = [
@@ -94,4 +95,5 @@ __all__ = [
     "SessionMessageContent",
     "TimeRecord",
     "TursoConfig",
+    "BaseLMResponse",
 ]

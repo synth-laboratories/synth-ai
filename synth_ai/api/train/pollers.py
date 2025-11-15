@@ -38,7 +38,16 @@ class JobPoller:
         click.echo("Polling job status...")
         while elapsed <= self.timeout:
             try:
-                resp = http_get(f"{self.base_url}{path}", headers=self._headers())
+                # Normalize URL to avoid double /api/api
+                if self.base_url.endswith("/api") and path.startswith("/api"):
+                    # Remove /api from path since base_url already has it
+                    path_normalized = path[4:].lstrip("/")
+                    url = f"{self.base_url}/{path_normalized}"
+                else:
+                    # Ensure proper path joining
+                    path_clean = path.lstrip("/")
+                    url = f"{self.base_url}/{path_clean}"
+                resp = http_get(url, headers=self._headers())
                 info = (
                     resp.json()
                     if resp.headers.get("content-type", "").startswith("application/json")

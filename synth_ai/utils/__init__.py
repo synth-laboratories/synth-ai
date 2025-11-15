@@ -27,6 +27,7 @@ from .env import (
 )
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
+from .logging import flush_logger, log_batch, log_error, log_event, log_info, log_warning
 from .modal import (
     ensure_modal_installed,
     ensure_task_app_ready,
@@ -116,6 +117,12 @@ __all__ = [
     "is_local_demo_url",
     "is_modal_public_url",
     "is_py_file",
+    "flush_logger",
+    "log_batch",
+    "log_error",
+    "log_event",
+    "log_info",
+    "log_warning",
     "load_demo_dir",
     "load_json_to_dict",
     "load_file_to_module",

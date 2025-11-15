@@ -9,6 +9,7 @@ from .subcommands.files import files_group
 from .subcommands.jobs import jobs_group
 from .subcommands.models import models_group
 from .subcommands.runs import runs_group
+from .subcommands.session import session_status_cmd
 from .subcommands.summary import summary_command
 
 
@@ -53,6 +54,7 @@ def register(cli: click.Group) -> None:
     status.add_command(models_group, name="models")
     status.add_command(files_group, name="files")
     status.add_command(runs_group, name="runs")
+    status.add_command(session_status_cmd, name="session")
     status.add_command(summary_command, name="summary")
 
     cli.add_command(status, name="status")

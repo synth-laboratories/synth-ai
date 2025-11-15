@@ -29,7 +29,7 @@ jobs:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
       - name: ty check
-        run: uv run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
+        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
 
   tests:
     name: Tests (unit, fast≤5s)

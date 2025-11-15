@@ -1,0 +1,17 @@
+{
+  "framework": "synth_gepa",
+  "benchmark": "hotpotqa",
+  "total_rollouts": 20,
+  "checkpoints": [
+    {
+      "rollout_count": 20,
+      "performance": 0.4299999999999999,
+      "checkpoint_pct": 1.0
+    },
+    {
+      "rollout_count": 20,
+      "performance": 0.5700000000000001,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

@@ -165,21 +165,80 @@ def resolve_env(
     config_path: Path | None,
     explicit_env_paths: Iterable[str],
     required_keys: list[KeySpec],
+    toml_env_file_path: str | None = None,
 ) -> tuple[Path, dict[str, str]]:
+    """Resolve environment file and values.
+    
+    Priority order:
+    1. Explicit CLI --env-file paths
+    2. TOML config env_file_path
+    3. Saved path from previous session
+    4. Default candidates (CWD .env, config dir .env, repo .env)
+    
+    Never prompts interactively - fails with informative error if credentials missing.
+    """
     provided = [Path(p).expanduser().resolve() for p in explicit_env_paths]
     if provided:
         for path in provided:
             if not path.exists():
                 raise click.ClickException(f"Env file not found: {path}")
         resolver = EnvResolver(provided)
+    elif toml_env_file_path:
+        # Use env file path from TOML config
+        # Resolve relative to config file's directory if path is relative
+        env_path_str = str(toml_env_file_path).strip()
+        if config_path:
+            # If relative path, resolve relative to config file's directory
+            if not Path(env_path_str).is_absolute():
+                config_dir = config_path.parent.resolve()
+                env_path = (config_dir / env_path_str).resolve()
+            else:
+                env_path = Path(env_path_str).expanduser().resolve()
+        else:
+            # Fallback: resolve relative to current working directory
+            env_path = Path(env_path_str).expanduser().resolve()
+        
+        if not env_path.exists():
+            raise click.ClickException(
+                f"Env file specified in TOML config not found: {env_path}\n"
+                f"  Config: {config_path}\n"
+                f"  TOML env_file_path: {toml_env_file_path}\n"
+                f"  Resolved to: {env_path}"
+            )
+        resolver = EnvResolver([env_path])
     else:
         saved_path = _load_saved_env_path()
         if saved_path and saved_path.exists():
-            click.echo(f"Using .env file: {saved_path}")
             resolver = EnvResolver([saved_path])
         else:
-            resolver = EnvResolver(_collect_default_candidates(config_path))
-            resolver.select_new_env()
+            # Use default candidates without prompting
+            candidates = _collect_default_candidates(config_path)
+            if not candidates:
+                # No .env files found - check if we can use environment variables
+                missing_keys = [
+                    spec.name
+                    for spec in required_keys
+                    if not spec.optional and not os.environ.get(spec.name)
+                ]
+                if missing_keys:
+                    raise click.ClickException(
+                        f"❌ Missing required credentials: {', '.join(missing_keys)}\n\n"
+                        f"  Options:\n"
+                        f"  1. Set environment variables: {', '.join(missing_keys)}\n"
+                        f"  2. Create a .env file with these keys\n"
+                        f"  3. Use --env-file to specify a .env file path\n"
+                        f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
+                        f"     env_file_path = \"/path/to/.env\"\n\n"
+                        f"  Searched for .env files in:\n"
+                        f"    - {Path.cwd() / '.env'}\n"
+                        f"    - {config_path.parent / '.env' if config_path else 'N/A'}\n"
+                        f"    - {REPO_ROOT / '.env'}"
+                    )
+                # Use a dummy resolver since we'll use environment variables
+                resolver = EnvResolver([Path.cwd() / ".env"])
+            else:
+                # Use first candidate without prompting
+                resolver = EnvResolver(candidates)
 
     # Preload selected .env keys into process env so downstream lookups succeed
     try:
@@ -207,70 +266,69 @@ def resolve_env(
 
 
 def _resolve_key(resolver: EnvResolver, spec: KeySpec) -> str:
-    while True:
-        # Priority: existing environment variable
-        env_val = os.environ.get(spec.name) or resolver.get_value(spec.name)
-        # Allow common aliases in .env to satisfy required keys without extra prompts
-        if not env_val and spec.name == "ENVIRONMENT_API_KEY":
-            for alias in ("dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"):
-                alt = resolver.get_value(alias)
-                if alt:
-                    env_val = alt
-                    os.environ[spec.name] = alt
-                    click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
-                    break
-        if not env_val and spec.name == "TASK_APP_URL":
-            for alias in ("TASK_APP_BASE_URL",):
-                alt = resolver.get_value(alias)
-                if alt:
-                    env_val = alt
-                    os.environ[spec.name] = alt
-                    click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
-                    break
-        if env_val:
-            click.echo(f"Found {spec.name} in current sources: {mask_value(env_val)}")
-            # Automatically use and persist the value (no prompt)
-            _maybe_persist(resolver, spec, env_val)
-            os.environ[spec.name] = env_val
-            return env_val
+    """Resolve a key value without interactive prompts.
+    
+    Priority:
+    1. Environment variable
+    2. Value from .env file
+    3. Secrets helper (resolve_env_var)
+    
+    Fails hard if not found (no interactive prompts).
+    """
+    # Priority: existing environment variable
+    env_val = os.environ.get(spec.name) or resolver.get_value(spec.name)
+    # Allow common aliases in .env to satisfy required keys without extra prompts
+    if not env_val and spec.name == "ENVIRONMENT_API_KEY":
+        for alias in ("dev_environment_api_key", "DEV_ENVIRONMENT_API_KEY"):
+            alt = resolver.get_value(alias)
+            if alt:
+                env_val = alt
+                os.environ[spec.name] = alt
+                click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
+                break
+    if not env_val and spec.name == "TASK_APP_URL":
+        for alias in ("TASK_APP_BASE_URL",):
+            alt = resolver.get_value(alias)
+            if alt:
+                env_val = alt
+                os.environ[spec.name] = alt
+                click.echo(f"Found {spec.name} via {alias}: {mask_value(alt)}")
+                break
+    if env_val:
+        click.echo(f"Found {spec.name} in current sources: {mask_value(env_val)}")
+        # Automatically use and persist the value (no prompt)
+        _maybe_persist(resolver, spec, env_val)
+        os.environ[spec.name] = env_val
+        return env_val
 
-        resolve_env_var(spec.name)
-        resolved_value = os.environ.get(spec.name)
-        if resolved_value:
-            click.echo(f"Found {spec.name} via secrets helper: {mask_value(resolved_value)}")
-            _maybe_persist(resolver, spec, resolved_value)
-            os.environ[spec.name] = resolved_value
-            return resolved_value
+    # Try secrets helper
+    resolve_env_var(spec.name)
+    resolved_value = os.environ.get(spec.name)
+    if resolved_value:
+        click.echo(f"Found {spec.name} via secrets helper: {mask_value(resolved_value)}")
+        _maybe_persist(resolver, spec, resolved_value)
+        os.environ[spec.name] = resolved_value
+        return resolved_value
 
-        options: list[tuple[str, Callable[[], str | None]]] = []
-
-        def _pick_env() -> str | None:
-            resolver.select_new_env()
-            return None
-
-        options.append(("Choose another .env", _pick_env))
-
-        if spec.allow_modal_secret:
-            options.append(("Fetch from Modal secret", lambda: _fetch_modal_secret(resolver, spec)))
-        if spec.allow_modal_app:
-            options.append(("Choose Modal app URL", lambda: _fetch_modal_app(spec)))
-        if spec.optional:
-            options.append(("Skip", lambda: ""))
-        options.append(("Abort", lambda: (_raise_abort(spec))))
-
-        click.echo(f"Resolve {spec.name}:")
-        for idx, (label, _) in enumerate(options, start=1):
-            click.echo(f"  {idx}) {label}")
-        choice = click.prompt("Choice", type=int)
-        if choice < 1 or choice > len(options):
-            click.echo("Invalid selection; try again")
-            continue
-        action = options[choice - 1][1]
-        result = action()
-        if result is None:
-            # e.g. user switched env; restart loop
-            continue
-        return result
+    # Not found - fail hard with informative message
+    if spec.optional:
+        return ""
+    
+    # Build helpful error message
+    env_file_hint = ""
+    if resolver.current_path.exists():
+        env_file_hint = f"\n  Checked .env file: {resolver.current_path}"
+    
+    raise click.ClickException(
+        f"❌ Missing required credential: {spec.name}\n\n"
+        f"  Description: {spec.description}\n"
+        f"  Options:\n"
+        f"  1. Set environment variable: export {spec.name}=<value>\n"
+        f"  2. Add to .env file: {spec.name}=<value>\n"
+        f"  3. Use --env-file to specify a .env file path\n"
+        f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
+        f"     env_file_path = \"/path/to/.env\"{env_file_hint}"
+    )
 
 
 def _maybe_persist(resolver: EnvResolver, spec: KeySpec, value: str) -> None:

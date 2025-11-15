@@ -70,3 +70,25 @@ synth-ai task-app validate --help
 
 
 
+
+## Development Setup
+
+### Backend URLs
+
+| Environment | URL | Status |
+|-------------|-----|--------|
+| **Dev (Docker)** | `https://synth-backend-dev-docker.onrender.com` | ✅ Working |
+| **Prod** | `https://agent-learning.onrender.com` | ✅ Working |
+
+### API Keys
+
+API keys are stored in `monorepo/backend/.env.dev` and `.env.prod`:
+- Dev: `DEV_ACTIONS_SYNTH_API_KEY`
+- Prod: `PROD_ACTIONS_SYNTH_API_KEY`
+
+### Testing Backend Connection
+
+```bash
+curl -H "Authorization: Bearer $SYNTH_API_KEY" \
+  https://synth-backend-dev-docker.onrender.com/api/learning/jobs?limit=5
+```

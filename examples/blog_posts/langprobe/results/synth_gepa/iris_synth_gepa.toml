@@ -1,0 +1,54 @@
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "http://127.0.0.1:8115"
+task_app_id = "iris"
+
+# Seeds for optimization
+evaluation_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
+
+# Held-out seeds for final evaluation
+test_pool = [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149]
+
+[prompt_learning.initial_prompt]
+id = "iris_classification"
+name = "Iris Classification"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You are a botany classification assistant. Based on the flower's measurements, classify the iris species. Respond with one of: setosa, versicolor, or virginica."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Flower Measurements:\n{features}\n\nClassify this iris flower. Respond with one of: setosa, versicolor, or virginica."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+features = "REQUIRED"
+
+[prompt_learning.policy]
+model = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 1.0
+max_completion_tokens = 512
+policy_name = "iris-gepa"
+
+[prompt_learning.gepa]
+env_name = "iris"
+initial_population_size = 20
+num_generations = 15
+mutation_rate = 0.3
+crossover_rate = 0.5
+selection_pressure = 1.0
+minibatch_size = 8
+pareto_set_size = 64
+feedback_fraction = 0.5
+children_per_generation = 12
+patience_generations = 5
+rollout_budget = 50
+archive_size = 64
+pareto_eps = 1e-6
+max_concurrent_rollouts = 20
+mutation_llm_model = "openai/gpt-oss-20b"
+mutation_llm_provider = "groq"
