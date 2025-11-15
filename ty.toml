@@ -1,3 +1,9 @@
+[environment]
+# Use the uv-managed Python environment
+root = ["."]
+extra-paths = ["."]
+python = ".venv/bin/python3"
+
 [src]
 include = [
     "synth_ai",
