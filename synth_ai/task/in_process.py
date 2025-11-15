@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import socket
+import threading
 from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
@@ -18,7 +19,7 @@ from synth_ai.cloudflare import (
     wait_for_health_check,
 )
 from synth_ai.task.server import TaskAppConfig, create_task_app
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 
 import uvicorn
@@ -289,7 +290,7 @@ class InProcessTaskApp:
         elif self._task_app_path:
             # File path - load module and extract app
             configure_import_paths(self._task_app_path, REPO_ROOT)
-            module = load_file_to_module(
+            module = load_module(
                 self._task_app_path,
                 f"_inprocess_{self._task_app_path.stem}_{id(self)}",
             )
@@ -323,7 +324,7 @@ class InProcessTaskApp:
         # Use daemon=True for local testing to allow quick exit
         # The thread will be killed when the process exits
         logger.debug(f"Starting uvicorn server on {self.host}:{self.port}")
-        import threading
+
         def serve():
             try:
                 uvicorn.run(

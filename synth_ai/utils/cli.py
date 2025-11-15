@@ -277,8 +277,8 @@ class PromptedPathOption(click.Option):
         )
 
 
-def print_next_step(message: str, lines: Sequence[str]) -> None:
-    print(f"\n➡️  Next, {message}:")
-    for line in lines:
-        print(f"   {line}")
-    print("")
+def ctx_print(msg: str, emit: bool = True) -> None:
+    if not emit:
+        return None
+    print(msg)
+    return None

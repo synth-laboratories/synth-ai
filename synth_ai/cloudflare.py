@@ -15,21 +15,22 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Iterable, Optional, Tuple
 from urllib.parse import urlparse
 
 import click
 import httpx
 import requests
-from synth_ai.cfgs import CloudflareTunnelDeployCfg
+from synth_ai.cfgs import CFDeployCfg
 from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
 from synth_ai.utils.paths import (
     REPO_ROOT,
     configure_import_paths,
 )
+from starlette.types import ASGIApp
 
 import uvicorn
 from uvicorn._types import ASGIApplication
@@ -1242,8 +1243,8 @@ async def wait_for_health_check(
     )
 
 
-def start_uvicorn_background(
-    app: ASGIApplication,
+def _start_uvicorn_background(
+    app: ASGIApp,
     host: str,
     port: int,
     daemon: bool = True,
@@ -1281,7 +1282,7 @@ def start_uvicorn_background(
 
 
 async def deploy_app_tunnel(
-    cfg: CloudflareTunnelDeployCfg,
+    cfg: CFDeployCfg,
     env_file: Optional[Path] = None,
     keep_alive: bool = False,
     wait: bool = False,
@@ -1351,13 +1352,11 @@ async def deploy_app_tunnel(
         os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
     configure_import_paths(cfg.task_app_path, REPO_ROOT)
-    module = load_file_to_module(
-        cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}"
-    )
+    module = load_module(cfg.task_app_path, f"_synth_tunnel_task_app_{cfg.task_app_path.stem}")
     app = get_asgi_app(module)
 
     # Always use non-daemon thread so it survives when main process exits
-    start_uvicorn_background(app, cfg.host, cfg.port, daemon=False)
+    _start_uvicorn_background(app, cfg.host, cfg.port, daemon=False)
     
     # Only wait for health check if wait mode is enabled (for AI agents, skip to avoid stalls)
     if wait or keep_alive:

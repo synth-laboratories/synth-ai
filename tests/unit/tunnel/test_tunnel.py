@@ -3,7 +3,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from synth_ai.cfgs import CloudflareTunnelDeployCfg
+from synth_ai.cfgs import CFDeployCfg
 from synth_ai.cloudflare import (
     ManagedTunnelRecord,
     _select_existing_tunnel,
@@ -198,32 +198,29 @@ class TestStoreTunnelCredentials:
 class TestCloudflareTunnelDeployCfg:
     """Tests for CloudflareTunnelDeployCfg."""
     
-    @patch("synth_ai.cfgs.validate_task_app")
-    def test_create_with_defaults(self, mock_validate, tmp_path):
+    def test_create_with_defaults(self, tmp_path):
         """Should create config with default values."""
         task_app = tmp_path / "task_app.py"
         task_app.write_text("# test app\n")
-        
-        cfg = CloudflareTunnelDeployCfg.create(
+
+        cfg = CFDeployCfg.create(
             task_app_path=task_app,
             env_api_key="test-key",
         )
-        
+
         assert cfg.task_app_path == task_app
         assert cfg.env_api_key == "test-key"
         assert cfg.host == "127.0.0.1"
         assert cfg.port == 8000
         assert cfg.mode == "quick"
         assert cfg.trace is True
-        mock_validate.assert_called_once_with(task_app)
     
-    @patch("synth_ai.cfgs.validate_task_app")
-    def test_create_with_custom_values(self, mock_validate, tmp_path):
+    def test_create_with_custom_values(self, tmp_path):
         """Should create config with custom values."""
         task_app = tmp_path / "task_app.py"
         task_app.write_text("# test app\n")
         
-        cfg = CloudflareTunnelDeployCfg.create(
+        cfg = CFDeployCfg.create(
             task_app_path=task_app,
             env_api_key="test-key",
             host="0.0.0.0",
@@ -238,7 +235,6 @@ class TestCloudflareTunnelDeployCfg:
         assert cfg.mode == "quick"
         assert cfg.subdomain == "my-company"
         assert cfg.trace is False
-        mock_validate.assert_called_once_with(task_app)
 
 
 class TestURLRegex:

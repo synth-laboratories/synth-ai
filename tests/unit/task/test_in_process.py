@@ -136,10 +136,10 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     async def test_init_with_app(
         self,
-        mock_start_uvicorn,
+        mock_thread,
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
@@ -151,7 +151,8 @@ class TestInProcessTaskAppContextManager:
 
         async with InProcessTaskApp(app=mock_fastapi_app, port=9001) as task_app:
             assert task_app.url == "https://test.trycloudflare.com"
-            mock_start_uvicorn.assert_called_once()
+            mock_thread.assert_called_once()
+            mock_thread.return_value.start.assert_called_once()
             mock_health_check.assert_called_once()
             mock_ensure_cloudflared.assert_called_once()
             mock_open_tunnel.assert_called_once()
@@ -163,7 +164,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     @patch("synth_ai.task.in_process.create_task_app")
     async def test_init_with_config(
         self,
@@ -188,7 +189,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     @patch("synth_ai.task.in_process.create_task_app")
     async def test_init_with_config_factory(
         self,
@@ -216,7 +217,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     @patch("synth_ai.task.in_process.get_asgi_app")
     @patch("synth_ai.task.in_process.load_file_to_module")
     @patch("synth_ai.task.in_process.configure_import_paths")
@@ -253,7 +254,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     async def test_cleanup_on_exception(
         self,
         mock_start_uvicorn,
@@ -279,7 +280,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     async def test_health_check_timeout(
         self,
         mock_start_uvicorn,
@@ -307,7 +308,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     @patch("synth_ai.task.in_process._is_port_available")
     @patch("synth_ai.task.in_process._find_available_port")
     async def test_port_conflict_handling(
@@ -336,7 +337,7 @@ class TestInProcessTaskAppContextManager:
     @patch("synth_ai.task.in_process.open_quick_tunnel")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
-    @patch("synth_ai.task.in_process.start_uvicorn_background")
+    @patch("synth_ai.task.in_process.threading.Thread")
     async def test_uses_custom_api_key(
         self,
         mock_start_uvicorn,

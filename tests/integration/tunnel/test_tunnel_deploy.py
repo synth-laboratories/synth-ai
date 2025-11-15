@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import httpx
 import pytest
 
-from synth_ai.cfgs import CloudflareTunnelDeployCfg
-from synth_ai.cloudflare import wait_for_health_check, deploy_app_tunnel
+from synth_ai.cfgs import CFDeployCfg
+from synth_ai.cloudflare import _wait_for_health_check, deploy_app_tunnel
 
 
 @pytest.fixture
@@ -87,7 +87,7 @@ class TestQuickTunnelDeployment:
         
         env_file = tmp_path / ".env"
         
-        cfg = CloudflareTunnelDeployCfg.create(
+        cfg = CFDeployCfg.create(
             task_app_path=minimal_task_app,
             env_api_key="test-key-123",
             mode="quick",
@@ -125,7 +125,7 @@ class TestQuickTunnelDeployment:
         
         mock_open_tunnel.side_effect = RuntimeError("Tunnel failed")
         
-        cfg = CloudflareTunnelDeployCfg.create(
+        cfg = CFDeployCfg.create(
             task_app_path=minimal_task_app,
             env_api_key="test-key-123",
             mode="quick",
@@ -208,7 +208,7 @@ class TestEndToEndQuickTunnel:
         
         env_file = tmp_path / ".env.test"
         
-        cfg = CloudflareTunnelDeployCfg.create(
+        cfg = CFDeployCfg.create(
             task_app_path=minimal_task_app,
             env_api_key="test-key-123",
             mode="quick",
