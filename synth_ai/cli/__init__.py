@@ -14,9 +14,10 @@ from synth_ai.cli.claude import claude_cmd
 from synth_ai.cli.codex import codex_cmd
 from synth_ai.cli.commands.baseline import command as baseline_cmd
 from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+from synth_ai.cli.commands.eval import command as eval_cmd
+from synth_ai.cli.commands.filter import command as filter_cmd
 from synth_ai.cli.demo import demo_cmd
 from synth_ai.cli.deploy import deploy_cmd
-from synth_ai.cli.eval import command as eval_cmd
 from synth_ai.cli.mcp import mcp_cmd
 from synth_ai.cli.modal_app import modal_app_cmd
 from synth_ai.cli.opencode import opencode_cmd
@@ -75,6 +76,7 @@ cli.add_command(codex_cmd, name="codex")
 cli.add_command(demo_cmd, name="demo")
 cli.add_command(deploy_cmd, name="deploy")
 cli.add_command(eval_cmd, name="eval")
+cli.add_command(filter_cmd, name="filter")
 cli.add_command(mcp_cmd, name="mcp")
 cli.add_command(modal_app_cmd, name="modal-app")
 cli.add_command(opencode_cmd, name="opencode")
@@ -111,22 +113,11 @@ _maybe_call("synth_ai.cli.commands.scan", "register", cli)
 # Train CLI lives under synth_ai.api.train
 _maybe_call("synth_ai.api.train", "register", cli)
 
-# Task app group/commands are optional and have richer API surface
+# Task app group/commands - deprecated large file, only keeping task_app_group itself
 _task_apps_module = _maybe_import("synth_ai.cli.task_apps")
-#if _task_apps_module:
-task_app_group = getattr(_task_apps_module, "task_app_group", None)
+task_app_group = getattr(_task_apps_module, "task_app_group", None) if _task_apps_module else None
 if task_app_group is not None:
     cli.add_command(task_app_group, name="task-app-group")
-    # Expose common aliases when present
-    commands = getattr(task_app_group, "commands", None)
-    if isinstance(commands, dict):
-        for alias, name in (("serve", "serve"), ("deploy", "deploy"), ("modal-serve", "modal-serve")):
-            command = commands.get(name)
-            if command is not None:
-                cli.add_command(command, name=alias)
-register_task_apps = _callable_from(_task_apps_module, "register")
-if register_task_apps:
-    register_task_apps(cli)
 
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead
 
