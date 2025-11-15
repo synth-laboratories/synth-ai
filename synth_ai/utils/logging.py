@@ -1,7 +1,8 @@
+import os
 import threading
 import time
-from contextlib import suppress
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
@@ -19,21 +20,29 @@ _ACTIVE_THREADS: set[threading.Thread] = set()
 _ACTIVE_LOCK = threading.Lock()
 
 
+DISABLE_LOGGING = os.getenv("SYNTH_DISABLE_LOGGING", None)
+
+
 def log_event(
     level: Severity,
-    message: str,
+    msg: str,
     *,
     attributes: Mapping[str, Any] | None = None,
     ctx: Mapping[str, Any] | None = None,
-    context: Mapping[str, Any] | None = None,
-    request_id: str | None = None,
+    req_id: str | None = None,
     batch_id: str | None = None,
 ) -> None:
     """Send a single log entry to the backend BetterStack proxy (best effort)."""
-
+    if DISABLE_LOGGING:
+        return
     try:
-        payload_context = context if context is not None else ctx
-        entry = _build_entry(level, message, attributes=attributes, context=payload_context, request_id=request_id)
+        entry = _build_entry(
+            level,
+            msg,
+            attributes=attributes,
+            ctx=ctx,
+            req_id=req_id
+        )
         if entry is None:
             return
         _dispatch((entry,), batch_id=batch_id)
@@ -42,16 +51,16 @@ def log_event(
         return
 
 
-def log_info(message: str, **kwargs: Any) -> None:
-    log_event("info", message, **kwargs)
+def log_info(msg: str, **kwargs: Any) -> None:
+    log_event("info", msg, **kwargs)
 
 
-def log_warning(message: str, **kwargs: Any) -> None:
-    log_event("warning", message, **kwargs)
+def log_warning(msg: str, **kwargs: Any) -> None:
+    log_event("warning", msg, **kwargs)
 
 
-def log_error(message: str, **kwargs: Any) -> None:
-    log_event("error", message, **kwargs)
+def log_error(msg: str, **kwargs: Any) -> None:
+    log_event("error", msg, **kwargs)
 
 
 def log_batch(
@@ -60,15 +69,17 @@ def log_batch(
     batch_id: str | None = None
 ) -> None:
     """Send a batch of pre-built entries. Invalid entries are skipped silently."""
-
+    
+    if DISABLE_LOGGING:
+        return
     try:
         prepared = [
             _build_entry(
                 entry.get("level", "info"),
                 entry.get("message", ""),
                 attributes=entry.get("attributes"),
-                context=entry.get("context"),
-                request_id=entry.get("request_id"),
+                ctx=entry.get("context"),
+                req_id=entry.get("request_id"),
             )
             for entry in entries
             if isinstance(entry, Mapping)
@@ -82,16 +93,16 @@ def log_batch(
 
 def _build_entry(
     level: Severity,
-    message: str,
+    msg: str,
     *,
     attributes: Mapping[str, Any] | None,
-    context: Mapping[str, Any] | None,
-    request_id: str | None,
+    ctx: Mapping[str, Any] | None,
+    req_id: str | None,
 ) -> dict[str, Any] | None:
     normalized_level = str(level or "").lower()
     if normalized_level not in _ALLOWED_LEVELS:
         normalized_level = "info"
-    safe_message = (message or "").strip()
+    safe_message = (msg or "").strip()
     if not safe_message:
         return None
     safe_message = safe_message[:_MAX_MESSAGE_LENGTH]
@@ -100,9 +111,9 @@ def _build_entry(
         "message": safe_message,
         "timestamp": datetime.now(UTC).isoformat(),
         "sdk_version": sdk_version,
-        "request_id": request_id or uuid.uuid4().hex,
+        "request_id": req_id or uuid.uuid4().hex,
         "attributes": _normalize_mapping(attributes),
-        "context": _normalize_mapping(context),
+        "context": _normalize_mapping(ctx),
     }
 
 
@@ -125,7 +136,10 @@ def _dispatch(
         return
 
 
-def _thread_target(entries: Sequence[Mapping[str, Any]], batch_id: str | None) -> None:
+def _thread_target(
+    entries: Sequence[Mapping[str, Any]],
+    batch_id: str | None
+) -> None:
     try:
         _post_entries(entries, batch_id)
     finally:

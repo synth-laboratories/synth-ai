@@ -297,7 +297,6 @@ task_app_api_key = "test-key"
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 temperature = 0.7
 max_completion_tokens = 512
@@ -336,12 +335,19 @@ class TestBuildPromptLearningPayload:
 algorithm = "mipro"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
+env_name = "test_env"
+
+[prompt_learning.initial_prompt]
+id = "test-prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Test"
 
 [prompt_learning.policy]
 inference_mode = "synth_hosted"
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 
 [prompt_learning.mipro]
 num_iterations = 3
@@ -353,6 +359,7 @@ meta_model_provider = "openai"
 meta_model_inference_url = "https://api.openai.com/v1"
 bootstrap_train_seeds = [0, 1, 2]
 online_pool = [3, 4, 5]
+reference_pool = [30, 31, 32]
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -380,16 +387,43 @@ algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
 
+[prompt_learning.initial_prompt]
+id = "test-prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Test"
+
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
+env_name = "test_env"
 population_size = 10
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2]
+val_seeds = [10, 11, 12]
+
+[prompt_learning.gepa.rollout]
+budget = 100
+
+[prompt_learning.gepa.mutation]
+llm_model = "gpt-4o-mini"
+llm_provider = "openai"
+
+[prompt_learning.gepa.population]
+initial_size = 20
+
+[prompt_learning.gepa.archive]
+size = 64
+
+[prompt_learning.gepa.token]
+max_limit = 1000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -419,15 +453,42 @@ algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
 
+[prompt_learning.initial_prompt]
+id = "test-prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Test"
+
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
+env_name = "test_env"
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2]
+val_seeds = [10, 11, 12]
+
+[prompt_learning.gepa.rollout]
+budget = 100
+
+[prompt_learning.gepa.mutation]
+llm_model = "gpt-4o-mini"
+llm_provider = "openai"
+
+[prompt_learning.gepa.population]
+initial_size = 20
+
+[prompt_learning.gepa.archive]
+size = 64
+
+[prompt_learning.gepa.token]
+max_limit = 1000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -435,17 +496,16 @@ mutation_rate = 0.2
             path = Path(f.name)
 
         try:
-            # Note: task_url parameter is currently ignored (TOML is source of truth)
-            # The override would need to be in overrides dict or TOML itself
+            # task_url parameter takes precedence over TOML value
             result = build_prompt_learning_payload(
                 config_path=path,
-                task_url="http://override:9000",  # This is ignored per current implementation
+                task_url="http://override:9000",  # This overrides TOML value
                 overrides={},
             )
-            # Builder uses TOML value, not task_url parameter
-            assert result.task_url == "http://localhost:8001"
+            # Builder uses task_url parameter when provided, overriding TOML
+            assert result.task_url == "http://override:9000"
             config_body = result.payload["config_body"]
-            assert config_body["prompt_learning"]["task_app_url"] == "http://localhost:8001"
+            assert config_body["prompt_learning"]["task_app_url"] == "http://override:9000"
         finally:
             path.unlink()
 
@@ -457,15 +517,42 @@ algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
 
+[prompt_learning.initial_prompt]
+id = "test-prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Test"
+
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
+env_name = "test_env"
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2]
+val_seeds = [10, 11, 12]
+
+[prompt_learning.gepa.rollout]
+budget = 100
+
+[prompt_learning.gepa.mutation]
+llm_model = "gpt-4o-mini"
+llm_provider = "openai"
+
+[prompt_learning.gepa.population]
+initial_size = 20
+
+[prompt_learning.gepa.archive]
+size = 64
+
+[prompt_learning.gepa.token]
+max_limit = 1000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -492,16 +579,43 @@ algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
 
+[prompt_learning.initial_prompt]
+id = "test-prompt"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Test"
+
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
+env_name = "test_env"
 population_size = 10
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2]
+val_seeds = [10, 11, 12]
+
+[prompt_learning.gepa.rollout]
+budget = 100
+
+[prompt_learning.gepa.mutation]
+llm_model = "gpt-4o-mini"
+llm_provider = "openai"
+
+[prompt_learning.gepa.population]
+initial_size = 20
+
+[prompt_learning.gepa.archive]
+size = 64
+
+[prompt_learning.gepa.token]
+max_limit = 1000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)
@@ -558,12 +672,32 @@ task_app_url = "http://localhost:8001"
 [prompt_learning.policy]
 model = "gpt-4o-mini"
 provider = "openai"
-inference_url = "https://api.openai.com/v1"
 inference_mode = "synth_hosted"
 
 [prompt_learning.gepa]
+env_name = "test_env"
 num_generations = 5
 mutation_rate = 0.2
+
+[prompt_learning.gepa.evaluation]
+train_seeds = [0, 1, 2]
+val_seeds = [10, 11, 12]
+
+[prompt_learning.gepa.rollout]
+budget = 100
+
+[prompt_learning.gepa.mutation]
+llm_model = "gpt-4o-mini"
+llm_provider = "openai"
+
+[prompt_learning.gepa.population]
+initial_size = 20
+
+[prompt_learning.gepa.archive]
+size = 64
+
+[prompt_learning.gepa.token]
+max_limit = 1000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(toml_content)

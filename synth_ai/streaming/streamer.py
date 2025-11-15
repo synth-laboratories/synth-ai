@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import random
 from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
@@ -142,7 +143,7 @@ class JobStreamer:
         self._timeline_paths = [p for p in timeline_sources if p]
 
         self._last_seq_by_stream: dict[str, int] = {}
-        self._last_step_by_metric: dict[str, int] = {}
+        self._metric_cursors: dict[str, tuple[int | None, str]] = {}
         self._seen_messages: set[str] = set()
         self._last_status_payload: dict[str, Any] | None = None
         self._last_status_value: str | None = None
@@ -223,12 +224,20 @@ class JobStreamer:
                 continue
             raw_events = _extract_list(data, "events")
             for event in raw_events:
-                seq = int(event.get("seq") or 0)
-                if seq <= self._last_seq_by_stream.get(path, 0):
+                seq_raw = event.get("seq")
+                try:
+                    seq_value = int(seq_raw)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    seq_value = None
+                last_seq = self._last_seq_by_stream.get(path, 0)
+                seq = seq_value if seq_value is not None else last_seq + 1
+                if seq <= last_seq:
                     continue
+                if seq_value is None:
+                    event["seq"] = seq
+                self._last_seq_by_stream[path] = seq
                 if not self.config.should_include_event(event):
                     continue
-                self._last_seq_by_stream[path] = seq
                 event_job_id = event.get("job_id") or self.job_id
                 event_message = StreamMessage.from_event(event_job_id, event)
                 event_type = str(event.get("type") or "").lower()
@@ -249,21 +258,26 @@ class JobStreamer:
             return []
         messages: list[StreamMessage] = []
         for path in self._metric_paths:
-            after = max(self._last_step_by_metric.values()) if self._last_step_by_metric else -1
-            params = {"after_step": after, "limit": 200}
+            params = {"limit": 200}
             try:
                 data = await http.get(path, params=params)
             except Exception:
                 continue
             points = _extract_list(data, "points")
             for point in points:
-                name = point.get("name", "")
-                step = int(point.get("step") or -1)
-                if step <= self._last_step_by_metric.get(name, -1):
+                name = str(point.get("name") or "")
+                if not name:
                     continue
+                step, fingerprint = _metric_cursor(point)
+                last_step, last_fingerprint = self._metric_cursors.get(name, (None, ""))
+                if step is not None:
+                    if last_step is not None and step <= last_step:
+                        continue
+                elif fingerprint and fingerprint == last_fingerprint:
+                    continue
+                self._metric_cursors[name] = (step, fingerprint)
                 if not self.config.should_include_metric(point):
                     continue
-                self._last_step_by_metric[name] = step
                 metric_job_id = point.get("job_id") or self.job_id
                 messages.append(StreamMessage.from_metric(metric_job_id, point))
         return messages
@@ -310,11 +324,60 @@ class JobStreamer:
                     pass
 
 
+def _metric_cursor(point: dict[str, Any]) -> tuple[int | None, str]:
+    raw_step = point.get("step")
+    step_value: int | None = None
+    if raw_step is not None:
+        try:
+            step_value = int(raw_step)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            step_value = None
+
+    fingerprint = ""
+    for key in ("created_at", "updated_at", "timestamp"):
+        ts_val = point.get(key)
+        if ts_val is not None and ts_val != "":
+            fingerprint = str(ts_val)
+            break
+    if not fingerprint:
+        try:
+            fingerprint = json.dumps(point, sort_keys=True, default=str)
+        except Exception:
+            fingerprint = repr(point)
+    return step_value, fingerprint
+
+
 def _extract_list(data: Any, field: str) -> list[dict[str, Any]]:
-    raw = (data or {}).get(field) if isinstance(data, dict) else None
-    if isinstance(raw, list):
-        return [item for item in raw if isinstance(item, dict)]
-    return []
+    results: list[dict[str, Any]] = []
+    seen_items: set[int] = set()
+    stack: list[Any] = [data]
+    seen_containers: set[int] = set()
+
+    fallback_keys = {"data", "result", "results", "items", "payload", "records", "entries", "values"}
+
+    while stack:
+        current = stack.pop()
+        if current is None:
+            continue
+        current_id = id(current)
+        if current_id in seen_containers:
+            continue
+        seen_containers.add(current_id)
+
+        if isinstance(current, list):
+            for item in current:
+                if isinstance(item, dict):
+                    item_id = id(item)
+                    if item_id not in seen_items:
+                        seen_items.add(item_id)
+                        results.append(item)
+        elif isinstance(current, dict):
+            if field in current:
+                stack.append(current[field])
+            for key in fallback_keys:
+                if key in current:
+                    stack.append(current[key])
+    return results
 
 
 __all__ = ["JobStreamer", "StreamEndpoints"]

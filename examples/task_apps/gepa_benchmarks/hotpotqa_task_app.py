@@ -241,7 +241,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         "answer_em": answer_correct,
         "support_coverage": support_coverage,
         "response_json": response_json,
-        **error_info,
+        **error_info,  # Spread error_info first
     }
 
     with contextlib.suppress(Exception):

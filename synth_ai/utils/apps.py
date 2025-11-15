@@ -5,9 +5,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Set, cast
 
-from uvicorn._types import ASGIApplication
-
 from synth_ai.utils.paths import is_py_file
+
+from uvicorn._types import ASGIApplication
 
 
 def extract_routes_from_app(app: object) -> list[str]:

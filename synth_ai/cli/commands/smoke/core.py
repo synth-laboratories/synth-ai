@@ -7,6 +7,7 @@ import os
 import subprocess
 import sys
 import time
+import tomllib
 import uuid
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,6 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
-import tomllib
 from synth_ai.task.client import TaskAppClient
 from synth_ai.task.contracts import (
     RolloutEnvSpec,

@@ -1,0 +1,161 @@
+{
+  "best_score": 0.72,
+  "baseline_score": 0.58,
+  "total_rollouts": 50,
+  "actual_rollouts": 682,
+  "total_time": 48.81018304824829,
+  "num_candidates": 20,
+  "num_trials": 10,
+  "log_dir": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/langprobe/task_specific/heartdisease/results/dspy_mipro/mipro_logs",
+  "note": "Trial programs and full optimization logs are saved in the log_dir",
+  "trials": [
+    {
+      "trial_num": 1,
+      "score": 58.0,
+      "instructions": {},
+      "demos": {},
+      "total_eval_calls": 50
+    },
+    {
+      "trial_num": 2,
+      "score": null,
+      "instructions": {
+        "predictor_0": 12
+      },
+      "demos": {
+        "predictor_0": 6
+      },
+      "total_eval_calls": 85
+    },
+    {
+      "trial_num": 3,
+      "score": null,
+      "instructions": {
+        "predictor_0": 8
+      },
+      "demos": {
+        "predictor_0": 4
+      },
+      "total_eval_calls": 120
+    },
+    {
+      "trial_num": 4,
+      "score": null,
+      "instructions": {
+        "predictor_0": 3
+      },
+      "demos": {
+        "predictor_0": 13
+      },
+      "total_eval_calls": 155
+    },
+    {
+      "trial_num": 5,
+      "score": null,
+      "instructions": {
+        "predictor_0": 9
+      },
+      "demos": {
+        "predictor_0": 7
+      },
+      "total_eval_calls": 190
+    },
+    {
+      "trial_num": 6,
+      "score": null,
+      "instructions": {
+        "predictor_0": 0
+      },
+      "demos": {
+        "predictor_0": 9
+      },
+      "total_eval_calls": 225
+    },
+    {
+      "trial_num": 7,
+      "score": 68.0,
+      "instructions": {},
+      "demos": {},
+      "total_eval_calls": 275
+    },
+    {
+      "trial_num": 8,
+      "score": null,
+      "instructions": {
+        "predictor_0": 10
+      },
+      "demos": {
+        "predictor_0": 15
+      },
+      "total_eval_calls": 310
+    },
+    {
+      "trial_num": 9,
+      "score": null,
+      "instructions": {
+        "predictor_0": 6
+      },
+      "demos": {
+        "predictor_0": 17
+      },
+      "total_eval_calls": 345
+    },
+    {
+      "trial_num": 10,
+      "score": null,
+      "instructions": {
+        "predictor_0": 18
+      },
+      "demos": {
+        "predictor_0": 9
+      },
+      "total_eval_calls": 380
+    },
+    {
+      "trial_num": 11,
+      "score": null,
+      "instructions": {
+        "predictor_0": 16
+      },
+      "demos": {
+        "predictor_0": 6
+      },
+      "total_eval_calls": 415
+    },
+    {
+      "trial_num": 12,
+      "score": null,
+      "instructions": {
+        "predictor_0": 15
+      },
+      "demos": {
+        "predictor_0": 15
+      },
+      "total_eval_calls": 450
+    },
+    {
+      "trial_num": 13,
+      "score": 72.0,
+      "instructions": {},
+      "demos": {},
+      "total_eval_calls": 500
+    }
+  ],
+  "candidate_programs": [
+    {
+      "rank": 1,
+      "score": 72.0,
+      "full_eval": true
+    },
+    {
+      "rank": 2,
+      "score": 68.0,
+      "full_eval": true
+    },
+    {
+      "rank": 3,
+      "score": 58.0,
+      "full_eval": true
+    }
+  ]
+}
