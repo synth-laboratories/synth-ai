@@ -14,6 +14,7 @@ DEBUG_TERMINATION = os.getenv("DEBUG_TERMINATION", "true").lower() == "true"
 
 import asyncio
 import json
+import os
 import re
 import subprocess
 import sys
@@ -663,6 +664,148 @@ def extract_results_from_file(task_name: str, job_id: str, config_path: Optional
         return {"error": f"Failed to parse results file: {e}"}
 
 
+async def check_task_app_health_from_config(task_name: str, config_path: Path) -> tuple[bool, str]:
+    """Check health of a task app by reading its config file and hitting /health endpoint.
+    
+    Returns:
+        Tuple of (is_healthy: bool, message: str)
+    """
+    try:
+        import tomllib
+        import httpx
+        
+        # Read config to get task_app_url and task_app_api_key
+        with config_path.open("rb") as f:
+            config_data = tomllib.load(f)
+        
+        prompt_learning = config_data.get("prompt_learning", {})
+        task_app_url = prompt_learning.get("task_app_url")
+        task_app_api_key = prompt_learning.get("task_app_api_key")
+        
+        if not task_app_url:
+            return False, f"No task_app_url found in config"
+        
+        # Handle environment variable substitution in API key
+        if task_app_api_key and task_app_api_key.startswith("${") and task_app_api_key.endswith("}"):
+            env_var = task_app_api_key[2:-1]
+            task_app_api_key = os.getenv(env_var)
+            if not task_app_api_key:
+                return False, f"Environment variable {env_var} not set (required for task_app_api_key)"
+        
+        if not task_app_api_key:
+            # Try to get from environment
+            task_app_api_key = os.getenv("ENVIRONMENT_API_KEY")
+            if not task_app_api_key:
+                return False, "No task_app_api_key found in config and ENVIRONMENT_API_KEY not set"
+        
+        # Hit the /health endpoint directly
+        health_url = f"{task_app_url.rstrip('/')}/health"
+        headers = {"X-API-Key": task_app_api_key}
+        
+        print(f"[{task_name}] Checking health at {health_url}...")
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(health_url, headers=headers)
+                
+                # Health endpoint returns 200 if healthy (even if unauthorized)
+                # Or 503 if unhealthy (missing ENVIRONMENT_API_KEY, etc.)
+                if response.status_code == 200:
+                    print(f"[{task_name}] ✅ Health check passed (status: {response.status_code})")
+                    return True, f"Healthy (status: {response.status_code})"
+                elif response.status_code == 503:
+                    try:
+                        error_data = response.json()
+                        # Handle nested error structure
+                        if "error" in error_data:
+                            error_info = error_data["error"]
+                            if isinstance(error_info, dict):
+                                code = error_info.get("code", "")
+                                message = error_info.get("message", "")
+                                if "missing_environment_api_key" in code.lower() or "environment_api_key" in message.lower():
+                                    detail = f"Task app missing ENVIRONMENT_API_KEY - restart the task app with 'export ENVIRONMENT_API_KEY' set"
+                                else:
+                                    detail = message or str(error_info)
+                            else:
+                                detail = str(error_info)
+                        else:
+                            detail = error_data.get("detail", "Service unavailable")
+                        print(f"[{task_name}] ❌ Health check failed: {detail}")
+                        return False, detail
+                    except Exception:
+                        print(f"[{task_name}] ❌ Health check failed (status: {response.status_code})")
+                        return False, f"Unhealthy (status: {response.status_code})"
+                else:
+                    print(f"[{task_name}] ❌ Health check failed (status: {response.status_code})")
+                    return False, f"Unexpected status: {response.status_code}"
+                    
+            except httpx.TimeoutException:
+                error_msg = "Request timeout"
+                print(f"[{task_name}] ❌ {error_msg}")
+                return False, error_msg
+            except httpx.ConnectError as e:
+                error_msg = f"Task app not running - start it in a separate terminal"
+                print(f"[{task_name}] ❌ {error_msg}")
+                return False, error_msg
+            except Exception as e:
+                error_msg = f"Request error: {type(e).__name__}: {e}"
+                print(f"[{task_name}] ❌ {error_msg}")
+                return False, error_msg
+            
+    except Exception as e:
+        error_msg = f"Error checking health: {type(e).__name__}: {e}"
+        print(f"[{task_name}] ❌ {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return False, error_msg
+
+
+async def check_all_task_apps_health() -> bool:
+    """Check health of all task apps before running jobs.
+    
+    Returns:
+        True if all health checks pass, False otherwise
+    """
+    print("\n" + "=" * 80)
+    print("Checking task app health before running jobs...")
+    print("=" * 80)
+    
+    health_results = []
+    for task_name, config_path in CONFIGS.items():
+        if not config_path.exists():
+            print(f"[{task_name}] ⚠️  Config not found: {config_path}")
+            health_results.append((task_name, False, f"Config file not found"))
+            continue
+        
+        is_healthy, message = await check_task_app_health_from_config(task_name, config_path)
+        health_results.append((task_name, is_healthy, message))
+    
+    print("\n" + "-" * 80)
+    print("Health Check Summary:")
+    print("-" * 80)
+    
+    all_healthy = True
+    for task_name, is_healthy, message in health_results:
+        status = "✅ PASS" if is_healthy else "❌ FAIL"
+        print(f"{status} [{task_name}]: {message}")
+        if not is_healthy:
+            all_healthy = False
+    
+    print("-" * 80)
+    
+    if not all_healthy:
+        print("\n❌ One or more task apps failed health checks!")
+        print("Please ensure all task apps are running and healthy before proceeding.")
+        print("\nTo start task apps, run:")
+        print("  Terminal 1: cd /Users/joshpurtell/Documents/GitHub/synth-ai && source .env && export ENVIRONMENT_API_KEY && uv run python examples/task_apps/banking77/banking77_task_app.py --port 8102")
+        print("  Terminal 2: cd /Users/joshpurtell/Documents/GitHub/synth-ai && source .env && export ENVIRONMENT_API_KEY && uv run python -m examples.task_apps.gepa_benchmarks.hotpotqa_task_app --port 8110")
+        print("  Terminal 3: cd /Users/joshpurtell/Documents/GitHub/synth-ai && source .env && export ENVIRONMENT_API_KEY && uv run python examples/task_apps/other_langprobe_benchmarks/heartdisease_task_app.py --port 8114")
+        return False
+    
+    print("\n✅ All task apps are healthy! Proceeding with jobs...\n")
+    return True
+
+
 async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
     """Run a single GEPA job and return results."""
     import time
@@ -1183,6 +1326,28 @@ async def main():
     print("Starting parallel GEPA jobs for 3 tasks...")
     print("=" * 80)
     
+    # Load .env file to get environment variables (especially ENVIRONMENT_API_KEY)
+    try:
+        from dotenv import load_dotenv, find_dotenv
+        
+        # Find .env file starting from repo root
+        env_path = find_dotenv(usecwd=True)
+        if not env_path:
+            # Try repo root
+            repo_root_env = REPO_ROOT / ".env"
+            if repo_root_env.exists():
+                env_path = str(repo_root_env)
+        
+        if env_path:
+            load_dotenv(env_path, override=False)
+            print(f"✅ Loaded environment from {env_path}")
+        else:
+            print("⚠️  No .env file found - environment variables may not be set")
+    except ImportError:
+        print("⚠️  python-dotenv not available - environment variables may not be loaded")
+    except Exception as e:
+        print(f"⚠️  Failed to load .env file: {e}")
+    
     # Load configuration from YAML
     try:
         config = load_config()
@@ -1202,6 +1367,11 @@ async def main():
         import traceback
         traceback.print_exc()
         raise
+    
+    # Check all task apps are healthy before running
+    if not await check_all_task_apps_health():
+        print("\n❌ Aborting: Task app health checks failed")
+        sys.exit(1)
     
     # Run all jobs in parallel
     tasks = []

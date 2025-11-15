@@ -263,11 +263,17 @@ def queue_group(ctx: click.Context) -> None:
 @queue_group.command("start")
 @click.option(
     "--concurrency",
-    default=1,
-    show_default=True,
-    help="Worker concurrency (default 1 for Redis broker compatibility).",
+    default=None,
+    type=int,
+    help="Worker concurrency (default: 5, or EXPERIMENT_QUEUE_WORKER_CONCURRENCY env var).",
 )
-@click.option("--loglevel", default="info", show_default=True, help="Celery log level.")
+@click.option(
+    "--loglevel",
+    default="info",
+    show_default=True,
+    type=click.Choice(["debug", "info", "warning", "error", "critical"], case_sensitive=False),
+    help="Logging level for Celery worker and task queue (debug/info/warning/error/critical).",
+)
 @click.option(
     "--pool",
     default="prefork",
@@ -288,16 +294,23 @@ def queue_group(ctx: click.Context) -> None:
     help="Run Celery Beat scheduler in the same process (for periodic queue checks).",
 )
 @click.option(
+    "--local/--no-local",
+    default=None,
+    help="Use local backend (localhost:8000) instead of production. "
+    "Sets EXPERIMENT_QUEUE_LOCAL=true. Default: use production backend.",
+)
+@click.option(
     "--extra",
     multiple=True,
     help="Extra arguments forwarded to celery worker (use multiple times).",
 )
 def start_cmd(
-    concurrency: int,
+    concurrency: int | None,
     loglevel: str,
     pool: str,
     background: bool,
     beat: bool,
+    local: bool | None,
     extra: tuple[str, ...],
 ) -> None:
     """Start the experiment queue Celery worker.
@@ -305,8 +318,40 @@ def start_cmd(
     The periodic queue check task runs every 5 seconds to dispatch queued jobs.
     Use --beat to run Beat scheduler in the same process (default: enabled).
     
-    Requires EXPERIMENT_QUEUE_DB_PATH environment variable to be set.
+    Backend URL Configuration:
+    - Default: Production backend (https://agent-learning.onrender.com/api)
+    - Use --local flag to connect to local backend (http://localhost:8000/api)
+    - Override with EXPERIMENT_QUEUE_BACKEND_URL env var for custom URL
+    
+    Database Configuration:
+    - Uses EXPERIMENT_QUEUE_DB_PATH if set, otherwise defaults to ~/.synth_ai/experiment_queue.db
+    
+    Concurrency:
+    - Defaults to 5 (or EXPERIMENT_QUEUE_WORKER_CONCURRENCY env var), allowing up to 5
+      experiments/jobs to run in parallel. Override with --concurrency flag.
+    
+    Logging:
+    - Use --loglevel to control verbosity (debug/info/warning/error/critical)
+    - Controls both Celery worker logs and task queue internal logs (poller, etc.)
+    - Default: info (shows INFO and above)
+    - Use debug for verbose output including API polling details
+    
+    Examples:
+        # Start worker with production backend (default)
+        synth-ai queue start
+        
+        # Start worker with local backend
+        synth-ai queue start --local
+        
+        # Start worker with verbose logging (debug level)
+        synth-ai queue start --loglevel debug
+        
+        # Start worker with custom backend URL
+        EXPERIMENT_QUEUE_BACKEND_URL=http://localhost:8000/api synth-ai queue start
     """
+    # Determine concurrency: flag > env var > default
+    if concurrency is None:
+        concurrency = int(os.getenv("EXPERIMENT_QUEUE_WORKER_CONCURRENCY", "5"))
     # CRITICAL: Kill ALL existing workers to ensure only one instance
     killed = _kill_all_existing_workers()
     if killed > 0:
@@ -316,17 +361,17 @@ def start_cmd(
     from synth_ai.experiment_queue import config as queue_config
     queue_config.reset_config_cache()
     
-    # CRITICAL: Verify database path is set and enforce single database
-    db_path = os.getenv("EXPERIMENT_QUEUE_DB_PATH")
-    if not db_path:
-        raise click.ClickException(
-            "EXPERIMENT_QUEUE_DB_PATH environment variable must be set. "
-            "This ensures all workers use the same database."
-        )
+    # Load config to get database path (uses EXPERIMENT_QUEUE_DB_PATH if set, otherwise default)
+    config = queue_config.load_config()
+    db_path_resolved = config.sqlite_path.resolve()
     
-    from pathlib import Path
-    db_path_resolved = Path(db_path).expanduser().resolve()
-    click.echo(f"Using database: {db_path_resolved}", err=True)
+    # Log which path is being used
+    db_path_env = os.getenv("EXPERIMENT_QUEUE_DB_PATH")
+    if db_path_env:
+        click.echo(f"Using database from EXPERIMENT_QUEUE_DB_PATH: {db_path_resolved}", err=True)
+    else:
+        click.echo(f"Using default database path: {db_path_resolved}", err=True)
+    
     # Ensure parent directory exists
     db_path_resolved.parent.mkdir(parents=True, exist_ok=True)
     
@@ -384,8 +429,25 @@ def start_cmd(
     
     env = os.environ.copy()
     # Ensure EXPERIMENT_QUEUE_DB_PATH is explicitly set in worker environment
-    if db_path:
-        env["EXPERIMENT_QUEUE_DB_PATH"] = db_path
+    # Use the resolved path from config (either from env var or default)
+    env["EXPERIMENT_QUEUE_DB_PATH"] = str(db_path_resolved)
+    
+    # Set Python logging level for task queue loggers (poller, etc.)
+    # This controls our custom loggers, while --loglevel controls Celery's logger
+    env["EXPERIMENT_QUEUE_LOG_LEVEL"] = loglevel.upper()
+    
+    # Set EXPERIMENT_QUEUE_LOCAL if --local flag is provided
+    if local is True:
+        env["EXPERIMENT_QUEUE_LOCAL"] = "true"
+        click.echo("Using local backend (localhost:8000)", err=True)
+    elif local is False:
+        # Explicitly unset if --no-local is used
+        env.pop("EXPERIMENT_QUEUE_LOCAL", None)
+        click.echo("Using production backend (agent-learning.onrender.com)", err=True)
+    else:
+        # Use existing env var or default (production)
+        if "EXPERIMENT_QUEUE_LOCAL" not in env:
+            click.echo("Using production backend (agent-learning.onrender.com)", err=True)
 
     # Create lock file with current PID before starting worker
     lock_file = _worker_lock_file()

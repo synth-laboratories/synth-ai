@@ -1,17 +1,32 @@
 # Configuration for synth_gepa parallel comparison runs
-# Adjust these values to control job limits and behavior
+# This file is the source of truth for which benchmarks + models + configs get run
 
-# Job termination limits
-limits:
-  rollout_limit: 1000          # Maximum number of rollouts per job
+# Per-benchmark configuration
+benchmarks:
+  banking77:
+    config_path: "examples/blog_posts/langprobe/task_specific/banking77/banking77_gepa.toml"
+    rollout_limit: 100        # Maximum number of rollouts for this benchmark
+    model:
+      provider: "groq"
+      model: "llama-3.1-8b-instant"
+    # Other overrides can be added here (e.g., gepa.population.num_generations)
+  
+  heartdisease:
+    config_path: "examples/blog_posts/langprobe/task_specific/heartdisease/heartdisease_gepa.toml"
+    rollout_limit: 100        # Maximum number of rollouts for this benchmark
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-20b"
+    # Other overrides can be added here
+
+# Global defaults (can be overridden per benchmark)
+defaults:
   time_limit_seconds: 600     # Maximum time per job in seconds
   max_trials: 50              # Maximum number of trials
-  max_cost_usd: 1          # Maximum cost per job in USD
-
-# GEPA population settings (controls how many generations and children per generation)
+  max_cost_usd: 10.0          # Maximum cost per job in USD
 gepa_population:
-  num_generations: 2          # Number of generations to run (should be small to respect max_trials)
-  children_per_generation: 5  # Number of children per generation (should match max_trials)
+    num_generations: 2        # Number of generations to run
+    children_per_generation: 5  # Number of children per generation
 
 # Display settings
 display:

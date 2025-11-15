@@ -22,7 +22,8 @@ if db_path_env:
     db_path_resolved.parent.mkdir(parents=True, exist_ok=True)
     print(f"[celery_app] Database file will be: {db_path_resolved}", file=sys.stderr, flush=True)
 else:
-    print("[celery_app] EXPERIMENT_QUEUE_DB_PATH not set, will use default", file=sys.stderr, flush=True)
+    # Will use default path from config (~/.synth_ai/experiment_queue.db)
+    print("[celery_app] EXPERIMENT_QUEUE_DB_PATH not set, will use default path", file=sys.stderr, flush=True)
 
 from celery import Celery  # noqa: E402
 
@@ -38,35 +39,37 @@ _celery_app_broker_url: str | None = None
 
 def _create_celery_app() -> Celery:
     """Instantiate the Celery application with shared configuration."""
-    # CRITICAL: EXPERIMENT_QUEUE_DB_PATH is REQUIRED - fail if not set
-    env_db_path = os.getenv("EXPERIMENT_QUEUE_DB_PATH")
-    if not env_db_path:
-        error_msg = (
-            "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
-            "This ensures all workers use the same database path. "
-            "Set it before starting the worker."
-        )
-        print(f"[celery_app] ERROR: {error_msg}", file=sys.stderr, flush=True)
-        raise RuntimeError(error_msg)
-    
-    # CRITICAL: Load config AFTER verifying env var is set
-    # This ensures config uses the env var, not a cached default
+    # Load config (will use EXPERIMENT_QUEUE_DB_PATH if set, otherwise default path)
     reset_config_cache()
     config = load_config()
     
-    # CRITICAL: Verify database path matches environment variable
-    env_db_path_resolved = Path(env_db_path).expanduser().resolve()
-    config_db_path_resolved = config.sqlite_path.resolve()
-    
-    if config_db_path_resolved != env_db_path_resolved:
-        error_msg = (
-            f"Database path mismatch! "
-            f"ENV: {env_db_path_resolved} != CONFIG: {config_db_path_resolved}. "
-            f"This will cause workers to use different databases. "
-            f"Clear config cache and restart worker."
+    # Log which database path is being used
+    env_db_path = os.getenv("EXPERIMENT_QUEUE_DB_PATH")
+    if env_db_path:
+        env_db_path_resolved = Path(env_db_path).expanduser().resolve()
+        config_db_path_resolved = config.sqlite_path.resolve()
+        
+        # Verify database path matches environment variable if env var is set
+        if config_db_path_resolved != env_db_path_resolved:
+            error_msg = (
+                f"Database path mismatch! "
+                f"ENV: {env_db_path_resolved} != CONFIG: {config_db_path_resolved}. "
+                f"This will cause workers to use different databases. "
+                f"Clear config cache and restart worker."
+            )
+            print(f"[celery_app] ERROR: {error_msg}", file=sys.stderr, flush=True)
+            raise RuntimeError(error_msg)
+        print(
+            f"[celery_app] Using database from EXPERIMENT_QUEUE_DB_PATH: {config.sqlite_path}",
+            file=sys.stderr,
+            flush=True,
         )
-        print(f"[celery_app] ERROR: {error_msg}", file=sys.stderr, flush=True)
-        raise RuntimeError(error_msg)
+    else:
+        print(
+            f"[celery_app] Using default database path: {config.sqlite_path}",
+            file=sys.stderr,
+            flush=True,
+        )
     
     # CRITICAL: Ensure database path is unique and enforce single instance
     # Verify no other process is using a different database path
@@ -129,13 +132,12 @@ def get_celery_app() -> Celery:
     current broker URL to cached one) and recreates the app if needed.
     This ensures CLI and worker use the same database when env vars change.
     
-    CRITICAL: EXPERIMENT_QUEUE_DB_PATH must be set before calling this.
+    Uses EXPERIMENT_QUEUE_DB_PATH if set, otherwise defaults to ~/.synth_ai/experiment_queue.db
     """
     global _celery_app_instance, _celery_app_broker_url
     
     # Check if config has changed by comparing broker URLs
-    # Note: load_config() will use default if EXPERIMENT_QUEUE_DB_PATH not set,
-    # but _create_celery_app() will fail if it's not set
+    # load_config() will use EXPERIMENT_QUEUE_DB_PATH if set, otherwise default path
     current_config = load_config()
     current_broker_url = current_config.broker_url
     
@@ -154,15 +156,14 @@ def get_celery_app() -> Celery:
 
 # Create app at module import time (for worker entrypoints and decorators)
 # This ensures workers get the correct config at startup
-# CRITICAL: This will fail if EXPERIMENT_QUEUE_DB_PATH is not set
-# For tests, set the env var before importing this module
+# Uses default path (~/.synth_ai/experiment_queue.db) if EXPERIMENT_QUEUE_DB_PATH is not set
 try:
     celery_app = get_celery_app()
 except RuntimeError as e:
-    # If EXPERIMENT_QUEUE_DB_PATH is not set, create a placeholder that will fail on use
+    # If config loading fails for any reason, create a placeholder that will fail on use
     # This allows the module to be imported but will fail when celery_app is actually used
     class _LazyCeleryApp:
-        """Placeholder that raises error when accessed without EXPERIMENT_QUEUE_DB_PATH."""
+        """Placeholder that raises error when Celery app initialization fails."""
         def __init__(self, original_error: RuntimeError):
             self._original_error = original_error
         
@@ -183,26 +184,25 @@ except RuntimeError as e:
                                 return real_task(*func_args, **func_kwargs)
                             except RuntimeError as runtime_err:
                                 raise RuntimeError(
-                                    "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
-                                    "Set it before using the Celery app. "
-                                    f"Original error: {self._original_error}"
+                                    f"Failed to initialize Celery app. "
+                                    f"Original error: {self._original_error}, "
+                                    f"Runtime error: {runtime_err}"
                                 ) from runtime_err
                         return wrapper
                     return decorator
                 return task_decorator
             raise RuntimeError(
-                "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
-                "Set it before using the Celery app. "
+                f"Failed to initialize Celery app. "
                 f"Original error: {self._original_error}"
             )
         def __call__(self, *args, **kwargs):
             raise RuntimeError(
-                "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
-                "Set it before using the Celery app."
+                f"Failed to initialize Celery app. "
+                f"Original error: {self._original_error}"
             )
         def __getitem__(self, key):
             raise RuntimeError(
-                "EXPERIMENT_QUEUE_DB_PATH environment variable is REQUIRED. "
-                "Set it before using the Celery app."
+                f"Failed to initialize Celery app. "
+                f"Original error: {self._original_error}"
             )
     celery_app = _LazyCeleryApp(e)  # type: ignore[assignment]

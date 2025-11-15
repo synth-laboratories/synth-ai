@@ -117,6 +117,7 @@ class ExperimentJob(Base):
     celery_task_id: Mapped[str | None] = mapped_column(String(128))
     backend_job_id: Mapped[str | None] = mapped_column(String(128))
     result: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON))
+    status_json: Mapped[dict[str, Any] | None] = mapped_column(MutableDict.as_mutable(JSON))
     error: Mapped[str | None] = mapped_column(Text())
 
     created_at: Mapped[datetime] = mapped_column(

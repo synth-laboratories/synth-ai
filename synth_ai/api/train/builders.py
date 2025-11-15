@@ -528,10 +528,59 @@ def build_prompt_learning_payload(
         }
     
     # Build payload matching backend API format
+    # Extract nested overrides if present, otherwise use flat overrides directly
+    # The experiment queue passes flat overrides like {"prompt_learning.policy.model": "..."}
+    # But some SDK code passes nested like {"overrides": {"prompt_learning.policy.model": "..."}}
+    config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    # Remove non-override keys (backend, task_url, metadata, auto_start)
+    config_overrides = {
+        k: v for k, v in config_overrides.items()
+        if k not in ("backend", "task_url", "metadata", "auto_start")
+    }
+    
+    # ASSERT: Verify critical overrides are reflected in config_body
+    pl_section_in_dict = config_dict.get("prompt_learning", {})
+    if config_overrides:
+        # Check rollout budget override
+        rollout_budget_key = "prompt_learning.gepa.rollout.budget"
+        if rollout_budget_key in config_overrides:
+            expected_budget = config_overrides[rollout_budget_key]
+            gepa_section = pl_section_in_dict.get("gepa", {})
+            actual_budget = gepa_section.get("rollout", {}).get("budget") if isinstance(gepa_section, dict) else None
+            if actual_budget is not None:
+                assert actual_budget == expected_budget, (
+                    f"Rollout budget mismatch: config_body has {actual_budget} but override specifies {expected_budget}. "
+                    f"This indicates the override wasn't applied correctly."
+                )
+        
+        # Check model override
+        model_key = "prompt_learning.policy.model"
+        if model_key in config_overrides:
+            expected_model = config_overrides[model_key]
+            policy_section = pl_section_in_dict.get("policy", {})
+            actual_model = policy_section.get("model") if isinstance(policy_section, dict) else None
+            if actual_model is not None:
+                assert actual_model == expected_model, (
+                    f"Model mismatch: config_body has {actual_model} but override specifies {expected_model}. "
+                    f"This indicates the override wasn't applied correctly."
+                )
+        
+        # Check provider override
+        provider_key = "prompt_learning.policy.provider"
+        if provider_key in config_overrides:
+            expected_provider = config_overrides[provider_key]
+            policy_section = pl_section_in_dict.get("policy", {})
+            actual_provider = policy_section.get("provider") if isinstance(policy_section, dict) else None
+            if actual_provider is not None:
+                assert actual_provider == expected_provider, (
+                    f"Provider mismatch: config_body has {actual_provider} but override specifies {expected_provider}. "
+                    f"This indicates the override wasn't applied correctly."
+                )
+    
     payload: dict[str, Any] = {
         "algorithm": pl_cfg.algorithm,
         "config_body": config_dict,
-        "overrides": overrides.get("overrides", {}),
+        "overrides": config_overrides,
         "metadata": overrides.get("metadata", {}),
         "auto_start": overrides.get("auto_start", True),
     }

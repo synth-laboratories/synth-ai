@@ -103,6 +103,21 @@ def init_db() -> None:
     # Create our application tables
     Base.metadata.create_all(engine)
     
+    # Migrate schema: add status_json column if it doesn't exist
+    with engine.connect() as conn:
+        # Check if status_json column exists
+        result = conn.execute(text(
+            "SELECT COUNT(*) FROM pragma_table_info('experiment_jobs') WHERE name='status_json'"
+        ))
+        column_exists = result.scalar() > 0
+        
+        if not column_exists:
+            # Add status_json column
+            conn.execute(text(
+                "ALTER TABLE experiment_jobs ADD COLUMN status_json TEXT"
+            ))
+            conn.commit()
+    
     # Force WAL mode one more time after table creation
     # This ensures it's set even if table creation changed something
     with engine.connect() as conn:
