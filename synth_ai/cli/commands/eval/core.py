@@ -11,7 +11,6 @@ import sys
 import time
 import uuid
 from collections.abc import Sequence
-from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -44,14 +43,10 @@ except Exception:  # pragma: no cover - fallback
 __all__ = ["command", "get_command", "format_eval_error"]
 
 if TYPE_CHECKING:
-    from synth_ai.cli.task_apps import AppChoice, TaskAppEntryType
+    from synth_ai.utils.task_app_discovery import AppChoice, TaskAppEntryType
 
 
-@lru_cache(maxsize=1)
-def _task_apps_module():
-    from synth_ai.cli import task_apps as module  # local import to avoid circular deps
-
-    return module
+# Remove unused function - imports are now direct
 
 
 @click.command(
@@ -153,16 +148,16 @@ def _eval_command_impl(
     pointing at a remote `--url`, supply matching `--env-file` values so the CLI can
     forward authentication headers to the running service.
     """
-    module = _task_apps_module()
-    task_app_config_type = module.TaskAppConfig
-    create_task_app = module.create_task_app
-    select_app_choice = module._select_app_choice
-    determine_env_files = module._determine_env_files
-    load_env_files_into_process = module._load_env_files_into_process
-    store_trace = getattr(module, "_store_trace", None)
-    pearson = module._pearson
-    judge_spec_cls = module.JudgeSpec
-    session_tracer_cls = getattr(module, "SessionTracer", None)
+    # Direct imports from correct locations
+    from synth_ai.cli.lib.task_app_discovery import select_app_choice
+    from synth_ai.cli.lib.task_app_env import determine_env_files, load_env_files_into_process
+    from synth_ai.task.server import TaskAppConfig, create_task_app
+    from synth_ai.tracing_v3.session_tracer import SessionTracer
+
+    # Deprecated/removed functions
+    store_trace = None
+    pearson = None
+    judge_spec_cls = None
 
     # Parse and validate TOML config
 
@@ -264,8 +259,8 @@ def _eval_command_impl(
             trace_path.parent.mkdir(parents=True, exist_ok=True)
             trace_db_url = f"sqlite+aiosqlite:///{trace_path}"
     trace_tracer: SessionTracer | None = None
-    if trace_db_url and session_tracer_cls is not None:
-        trace_tracer = cast(SessionTracer, session_tracer_cls(db_url=trace_db_url, auto_save=True))
+    if trace_db_url and SessionTracer is not None:
+        trace_tracer = cast(SessionTracer, SessionTracer(db_url=trace_db_url, auto_save=True))
 
     # Determine selection params (CLI takes precedence; TOML only fills unset model/seeds/env)
     if cfg.get("model") and not model:
@@ -311,7 +306,7 @@ def _eval_command_impl(
     if task_app_url is None:
         config = entry.config_factory()  # type: ignore[union-attr]
         # Help the type checker; runtime check also enforced in server.run_task_app
-        if not isinstance(config, task_app_config_type):
+        if not isinstance(config, TaskAppConfig):
             raise click.ClickException(
                 "Invalid task app: config_factory did not return TaskAppConfig"
             )

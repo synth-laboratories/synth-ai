@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 import click
 import httpx
 import requests
+from starlette.types import ASGIApp
 from synth_ai.cfgs import CFDeployCfg
 from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
@@ -30,10 +31,8 @@ from synth_ai.utils.paths import (
     REPO_ROOT,
     configure_import_paths,
 )
-from starlette.types import ASGIApp
 
 import uvicorn
-from uvicorn._types import ASGIApplication
 
 logger = logging.getLogger(__name__)
 

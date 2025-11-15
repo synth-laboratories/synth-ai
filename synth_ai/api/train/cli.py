@@ -430,7 +430,7 @@ def train_command(
         # Log entry point IMMEDIATELY - this should always appear
         sys.stderr.write("[TRAIN_CMD] Starting train command\n")
         sys.stderr.flush()
-        click.echo(f"[TRAIN_CMD] Args: config_paths={config_paths}, train_type={train_type}, poll={poll}", err=True)
+        click.echo(f"[TRAIN_CMD] Args: cfg_path={cfg_path}, poll={poll}", err=True)
         click.echo(f"[TRAIN_CMD] Python executable: {sys.executable}", err=True)
         click.echo(f"[TRAIN_CMD] Working directory: {os.getcwd()}", err=True)
         

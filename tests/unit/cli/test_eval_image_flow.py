@@ -4,9 +4,10 @@ from unittest import mock
 import pytest
 
 from click.testing import CliRunner
-from synth_ai.cli.task_apps import eval_command
+from synth_ai.cli.commands.eval.core import eval_command
 
 
+@pytest.mark.timeout(30)  # Increase timeout for filesystem scanning
 @pytest.mark.parametrize("use_remote", [False, True])
 def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
     # Mock ASGI transport and httpx client to avoid any network

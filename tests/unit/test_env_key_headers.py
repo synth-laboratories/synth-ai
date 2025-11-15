@@ -36,7 +36,7 @@ def test_check_task_app_health_sends_all_env_keys(monkeypatch):
 
     sent_headers: dict[str, str] = {}
 
-    def fake_http_get(url: str, *, headers: dict[str, str] | None = None, timeout: float = 10.0):
+    def fake_http_get(url: str, *, headers: dict[str, str] | None = None, timeout: float = 10.0, verify=True):
         nonlocal sent_headers
         sent_headers = dict(headers or {})
 
@@ -46,10 +46,12 @@ def test_check_task_app_health_sends_all_env_keys(monkeypatch):
         setattr(resp, "json", lambda: {"ok": True})
         return resp
 
-    # Patch http_get used inside the module
+    # Patch http_get and requests.get used inside the module
     import synth_ai.api.train.task_app as task_app_mod
     monkeypatch.setenv("ENVIRONMENT_API_KEY_ALIASES", "ak2, ak3")
     monkeypatch.setattr(task_app_mod, "http_get", fake_http_get)
+    monkeypatch.setattr(task_app_mod, "_resolve_url_to_ip", lambda url: (url, None))
+    monkeypatch.setattr("requests.get", fake_http_get)
 
     # Act
     result = check_task_app_health("http://task.app", api_key="ak1")

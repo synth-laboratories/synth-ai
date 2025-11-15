@@ -64,27 +64,38 @@ class TestWhichCloudflared:
 class TestOpenQuickTunnel:
     """Tests for opening quick tunnels."""
 
+    @patch("select.select")
     @patch("synth_ai.cloudflare.require_cloudflared")
+    @patch("synth_ai.cloudflare.subprocess.run")
     @patch("synth_ai.cloudflare.subprocess.Popen")
     @patch("synth_ai.cloudflare.time.time")
-    def test_parses_url_from_output(self, mock_time, mock_popen, mock_require):
+    def test_parses_url_from_output(self, mock_time, mock_popen, mock_run, mock_require, mock_select):
         """Should parse trycloudflare URL from cloudflared output."""
         from pathlib import Path
         mock_require.return_value = Path("/usr/bin/cloudflared")
 
-        # Mock process stdout
+        # Mock subprocess.run for version check
+        mock_run.return_value = Mock(returncode=0, stdout="cloudflared version 2023.1.0", stderr="")
+
+        # Mock process stdout and stderr
         mock_proc = Mock()
         mock_proc.poll.return_value = None
         mock_proc.stdout = Mock()
-        mock_proc.stdout.readline.side_effect = [
+        mock_proc.stdout.fileno.return_value = 1
+        mock_proc.stderr = Mock()
+        mock_proc.stderr.fileno.return_value = 2
+        mock_proc.stderr.readline.side_effect = [
             "some output\n",
             "https://abc123.trycloudflare.com\n",
             ""
         ]
         mock_popen.return_value = mock_proc
 
-        # Mock time for timeout
-        mock_time.side_effect = [0.0, 0.1, 0.2]
+        # Mock select to return stderr as ready
+        mock_select.return_value = ([2], [], [])
+
+        # Mock time for timeout - need enough values for all time.time() calls
+        mock_time.side_effect = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
         url, proc = open_quick_tunnel(8000)
 
@@ -97,12 +108,16 @@ class TestOpenQuickTunnel:
         assert "http://127.0.0.1:8000" in call_args
 
     @patch("synth_ai.cloudflare.require_cloudflared")
+    @patch("synth_ai.cloudflare.subprocess.run")
     @patch("synth_ai.cloudflare.subprocess.Popen")
     @patch("synth_ai.cloudflare.time.time")
-    def test_timeout_when_url_not_found(self, mock_time, mock_popen, mock_require):
+    def test_timeout_when_url_not_found(self, mock_time, mock_popen, mock_run, mock_require):
         """Should raise RuntimeError if URL not found in timeout."""
         from pathlib import Path
         mock_require.return_value = Path("/usr/bin/cloudflared")
+
+        # Mock subprocess.run for version check
+        mock_run.return_value = Mock(returncode=0, stdout="cloudflared version 2023.1.0", stderr="")
 
         mock_proc = Mock()
         mock_proc.poll.return_value = None

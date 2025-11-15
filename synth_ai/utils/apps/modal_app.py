@@ -1,6 +1,6 @@
 import ast
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from synth_ai.utils.apps.common import get_module, validate_py_file_compiles
 from synth_ai.utils.cli import ctx_print
