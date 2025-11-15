@@ -10,7 +10,7 @@ from synth_ai.utils import (
     write_env_var_to_json,
 )
 
-Sources = Literal[
+SourceType = Literal[
     "web",
     "local"
 ]
@@ -20,19 +20,36 @@ Sources = Literal[
 @click.option(
     "--source",
     type=click.Choice(
-        list(typing.get_args(Sources)),
+        list(typing.get_args(SourceType)),
         case_sensitive=False
     ),
     default="web",
-    show_default=True
+    show_default=True,
+    help="Source for credentials: 'web' for browser authentication, 'local' for environment variables"
 )
-def setup_cmd(source: Sources = "web") -> None:
+@click.option(
+    "--approve",
+    is_flag=True,
+    default=False,
+    help="Approve automatically opening web browser for authentication"
+)
+def setup_cmd(
+    source: SourceType = "web",
+    approve: bool = False
+) -> None:
     credentials = {}
     match source:
         case "local":
             credentials["SYNTH_API_KEY"] = resolve_env_var("SYNTH_API_KEY")
             credentials["ENVIRONMENT_API_KEY"] = resolve_env_var("ENVIRONMENT_API_KEY")
         case "web":
+            if not approve:
+                approve = click.confirm(
+                    "This will open your web browser for authentication. Continue?",
+                    default=True
+                )
+                if not approve:
+                    return
             credentials = fetch_credentials_from_web_browser()
 
     required = {
