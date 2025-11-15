@@ -14,7 +14,6 @@ import asyncio
 import os
 import socket
 import subprocess
-import time
 from typing import Optional, Tuple
 from urllib.parse import urlparse
 
@@ -22,7 +21,6 @@ import httpx
 
 # Import real tunnel creation function
 from synth_ai.cloudflare import open_quick_tunnel
-
 
 # ============================================================================
 # 1. Explicit DNS Resolver Logic
@@ -42,8 +40,8 @@ async def _resolve_hostname(hostname: str, loop: asyncio.AbstractEventLoop) -> s
         try:
             result = await loop.run_in_executor(
                 None,
-                lambda: subprocess.run(
-                    ["dig", f"@{resolver_ip}", "+short", hostname],
+                lambda ip=resolver_ip: subprocess.run(
+                    ["dig", f"@{ip}", "+short", hostname],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -62,7 +60,7 @@ async def _resolve_hostname(hostname: str, loop: asyncio.AbstractEventLoop) -> s
             continue
     
     # Fallback: system resolver
-    print(f"  → Falling back to system resolver")
+    print("  → Falling back to system resolver")
     return await loop.run_in_executor(
         None,
         socket.gethostbyname,
@@ -203,7 +201,7 @@ async def create_quick_tunnel_with_retry(
             # Verify DNS (this is where failures usually happen)
             await verify_tunnel_dns_fixed(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}")
             
-            print(f"  ✓ Tunnel verified and ready!")
+            print("  ✓ Tunnel verified and ready!")
             return url, proc
         except Exception as e:
             last_err = e
@@ -215,7 +213,7 @@ async def create_quick_tunnel_with_retry(
                 except subprocess.TimeoutExpired:
                     proc.kill()
             if attempt < max_retries:
-                print(f"  → Retrying after 10s backoff...")
+                print("  → Retrying after 10s backoff...")
                 await asyncio.sleep(10.0)
             else:
                 break
@@ -342,9 +340,9 @@ async def test_real_tunnel_creation():
         
     except RuntimeError as e:
         if "DNS resolution failed" in str(e):
-            print(f"\n⚠️  Tunnel created but DNS verification failed (this is the issue we're fixing)")
+            print("\n⚠️  Tunnel created but DNS verification failed (this is the issue we're fixing)")
             print(f"  Error: {e}")
-            print(f"  This confirms the problem exists - our fixes should help!")
+            print("  This confirms the problem exists - our fixes should help!")
             return False  # This is a real failure we want to fix
         else:
             print(f"\n✗ Tunnel creation failed: {e}")

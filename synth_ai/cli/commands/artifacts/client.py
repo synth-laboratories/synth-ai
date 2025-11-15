@@ -11,9 +11,21 @@ logger = logging.getLogger(__name__)
 
 
 class ArtifactsClient:
-    """Client for artifacts API endpoints."""
+    """Client for artifacts API endpoints.
+    
+    Provides methods to interact with the Synth AI artifacts API, including
+    listing artifacts, retrieving model and prompt details, exporting models
+    to HuggingFace, and accessing prompt snapshots.
+    """
     
     def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
+        """Initialize the artifacts client.
+        
+        Args:
+            base_url: Base URL of the backend API (e.g., "https://api.usesynth.ai")
+            api_key: API key for authentication
+            timeout: Request timeout in seconds (default: 30.0)
+        """
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout

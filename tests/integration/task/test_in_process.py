@@ -198,3 +198,4 @@ class TestInProcessTaskAppIntegration:
         # For now, just verify the context manager exited cleanly
         assert tunnel_url is not None
 
+

@@ -227,12 +227,12 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                 f"STDERR: {test_proc.stderr[:500] if test_proc.stderr else 'none'}. "
                 f"Try reinstalling: cloudflared update or brew reinstall cloudflared"
             )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         raise RuntimeError(
-            f"cloudflared binary hangs when running --version. "
-            f"This suggests the binary is corrupted or incompatible with your system. "
-            f"Try reinstalling: cloudflared update or brew reinstall cloudflared"
-        )
+            "cloudflared binary hangs when running --version. "
+            "This suggests the binary is corrupted or incompatible with your system. "
+            "Try reinstalling: cloudflared update or brew reinstall cloudflared"
+        ) from e
     except Exception as e:
         raise RuntimeError(
             f"Failed to verify cloudflared binary: {e}. "
@@ -287,9 +287,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
             
             # Check for rate limiting (429 Too Many Requests)
             is_rate_limited = False
-            if stderr and "429" in stderr and "Too Many Requests" in stderr:
-                is_rate_limited = True
-            elif stderr and "rate limit" in stderr.lower():
+            if stderr and "429" in stderr and "Too Many Requests" in stderr or stderr and "rate limit" in stderr.lower():
                 is_rate_limited = True
             
             # Add diagnostic info
@@ -334,16 +332,14 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
 
         # Read from both stdout and stderr (cloudflared prints URL to stderr!)
         fds_to_check = []
+        from contextlib import suppress
+
         if proc.stdout:
-            try:
+            with suppress(ValueError, OSError):
                 fds_to_check.append(("stdout", proc.stdout.fileno(), proc.stdout))
-            except (ValueError, OSError):
-                pass
         if proc.stderr:
-            try:
+            with suppress(ValueError, OSError):
                 fds_to_check.append(("stderr", proc.stderr.fileno(), proc.stderr))
-            except (ValueError, OSError):
-                pass
         
         if not fds_to_check:
             if time.time() - start >= wait_s:
@@ -396,7 +392,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
                                                 else:
                                                     stderr_lines.append(more_line)
                                                 line += more_line
-                                        except:
+                                        except (OSError, ValueError):
                                             pass
                                 
                                 # Now check accumulated output for full URL
@@ -424,6 +420,7 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         except (ValueError, OSError) as e:
             # File descriptor not available or select failed - fall back to reading both streams
             # This can happen on Windows or if the file is closed
+            _ = e  # Suppress unused variable warning
             if proc.stdout:
                 line = proc.stdout.readline()
                 if line:
@@ -561,8 +558,8 @@ async def resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
         try:
             result = await loop.run_in_executor(
                 None,
-                lambda: subprocess.run(
-                    ["dig", f"@{resolver_ip}", "+short", hostname],
+                lambda ip=resolver_ip: subprocess.run(
+                    ["dig", f"@{ip}", "+short", hostname],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -767,7 +764,7 @@ async def open_quick_tunnel_with_dns_verification(
             # Verify DNS (this is where failures usually happen)
             await verify_tunnel_dns_resolution(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}", api_key=api_key)
             
-            logger.info(f"Tunnel verified and ready!")
+            logger.info("Tunnel verified and ready!")
             return url, proc
         except Exception as e:
             last_err = e
@@ -789,7 +786,7 @@ async def open_quick_tunnel_with_dns_verification(
                 except subprocess.TimeoutExpired:
                     proc.kill()
             if attempt < max_retries:
-                logger.info(f"Retrying after 10s backoff...")
+                logger.info("Retrying after 10s backoff...")
                 await asyncio.sleep(10.0)
             else:
                 break
@@ -866,11 +863,10 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
         
         # Check for rate limit
         is_rate_limited = False
-        if proc.returncode == 1:
-            if "429" in all_output and "Too Many Requests" in all_output:
-                is_rate_limited = True
-            elif "rate limit" in all_output.lower():
-                is_rate_limited = True
+        if proc.returncode == 1 and (
+            ("429" in all_output and "Too Many Requests" in all_output) or "rate limit" in all_output.lower()
+        ):
+            is_rate_limited = True
         
         return {
             "is_rate_limited": is_rate_limited,

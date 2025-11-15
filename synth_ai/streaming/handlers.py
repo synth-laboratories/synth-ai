@@ -598,7 +598,29 @@ class RichHandler(StreamHandler):
 
 
 class PromptLearningHandler(StreamHandler):
-    """Enhanced handler for GEPA/MIPRO jobs with rich formatting and metrics tracking."""
+    """Enhanced handler for GEPA/MIPRO prompt optimization jobs with rich formatting and metrics tracking.
+    
+    This handler processes streaming events from both GEPA (Genetic Evolutionary Prompt
+    Algorithm) and MIPRO (Meta-Instruction PROposer) optimization jobs. It provides:
+    
+    - **Real-time progress tracking**: Shows trial results, rollouts, iterations, and budget usage
+    - **Optimization curve tracking**: Maintains a history of best scores over time
+    - **GEPA-specific features**: Tracks transformations, rollouts, and validation results
+    - **MIPRO-specific features**: Tracks iterations, trials, minibatch/full evaluations, and budget
+    - **Dual output**: Writes to both console (via click.echo) and optional log file
+    
+    The handler filters verbose events (like TPE updates, proposed instructions) to keep
+    output readable while preserving important progress information. It formats output
+    consistently between GEPA and MIPRO for easier comparison.
+    
+    Example:
+        >>> handler = PromptLearningHandler(
+        ...     show_trial_results=True,
+        ...     max_tokens=1_000_000,
+        ...     log_file=Path("optimization.log")
+        ... )
+        >>> # Handler is used by JobStreamer to process events
+    """
     
     def __init__(
         self,
@@ -611,6 +633,25 @@ class PromptLearningHandler(StreamHandler):
         max_rollouts: int | None = None,
         log_file: Path | None = None,
     ):
+        """Initialize the prompt learning handler.
+        
+        Args:
+            show_trial_results: Whether to display individual trial scores (default: True).
+                When True, shows each trial's score and best score so far.
+            show_transformations: Whether to display transformation/proposal details
+                (default: False). When True, shows verbose transformation events.
+            show_validation: Whether to display validation summaries (default: True).
+                Shows validation results comparing candidates against baseline.
+            max_tokens: Maximum token budget for MIPRO (from TOML termination_config).
+                Used to track progress and enforce limits.
+            max_time_seconds: Maximum time budget in seconds (from TOML termination_config).
+                Used to track elapsed time and ETA.
+            max_rollouts: Maximum rollouts budget (from TOML termination_config).
+                Used to track rollout progress for both GEPA and MIPRO.
+            log_file: Optional path to log file for persistent logging. If provided,
+                all output is written to both console and file. File is opened in
+                append mode and remains open for streaming.
+        """
         self.show_trial_results = show_trial_results
         self.show_transformations = show_transformations
         self.show_validation = show_validation
@@ -675,8 +716,22 @@ class PromptLearningHandler(StreamHandler):
                 with suppress(Exception):
                     self._log_file_handle.close()
                 self._log_file_handle = None
-        
+    
     def handle(self, message: StreamMessage) -> None:
+        """Handle a stream message from the prompt learning job.
+        
+        Routes messages to appropriate handlers based on stream type:
+        - STATUS: Job status updates (queued, running, completed, etc.)
+        - EVENTS: Algorithm-specific events (trials, iterations, transformations)
+        - METRICS: Performance metrics (scores, accuracies, costs)
+        - TIMELINE: Phase transitions
+        
+        Filters verbose events (TPE updates, proposed instructions) to keep output
+        readable. MIPRO and GEPA events are handled by specialized methods.
+        
+        Args:
+            message: StreamMessage containing event data from the backend
+        """
         if not self.should_handle(message):
             return
         
@@ -814,7 +869,23 @@ class PromptLearningHandler(StreamHandler):
             self._write_log(f"[{timestamp}] timeline={phase}")
     
     def _handle_trial_results(self, event_data: dict[str, Any]) -> None:
-        """Track trial results for optimization curve."""
+        """Handle GEPA trial results events and track optimization curve.
+        
+        Processes trial completion events from GEPA optimization, tracking:
+        - Mean score for the trial
+        - Best score achieved so far
+        - Number of rollouts completed (N)
+        - Optimization curve data points
+        
+        Updates the optimization curve with (trial_number, best_score) tuples
+        for visualization. Displays trial results if show_trial_results is True.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.mean: Mean score for this trial
+                - data.completed: Number of rollouts completed
+                - data.total: Total rollouts planned
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -837,7 +908,17 @@ class PromptLearningHandler(StreamHandler):
                 self._write_log(f"[{timestamp}] [Trial {self.trial_counter}] Score: {mean_score:.4f} (Best: {self.best_score_so_far:.4f}){n_str}")
     
     def _handle_validation_summary(self, event_data: dict[str, Any]) -> None:
-        """Handle validation summary events."""
+        """Handle validation summary events showing candidate performance.
+        
+        Displays validation results comparing optimized prompts against a baseline.
+        Shows baseline score, number of candidates evaluated (N), and top candidate
+        scores. Only displayed if show_validation is True.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.baseline: Baseline score (dict with accuracy/score or number)
+                - data.results: List of candidate results with accuracy/score fields
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -878,7 +959,29 @@ class PromptLearningHandler(StreamHandler):
                         self._write_log(f"  Candidate {i+1}: {accuracy:.4f}")
     
     def _handle_progress(self, event_data: dict[str, Any]) -> None:
-        """Handle progress events with detailed rollout and transformation progress."""
+        """Handle GEPA progress events with detailed rollout and transformation tracking.
+        
+        Displays comprehensive progress information including:
+        - Overall completion percentage
+        - Rollout progress (completed/total with percentage)
+        - Transformation progress (tried/planned with percentage)
+        - Token usage (used/budget in millions)
+        - Elapsed time and ETA
+        
+        Formats progress in a human-readable format similar to CLI progress bars.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.rollouts_completed: Number of rollouts completed
+                - data.rollouts_total: Total rollouts planned
+                - data.transformations_tried: Number of transformations tried
+                - data.transformations_planned: Total transformations planned
+                - data.rollout_tokens_used: Tokens consumed
+                - data.rollout_tokens_budget: Token budget
+                - data.elapsed_seconds: Time elapsed
+                - data.eta_seconds: Estimated time remaining
+                - data.percent_overall: Overall completion percentage
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -962,7 +1065,16 @@ class PromptLearningHandler(StreamHandler):
             self._write_log(f"[{timestamp}] Progress: {progress_msg}")
     
     def _handle_rollouts_start(self, event_data: dict[str, Any]) -> None:
-        """Handle rollouts start event."""
+        """Handle GEPA rollouts start event.
+        
+        Displays when rollouts begin, showing the number of training seeds
+        that will be evaluated. This marks the start of the main optimization
+        phase for GEPA.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.train_seeds: List of training seed values
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -977,7 +1089,17 @@ class PromptLearningHandler(StreamHandler):
             self._write_log(f"[{timestamp}] Starting rollouts")
     
     def _handle_mipro_job_started(self, event_data: dict[str, Any]) -> None:
-        """Track MIPRO job start to extract configuration for max rollouts estimation."""
+        """Handle MIPRO job start event and extract configuration.
+        
+        Captures initial MIPRO configuration from the job start event to enable
+        progress tracking. Extracts num_iterations and num_trials_per_iteration
+        to estimate total trials and rollouts.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.num_iterations: Total number of optimization iterations
+                - data.num_trials_per_iteration: Trials per iteration
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -992,7 +1114,27 @@ class PromptLearningHandler(StreamHandler):
             self.mipro_trials_per_iteration = num_trials_per_iteration
     
     def _handle_mipro_iteration_start(self, event_data: dict[str, Any]) -> None:
-        """Track MIPRO iteration start to initialize progress tracking."""
+        """Handle MIPRO iteration start event and initialize progress tracking.
+        
+        Called at the start of each MIPRO iteration. On the first iteration (0),
+        initializes all progress tracking variables including:
+        - Total iterations and trials per iteration
+        - Batch size (for minibatch evaluations)
+        - Max rollouts estimate (iterations * trials * batch_size)
+        - Time and token budgets
+        
+        Sets the start time for elapsed time tracking.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.iteration: Current iteration number (0-indexed)
+                - data.num_iterations: Total iterations
+                - data.num_trials_per_iteration: Trials per iteration
+                - data.batch_size: Minibatch size (N for minibatch scores)
+                - data.max_trials: Maximum trials limit (optional)
+                - data.max_rollouts: Maximum rollouts limit (optional)
+                - data.max_time_seconds: Maximum time limit (optional)
+        """
         import time
         
         data = event_data.get("data", {})
@@ -1037,7 +1179,20 @@ class PromptLearningHandler(StreamHandler):
         self.mipro_current_iteration = iteration if iteration is not None else self.mipro_current_iteration
     
     def _handle_mipro_iteration_complete(self, event_data: dict[str, Any]) -> None:
-        """Track MIPRO iteration completion and update progress."""
+        """Handle MIPRO iteration completion event.
+        
+        Updates progress tracking when an iteration completes, including:
+        - Cumulative trial count
+        - Current iteration number
+        
+        Emits a progress update showing overall progress, trials completed,
+        iterations, rollouts, tokens, and time.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.iteration: Completed iteration number
+                - data.cumulative: Cumulative trial count across all iterations
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -1055,7 +1210,24 @@ class PromptLearningHandler(StreamHandler):
         self._emit_mipro_progress()
     
     def _handle_mipro_trial_complete(self, event_data: dict[str, Any]) -> None:
-        """Track MIPRO trial completion and count rollouts."""
+        """Handle MIPRO trial completion event (minibatch evaluation).
+        
+        Processes minibatch trial completion events, which occur frequently during
+        MIPRO optimization. Tracks:
+        - Completed trial count
+        - Rollouts completed (from num_seeds)
+        - Minibatch scores (displayed if show_trial_results is True)
+        
+        Displays trial results in GEPA-like format: [Trial X] Score: Y (Best: Z) N=W
+        where N is the minibatch size. Emits throttled progress updates.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.minibatch_score: Score from minibatch evaluation
+                - data.iteration: Current iteration number
+                - data.trial: Trial number within iteration
+                - data.num_seeds: Number of seeds evaluated (minibatch size N)
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -1097,7 +1269,25 @@ class PromptLearningHandler(StreamHandler):
         self._emit_mipro_progress()
     
     def _handle_mipro_fulleval_complete(self, event_data: dict[str, Any]) -> None:
-        """Handle MIPRO full evaluation completion - only show promising scores."""
+        """Handle MIPRO full evaluation completion event.
+        
+        Processes full evaluation events, which occur less frequently than minibatch
+        trials. Full evaluations use the full validation set and are more expensive.
+        Only displays results if the score is "promising":
+        - Better than current best score, OR
+        - At least 5% improvement over baseline
+        
+        Tracks rollouts from full evaluations and updates best score. Displays
+        results with baseline comparison and improvement percentage.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.score: Full evaluation score
+                - data.iteration: Current iteration number
+                - data.trial: Trial number within iteration
+                - data.num_seeds: Number of seeds evaluated (full eval size)
+                - data.seeds: List of seed values (alternative to num_seeds)
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -1159,7 +1349,21 @@ class PromptLearningHandler(StreamHandler):
             )
     
     def _handle_mipro_new_incumbent(self, event_data: dict[str, Any]) -> None:
-        """Handle MIPRO new incumbent event - show minibatch score like GEPA trial format."""
+        """Handle MIPRO new incumbent event (best candidate found).
+        
+        Processes events when MIPRO finds a new best candidate (incumbent).
+        Updates the optimization curve and displays the result in GEPA-like format
+        for consistency. Tracks cumulative trial count for curve visualization.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.minibatch_score: Minibatch score of the new incumbent
+                - data.best_score: Overall best score
+                - data.iteration: Current iteration number
+                - data.trial: Trial number within iteration
+                - data.cumulative_trials: Cumulative trial count across iterations
+                - data.num_seeds: Minibatch size (N)
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -1215,7 +1419,24 @@ class PromptLearningHandler(StreamHandler):
         self._emit_mipro_progress()
     
     def _handle_mipro_budget_update(self, event_data: dict[str, Any]) -> None:
-        """Track MIPRO budget updates (tokens and cost)."""
+        """Handle MIPRO budget update events.
+        
+        Tracks token usage and cost accumulation during optimization. Updates:
+        - Total tokens consumed (all operations)
+        - Policy tokens (rollout tokens only)
+        - Total cost in USD
+        - Max token and cost limits (if provided in event)
+        
+        Emits throttled progress updates to show budget consumption.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.total_tokens: Total tokens consumed
+                - data.policy_tokens: Tokens used for rollouts (policy only)
+                - data.total_cost_usd: Total cost in USD
+                - data.max_token_limit: Maximum token budget (optional)
+                - data.max_spend_usd: Maximum cost budget (optional)
+        """
         data = event_data.get("data", {})
         if not isinstance(data, dict):
             return
@@ -1248,7 +1469,26 @@ class PromptLearningHandler(StreamHandler):
         self._emit_mipro_progress()
     
     def _emit_mipro_progress(self) -> None:
-        """Emit a progress update for MIPRO similar to GEPA format (throttled)."""
+        """Emit a comprehensive progress update for MIPRO (throttled).
+        
+        Formats and displays MIPRO progress in a format similar to GEPA for consistency.
+        Shows:
+        - Overall completion percentage
+        - Trial progress (completed/total with remaining)
+        - Iteration progress (current/total)
+        - Rollout progress (completed/max)
+        - Token usage (used/budget in millions)
+        - Cost (USD)
+        - Elapsed time and ETA
+        
+        Progress updates are throttled to emit at most every 5 seconds to avoid
+        overwhelming the console. This method is called after significant events
+        (trial completion, iteration completion, budget updates).
+        
+        Note:
+            Only emits if start_time is set (job has started) and sufficient time
+            has passed since the last update.
+        """
         import time
         
         if self.mipro_start_time is None:
@@ -1375,7 +1615,16 @@ class PromptLearningHandler(StreamHandler):
                 self._log_file_handle = None
     
     def _handle_proposal_scored(self, event_data: dict[str, Any]) -> None:
-        """Handle proposal scored events (transformations)."""
+        """Handle GEPA proposal scored events (transformations).
+        
+        Displays transformation/proposal scoring events from GEPA optimization.
+        Only called if show_transformations is True (default: False) to avoid
+        verbose output. Shows the score assigned to each proposed transformation.
+        
+        Args:
+            event_data: Event data dictionary containing:
+                - data.score: Score assigned to the transformation/proposal
+        """
         # Only called if show_transformations=True
         data = event_data.get("data", {})
         if not isinstance(data, dict):

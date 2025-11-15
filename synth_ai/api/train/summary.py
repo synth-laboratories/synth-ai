@@ -242,12 +242,12 @@ def display_prompt_learning_summary(
         tokens_per_min = completed_data.get('tokens_per_minute')
         # For MIPRO, also check billing.end if not in completed event
         if algorithm == "mipro" and (rollouts_per_min is None or tokens_per_min is None) and billing_end_events:
-                billing_data = billing_end_events[-1].get('data', {})
-                # Calculate from time_seconds and total_rollouts if available
+            billing_data = billing_end_events[-1].get('data', {})
+            # Calculate from time_seconds and total_rollouts if available
             if time_seconds and time_seconds > 0 and rollouts_per_min is None and n_rollouts is not None:
-                        rollouts_per_min = (n_rollouts / time_seconds * 60.0) if n_rollouts > 0 else None
+                rollouts_per_min = (n_rollouts / time_seconds * 60.0) if n_rollouts > 0 else None
             if time_seconds and time_seconds > 0 and tokens_per_min is None and rollout_tokens_millions is not None:
-                        tokens_per_min = (rollout_tokens_millions * 1_000_000.0 / time_seconds * 60.0) if rollout_tokens_millions > 0 else None
+                tokens_per_min = (rollout_tokens_millions * 1_000_000.0 / time_seconds * 60.0) if rollout_tokens_millions > 0 else None
         if rollouts_per_min is not None or tokens_per_min is not None:
             throughput_parts = []
             if rollouts_per_min is not None:

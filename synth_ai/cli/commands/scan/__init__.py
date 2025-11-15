@@ -11,3 +11,4 @@ def register(cli: click.Group) -> None:
     cli.add_command(scan_command)
 
 
+

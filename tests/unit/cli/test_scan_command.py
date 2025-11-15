@@ -431,3 +431,4 @@ class TestFormatAppJson:
         assert data["scan_summary"]["cloudflare_count"] == 1
 
 
+

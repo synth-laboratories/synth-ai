@@ -405,11 +405,11 @@ class PromptLearningJob:
         
         # Check if we're already in an event loop
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in an event loop - can't use asyncio.run()
             # Use nest_asyncio to allow nested event loops if available
             try:
-                import nest_asyncio
+                import nest_asyncio  # type: ignore[unresolved-import]
                 nest_asyncio.apply()
                 return asyncio.run(_fetch())
             except ImportError:

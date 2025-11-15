@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Iterable, Sequence
 from uuid import uuid4
 
@@ -206,7 +206,7 @@ def cancel_experiment(experiment_id: str) -> Experiment | None:
             return None
 
         experiment.status = ExperimentStatus.CANCELED
-        experiment.completed_at = datetime.utcnow()
+        experiment.completed_at = datetime.now(UTC)
 
         for job in experiment.jobs:
             if job.status in {
@@ -214,7 +214,7 @@ def cancel_experiment(experiment_id: str) -> Experiment | None:
                 ExperimentJobStatus.RUNNING,
             }:
                 job.status = ExperimentJobStatus.CANCELED
-                job.completed_at = datetime.utcnow()
+                job.completed_at = datetime.now(UTC)
                 if job.celery_task_id:
                     from contextlib import suppress
                     with suppress(Exception):

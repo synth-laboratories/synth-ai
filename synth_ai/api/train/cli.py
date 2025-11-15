@@ -1606,8 +1606,9 @@ def _save_prompt_learning_results_locally(
         # Determine save location
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Use results_folder from config (already validated and created)
+        # Use results_folder from config (create if it doesn't exist)
         output_dir = results_folder
+        output_dir.mkdir(parents=True, exist_ok=True)
         
         # Use algorithm-specific filename
         algorithm_prefix = algorithm_name.lower() if algorithm_name else "prompt_learning"

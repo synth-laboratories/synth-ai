@@ -35,11 +35,11 @@ async def test_managed_tunnel_access():
     print("=" * 80)
     
     try:
-        from synth_ai.cloudflare import create_tunnel, BACKEND_URL_BASE
         import httpx
+        from synth_ai.cloudflare import BACKEND_URL_BASE
         
         print(f"\n1. Backend URL: {BACKEND_URL_BASE}")
-        print(f"2. Testing tunnel creation endpoint...")
+        print("2. Testing tunnel creation endpoint...")
         
         # First, try to list existing tunnels
         list_url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
@@ -53,7 +53,7 @@ async def test_managed_tunnel_access():
                 )
                 if response.status_code == 200:
                     tunnels = response.json()
-                    print(f"   ✅ Successfully listed tunnels")
+                    print("   ✅ Successfully listed tunnels")
                     print(f"   Found {len(tunnels)} existing tunnel(s)")
                     for tunnel in tunnels:
                         print(f"     - {tunnel.get('hostname', 'unknown')} (port {tunnel.get('local_port', '?')})")
@@ -90,4 +90,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
 

@@ -119,9 +119,8 @@ def check_cloudflared_logs(process: subprocess.Popen, timeout: float = 30.0) -> 
                 connected = True
             if "registered" in line.lower() or "route registered" in line.lower():
                 registered = True
-            if "error" in line.lower() or "failed" in line.lower():
-                if not error:
-                    error = line
+            if ("error" in line.lower() or "failed" in line.lower()) and not error:
+                error = line
             
             # Stop if we see both connection and registration
             if connected and registered:
@@ -214,7 +213,7 @@ async def test_tunnel_diagnostics():
                         print(f"  ✓ HTTP connectivity successful after {elapsed:.1f}s")
                         print(f"    Status: {resp.status_code}")
                         break
-            except Exception as e:
+            except Exception:
                 await asyncio.sleep(1.0)
         
         if not http_success:

@@ -223,8 +223,8 @@ def modify_config_for_limits(config_path: Path, rollout_limit: int = 50, time_li
     
     # Write to temporary file
     with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as temp_file:
-    temp_path = Path(temp_file.name)
-    temp_file.write("\n".join(new_lines))
+        temp_path = Path(temp_file.name)
+        temp_file.write("\n".join(new_lines))
     
     # Debug: verify limits were set
     config_content = "\n".join(new_lines)

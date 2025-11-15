@@ -13,8 +13,6 @@ import platform
 import subprocess
 import sys
 import time
-from pathlib import Path
-from typing import Optional
 
 import httpx
 
@@ -29,12 +27,10 @@ logger = logging.getLogger(__name__)
 try:
     from synth_ai.cloudflare import (
         get_cloudflared_path,
-        require_cloudflared,
         open_quick_tunnel,
         open_quick_tunnel_with_dns_verification,
+        require_cloudflared,
         resolve_hostname_with_explicit_resolvers,
-        verify_tunnel_dns_resolution,
-        check_rate_limit_status,
     )
 except ImportError as e:
     logger.error(f"Failed to import synth_ai.cloudflare: {e}")
@@ -143,7 +139,7 @@ def find_available_port(start_port: int = 18080) -> int:
             sock.close()
             if result != 0:
                 return port
-        except:
+        except OSError:
             continue
     raise RuntimeError(f"Could not find available port starting from {start_port}")
 
@@ -160,7 +156,7 @@ def test_port_availability(port: int = 8080):
         if result == 0:
             print_test(f"Port {port} is IN USE", "WARN")
             print(f"  Something is already listening on port {port}")
-            print(f"  Will find an available port for testing")
+            print("  Will find an available port for testing")
             return False
         else:
             print_test(f"Port {port} is available", "PASS")
@@ -228,7 +224,7 @@ def test_cloudflared_tunnel_creation(port: int = 8080):
                 print_test("Tunnel creation failed", "FAIL")
                 print(f"  Error: {error_str[:500]}")
                 if len(error_str) > 500:
-                    print(f"  ... (truncated, full error in traceback below)")
+                    print("  ... (truncated, full error in traceback below)")
             import traceback
             traceback.print_exc()
             return None, False
@@ -317,7 +313,7 @@ async def test_tunnel_with_dns_verification(port: int = 8080):
                 print_test("Tunnel with DNS verification failed", "FAIL")
                 print(f"  Error: {error_str[:500]}")
                 if len(error_str) > 500:
-                    print(f"  ... (truncated, full error in traceback below)")
+                    print("  ... (truncated, full error in traceback below)")
             import traceback
             traceback.print_exc()
             return None, False
@@ -473,7 +469,7 @@ async def test_manual_cloudflared_command(port: int = 8080):
             server.server_close()
         if server_thread:
             server_thread.join(timeout=2.0)
-        return result
+    return result
 
 
 async def main():
@@ -520,7 +516,7 @@ async def main():
         parsed = urlparse(tunnel_url)
         hostname = parsed.hostname
         if hostname:
-            ip = await test_dns_resolution(hostname)
+            await test_dns_resolution(hostname)
             
             # Test 8: HTTP connectivity
             await test_http_connectivity(tunnel_url)
@@ -547,9 +543,6 @@ async def main():
 
 if __name__ == "__main__":
     import socket
-    import http.server
-    import socketserver
-    import threading
     
     try:
         exit_code = asyncio.run(main())

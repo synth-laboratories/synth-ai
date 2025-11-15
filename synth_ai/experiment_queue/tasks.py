@@ -7,7 +7,7 @@ import re
 import shlex
 import subprocess
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -75,12 +75,39 @@ def _get_default_train_cmd() -> str:
 
 
 def _truncate(text: str, limit: int = 4000) -> str:
+    """Truncate text to a maximum length, keeping the end portion.
+    
+    Args:
+        text: Text to truncate
+        limit: Maximum length in characters (default: 4000)
+        
+    Returns:
+        Truncated text (last `limit` characters if text exceeds limit)
+    """
     if len(text) <= limit:
         return text
     return text[-limit:]
 
 
 def _build_train_command(config_path: str) -> list[str]:
+    """Build the training command for running a prompt learning job.
+    
+    Constructs a command list suitable for subprocess execution by:
+    1. Getting the base command from EXPERIMENT_QUEUE_TRAIN_CMD env var or default
+    2. Parsing the base command into segments
+    3. Appending prompt learning specific flags (--type, --config, --poll, etc.)
+    
+    Args:
+        config_path: Path to the TOML config file for the experiment
+        
+    Returns:
+        List of command segments ready for subprocess execution
+        
+    Note:
+        The base command defaults to `python -m synth_ai.cli train` if
+        EXPERIMENT_QUEUE_TRAIN_CMD is not set. The command always includes
+        --type prompt_learning, --config, --poll, and --stream-format cli flags.
+    """
     # Get command from env var or use default (lazily evaluated)
     base_cmd = os.getenv(TRAIN_COMMAND_ENV)
     if base_cmd:
@@ -109,19 +136,36 @@ def _build_train_command(config_path: str) -> list[str]:
 
 
 def _mark_job_running(job_id: str, task_id: str | None) -> ExperimentJob | None:
+    """Mark a job as running and update its status in the database.
+    
+    Updates the job status to RUNNING, sets the started_at timestamp, and
+    optionally associates a Celery task ID. If the parent experiment is
+    QUEUED, it is also marked as RUNNING.
+    
+    Args:
+        job_id: Job identifier
+        task_id: Optional Celery task ID to associate with the job
+        
+    Returns:
+        ExperimentJob instance if found, None otherwise
+        
+    Note:
+        The job is expunged from the session so it can be safely used outside
+        the session scope. The session is committed automatically by session_scope.
+    """
     with session_scope() as session:
         job = session.get(ExperimentJob, job_id)
         if not job:
             logger.warning("Job %s missing from database", job_id)
             return None
         job.status = ExperimentJobStatus.RUNNING
-        job.started_at = datetime.utcnow()
+        job.started_at = datetime.now(UTC)
         if task_id:
             job.celery_task_id = task_id
         experiment = job.experiment
         if experiment and experiment.status == ExperimentStatus.QUEUED:
             experiment.status = ExperimentStatus.RUNNING
-            experiment.started_at = datetime.utcnow()
+            experiment.started_at = datetime.now(UTC)
         session.flush()
         # Expunge so job can be safely used outside session scope
         session.expunge(job)
@@ -129,6 +173,15 @@ def _mark_job_running(job_id: str, task_id: str | None) -> ExperimentJob | None:
 
 
 def _jobs_remaining(session, experiment_id: str) -> int:
+    """Count remaining jobs (QUEUED or RUNNING) for an experiment.
+    
+    Args:
+        session: SQLAlchemy session
+        experiment_id: Experiment identifier
+        
+    Returns:
+        Number of jobs that are still QUEUED or RUNNING (not completed/failed)
+    """
     return (
         session.query(ExperimentJob)
         .filter(
@@ -151,13 +204,34 @@ def _finalize_job(
     success: bool,
     error_message: str | None = None,
 ) -> dict[str, Any] | None:
+    """Finalize a job by updating its status and persisting results.
+    
+    Updates the job status to COMPLETED or FAILED based on success flag,
+    persists trial data if successful, and updates experiment status when
+    all jobs are done. If the experiment has remaining jobs, dispatches them.
+    
+    Args:
+        job_id: Job identifier
+        summary: Result summary containing stdout, stderr, metrics, etc.
+        success: Whether the job completed successfully
+        error_message: Optional error message if job failed
+        
+    Returns:
+        Summary dictionary if job found, None otherwise
+        
+    Note:
+        - If successful: Job status set to COMPLETED, trials persisted
+        - If failed: Job status set to FAILED, error message stored
+        - Experiment status updated to COMPLETED/FAILED only when all jobs done
+        - Remaining jobs are dispatched if experiment still has queued jobs
+    """
     with session_scope() as session:
         job = session.get(ExperimentJob, job_id)
         if not job:
             logger.warning("Job %s missing during finalize", job_id)
             return None
 
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(UTC)
         job.result = summary.to_dict()
         experiment = job.experiment
 
@@ -199,7 +273,7 @@ def _finalize_job(
                     )
                 else:
                     experiment.status = ExperimentStatus.COMPLETED
-                experiment.completed_at = datetime.utcnow()
+                experiment.completed_at = datetime.now(UTC)
             else:
                 # Dispatch remaining jobs (periodic task will also handle this as backup)
                 dispatch_available_jobs(session, experiment.experiment_id)
@@ -209,7 +283,30 @@ def _finalize_job(
 
 @celery_app.task(bind=True, name="synth_ai.experiment_queue.run_experiment_job")
 def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
-    """Celery task entrypoint."""
+    """Celery task entrypoint for running a prompt learning experiment job.
+    
+    This is the main Celery task that executes prompt learning jobs. It:
+    1. Marks the job as RUNNING
+    2. Prepares the config file (applies overrides)
+    3. Builds and executes the training command via subprocess
+    4. Collects results (stdout, stderr, metrics, artifacts)
+    5. Finalizes the job (updates status, persists results)
+    
+    Args:
+        self: Celery task instance (bound task)
+        job_id: Job identifier from the experiment queue database
+        
+    Returns:
+        Result summary dictionary if successful, None if job not found
+        
+    Raises:
+        No exceptions are raised - all errors are caught and stored in job.error
+        
+    Note:
+        The task runs the training command (`synth-ai train --type prompt_learning`)
+        as a subprocess and captures stdout/stderr. Health check failures and
+        authentication errors are detected and cause job failure even if returncode is 0.
+    """
     job = _mark_job_running(job_id, getattr(self.request, "id", None))
     if not job:
         return None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -21,7 +21,7 @@ def persist_trials_from_summary(
     if not summary.learning_curve_points:
         return trials
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     for idx, point in enumerate(summary.learning_curve_points, start=1):
         metadata = {
             "rollout_count": point.rollout_count,

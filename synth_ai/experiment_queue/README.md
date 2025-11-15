@@ -350,3 +350,4 @@ pytest tests/unit/experiment_queue/ tests/integration/experiment_queue/ -v
 - [CLI Experiment Documentation](https://docs.usesynth.ai/cli/experiment)
 - [GEPA Algorithm Guide](https://docs.usesynth.ai/po/algorithms)
 
+

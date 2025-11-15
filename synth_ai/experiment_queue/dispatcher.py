@@ -24,6 +24,19 @@ TASK_NAME = "synth_ai.experiment_queue.run_experiment_job"
 
 
 def _active_jobs_query(experiment_id: str) -> Select[tuple[int]]:
+    """Build a SQLAlchemy query to count active jobs for an experiment.
+    
+    Counts jobs that are:
+    - QUEUED or RUNNING status
+    - Have a Celery task ID assigned (dispatched)
+    - Not yet completed (completed_at is None)
+    
+    Args:
+        experiment_id: Experiment identifier
+        
+    Returns:
+        SQLAlchemy Select query that returns a count
+    """
     return (
         select(func.count(ExperimentJob.job_id))
         .where(

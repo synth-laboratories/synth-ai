@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 from synth_ai.cloudflare import (
     ensure_cloudflared_installed,
     open_quick_tunnel_with_dns_verification,
-    start_uvicorn_background,
     stop_tunnel,
     wait_for_health_check,
 )

@@ -218,3 +218,30 @@ tracer.hooks.register("event_recorded", log_expensive_calls)
 - [ ] Vector similarity search
 - [ ] Real-time streaming
 - [ ] GraphQL API
+## Migration from DuckDB (V2) to Turso/sqld (V3)
+
+### Overview
+
+Migrated from DuckDB's embedded analytical engine to Turso's sqld daemon for:
+- **Multi-writer MVCC**: No more "database is locked" errors
+- **Better concurrency**: Multiple processes can write simultaneously
+- **Network access**: HTTP/gRPC access for distributed systems
+- **Lightweight**: ~10MB sqld daemon vs heavy database installations
+
+### Why sqld?
+
+`sqld` (the "server‑mode" binary that comes with libSQL/Turso) is the sweet spot between DuckDB's in‑process model and a full Postgres install. It provides:
+- SQLite compatibility (same SQL dialect)
+- Multi-writer MVCC support
+- Lightweight footprint
+- Easy local development setup
+
+### Architecture Changes
+
+1. **Database**: DuckDB → Turso/sqld (SQLite-compatible)
+2. **Concurrency**: Single-writer with locks → Multi-writer MVCC
+3. **API**: Synchronous → Fully async
+4. **Schema**: Raw SQL → SQLAlchemy declarative models
+5. **Connections**: Embedded → HTTP client to local daemon
+
+See `plan.md` and `turso.md` in `old/` for detailed migration notes.
