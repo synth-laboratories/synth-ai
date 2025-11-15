@@ -8,7 +8,7 @@ import pytest
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
-from synth_ai.cli.task_apps import filter_command
+from synth_ai.cli.commands.filter.core import filter_command
 
 
 def _write_toml(tmp_path, db_path, out_path):

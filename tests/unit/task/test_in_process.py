@@ -133,7 +133,7 @@ class TestInProcessTaskAppContextManager:
     """Tests for InProcessTaskApp context manager."""
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -161,7 +161,7 @@ class TestInProcessTaskAppContextManager:
         mock_stop_tunnel.assert_called_once()
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -186,7 +186,7 @@ class TestInProcessTaskAppContextManager:
             mock_create_app.assert_called_once_with(mock_task_app_config)
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -214,12 +214,12 @@ class TestInProcessTaskAppContextManager:
             mock_create_app.assert_called_once()
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
     @patch("synth_ai.task.in_process.get_asgi_app")
-    @patch("synth_ai.task.in_process.load_file_to_module")
+    @patch("synth_ai.task.in_process.load_module")
     @patch("synth_ai.task.in_process.configure_import_paths")
     async def test_init_with_task_app_path(
         self,
@@ -251,7 +251,7 @@ class TestInProcessTaskAppContextManager:
             mock_get_app.assert_called_once_with(mock_module)
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -277,7 +277,7 @@ class TestInProcessTaskAppContextManager:
         # Verify tunnel was stopped
         mock_stop_tunnel.assert_called_once_with(mock_tunnel_proc)
 
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -298,14 +298,14 @@ class TestInProcessTaskAppContextManager:
 
         mock_health_check.side_effect = slow_health_check
 
-        with pytest.raises(RuntimeError, match="health check"):
+        with pytest.raises(RuntimeError, match="Health check"):
             async with InProcessTaskApp(
                 app=mock_fastapi_app, port=9006, health_check_timeout=0.5
             ):
                 pass
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
@@ -334,7 +334,7 @@ class TestInProcessTaskAppContextManager:
             mock_find_port.assert_called_once()
 
     @patch("synth_ai.task.in_process.stop_tunnel")
-    @patch("synth_ai.task.in_process.open_quick_tunnel")
+    @patch("synth_ai.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.task.in_process.wait_for_health_check")
     @patch("synth_ai.task.in_process.threading.Thread")
