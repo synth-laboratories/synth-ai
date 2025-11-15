@@ -33,7 +33,7 @@ def _deep_update(base: MutableMapping[str, Any], overrides: Mapping[str, Any]) -
         if (
             isinstance(value, Mapping)
             and isinstance(base.get(key), Mapping)
-            and not isinstance(value, (str, bytes))
+            and not isinstance(value, str | bytes)
         ):
             nested = copy.deepcopy(dict(base[key]))
             base[key] = _deep_update(nested, value)

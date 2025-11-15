@@ -1081,7 +1081,7 @@ def _save_verbose_log_file(
                     # Format data nicely (truncate very long values)
                     formatted_data = {}
                     for key, value in data.items():
-                        if isinstance(value, (dict, list)):
+                        if isinstance(value, dict | list):
                             # Convert to JSON string, truncate if too long
                             json_str = json.dumps(value, indent=2)
                             if len(json_str) > 1000:

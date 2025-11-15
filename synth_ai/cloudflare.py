@@ -29,9 +29,9 @@ from synth_ai.utils.paths import (
     REPO_ROOT,
     configure_import_paths,
 )
-from uvicorn._types import ASGIApplication
 
 import uvicorn
+from uvicorn._types import ASGIApplication
 
 logger = logging.getLogger(__name__)
 

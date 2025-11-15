@@ -1246,7 +1246,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
         
         rate = mutation_section.get("rate")
         if rate is not None:
-            if not isinstance(rate, (int, float)):
+            if not isinstance(rate, int | float):
                 errors.append(f"❌ mutation.rate must be a number, got {type(rate).__name__}")
             elif not (0.0 <= rate <= 1.0):
                 errors.append(f"❌ mutation.rate must be between 0.0 and 1.0, got {rate}")
@@ -1523,7 +1523,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     # Validate meta model temperature
     meta_temperature = mipro_section.get("meta_model_temperature")
     if meta_temperature is not None:
-        if not isinstance(meta_temperature, (int, float)):
+        if not isinstance(meta_temperature, int | float):
             errors.append(f"❌ mipro.meta_model_temperature must be numeric, got {type(meta_temperature).__name__}")
         else:
             temp = float(meta_temperature)
@@ -1578,7 +1578,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     # Validate few_shot_score_threshold
     few_shot_score_threshold = mipro_section.get("few_shot_score_threshold")
     if few_shot_score_threshold is not None:
-        if not isinstance(few_shot_score_threshold, (int, float)):
+        if not isinstance(few_shot_score_threshold, int | float):
             errors.append(f"❌ mipro.few_shot_score_threshold must be numeric, got {type(few_shot_score_threshold).__name__}")
         else:
             threshold = float(few_shot_score_threshold)
@@ -1682,7 +1682,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                                         stage_ids_in_module.add(str(sid))
                         
                         for edge_idx, edge in enumerate(edges):
-                            if isinstance(edge, (list, tuple)) and len(edge) == 2:
+                            if isinstance(edge, list | tuple) and len(edge) == 2:
                                 source, target = edge
                             elif isinstance(edge, dict):
                                 source = edge.get("from") or edge.get("source")

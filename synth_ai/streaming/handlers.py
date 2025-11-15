@@ -930,7 +930,7 @@ class PromptLearningHandler(StreamHandler):
         baseline_score = None
         if isinstance(baseline, dict):
             baseline_score = baseline.get("accuracy") or baseline.get("score")
-        elif isinstance(baseline, (int, float)):
+        elif isinstance(baseline, int | float):
             baseline_score = baseline
         
         # Extract results

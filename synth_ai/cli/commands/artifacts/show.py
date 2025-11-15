@@ -196,7 +196,7 @@ def _format_prompt_details(data: dict[str, Any], verbose: bool = False) -> None:
             for key in important_keys:
                 if key in metadata:
                     value = metadata[key]
-                    if isinstance(value, (dict, list)):
+                    if isinstance(value, dict | list):
                         console.print(f"  [bold]{key}:[/bold]")
                         console.print(Syntax(json.dumps(value, indent=2), "json"))
                     else:
