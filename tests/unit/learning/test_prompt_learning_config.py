@@ -496,17 +496,16 @@ max_limit = 1000
             path = Path(f.name)
 
         try:
-            # Note: task_url parameter is currently ignored (TOML is source of truth)
-            # The override would need to be in overrides dict or TOML itself
+            # task_url parameter takes precedence over TOML value
             result = build_prompt_learning_payload(
                 config_path=path,
-                task_url="http://override:9000",  # This is ignored per current implementation
+                task_url="http://override:9000",  # This overrides TOML value
                 overrides={},
             )
-            # Builder uses TOML value, not task_url parameter
-            assert result.task_url == "http://localhost:8001"
+            # Builder uses task_url parameter when provided, overriding TOML
+            assert result.task_url == "http://override:9000"
             config_body = result.payload["config_body"]
-            assert config_body["prompt_learning"]["task_app_url"] == "http://localhost:8001"
+            assert config_body["prompt_learning"]["task_app_url"] == "http://override:9000"
         finally:
             path.unlink()
 
