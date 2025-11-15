@@ -2,8 +2,8 @@ import os
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
-import uvicorn
 from starlette.types import ASGIApp
 from synth_ai.cfgs import LocalDeployCfg
 from synth_ai.utils import log_error, log_event
@@ -11,7 +11,6 @@ from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 
 import uvicorn
-from uvicorn._types import ASGIApplication
 
 _THREADS: dict[int, threading.Thread] = {}
 _PROCESSES: dict[int, subprocess.Popen[str]] = {}
@@ -83,13 +82,15 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
         try:
             # Try to get app_id from module's config factory or app state
             if hasattr(module, "build_config"):
-                config = module.build_config()  # type: ignore[call-arg]
+                config = getattr(module, "build_config")()
                 if hasattr(config, "app_id"):
                     app_id = config.app_id
-            elif hasattr(app, "state") and hasattr(app.state, "task_app_config"):
-                config = app.state.task_app_config
-                if hasattr(config, "app_id"):
-                    app_id = config.app_id
+            elif hasattr(app, "state"):
+                app_state = getattr(app, "state")
+                if hasattr(app_state, "task_app_config"):
+                    config = getattr(app_state, "task_app_config")
+                    if hasattr(config, "app_id"):
+                        app_id = config.app_id
         except Exception:
             pass
         
