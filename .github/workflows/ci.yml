@@ -28,12 +28,8 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install ty
-        run: cargo install ty-python --locked
       - name: ty check
-        run: ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
+        run: uv tool run ty -- check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
 
   tests:
     name: Tests (unit, fast≤5s)
