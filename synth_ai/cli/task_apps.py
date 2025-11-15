@@ -2393,46 +2393,6 @@ def _load_env_files_into_process(paths: Sequence[str]) -> None:
                     os.environ[key] = val
 
 
-@click.command("serve")
-@click.argument("app_id", type=str, required=False)
-@click.option("--host", default="0.0.0.0", show_default=True)
-@click.option("--port", default=None, type=int, help="Port to serve on (default: 8001)")
-@click.option("--env-file", multiple=True, type=click.Path(), help="Extra .env files to load")
-@click.option(
-    "--reload/--no-reload", "reload_flag", default=False, help="Enable uvicorn auto-reload"
-)
-@click.option(
-    "--force/--no-force",
-    "force",
-    default=False,
-    help="Kill any process already bound to the selected port before starting",
-)
-@click.option(
-    "--trace",
-    "trace_dir",
-    type=click.Path(),
-    default=None,
-    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
-)
-@click.option(
-    "--trace-db",
-    "trace_db",
-    type=click.Path(),
-    default=None,
-    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
-)
-def serve_command(
-    app_id: str | None,
-    host: str,
-    port: int | None,
-    env_file: Sequence[str],
-    reload_flag: bool,
-    force: bool,
-    trace_dir: str | None,
-    trace_db: str | None,
-) -> None:
-    return None
-
 
 @task_app_group.command("info")
 @click.option(
@@ -2503,91 +2463,6 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
         else {"raw": r.text}
     )
     click.echo(_json.dumps(data, indent=2, sort_keys=True))
-
-
-@task_app_group.command("serve")
-@click.argument("app_id", type=str, required=False)
-@click.option("--host", default="0.0.0.0", show_default=True)
-@click.option("--port", default=None, type=int, help="Port to serve on (default: 8001)")
-@click.option("--env-file", multiple=True, type=click.Path(), help="Extra .env files to load")
-@click.option(
-    "--reload/--no-reload", "reload_flag", default=False, help="Enable uvicorn auto-reload"
-)
-@click.option(
-    "--force/--no-force",
-    "force",
-    default=False,
-    help="Kill any process already bound to the selected port before starting",
-)
-@click.option(
-    "--trace",
-    "trace_dir",
-    type=click.Path(),
-    default=None,
-    help="Enable tracing and write SFT JSONL files to this directory (default: traces/v3)",
-)
-@click.option(
-    "--trace-db",
-    "trace_db",
-    type=click.Path(),
-    default=None,
-    help="Override local trace DB path (default: traces/v3/synth_ai.db)",
-)
-def serve_task_group(
-    app_id: str | None,
-    host: str,
-    port: int | None,
-    env_file: Sequence[str],
-    reload_flag: bool,
-    force: bool,
-    trace_dir: str | None,
-    trace_db: str | None,
-) -> None:
-    """Serve a TaskAppConfig-based task app using uvicorn."""
-    import contextlib
-    
-    if not host:
-        host = "0.0.0.0"
-    
-    if port is None:
-        port = 8001
-    
-    # Auto-enable tracing by default
-    try:
-        auto_trace = os.getenv("SYNTH_AUTO_TRACE", "1")
-        auto_trace_enabled = auto_trace not in {"0", "false", "False", ""}
-    except Exception:
-        auto_trace_enabled = True
-
-    if auto_trace_enabled:
-        demo_base = Path(os.environ.get("SYNTH_DEMO_DIR") or Path.cwd())
-        if trace_dir is None:
-            default_trace_dir = (demo_base / "traces" / "v3").resolve()
-            with contextlib.suppress(Exception):
-                default_trace_dir.mkdir(parents=True, exist_ok=True)
-            trace_dir = str(default_trace_dir)
-            click.echo(f"[trace] Using trace directory: {trace_dir}")
-        if trace_dir and trace_db is None:
-            default_trace_db = (Path(trace_dir) / "synth_ai.db").resolve()
-            with contextlib.suppress(Exception):
-                default_trace_db.parent.mkdir(parents=True, exist_ok=True)
-            trace_db = str(default_trace_db)
-            click.echo(f"[trace] Using trace DB: {trace_db}")
-    
-    # Select and serve the app
-    choice = _select_app_choice(app_id, purpose="serve")
-    entry = choice.ensure_entry()
-    _serve_entry(
-        entry,
-        host,
-        port,
-        env_file,
-        reload_flag,
-        force,
-        trace_dir=trace_dir,
-        trace_db=trace_db,
-    )
-
 
 
 def _determine_env_files(
@@ -3119,7 +2994,6 @@ def fastapi_app():
 
 
 def register(cli: click.Group) -> None:
-    cli.add_command(serve_command)
     cli.add_command(task_app_group)
     cli.add_command(eval_command)
     cli.add_command(filter_command)
