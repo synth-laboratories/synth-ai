@@ -1,0 +1,16 @@
+{
+  "timestamp": 1763151110.1864,
+  "tests": [
+    {
+      "test_name": "GEPA + DSPy",
+      "config_path": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/gepa/configs/heartdisease_gepa_dspy.toml",
+      "job_id": "pl_09a6ffb3f2a2447b",
+      "status": "succeeded",
+      "best_score": 0.06666666666666667,
+      "elapsed_time": 70.60141015052795,
+      "success": true,
+      "early_termination": false
+    }
+  ],
+  "note": "Local-only test results (no Cloudflare tunnels)"
+}

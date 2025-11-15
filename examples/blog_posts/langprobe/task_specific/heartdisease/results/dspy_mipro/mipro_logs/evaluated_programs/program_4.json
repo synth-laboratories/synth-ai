@@ -1,0 +1,93 @@
+{
+  "predict.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "features": "age: 44\nsex: 1\ncp: 2\ntrestbps: 120\nchol: 263\nfbs: 0\nrestecg: 0\nthalach: 173\nexang: 0\noldpeak: 0.0\nslope: 1\nca: 0\nthal: reversible",
+        "reasoning": "The patient is a 44‑year‑old male presenting with atypical chest pain (cp = 2) but no evidence of exertional angina (exang = 0) and a normal resting ECG (restecg = 0). His resting blood pressure is within the normal range (trestbps = 120 mmHg) and the peak exercise heart rate (thalach = 173 bpm) is adequate. The myocardial ischemia index (oldpeak = 0.0 mm) and slope of the ST segment (slope = 1) are both reassuring. While his total cholesterol (chol = 263 mg/dL) is elevated, it is not extreme and, in the absence of other risk factors such as diabetes, family history, or smoking, it alone does not strongly predict coronary artery disease. Given these combined clinical features, the probability of heart disease is low.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 48\nsex: 0\ncp: 3\ntrestbps: 130\nchol: 275\nfbs: 0\nrestecg: 0\nthalach: 139\nexang: 0\noldpeak: 0.2\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The patient is relatively young (48 years) and has no major risk factors that strongly indicate heart disease. Chest pain type 3 (atypical angina) and an oldpeak of 0.2 mm suggest minimal ischemic burden. Blood pressure is normal, the resting ECG is normal (0), and exercise capacity (thalach = 139 bpm) is adequate. Cholesterol is elevated at 275 mg/dL but is not accompanied by other high‑risk features such as diabetes, high fasting blood sugar, or abnormal exercise response. No exercise angina (exang = 0) and no significant coronary artery disease (ca = 0, thal = normal). Overall, the combination of these findings points toward a low probability of clinically significant coronary artery disease. Therefore the most appropriate classification is no heart disease.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 58\nsex: 0\ncp: 3\ntrestbps: 120\nchol: 340\nfbs: 0\nrestecg: 0\nthalach: 172\nexang: 0\noldpeak: 0.0\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The model evaluates key risk factors for coronary artery disease.  \n- **Age** (58 yrs) and **high cholesterol** (340 mg/dL) increase risk.  \n- **Sex** is female, which is associated with lower prevalence.  \n- **Chest‑pain type 3** (atypical angina) is less specific.  \n- **Resting ECG** is normal (value 0).  \n- **Exercise‑induced angina** is absent (exang = 0).  \n- **ST‑segment depression** (oldpeak = 0.0) and **slope = 1** (upsloping) are both reassuring.  \n- **Maximum heart rate** (172) is within normal limits for age.  \n- **Number of major vessels (ca) = 0** and **thalassemia** is normal, adding to a lower risk profile.\n\nCombining these signals, the overall probability of clinically significant coronary artery disease is low, so the prediction is “no heart disease.”",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 43\nsex: 1\ncp: 4\ntrestbps: 150\nchol: 247\nfbs: 0\nrestecg: 0\nthalach: 171\nexang: 0\noldpeak: 1.5\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The patient is a 43‑year‑old male with no fasting blood‑sugar elevation (fbs = 0) and no exercise angina (exang = 0).  \nHis chest‑pain type is “4” (asymptomatic), and the resting ECG is normal (restecg = 0).  \nWhile the systolic blood pressure (150 mmHg) and cholesterol (247 mg/dL) are on the higher side, the heart rate at rest is only 171 beats/min, the ST‑segment depression (oldpeak = 1.5 mm) is moderate, and the slope of the ST segment is 1 (upsloping), which is not strongly predictive of ischemia.  \nThe number of major vessels colored by fluoroscopy (ca = 0) and the thalassemia result (normal) also do not indicate disease.  \nGiven the relatively young age, lack of typical angina, normal ECG, and absence of other strong risk factors, the overall probability of heart disease is low.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 49\nsex: 1\ncp: 2\ntrestbps: 130\nchol: 266\nfbs: 0\nrestecg: 0\nthalach: 171\nexang: 0\noldpeak: 0.6\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The patient is a 49‑year‑old male with several borderline risk factors.  \n- Age < 50, which is generally low risk.  \n- Normal fasting blood sugar (fbs = 0).  \n- No exercise‑induced angina (exang = 0).  \n- Resting ECG is normal (restecg = 0).  \n- Heart rate at peak (thalach = 171) is within a healthy range.  \n- The most concerning factor is a high total cholesterol (chol = 266), but it is only one risk factor and is balanced by the absence of other major indicators.  \n- Oldpeak (1.2 mm) and slope (1, upsloping) are not strongly suggestive of ischemia.  \n- Number of major vessels (ca = 0) and thalassemia status (normal) are also reassuring.  \n\nBased on the combination of these findings, the probability of clinically significant heart disease is low. Therefore a prediction of no heart disease (0) is appropriate.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 48\nsex: 1\ncp: 2\ntrestbps: 110\nchol: 229\nfbs: 0\nrestecg: 0\nthalach: 168\nexang: 0\noldpeak: 1.0\nslope: 3\nca: 0\nthal: reversible",
+        "reasoning": "The patient is a 48‑year‑old male with atypical chest pain. His resting blood pressure is normal (110 mm Hg) and he is not diabetic (fasting blood sugar 0). Cholesterol is moderately elevated at 229 mg/dL, but his resting ECG is normal and he has no exercise‑induced angina. His maximal heart rate (168 bpm) and the ST‑segment depression during exercise (oldpeak = 1.0 mm) are within a range that would typically be seen in a lower‑risk profile. He has no major coronary artery disease evident on the calcium score (ca = 0) and his thalassemia status is reversible, which is generally a more benign variant.  \n\nConsidering all of these factors together, the overall probability of heart disease for this patient is relatively low. A simple predictive rule based on the UCI Heart Disease dataset would therefore classify this case as “no heart disease.”",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 56\nsex: 1\ncp: 3\ntrestbps: 130\nchol: 256\nfbs: 1\nrestecg: 2\nthalach: 142\nexang: 1\noldpeak: 0.6\nslope: 2\nca: 1\nthal: fixed",
+        "reasoning": "The patient is 56 years old and male, which already raises cardiovascular risk.  \nKey risk indicators present are:  \n- Elevated serum cholesterol (256 mg/dL)  \n- Positive fasting blood sugar (≥ 120 mg/dL)  \n- ECG shows ST‑T abnormalities (restecg = 2)  \n- Exercise induced angina (exang = 1)  \n- ST depression of 0.6 mm (oldpeak) and downsloping slope (slope = 2)  \n- One major coronary vessel involvement (ca = 1)  \n- Fixed thalassemia variant (thal = fixed).  \n\nThese combined factors strongly align with known predictors of coronary heart disease in the UCI heart disease dataset. The model would therefore classify this case as having heart disease.",
+        "classification": "1"
+      },
+      {
+        "augmented": true,
+        "features": "age: 58\nsex: 1\ncp: 3\ntrestbps: 132\nchol: 224\nfbs: 0\nrestecg: 2\nthalach: 173\nexang: 0\noldpeak: 3.2\nslope: 1\nca: 2\nthal: reversible",
+        "reasoning": "The patient is a 58‑year‑old male (sex=1) with several risk factors that are commonly associated with coronary artery disease:  \n- **Age** is above 55.  \n- **Chest pain type (cp=3)** indicates typical angina, a strong predictor of heart disease.  \n- **Resting blood pressure** (132 mmHg) is elevated.  \n- **Serum cholesterol** (224 mg/dL) is borderline high.  \n- **Thalassemia status** is “reversible,” which is often linked to myocardial ischemia in this dataset.  \n- **Exercise capacity** (thalach=173) is moderate, but the **exercise‑induced ST depression (oldpeak=3.2)** is high (>2), a significant marker for myocardial ischemia.  \n- **Number of major vessels colored by fluoroscopy (ca=2)** suggests multivessel disease.  \n- **Exercise angina (exang=0)** is absent, but the combination of the above factors outweighs this single negative point.\n\nIn many predictive models trained on the Cleveland heart‑disease dataset, patients with a combination of typical angina, significant ST‑depression, and multivessel disease usually receive a positive classification (presence of heart disease).\n\nGiven these points, the most reasonable prediction is that this patient **has heart disease**.",
+        "classification": "1"
+      },
+      {
+        "augmented": true,
+        "features": "age: 56\nsex: 1\ncp: 2\ntrestbps: 120\nchol: 236\nfbs: 0\nrestecg: 0\nthalach: 178\nexang: 0\noldpeak: 0.8\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "This patient has several indicators that point toward a lower probability of heart disease:\n- **Age (56)** is above the typical cutoff used in many models, but it is not extremely high.\n- **Sex (1 = male)** slightly increases risk, but alone does not determine outcome.\n- **Chest pain type (cp = 2)** corresponds to non‑anginal pain, which is less concerning than typical angina (cp = 0 or 1) or asymptomatic presentations (cp = 3).\n- **Resting blood pressure (trestbps = 120)** and **cholesterol (chol = 236)** are within a moderate range.\n- **Fasting blood sugar (fbs = 0)** and **exercise angina (exang = 0)** are normal.\n- **Resting ECG (restecg = 0)** indicates a normal result.\n- **Maximum heart rate achieved (thalach = 178)** is relatively high, suggesting good exercise tolerance.\n- **ST depression (oldpeak = 0.8)** is mild.\n- **Slope of the peak exercise ST segment (slope = 1)** is upsloping, which is less worrisome than downsloping or flat.\n- **Number of major vessels colored by fluoroscopy (ca = 0)** shows no significant coronary artery disease.\n- **Thalassemia status (thal = normal)** indicates no abnormal variant.\n\nOverall, the combination of a mild ST depression, normal ECG, normal exercise angina, and no significant vessel disease makes heart disease unlikely. Hence the model would predict **no heart disease**.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 63\nsex: 1\ncp: 4\ntrestbps: 130\nchol: 254\nfbs: 0\nrestecg: 2\nthalach: 147\nexang: 0\noldpeak: 1.4\nslope: 2\nca: 1\nthal: reversible",
+        "reasoning": "The patient is a 63‑year‑old male, a known risk factor for coronary artery disease.  \nKey red flags in this case include:  \n\n- **Age 63** – older age increases risk.  \n- **Chest pain type 4 (asymptomatic)** – while this code itself is low risk, it is often paired with other risk markers.  \n- **High cholesterol (254 mg/dL)** and **elevated resting BP (130 mm Hg)** – both contribute to atherosclerosis.  \n- **Abnormal resting ECG (restecg = 2)** – suggests prior ischemic changes.  \n- **Elevated heart rate reserve (thalach = 147)** and **ST‑segment depression (oldpeak = 1.4)** – indicate ischemic stress response.  \n- **Upward sloping ST segment (slope = 2)** – associated with worse prognosis.  \n- **One major vessel involvement (ca = 1)** and **reversible thalassemia** – further point toward coronary artery disease.  \n\nWhen these variables are combined, the probability of significant coronary disease is high. Thus the model predicts that this patient is most likely to have heart disease.",
+        "classification": "1"
+      }
+    ],
+    "signature": {
+      "instructions": "You are a board‑certified cardiologist reviewing a patient’s clinical data.  \nUsing only the information below, think through the relevant risk factors and physiological indicators step by step, then give a clear, concise diagnosis.  \nYour response must contain exactly two fields, each prefixed as shown:\n\n```\nReasoning: <your step‑by‑step clinical reasoning>\nClassification: <1 if heart disease is present, 0 if absent>\n```\n\n**Patient features:**\n\n```\n{features}\n```\n\nRespond with no additional text outside the two specified fields.  \nEnsure the classification is a single character (`1` or `0`) and that the reasoning is a logical, medically sound explanation.",
+      "fields": [
+        {
+          "prefix": "Features:",
+          "description": "Patient features: age, sex, chest pain type, blood pressure, cholesterol, etc."
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Classification:",
+          "description": "Predicted classification: '1' for heart disease, '0' for no heart disease"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.11",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

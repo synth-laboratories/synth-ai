@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
@@ -43,7 +44,21 @@ class StreamMessage:
             return f"event:{self.seq}"
         if self.stream_type is StreamType.METRICS:
             name = self.data.get("name", "")
-            return f"metric:{name}:{self.step}"
+            if self.step is not None:
+                return f"metric:{name}:{self.step}"
+            ts = (
+                self.timestamp
+                or self.data.get("created_at")
+                or self.data.get("updated_at")
+                or self.data.get("timestamp")
+            )
+            if ts:
+                return f"metric:{name}:{ts}"
+            try:
+                fingerprint = json.dumps(self.data, sort_keys=True, default=str)
+            except Exception:
+                fingerprint = repr(self.data)
+            return f"metric:{name}:{fingerprint}"
         if self.stream_type is StreamType.TIMELINE:
             return f"timeline:{self.phase}:{self.timestamp}"
         return f"status:{self.timestamp}"

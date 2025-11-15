@@ -1,0 +1,11 @@
+{
+  "instructions": "None",
+  "demos": 0,
+  "prompt_details": {
+    "sample_prediction": {
+      "input": "Id: 1\nSepalLengthCm: 5.1\nSepalWidthCm: 3.5\nPetalLengthCm: 1.4\nPetalWidthCm: 0.2\nSpecies: Iris-setosa",
+      "output": "Iris-setosa",
+      "rationale": null
+    }
+  }
+}

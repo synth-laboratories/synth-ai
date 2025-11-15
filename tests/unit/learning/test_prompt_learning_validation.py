@@ -513,7 +513,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "gepa": {
@@ -591,8 +590,8 @@ class TestValidatePromptLearningConfig:
         finally:
             path.unlink(missing_ok=True)
 
-    def test_invalid_inference_url_raises_error(self) -> None:
-        """Test that invalid inference_url raises validation error."""
+    def test_inference_url_rejection(self) -> None:
+        """Test that inference_url in policy config is rejected (trainer provides it)."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "gepa",
@@ -600,7 +599,7 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "not-a-url",
+                    "inference_url": "https://api.openai.com/v1",  # Should be rejected
                     "inference_mode": "synth_hosted",
                 },
                 "gepa": {
@@ -611,7 +610,7 @@ class TestValidatePromptLearningConfig:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             path = Path(f.name)
         try:
-            with pytest.raises(Exception, match="inference_url"):
+            with pytest.raises(Exception, match="inference_url.*must not"):
                 validate_prompt_learning_config(config_data, path)
         finally:
             path.unlink(missing_ok=True)
@@ -624,7 +623,6 @@ class TestValidatePromptLearningConfig:
                 "task_app_url": "http://localhost:8001",
                 "policy": {
                     "model": "gpt-4o-mini",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
             }
@@ -645,7 +643,6 @@ class TestValidatePromptLearningConfig:
                 "task_app_url": "http://localhost:8001",
                 "policy": {
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
             }
@@ -667,7 +664,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
             }
@@ -689,7 +685,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
             }
@@ -714,7 +709,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "gepa": {
@@ -739,7 +733,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "gepa": {
@@ -764,7 +757,6 @@ class TestValidatePromptLearningConfig:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "bring_your_own",  # Invalid
                 },
             }
@@ -1282,7 +1274,6 @@ class TestMultiStageGEPAValidation:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "initial_prompt": {
@@ -1316,7 +1307,6 @@ class TestMultiStageGEPAValidation:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "initial_prompt": {
@@ -1349,7 +1339,6 @@ class TestMultiStageGEPAValidation:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "initial_prompt": {
@@ -1385,7 +1374,6 @@ class TestMultiStageGEPAValidation:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "gepa": {
@@ -1411,7 +1399,6 @@ class TestMultiStageGEPAValidation:
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
-                    "inference_url": "https://api.openai.com/v1",
                     "inference_mode": "synth_hosted",
                 },
                 "initial_prompt": {

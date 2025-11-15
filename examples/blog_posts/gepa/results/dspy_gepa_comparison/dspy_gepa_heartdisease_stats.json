@@ -1,0 +1,7 @@
+{
+  "total_time": 6.2724621295928955,
+  "total_rollouts": 300,
+  "baseline_score": 0.36,
+  "val_score": 0.38,
+  "val_n": 50
+}

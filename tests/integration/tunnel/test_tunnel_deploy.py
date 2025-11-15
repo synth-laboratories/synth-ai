@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
-from synth_ai.cloudflare import _wait_for_health_check, deploy_app_tunnel
+from synth_ai.cloudflare import wait_for_health_check, deploy_app_tunnel
 
 
 @pytest.fixture
@@ -66,9 +66,9 @@ app = create_task_app(build_config())
 class TestQuickTunnelDeployment:
     """Integration tests for quick tunnel deployment."""
     
-    @patch("synth_ai.tunnel_deploy._start_uvicorn_background")
-    @patch("synth_ai.tunnel_deploy.open_quick_tunnel")
-    @patch("synth_ai.tunnel_deploy._wait_for_health_check")
+    @patch("synth_ai.cloudflare.start_uvicorn_background")
+    @patch("synth_ai.cloudflare.open_quick_tunnel")
+    @patch("synth_ai.cloudflare.wait_for_health_check")
     async def test_deploys_quick_tunnel_successfully(
         self,
         mock_health_check,
@@ -106,10 +106,10 @@ class TestQuickTunnelDeployment:
         content = env_file.read_text()
         assert "TASK_APP_URL=https://test-abc123.trycloudflare.com" in content
     
-    @patch("synth_ai.tunnel_deploy._start_uvicorn_background")
-    @patch("synth_ai.tunnel_deploy.open_quick_tunnel")
-    @patch("synth_ai.tunnel_deploy._wait_for_health_check")
-    @patch("synth_ai.tunnel_deploy.stop_tunnel")
+    @patch("synth_ai.cloudflare.start_uvicorn_background")
+    @patch("synth_ai.cloudflare.open_quick_tunnel")
+    @patch("synth_ai.cloudflare.wait_for_health_check")
+    @patch("synth_ai.cloudflare.stop_tunnel")
     async def test_cleans_up_on_error(
         self,
         mock_stop_tunnel,
@@ -141,7 +141,7 @@ class TestQuickTunnelDeployment:
 class TestHealthCheck:
     """Tests for health check functionality."""
     
-    @patch("synth_ai.tunnel_deploy.httpx.AsyncClient")
+    @patch("synth_ai.cloudflare.httpx.AsyncClient")
     async def test_waits_for_health_endpoint(self, mock_client_class):
         """Should wait for health endpoint to respond."""
         # Mock successful response after a few attempts
@@ -160,11 +160,11 @@ class TestHealthCheck:
         mock_client.__aenter__.return_value.get = mock_get
         mock_client_class.return_value = mock_client
         
-        await _wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=5.0)
+        await wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=5.0)
         
         assert call_count == 3
     
-    @patch("synth_ai.tunnel_deploy.httpx.AsyncClient")
+    @patch("synth_ai.cloudflare.httpx.AsyncClient")
     async def test_accepts_400_as_server_up(self, mock_client_class):
         """Should accept 400 status as server being up (auth error is ok)."""
         mock_client = AsyncMock()
@@ -175,9 +175,9 @@ class TestHealthCheck:
         mock_client_class.return_value = mock_client
         
         # Should not raise
-        await _wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=5.0)
+        await wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=5.0)
     
-    @patch("synth_ai.tunnel_deploy.httpx.AsyncClient")
+    @patch("synth_ai.cloudflare.httpx.AsyncClient")
     async def test_timeout_when_health_check_fails(self, mock_client_class):
         """Should raise RuntimeError if health check times out."""
         mock_client = AsyncMock()
@@ -187,7 +187,7 @@ class TestHealthCheck:
         mock_client_class.return_value = mock_client
         
         with pytest.raises(RuntimeError) as exc_info:
-            await _wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=0.5)
+            await wait_for_health_check("127.0.0.1", 8000, "test-key", timeout=0.5)
         
         assert "Health check failed" in str(exc_info.value)
 

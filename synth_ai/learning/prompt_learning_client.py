@@ -31,11 +31,16 @@ class PromptLearningClient:
         """Initialize the prompt learning client.
         
         Args:
-            base_url: Base URL of the backend API (e.g., "http://localhost:8000")
+            base_url: Base URL of the backend API (e.g., "http://localhost:8000" or "http://localhost:8000/api")
             api_key: API key for authentication
             timeout: Request timeout in seconds
         """
-        self._base_url = base_url.rstrip("/")
+        base_url = base_url.rstrip("/")
+        # Validate base_url format - warn if it already ends with /api (will be handled by AsyncHttpClient)
+        if base_url.endswith("/api"):
+            # This is OK - AsyncHttpClient._abs() will handle double /api/api paths
+            pass
+        self._base_url = base_url
         self._api_key = api_key
         self._timeout = timeout
 
@@ -80,12 +85,85 @@ class PromptLearningClient:
             )
         if isinstance(js, dict) and isinstance(js.get("events"), list):
             return js["events"]
+        # Handle case where response is directly a list
+        if isinstance(js, list):
+            return js
         # Unexpected response structure - raise instead of silently returning empty list
         raise ValueError(
             f"Unexpected response structure from events endpoint. "
-            f"Expected dict with 'events' list, got: {type(js).__name__}"
+            f"Expected dict with 'events' list or list directly, got: {type(js).__name__}"
         )
 
+    def _extract_full_text_from_template(self, template: Dict[str, Any]) -> str:
+        """Extract full text from a serialized template dict.
+        
+        Args:
+            template: Serialized template dict with 'sections' field
+            
+        Returns:
+            Formatted full text string matching backend format
+        """
+        sections = template.get("sections", [])
+        if not sections:
+            # Try alternative structure: prompt_sections (from to_dict format)
+            sections = template.get("prompt_sections", [])
+        
+        full_text_parts = []
+        for sec in sections:
+            if not isinstance(sec, dict):
+                continue
+            sec_name = sec.get("name", "")
+            sec_role = sec.get("role", "")
+            sec_content = str(sec.get("content", ""))
+            full_text_parts.append(f"[{sec_role} | {sec_name}]\n{sec_content}")
+        
+        return "\n\n".join(full_text_parts)
+    
+    def _extract_full_text_from_object(self, obj: Dict[str, Any]) -> Optional[str]:
+        """Extract full text from a candidate's object field.
+        
+        Args:
+            obj: Candidate object dict (may have 'data' with 'sections' or 'text_replacements')
+            
+        Returns:
+            Formatted full text string or None if extraction fails
+        """
+        # Try to get sections from object.data.sections (template format)
+        data = obj.get("data", {})
+        if isinstance(data, dict):
+            sections = data.get("sections", [])
+            if sections:
+                full_text_parts = []
+                for sec in sections:
+                    if not isinstance(sec, dict):
+                        continue
+                    sec_name = sec.get("name", "")
+                    sec_role = sec.get("role", "")
+                    sec_content = str(sec.get("content", ""))
+                    full_text_parts.append(f"[{sec_role} | {sec_name}]\n{sec_content}")
+                return "\n\n".join(full_text_parts)
+            
+            # Try text_replacements format (transformation format)
+            text_replacements = data.get("text_replacements", [])
+            if text_replacements and isinstance(text_replacements, list):
+                full_text_parts = []
+                for replacement in text_replacements:
+                    if not isinstance(replacement, dict):
+                        continue
+                    new_text = replacement.get("new_text", "")
+                    role = replacement.get("apply_to_role", "system")
+                    if new_text:
+                        full_text_parts.append(f"[{role}]\n{new_text}")
+                if full_text_parts:
+                    return "\n\n".join(full_text_parts)
+        
+        # Try direct sections on object
+        sections = obj.get("sections", [])
+        if sections:
+            return self._extract_full_text_from_template({"sections": sections})
+        
+        return None
+    
     async def get_prompts(self, job_id: str) -> PromptResults:
         """Get the best prompts and scoring metadata from a completed job.
         
@@ -107,6 +185,9 @@ class PromptLearningClient:
         events = await self.get_events(job_id, limit=10000)
         
         result = PromptResults()
+        
+        # Build validation score map by rank for later use
+        validation_by_rank: Dict[int, float] = {}
         
         # Extract results from events
         for event in events:
@@ -132,15 +213,110 @@ class PromptLearningClient:
             elif event_type == "prompt.learning.final.results":
                 result.optimized_candidates = event_data.get("optimized_candidates", [])
                 result.attempted_candidates = event_data.get("attempted_candidates", [])
+                # Also extract best_prompt from final.results if not already set
+                if result.best_prompt is None:
+                    result.best_prompt = event_data.get("best_prompt")
+                if result.best_score is None:
+                    result.best_score = event_data.get("best_score")
+                
+                # Extract validation results from validation field if present
+                validation_data = event_data.get("validation")
+                if isinstance(validation_data, list):
+                    for val_item in validation_data:
+                        if isinstance(val_item, dict):
+                            rank = val_item.get("rank")
+                            accuracy = val_item.get("accuracy")
+                            if rank is not None and accuracy is not None:
+                                validation_by_rank[rank] = accuracy
             
-            # Validation results
+            # Validation results - build map by rank
             elif event_type == "prompt.learning.validation.scored":
                 result.validation_results.append(event_data)
+                # Try to extract rank and accuracy for mapping
+                rank = event_data.get("rank")
+                accuracy = event_data.get("accuracy")
+                if rank is not None and accuracy is not None:
+                    validation_by_rank[rank] = accuracy
             
             # Completion event (fallback for best_score)
             elif event_type == "prompt.learning.gepa.complete":
                 if result.best_score is None:
                     result.best_score = event_data.get("best_score")
+            
+            # MIPRO completion event - extract best_score
+            elif event_type == "mipro.job.completed":
+                if result.best_score is None:
+                    # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
+                    result.best_score = (
+                        event_data.get("best_score") 
+                        or event_data.get("best_full_score") 
+                        or event_data.get("best_minibatch_score")
+                    )
+        
+        # If top_prompts is empty but we have optimized_candidates, extract from them
+        if not result.top_prompts and result.optimized_candidates:
+            for idx, cand in enumerate(result.optimized_candidates):
+                if not isinstance(cand, dict):
+                    continue
+                
+                # Extract rank (use index+1 if rank not present)
+                rank = cand.get("rank")
+                if rank is None:
+                    rank = idx + 1
+                
+                # Extract train accuracy from score
+                score = cand.get("score", {})
+                if not isinstance(score, dict):
+                    score = {}
+                train_accuracy = score.get("accuracy")
+                
+                # Extract val accuracy from validation map
+                val_accuracy = validation_by_rank.get(rank)
+                
+                # Try to extract template and full_text
+                template = None
+                full_text = None
+                
+                # First try: template field (may be serialized dict)
+                cand_template = cand.get("template")
+                if cand_template and isinstance(cand_template, dict):
+                        template = cand_template
+                        full_text = self._extract_full_text_from_template(cand_template)
+                    # If it's not a dict, skip (might be a backend object that wasn't serialized)
+                
+                # Second try: object field
+                if not full_text:
+                    obj = cand.get("object", {})
+                    if isinstance(obj, dict):
+                        full_text = self._extract_full_text_from_object(obj)
+                        # If we got full_text but no template, try to build template structure
+                        if full_text and not template:
+                            # Try to extract template from object.data
+                            obj_data = obj.get("data", {})
+                            if isinstance(obj_data, dict) and obj_data.get("sections"):
+                                template = {"sections": obj_data["sections"]}
+                
+                # Build prompt entry
+                prompt_entry: Dict[str, Any] = {
+                    "rank": rank,
+                    "train_accuracy": train_accuracy,
+                    "val_accuracy": val_accuracy,
+                }
+                if template:
+                    prompt_entry["template"] = template
+                if full_text:
+                    prompt_entry["full_text"] = full_text
+                
+                result.top_prompts.append(prompt_entry)
+            
+            # Sort by rank to ensure correct order
+            result.top_prompts.sort(key=lambda p: p.get("rank", 999))
+        
+        # If we have validation results, prefer validation score for best_score
+        # Rank 0 is the best prompt
+        if validation_by_rank and 0 in validation_by_rank:
+            # Use validation score for best_score when available
+            result.best_score = validation_by_rank[0]
         
         return result
 

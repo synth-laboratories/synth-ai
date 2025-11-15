@@ -229,7 +229,7 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
 
     if cfg.cors_origins is not None:
         app.add_middleware(
-            CORSMiddleware,
+            CORSMiddleware,  # type: ignore[arg-type]
             allow_origins=list(cfg.cors_origins) or ["*"],
             allow_credentials=True,
             allow_methods=["*"],
@@ -429,4 +429,32 @@ def run_task_app(
         raise RuntimeError("uvicorn must be installed to run the task app locally") from exc
 
     print(f"[task:server] Starting '{config.app_id}' on {host}:{port}", flush=True)
-    uvicorn.run(app, host=host, port=port, reload=reload)
+    
+    # Record local service before starting
+    try:
+        import os
+
+        from synth_ai.utils.tunnel_records import record_service
+        local_url = f"http://{host if host not in ('0.0.0.0', '::') else '127.0.0.1'}:{port}"
+        # Try to get current process PID
+        pid: int | None = os.getpid()
+        record_service(
+            url=local_url,
+            port=port,
+            service_type="local",
+            local_host=host if host not in ('0.0.0.0', '::') else '127.0.0.1',
+            app_id=config.app_id,
+            pid=pid,
+        )
+    except Exception:
+        pass  # Fail silently - records are optional
+    
+    try:
+        uvicorn.run(app, host=host, port=port, reload=reload)
+    finally:
+        # Clean up record when server exits
+        try:
+            from synth_ai.utils.tunnel_records import remove_service_record
+            remove_service_record(port)
+        except Exception:
+            pass

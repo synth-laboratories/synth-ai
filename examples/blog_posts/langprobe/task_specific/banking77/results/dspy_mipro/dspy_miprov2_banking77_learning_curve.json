@@ -1,0 +1,17 @@
+{
+  "framework": "dspy_miprov2",
+  "benchmark": "banking77",
+  "total_rollouts": 50,
+  "checkpoints": [
+    {
+      "rollout_count": 0,
+      "performance": 0.6667000000000001,
+      "checkpoint_pct": 0.0
+    },
+    {
+      "rollout_count": 50,
+      "performance": 0.7667,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

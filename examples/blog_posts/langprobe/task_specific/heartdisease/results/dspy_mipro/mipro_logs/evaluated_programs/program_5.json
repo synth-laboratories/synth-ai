@@ -1,0 +1,79 @@
+{
+  "predict.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [
+      {
+        "augmented": true,
+        "features": "age: 58\nsex: 0\ncp: 3\ntrestbps: 120\nchol: 340\nfbs: 0\nrestecg: 0\nthalach: 172\nexang: 0\noldpeak: 0.0\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The patient is a 58‑year‑old female (sex = 0) who reports atypical chest pain (cp = 3).  \nKey risk indicators:\n\n* **Age** – 58 years: moderate risk, but not in the highest age brackets (>70).\n* **Sex** – female: generally lower risk for coronary artery disease compared with male patients.\n* **Resting blood pressure** – 120 mm Hg: within normal limits.\n* **Cholesterol** – 340 mg/dL: high, but alone does not guarantee disease.\n* **Fasting blood sugar** – 0: normal.\n* **Resting ECG** – 0 (normal), **maximum heart rate** – 172 bpm (normal).\n* **Exercise‑induced angina** – 0: none.\n* **ST depression (oldpeak)** – 0.0: no ischemia during stress test.\n* **Slope of the ST segment** – 1 (upsloping): not suggestive of significant ischemia.\n* **Major vessel count (ca)** – 0: no major coronary artery involvement.\n* **Thalassemia status** – normal.\n\nWhen these variables are combined, the overall cardiovascular risk profile leans toward **no clinically significant heart disease**. While the elevated cholesterol and age are concerning, the absence of ischemic signs on ECG, lack of exercise angina, and normal stress‑test findings reduce the probability of heart disease.\n\nThus, the most probable classification is **no heart disease**.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 43\nsex: 1\ncp: 4\ntrestbps: 150\nchol: 247\nfbs: 0\nrestecg: 0\nthalach: 171\nexang: 0\noldpeak: 1.5\nslope: 1\nca: 0\nthal: normal",
+        "reasoning": "The decision is based on the typical risk profile used in the UCI Heart Disease dataset.  \nKey points considered:\n\n* **Age** – 43 yrs, which is below the usual high‑risk threshold (≥ 50–55).  \n* **Sex** – male, which slightly increases risk.  \n* **Blood pressure** – systolic 150 mmHg, moderately high but not extremely elevated.  \n* **Cholesterol** – 247 mg/dL, above normal but within a range that alone is not definitive.  \n* **Fasting blood sugar** – 0 (normal).  \n* **Resting ECG** – 0 (normal).  \n* **Maximum heart rate** – 171, within normal limits for age.  \n* **Exercise angina** – 0 (no).  \n* **ST‑segment depression (oldpeak)** – 1.5 mm, which is below the commonly used threshold of 2 mm for significant ischemia.  \n* **Slope** – 1 (upsloping), usually considered less suggestive of disease.  \n* **Number of major vessels (ca)** – 0, indicating no major coronary artery blockages.  \n* **Thalassemia status** – normal, no evidence of defect.\n\nCombining these factors, the overall risk profile is relatively low for clinically significant coronary artery disease. While there are a few borderline findings (age is young, slight hypertension, elevated cholesterol, moderate ST depression), none reach the typical thresholds that would strongly indicate heart disease in this dataset.\n\nThus the most probable classification is **no heart disease**.",
+        "classification": "0"
+      },
+      {
+        "augmented": true,
+        "features": "age: 50\nsex: 0\ncp: 3\ntrestbps: 120\nchol: 219\nfbs: 0\nrestecg: 0\nthalach: 158\nexang: 0\noldpeak: 1.6\nslope: 2\nca: 0\nthal: normal",
+        "reasoning": "The patient is a 50‑year‑old female with normal fasting blood sugar, normal resting ECG and no history of exercise‑induced angina.  \nKey risk indicators:  \n- **Age** 50 – moderate risk (higher risk above 55).  \n- **Sex** 0 (female) – generally lower risk than males.  \n- **Chest pain type (cp)** 3 (typical angina) – increases risk, but other factors are relatively favorable.  \n- **Resting blood pressure** 120 mmHg – within normal limits.  \n- **Cholesterol** 219 mg/dL – slightly elevated but not severely high.  \n- **Maximum heart rate (thalach)** 158 bpm – within a normal range for age.  \n- **Exercise angina (exang)** 0 – no angina during exercise.  \n- **ST depression (oldpeak)** 1.6 mm – indicates some ischemic change, but **slope** 2 (flat) and **no major coronary artery disease** (ca=0).  \n- **Thal** normal – no thalassemia defect.\n\nCombining these factors, the overall risk profile leans toward **no heart disease**, with the only moderate concern being the mild ischemic change on exercise testing. Thus, the predicted class is 0.",
+        "classification": "0"
+      },
+      {
+        "features": "age: 58\nsex: 1\ncp: 3\ntrestbps: 132\nchol: 224\nfbs: 0\nrestecg: 2\nthalach: 173\nexang: 0\noldpeak: 3.2\nslope: 1\nca: 2\nthal: reversible",
+        "classification": "1"
+      },
+      {
+        "features": "age: 44\nsex: 1\ncp: 2\ntrestbps: 120\nchol: 263\nfbs: 0\nrestecg: 0\nthalach: 173\nexang: 0\noldpeak: 0.0\nslope: 1\nca: 0\nthal: reversible",
+        "classification": "0"
+      },
+      {
+        "features": "age: 40\nsex: 1\ncp: 4\ntrestbps: 110\nchol: 167\nfbs: 0\nrestecg: 2\nthalach: 114\nexang: 1\noldpeak: 2.0\nslope: 2\nca: 0\nthal: reversible",
+        "classification": "1"
+      },
+      {
+        "features": "age: 56\nsex: 1\ncp: 3\ntrestbps: 130\nchol: 256\nfbs: 1\nrestecg: 2\nthalach: 142\nexang: 1\noldpeak: 0.6\nslope: 2\nca: 1\nthal: fixed",
+        "classification": "1"
+      },
+      {
+        "features": "age: 60\nsex: 1\ncp: 4\ntrestbps: 130\nchol: 206\nfbs: 0\nrestecg: 2\nthalach: 132\nexang: 1\noldpeak: 2.4\nslope: 2\nca: 2\nthal: reversible",
+        "classification": "1"
+      },
+      {
+        "features": "age: 56\nsex: 1\ncp: 2\ntrestbps: 120\nchol: 236\nfbs: 0\nrestecg: 0\nthalach: 178\nexang: 0\noldpeak: 0.8\nslope: 1\nca: 0\nthal: normal",
+        "classification": "0"
+      },
+      {
+        "features": "age: 49\nsex: 1\ncp: 2\ntrestbps: 130\nchol: 266\nfbs: 0\nrestecg: 0\nthalach: 171\nexang: 0\noldpeak: 0.6\nslope: 1\nca: 0\nthal: normal",
+        "classification": "0"
+      }
+    ],
+    "signature": {
+      "instructions": "You are given a list of 13 clinical measurements for a single patient, each on its own line in the format `field: value` (e.g., `age: 49`).  \nYour task is to decide whether this patient has heart disease (`1`) or not (`0`).\n\n**How to respond**\n\n1. **Reasoning** – Start with the exact prefix `Reasoning:` and describe, in a clear, step‑by‑step manner, how each feature influences the risk of heart disease.  \n   * Consider age, sex, chest pain type (cp), resting blood pressure (trestbps), cholesterol (chol), fasting blood sugar (fbs), resting ECG (restecg), maximum heart rate (thalach), exercise‑induced angina (exang), ST‑depression (oldpeak), slope of the ST‑segment, number of major vessels (ca), and thalassemia status (thal).  \n   * Note the dataset’s class imbalance and the typical patterns (e.g., chest pain type 4, higher `oldpeak`, `exang` = 0, `ca` ≥ 1).  \n   * Keep the explanation concise but complete; aim for a few sentences that logically lead to a conclusion.\n\n2. **Classification** – After the reasoning, add the exact prefix `Classification:` followed by a single digit: `1` for heart disease or `0` for no heart disease.\n\n**Example format**  \n```\nReasoning: ... (your explanation)\nClassification: 0\n```\n\nFollow this format exactly so the downstream system can parse both fields.  \n\nUse your medical knowledge of the UCI Heart Disease dataset, but also treat the input as a typical clinical case: if the risk factors lean strongly toward disease, output `1`; otherwise output `0`.  \n\nEnd your reply with no extra text beyond the two fields.",
+      "fields": [
+        {
+          "prefix": "Features:",
+          "description": "Patient features: age, sex, chest pain type, blood pressure, cholesterol, etc."
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Classification:",
+          "description": "Predicted classification: '1' for heart disease, '0' for no heart disease"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.11",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

@@ -1,0 +1,3 @@
+framework,benchmark,rollout_count,performance,checkpoint_pct
+dspy_gepa,hotpotqa,0,0.4667,0.0
+dspy_gepa,hotpotqa,500,0.5167,1.0
