@@ -1,0 +1,32 @@
+{
+  "predict.predict": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Classify heart disease based on patient features.\n\nGiven patient measurements and medical data, predict whether the patient has heart disease.",
+      "fields": [
+        {
+          "prefix": "Features:",
+          "description": "Patient features: age, sex, chest pain type, blood pressure, cholesterol, etc."
+        },
+        {
+          "prefix": "Reasoning: Let's think step by step in order to",
+          "description": "${reasoning}"
+        },
+        {
+          "prefix": "Classification:",
+          "description": "Predicted classification: '1' for heart disease, '0' for no heart disease"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.11",
+      "dspy": "3.0.4",
+      "cloudpickle": "3.1"
+    }
+  }
+}

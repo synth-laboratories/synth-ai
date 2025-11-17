@@ -1,0 +1,34 @@
+{
+  "prompt_template_id": "gepa_transformation_1",
+  "prompt_template_name": "GEPA Transformation 1",
+  "prompt_sections": [
+    {
+      "name": "instruction",
+      "content": "- Classify the iris species from the provided sepal and petal measurements.\n- Output exactly one of: `setosa`, `versicolor`, or `virginica`.\n- Do not add any explanatory text or additional symbols.",
+      "role": "system",
+      "order": 0
+    },
+    {
+      "name": "query",
+      "content": "Flower Measurements:\n{features}\n\nClassify this iris flower. Respond with one of: setosa, versicolor, or virginica.",
+      "role": "user",
+      "order": 1
+    }
+  ],
+  "prompt_variables": {
+    "features": "required"
+  },
+  "prompt_metadata": {
+    "transformation": {
+      "text_replacements": [
+        {
+          "old_text": "You are a botany classification assistant. Based on the flower's measurements, classify the iris species. Respond with one of: setosa, versicolor, or virginica.",
+          "new_text": "- Classify the iris species from the provided sepal and petal measurements.\n- Output exactly one of: `setosa`, `versicolor`, or `virginica`.\n- Do not add any explanatory text or additional symbols.",
+          "apply_to_role": "system",
+          "apply_to_order": null
+        }
+      ],
+      "example_injections": []
+    }
+  }
+}

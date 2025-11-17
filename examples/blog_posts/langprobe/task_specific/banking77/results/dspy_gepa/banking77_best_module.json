@@ -1,0 +1,11 @@
+{
+  "instructions": "None",
+  "demos": 0,
+  "prompt_details": {
+    "sample_prediction": {
+      "query": "I am still waiting on my card?",
+      "intent": "card_arrival",
+      "rationale": null
+    }
+  }
+}
