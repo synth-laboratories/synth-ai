@@ -563,6 +563,14 @@ class TestMIPROFileValidation:
                 "task_app_url": "http://localhost:8001",
                 "task_app_api_key": "test-key",
                 "env_name": "banking77",
+                "initial_prompt": {
+                    "id": "test-prompt",
+                    "messages": [{"role": "system", "content": "Test"}],
+                },
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                },
                 "mipro": {
                     "num_iterations": 10,
                     "num_evaluations_per_iteration": 5,
