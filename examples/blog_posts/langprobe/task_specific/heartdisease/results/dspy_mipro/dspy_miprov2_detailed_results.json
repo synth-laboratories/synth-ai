@@ -1,9 +1,9 @@
 {
   "best_score": 0.72,
   "baseline_score": 0.58,
-  "total_rollouts": 50,
+  "total_rollouts": 300,
   "actual_rollouts": 682,
-  "total_time": 48.81018304824829,
+  "total_time": 38.502482175827026,
   "num_candidates": 20,
   "num_trials": 10,
   "log_dir": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/langprobe/task_specific/heartdisease/results/dspy_mipro/mipro_logs",

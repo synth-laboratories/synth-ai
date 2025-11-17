@@ -260,6 +260,9 @@ async def run_dspy_library_optimization(
     try:
         start_time = time.time()
         
+        # Build model string from provider and model
+        model_str = f"{provider}/{model}" if provider else model
+        
         results = await run_func(
             task_app_url=task_app_url,
             train_seeds=train_seeds,
@@ -267,6 +270,7 @@ async def run_dspy_library_optimization(
             rollout_budget=rollout_limit,
             reflection_minibatch_size=reflection_minibatch_size,
             output_dir=None,  # Use default output dir
+            model=model_str,  # Pass model to adapter
         )
         
         elapsed_time = time.time() - start_time

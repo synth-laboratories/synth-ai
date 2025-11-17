@@ -159,8 +159,22 @@ async def run_dspy_gepa_pupa(
     rollout_budget: int = 300,
     reflection_minibatch_size: int = 3,
     output_dir: Optional[Path] = None,
+    model: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Run DSPy GEPA optimization on PUPA."""
+    """Run DSPy GEPA optimization on PUPA.
+    
+    Args:
+        task_app_url: Task app URL (for reference, not used directly)
+        train_seeds: Training seeds (default: 0-49, 50 examples)
+        val_seeds: Validation seeds (default: 50-79, 30 examples)
+        rollout_budget: Rollout budget (default: 300)
+        reflection_minibatch_size: Minibatch size for reflection evaluation (default: 3)
+        output_dir: Output directory
+        model: Model string (e.g., "groq/openai/gpt-oss-120b"). Defaults to "groq/openai/gpt-oss-120b"
+    
+    Returns:
+        Results dictionary
+    """
     import time
     start_time = time.time()
     
@@ -170,11 +184,26 @@ async def run_dspy_gepa_pupa(
     output_dir.mkdir(parents=True, exist_ok=True)
     _warn_if_dotenv_is_messy()
     
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY required")
+    # Determine API key and model based on provider
+    if model is None:
+        model = "groq/openai/gpt-oss-120b"  # Default for Pupa
     
-    lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=groq_api_key)
+    model_lower = model.lower()
+    if "groq" in model_lower:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required for Groq models (model: {model})")
+    elif "openai" in model_lower:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(f"OPENAI_API_KEY required for OpenAI models (model: {model})")
+    else:
+        # Default to Groq if provider unclear
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required (default provider, model: {model})")
+    
+    lm = dspy.LM(model, api_key=api_key)
     
     metric_calls = {"count": 0}
     

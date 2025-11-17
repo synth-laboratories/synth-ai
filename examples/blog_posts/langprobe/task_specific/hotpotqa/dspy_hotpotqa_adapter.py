@@ -259,7 +259,7 @@ async def run_dspy_miprov2_hotpotqa(
     if train_seeds is None:
         train_seeds = list(range(50))  # 0-49: 50 training examples
     if val_seeds is None:
-        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples
+        val_seeds = list(range(50, 150))  # 50-149: 100 validation examples (large valset for robust evaluation)
 
     # Filter examples by seeds
     train_examples = [hotpotqa_examples[i] for i in train_seeds if i < len(hotpotqa_examples)]
@@ -320,11 +320,10 @@ async def run_dspy_miprov2_hotpotqa(
 
         optimizer = MIPROv2(
             metric=tracked_metric,
-            num_candidates=20,
-            num_trials=10,                  # Number of trials per candidate              # Total candidates to generate (instruct + fewshot)
+            num_candidates=20,              # Total candidates to generate (instruct + fewshot)
             max_bootstrapped_demos=10,      # Max few-shot examples to bootstrap
             max_labeled_demos=10,           # Max labeled demonstrations
-            auto=None,                     # Disable auto presets
+            auto=None,                      # Disable auto presets
         )
 
         # Optimize with progress tracking
@@ -332,7 +331,8 @@ async def run_dspy_miprov2_hotpotqa(
 
         # Reset counter for optimization phase (exclude baseline calls)
         metric_calls["count"] = 0
-        optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset, num_trials=10)
+        # Set minibatch_size to 50 (valset has 100 examples, using larger minibatch for better evaluation)
+        optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset, num_trials=10, minibatch_size=50)
         optimization_metric_calls = metric_calls["count"]
 
         # Evaluate optimized module
@@ -594,6 +594,7 @@ async def run_dspy_gepa_hotpotqa(
     rollout_budget: int = 200,
     reflection_minibatch_size: int = 3,
     output_dir: Optional[Path] = None,
+    model: Optional[str] = None,
 ) -> dict[str, Any]:
     """Run DSPy GEPA optimization on HotPotQA.
 
@@ -604,6 +605,7 @@ async def run_dspy_gepa_hotpotqa(
         rollout_budget: Rollout budget (default: 200)
         reflection_minibatch_size: Minibatch size for reflection evaluation (default: 3)
         output_dir: Output directory
+        model: Model string (e.g., "groq/llama-3.3-70b-versatile"). Defaults to "groq/llama-3.3-70b-versatile"
 
     Returns:
         Results dictionary
@@ -618,13 +620,28 @@ async def run_dspy_gepa_hotpotqa(
     _warn_if_dotenv_is_messy()
 
     # Configure DSPy LM
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY required")
+    # Determine API key and model based on provider
+    if model is None:
+        model = "groq/llama-3.3-70b-versatile"  # Default for HotPotQA
+    
+    model_lower = model.lower()
+    if "groq" in model_lower:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required for Groq models (model: {model})")
+    elif "openai" in model_lower:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(f"OPENAI_API_KEY required for OpenAI models (model: {model})")
+    else:
+        # Default to Groq if provider unclear
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required (default provider, model: {model})")
 
-    # Main LM: llama-3.1-8b-instant via Groq
+    # Main LM: use provided model or default
     # Use context() instead of configure() to work across async tasks
-    lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=groq_api_key)
+    lm = dspy.LM(model, api_key=api_key)
 
     # ✅ ADD: Redirect DSPy verbose logging to file to prevent stdout spam
     import logging
@@ -654,11 +671,11 @@ async def run_dspy_gepa_hotpotqa(
     # Load dataset
     hotpotqa_examples = load_hotpotqa_dataset(split="validation")
 
-    # Select training and validation seeds (matching hotpotqa_gepa.toml)
+    # Select training and validation seeds (matching synth_gepa_config.yaml)
     if train_seeds is None:
         train_seeds = list(range(50))  # 0-49: 50 training examples
     if val_seeds is None:
-        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples
+        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples (matching config)
 
     # Filter examples by seeds
     train_examples = [hotpotqa_examples[i] for i in train_seeds if i < len(hotpotqa_examples)]
