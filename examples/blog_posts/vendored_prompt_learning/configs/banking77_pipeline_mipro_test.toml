@@ -1,0 +1,170 @@
+# Lightweight smoke-test config for the Banking77 two-step pipeline
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-pipeline-web-web.modal.run"
+task_app_id = "banking77-pipeline"
+
+[prompt_learning.initial_prompt]
+id = "banking77_pipeline_pattern_test"
+name = "Banking77 Pipeline Pattern (Test)"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Pipeline placeholder message; see metadata.pipeline_modules for concrete instructions."
+order = 0
+
+[prompt_learning.initial_prompt.metadata]
+pipeline_modules = [
+  {
+    name = "classifier",
+    instruction_text = "Classify the customer query into a Banking77 intent and invoke the tool.",
+    few_shots = [],
+  },
+  {
+    name = "calibrator",
+    instruction_text = "Validate or correct the classifier suggestion, then emit the final intent via the tool.",
+    few_shots = [],
+  },
+]
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-pipeline-test"
+
+[prompt_learning.env_config]
+pool = "train"
+
+[prompt_learning.mipro]
+env_name = "banking77_pipeline"
+num_iterations = 2
+num_evaluations_per_iteration = 2
+batch_size = 4
+max_concurrent = 8
+meta_model = "gpt-4o-mini"
+meta_model_provider = "openai"
+few_shot_score_threshold = 0.75
+max_instructions = 2
+duplicate_retry_limit = 6
+bootstrap_train_seeds = [0, 1, 2, 3]
+online_pool = [4, 5, 6, 7]
+test_pool = [8, 9]
+
+[prompt_learning.mipro.tpe]
+gamma = 0.25
+n_candidates = 24
+n_startup_trials = 4
+epsilon = 0.2
+categorical_alpha = 1.0
+prior_weight = 0.05
+
+[prompt_learning.mipro.demo]
+max_few_shot_examples = 3
+sets_per_size = 4
+include_empty = true
+
+[prompt_learning.mipro.grounding]
+n = 6
+temperature = 0.7
+max_tokens = 400
+
+[prompt_learning.mipro.meta_update]
+enabled = false
+# Banking77 Multi-Step Pipeline (MIPROv2) - Test Configuration
+# Reduced-iteration settings for CI and quick verification
+
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8112"
+task_app_id = "banking77-pipeline"
+
+[prompt_learning.initial_prompt]
+id = "banking77_pipeline_pattern"
+name = "Banking77 Pipeline Classification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You orchestrate a two-stage Banking77 pipeline. The classifier proposes an intent and the calibrator verifies it. Always return the final intent label using the `banking77_classify` tool."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Customer Query: {query}\n\nEnsure both classifier and calibrator stay within the Banking77 intent set."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+query = "REQUIRED"
+
+[prompt_learning.initial_prompt.metadata]
+pipeline_modules = [
+  { name = "classifier", instruction_text = "Map the customer query to the closest Banking77 intent. Stay precise, lean on the official label list, and respond via `banking77_classify`.", few_shots = [] },
+  { name = "calibrator", instruction_text = "Audit the classifier suggestion. Confirm when it matches the query; otherwise pick the best Banking77 intent and reply with `banking77_classify`.", few_shots = [] }
+]
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-pipeline-mipro"
+
+[prompt_learning.env_config]
+pool = "train"
+
+[prompt_learning.mipro]
+env_name = "banking77-pipeline"
+num_iterations = 4
+num_evaluations_per_iteration = 3
+batch_size = 3
+max_concurrent = 8
+meta_model = "gpt-4o-mini"
+meta_model_provider = "openai"
+few_shot_score_threshold = 0.80
+max_instructions = 3
+
+bootstrap_train_seeds = [0, 1, 2, 3]
+online_pool = [4, 5, 6, 7]
+test_pool = [8, 9, 10, 11]
+
+[prompt_learning.mipro.tpe]
+gamma = 0.25
+n_candidates = 16
+n_startup_trials = 5
+epsilon = 0.1
+categorical_alpha = 1.0
+prior_weight = 0.05
+
+[prompt_learning.mipro.demo]
+max_few_shot_examples = 4
+sets_per_size = 3
+include_empty = true
+
+[prompt_learning.mipro.grounding]
+n = 6
+temperature = 0.7
+max_tokens = 500
+
+[prompt_learning.mipro.meta_update]
+enabled = true
+every_iterations = 2
+topk_success = 3
+topk_failure = 3
+validate_on_batch = 12
+keep_k = 8
+dedup_token_overlap = 0.8
+regen_temperature_decay = 0.95
+
+[[prompt_learning.mipro.modules]]
+module_id = "classifier"
+max_instruction_slots = 2
+max_demo_slots = 4
+
+[[prompt_learning.mipro.modules]]
+module_id = "calibrator"
+max_instruction_slots = 2
+max_demo_slots = 4

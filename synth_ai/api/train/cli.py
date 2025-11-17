@@ -1609,7 +1609,8 @@ def handle_prompt_learning(
     click.echo(f"POST {create_url}")
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
     
-    resp = http_post(create_url, headers=headers, json_body=build.payload)
+    # Increase timeout for job creation (can take longer due to validation checks)
+    resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)
     try:
         js = resp.json()
     except json.JSONDecodeError as e:

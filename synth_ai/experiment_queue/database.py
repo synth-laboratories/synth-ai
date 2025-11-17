@@ -103,6 +103,52 @@ def init_db() -> None:
     # Create our application tables
     Base.metadata.create_all(engine)
     
+    # Migrate schema: add status_json column if it doesn't exist
+    with engine.connect() as conn:
+        # Check if status_json column exists
+        result = conn.execute(text(
+            "SELECT COUNT(*) FROM pragma_table_info('experiment_jobs') WHERE name='status_json'"
+        ))
+        column_exists = result.scalar() > 0
+        
+        if not column_exists:
+            # Add status_json column
+            conn.execute(text(
+                "ALTER TABLE experiment_jobs ADD COLUMN status_json TEXT"
+            ))
+            conn.commit()
+    
+    # Migrate schema: create job_execution_logs table if it doesn't exist
+    with engine.connect() as conn:
+        # Check if job_execution_logs table exists
+        result = conn.execute(text(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='job_execution_logs'"
+        ))
+        table_exists = result.scalar() > 0
+        
+        if not table_exists:
+            # Create job_execution_logs table
+            conn.execute(text("""
+                CREATE TABLE job_execution_logs (
+                    log_id VARCHAR(64) PRIMARY KEY,
+                    job_id VARCHAR(64) NOT NULL,
+                    command TEXT NOT NULL,
+                    working_directory TEXT NOT NULL,
+                    returncode INTEGER NOT NULL,
+                    stdout TEXT NOT NULL DEFAULT '',
+                    stderr TEXT NOT NULL DEFAULT '',
+                    python_executable VARCHAR(255),
+                    environment_keys TEXT,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (job_id) REFERENCES experiment_jobs(job_id) ON DELETE CASCADE
+                )
+            """))
+            # Create indexes
+            conn.execute(text("CREATE INDEX idx_job_execution_logs_job ON job_execution_logs(job_id)"))
+            conn.execute(text("CREATE INDEX idx_job_execution_logs_returncode ON job_execution_logs(returncode)"))
+            conn.execute(text("CREATE INDEX idx_job_execution_logs_created ON job_execution_logs(created_at)"))
+            conn.commit()
+    
     # Force WAL mode one more time after table creation
     # This ensures it's set even if table creation changed something
     with engine.connect() as conn:

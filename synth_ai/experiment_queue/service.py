@@ -48,11 +48,14 @@ def _normalize_statuses(values: Iterable[str | ExperimentStatus] | None) -> list
 
 
 def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
-    """Validate that a job spec has all required files.
+    """Validate job spec and reject if config_overrides cannot be applied.
+    
+    This prevents jobs from being created with invalid config overrides that would
+    silently fail or cause confusion (e.g., limits not being applied).
     
     Raises:
         FileNotFoundError: If config file or referenced env file doesn't exist
-        ValueError: If config file is invalid
+        ValueError: If config file is invalid or config_overrides cannot be applied
     """
     from pathlib import Path
     
@@ -62,6 +65,27 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
     
     if not config_path.suffix == ".toml":
         raise ValueError(f"Config file must be a TOML file: {config_path}")
+    
+    # VALIDATION: Verify config_overrides can be applied (fail fast)
+    if job_spec.config_overrides:
+        try:
+            from .config_utils import prepare_config_file
+            
+            # Try to apply overrides - this will raise ValueError if they can't be applied
+            prepared = prepare_config_file(config_path, job_spec.config_overrides)
+            prepared.cleanup()  # Clean up immediately after validation
+        except ValueError as e:
+            # Re-raise with clearer message
+            raise ValueError(
+                f"Config override validation failed for job spec. "
+                f"This job will be rejected to prevent confusion from limits not being applied.\n"
+                f"Error: {e}\n"
+                f"Config: {config_path}\n"
+                f"Overrides: {job_spec.config_overrides}"
+            ) from e
+        except Exception as e:
+            # Other errors (file not found, etc.) should propagate
+            raise
     
     # Check if config references an env file
     try:
@@ -88,7 +112,7 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
                     f"  Referenced as: {env_file_path}"
                 )
     except Exception as e:
-        if isinstance(e, FileNotFoundError):
+        if isinstance(e, (FileNotFoundError, ValueError)):
             raise
         # If we can't parse the config, that's okay - it will fail later during execution
         pass
@@ -139,15 +163,60 @@ def create_experiment(request: ExperimentSubmitRequest) -> Experiment:
     return fetch_experiment(experiment_id)  # type: ignore[return-value]
 
 
+def update_job_status(job_id: str, status_json: dict[str, Any]) -> None:
+    """Update the status_json field for a job.
+    
+    Merges new status_json with existing status_json, preserving existing fields
+    that aren't being updated. This ensures partial updates don't clear existing data.
+    
+    Args:
+        job_id: Job ID to update
+        status_json: Status dictionary to merge (only non-None values update existing fields)
+        
+    Raises:
+        AssertionError: If job_id is invalid or status_json is not a dict
+    """
+    # Validate inputs
+    assert isinstance(job_id, str), (
+        f"job_id must be str, got {type(job_id).__name__}: {job_id}"
+    )
+    assert job_id, "job_id cannot be empty"
+    assert isinstance(status_json, dict), (
+        f"status_json must be dict, got {type(status_json).__name__}: {status_json}"
+    )
+    
+    init_db()
+    with session_scope() as session:
+        job = session.get(ExperimentJob, job_id)
+        assert job is not None, f"Job {job_id} not found in database"
+        
+        # Merge with existing status_json to preserve fields not being updated
+        existing = job.status_json or {}
+        assert isinstance(existing, dict), (
+            f"Existing status_json must be dict, got {type(existing).__name__}: {existing}"
+        )
+        
+        merged = {**existing, **status_json}
+        assert isinstance(merged, dict), (
+            f"Merged status_json must be dict, got {type(merged).__name__}"
+        )
+        
+        job.status_json = merged
+        session.commit()
+
+
 def fetch_experiment(experiment_id: str) -> Experiment | None:
-    """Load an experiment with jobs and trials."""
+    """Load an experiment with jobs and trials.
+    
+    Eagerly loads jobs.trials relationship to avoid DetachedInstanceError.
+    """
     init_db()
     session = get_session()
     try:
         experiment = (
             session.query(Experiment)
             .options(
-                selectinload(Experiment.jobs),
+                selectinload(Experiment.jobs).selectinload(ExperimentJob.trials),
                 selectinload(Experiment.trials),
             )
             .filter(Experiment.experiment_id == experiment_id)

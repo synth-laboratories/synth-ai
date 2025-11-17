@@ -34,9 +34,9 @@ async def main():
 
     args = parser.parse_args()
 
-    # Run MIPROv2 optimization with seeds matching hotpotqa_mipro.toml
-    train_seeds = list(range(50))  # 0-49: 50 training examples
-    val_seeds = list(range(50, 80))  # 50-79: 30 validation examples
+    # Run MIPROv2 optimization with seeds matching synth_mipro_config.yaml (hotpotqa_dspy)
+    train_seeds = list(range(50))  # 0-49: 50 training examples (matches bootstrap_train_seeds)
+    val_seeds = list(range(50, 150))  # 50-149: 100 validation examples (large valset for robust evaluation)
 
     results = await run_dspy_miprov2_hotpotqa(
         task_app_url=args.task_app_url,

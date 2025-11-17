@@ -34,9 +34,9 @@ async def main():
 
     args = parser.parse_args()
 
-    # Run MIPROv2 optimization with seeds matching heartdisease_mipro.toml
-    train_seeds = list(range(30))  # 0-29: 30 training examples
-    val_seeds = list(range(30, 80))  # 30-79: 50 validation examples
+    # Run MIPROv2 optimization with seeds matching synth_mipro_config.yaml (heartdisease_dspy)
+    train_seeds = list(range(30))  # 0-29: 30 training examples (matches bootstrap_train_seeds)
+    val_seeds = list(range(30, 130))  # 30-129: 100 validation examples (large valset for robust evaluation)
 
     results = await run_dspy_miprov2_heartdisease(
         task_app_url=args.task_app_url,

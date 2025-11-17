@@ -136,19 +136,42 @@ async def call_chat_completion(
     if not model:
         raise RuntimeError("policy.config.model required for rollout")
 
-    temperature = policy_config.get("temperature", 0.0)
+    # Default temperature to 1.0 (API default) instead of 0.0
+    # Some models (e.g., certain OpenAI models) only support the default value of 1.0
+    # If temperature is explicitly set to 0.0 and the model doesn't support it, we'll get an error
+    # So we default to 1.0 (API standard) and let callers override if needed
+    temperature = policy_config.get("temperature", 1.0)
     max_tokens = policy_config.get("max_tokens")
     max_completion_tokens = policy_config.get("max_completion_tokens", max_tokens or 512)
 
     inference_url = policy_config.get("inference_url") or ""
+    
+    # If no inference_url provided, default based on provider
+    if not inference_url:
+        provider = (policy_config.get("provider") or "").lower()
+        if provider == "groq":
+            inference_url = "https://api.groq.com/openai/v1"
+        elif provider == "openai":
+            inference_url = "https://api.openai.com/v1"
+        else:
+            # Default to Groq if provider not specified
+            inference_url = "https://api.groq.com/openai/v1"
+    
     final_url = _resolve_inference_url(str(inference_url))
 
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
         "max_completion_tokens": max_completion_tokens,
     }
+    
+    # Only include temperature if it's explicitly set (not the default)
+    # Some models only support the default value of 1.0, so if temperature is 1.0,
+    # we can omit it to let the API use its default
+    # However, if it's explicitly set to something other than 1.0, include it
+    # If temperature is 0.0 and the model doesn't support it, we'll get an error - that's expected
+    if temperature != 1.0 or "temperature" in policy_config:
+        payload["temperature"] = temperature
     # Add reasoning_effort if specified (for o1 models)
     if "reasoning_effort" in policy_config:
         payload["reasoning_effort"] = policy_config["reasoning_effort"]
@@ -158,42 +181,49 @@ async def call_chat_completion(
         payload["tool_choice"] = tool_choice
 
     # Choose API key based on inference URL
-    # Prefer provider-specific keys matching the URL, fall back to OPENAI/SYNTH
-    api_key = None
-    final_url_lower = final_url.lower()
-    if "groq" in final_url_lower:
-        api_key = os.getenv("GROQ_API_KEY")
-    elif "openai.com" in final_url_lower or "api.openai.com" in final_url_lower:
-        api_key = os.getenv("OPENAI_API_KEY")
-    else:
-        # Fallback: try OPENAI first, then SYNTH, then GROQ
-        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY") or os.getenv("GROQ_API_KEY")
+    # First check policy_config for api_key (for direct testing)
+    api_key = policy_config.get("api_key")
+    
+    # If not in policy_config, check environment variables
+    if not api_key:
+        final_url_lower = final_url.lower()
+        if "groq" in final_url_lower:
+            api_key = os.getenv("GROQ_API_KEY")
+        elif "openai.com" in final_url_lower or "api.openai.com" in final_url_lower:
+            api_key = os.getenv("OPENAI_API_KEY")
+        else:
+            # Fallback: try OPENAI first, then SYNTH, then GROQ
+            api_key = os.getenv("OPENAI_API_KEY") or os.getenv("SYNTH_API_KEY") or os.getenv("GROQ_API_KEY")
 
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
+    # Debug: log API key presence (but not the key itself)
+    print(f"[CALL_CHAT_COMPLETION] API key present: {bool(api_key)}, URL: {final_url}", flush=True)
+    
     async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
         response = await client.post(final_url, json=payload, headers=headers)
 
     try:
         data = response.json()
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+        print(f"[CALL_CHAT_COMPLETION] Invalid JSON response (status {response.status_code}): {response.text[:800]}", flush=True)
         raise HTTPException(
             status_code=502,
             detail=f"Inference provider returned invalid JSON: {response.text[:800]}",
         ) from exc
 
     if response.status_code >= 500:
+        print(f"[CALL_CHAT_COMPLETION] Server error (status {response.status_code}): {data}", flush=True)
         raise HTTPException(
             status_code=502,
             detail=f"Inference provider returned an error: {data}",
         )
     if response.status_code >= 400:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid inference request: {data}",
-        )
+        print(f"[CALL_CHAT_COMPLETION] Client error (status {response.status_code}): {data}", flush=True)
+        # Don't raise here - let the caller handle it, but log the error
+        # The error will be caught in rollout_executor and stored in error_info
 
     response_text = ""
     choices = data.get("choices") if isinstance(data, Mapping) else None
