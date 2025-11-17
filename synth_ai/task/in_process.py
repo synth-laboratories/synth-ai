@@ -12,9 +12,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
-import uvicorn
-from uvicorn._types import ASGIApplication
-
 from synth_ai.cloudflare import (
     ensure_cloudflared_installed,
     open_quick_tunnel_with_dns_verification,
@@ -24,6 +21,9 @@ from synth_ai.cloudflare import (
 from synth_ai.task.server import TaskAppConfig, create_task_app
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+from uvicorn._types import ASGIApplication
+
+import uvicorn
 
 logger = logging.getLogger(__name__)
 
