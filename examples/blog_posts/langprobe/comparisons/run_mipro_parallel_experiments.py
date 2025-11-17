@@ -214,6 +214,9 @@ def _prepare_experiment_request(
                     config_overrides[f"{key}.{nested_key}"] = nested_value
             else:
                 config_overrides[key] = value
+                # Debug log meta_model overrides
+                if "meta_model" in key:
+                    print(f"  [DEBUG] Setting meta_model override: {key} = {value}")
     
     # Format benchmark name for display (capitalize first letter)
     display_name = benchmark_name[0].upper() + benchmark_name[1:] if benchmark_name else benchmark_name
