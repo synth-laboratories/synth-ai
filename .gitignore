@@ -71,6 +71,12 @@ performance_results.json
 **/*.log
 test_output.log
 
+# Lock files
+*.lock
+**/*.lock
+logs/
+**/logs/
+
 # Temporary files and snapshots
 *.snapshot.gz
 **/*.snapshot.gz
