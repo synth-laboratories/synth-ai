@@ -7,7 +7,7 @@
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 ![Blacksmith CI](https://img.shields.io/badge/CI-Blacksmith%20Worker-blue)
 
-> **Synth-AI** — Reinforcement Learning-as-a-Service for agents.  
+> **Synth-AI** — Serverless Posttraining for Agents.  
 > **Docs:** [Get Started →](https://docs.usesynth.ai/sdk/get-started)
 
 ---
@@ -43,7 +43,7 @@ uvx synth-ai baseline  # For coding agents: get baseline scores
 When you run `uvx synth-ai setup`, the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
 
 
-Fast and effective reinforcement learning for agents, via an API.  
+Fast and effective serverless posttraining for agents, via an API.  
 Easily scale GPU topologies, train multi-node, and integrate with existing agent software.
 
 ### Highlights
