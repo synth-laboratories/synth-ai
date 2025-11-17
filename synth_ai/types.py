@@ -1,5 +1,6 @@
-import typing
 from typing import Literal
+
+import typing
 
 
 TrainType = Literal[

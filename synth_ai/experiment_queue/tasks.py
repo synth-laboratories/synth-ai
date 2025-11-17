@@ -17,6 +17,7 @@ from typing import Any
 from dotenv import load_dotenv
 from celery.utils.log import get_task_logger
 
+from .api_schemas import BackendEventsResponse
 from .celery_app import celery_app
 from .config import load_config
 from .config_utils import PreparedConfig, prepare_config_file
@@ -29,7 +30,6 @@ from .models import (
     ExperimentStatus,
     JobExecutionLog,
 )
-from .api_schemas import BackendEventsResponse
 from .results import ResultSummary, collect_result_summary
 from .status import ExperimentStatusTracker
 from .status_tracker import extract_config_info, update_status_from_output
