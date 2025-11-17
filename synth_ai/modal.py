@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 from modal.config import config
+
 from synth_ai.cfgs import ModalDeployCfg
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.apps.modal_app import validate_modal_app
