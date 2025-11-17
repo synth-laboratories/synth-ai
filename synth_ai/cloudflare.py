@@ -21,15 +21,15 @@ from urllib.parse import urlparse
 import click
 import httpx
 import requests
-import uvicorn
 from starlette.types import ASGIApp
-
 from synth_ai.cfgs import CFDeployCfg
 from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+
+import uvicorn
 
 logger = logging.getLogger(__name__)
 

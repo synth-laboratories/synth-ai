@@ -1,7 +1,5 @@
-from typing import Literal
-
 import typing
-
+from typing import Literal
 
 TrainType = Literal[
     "prompt",

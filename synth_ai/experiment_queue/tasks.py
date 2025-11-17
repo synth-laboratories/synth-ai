@@ -14,8 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
 from celery.utils.log import get_task_logger
+from dotenv import load_dotenv
 
 from .api_schemas import BackendEventsResponse
 from .celery_app import celery_app

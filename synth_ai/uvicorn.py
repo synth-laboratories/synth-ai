@@ -4,13 +4,13 @@ import sys
 import threading
 from pathlib import Path
 
-import uvicorn
 from starlette.types import ASGIApp
-
 from synth_ai.cfgs import LocalDeployCfg
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+
+import uvicorn
 
 _THREADS: dict[int, threading.Thread] = {}
 _PROCESSES: dict[int, subprocess.Popen[str]] = {}

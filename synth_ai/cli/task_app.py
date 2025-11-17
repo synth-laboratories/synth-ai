@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import click
-
 from synth_ai.utils.apps.common import run_ruff_check
 from synth_ai.utils.apps.task_app import find_task_apps_in_cwd, validate_task_app
 from synth_ai.utils.paths import print_paths_formatted
