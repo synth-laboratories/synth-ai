@@ -529,9 +529,9 @@ def build_prompt_learning_payload(
             bootstrap_after_convert = mipro_section.get("bootstrap_train_seeds")
             online_after_convert = mipro_section.get("online_pool")
             if bootstrap_after_convert is None:
-                assert False, f"bootstrap_train_seeds missing after conversion! mipro_section keys: {list(mipro_section.keys())}, bootstrap_before_convert: {bootstrap_before_convert}"
+                raise AssertionError(f"bootstrap_train_seeds missing after conversion! mipro_section keys: {list(mipro_section.keys())}, bootstrap_before_convert: {bootstrap_before_convert}")
             if online_after_convert is None:
-                assert False, f"online_pool missing after conversion! mipro_section keys: {list(mipro_section.keys())}, online_before_convert: {online_before_convert}"
+                raise AssertionError(f"online_pool missing after conversion! mipro_section keys: {list(mipro_section.keys())}, online_before_convert: {online_before_convert}")
             
             # CRITICAL: Get fields from Pydantic model FIRST (most reliable)
             # These fields MUST be present - get them from the source of truth
@@ -678,9 +678,9 @@ def build_prompt_learning_payload(
         
         # ASSERT: Fields are in config_dict after reorganization
         assert config_dict.get("prompt_learning", {}).get("mipro", {}).get("bootstrap_train_seeds") is not None, \
-            f"bootstrap_train_seeds missing from config_dict after reorganization!"
+            "bootstrap_train_seeds missing from config_dict after reorganization!"
         assert config_dict.get("prompt_learning", {}).get("mipro", {}).get("online_pool") is not None, \
-            f"online_pool missing from config_dict after reorganization!"
+            "online_pool missing from config_dict after reorganization!"
         
         # CRITICAL: Verify MIPRO required fields are present after merge
         # This is the final check before sending to backend (runs whether or not overrides were applied)
@@ -856,7 +856,7 @@ def build_prompt_learning_payload(
     if pl_cfg.algorithm == "mipro":
         import json
         mipro_debug = config_dict.get("prompt_learning", {}).get("mipro", {})
-        print(f"\n🔍 DEBUG: MIPRO section in config_body before sending:")
+        print("\n🔍 DEBUG: MIPRO section in config_body before sending:")
         print(f"  Type: {type(mipro_debug)}")
         print(f"  Keys: {list(mipro_debug.keys()) if isinstance(mipro_debug, dict) else 'NOT A DICT'}")
         print(f"  bootstrap_train_seeds present: {mipro_debug.get('bootstrap_train_seeds') is not None}")

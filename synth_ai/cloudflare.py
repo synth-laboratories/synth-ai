@@ -30,10 +30,8 @@ from synth_ai.utils.paths import (
     REPO_ROOT,
     configure_import_paths,
 )
-from starlette.types import ASGIApp
-
 import uvicorn
-from uvicorn._types import ASGIApplication
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal, TypeAlias, cast, get_args
 
 import click
+
 from synth_ai.cfgs import CFDeployCfg, LocalDeployCfg, ModalDeployCfg
 from synth_ai.cloudflare import deploy_app_tunnel
 from synth_ai.modal import deploy_app_modal
@@ -11,9 +12,9 @@ from synth_ai.utils import (
     log_error,
     log_info,
 )
+from synth_ai.utils.apps.task_app import find_task_apps_in_cwd, validate_task_app
 from synth_ai.utils.env import get_synth_and_env_keys
 from synth_ai.utils.paths import print_paths_formatted
-from synth_ai.utils.apps.task_app import validate_task_app, find_task_apps_in_cwd
 from synth_ai.uvicorn import deploy_app_uvicorn
 
 RuntimeType: TypeAlias = Literal[
@@ -175,7 +176,6 @@ def deploy_cmd(
                 )
             case "modal":
                 log_info("starting modal deploy")
-                wait = bool(kwargs.get("wait", False))
                 deploy_app_modal(ModalDeployCfg.create_from_kwargs(
                     task_app_path=task_app_path,
                     synth_api_key=synth_api_key,

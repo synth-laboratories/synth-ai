@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import functools
+from pathlib import Path
 from typing import Any, Callable, TypeVar
 
 T = TypeVar("T")
@@ -87,7 +87,7 @@ def validate_range(
     if value is None:
         assert allow_none, f"{name} cannot be None"
         return None
-    assert isinstance(value, (int, float)), (
+    assert isinstance(value, int | float), (
         f"{name} must be int | float, got {type(value).__name__}: {value}"
     )
     if min_val is not None:
@@ -151,6 +151,7 @@ def validated(func: Callable[..., T]) -> Callable[..., T]:
     Currently just passes through the function unchanged.
     """
     return func
+
 
 
 

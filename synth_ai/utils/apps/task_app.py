@@ -278,13 +278,13 @@ def _validate_rollout_payload(payload: Any) -> None:
 
     # Validate types - episode_returns can be either a list or a scalar
     episode_returns = metrics.get("episode_returns")
-    if not isinstance(episode_returns, (list, int, float)):
+    if not isinstance(episode_returns, list | int | float):
         raise ValueError(
             f"`/rollout` metrics.episode_returns must be a list or number, got {type(episode_returns).__name__}"
         )
 
     mean_return = metrics.get("mean_return")
-    if not isinstance(mean_return, (int, float)):
+    if not isinstance(mean_return, int | float):
         raise ValueError(
             f"`/rollout` metrics.mean_return must be a number, got {type(mean_return).__name__}"
         )

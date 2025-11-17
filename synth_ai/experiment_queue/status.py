@@ -151,7 +151,7 @@ class ExperimentStatus:
                 return None
             if isinstance(value, int):
                 return value
-            if isinstance(value, (float, str)):
+            if isinstance(value, float | str):
                 try:
                     return int(float(value))
                 except (ValueError, TypeError) as e:
@@ -165,7 +165,7 @@ class ExperimentStatus:
         def coerce_float(key: str, value: Any) -> float | None:
             if value is None:
                 return None
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 return float(value)
             if isinstance(value, str):
                 try:

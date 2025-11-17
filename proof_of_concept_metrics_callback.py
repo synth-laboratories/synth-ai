@@ -6,7 +6,6 @@ that progress events are emitted, proving the fix is correct.
 """
 
 import asyncio
-import time
 from typing import Any, Dict, Optional
 
 
@@ -148,7 +147,7 @@ def create_emit_metric_callback(emitter: MockPostgrestEmitter, job_id: str, opti
                         },
                         level="info",
                     )
-                    print(f"  ✅ PROGRESS EVENT EMITTED! (throttled to every 10s)")
+                    print("  ✅ PROGRESS EVENT EMITTED! (throttled to every 10s)")
         except Exception as e:
             print(f"  ❌ Error in _emit_metric: {e}")
     

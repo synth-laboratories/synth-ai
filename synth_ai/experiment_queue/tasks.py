@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shlex
@@ -28,8 +29,8 @@ from .models import (
     ExperimentStatus,
     JobExecutionLog,
 )
+from .api_schemas import BackendEventsResponse
 from .results import ResultSummary, collect_result_summary
-from .api_schemas import BackendEventsResponse, BackendJobEvent
 from .status import ExperimentStatusTracker
 from .status_tracker import extract_config_info, update_status_from_output
 from .trace_storage import persist_trials_from_summary, update_experiment_metadata
@@ -194,7 +195,7 @@ def _poll_backend_progress(
     import requests
     
     # Import BackendJobEvent locally to ensure it's available in this function's scope
-    from .api_schemas import BackendJobEvent
+    from .api_schemas import BackendJobEvent  # noqa: F811
     
     # Get logger for this thread (logger from parent thread may not work correctly)
     poller_logger = logging.getLogger(f"synth_ai.experiment_queue.poller.{backend_job_id}")
@@ -232,7 +233,7 @@ def _poll_backend_progress(
     last_progress_time: float | None = None
     last_rollouts_completed: int | None = None
     last_progress_seq = 0
-    STUCK_THRESHOLD_SECONDS = 600.0  # 10 minutes without progress = stuck
+    stuck_threshold_seconds = 600.0  # 10 minutes without progress = stuck
     
     poller_logger.info("📡 Starting progress poller for backend job %s (URL: %s)", backend_job_id, url)
     
@@ -331,7 +332,7 @@ def _poll_backend_progress(
                     assert raw_data is not None, "API returned None response"
                     
                     # Parse response with validation
-                    assert isinstance(raw_data, (dict, list)), (
+                    assert isinstance(raw_data, dict | list), (
                         f"API response must be dict or list, got {type(raw_data).__name__}: {raw_data}"
                     )
                     
@@ -435,7 +436,7 @@ def _poll_backend_progress(
                                 )
                             
                             if eta_seconds is not None:
-                                assert isinstance(eta_seconds, (int, float)), (
+                                assert isinstance(eta_seconds, int | float), (
                                     f"eta_seconds must be int | float, got {type(eta_seconds).__name__}: {eta_seconds}"
                                 )
                                 assert eta_seconds >= 0, (
@@ -443,7 +444,7 @@ def _poll_backend_progress(
                                 )
                             
                             if best_score is not None:
-                                assert isinstance(best_score, (int, float)), (
+                                assert isinstance(best_score, int | float), (
                                     f"best_score must be int | float, got {type(best_score).__name__}: {best_score}"
                                 )
                                 assert 0 <= best_score <= 1, (
@@ -451,7 +452,7 @@ def _poll_backend_progress(
                                 )
                             
                             if progress_pct is not None:
-                                assert isinstance(progress_pct, (int, float)), (
+                                assert isinstance(progress_pct, int | float), (
                                     f"progress_pct must be int | float, got {type(progress_pct).__name__}: {progress_pct}"
                                 )
                                 assert 0 <= progress_pct <= 100, (
@@ -521,7 +522,7 @@ def _poll_backend_progress(
                                 elif last_progress_time is not None:
                                     # Check if stuck (no progress for threshold time)
                                     time_since_progress = current_time - last_progress_time
-                                    if time_since_progress >= STUCK_THRESHOLD_SECONDS:
+                                    if time_since_progress >= stuck_threshold_seconds:
                                         poller_logger.warning(
                                             "⚠️  Job %s appears STUCK: No progress for %.1f minutes (last: %s/%s rollouts at seq %d)",
                                             backend_job_id,
@@ -531,7 +532,7 @@ def _poll_backend_progress(
                                             last_progress_seq,
                                         )
                                         # Emit warning event
-                                        try:
+                                        with contextlib.suppress(Exception):
                                             status_tracker.update(
                                                 custom_fields={
                                                     **(custom_fields or {}),
@@ -539,8 +540,6 @@ def _poll_backend_progress(
                                                     "time_since_progress_seconds": time_since_progress,
                                                 }
                                             )
-                                        except Exception:
-                                            pass  # Don't fail on warning update
                             else:
                                 # No rollouts info - log anyway
                                 poller_logger.info(
@@ -578,7 +577,7 @@ def _poll_backend_progress(
                                 last_seq,
                             )
                             # Emit warning in status_json
-                            try:
+                            with contextlib.suppress(Exception):
                                 status_tracker.update(
                                     custom_fields={
                                         "no_event_polls": no_event_count,
@@ -586,15 +585,12 @@ def _poll_backend_progress(
                                         "stuck_warning": True,
                                     }
                                 )
-                            except Exception:
-                                pass  # Don't fail on warning update
                         
                         poller_logger.info("Progress poller heartbeat for job %s (no new events, last_seq=%d, consecutive_no_events=%d)", backend_job_id, last_seq, no_event_count)
                     else:
                         # Reset counter when we get events
-                        if hasattr(_poll_backend_progress, '_no_event_polls'):
-                            if backend_job_id in _poll_backend_progress._no_event_polls:  # type: ignore[attr-defined]
-                                _poll_backend_progress._no_event_polls[backend_job_id] = 0  # type: ignore[attr-defined]
+                        if hasattr(_poll_backend_progress, '_no_event_polls') and backend_job_id in _poll_backend_progress._no_event_polls:  # type: ignore[attr-defined]
+                            _poll_backend_progress._no_event_polls[backend_job_id] = 0  # type: ignore[attr-defined]
                         
                         event_types_str = ", ".join(f"{k}:{v}" for k, v in sorted(event_types_seen.items()))
                         poller_logger.info(
@@ -903,9 +899,9 @@ def _finalize_job(
             # ✅ ADD: Update status_json with final stats from backend job metadata
             if job.backend_job_id:
                 try:
-                    from .service import update_job_status
                     import requests
-                    import os
+                    
+                    from .service import update_job_status
                     
                     # Fetch backend job metadata
                     config = load_config()
@@ -1102,10 +1098,10 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
         
         # Extract policy and environment from config
         policy, environment = extract_config_info(prepared.path)
-        assert isinstance(policy, (str, type(None))), (
+        assert isinstance(policy, str | type(None)), (
             f"policy must be str | None, got {type(policy).__name__}: {policy}"
         )
-        assert isinstance(environment, (str, type(None))), (
+        assert isinstance(environment, str | type(None)), (
             f"environment must be str | None, got {type(environment).__name__}: {environment}"
         )
         
@@ -1281,9 +1277,9 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             stdout_lines: list[str] = []
             accumulated_output = ""  # Accumulate output for better pattern matching
             last_status_update_time = job_start_time
-            STATUS_UPDATE_INTERVAL = 5.0  # Update status_json every 5 seconds even without progress
-            assert STATUS_UPDATE_INTERVAL > 0, (
-                f"STATUS_UPDATE_INTERVAL must be > 0, got {STATUS_UPDATE_INTERVAL}"
+            status_update_interval = 5.0  # Update status_json every 5 seconds even without progress
+            assert status_update_interval > 0, (
+                f"status_update_interval must be > 0, got {status_update_interval}"
             )
             
             # Read output line-by-line with timeout protection
@@ -1408,7 +1404,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                         "progress:" in line.lower() or
                         "gepa progress:" in line.lower() or
                         # Or update periodically (every 5 seconds) to show elapsed time
-                        (current_time - last_status_update_time) >= STATUS_UPDATE_INTERVAL
+                        (current_time - last_status_update_time) >= status_update_interval
                     )
                     assert isinstance(should_update, bool), (
                         f"should_update must be bool, got {type(should_update).__name__}"
@@ -1890,10 +1886,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             prepared.cleanup()
 
     # Prepare execution details for logging
-    if cmd is not None and len(cmd) > 0:
-        command_str = " ".join(cmd)
-    else:
-        command_str = None
+    command_str = " ".join(cmd) if cmd is not None and len(cmd) > 0 else None
     working_dir = os.getcwd()
     if env is not None:
         python_exe = env.get("PYTHON", "python")

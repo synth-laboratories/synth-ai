@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +44,7 @@ class ProgressInfo:
 
         # Validate best_score
         if self.best_score is not None:
-            assert isinstance(self.best_score, (int, float)), (
+            assert isinstance(self.best_score, int | float), (
                 f"best_score must be int | float, got {type(self.best_score).__name__}"
             )
             assert 0 <= self.best_score <= 1, (
@@ -85,7 +86,7 @@ class ProgressInfo:
         rollouts_completed = None
         if "rollouts_completed" in data and data["rollouts_completed"] is not None:
             val = data["rollouts_completed"]
-            if isinstance(val, (int, float, str)):
+            if isinstance(val, int | float | str):
                 try:
                     coerced = int(float(val))
                     assert coerced >= 0, f"rollouts_completed must be >= 0, got {coerced}"
@@ -102,7 +103,7 @@ class ProgressInfo:
         total_rollouts = None
         if "total_rollouts" in data and data["total_rollouts"] is not None:
             val = data["total_rollouts"]
-            if isinstance(val, (int, float, str)):
+            if isinstance(val, int | float | str):
                 try:
                     total_rollouts = int(float(val))
                 except (ValueError, TypeError) as e:
@@ -119,7 +120,7 @@ class ProgressInfo:
         best_score = None
         if "best_score" in data and data["best_score"] is not None:
             val = data["best_score"]
-            if isinstance(val, (int, float, str)):
+            if isinstance(val, int | float | str):
                 try:
                     coerced = float(val)
                     assert 0 <= coerced <= 1, f"best_score must be in [0, 1], got {coerced}"
@@ -136,7 +137,7 @@ class ProgressInfo:
         trials_completed = None
         if "trials_completed" in data and data["trials_completed"] is not None:
             val = data["trials_completed"]
-            if isinstance(val, (int, float, str)):
+            if isinstance(val, int | float | str):
                 try:
                     coerced = int(float(val))
                     assert coerced >= 0, f"trials_completed must be >= 0, got {coerced}"

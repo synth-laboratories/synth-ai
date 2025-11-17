@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
@@ -116,10 +117,8 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
     for line in output.split("\n"):
         line = line.strip()
         if line.startswith("{") and line.endswith("}"):
-            try:
+            with contextlib.suppress(json.JSONDecodeError):
                 json_lines.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
     
     # Also look for progress patterns in text output
     # Backend log format: "GEPA progress: overall=X% rollouts=(Y/Z rem=W) transforms=(A/B) elapsed=Xs eta=Ys"
@@ -151,7 +150,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                     )
                     progress_data["rollouts_completed"] = completed
                     progress_data["total_rollouts"] = total
-                except (ValueError, AssertionError) as e:
+                except (ValueError, AssertionError):
                     # Skip invalid matches
                     continue
             elif len(match.groups()) == 1:
@@ -176,31 +175,31 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
         if event_type == "prompt.learning.progress":
             if "rollouts_completed" in event_data:
                 val = event_data["rollouts_completed"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_int = int(val)
                     assert val_int >= 0, f"rollouts_completed must be >= 0, got {val_int}"
                     progress_data["rollouts_completed"] = val_int
             if "rollouts_total" in event_data:
                 val = event_data["rollouts_total"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_int = int(val)
                     assert val_int > 0, f"rollouts_total must be > 0, got {val_int}"
                     progress_data["total_rollouts"] = val_int
             elif "total_rollouts" in event_data:
                 val = event_data["total_rollouts"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_int = int(val)
                     assert val_int > 0, f"total_rollouts must be > 0, got {val_int}"
                     progress_data["total_rollouts"] = val_int
             if "best_score" in event_data:
                 val = event_data["best_score"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_float = float(val)
                     assert 0 <= val_float <= 1, f"best_score must be in [0, 1], got {val_float}"
                     progress_data["best_score"] = val_float
             if "trials_completed" in event_data:
                 val = event_data["trials_completed"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_int = int(val)
                     assert val_int >= 0, f"trials_completed must be >= 0, got {val_int}"
                     progress_data["trials_completed"] = val_int
@@ -214,10 +213,9 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
                 progress_data["best_score"] = val_float
         
         # Also check gepa.start event for rollout budget
-        if event_type == "prompt.learning.gepa.start":
-            if "rollout_budget" in event_data:
+        if event_type == "prompt.learning.gepa.start" and "rollout_budget" in event_data:
                 val = event_data["rollout_budget"]
-                if isinstance(val, (int, float)):
+                if isinstance(val, int | float):
                     val_int = int(val)
                     assert val_int > 0, f"rollout_budget must be > 0, got {val_int}"
                     progress_data["total_rollouts"] = val_int
@@ -302,7 +300,7 @@ def update_status_from_output(
         f"output must be str, got {type(output).__name__}"
     )
     if start_time is not None:
-        assert isinstance(start_time, (int, float)), (
+        assert isinstance(start_time, int | float), (
             f"start_time must be int | float, got {type(start_time).__name__}"
         )
         assert start_time > 0, f"start_time must be > 0, got {start_time}"

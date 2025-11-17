@@ -3,10 +3,7 @@ from pathlib import Path
 import click
 
 from synth_ai.utils.paths import print_paths_formatted
-from synth_ai.utils.train_cfgs import (
-    find_train_cfgs_in_cwd,
-    validate_train_cfg,
-)
+from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 
 
 @click.command()

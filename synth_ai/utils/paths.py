@@ -103,8 +103,5 @@ def print_paths_formatted(entries: list[tuple]) -> None:
         *item_parts, mtime = entry
         suffix = " ← most recent" if i == 1 else ""
         timestamp = f"modified {mtime}" if mtime else ""
-        if len(item_parts) == 2:
-            start = f"[{item_parts[0]}] {item_parts[1]}"
-        else:
-            start = str(item_parts[0])
+        start = f"[{item_parts[0]}] {item_parts[1]}" if len(item_parts) == 2 else str(item_parts[0])
         print(f"{start}  |  {timestamp}{suffix}")

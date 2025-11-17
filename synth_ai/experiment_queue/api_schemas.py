@@ -48,7 +48,7 @@ class ProgressEventData(BaseModel):
             return None
         if isinstance(v, int):
             return v
-        if isinstance(v, (float, str)):
+        if isinstance(v, float | str):
             try:
                 coerced = int(float(v))
                 assert coerced >= 0, f"Cannot coerce negative value to int: {v}"
@@ -63,7 +63,7 @@ class ProgressEventData(BaseModel):
         """Coerce float fields from various types."""
         if v is None:
             return None
-        if isinstance(v, (int, float)):
+        if isinstance(v, int | float):
             return float(v)
         if isinstance(v, str):
             try:
@@ -73,7 +73,7 @@ class ProgressEventData(BaseModel):
         return None
 
     @model_validator(mode="after")
-    def validate_consistency(self) -> "ProgressEventData":
+    def validate_consistency(self) -> ProgressEventData:
         """Validate data consistency after initialization."""
         # Validate rollouts_completed <= rollouts_total
         if self.rollouts_completed is not None and self.effective_rollouts_total is not None:

@@ -10,7 +10,7 @@ from typing import Any, Mapping, MutableMapping
 
 import tomli_w
 
-from .validation import validate_dict, validate_path
+from .validation import validate_path
 
 
 def _load_toml(config_path: Path) -> dict[str, Any]:

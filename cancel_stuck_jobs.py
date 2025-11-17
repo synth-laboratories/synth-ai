@@ -3,8 +3,9 @@
 
 import os
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Try to load from .env files
 try:
@@ -79,7 +80,7 @@ for job_id in stuck_job_ids:
             try:
                 error_data = response.json()
                 print(f"   Error: {error_data}")
-            except:
+            except Exception:
                 print(f"   Response: {response.text[:200]}")
     except Exception as e:
         print(f"❌ {job_id}: Error - {e}")

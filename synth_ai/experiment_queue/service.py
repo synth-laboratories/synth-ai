@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 from uuid import uuid4
 
 import tomli_w
@@ -83,7 +83,7 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
                 f"Config: {config_path}\n"
                 f"Overrides: {job_spec.config_overrides}"
             ) from e
-        except Exception as e:
+        except Exception:
             # Other errors (file not found, etc.) should propagate
             raise
     
@@ -112,7 +112,7 @@ def validate_job_spec(job_spec: ExperimentJobSpec) -> None:
                     f"  Referenced as: {env_file_path}"
                 )
     except Exception as e:
-        if isinstance(e, (FileNotFoundError, ValueError)):
+        if isinstance(e, FileNotFoundError | ValueError):
             raise
         # If we can't parse the config, that's okay - it will fail later during execution
         pass

@@ -285,7 +285,7 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
         summary.stats = stats_data
         total_time = stats_data.get("total_time", summary.total_time)
         if total_time is not None:
-            assert isinstance(total_time, (int, float)) and total_time >= 0, (
+            assert isinstance(total_time, int | float) and total_time >= 0, (
                 f"total_time must be >= 0, got {total_time}"
             )
         summary.total_time = total_time
@@ -346,14 +346,14 @@ def collect_result_summary(results_folder: Path, stdout: str = "", stderr: str =
             
             best_score = text_results.get("best_score")
             if best_score is not None:
-                assert isinstance(best_score, (int, float)) and 0 <= best_score <= 1, (
+                assert isinstance(best_score, int | float) and 0 <= best_score <= 1, (
                     f"best_score must be in [0, 1], got {best_score}"
                 )
                 summary.best_score = float(best_score)
             
             baseline_score = text_results.get("baseline_score")
             if baseline_score is not None:
-                assert isinstance(baseline_score, (int, float)) and 0 <= baseline_score <= 1, (
+                assert isinstance(baseline_score, int | float) and 0 <= baseline_score <= 1, (
                     f"baseline_score must be in [0, 1], got {baseline_score}"
                 )
                 summary.baseline_score = float(baseline_score)
