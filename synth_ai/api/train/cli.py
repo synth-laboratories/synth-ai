@@ -92,12 +92,29 @@ def _format_text_replacements(obj: dict[str, Any] | None, max_display: int = _MA
 
 
 def _default_backend() -> str:
-    """Resolve backend URL with proper production default."""
-    # Check explicit override first
-    explicit = os.getenv("BACKEND_BASE_URL", "").strip()
+    """Resolve backend URL with proper production default.
+    
+    Priority order:
+    1. BACKEND_BASE_URL env var (highest priority) - checked FIRST before any .env loading
+    2. BACKEND_OVERRIDE env var
+    3. get_backend_from_env() standard resolution (which may use SYNTH_BASE_URL from .env)
+    
+    CRITICAL: This function MUST check BACKEND_BASE_URL directly from os.getenv() 
+    to ensure it's not overridden by .env file loading.
+    """
+    # Check explicit override first (BACKEND_BASE_URL takes absolute precedence)
+    # Read directly from os.environ to avoid any dotenv interference
+    explicit = os.environ.get("BACKEND_BASE_URL", "").strip()
     if explicit:
+        # Return as-is, ensure_api_base() will normalize it
         return explicit
-    # Use standard resolution logic
+    
+    # Fallback to BACKEND_OVERRIDE (also read directly from environ)
+    override = os.environ.get("BACKEND_OVERRIDE", "").strip()
+    if override:
+        return override
+    
+    # Use standard resolution logic (may use SYNTH_BASE_URL from .env)
     base, _ = get_backend_from_env()
     return f"{base}/api" if not base.endswith("/api") else base
 
@@ -379,6 +396,12 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.api.train.cli imported")
     help="Limit SFT training to the first N examples",
 )
 @click.option(
+    "--backend",
+    "backend_override",
+    default=None,
+    help="Backend base URL (e.g., http://localhost:8000). Overrides BACKEND_BASE_URL env var.",
+)
+@click.option(
     "--local-backend",
     is_flag=True,
     default=None,
@@ -416,6 +439,7 @@ def train_command(
     poll_interval: float,
     stream_format: str,
     examples_limit: int | None,
+    backend_override: str | None,
     local_backend: bool | None,
     tui: bool | None,
     show_curve: bool | None,
@@ -442,6 +466,13 @@ def train_command(
             traceback.print_exc(file=sys.stderr)
             raise
 
+        # CRITICAL: Load explicit .env file BEFORE config validation to ensure BACKEND_BASE_URL is available
+        if env_file and Path(env_file).exists():
+            from dotenv import load_dotenv
+            # Load with override=True to ensure BACKEND_BASE_URL from .env takes precedence
+            load_dotenv(Path(env_file), override=True)
+            click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
+
         if not cfg_path:
             available_cfgs = find_train_cfgs_in_cwd()
             if len(available_cfgs) == 1:
@@ -459,10 +490,46 @@ def train_command(
                 return None
 
         train_type = validate_train_cfg(cfg_path)
-
+        
         synth_api_key, _ = get_synth_and_env_keys(env_file)
-        backend_base = ensure_api_base(BACKEND_URL_BASE)
-        click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
+        
+        # Resolve backend URL with priority: --backend flag > BACKEND_BASE_URL env > default
+        if backend_override:
+            # CLI flag takes highest precedence
+            backend_base = ensure_api_base(backend_override.strip())
+            click.echo(f"Backend base: {backend_base} (from --backend flag)")
+        else:
+            # Check BACKEND_BASE_URL AFTER loading env file
+            backend_base_url_env = os.environ.get("BACKEND_BASE_URL", "").strip()
+            backend_override_env = os.environ.get("BACKEND_OVERRIDE", "").strip()
+            
+            # Debug: Show what env vars are set
+            click.echo(f"🔍 DEBUG: BACKEND_BASE_URL={backend_base_url_env or '(not set)'}", err=True)
+            click.echo(f"🔍 DEBUG: BACKEND_OVERRIDE={backend_override_env or '(not set)'}", err=True)
+            
+            # Use _default_backend() to respect BACKEND_BASE_URL env var
+            backend_raw = _default_backend()
+            click.echo(f"🔍 DEBUG: _default_backend() returned: {backend_raw}", err=True)
+            backend_base = ensure_api_base(backend_raw)
+            
+            # Assertion: Validate backend URL is what we expect
+            if backend_base_url_env:
+                expected_backend = ensure_api_base(backend_base_url_env)
+                if backend_base != expected_backend:
+                    raise click.ClickException(
+                        f"Backend URL mismatch! Expected: {expected_backend}, Got: {backend_base}. "
+                        f"BACKEND_BASE_URL={backend_base_url_env} but resolved to {backend_base}. "
+                        f"This indicates BACKEND_BASE_URL is not being respected.\n"
+                        f"💡 Solutions:\n"
+                        f"   1. Add BACKEND_BASE_URL=http://localhost:8000 to your .env file\n"
+                        f"   2. Use --backend http://localhost:8000 flag (requires package rebuild)\n"
+                        f"   3. Set BACKEND_OVERRIDE=http://localhost:8000 in your shell\n"
+                        f"   4. Set SYNTH_BACKEND_URL_OVERRIDE=local and LOCAL_BACKEND_URL=http://localhost:8000"
+                    )
+            
+            click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
+            if backend_base_url_env:
+                click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
 
         match train_type:
             case "prompt":
@@ -1582,6 +1649,17 @@ def handle_prompt_learning(
         allow_experimental=allow_experimental,
     )
     
+    # Assertion: Validate task app URL is reachable from backend perspective
+    # If backend is localhost and task app is localhost, they should be able to communicate
+    task_app_url = build.task_url or ""
+    if backend_base.startswith("http://localhost") or backend_base.startswith("http://127.0.0.1"):
+        if task_app_url.startswith("http://localhost") or task_app_url.startswith("http://127.0.0.1"):
+            # Both are local - this should work
+            pass
+        else:
+            click.echo(f"⚠️  WARNING: Backend is local ({backend_base}) but task app is remote ({task_app_url})")
+            click.echo("   The backend may not be able to reach the task app. Consider using a tunnel or local task app.")
+    
     click.echo("Performing task app health check…")
     click.echo(f"Task app URL: {build.task_url}")
     click.echo("⏳ Checking /health endpoint (timeout: 10s)...")
@@ -1603,11 +1681,25 @@ def handle_prompt_learning(
     if not backend_base.endswith("/api"):
         backend_base = ensure_api_base(backend_base)
     
+    # Assertion: Validate backend URL before making request
+    if not backend_base.startswith("http"):
+        raise click.ClickException(
+            f"Invalid backend URL: {backend_base}. Must start with http:// or https://"
+        )
+    
     create_url = f"{backend_base}/prompt-learning/online/jobs"
     headers = {"Authorization": f"Bearer {synth_key}", "Content-Type": "application/json"}
     
     click.echo(f"POST {create_url}")
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
+    
+    # Assertion: If using local backend, verify it's actually localhost
+    if os.getenv("BACKEND_BASE_URL") and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower():
+        if "localhost" not in backend_base.lower() and "127.0.0.1" not in backend_base:
+            raise click.ClickException(
+                f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
+                f"This indicates the environment variable is not being respected."
+            )
     
     # Increase timeout for job creation (can take longer due to validation checks)
     resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)
