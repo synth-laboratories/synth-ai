@@ -174,3 +174,16 @@ outputs/
  
 # Temporary workspace and embedded repos
 .tmp/
+
+# Benchmark results and comparison data (keep local only)
+examples/blog_posts/**/results/
+examples/blog_posts/**/*_results_*.json
+examples/blog_posts/**/*_readout_*.txt
+examples/blog_posts/**/*_comparison_*.json
+examples/blog_posts/**/task_specific/*/results/
+**/*_learning_curve.csv
+**/*_learning_curve.json
+**/*_stats.json
+**/*_detailed_results.json
+**/*best_module.json
+**/*best_prompt.json

@@ -1,7 +1,0 @@
-{
-  "instructions": "None",
-  "demos": 0,
-  "prompt_details": {
-    "sample_prediction_error": "No LM is loaded. Please configure the LM using `dspy.configure(lm=dspy.LM(...))`. e.g, `dspy.configure(lm=dspy.LM('openai/gpt-4o-mini'))`"
-  }
-}
