@@ -42,7 +42,7 @@ from .paths import (
     get_bin_path,
     get_env_file_paths,
     get_home_config_file_paths,
-    is_hidden_path
+    is_hidden_path,
 )
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld

@@ -192,6 +192,7 @@ def _poll_backend_progress(
     """
     import logging
     import os
+    
     import requests
     
     # Import BackendJobEvent locally to ensure it's available in this function's scope

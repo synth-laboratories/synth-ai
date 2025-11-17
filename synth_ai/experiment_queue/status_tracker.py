@@ -207,7 +207,7 @@ def parse_progress_from_output(output: str) -> ProgressInfo:
         # Look for best score in other events too
         if "best_score" in event_data and progress_data["best_score"] is None:
             val = event_data["best_score"]
-            if isinstance(val, (int, float)):
+            if isinstance(val, int | float):
                 val_float = float(val)
                 assert 0 <= val_float <= 1, f"best_score must be in [0, 1], got {val_float}"
                 progress_data["best_score"] = val_float
