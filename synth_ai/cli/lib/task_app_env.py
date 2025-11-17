@@ -441,9 +441,18 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 
 
 def interactive_fill_env(env_path: Path) -> Path | None:
-    """Interactively collect credentials and write them to a .env file."""
+    """Interactively collect credentials and write them to a .env file, preserving existing content."""
 
     existing = _parse_env_file(env_path) if env_path.exists() else {}
+    
+    # Read existing file content to preserve comments and formatting
+    existing_lines: list[str] = []
+    if env_path.exists():
+        try:
+            with env_path.open('r', encoding="utf-8") as handle:
+                existing_lines = handle.readlines()
+        except OSError:
+            existing_lines = []
 
     def _prompt(label: str, *, default: str = "", required: bool) -> str | None:
         while True:
@@ -471,17 +480,51 @@ def interactive_fill_env(env_path: Path) -> Path | None:
     openai_key = _prompt("OPENAI_API_KEY (optional)", default=openai_default, required=False) or ""
 
     env_path.parent.mkdir(parents=True, exist_ok=True)
-    env_path.write_text(
-        "\n".join(
-            [
-                f"ENVIRONMENT_API_KEY={env_api_key}",
-                f"SYNTH_API_KEY={synth_key}",
-                f"OPENAI_API_KEY={openai_key}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    
+    # Update existing lines, preserving comments and formatting
+    keys_to_update = {
+        "ENVIRONMENT_API_KEY": env_api_key,
+        "SYNTH_API_KEY": synth_key,
+        "OPENAI_API_KEY": openai_key,
+    }
+    
+    updated_lines: list[str] = []
+    keys_written: set[str] = set()
+    
+    # Process existing lines, updating matching keys
+    for line in existing_lines:
+        line_stripped = line.lstrip()
+        key_matched = None
+        for key in keys_to_update.keys():
+            if line_stripped.startswith(f"{key}=") or line_stripped.startswith(f"export {key}="):
+                # Update this line
+                leading = line[:len(line) - len(line.lstrip())]
+                has_export = line_stripped.lower().startswith('export ')
+                newline = '\n' if line.endswith('\n') else ''
+                prefix = 'export ' if has_export else ''
+                updated_lines.append(f"{leading}{prefix}{key}={keys_to_update[key]}{newline}")
+                keys_written.add(key)
+                key_matched = True
+                break
+        
+        if not key_matched:
+            # Preserve original line (comments, empty lines, other vars, etc.)
+            updated_lines.append(line)
+    
+    # Append any keys that weren't found in existing file
+    for key, value in keys_to_update.items():
+        if key not in keys_written and value:  # Only append if value is non-empty
+            if updated_lines and not updated_lines[-1].endswith('\n'):
+                updated_lines[-1] = f"{updated_lines[-1]}\n"
+            updated_lines.append(f"{key}={value}\n")
+    
+    # Write back preserving all content
+    try:
+        with env_path.open('w', encoding="utf-8") as handle:
+            handle.writelines(updated_lines)
+    except OSError as exc:
+        raise click.ClickException(f"Failed to write {env_path}: {exc}") from exc
+    
     click.echo(f"Wrote credentials to {env_path}")
     return env_path
 
