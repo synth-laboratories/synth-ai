@@ -1,15 +1,23 @@
 # Configuration for dspy_miprov2 parallel comparison runs
 # Adjust these values to control job limits and behavior
 
-# Rollout budget per task
+# Rollout budget per task (standardized to match synth_mipro_config.yaml)
 budgets:
-  heart_disease: 300      # Heart Disease rollout budget
-  hotpotqa: 200           # HotPotQA rollout budget
-  banking77: 200          # Banking77 rollout budget
+  heart_disease: 500     # Heart Disease rollout budget
+  hotpotqa: 100          # HotPotQA rollout budget
+  banking77: 500          # Banking77 rollout budget
+  pupa: 300              # Pupa rollout budget (script not yet created)
 
-# Model configuration
+# Model configuration (per-task models matching synth_mipro_config.yaml)
+models:
+  heart_disease: "groq/openai/gpt-oss-20b"      # Heart Disease policy model
+  hotpotqa: "groq/llama-3.3-70b-versatile"      # HotPotQA policy model
+  banking77: "groq/llama-3.1-8b-instant"        # Banking77 policy model
+  pupa: "groq/openai/gpt-oss-120b"              # Pupa policy model (script not yet created)
+
+# Legacy: fallback model if per-task model not specified
 model:
-  policy_model: "groq/openai/gpt-oss-20b"  # Main LM for MIPROv2
+  policy_model: "groq/openai/gpt-oss-20b"  # Default fallback (should match most common)
 
 # MIPROv2 auto-scaling settings
 mipro:

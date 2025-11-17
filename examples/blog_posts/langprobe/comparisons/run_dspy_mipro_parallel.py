@@ -43,7 +43,13 @@ def load_config(config_path: Optional[Path] = None) -> Dict:
         print(f"⚠️  Config file not found: {config_path}")
         print("Using default budgets")
         return {
-            "budgets": {"heart_disease": 300, "hotpotqa": 200, "banking77": 200},
+            "budgets": {"heart_disease": 500, "hotpotqa": 100, "banking77": 500, "pupa": 300},
+            "models": {
+                "heart_disease": "groq/openai/gpt-oss-20b",
+                "hotpotqa": "groq/llama-3.3-70b-versatile",
+                "banking77": "groq/llama-3.1-8b-instant",
+                "pupa": "groq/openai/gpt-oss-120b",
+            },
             "model": {"policy_model": "groq/openai/gpt-oss-20b"},
         }
 
@@ -54,7 +60,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict:
     return config
 
 
-async def run_dspy_mipro_task(task_name: str, task_config: Dict, budget: Optional[int] = None) -> Dict:
+async def run_dspy_mipro_task(task_name: str, task_config: Dict, budget: Optional[int] = None, policy_model: Optional[str] = None) -> Dict:
     """Run a single DSPy MIPROv2 task and return results."""
     # Script paths are relative to langprobe directory (parent of comparisons)
     script_path = Path(__file__).parent.parent / task_config["script"]
@@ -74,11 +80,35 @@ async def run_dspy_mipro_task(task_name: str, task_config: Dict, budget: Optiona
         stderr=asyncio.subprocess.PIPE,
     )
 
-    stdout, stderr = await process.communicate()
+    # Stream output in real-time to show progress (similar to GEPA parallel script)
+    stdout_lines = []
+    stderr_lines = []
 
-    if process.returncode != 0:
-        error_msg = stderr.decode()[:500] if stderr else "Unknown error"
-        print(f"❌ {task_name} FAILED: {error_msg}")
+    async def read_stream(stream, lines_list):
+        """Read and print stream lines in real-time."""
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            decoded = line.decode('utf-8', errors='replace').rstrip()
+            lines_list.append(decoded)
+            # Print non-empty lines with task name prefix for visibility
+            if decoded.strip():
+                print(f"[{task_name}] {decoded}")
+
+    # Read both streams concurrently
+    await asyncio.gather(
+        read_stream(process.stdout, stdout_lines),
+        read_stream(process.stderr, stderr_lines),
+    )
+
+    return_code = await process.wait()
+    stdout = "\n".join(stdout_lines)
+    stderr = "\n".join(stderr_lines)
+
+    if return_code != 0:
+        error_msg = stderr[:500] if stderr else "Unknown error"
+        print(f"[{task_name}] ❌ FAILED: {error_msg}")
         return {
             "task": task_name,
             "status": "failed",
@@ -133,9 +163,10 @@ async def run_dspy_mipro_task(task_name: str, task_config: Dict, budget: Optiona
 
                 print(f"✅ {task_name} completed: final={final_score:.4f}, baseline={baseline_score}, time={total_time}s")
 
-                # Get policy model from config
-                config = load_config()
-                policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
+                # Use provided policy model or fallback to default
+                if policy_model is None:
+                    config = load_config()
+                    policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
 
                 return {
                     "task": task_name,
@@ -187,13 +218,14 @@ async def main():
     config = load_config(config_path)
 
     budgets = config.get("budgets", {})
-    policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
+    models = config.get("models", {})
+    default_policy_model = config.get("model", {}).get("policy_model", "groq/openai/gpt-oss-20b")
 
     print("=" * 80)
     print("DSPy MIPROv2 PARALLEL RUNNER")
     print("=" * 80)
-    print(f"Policy Model: {policy_model}")
     print(f"Budgets: {budgets}")
+    print(f"Models: {models}")
     print()
 
     # Run all tasks in parallel
@@ -201,7 +233,9 @@ async def main():
     for task_name, task_config in TASKS.items():
         config_key = task_config["config_key"]
         budget = args.rollout_budget if args.rollout_budget else budgets.get(config_key, 200)
-        tasks.append(run_dspy_mipro_task(task_name, task_config, budget))
+        # Get per-task model or fallback to default
+        policy_model = models.get(config_key) or default_policy_model
+        tasks.append(run_dspy_mipro_task(task_name, task_config, budget, policy_model))
 
     results = await asyncio.gather(*tasks)
 
