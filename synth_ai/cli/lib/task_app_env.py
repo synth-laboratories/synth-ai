@@ -491,12 +491,12 @@ def interactive_fill_env(env_path: Path) -> Path | None:
     updated_lines: list[str] = []
     keys_written: set[str] = set()
     
-    # Process existing lines, updating matching keys
-    for line in existing_lines:
-        line_stripped = line.lstrip()
-        key_matched = None
-        for key in keys_to_update.keys():
-            if line_stripped.startswith(f"{key}=") or line_stripped.startswith(f"export {key}="):
+        # Process existing lines, updating matching keys
+        for line in existing_lines:
+            line_stripped = line.lstrip()
+            key_matched = None
+            for key in keys_to_update:
+                if line_stripped.startswith(f"{key}=") or line_stripped.startswith(f"export {key}="):
                 # Update this line
                 leading = line[:len(line) - len(line.lstrip())]
                 has_export = line_stripped.lower().startswith('export ')
