@@ -441,29 +441,71 @@ def poll_experiment_status(experiment_id: str, timeout: int = 3600, poll_interva
                                 with config_path.open("rb") as f:
                                     config_data = tomllib.load(f)
                                 pl_config = config_data.get("prompt_learning", {})
-                                mipro_config = pl_config.get("mipro", {})
-                                rollout_limit_from_config = mipro_config.get("max_rollouts")
-                        except Exception:
+                                
+                                # Try multiple paths for max_rollouts (termination_config.max_rollouts or mipro.max_rollouts)
+                                termination_config = pl_config.get("termination_config", {})
+                                if isinstance(termination_config, dict):
+                                    rollout_limit_from_config = termination_config.get("max_rollouts")
+                                
+                                # Also check mipro.termination_config.max_rollouts
+                                if rollout_limit_from_config is None:
+                                    mipro_config = pl_config.get("mipro", {})
+                                    if isinstance(mipro_config, dict):
+                                        mipro_termination = mipro_config.get("termination_config", {})
+                                        if isinstance(mipro_termination, dict):
+                                            rollout_limit_from_config = mipro_termination.get("max_rollouts")
+                                
+                                # Fallback: check mipro.max_rollouts directly
+                                if rollout_limit_from_config is None:
+                                    mipro_config = pl_config.get("mipro", {})
+                                    if isinstance(mipro_config, dict):
+                                        rollout_limit_from_config = mipro_config.get("max_rollouts")
+                        except Exception as e:
+                            # Silently fail - config might not be accessible
                             pass
                         
                         # Also try to get rollout_limit from job's config_overrides if available
                         if rollout_limit_from_config is None and job.config_overrides:
                             try:
-                                max_rollouts_key = "prompt_learning.mipro.max_rollouts"
-                                if max_rollouts_key in job.config_overrides:
-                                    rollout_limit_from_config = job.config_overrides[max_rollouts_key]
-                            except Exception:
-                                pass
+                                # Try multiple override keys (order matters - check most specific first)
+                                override_keys = [
+                                    "prompt_learning.mipro.max_rollouts",  # Most common override key
+                                    "prompt_learning.termination_config.max_rollouts",
+                                    "prompt_learning.mipro.termination_config.max_rollouts",
+                                ]
+                                for key in override_keys:
+                                    if key in job.config_overrides:
+                                        rollout_limit_from_config = job.config_overrides[key]
+                                        print(f"  [DEBUG] Found max_rollouts in config_overrides[{key}]: {rollout_limit_from_config}")
+                                        break
+                            except Exception as e:
+                                print(f"  [DEBUG] Error reading config_overrides: {e}")
+                        
+                        # ✅ DEBUG: Log if we still don't have rollout_limit
+                        if rollout_limit_from_config is None:
+                            print(f"  [DEBUG] WARNING: Could not find max_rollouts in config. "
+                                  f"status_obj.total_rollouts={status_obj.total_rollouts}, "
+                                  f"rollouts_completed={status_obj.rollouts_completed}")
+                            if job.config_overrides:
+                                print(f"  [DEBUG] Available config_overrides keys: {list(job.config_overrides.keys())[:10]}")
                         
                         # Override total_rollouts with config value if available and rollouts_completed exists
                         if rollout_limit_from_config is not None and status_obj.rollouts_completed is not None:
+                            # ✅ DEBUG: Log before override
+                            old_total = status_obj.total_rollouts
+                            old_pct = status_obj.progress_pct
+                            
                             # Create a modified status object with correct total_rollouts
                             status_dict = status_obj.to_dict()
                             status_dict["total_rollouts"] = rollout_limit_from_config
                             # ✅ CRITICAL: Recalculate progress_pct when overriding total_rollouts
                             # Otherwise it will use the old incorrect percentage
                             if status_obj.rollouts_completed is not None and rollout_limit_from_config > 0:
-                                status_dict["progress_pct"] = (status_obj.rollouts_completed / rollout_limit_from_config) * 100
+                                new_pct = (status_obj.rollouts_completed / rollout_limit_from_config) * 100
+                                status_dict["progress_pct"] = new_pct
+                                # ✅ DEBUG: Log override
+                                if old_total != rollout_limit_from_config or (old_pct is not None and abs(old_pct - new_pct) > 0.1):
+                                    print(f"  [DEBUG] Overriding total_rollouts: {old_total} -> {rollout_limit_from_config}, progress_pct: {old_pct} -> {new_pct:.1f}%")
                             status_obj = StatusObj.from_dict(status_dict)
                         
                         formatted = status_obj.format_status_line()
