@@ -3,9 +3,12 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from synth_ai.cfgs import CloudflareTunnelDeployCfg
+from synth_ai.cfgs import CFDeployCfg
 from synth_ai.cloudflare import (
+    ManagedTunnelRecord,
+    _select_existing_tunnel,
     create_tunnel,
+    fetch_managed_tunnels,
     open_quick_tunnel,
     stop_tunnel,
     store_tunnel_credentials,
@@ -195,32 +198,29 @@ class TestStoreTunnelCredentials:
 class TestCloudflareTunnelDeployCfg:
     """Tests for CloudflareTunnelDeployCfg."""
     
-    @patch("synth_ai.cfgs.validate_task_app")
-    def test_create_with_defaults(self, mock_validate, tmp_path):
+    def test_create_with_defaults(self, tmp_path):
         """Should create config with default values."""
         task_app = tmp_path / "task_app.py"
         task_app.write_text("# test app\n")
-        
-        cfg = CloudflareTunnelDeployCfg.create(
+
+        cfg = CFDeployCfg.create(
             task_app_path=task_app,
             env_api_key="test-key",
         )
-        
+
         assert cfg.task_app_path == task_app
         assert cfg.env_api_key == "test-key"
         assert cfg.host == "127.0.0.1"
         assert cfg.port == 8000
         assert cfg.mode == "quick"
         assert cfg.trace is True
-        mock_validate.assert_called_once_with(task_app)
     
-    @patch("synth_ai.cfgs.validate_task_app")
-    def test_create_with_custom_values(self, mock_validate, tmp_path):
+    def test_create_with_custom_values(self, tmp_path):
         """Should create config with custom values."""
         task_app = tmp_path / "task_app.py"
         task_app.write_text("# test app\n")
         
-        cfg = CloudflareTunnelDeployCfg.create(
+        cfg = CFDeployCfg.create(
             task_app_path=task_app,
             env_api_key="test-key",
             host="0.0.0.0",
@@ -235,7 +235,6 @@ class TestCloudflareTunnelDeployCfg:
         assert cfg.mode == "quick"
         assert cfg.subdomain == "my-company"
         assert cfg.trace is False
-        mock_validate.assert_called_once_with(task_app)
 
 
 class TestURLRegex:
@@ -322,3 +321,105 @@ class TestCreateTunnel:
             "local_port": 8123,
             "local_host": "127.0.0.1",
         }
+
+
+class TestFetchManagedTunnels:
+    """Tests for fetch_managed_tunnels helper."""
+
+    @pytest.mark.asyncio
+    async def test_fetches_tunnels_via_backend(self, monkeypatch):
+        captured: dict[str, Any] = {}
+
+        class DummyResponse:
+            status_code = 200
+            text = "ok"
+
+            def raise_for_status(self) -> None:  # pragma: no cover - trivial
+                return None
+
+            def json(self) -> list[dict[str, Any]]:
+                return [
+                    {
+                        "id": "tunnel-1",
+                        "hostname": "alpha.usesynth.ai",
+                        "org_id": "org-1",
+                        "org_name": "Alpha Org",
+                        "local_host": "127.0.0.1",
+                        "local_port": 7000,
+                        "metadata": {
+                            "tunnel_token": "token-1",
+                            "access_client_id": "client-1",
+                            "access_client_secret": "secret-1",
+                        },
+                    }
+                ]
+
+        class DummyClient:
+            def __init__(self, *args, **kwargs):
+                captured["client_kwargs"] = kwargs
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *exc):
+                return False
+
+            async def get(self, url: str, headers: dict[str, str]):
+                captured["url"] = url
+                captured["headers"] = headers
+                return DummyResponse()
+
+        monkeypatch.setattr("synth_ai.cloudflare.httpx.AsyncClient", DummyClient)
+
+        records = await fetch_managed_tunnels("api-key")
+        assert len(records) == 1
+        record = records[0]
+        assert record.hostname == "alpha.usesynth.ai"
+        assert record.local_port == 7000
+        assert record.credential("tunnel_token") == "token-1"
+        assert record.credential("access_client_id") == "client-1"
+        from synth_ai.cloudflare import BACKEND_URL_BASE
+
+        assert captured["url"] == f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+        assert captured["headers"] == {"Authorization": "Bearer api-key"}
+
+
+class TestSelectExistingTunnel:
+    """Tests for selecting managed tunnels."""
+
+    def _make_record(self, hostname: str, org: str) -> ManagedTunnelRecord:
+        raw = {
+            "id": f"{hostname}-id",
+            "hostname": hostname,
+            "org_id": f"{org}-id",
+            "org_name": org,
+            "metadata": {"tunnel_token": f"{hostname}-token"},
+        }
+        return ManagedTunnelRecord(
+            id=raw["id"],
+            hostname=hostname,
+            org_id=raw["org_id"],
+            org_name=org,
+            local_host="127.0.0.1",
+            local_port=8000,
+            metadata=raw["metadata"],
+            raw=raw,
+        )
+
+    def test_matches_by_subdomain(self, capsys):
+        tunnels = [
+            self._make_record("alpha.usesynth.ai", "Alpha"),
+            self._make_record("beta.usesynth.ai", "Beta"),
+        ]
+        selected = _select_existing_tunnel(tunnels, "beta")
+        assert selected.hostname == "beta.usesynth.ai"
+        out = capsys.readouterr().out
+        assert "beta.usesynth.ai" in out
+
+    def test_requires_selection_when_multiple_without_subdomain(self):
+        tunnels = [
+            self._make_record("alpha.usesynth.ai", "Alpha"),
+            self._make_record("beta.usesynth.ai", "Beta"),
+        ]
+        with pytest.raises(RuntimeError):
+            _select_existing_tunnel(tunnels, None)

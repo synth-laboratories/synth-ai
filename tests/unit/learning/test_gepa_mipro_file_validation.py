@@ -555,20 +555,28 @@ class TestMIPROFileValidation:
         finally:
             path.unlink(missing_ok=True)
 
-    def test_missing_meta_model_fails(self) -> None:
-        """Test that missing meta_model fails."""
+    def test_missing_meta_model_passes(self) -> None:
+        """Test that missing meta_model passes (backend applies defaults)."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "mipro",
                 "task_app_url": "http://localhost:8001",
                 "task_app_api_key": "test-key",
                 "env_name": "banking77",
+                "initial_prompt": {
+                    "id": "test-prompt",
+                    "messages": [{"role": "system", "content": "Test"}],
+                },
+                "policy": {
+                    "model": "gpt-4o-mini",
+                    "provider": "openai",
+                },
                 "mipro": {
                     "num_iterations": 10,
                     "num_evaluations_per_iteration": 5,
                     "batch_size": 32,
                     "max_concurrent": 20,
-                    # Missing meta_model
+                    # Missing meta_model - backend will use defaults
                     "bootstrap_train_seeds": [0, 1, 2],
                     "online_pool": [5, 6, 7],
                     "reference_pool": [30, 31, 32],
@@ -578,8 +586,7 @@ class TestMIPROFileValidation:
         path = _create_toml_file(config_data)
         try:
             is_valid, errors = validate_mipro_config_from_file(path)
-            assert not is_valid
-            assert any("meta_model" in err.lower() for err in errors)
+            assert is_valid, f"Validation failed with errors: {errors}"
         finally:
             path.unlink(missing_ok=True)
 
@@ -795,4 +802,7 @@ class TestValidatePromptLearningConfigFromFile:
                 validate_prompt_learning_config_from_file(path, "invalid")
         finally:
             path.unlink(missing_ok=True)
+
+
+
 

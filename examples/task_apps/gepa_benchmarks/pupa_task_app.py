@@ -28,6 +28,32 @@ from synth_ai.task.vendors import normalize_vendor_keys
 
 from .common import call_chat_completion, tokenize
 
+# Import task app code extraction utility (from monorepo, but we'll use a local version)
+try:
+    from app.routes.prompt_learning.utils.task_app_code_extraction import get_current_module_code
+except ImportError:
+    # Fallback for synth-ai repo (not in monorepo)
+    import inspect
+    
+    def get_current_module_code():
+        """Extract source code for the caller's module using inspect."""
+        frame = inspect.currentframe()
+        try:
+            if frame is None:
+                return None
+            caller_frame = frame.f_back
+            if caller_frame is None:
+                return None
+            module = inspect.getmodule(caller_frame)
+            if module is None:
+                return None
+            try:
+                return inspect.getsource(module)
+            except (OSError, TypeError, IOError):
+                return None
+        finally:
+            del frame
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 DATASET_ID = "Columbia-NLP/PUPA"
@@ -38,6 +64,30 @@ DEFAULT_SPLIT = "train"
 
 pupa_router = APIRouter()
 
+@pupa_router.get("/metadata")
+async def get_metadata():
+    """Return program code and metadata for proposer use."""
+    import inspect
+    program_code = get_current_module_code()
+    frame = inspect.currentframe()
+    try:
+        if frame is None:
+            module_path = None
+        else:
+            caller_frame = frame.f_back
+            if caller_frame is None:
+                module_path = None
+            else:
+                module = inspect.getmodule(caller_frame)
+                module_path = module.__name__ if module else None
+    finally:
+        del frame
+    
+    return {
+        "program_code": program_code,
+        "module_path": module_path,
+        "extraction_method": "inspect",
+    }
 
 PUPA_DATASET_SPEC = TaskDatasetSpec(
     id="pupa",

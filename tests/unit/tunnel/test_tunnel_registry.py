@@ -8,8 +8,8 @@ import httpx
 import pytest
 
 try:
-    from synth_ai.tunnel.models import Tunnel
-    from synth_ai.tunnel.registry import TunnelRegistry
+    from synth_ai.tunnel.models import Tunnel  # pyright: ignore
+    from synth_ai.tunnel.registry import TunnelRegistry  # pyright: ignore
 except ImportError:
     pytest.skip("synth_ai.tunnel module not implemented yet", allow_module_level=True)
 

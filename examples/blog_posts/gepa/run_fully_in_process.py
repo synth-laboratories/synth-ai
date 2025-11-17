@@ -137,11 +137,11 @@ async def main_with_manual_approach():
 
     # 1. Load and start task app in background thread
     print("Step 1: Starting task app in background thread...")
-    from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+    from synth_ai.utils.apps.common import get_asgi_app, load_module
     from synth_ai.utils.paths import configure_import_paths, REPO_ROOT
 
     configure_import_paths(task_app_path, REPO_ROOT)
-    module = load_file_to_module(task_app_path, "heartdisease_task_app_in_process")
+    module = load_module(task_app_path, "heartdisease_task_app_in_process")
     app = get_asgi_app(module)
 
     port = 8114

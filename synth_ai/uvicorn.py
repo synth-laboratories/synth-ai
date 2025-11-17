@@ -4,22 +4,22 @@ import sys
 import threading
 from pathlib import Path
 
+from starlette.types import ASGIApp
 from synth_ai.cfgs import LocalDeployCfg
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 
 import uvicorn
-from uvicorn._types import ASGIApplication
 
 _THREADS: dict[int, threading.Thread] = {}
 _PROCESSES: dict[int, subprocess.Popen[str]] = {}
 
 
 def serve_app_uvicorn(
-    app: ASGIApplication,
+    app: ASGIApp,
     host: str,
-    port: int
+    port: int,
 ) -> None:
     ctx = {"host": str(host), "port": int(port)}
     log_event("info", "starting uvicorn server", ctx=ctx)
@@ -35,6 +35,21 @@ def serve_app_uvicorn(
     except Exception as exc:
         log_error("uvicorn server failed", ctx={**ctx, "error": type(exc).__name__})
         raise RuntimeError(f"Failed to serve app with Uvicorn: {exc}") from exc
+    
+
+def serve_app_uvicorn_background(
+    app: ASGIApp,
+    host: str,
+    port: int,
+    daemon: bool = True
+) -> None:
+    thread = threading.Thread(
+        target=serve_app_uvicorn,
+        args={app, host, port},
+        name=f"synth-uvicorn-{port}",
+        daemon=daemon
+    )
+    thread.start()
 
 
 def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
@@ -53,7 +68,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
             os.environ.pop("TASKAPP_TRACING_ENABLED", None)
 
         configure_import_paths(cfg.task_app_path, REPO_ROOT)
-        module = load_file_to_module(
+        module = load_module(
             cfg.task_app_path,
             f"_synth_local_task_app_{cfg.task_app_path.stem}"
         )
@@ -115,9 +130,9 @@ from synth_ai.utils.paths import configure_import_paths
 configure_import_paths(Path({repr(task_app_path_str)}), Path({repr(repo_root_str)}))
 
 # Load module and app
-from synth_ai.utils.apps import get_asgi_app, load_file_to_module
+from synth_ai.utils.apps.common import get_asgi_app, load_module
 
-module = load_file_to_module(
+module = load_module(
     Path({repr(task_app_path_str)}),
     {repr(module_name)}
 )

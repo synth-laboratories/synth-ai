@@ -7,7 +7,9 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_DB_PATH = Path("traces") / "v3" / "synth_ai.db"
+# Default database path in user's home directory
+# Can be overridden via EXPERIMENT_QUEUE_DB_PATH environment variable
+DEFAULT_DB_PATH = Path.home() / ".synth_ai" / "experiment_queue.db"
 
 
 def _candidate_db_paths() -> list[Path]:
@@ -45,13 +47,14 @@ def _resolve_sqlite_file(base_path: Path) -> Path:
     return resolved
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ExperimentQueueConfig:
     """Resolved configuration for the experiment queue runtime."""
 
     sqlite_path: Path
     broker_url: str
     result_backend_url: str
+    backend_url: str
 
     @property
     def sqlalchemy_url(self) -> str:
@@ -61,7 +64,26 @@ class ExperimentQueueConfig:
 
 @lru_cache(maxsize=1)
 def load_config() -> ExperimentQueueConfig:
-    """Resolve configuration once per process."""
+    """Resolve configuration once per process.
+    
+    Backend URL Resolution:
+    - Default: Production backend (https://agent-learning.onrender.com/api)
+    - Set EXPERIMENT_QUEUE_LOCAL=true to use local backend (http://localhost:8000/api)
+    - Override with EXPERIMENT_QUEUE_BACKEND_URL env var for custom URL
+    - Falls back to DEV_BACKEND_URL if set (for compatibility)
+    
+    Examples:
+        # Use production (default)
+        load_config()  # Uses https://agent-learning.onrender.com/api
+        
+        # Use local backend
+        os.environ["EXPERIMENT_QUEUE_LOCAL"] = "true"
+        load_config()  # Uses http://localhost:8000/api
+        
+        # Use custom backend
+        os.environ["EXPERIMENT_QUEUE_BACKEND_URL"] = "http://custom:9000/api"
+        load_config()  # Uses http://custom:9000/api
+    """
     sqlite_path: Path | None = None
     for candidate in _candidate_db_paths():
         sqlite_path = _resolve_sqlite_file(candidate)
@@ -73,12 +95,27 @@ def load_config() -> ExperimentQueueConfig:
 
     # Redis broker and backend (no longer using SQLite for Celery)
     broker_url = os.getenv("EXPERIMENT_QUEUE_BROKER_URL", "redis://localhost:6379/0")
-    backend_url = os.getenv("EXPERIMENT_QUEUE_RESULT_BACKEND_URL", "redis://localhost:6379/1")
+    result_backend_url = os.getenv("EXPERIMENT_QUEUE_RESULT_BACKEND_URL", "redis://localhost:6379/1")
+    
+    # Backend API URL for progress polling
+    # Defaults to production: https://agent-learning.onrender.com/api
+    # Override with EXPERIMENT_QUEUE_BACKEND_URL or EXPERIMENT_QUEUE_LOCAL=true for localhost:8000
+    if os.getenv("EXPERIMENT_QUEUE_LOCAL", "").lower() in ("true", "1", "yes"):
+        # Local mode: use localhost:8000
+        backend_url = os.getenv("EXPERIMENT_QUEUE_BACKEND_URL", "http://localhost:8000/api")
+    else:
+        # Production mode (default): use agent-learning.onrender.com
+        backend_url = (
+            os.getenv("EXPERIMENT_QUEUE_BACKEND_URL")
+            or os.getenv("DEV_BACKEND_URL")
+            or "https://agent-learning.onrender.com/api"
+        )
 
     return ExperimentQueueConfig(
         sqlite_path=sqlite_path,
         broker_url=broker_url,
-        result_backend_url=backend_url,
+        result_backend_url=result_backend_url,
+        backend_url=backend_url,
     )
 
 

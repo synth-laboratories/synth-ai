@@ -764,12 +764,11 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             _pos_int("max_instructions")
             _pos_int("duplicate_retry_limit")
             
-            # Validate meta_model is set and supported
+            # Validate meta_model if set (optional - backend applies defaults)
             meta_model = mipro_config.get("meta_model")
             meta_model_provider = mipro_config.get("meta_model_provider", "").strip()
-            if not meta_model:
-                errors.append("Missing required field: prompt_learning.mipro.meta_model")
-            else:
+            if meta_model:
+                # If meta_model is explicitly set, validate it
                 if not meta_model_provider:
                     errors.append(
                         "Missing required field: prompt_learning.mipro.meta_model_provider\n"
@@ -779,6 +778,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     errors.extend(_validate_model_for_provider(
                         meta_model, meta_model_provider, "prompt_learning.mipro.meta_model", allow_nano=False
                     ))
+            # If meta_model is not set, backend will use defaults (llama-3.3-70b-versatile/groq)
             
             # Validate meta model temperature
             meta_temperature = mipro_config.get("meta_model_temperature")
@@ -1505,12 +1505,11 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             elif not must_be_positive and val < 0:
                 errors.append(f"❌ mipro.{field} must be >= 0, got {val}")
     
-    # Validate meta_model is set and supported
+    # Validate meta_model if set (optional - backend applies defaults)
     meta_model = mipro_section.get("meta_model")
     meta_model_provider = mipro_section.get("meta_model_provider", "").strip()
-    if not meta_model:
-        errors.append("❌ [prompt_learning.mipro].meta_model is required")
-    else:
+    if meta_model:
+        # If meta_model is explicitly set, validate it
         if not meta_model_provider:
             errors.append(
                 "❌ [prompt_learning.mipro].meta_model_provider is required when meta_model is set"
@@ -1519,6 +1518,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             errors.extend(_validate_model_for_provider(
                 meta_model, meta_model_provider, "prompt_learning.mipro.meta_model", allow_nano=False
             ))
+    # If meta_model is not set, backend will use defaults (llama-3.3-70b-versatile/groq)
     
     # Validate meta model temperature
     meta_temperature = mipro_section.get("meta_model_temperature")

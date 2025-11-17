@@ -36,6 +36,33 @@ from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig, create_task_app, run_task_app
 from synth_ai.task.vendors import normalize_vendor_keys
 
+# Import task app code extraction utility (from monorepo, but we'll use a local version)
+try:
+    from app.routes.prompt_learning.utils.task_app_code_extraction import get_current_module_code
+except ImportError:
+    # Fallback for synth-ai repo (not in monorepo)
+    import inspect
+    import sys
+    
+    def get_current_module_code():
+        """Extract source code for the caller's module using inspect."""
+        frame = inspect.currentframe()
+        try:
+            if frame is None:
+                return None
+            caller_frame = frame.f_back
+            if caller_frame is None:
+                return None
+            module = inspect.getmodule(caller_frame)
+            if module is None:
+                return None
+            try:
+                return inspect.getsource(module)
+            except (OSError, TypeError, IOError):
+                return None
+        finally:
+            del frame
+
 def _compute_repo_root() -> Path:
     p = Path(__file__).resolve()
     parents = list(p.parents)
@@ -899,6 +926,38 @@ def fastapi_app():
                 content["expected_api_key_prefix"] = prefix
             return JSONResponse(status_code=200, content=content)
         return {"ok": True, "authorized": True}
+    
+    @app.get("/metadata")
+    async def get_metadata(request: StarletteRequest):
+        """Return program code and metadata for proposer use.
+        
+        This endpoint allows task apps to self-extract their own code using inspect,
+        keeping the architecture self-contained.
+        """
+        # Extract code using inspect
+        program_code = get_current_module_code()
+        
+        # Get module path
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            if frame is None:
+                module_path = None
+            else:
+                caller_frame = frame.f_back
+                if caller_frame is None:
+                    module_path = None
+                else:
+                    module = inspect.getmodule(caller_frame)
+                    module_path = module.__name__ if module else None
+        finally:
+            del frame
+        
+        return {
+            "program_code": program_code,  # Full source code of task app
+            "module_path": module_path,    # Module path (e.g., "examples.task_apps.banking77.banking77_task_app")
+            "extraction_method": "inspect", # How code was extracted
+        }
     
     @app.exception_handler(RequestValidationError)
     async def _on_validation_error(request: StarletteRequest, exc: RequestValidationError):

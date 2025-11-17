@@ -3,7 +3,7 @@
 
 [prompt_learning]
 algorithm = "mipro"
-task_app_url = "https://synth-laboratories-dev--synth-banking77-web-web.modal.run"
+task_app_url = "http://127.0.0.1:8102"
 task_app_id = "banking77"
 
 # Initial prompt pattern (pattern-based mode)
@@ -44,8 +44,8 @@ num_iterations = 5  # 5 iterations × 2 per iteration = 10 total prompt combos
 num_evaluations_per_iteration = 2  # 2 proposals per iteration
 batch_size = 6
 max_concurrent = 16
-meta_model = "gpt-4o-mini"
-meta_model_provider = "openai"
+meta_model = "llama-3.3-70b-versatile"
+meta_model_provider = "groq"
 few_shot_score_threshold = 0.85
 max_instructions = 3
 

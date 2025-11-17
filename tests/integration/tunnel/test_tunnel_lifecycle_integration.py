@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 try:
-    from synth_ai.tunnel.manager import TunnelManager
-    from synth_ai.tunnel.models import Tunnel
+from synth_ai.tunnel.manager import TunnelManager
+from synth_ai.tunnel.models import Tunnel
 except ImportError:
     pytest.skip("synth_ai.tunnel module not implemented yet", allow_module_level=True)
 

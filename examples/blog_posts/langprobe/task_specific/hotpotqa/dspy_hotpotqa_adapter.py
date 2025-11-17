@@ -241,9 +241,9 @@ async def run_dspy_miprov2_hotpotqa(
         raise ValueError("GROQ_API_KEY required")
 
     # Main LM: gpt-oss-20b via Groq
+    # Use context() instead of configure() to work across async tasks
     lm = dspy.LM("groq/openai/gpt-oss-20b", api_key=groq_api_key)
-    dspy.configure(lm=lm)
-
+    
     # Track actual metric evaluations
     metric_calls = {"count": 0}
 
@@ -259,7 +259,7 @@ async def run_dspy_miprov2_hotpotqa(
     if train_seeds is None:
         train_seeds = list(range(50))  # 0-49: 50 training examples
     if val_seeds is None:
-        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples
+        val_seeds = list(range(50, 150))  # 50-149: 100 validation examples (large valset for robust evaluation)
 
     # Filter examples by seeds
     train_examples = [hotpotqa_examples[i] for i in train_seeds if i < len(hotpotqa_examples)]
@@ -282,60 +282,62 @@ async def run_dspy_miprov2_hotpotqa(
     # Evaluate baseline (before optimization)
     from dspy.evaluate import Evaluate
 
-    # Reset counter before baseline evaluation
-    metric_calls["count"] = 0
-    evaluate = Evaluate(devset=valset, metric=tracked_metric, num_threads=1)
-    baseline_score = evaluate(module)
-    baseline_metric_calls = metric_calls["count"]
+    # Use dspy.context() to wrap all DSPy operations
+    with dspy.context(lm=lm):
+        # Reset counter before baseline evaluation
+        metric_calls["count"] = 0
+        evaluate = Evaluate(devset=valset, metric=tracked_metric, num_threads=1)
+        baseline_score = evaluate(module)
+        baseline_metric_calls = metric_calls["count"]
 
-    # Extract the score (DSPy returns EvaluationResult with .score attribute)
-    if isinstance(baseline_score, (int, float)):
-        baseline_val = float(baseline_score) / 100.0 if baseline_score > 1 else float(baseline_score)
-    elif isinstance(baseline_score, dict):
-        baseline_val = baseline_score.get("accuracy", baseline_score.get("score", 0.0))
-    elif hasattr(baseline_score, "score"):
-        # EvaluationResult object - score is already a percentage (0-100)
-        baseline_val = float(baseline_score.score) / 100.0
-    else:
-        baseline_val = 0.0
+        # Extract the score (DSPy returns EvaluationResult with .score attribute)
+        if isinstance(baseline_score, (int, float)):
+            baseline_val = float(baseline_score) / 100.0 if baseline_score > 1 else float(baseline_score)
+        elif isinstance(baseline_score, dict):
+            baseline_val = baseline_score.get("accuracy", baseline_score.get("score", 0.0))
+        elif hasattr(baseline_score, "score"):
+            # EvaluationResult object - score is already a percentage (0-100)
+            baseline_val = float(baseline_score.score) / 100.0
+        else:
+            baseline_val = 0.0
 
-    print(f"📊 Baseline performance: {baseline_val:.4f}")
+        print(f"📊 Baseline performance: {baseline_val:.4f}")
 
-    # Record baseline checkpoint
-    learning_curve.curve.record(
-        rollout_count=0,
-        performance=baseline_val,
-        checkpoint_pct=0.0,
-    )
+        # Record baseline checkpoint
+        learning_curve.curve.record(
+            rollout_count=0,
+            performance=baseline_val,
+            checkpoint_pct=0.0,
+        )
 
-    # Initialize MIPROv2 optimizer
-    from dspy.teleprompt import MIPROv2
+        # Initialize MIPROv2 optimizer
+        from dspy.teleprompt import MIPROv2
 
-    # Manual parameter control for consistent evaluation counts (~200 rollouts target)
-    # num_candidates=20, num_trials=10 -> ~200 rollouts (20 candidates * 10 trials)
-    log_dir = output_dir / "mipro_logs"
-    log_dir.mkdir(exist_ok=True)
+        # Manual parameter control for consistent evaluation counts (~200 rollouts target)
+        # num_candidates=20, num_trials=10 -> ~200 rollouts (20 candidates * 10 trials)
+        log_dir = output_dir / "mipro_logs"
+        log_dir.mkdir(exist_ok=True)
 
-    optimizer = MIPROv2(
-        metric=tracked_metric,
-        num_candidates=20,
-        num_trials=10,                  # Number of trials per candidate              # Total candidates to generate (instruct + fewshot)
-        max_bootstrapped_demos=10,      # Max few-shot examples to bootstrap
-        max_labeled_demos=10,           # Max labeled demonstrations
-        auto=None,                     # Disable auto presets
-    )
+        optimizer = MIPROv2(
+            metric=tracked_metric,
+            num_candidates=20,              # Total candidates to generate (instruct + fewshot)
+            max_bootstrapped_demos=10,      # Max few-shot examples to bootstrap
+            max_labeled_demos=10,           # Max labeled demonstrations
+            auto=None,                      # Disable auto presets
+        )
 
-    # Optimize with progress tracking
-    print(f"🚀 DSPy MIPROv2 (candidates=20, trials=10, max_demos=10, auto=None)")
+        # Optimize with progress tracking
+        print(f"🚀 DSPy MIPROv2 (candidates=20, trials=10, max_demos=10, auto=None)")
 
-    # Reset counter for optimization phase (exclude baseline calls)
-    metric_calls["count"] = 0
-    optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset, num_trials=10)
-    optimization_metric_calls = metric_calls["count"]
+        # Reset counter for optimization phase (exclude baseline calls)
+        metric_calls["count"] = 0
+        # Set minibatch_size to 50 (valset has 100 examples, using larger minibatch for better evaluation)
+        optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset, num_trials=10, minibatch_size=50)
+        optimization_metric_calls = metric_calls["count"]
 
-    # Evaluate optimized module
-    val_score = evaluate(optimized_module)
-    final_eval_calls = metric_calls["count"] - optimization_metric_calls
+        # Evaluate optimized module
+        val_score = evaluate(optimized_module)
+        final_eval_calls = metric_calls["count"] - optimization_metric_calls
 
     # Extract final score
     if isinstance(val_score, (int, float)):
@@ -590,7 +592,9 @@ async def run_dspy_gepa_hotpotqa(
     train_seeds: Optional[list[int]] = None,
     val_seeds: Optional[list[int]] = None,
     rollout_budget: int = 200,
+    reflection_minibatch_size: int = 3,
     output_dir: Optional[Path] = None,
+    model: Optional[str] = None,
 ) -> dict[str, Any]:
     """Run DSPy GEPA optimization on HotPotQA.
 
@@ -599,7 +603,9 @@ async def run_dspy_gepa_hotpotqa(
         train_seeds: Training seeds (default: 0-49, 50 examples)
         val_seeds: Validation seeds (default: 50-79, 30 examples)
         rollout_budget: Rollout budget (default: 200)
+        reflection_minibatch_size: Minibatch size for reflection evaluation (default: 3)
         output_dir: Output directory
+        model: Model string (e.g., "groq/llama-3.3-70b-versatile"). Defaults to "groq/llama-3.3-70b-versatile"
 
     Returns:
         Results dictionary
@@ -614,13 +620,45 @@ async def run_dspy_gepa_hotpotqa(
     _warn_if_dotenv_is_messy()
 
     # Configure DSPy LM
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY required")
+    # Determine API key and model based on provider
+    if model is None:
+        model = "groq/llama-3.3-70b-versatile"  # Default for HotPotQA
+    
+    model_lower = model.lower()
+    if "groq" in model_lower:
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required for Groq models (model: {model})")
+    elif "openai" in model_lower:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError(f"OPENAI_API_KEY required for OpenAI models (model: {model})")
+    else:
+        # Default to Groq if provider unclear
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError(f"GROQ_API_KEY required (default provider, model: {model})")
 
-    # Main LM: llama-3.1-8b-instant via Groq
-    lm = dspy.LM("groq/llama-3.1-8b-instant", api_key=groq_api_key)
-    dspy.configure(lm=lm)
+    # Main LM: use provided model or default
+    # Use context() instead of configure() to work across async tasks
+    lm = dspy.LM(model, api_key=api_key)
+
+    # ✅ ADD: Redirect DSPy verbose logging to file to prevent stdout spam
+    import logging
+    log_file = output_dir / "dspy_gepa.log"
+    # ✅ FIX: Remove existing handlers and only use file handler to prevent stdout spam
+    dspy_logger = logging.getLogger("dspy")
+    # Remove all existing handlers (including console handlers)
+    dspy_logger.handlers.clear()
+    # Add only file handler
+    file_handler = logging.FileHandler(log_file, mode="w")
+    file_handler.setLevel(logging.DEBUG)
+    dspy_logger.addHandler(file_handler)
+    dspy_logger.setLevel(logging.DEBUG)
+    # Prevent propagation to root logger (which might have console handlers)
+    dspy_logger.propagate = False
+    
+    print(f"📝 Verbose logs redirected to: {log_file}")
 
     # Track actual metric evaluations
     metric_calls = {"count": 0}
@@ -633,11 +671,11 @@ async def run_dspy_gepa_hotpotqa(
     # Load dataset
     hotpotqa_examples = load_hotpotqa_dataset(split="validation")
 
-    # Select training and validation seeds (matching hotpotqa_gepa.toml)
+    # Select training and validation seeds (matching synth_gepa_config.yaml)
     if train_seeds is None:
         train_seeds = list(range(50))  # 0-49: 50 training examples
     if val_seeds is None:
-        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples
+        val_seeds = list(range(50, 80))  # 50-79: 30 validation examples (matching config)
 
     # Filter examples by seeds
     train_examples = [hotpotqa_examples[i] for i in train_seeds if i < len(hotpotqa_examples)]
@@ -660,47 +698,140 @@ async def run_dspy_gepa_hotpotqa(
     # Evaluate baseline (before optimization)
     from dspy.evaluate import Evaluate
 
-    # Reset counter before baseline evaluation
-    metric_calls["count"] = 0
-    evaluate = Evaluate(devset=valset, metric=tracked_metric_gepa, num_threads=1)
-    baseline_score = evaluate(module)
-    baseline_metric_calls = metric_calls["count"]
+    # Use dspy.context() to wrap all DSPy operations
+    with dspy.context(lm=lm):
+        # Reset counter before baseline evaluation
+        metric_calls["count"] = 0
+        evaluate = Evaluate(devset=valset, metric=tracked_metric_gepa, num_threads=1)
+        baseline_score = evaluate(module)
+        baseline_metric_calls = metric_calls["count"]
 
-    # Extract the score (DSPy returns EvaluationResult with .score attribute)
-    if isinstance(baseline_score, (int, float)):
-        baseline_val = float(baseline_score) / 100.0 if baseline_score > 1 else float(baseline_score)
-    elif isinstance(baseline_score, dict):
-        baseline_val = baseline_score.get("accuracy", baseline_score.get("score", 0.0))
-    elif hasattr(baseline_score, "score"):
-        # EvaluationResult object - score is already a percentage (0-100)
-        baseline_val = float(baseline_score.score) / 100.0
-    else:
-        baseline_val = 0.0
+        # Extract the score (DSPy returns EvaluationResult with .score attribute)
+        if isinstance(baseline_score, (int, float)):
+            baseline_val = float(baseline_score) / 100.0 if baseline_score > 1 else float(baseline_score)
+        elif isinstance(baseline_score, dict):
+            baseline_val = baseline_score.get("accuracy", baseline_score.get("score", 0.0))
+        elif hasattr(baseline_score, "score"):
+            # EvaluationResult object - score is already a percentage (0-100)
+            baseline_val = float(baseline_score.score) / 100.0
+        else:
+            baseline_val = 0.0
 
-    print(f"📊 Baseline performance: {baseline_val:.4f}")
+        print(f"📊 Baseline performance: {baseline_val:.4f}")
 
-    # Record baseline checkpoint
-    learning_curve.curve.record(
-        rollout_count=0,
-        performance=baseline_val,
-        checkpoint_pct=0.0,
-    )
+        # Record baseline checkpoint
+        learning_curve.curve.record(
+            rollout_count=0,
+            performance=baseline_val,
+            checkpoint_pct=0.0,
+        )
 
-    # Initialize GEPA optimizer
-    from dspy.teleprompt.gepa import GEPA
+        # Initialize GEPA optimizer
+        from dspy.teleprompt.gepa import GEPA
 
-    max_metric_calls = int(rollout_budget)
-    # GEPA requires a reflection LM (llama-3.3-70b-versatile, matching gepa config mutation LLM)
-    reflection_lm = dspy.LM("groq/llama-3.3-70b-versatile", api_key=groq_api_key)
-    optimizer = GEPA(metric=tracked_metric_gepa, max_metric_calls=max_metric_calls, reflection_lm=reflection_lm, track_stats=True)
+        max_metric_calls = int(rollout_budget)
+        # GEPA requires a reflection LM (llama-3.3-70b-versatile, matching gepa config mutation LLM)
+        reflection_lm = dspy.LM("groq/llama-3.3-70b-versatile", api_key=groq_api_key)
+        
+        # ✅ ADD: Create prompt log file for DSPy proposal prompts
+        prompt_log_file = output_dir / "dspy_gepa_proposal_prompts.log"
+        prompt_log_handle = open(prompt_log_file, "w")
+        
+        # ✅ ADD: Monkey-patch reflection_lm.forward() to capture prompts
+        original_reflection_lm_forward = reflection_lm.forward
+        gepa_call_count = {"count": 0}
+        
+        def logged_reflection_lm_forward(self, prompt=None, messages=None, **kwargs):
+            """Wrap reflection_lm.forward() to capture GEPA proposal prompts."""
+            import time
+            
+            gepa_call_count["count"] += 1
+            
+            prompt_log_handle.write("=" * 80 + "\n")
+            prompt_log_handle.write(f"DSPy GEPA PROPOSAL PROMPT (Call #{gepa_call_count['count']})\n")
+            prompt_log_handle.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            prompt_log_handle.write("=" * 80 + "\n")
+            
+            # Log the prompt (messages take precedence over prompt)
+            if messages:
+                prompt_log_handle.write(f"\n--- CONVERSATION PROMPT ({len(messages)} messages) ---\n")
+                for i, msg in enumerate(messages):
+                    prompt_log_handle.write(f"\n[Message {i+1}]\n")
+                    if isinstance(msg, dict):
+                        prompt_log_handle.write(f"Role: {msg.get('role', 'unknown')}\n")
+                        content = msg.get('content', str(msg))
+                        # Truncate very long content for readability
+                        if isinstance(content, str) and len(content) > 50000:
+                            prompt_log_handle.write(f"Content (truncated, full in log): {content[:50000]}...\n")
+                        else:
+                            prompt_log_handle.write(f"Content: {content}\n")
+                    else:
+                        prompt_log_handle.write(f"{str(msg)}\n")
+                prompt_log_handle.write(f"\n--- END CONVERSATION ---\n\n")
+            elif prompt:
+                prompt_log_handle.write(f"\n--- FULL PROMPT SENT TO LLM ---\n")
+                if isinstance(prompt, str) and len(prompt) > 50000:
+                    prompt_log_handle.write(f"{prompt[:50000]}...\n[Truncated - full prompt in log file]\n")
+                else:
+                    prompt_log_handle.write(f"{prompt}\n")
+                prompt_log_handle.write(f"\n--- END PROMPT ---\n\n")
+            else:
+                prompt_log_handle.write(f"\n--- PROMPT (no prompt/messages provided) ---\n")
+                prompt_log_handle.write(f"kwargs: {kwargs}\n")
+                prompt_log_handle.write(f"\n--- END PROMPT ---\n\n")
+            
+            prompt_log_handle.flush()
+            
+            # Call original method
+            result = original_reflection_lm_forward(prompt=prompt, messages=messages, **kwargs)
+            
+            # Log the response (result is a litellm response object)
+            prompt_log_handle.write(f"--- LLM RESPONSE ---\n")
+            if hasattr(result, 'choices') and result.choices:
+                # Standard OpenAI-style response
+                for i, choice in enumerate(result.choices):
+                    prompt_log_handle.write(f"Choice {i+1}:\n")
+                    if hasattr(choice, 'message') and hasattr(choice.message, 'content'):
+                        content = choice.message.content
+                        if isinstance(content, str) and len(content) > 10000:
+                            prompt_log_handle.write(f"{content[:10000]}...\n[Truncated]\n")
+                        else:
+                            prompt_log_handle.write(f"{content}\n")
+                    else:
+                        prompt_log_handle.write(f"{str(choice)}\n")
+            else:
+                prompt_log_handle.write(f"{str(result)}\n")
+            prompt_log_handle.write(f"\n--- END RESPONSE ---\n\n")
+            prompt_log_handle.flush()
+            
+            return result
+        
+        # Apply monkey-patch
+        import types
+        reflection_lm.forward = types.MethodType(logged_reflection_lm_forward, reflection_lm)
+        
+        optimizer = GEPA(
+            metric=tracked_metric_gepa,
+            max_metric_calls=max_metric_calls,
+            reflection_lm=reflection_lm,
+            reflection_minibatch_size=reflection_minibatch_size,
+            track_stats=True,
+        )
 
-    # Optimize with progress tracking
-    print(f"🚀 DSPy GEPA (budget={rollout_budget}, max_metric_calls={max_metric_calls})")
+        # Optimize with progress tracking
+        print(f"🚀 DSPy GEPA (budget={rollout_budget}, max_metric_calls={max_metric_calls})")
+        print(f"   Progress updates will be printed here; detailed logs saved to {log_file.name}")
 
-    optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset)
+        try:
+            optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset)
+        finally:
+            # Restore original reflection_lm method and close prompt log
+            reflection_lm.forward = original_reflection_lm_forward
+            prompt_log_handle.close()
+            print(f"📝 Saved proposal prompts to: {prompt_log_file}")
 
-    # Evaluate optimized module
-    val_score = evaluate(optimized_module)
+        # Evaluate optimized module
+        val_score = evaluate(optimized_module)
 
     # Extract final score
     if isinstance(val_score, (int, float)):
