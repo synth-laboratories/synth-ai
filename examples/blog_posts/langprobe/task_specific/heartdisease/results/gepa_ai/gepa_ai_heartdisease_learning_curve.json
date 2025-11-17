@@ -1,0 +1,17 @@
+{
+  "framework": "gepa_ai",
+  "benchmark": "heartdisease",
+  "total_rollouts": 500,
+  "checkpoints": [
+    {
+      "rollout_count": 0,
+      "performance": 0.48,
+      "checkpoint_pct": 0.0
+    },
+    {
+      "rollout_count": 500,
+      "performance": 0.76,
+      "checkpoint_pct": 1.0
+    }
+  ]
+}

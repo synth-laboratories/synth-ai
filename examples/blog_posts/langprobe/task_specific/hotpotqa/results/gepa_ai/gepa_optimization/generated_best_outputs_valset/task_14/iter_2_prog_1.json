@@ -1,0 +1,6 @@
+{
+    "response": "Answer: more than 70 countries\nSupport: The question mentions Scott Parkin as a critic of ExxonMobil and another corporation. According to the passage \"Scott Parkin\", he is a critic of ExxonMobil and Halliburton. The passage \"Halliburton\" states that Halliburton has operations in more than 70 countries. Therefore, the other corporation Scott Parkin is a critic of, which has operations in multiple countries, is Halliburton, and it operates in more than 70 countries.",
+    "predicted_answer": "more than 70 countries",
+    "expected_answer": "more than 70 countries",
+    "support": "The question mentions Scott Parkin as a critic of ExxonMobil and another corporation. According to the passage \"Scott Parkin\", he is a critic of ExxonMobil and Halliburton. The passage \"Halliburton\" states that Halliburton has operations in more than 70 countries. Therefore, the other corporation Scott Parkin is a critic of, which has operations in multiple countries, is Halliburton, and it operates in more than 70 countries."
+}

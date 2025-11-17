@@ -128,6 +128,9 @@ class ExperimentJob(Base):
 
     experiment: Mapped[Experiment] = relationship(back_populates="jobs")
     trials: Mapped[list[Trial]] = relationship(back_populates="job")
+    execution_logs: Mapped[list[JobExecutionLog]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         Index("idx_experiment_jobs_status", "status"),
@@ -184,4 +187,45 @@ class Trial(Base):
         Index("idx_trials_aggregate_score", "aggregate_score"),
         Index("idx_trials_experiment_trial_number", "experiment_id", "trial_number"),
         UniqueConstraint("experiment_id", "trial_number", name="uq_trial_number_per_experiment"),
+    )
+
+
+class JobExecutionLog(Base):
+    """Detailed execution logs for job subprocess runs.
+    
+    Stores full stdout, stderr, command, and environment info for ALL jobs (successful and failed).
+    This allows querying failures directly from the database without guessing.
+    """
+    __tablename__ = "job_execution_logs"
+
+    log_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("experiment_jobs.job_id", ondelete="CASCADE"), nullable=False
+    )
+    
+    # Execution details
+    command: Mapped[str] = mapped_column(Text(), nullable=False)  # Full command executed
+    working_directory: Mapped[str] = mapped_column(Text(), nullable=False)
+    returncode: Mapped[int] = mapped_column(Integer, nullable=False)
+    
+    # Output (stored as Text to handle large outputs)
+    stdout: Mapped[str] = mapped_column(Text(), nullable=False, default="")
+    stderr: Mapped[str] = mapped_column(Text(), nullable=False, default="")
+    
+    # Environment info (for debugging)
+    python_executable: Mapped[str | None] = mapped_column(String(255))
+    environment_keys: Mapped[list[str] | None] = mapped_column(JSON)  # List of env var keys present
+    
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    
+    # Relationship
+    job: Mapped[ExperimentJob] = relationship(back_populates="execution_logs")
+
+    __table_args__ = (
+        Index("idx_job_execution_logs_job", "job_id"),
+        Index("idx_job_execution_logs_returncode", "returncode"),
+        Index("idx_job_execution_logs_created", "created_at"),
     )

@@ -19,6 +19,21 @@ if os.getenv("EXPERIMENT_QUEUE_DB_PATH") or os.getenv("EXPERIMENT_QUEUE_TRAIN_CM
 def _require_celery_binary() -> str:
     celery_path = shutil.which("celery")
     if not celery_path:
+        # Check if we're in a virtual environment and celery is installed there
+        venv_bin = os.environ.get("VIRTUAL_ENV")
+        if venv_bin:
+            venv_celery = Path(venv_bin) / "bin" / "celery"
+            if venv_celery.exists():
+                celery_path = str(venv_celery)
+        # Also check common uv venv locations
+        if not celery_path:
+            import sys
+            if hasattr(sys, "executable"):
+                venv_base = Path(sys.executable).parent.parent
+                uv_celery = venv_base / "bin" / "celery"
+                if uv_celery.exists():
+                    celery_path = str(uv_celery)
+    if not celery_path:
         raise click.ClickException(
             "Celery executable not found on PATH. Install it with `uv pip install celery` or ensure it is available."
         )

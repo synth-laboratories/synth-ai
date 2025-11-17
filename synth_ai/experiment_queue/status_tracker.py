@@ -312,8 +312,9 @@ def update_status_from_output(
         f"parse_progress_from_output must return ProgressInfo, got {type(progress).__name__}"
     )
     
-    # Calculate ETA if we have progress info
+    # Calculate ETA and rollouts/min if we have progress info
     eta_seconds = None
+    rollouts_per_minute = None
     if (
         progress.rollouts_completed is not None
         and progress.total_rollouts is not None
@@ -326,6 +327,7 @@ def update_status_from_output(
         elapsed = time.time() - start_time
         assert elapsed > 0, f"elapsed time must be > 0, got {elapsed}"
         rate = completed / elapsed  # rollouts per second
+        rollouts_per_minute = rate * 60.0  # Convert to rollouts per minute
         remaining = total - completed
         assert remaining >= 0, f"remaining rollouts must be >= 0, got {remaining}"
         if rate > 0:
@@ -355,5 +357,6 @@ def update_status_from_output(
         best_score=progress.best_score,
         eta_seconds=eta_seconds,
         progress_pct=progress_pct,
+        rollouts_per_minute=rollouts_per_minute,
     )
 

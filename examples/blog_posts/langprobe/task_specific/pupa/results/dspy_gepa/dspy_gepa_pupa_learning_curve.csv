@@ -1,0 +1,3 @@
+framework,benchmark,rollout_count,performance,checkpoint_pct
+dspy_gepa,pupa,0,0.4493,0.0
+dspy_gepa,pupa,300,0.5102,1.0

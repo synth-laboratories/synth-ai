@@ -1,0 +1,173 @@
+[
+  {
+    "experiment_id": "exp_d57f32400f4a",
+    "name": "GEPA Heartdisease_gepa_ai",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_da21e85b71ee",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.045114,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "gepa-ai",
+        "policy_model": "openai/gpt-oss-20b"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_6108c39c7d80",
+    "name": "GEPA Banking77_dspy",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_9525331c51f3",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.030463,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "dspy",
+        "policy_model": "llama-3.1-8b-instant"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_d28801aafe6e",
+    "name": "GEPA Banking77_synth",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_ed6e7106327b",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.023242,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "gepa-ai",
+        "policy_model": "llama-3.1-8b-instant"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_a64374502eff",
+    "name": "GEPA Hotpotqa_dspy",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_9ef88c78253a",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.027318,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "dspy",
+        "policy_model": "llama-3.3-70b-versatile"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_a53d48414175",
+    "name": "GEPA Pupa_gepa_ai",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_0fd1f6e7ec99",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.03451,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "gepa-ai",
+        "policy_model": "openai/gpt-oss-120b"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_a42cc48d2a91",
+    "name": "GEPA Banking77_gepa_ai",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_16ee9f88db85",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.028524,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "gepa-ai",
+        "policy_model": "llama-3.1-8b-instant"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_962cd656b5a0",
+    "name": "GEPA Hotpotqa_gepa_ai",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_016aa3139952",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.024041,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "gepa-ai",
+        "policy_model": "llama-3.3-70b-versatile"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_c09240d08714",
+    "name": "GEPA Pupa_dspy",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_7ef96489f62b",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.01995,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "dspy",
+        "policy_model": "openai/gpt-oss-120b"
+      }
+    ]
+  },
+  {
+    "experiment_id": "exp_178a89f65e14",
+    "name": "GEPA Heartdisease_dspy",
+    "status": "failed",
+    "jobs": [
+      {
+        "job_id": "job_abd514787ff0",
+        "status": "failed",
+        "error": "\u274c SYNTH_API_KEY not found! Please set it in /Users/joshpurtell/Documents/GitHub/synth-ai/.env. No fallback - API key must be explicitly set.",
+        "total_time": 0.022316,
+        "baseline_score": null,
+        "candidate1_score": null,
+        "candidate1_lift": null,
+        "best_score": null,
+        "proposal_method": "dspy",
+        "policy_model": "openai/gpt-oss-20b"
+      }
+    ]
+  }
+]

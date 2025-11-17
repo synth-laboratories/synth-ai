@@ -1,0 +1,25 @@
+{
+  "timestamp": "20251116_122916",
+  "config_file": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/langprobe/comparisons/synth_gepa_config.yaml",
+  "results": [
+    {
+      "benchmark": "banking77_dspy",
+      "status": "completed",
+      "proposer_mode": "dspy",
+      "model": "groq/llama-3.1-8b-instant",
+      "baseline_score": 0.0,
+      "best_score": 0.74,
+      "val_score": 0.74,
+      "total_rollouts": 500,
+      "actual_rollouts": null,
+      "total_time": 4.541322946548462,
+      "prompt_file": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/langprobe/task_specific/banking77/results/dspy_gepa/optimized_prompt.txt",
+      "results_file": "/Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/langprobe/task_specific/banking77/results/dspy_gepa/dspy_gepa_detailed_results.json"
+    },
+    {
+      "benchmark": "banking77_gepa_ai",
+      "status": "error",
+      "error": "GEPA-AI library integration requires implementing a GEPAAdapter for Banking77.\nThe gepa package uses a different API than DSPy's GEPA:\n- It requires a GEPAAdapter that implements evaluate() and make_reflective_dataset()\n- It uses gepa.api.optimize() with seed_candidate, trainset, valset, and adapter parameters\n- See gepa package documentation for adapter implementation details\n\nFor now, please use DSPy GEPA mode instead of gepa-ai mode."
+    }
+  ]
+}

@@ -44,6 +44,10 @@ dependencies = [
     "mcp>=1.21.0",
     "ruff>=0.12.9",
     "tomli_w>=1.0.0",
+    "dspy>=3.0.4",
+    "setuptools>=80.9.0",
+    "gym>=0.26.2",
+    "gepa>=0.0.17",
 ]
 
 [project.scripts]

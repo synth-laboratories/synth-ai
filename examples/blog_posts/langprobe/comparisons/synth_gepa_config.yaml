@@ -1,32 +1,285 @@
 # Configuration for synth_gepa parallel comparison runs
 # This file is the source of truth for which benchmarks + models + configs get run
+#
+# MODES AVAILABLE:
+#   - "synth": Our backend optimizer with gepa-ai proposer (uses minibatch_size for quick evaluation)
+#   - "dspy": Our backend optimizer with dspy proposer (uses reflection_minibatch_size)
+#   - "gepa-ai": GEPA-AI library baseline (uses reflection_minibatch_size)
+#
+# BENCHMARK COVERAGE:
+#   - Banking77: synth, dspy, gepa-ai (all modes available)
+#   - HeartDisease: synth, dspy, gepa-ai (all modes available)
+#   - Hover: synth only (DSPy/GEPA-AI adapters exist but not enabled)
+#   - Pupa: synth, dspy, gepa-ai (all modes available)
+#   - Ifbench: synth only (DSPy/GEPA-AI adapters exist but not enabled)
+#   - Hotpotqa: synth, dspy, gepa-ai (all modes available)
+#   - Crafter: synth only (agentic benchmark, adapters exist but not enabled)
+#   - Verilog: synth only (agentic benchmark, adapters exist but not enabled)
+#
+# CONFIGURATION NOTES:
+#   - Synth mode uses: "prompt_learning.gepa.rollout.minibatch_size" (default: 3)
+#   - DSPy/GEPA-AI modes use: "prompt_learning.gepa.reflection_minibatch_size" (default: 3)
+#   - All benchmarks have train_seeds and val_seeds configured
+#   - All benchmarks have enable_task_app_metadata: true for code extraction
 
-# Per-benchmark configuration
 benchmarks:
-  banking77:
+  # Banking77 - DSPy mode
+  banking77_dspy:
+    run: true
     config_path: "examples/blog_posts/langprobe/task_specific/banking77/banking77_gepa.toml"
-    rollout_limit: 100        # Maximum number of rollouts for this benchmark
+    rollout_limit: 500
     model:
       provider: "groq"
       model: "llama-3.1-8b-instant"
-    # Other overrides can be added here (e.g., gepa.population.num_generations)
+    proposer_mode: "dspy"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
   
-  heartdisease:
+  # Banking77 - GEPA-AI mode
+  banking77_gepa_ai:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/banking77/banking77_gepa.toml"
+    rollout_limit: 500
+    model:
+      provider: "groq"
+      model: "llama-3.1-8b-instant"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Banking77 - Synth mode (our backend optimizer with gepa-ai proposer)
+  banking77_synth:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/banking77/banking77_gepa.toml"
+    rollout_limit: 500
+    model:
+      provider: "groq"
+      model: "llama-3.1-8b-instant"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # HeartDisease - Synth mode (our backend optimizer with gepa-ai proposer)
+  heartdisease_synth:
+    run: false
     config_path: "examples/blog_posts/langprobe/task_specific/heartdisease/heartdisease_gepa.toml"
-    rollout_limit: 100        # Maximum number of rollouts for this benchmark
+    rollout_limit: 500
     model:
       provider: "groq"
       model: "openai/gpt-oss-20b"
-    # Other overrides can be added here
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    "prompt_learning.gepa.evaluation.val_seeds": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # HeartDisease - DSPy mode (has adapter)
+  heartdisease_dspy:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/heartdisease/heartdisease_gepa.toml"
+    rollout_limit: 500
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-20b"
+    proposer_mode: "dspy"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    "prompt_learning.gepa.evaluation.val_seeds": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # HeartDisease - GEPA-AI mode (has adapter)
+  heartdisease_gepa_ai:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/heartdisease/heartdisease_gepa.toml"
+    rollout_limit: 500
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-20b"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+    "prompt_learning.gepa.evaluation.val_seeds": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Hover - Synth mode (our backend optimizer with gepa-ai proposer)
+  hover_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/hover/hover_gepa.toml"
+    rollout_limit: 300
+    model:
+      provider: "openai"
+      model: "gpt-5-nano"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # Pupa - Synth mode (our backend optimizer with gepa-ai proposer)
+  pupa_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/pupa/pupa_gepa.toml"
+    rollout_limit: 300
+    model:
+      provider: "openai"
+      model: "gpt-4.1-nano"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # Pupa - DSPy mode (has adapter)
+  pupa_dspy:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/pupa/pupa_gepa.toml"
+    rollout_limit: 300
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-120b"
+    proposer_mode: "dspy"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Pupa - GEPA-AI mode (has adapter)
+  pupa_gepa_ai:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/pupa/pupa_gepa.toml"
+    rollout_limit: 300
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-120b"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Ifbench - Synth mode (our backend optimizer with gepa-ai proposer)
+  ifbench_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/ifbench/ifbench_gepa.toml"
+    rollout_limit: 300
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-120b"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # Hotpotqa - Synth mode (our backend optimizer with gepa-ai proposer)
+  hotpotqa_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/hotpotqa/hotpotqa_gepa.toml"
+    rollout_limit: 100
+    model:
+      provider: "openai"
+      model: "gpt-4o-mini"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # Hotpotqa - DSPy mode (has adapter)
+  hotpotqa_dspy:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/hotpotqa/hotpotqa_gepa.toml"
+    rollout_limit: 100
+    model:
+      provider: "groq"
+      model: "llama-3.3-70b-versatile"
+    proposer_mode: "dspy"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Hotpotqa - GEPA-AI mode (has adapter)
+  hotpotqa_gepa_ai:
+    run: true
+    config_path: "examples/blog_posts/langprobe/task_specific/hotpotqa/hotpotqa_gepa.toml"
+    rollout_limit: 100
+    model:
+      provider: "groq"
+      model: "llama-3.3-70b-versatile"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+    "prompt_learning.gepa.reflection_minibatch_size": 3
+  
+  # Crafter - Synth mode (our backend optimizer with gepa-ai proposer)
+  crafter_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/crafter/crafter_gepa.toml"
+    rollout_limit: 100
+    model:
+      provider: "groq"
+      model: "qwen/qwen3-32b"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    "prompt_learning.gepa.evaluation.val_seeds": [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
+  
+  # Verilog - Synth mode (our backend optimizer with gepa-ai proposer)
+  verilog_synth:
+    run: false
+    config_path: "examples/blog_posts/langprobe/task_specific/verilog/verilog_gepa.toml"
+    rollout_limit: 100
+    model:
+      provider: "groq"
+      model: "openai/gpt-oss-120b"
+    proposer_mode: "gepa-ai"
+    "prompt_learning.gepa.enable_task_app_metadata": true
+    "prompt_learning.gepa.evaluation.train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    "prompt_learning.gepa.evaluation.val_seeds": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    "prompt_learning.gepa.rollout.max_concurrent": 20
+    "prompt_learning.gepa.rollout.minibatch_size": 3
+    "prompt_learning.gepa.population.use_merge": true
+    "prompt_learning.gepa.population.max_merge_invocations": 5
 
 # Global defaults (can be overridden per benchmark)
 defaults:
   time_limit_seconds: 600     # Maximum time per job in seconds
   max_trials: 50              # Maximum number of trials
   max_cost_usd: 10.0          # Maximum cost per job in USD
+
 gepa_population:
-    num_generations: 2        # Number of generations to run
-    children_per_generation: 5  # Number of children per generation
+  num_generations: 2        # Number of generations to run
+  children_per_generation: 5  # Number of children per generation
 
 # Display settings
 display:

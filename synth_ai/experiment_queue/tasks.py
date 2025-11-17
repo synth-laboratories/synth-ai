@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from celery.utils.log import get_task_logger
 
 from .celery_app import celery_app
@@ -25,6 +26,7 @@ from .models import (
     ExperimentJob,
     ExperimentJobStatus,
     ExperimentStatus,
+    JobExecutionLog,
 )
 from .results import ResultSummary, collect_result_summary
 from .api_schemas import BackendEventsResponse, BackendJobEvent
@@ -36,6 +38,40 @@ logger = get_task_logger(__name__)
 
 
 TRAIN_COMMAND_ENV = "EXPERIMENT_QUEUE_TRAIN_CMD"
+
+
+def _load_synth_api_key() -> str:
+    """Load SYNTH_API_KEY from .env file and fail loudly if not found.
+    
+    Never falls back to other sources - must be explicitly set in .env file.
+    
+    Returns:
+        The API key as a string.
+        
+    Raises:
+        RuntimeError: If SYNTH_API_KEY is not found in .env file.
+    """
+    # Find .env file - check synth-ai root first, then current directory
+    repo_root = Path(__file__).resolve().parents[3]  # synth_ai/experiment_queue/tasks.py -> synth-ai/
+    env_file = repo_root / ".env"
+    
+    if not env_file.exists():
+        # Try current directory as fallback
+        env_file = Path(".env")
+    
+    if env_file.exists():
+        load_dotenv(env_file, override=False)  # Don't override existing env vars
+    
+    api_key = os.getenv("SYNTH_API_KEY")
+    
+    if not api_key:
+        raise RuntimeError(
+            f"❌ SYNTH_API_KEY not found! "
+            f"Please set it in {env_file.resolve() if env_file.exists() else 'synth-ai/.env'}. "
+            f"No fallback - API key must be explicitly set."
+        )
+    
+    return api_key
 
 
 def _find_venv_python() -> str:
@@ -131,6 +167,7 @@ def _poll_backend_progress(
     backend_url: str,
     api_key: str,
     stop_event: threading.Event,
+    job_start_time: float | None = None,
 ) -> None:
     """Poll backend API for progress events and update status_json.
     
@@ -187,6 +224,15 @@ def _poll_backend_progress(
     url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{backend_job_id}/events"
     headers = {"Authorization": f"Bearer {api_key}"}
     last_seq = 0
+    progress_start_time: float | None = None  # Track when we first see progress
+    consecutive_timeouts = 0  # Track consecutive timeouts for exponential backoff
+    base_poll_interval = 5.0  # Base polling interval in seconds
+    
+    # ✅ ADD: Track last progress update time to detect stuck jobs
+    last_progress_time: float | None = None
+    last_rollouts_completed: int | None = None
+    last_progress_seq = 0
+    STUCK_THRESHOLD_SECONDS = 600.0  # 10 minutes without progress = stuck
     
     poller_logger.info("📡 Starting progress poller for backend job %s (URL: %s)", backend_job_id, url)
     
@@ -198,17 +244,84 @@ def _poll_backend_progress(
             
             poller_logger.info("Polling backend API: %s (since_seq: %d)", url, last_seq)
             
-            resp = requests.get(
-                url,
-                headers=headers,
-                params={"since_seq": last_seq, "limit": 100},
-                timeout=10,
-            )
+            try:
+                resp = requests.get(
+                    url,
+                    headers=headers,
+                    params={"since_seq": last_seq, "limit": 100},
+                    timeout=120,  # Increased to 120s to handle slow backend/PostgREST responses
+                )
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                # ✅ ADD: Detect connection pool exhaustion in poller
+                error_str = str(e).lower()
+                is_pool_exhausted = (
+                    "connection" in error_str
+                    or "timeout" in error_str
+                    or "refused" in error_str
+                )
+                if is_pool_exhausted:
+                    # 🔥 VERY LOUD ERROR MESSAGES FOR CONNECTION POOL ISSUES IN POLLER
+                    print("=" * 100, flush=True)
+                    print("🔥🔥🔥 CONNECTION POOL EXHAUSTION DETECTED (POLLER) 🔥🔥🔥", flush=True)
+                    print("=" * 100, flush=True)
+                    print(f"Backend Job ID: {backend_job_id}", flush=True)
+                    print(f"URL: {url}", flush=True)
+                    print(f"Error: {type(e).__name__}: {str(e)}", flush=True)
+                    print("=" * 100, flush=True)
+                    print("⚠️  Cannot fetch events - connection pool may be exhausted!", flush=True)
+                    print("⚠️  Check DB_POOL_SIZE and DB_MAX_OVERFLOW environment variables", flush=True)
+                    print("=" * 100, flush=True)
+                    
+                    poller_logger.error("=" * 100)
+                    poller_logger.error("🔥🔥🔥 CONNECTION POOL EXHAUSTION DETECTED (POLLER) 🔥🔥🔥")
+                    poller_logger.error("=" * 100)
+                    poller_logger.error("Backend Job ID: %s | URL: %s", backend_job_id, url)
+                    poller_logger.error("Error: %s: %s", type(e).__name__, str(e))
+                    poller_logger.error("⚠️  Cannot fetch events - connection pool may be exhausted!")
+                    poller_logger.error("⚠️  Check DB_POOL_SIZE and DB_MAX_OVERFLOW environment variables")
+                    poller_logger.error("=" * 100)
+                raise
             
             # Assert we got a response object
             assert resp is not None, "requests.get() returned None"
             
             poller_logger.info("API response: status=%d, content_length=%d", resp.status_code, len(resp.content))
+            
+            # ✅ ADD: Detect connection pool exhaustion in HTTP error responses
+            if resp.status_code not in (200, 201):
+                body_text = (resp.text or "")[:500].lower()
+                is_pool_exhausted = (
+                    resp.status_code == 503  # Service Unavailable
+                    or resp.status_code == 429  # Too Many Requests (after long wait)
+                    or "connection pool" in body_text
+                    or "too many clients" in body_text
+                    or "maxclients" in body_text
+                    or "max clients" in body_text
+                    or "connection refused" in body_text
+                )
+                
+                if is_pool_exhausted:
+                    # 🔥 VERY LOUD ERROR MESSAGES FOR CONNECTION POOL ISSUES IN POLLER
+                    print("=" * 100, flush=True)
+                    print("🔥🔥🔥 CONNECTION POOL EXHAUSTION DETECTED (POLLER HTTP ERROR) 🔥🔥🔥", flush=True)
+                    print("=" * 100, flush=True)
+                    print(f"Backend Job ID: {backend_job_id}", flush=True)
+                    print(f"URL: {url}", flush=True)
+                    print(f"HTTP Status: {resp.status_code}", flush=True)
+                    print(f"Response Body: {resp.text[:500]}", flush=True)
+                    print("=" * 100, flush=True)
+                    print("⚠️  Cannot fetch events - connection pool may be exhausted!", flush=True)
+                    print("⚠️  Check DB_POOL_SIZE and DB_MAX_OVERFLOW environment variables", flush=True)
+                    print("=" * 100, flush=True)
+                    
+                    poller_logger.error("=" * 100)
+                    poller_logger.error("🔥🔥🔥 CONNECTION POOL EXHAUSTION DETECTED (POLLER HTTP ERROR) 🔥🔥🔥")
+                    poller_logger.error("=" * 100)
+                    poller_logger.error("Backend Job ID: %s | URL: %s | HTTP: %d", backend_job_id, url, resp.status_code)
+                    poller_logger.error("Response Body: %s", resp.text[:500])
+                    poller_logger.error("⚠️  Cannot fetch events - connection pool may be exhausted!")
+                    poller_logger.error("⚠️  Check DB_POOL_SIZE and DB_MAX_OVERFLOW environment variables")
+                    poller_logger.error("=" * 100)
             
             if resp.status_code == 200:
                 # Parse and validate API response using Pydantic models
@@ -289,6 +402,21 @@ def _poll_backend_progress(
                                 progress_pct = progress_data.percent_overall * 100.0
                             best_score = progress_data.effective_best_score
                             
+                            # Track when we first see progress (for rollouts/min calculation)
+                            if rollouts_completed is not None and rollouts_completed > 0 and progress_start_time is None:
+                                progress_start_time = time.time()
+                            
+                            # Calculate rollouts/min if we have progress and timing info
+                            rollouts_per_minute = None
+                            if rollouts_completed is not None and rollouts_completed > 0:
+                                # Use progress_start_time if available, otherwise fall back to job_start_time
+                                start_time_for_rate = progress_start_time or job_start_time
+                                if start_time_for_rate is not None:
+                                    elapsed = time.time() - start_time_for_rate
+                                    if elapsed > 0:
+                                        rate_per_second = rollouts_completed / elapsed
+                                        rollouts_per_minute = rate_per_second * 60.0
+                            
                             # Assert data types and ranges
                             if rollouts_completed is not None:
                                 assert isinstance(rollouts_completed, int), (
@@ -343,6 +471,18 @@ def _poll_backend_progress(
                                 or rollouts_total is not None
                             )
                             
+                            # ✅ Initialize custom_fields before use (extract from event data for validation phase tracking)
+                            custom_fields: dict[str, Any] = {}
+                            if event.data and isinstance(event.data, dict):
+                                # Extract phase and validation info if present
+                                phase = event.data.get("phase")
+                                if phase == "validation":
+                                    custom_fields["phase"] = "validation"
+                                    if "validation_candidate" in event.data:
+                                        custom_fields["validation_candidate"] = event.data["validation_candidate"]
+                                    if "validation_total" in event.data:
+                                        custom_fields["validation_total"] = event.data["validation_total"]
+                            
                             if has_progress:
                                 # Validate status_tracker before update
                                 assert status_tracker is not None, "status_tracker is None"
@@ -357,7 +497,52 @@ def _poll_backend_progress(
                                     eta_seconds=eta_seconds,
                                     progress_pct=progress_pct,
                                     best_score=best_score,
+                                    rollouts_per_minute=rollouts_per_minute,
+                                    custom_fields=custom_fields if custom_fields else None,
                                 )
+                            
+                            # ✅ ADD: Track progress for stuck detection
+                            import time as _time_module
+                            current_time = _time_module.time()
+                            if rollouts_completed is not None:
+                                if last_rollouts_completed is None or rollouts_completed != last_rollouts_completed:
+                                    # Progress changed - update tracking
+                                    last_progress_time = current_time
+                                    last_rollouts_completed = rollouts_completed
+                                    last_progress_seq = event.seq
+                                    poller_logger.info(
+                                        "📊 Progress update for job %s: %s/%s rollouts, ETA: %s, Best: %s",
+                                        backend_job_id,
+                                        rollouts_completed,
+                                        rollouts_total,
+                                        eta_seconds,
+                                        best_score,
+                                    )
+                                elif last_progress_time is not None:
+                                    # Check if stuck (no progress for threshold time)
+                                    time_since_progress = current_time - last_progress_time
+                                    if time_since_progress >= STUCK_THRESHOLD_SECONDS:
+                                        poller_logger.warning(
+                                            "⚠️  Job %s appears STUCK: No progress for %.1f minutes (last: %s/%s rollouts at seq %d)",
+                                            backend_job_id,
+                                            time_since_progress / 60.0,
+                                            last_rollouts_completed,
+                                            rollouts_total,
+                                            last_progress_seq,
+                                        )
+                                        # Emit warning event
+                                        try:
+                                            status_tracker.update(
+                                                custom_fields={
+                                                    **(custom_fields or {}),
+                                                    "stuck_warning": True,
+                                                    "time_since_progress_seconds": time_since_progress,
+                                                }
+                                            )
+                                        except Exception:
+                                            pass  # Don't fail on warning update
+                            else:
+                                # No rollouts info - log anyway
                                 poller_logger.info(
                                     "📊 Progress update for job %s: %s/%s rollouts, ETA: %s, Best: %s",
                                     backend_job_id,
@@ -373,10 +558,44 @@ def _poll_backend_progress(
                             # Non-progress event - just update seq
                             last_seq = max(last_seq, event.seq)
                     
-                    # Log summary of events processed
+                    # ✅ ADD: Track consecutive polls with no new events
                     if events_received == 0:
-                        poller_logger.info("Progress poller heartbeat for job %s (no new events, last_seq=%d)", backend_job_id, last_seq)
+                        # Increment counter for no-event polls
+                        if not hasattr(_poll_backend_progress, '_no_event_polls'):
+                            _poll_backend_progress._no_event_polls = {}  # type: ignore[attr-defined]
+                        if backend_job_id not in _poll_backend_progress._no_event_polls:  # type: ignore[attr-defined]
+                            _poll_backend_progress._no_event_polls[backend_job_id] = 0  # type: ignore[attr-defined]
+                        _poll_backend_progress._no_event_polls[backend_job_id] += 1  # type: ignore[attr-defined]
+                        no_event_count = _poll_backend_progress._no_event_polls[backend_job_id]  # type: ignore[attr-defined]
+                        
+                        # Warn if we've had many consecutive polls with no events
+                        if no_event_count >= 12:  # 12 polls * 5s = 60s with no events
+                            poller_logger.warning(
+                                "⚠️  Job %s: No new events for %d consecutive polls (~%ds). Last seq: %d. Job may be stuck.",
+                                backend_job_id,
+                                no_event_count,
+                                no_event_count * int(base_poll_interval),
+                                last_seq,
+                            )
+                            # Emit warning in status_json
+                            try:
+                                status_tracker.update(
+                                    custom_fields={
+                                        "no_event_polls": no_event_count,
+                                        "last_event_seq": last_seq,
+                                        "stuck_warning": True,
+                                    }
+                                )
+                            except Exception:
+                                pass  # Don't fail on warning update
+                        
+                        poller_logger.info("Progress poller heartbeat for job %s (no new events, last_seq=%d, consecutive_no_events=%d)", backend_job_id, last_seq, no_event_count)
                     else:
+                        # Reset counter when we get events
+                        if hasattr(_poll_backend_progress, '_no_event_polls'):
+                            if backend_job_id in _poll_backend_progress._no_event_polls:  # type: ignore[attr-defined]
+                                _poll_backend_progress._no_event_polls[backend_job_id] = 0  # type: ignore[attr-defined]
+                        
                         event_types_str = ", ".join(f"{k}:{v}" for k, v in sorted(event_types_seen.items()))
                         poller_logger.info(
                             "Processed %d events (types: %s), updated last_seq to %d",
@@ -391,6 +610,9 @@ def _poll_backend_progress(
                                 last_seq,
                                 event_types_str,
                             )
+                    
+                    # Reset timeout counter on successful request
+                    consecutive_timeouts = 0
                 
                 except AssertionError as e:
                     poller_logger.error(
@@ -428,13 +650,31 @@ def _poll_backend_progress(
                     backend_job_id,
                     resp.text[:200],
                 )
+        except requests.exceptions.ReadTimeout as e:
+            # ReadTimeout is expected when backend is slow - log as warning and use exponential backoff
+            consecutive_timeouts += 1
+            backoff_seconds = min(base_poll_interval * (2 ** min(consecutive_timeouts - 1, 4)), 60.0)  # Max 60s backoff
+            poller_logger.warning(
+                "Backend timeout polling job %s (consecutive=%d, backing off %.1fs): %s",
+                backend_job_id,
+                consecutive_timeouts,
+                backoff_seconds,
+                e,
+            )
+            # Use exponential backoff on timeout
+            stop_event.wait(timeout=backoff_seconds)
+            continue
         except requests.exceptions.RequestException as e:
-            poller_logger.error("Network error polling job %s: %s", backend_job_id, e, exc_info=True)
+            # Other network errors - log as warning, reset timeout counter
+            consecutive_timeouts = 0
+            poller_logger.warning("Network error polling job %s: %s", backend_job_id, e)
         except Exception as e:
+            # Unexpected errors - log as error but don't crash
+            consecutive_timeouts = 0
             poller_logger.error("Progress poller error for job %s: %s", backend_job_id, e, exc_info=True)
         
-        # Poll every 5 seconds
-        stop_event.wait(timeout=5)
+        # Poll every 5 seconds (or after backoff)
+        stop_event.wait(timeout=base_poll_interval)
     
     poller_logger.info("📡 Stopped progress poller for backend job %s", backend_job_id)
 
@@ -461,6 +701,7 @@ def _build_train_command(config_path: str) -> list[str]:
     1. Getting the base command from EXPERIMENT_QUEUE_TRAIN_CMD env var or default
     2. Parsing the base command into segments
     3. Appending prompt learning specific flags (--type, --config, --poll, etc.)
+    4. Adding --backend flag with URL from experiment queue config
     
     Args:
         config_path: Path to the TOML config file for the experiment
@@ -471,7 +712,7 @@ def _build_train_command(config_path: str) -> list[str]:
     Note:
         The base command defaults to `python -m synth_ai.cli train` if
         EXPERIMENT_QUEUE_TRAIN_CMD is not set. The command always includes
-        --type prompt_learning, --config, --poll, and --stream-format cli flags.
+        --type prompt_learning, --config, --poll, --stream-format cli, and --backend flags.
     """
     # Get command from env var or use default (lazily evaluated)
     base_cmd = os.getenv(TRAIN_COMMAND_ENV)
@@ -486,12 +727,18 @@ def _build_train_command(config_path: str) -> list[str]:
         if part:
             segments.append(part)
 
+    # Get backend URL from config and add --backend flag
+    config = load_config()
+    backend_url = config.backend_url
+    
     segments.extend(
         [
             "--type",
             "prompt_learning",
             "--config",
             config_path,
+            "--backend",
+            backend_url,
             "--poll",
             "--stream-format",
             "cli",
@@ -568,6 +815,10 @@ def _finalize_job(
     summary: ResultSummary,
     success: bool,
     error_message: str | None = None,
+    command: str | None = None,
+    working_directory: str | None = None,
+    python_executable: str | None = None,
+    environment_keys: list[str] | None = None,
 ) -> dict[str, Any] | None:
     """Finalize a job by updating its status and persisting results.
     
@@ -597,17 +848,130 @@ def _finalize_job(
             return None
 
         job.completed_at = datetime.now(UTC)
-        job.result = summary.to_dict()
         experiment = job.experiment
+        
+        # ALWAYS create execution log entry (for both success and failure)
+        # This allows querying failures directly from the database
+        if command is not None and working_directory is not None:
+            from uuid import uuid4
+            # For failed jobs, store full stdout/stderr (up to 100k chars each)
+            # For successful jobs, truncate to 4k chars to save space
+            stdout_for_log = summary.stdout or ""
+            stderr_for_log = summary.stderr or ""
+            if not success:
+                # Keep full output for errors (truncate only if extremely large)
+                if len(stdout_for_log) > 100000:
+                    stdout_for_log = f"{stdout_for_log[:50000]}\n\n... (truncated {len(stdout_for_log) - 100000} chars) ...\n\n{stdout_for_log[-50000:]}"
+                if len(stderr_for_log) > 100000:
+                    stderr_for_log = f"{stderr_for_log[:50000]}\n\n... (truncated {len(stderr_for_log) - 100000} chars) ...\n\n{stderr_for_log[-50000:]}"
+            else:
+                # Truncate successful job output to save space
+                stdout_for_log = _truncate(stdout_for_log)
+                stderr_for_log = _truncate(stderr_for_log)
+            
+            execution_log = JobExecutionLog(
+                log_id=f"log_{uuid4().hex[:12]}",
+                job_id=job_id,
+                command=command,
+                working_directory=working_directory,
+                returncode=summary.returncode,
+                stdout=stdout_for_log,
+                stderr=stderr_for_log,
+                python_executable=python_executable,
+                environment_keys=environment_keys,
+            )
+            session.add(execution_log)
+            logger.info(
+                "Created execution log for job %s: returncode=%d, stdout_len=%d (stored: %d), stderr_len=%d (stored: %d)%s",
+                job_id,
+                summary.returncode,
+                len(summary.stdout or ""),
+                len(stdout_for_log),
+                len(summary.stderr or ""),
+                len(stderr_for_log),
+                " [FULL ERROR STORED]" if not success else "",
+            )
 
         if success:
+            # Only set job.result for successful jobs to prevent stale data from previous runs
+            job.result = summary.to_dict()
             job.status = ExperimentJobStatus.COMPLETED
             persist_trials_from_summary(session, job, summary)
             if experiment:
                 update_experiment_metadata(experiment, summary)
+            
+            # ✅ ADD: Update status_json with final stats from backend job metadata
+            if job.backend_job_id:
+                try:
+                    from .service import update_job_status
+                    import requests
+                    import os
+                    
+                    # Fetch backend job metadata
+                    config = load_config()
+                    backend_url = config.backend_url
+                    # Load API key from .env - fail loudly if not found
+                    try:
+                        api_key = _load_synth_api_key()
+                    except RuntimeError as e:
+                        logger.error(str(e))
+                        raise
+                    
+                    if backend_url and api_key:
+                        url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{job.backend_job_id}"
+                        headers = {"Authorization": f"Bearer {api_key}"}
+                        resp = requests.get(url, headers=headers, timeout=60.0)  # Increased from 10s to 60s to handle backend overload
+                        
+                        if resp.status_code == 200:
+                            backend_job = resp.json()
+                            backend_metadata = backend_job.get("metadata", {})
+                            backend_stats = backend_metadata.get("stats", {})
+                            
+                            if backend_stats:
+                                # Update status_json with final stats (including scores for result extraction)
+                                status_update = {
+                                    "trials_tried": backend_stats.get("trials_tried"),
+                                    "total_tokens": backend_stats.get("total_tokens"),
+                                    "total_rollouts": backend_stats.get("total_rollouts"),
+                                    "optimization_rollouts_executed": backend_stats.get("optimization_rollouts_executed"),
+                                    "validation_rollouts_executed": backend_stats.get("validation_rollouts_executed"),
+                                    "optimization_trials_evaluated": backend_stats.get("optimization_trials_evaluated"),
+                                    "validation_trials_evaluated": backend_stats.get("validation_trials_evaluated"),
+                                    # CRITICAL: Store scores for result extraction (if backend job returns 404 later)
+                                    "baseline_score": backend_stats.get("baseline_score"),
+                                    "best_score": backend_stats.get("best_score") or backend_stats.get("best_validation_score"),
+                                    "total_time_seconds": backend_stats.get("total_time_seconds"),
+                                    "eval_seeds_n": backend_stats.get("eval_seeds_n"),
+                                    "transformations_evaluated": backend_stats.get("transformations_evaluated"),
+                                }
+                                # Remove None values
+                                status_update = {k: v for k, v in status_update.items() if v is not None}
+                                # ✅ ADD: Assertion to ensure we have at least some stats
+                                assert len(status_update) > 0, f"status_update must not be empty for job {job_id}"
+                                if status_update:
+                                    update_job_status(job_id, status_update)
+                                    logger.info(
+                                        "Updated status_json with final stats for job %s: %s",
+                                        job_id,
+                                        status_update,
+                                    )
+                except Exception as e:
+                    # Log but don't fail job finalization if stats update fails
+                    logger.warning(
+                        "Failed to update status_json with final stats for job %s: %s",
+                        job_id,
+                        e,
+                    )
         else:
+            # Job failed - clear job.result to prevent stale data from previous successful runs
+            job.result = None
             job.status = ExperimentJobStatus.FAILED
-            job.error = error_message or summary.stderr or "Job failed"
+            # Store full error message (truncate to 100k chars max to avoid DB issues, but keep full context)
+            full_error = error_message or summary.stderr or "Job failed"
+            if len(full_error) > 100000:
+                # Keep first 50k and last 50k chars
+                full_error = f"{full_error[:50000]}\n\n... (truncated {len(full_error) - 100000} chars) ...\n\n{full_error[-50000:]}"
+            job.error = full_error
             if experiment:
                 # Don't immediately mark experiment as failed - let remaining jobs continue
                 # The experiment will be marked as failed only if all jobs fail
@@ -698,6 +1062,8 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
     prepared: PreparedConfig | None = None
     success = False
     error_message: str | None = None  # Will be set if training fails
+    cmd: list[str] | None = None  # Store command for execution logging
+    env: dict[str, str] | None = None  # Store environment for execution logging
 
     # Initialize status tracker
     assert job.job_id, "job.job_id cannot be empty"
@@ -743,10 +1109,19 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             f"environment must be str | None, got {type(environment).__name__}: {environment}"
         )
         
-        # ASSERT: Verify overrides were applied by checking the prepared config
+        # Extract model/provider from override FIRST (override takes precedence)
+        model_override = None
+        provider_override = None
         if job.config_overrides:
             model_override = job.config_overrides.get("prompt_learning.policy.model")
             provider_override = job.config_overrides.get("prompt_learning.policy.provider")
+        
+        # Use override if available, otherwise use extracted
+        final_model = model_override or policy
+        final_provider = provider_override
+        
+        # ASSERT: Verify overrides were applied by checking the prepared config
+        if job.config_overrides:
             rollout_budget_override = job.config_overrides.get("prompt_learning.gepa.rollout.budget")
             max_rollouts_override = job.config_overrides.get("prompt_learning.termination_config.max_rollouts")
             
@@ -811,8 +1186,10 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                         f"Config path: {prepared.path}"
                     )
         
-        if policy or environment:
-            status_tracker.update(policy=policy, environment=environment)
+        if final_model or environment:
+            # Build policy string with provider if available
+            policy_str = f"{final_provider}/{final_model}" if final_provider and final_model else final_model
+            status_tracker.update(policy=policy_str, environment=environment)
             logger.info(
                 "📊 Experiment config for job %s: policy=%s, environment=%s",
                 job.job_id,
@@ -824,6 +1201,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
         assert isinstance(cmd, list), (
             f"_build_train_command must return list, got {type(cmd).__name__}"
         )
+        # Store cmd for execution logging (needed at end of function)
         assert len(cmd) > 0, "Command list cannot be empty"
         assert all(isinstance(arg, str) for arg in cmd), (
             f"All command arguments must be str, got types: {[type(arg).__name__ for arg in cmd]}"
@@ -873,10 +1251,13 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             f"backend_url must start with http:// or https://, got {backend_url}"
         )
         
-        # Get API key from worker environment (not subprocess env)
+        # Get API key from .env file - fail loudly if not found
         # This is needed for the poller thread, which runs in the worker process
-        api_key = os.getenv("SYNTH_API_KEY") or env.get("SYNTH_API_KEY")
-        # api_key may be None (poller is optional)
+        try:
+            api_key = _load_synth_api_key()
+        except RuntimeError as e:
+            logger.error(str(e))
+            raise
         
         # Start background progress poller (will be started once we have backend_job_id)
         poller_stop = threading.Event()
@@ -905,34 +1286,41 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                 f"STATUS_UPDATE_INTERVAL must be > 0, got {STATUS_UPDATE_INTERVAL}"
             )
             
-            # Read output line-by-line
-            for line in process.stdout:
-                assert isinstance(line, str), (
-                    f"process.stdout line must be str, got {type(line).__name__}"
-                )
-                stdout_lines.append(line)
-                assert isinstance(accumulated_output, str), (
-                    f"accumulated_output must be str, got {type(accumulated_output).__name__}"
-                )
-                accumulated_output += line
-                assert len(accumulated_output) >= len(line), (
-                    f"accumulated_output length should increase, got {len(accumulated_output)} < {len(line)}"
-                )
-                
-                # Try to extract backend_job_id from output
-                if not backend_job_id:
-                    extracted_id = _extract_backend_job_id(line)
-                    if extracted_id:
-                        # Assert extracted ID is valid before using it
-                        assert extracted_id.startswith("pl_"), (
-                            f"Invalid backend_job_id format: {extracted_id}"
-                        )
-                        assert len(extracted_id) > 3, (
-                            f"Backend job ID too short: {extracted_id}"
-                        )
-                        
-                        backend_job_id = extracted_id
-                        logger.info("📋 Extracted backend job ID: %s", backend_job_id)
+            # Read output line-by-line with timeout protection
+            # If subprocess crashes immediately, we need to ensure we capture the error
+            try:
+                # Read output line-by-line
+                for line in process.stdout:
+                    assert isinstance(line, str), (
+                        f"process.stdout line must be str, got {type(line).__name__}"
+                    )
+                    stdout_lines.append(line)
+                    assert isinstance(accumulated_output, str), (
+                        f"accumulated_output must be str, got {type(accumulated_output).__name__}"
+                    )
+                    accumulated_output += line
+                    assert len(accumulated_output) >= len(line), (
+                        f"accumulated_output length should increase, got {len(accumulated_output)} < {len(line)}"
+                    )
+                    
+                    # Try to extract backend_job_id from output
+                    if not backend_job_id:
+                        extracted_id = _extract_backend_job_id(line)
+                        if extracted_id:
+                            # Assert extracted ID is valid before using it
+                            assert extracted_id.startswith("pl_"), (
+                                f"Invalid backend_job_id format: {extracted_id}"
+                            )
+                            assert len(extracted_id) > 3, (
+                                f"Backend job ID too short: {extracted_id}"
+                            )
+                            
+                            backend_job_id = extracted_id
+                            logger.info("📋 Extracted backend job ID: %s", backend_job_id)
+                            
+                            # ✅ ADD: Store backend_job_id in status_json for debugging
+                            status_tracker.update(custom_fields={"backend_job_id": backend_job_id})
+                            logger.info("📋 Stored backend_job_id in status_json for job %s", job.job_id)
                         
                         # Update job with backend_job_id
                         with session_scope() as session:
@@ -942,12 +1330,11 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                                 session.commit()
                         
                         # Start progress poller now that we have backend_job_id
-                        # Validate inputs before starting poller (poller is optional - don't fail job if missing)
+                        # API key should already be loaded and validated above
                         if not api_key:
-                            logger.warning(
-                                "⚠️  Cannot start progress poller for job %s: SYNTH_API_KEY not set in worker environment. "
-                                "Progress updates will not be available, but job will continue.",
-                                job.job_id,
+                            raise RuntimeError(
+                                f"❌ SYNTH_API_KEY not available for job {job.job_id}. "
+                                "This should have been caught earlier - API key loading failed."
                             )
                         elif not backend_url:
                             logger.warning(
@@ -955,7 +1342,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                                 "Progress updates will not be available, but job will continue.",
                                 job.job_id,
                             )
-                        elif not backend_job_id.startswith("pl_"):
+                        elif backend_job_id and not backend_job_id.startswith("pl_"):
                             logger.warning(
                                 "⚠️  Cannot start progress poller for job %s: invalid backend_job_id format: %s. "
                                 "Progress updates will not be available, but job will continue.",
@@ -963,7 +1350,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                                 backend_job_id,
                             )
                         
-                        if api_key and backend_url and backend_job_id.startswith("pl_"):
+                        if api_key and backend_url and backend_job_id and backend_job_id.startswith("pl_"):
                             # Validate all inputs before starting thread
                             assert isinstance(backend_job_id, str), (
                                 f"backend_job_id must be str, got {type(backend_job_id).__name__}"
@@ -989,6 +1376,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                                     backend_url,
                                     api_key,
                                     poller_stop,
+                                    job_start_time,  # Pass job start time for rollouts/min calculation
                                 ),
                                 daemon=True,
                             )
@@ -1002,56 +1390,83 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                             logger.warning(
                                 "Cannot start progress poller: missing API key or backend URL"
                             )
-                
-                # Parse accumulated output for progress updates (fallback if API polling fails)
-                # Use accumulated output (not just current line) for better pattern matching
-                # Update status_json periodically even without progress data to show elapsed time
-                current_time = time.time()
-                assert current_time >= job_start_time, (
-                    f"current_time ({current_time}) < job_start_time ({job_start_time})"
-                )
-                assert isinstance(accumulated_output, str), (
-                    f"accumulated_output must be str, got {type(accumulated_output).__name__}"
-                )
-                
-                should_update = (
-                    # Update if we find progress patterns
-                    "rollouts=" in line.lower() or
-                    "progress:" in line.lower() or
-                    "gepa progress:" in line.lower() or
-                    # Or update periodically (every 5 seconds) to show elapsed time
-                    (current_time - last_status_update_time) >= STATUS_UPDATE_INTERVAL
-                )
-                assert isinstance(should_update, bool), (
-                    f"should_update must be bool, got {type(should_update).__name__}"
-                )
-                
-                if should_update:
-                    # Validate accumulated_output before parsing
-                    assert len(accumulated_output) > 0, "accumulated_output cannot be empty"
-                    output_to_parse = accumulated_output[-5000:]  # Last 5KB to avoid parsing huge outputs
-                    assert isinstance(output_to_parse, str), (
-                        f"output_to_parse must be str, got {type(output_to_parse).__name__}"
+                    
+                    # Parse accumulated output for progress updates (fallback if API polling fails)
+                    # Use accumulated output (not just current line) for better pattern matching
+                    # Update status_json periodically even without progress data to show elapsed time
+                    current_time = time.time()
+                    assert current_time >= job_start_time, (
+                        f"current_time ({current_time}) < job_start_time ({job_start_time})"
                     )
-                    assert len(output_to_parse) <= len(accumulated_output), (
-                        f"output_to_parse length ({len(output_to_parse)}) > accumulated_output length ({len(accumulated_output)})"
+                    assert isinstance(accumulated_output, str), (
+                        f"accumulated_output must be str, got {type(accumulated_output).__name__}"
                     )
                     
-                    update_status_from_output(
-                        status_tracker,
-                        output_to_parse,
-                        policy=policy,
-                        environment=environment,
-                        start_time=job_start_time,
+                    should_update = (
+                        # Update if we find progress patterns
+                        "rollouts=" in line.lower() or
+                        "progress:" in line.lower() or
+                        "gepa progress:" in line.lower() or
+                        # Or update periodically (every 5 seconds) to show elapsed time
+                        (current_time - last_status_update_time) >= STATUS_UPDATE_INTERVAL
                     )
-                    last_status_update_time = current_time
-                    assert last_status_update_time >= job_start_time, (
-                        f"last_status_update_time ({last_status_update_time}) < job_start_time ({job_start_time})"
+                    assert isinstance(should_update, bool), (
+                        f"should_update must be bool, got {type(should_update).__name__}"
                     )
+                    
+                    if should_update:
+                        # Validate accumulated_output before parsing
+                        assert len(accumulated_output) > 0, "accumulated_output cannot be empty"
+                        output_to_parse = accumulated_output[-5000:]  # Last 5KB to avoid parsing huge outputs
+                        assert isinstance(output_to_parse, str), (
+                            f"output_to_parse must be str, got {type(output_to_parse).__name__}"
+                        )
+                        assert len(output_to_parse) <= len(accumulated_output), (
+                            f"output_to_parse length ({len(output_to_parse)}) > accumulated_output length ({len(accumulated_output)})"
+                        )
+                        
+                        update_status_from_output(
+                            status_tracker,
+                            output_to_parse,
+                            policy=policy,
+                            environment=environment,
+                            start_time=job_start_time,
+                        )
+                        last_status_update_time = current_time
+                        assert last_status_update_time >= job_start_time, (
+                            f"last_status_update_time ({last_status_update_time}) < job_start_time ({job_start_time})"
+                        )
+            except (BrokenPipeError, OSError) as e:
+                # Subprocess may have crashed - log and continue to wait() to get returncode
+                logger.warning(
+                    "Error reading subprocess stdout for job %s (process may have crashed): %s",
+                    job.job_id,
+                    e,
+                )
+                # Continue to process.wait() to get the returncode and any buffered output
             
-            # Wait for process to complete
+            # Wait for process to complete (ALWAYS wait, even if stdout reading failed)
             assert process is not None, "process is None before wait()"
             returncode = process.wait()
+            
+            # If stdout reading failed but process exited, try to read any remaining buffered output
+            if process.stdout and not stdout_lines:
+                try:
+                    remaining_output = process.stdout.read()
+                    if remaining_output:
+                        stdout_lines.append(remaining_output)
+                        accumulated_output += remaining_output
+                        logger.info(
+                            "Captured remaining subprocess output for job %s after process exit: %d bytes",
+                            job.job_id,
+                            len(remaining_output),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to read remaining subprocess output for job %s: %s",
+                        job.job_id,
+                        e,
+                    )
             assert isinstance(returncode, int), (
                 f"process.wait() must return int, got {type(returncode).__name__}: {returncode}"
             )
@@ -1072,6 +1487,30 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             assert isinstance(stderr, str), (
                 f"stderr must be str, got {type(stderr).__name__}"
             )
+            
+            # CRITICAL: If subprocess failed but we have no output, log a warning
+            # This indicates the subprocess crashed before producing any output
+            if returncode != 0 and not stdout:
+                logger.error(
+                    "❌ Subprocess for job %s exited with code %d but produced NO output. "
+                    "This usually indicates an immediate crash (import error, syntax error, etc.). "
+                    "Command: %s",
+                    job.job_id,
+                    returncode,
+                    " ".join(cmd),
+                )
+                # Set a helpful error message
+                stdout = (
+                    f"[ERROR] Subprocess crashed immediately with exit code {returncode}. "
+                    f"No output captured. This usually indicates:\n"
+                    f"  1. Import error (missing module)\n"
+                    f"  2. Syntax error in Python code\n"
+                    f"  3. Missing executable or PATH issue\n"
+                    f"  4. Permission error\n"
+                    f"\nCommand: {' '.join(cmd)}\n"
+                    f"Working directory: {os.getcwd()}\n"
+                    f"Python: {env.get('PYTHON', 'python')}"
+                )
             
             # Create CompletedProcess-like object for compatibility
             class CompletedProcess:
@@ -1271,14 +1710,24 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                 "\n".join(auth_errors),
             )
         
-        # Log full output
+        # Log full output (especially important for errors)
         if completed.stdout:
-            logger.info("Training command stdout (last 2000 chars):\n%s", completed.stdout[-2000:])
+            if not success:
+                # For errors, log full output
+                logger.error("Training command stdout (FULL, %d chars):\n%s", len(completed.stdout), completed.stdout)
+            else:
+                # For success, log last 2000 chars
+                logger.info("Training command stdout (last 2000 chars):\n%s", completed.stdout[-2000:])
         else:
             logger.warning("Training command stdout is EMPTY - command may have exited before producing output")
             
         if completed.stderr:
-            logger.warning("Training command stderr (last 2000 chars):\n%s", completed.stderr[-2000:])
+            if not success:
+                # For errors, log full output
+                logger.error("Training command stderr (FULL, %d chars):\n%s", len(completed.stderr), completed.stderr)
+            else:
+                # For success, log last 2000 chars
+                logger.warning("Training command stderr (last 2000 chars):\n%s", completed.stderr[-2000:])
         else:
             logger.info("Training command stderr is empty")
         # Validate inputs before collecting results
@@ -1322,6 +1771,54 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
             f"summary must be ResultSummary, got {type(summary).__name__}"
         )
         
+        # ✅ FIX: If summary.total_rollouts is None, try to fetch from backend metadata stats
+        # This handles cases where CLI output parsing fails but backend has accurate stats
+        if summary.total_rollouts is None and backend_job_id:
+            try:
+                import requests
+                
+                config = load_config()
+                backend_url = config.backend_url
+                try:
+                    api_key = _load_synth_api_key()
+                except RuntimeError:
+                    api_key = None
+                
+                if backend_url and api_key:
+                    url = f"{backend_url.rstrip('/')}/prompt-learning/online/jobs/{backend_job_id}"
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    resp = requests.get(url, headers=headers, timeout=10.0)
+                    
+                    if resp.status_code == 200:
+                        backend_job = resp.json()
+                        backend_metadata = backend_job.get("metadata", {})
+                        backend_stats = backend_metadata.get("stats", {})
+                        
+                        # Try to get total_rollouts from backend stats
+                        # Prefer total_rollouts, fallback to sum of optimization + validation rollouts
+                        backend_total_rollouts = backend_stats.get("total_rollouts")
+                        if backend_total_rollouts is None:
+                            opt_rollouts = backend_stats.get("optimization_rollouts_executed", 0) or 0
+                            val_rollouts = backend_stats.get("validation_rollouts_executed", 0) or 0
+                            if opt_rollouts > 0 or val_rollouts > 0:
+                                backend_total_rollouts = opt_rollouts + val_rollouts
+                        
+                        if backend_total_rollouts is not None and backend_total_rollouts > 0:
+                            summary.total_rollouts = backend_total_rollouts
+                            logger.info(
+                                "✅ Extracted total_rollouts=%d from backend metadata stats for job %s (backend_job_id=%s)",
+                                backend_total_rollouts,
+                                job.job_id,
+                                backend_job_id,
+                            )
+            except Exception as e:
+                # Log but don't fail - backend fetch is best-effort fallback
+                logger.debug(
+                    "Could not fetch backend stats to extract rollouts for job %s: %s",
+                    job.job_id,
+                    e,
+                )
+        
         # Check if training actually ran - for prompt learning (GEPA/MIPRO), we expect results
         # Note: success may have been set to False above if health check failed
         if not error_message:  # Only check returncode if we haven't already detected a failure
@@ -1357,13 +1854,32 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
                 )
         
         if not success and not error_message:
-            error_message = f"Training command exited with {completed.returncode}"
+            # Build detailed error message with FULL stdout/stderr
+            error_parts = [f"Training command exited with {completed.returncode}"]
+            
+            # Include FULL stdout if available (for errors, we want complete context)
+            if completed.stdout:
+                error_parts.append(f"\n\n{'='*80}\nSTDOUT (FULL, {len(completed.stdout)} chars):\n{'='*80}\n{completed.stdout}")
+            else:
+                error_parts.append("\n\nStdout: (empty - subprocess may have crashed immediately)")
+            
+            # Include FULL stderr if available
+            if completed.stderr:
+                error_parts.append(f"\n\n{'='*80}\nSTDERR (FULL, {len(completed.stderr)} chars):\n{'='*80}\n{completed.stderr}")
+            else:
+                error_parts.append("\n\nStderr: (empty)")
+            
+            error_message = "".join(error_parts)
+            
+            # Log full error (truncate only for logger, but keep full in error_message)
             logger.error(
-                "Job %s failed: %s\nStdout tail:\n%s\nStderr tail:\n%s",
+                "Job %s failed: %s\nFull stdout (%d chars):\n%s\nFull stderr (%d chars):\n%s",
                 job.job_id,
-                error_message,
-                summary.stdout[-1000:] if summary.stdout else "(empty)",
-                summary.stderr[-1000:] if summary.stderr else "(empty)",
+                f"Training command exited with {completed.returncode}",
+                len(completed.stdout) if completed.stdout else 0,
+                completed.stdout if completed.stdout else "(empty)",
+                len(completed.stderr) if completed.stderr else 0,
+                completed.stderr if completed.stderr else "(empty)",
             )
     except Exception as exc:
         error_message = str(exc)
@@ -1373,7 +1889,29 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
         if prepared:
             prepared.cleanup()
 
-    return _finalize_job(job.job_id, summary=summary, success=success, error_message=error_message)
+    # Prepare execution details for logging
+    if cmd is not None and len(cmd) > 0:
+        command_str = " ".join(cmd)
+    else:
+        command_str = None
+    working_dir = os.getcwd()
+    if env is not None:
+        python_exe = env.get("PYTHON", "python")
+        env_keys = list(env.keys())
+    else:
+        python_exe = None
+        env_keys = None
+    
+    return _finalize_job(
+        job.job_id,
+        summary=summary,
+        success=success,
+        error_message=error_message,
+        command=command_str,
+        working_directory=working_dir,
+        python_executable=python_exe,
+        environment_keys=env_keys,
+    )
 
 
 @celery_app.task(name="synth_ai.experiment_queue.process_experiment_queue")

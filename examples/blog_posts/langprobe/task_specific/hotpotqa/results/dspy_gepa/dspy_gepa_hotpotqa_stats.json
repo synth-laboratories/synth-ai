@@ -1,6 +1,6 @@
 {
-  "total_time": 438.54932975769043,
-  "total_rollouts": 500,
+  "total_time": 1.906412124633789,
+  "total_rollouts": 100,
   "baseline_score": 0.4667,
   "val_score": 0.5167,
   "val_n": 30

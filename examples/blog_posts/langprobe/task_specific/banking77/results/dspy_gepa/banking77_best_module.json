@@ -4,7 +4,7 @@
   "prompt_details": {
     "sample_prediction": {
       "query": "I am still waiting on my card?",
-      "intent": "card_arrival",
+      "intent": "atm_support",
       "rationale": null
     }
   }

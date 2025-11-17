@@ -23,6 +23,7 @@ class ExperimentStatus:
     current_trial: int | None = None
     eta_seconds: float | None = None
     progress_pct: float | None = None
+    rollouts_per_minute: float | None = None
     custom_fields: dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self) -> None:
@@ -249,7 +250,7 @@ class ExperimentStatus:
         """Format a status line for display in poller.
         
         Returns:
-            Formatted string like: "Policy: gpt-4 | Env: heartdisease | 15/200 (7.5%) | ETA: 2m | Best: 0.85"
+            Formatted string like: "Policy: gpt-4 | Env: heartdisease | 15/200 (7.5%) | ETA: 2m | Best: 0.85 | 12.5 rollouts/min"
         """
         parts: list[str] = []
         
@@ -268,6 +269,9 @@ class ExperimentStatus:
         
         if self.best_score is not None:
             parts.append(f"Best: {self.best_score:.3f}")
+        
+        if self.rollouts_per_minute is not None:
+            parts.append(f"{self.rollouts_per_minute:.1f} rollouts/min")
         
         return " | ".join(parts) if parts else "No status available"
 
@@ -305,6 +309,7 @@ class ExperimentStatusTracker:
         current_trial: int | None = None,
         eta_seconds: float | None = None,
         progress_pct: float | None = None,
+        rollouts_per_minute: float | None = None,
         custom_fields: dict[str, Any] | None = None,
     ) -> None:
         """Update experiment status in the database.
@@ -353,6 +358,7 @@ class ExperimentStatusTracker:
             current_trial=current_trial,
             eta_seconds=eta_seconds,
             progress_pct=progress_pct,
+            rollouts_per_minute=rollouts_per_minute,
             custom_fields=custom_fields,
         )
         
