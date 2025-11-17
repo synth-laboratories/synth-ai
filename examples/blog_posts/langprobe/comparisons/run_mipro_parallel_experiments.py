@@ -460,6 +460,10 @@ def poll_experiment_status(experiment_id: str, timeout: int = 3600, poll_interva
                             # Create a modified status object with correct total_rollouts
                             status_dict = status_obj.to_dict()
                             status_dict["total_rollouts"] = rollout_limit_from_config
+                            # ✅ CRITICAL: Recalculate progress_pct when overriding total_rollouts
+                            # Otherwise it will use the old incorrect percentage
+                            if status_obj.rollouts_completed is not None and rollout_limit_from_config > 0:
+                                status_dict["progress_pct"] = (status_obj.rollouts_completed / rollout_limit_from_config) * 100
                             status_obj = StatusObj.from_dict(status_dict)
                         
                         formatted = status_obj.format_status_line()
@@ -496,14 +500,16 @@ def poll_experiment_status(experiment_id: str, timeout: int = 3600, poll_interva
                                 # Calculate elapsed time since first rollout
                                 if first_rollout_time is not None:
                                     elapsed_since_first = time.time() - first_rollout_time
-                                    if elapsed_since_first > 0:
+                                    # ✅ FIX: Require at least 1 second elapsed to avoid division by tiny numbers
+                                    if elapsed_since_first >= 1.0:
                                         rollouts_per_min = (status_obj.rollouts_completed / elapsed_since_first) * 60
                                         rollouts_per_min_str = f" | {rollouts_per_min:.1f} rollouts/min"
                                 # Fallback: use job start time if first_rollout_time not set yet
                                 elif job.started_at:
                                     started_at_ts = job.started_at.timestamp()
                                     elapsed = time.time() - started_at_ts
-                                    if elapsed > 0:
+                                    # ✅ FIX: Require at least 1 second elapsed to avoid division by tiny numbers
+                                    if elapsed >= 1.0:
                                         rollouts_per_min = (status_obj.rollouts_completed / elapsed) * 60
                                         rollouts_per_min_str = f" | {rollouts_per_min:.1f} rollouts/min"
                             
