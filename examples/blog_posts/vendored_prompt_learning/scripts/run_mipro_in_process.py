@@ -17,8 +17,6 @@ Requirements:
     - synth-ai backend running (localhost:8000)
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import sys
@@ -28,21 +26,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load environment from repo root
-# Script is at: examples/blog_posts/vendored_prompt_learning/scripts/
-# Need to go up 5 levels to get to repo root
-env_path = Path(__file__).resolve().parents[4] / ".env"
-load_dotenv(env_path)
-# Also try loading from current directory and parent directories
-load_dotenv()  # Try current dir and parents
+# Load environment from current working directory
+load_dotenv()  # Load from current dir and parents
 
-# Add parent to path for imports
-parent_dir = Path(__file__).resolve().parents[4]  # Repo root
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
 
 from synth_ai.api.train.prompt_learning import PromptLearningJob
 from synth_ai.task import InProcessTaskApp
+from synth_ai.urls import BACKEND_URL_BASE
 
 
 async def main():
@@ -62,34 +52,23 @@ async def main():
         sys.exit(1)
 
     # Configuration
-    config_path = (
-        Path(__file__).parent.parent
-        / "configs"
-        / "banking77_mipro_local.toml"
-    )
+    config_path = Path("banking77_mipro_local.toml")
 
     if not config_path.exists():
         print(f"❌ Error: Config file not found: {config_path}")
         sys.exit(1)
 
-    backend_url = os.getenv("BACKEND_BASE_URL", "https://backend-local.usesynth.ai")
     api_key = os.getenv("SYNTH_API_KEY", "test")
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY", "test")
 
     print("Configuration:")
     print(f"  Config: {config_path.name}")
-    print(f"  Backend: {backend_url}")
+    print(f"  Backend: {BACKEND_URL_BASE}")
     print(f"  Task App: Starting in-process...")
     print()
 
     # Import task app config factory
-    task_app_path = (
-        Path(__file__).resolve().parents[4]  # Repo root
-        / "examples"
-        / "task_apps"
-        / "banking77"
-        / "banking77_task_app.py"
-    )
+    task_app_path = Path("banking77_task_app.py")
 
     if not task_app_path.exists():
         print(f"❌ Error: Task app not found: {task_app_path}")
@@ -124,13 +103,23 @@ async def main():
                 original_evals = config["prompt_learning"]["mipro"].get("num_evaluations_per_iteration", 2)
                 config["prompt_learning"]["mipro"]["num_iterations"] = 1  # Minimal: 1 iteration
                 config["prompt_learning"]["mipro"]["num_evaluations_per_iteration"] = 1  # 1 eval per iteration
-                config["prompt_learning"]["mipro"]["batch_size"] = 2  # Small batch
-                # Reduce seed pools
-                if "bootstrap_train_seeds" in config["prompt_learning"]["mipro"]:
-                    config["prompt_learning"]["mipro"]["bootstrap_train_seeds"] = [0, 1, 2]  # Just 3 seeds
-                if "online_pool" in config["prompt_learning"]["mipro"]:
-                    config["prompt_learning"]["mipro"]["online_pool"] = [3, 4, 5]  # Just 3 seeds
-                print(f"📊 Reduced to minimal budget: 1 iteration × 1 eval = ~2-3 rollouts")
+                config["prompt_learning"]["mipro"]["batch_size"] = 1  # Single seed per eval
+                config["prompt_learning"]["mipro"]["max_concurrent"] = 1  # One at a time for reliability
+                # Reduce seed pools to single seed for ultra-fast reliable testing
+                config["prompt_learning"]["mipro"]["bootstrap_train_seeds"] = [0]  # Single seed for bootstrap
+                config["prompt_learning"]["mipro"]["online_pool"] = [1]  # Single seed for online eval
+                config["prompt_learning"]["mipro"]["val_seeds"] = [2]  # Single seed for validation (required by MIPRO)
+                config["prompt_learning"]["mipro"]["reference_pool"] = [3]  # Minimal reference corpus
+                config["prompt_learning"]["mipro"]["test_pool"] = [4]  # Minimal test set to satisfy schema
+                # Disable meta-updates (they require reference examples from trace store)
+                if "meta_update" in config["prompt_learning"]["mipro"]:
+                    config["prompt_learning"]["mipro"]["meta_update"]["enabled"] = False
+                # Reduce TPE startup trials to match minimal budget
+                if "tpe" in config["prompt_learning"]["mipro"]:
+                    config["prompt_learning"]["mipro"]["tpe"]["n_startup_trials"] = 1
+                print(f"📊 Reduced to minimal budget: 1 iteration × 1 eval × 1 seed = ~3 rollouts")
+                print(f"   Using: bootstrap=[0], online=[1], val=[2]")
+                print(f"   Reference/test pools minimized to [3] / [4] for schema compatibility")
                 print(f"   (Original: {original_iterations} iterations, {original_evals} evals per iteration)\n")
 
             # Write modified config to temp file
@@ -141,13 +130,13 @@ async def main():
             try:
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
-                    backend_url=backend_url,
+                    backend_url=BACKEND_URL_BASE,
                     api_key=api_key,
                     task_app_api_key=task_app_api_key,
                 )
 
                 print(f"Task app URL: {task_app.url}")
-                print(f"Backend URL: {backend_url}\n")
+                print(f"Backend URL: {BACKEND_URL_BASE}\n")
                 print(f"Submitting job...\n")
 
                 try:
@@ -215,7 +204,7 @@ async def main():
             from synth_ai.api.train.utils import ensure_api_base
 
             client = PromptLearningClient(
-                ensure_api_base(backend_url),
+                ensure_api_base(BACKEND_URL_BASE),
                 api_key,
             )
             prompt_results = await client.get_prompts(job._job_id)
@@ -282,4 +271,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

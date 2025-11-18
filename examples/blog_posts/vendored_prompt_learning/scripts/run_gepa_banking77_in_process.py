@@ -17,8 +17,6 @@ Requirements:
     - synth-ai backend running (localhost:8000)
 """
 
-from __future__ import annotations
-
 import asyncio
 import os
 import sys
@@ -27,19 +25,13 @@ import time
 from pathlib import Path
 
 from dotenv import load_dotenv
+from synth_ai.urls import BACKEND_URL_BASE
 
-# Load environment from repo root
-# Script is at: examples/blog_posts/vendored_prompt_learning/scripts/
-# Need to go up 5 levels to get to repo root
-env_path = Path(__file__).resolve().parents[4] / ".env"
-load_dotenv(env_path)
-# Also try loading from current directory and parent directories
-load_dotenv()  # Try current dir and parents
+# Load environment from current working directory
+load_dotenv()  # Load from current dir and parents
 
 # Add parent to path for imports
-parent_dir = Path(__file__).resolve().parents[4]  # Repo root
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
+
 
 from synth_ai.api.train.prompt_learning import PromptLearningJob
 from synth_ai.task import InProcessTaskApp
@@ -58,34 +50,23 @@ async def main():
         sys.exit(1)
 
     # Configuration
-    config_path = (
-        Path(__file__).parent.parent
-        / "configs"
-        / "banking77_gepa_local.toml"
-    )
+    config_path = Path("banking77_gepa_local.toml")
 
     if not config_path.exists():
         print(f"❌ Error: Config file not found: {config_path}")
         sys.exit(1)
 
-    backend_url = os.getenv("BACKEND_BASE_URL", "http://localhost:8000")
     api_key = os.getenv("SYNTH_API_KEY", "test")
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY", "test")
 
     print("Configuration:")
     print(f"  Config: {config_path.name}")
-    print(f"  Backend: {backend_url}")
+    print(f"  Backend: {BACKEND_URL_BASE}")
     print(f"  Task App: Starting in-process...")
     print()
 
     # Import task app config factory
-    task_app_path = (
-        Path(__file__).resolve().parents[4]  # Repo root
-        / "examples"
-        / "task_apps"
-        / "banking77"
-        / "banking77_task_app.py"
-    )
+    task_app_path = Path("banking77_task_app.py")
 
     if not task_app_path.exists():
         print(f"❌ Error: Task app not found: {task_app_path}")
@@ -116,17 +97,19 @@ async def main():
             # Reduce budget for very fast demo (~1 min)
             if "gepa" in config["prompt_learning"] and "rollout" in config["prompt_learning"]["gepa"]:
                 original_budget = config["prompt_learning"]["gepa"]["rollout"].get("budget", 100)
-                config["prompt_learning"]["gepa"]["rollout"]["budget"] = 5  # Minimal: 5 rollouts
-                print(f"📊 Reduced rollout budget to 5 for very fast demo")
+                config["prompt_learning"]["gepa"]["rollout"]["budget"] = 3  # Minimal: 3 rollouts
+                config["prompt_learning"]["gepa"]["rollout"]["batch_size"] = 1  # Single seed per rollout
+                config["prompt_learning"]["gepa"]["rollout"]["max_concurrent"] = 1  # Sequential execution
+                print(f"📊 Reduced rollout budget to 3 for very fast demo")
                 print(f"   (Original: {original_budget})\n")
 
             # Reduce population size for faster demo
             if "gepa" in config["prompt_learning"] and "population" in config["prompt_learning"]["gepa"]:
                 original_size = config["prompt_learning"]["gepa"]["population"].get("initial_size", 10)
-                config["prompt_learning"]["gepa"]["population"]["initial_size"] = 2  # Minimal population
+                config["prompt_learning"]["gepa"]["population"]["initial_size"] = 1  # Single initial candidate
                 config["prompt_learning"]["gepa"]["population"]["num_generations"] = 1  # Just 1 generation
-                config["prompt_learning"]["gepa"]["population"]["children_per_generation"] = 2  # Minimal children
-                print(f"📊 Reduced to minimal: population=2, generations=1, children=2 (~5 rollouts)\n")
+                config["prompt_learning"]["gepa"]["population"]["children_per_generation"] = 1  # Single child
+                print(f"📊 Reduced to minimal: population=1, generations=1, children=1 (~3 rollouts)\n")
 
             # Write modified config to temp file
             with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
@@ -136,13 +119,13 @@ async def main():
             try:
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
-                    backend_url=backend_url,
+                    backend_url=BACKEND_URL_BASE,
                     api_key=api_key,
                     task_app_api_key=task_app_api_key,
                 )
 
                 print(f"Task app URL: {task_app.url}")
-                print(f"Backend URL: {backend_url}\n")
+                print(f"Backend URL: {BACKEND_URL_BASE}\n")
                 print(f"Submitting job...\n")
 
                 try:
@@ -211,7 +194,7 @@ async def main():
             from synth_ai.api.train.utils import ensure_api_base
 
             client = PromptLearningClient(
-                ensure_api_base(backend_url),
+                ensure_api_base(BACKEND_URL_BASE),
                 api_key,
             )
             prompt_results = await client.get_prompts(job._job_id)

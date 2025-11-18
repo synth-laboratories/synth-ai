@@ -11,7 +11,7 @@ from pathlib import Path
 repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root))
 
-from synth_ai.cfgs import CloudflareTunnelDeployCfg
+from synth_ai.cfgs import CFDeployCfg
 from synth_ai.cloudflare import deploy_app_tunnel, _TUNNEL_PROCESSES, stop_tunnel
 
 
@@ -22,7 +22,7 @@ async def main():
     task_app_path = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("examples/task_apps/banking77/banking77_task_app.py")
     env_api_key = os.environ.get("ENVIRONMENT_API_KEY", "test-key")
     
-    cfg = CloudflareTunnelDeployCfg.create(
+    cfg = CFDeployCfg.create(
         task_app_path=task_app_path,
         env_api_key=env_api_key,
         mode="quick",
@@ -56,9 +56,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
-
-
-
