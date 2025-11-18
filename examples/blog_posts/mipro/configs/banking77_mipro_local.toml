@@ -56,7 +56,8 @@ duplicate_retry_limit = 10
 bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]  # 15 seeds for bootstrap
 online_pool = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]  # 25 seeds for online evaluation
 test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]  # 10 held-out seeds for final evaluation
-reference_pool = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59]  # 10 seeds for reference corpus (meta-prompt context)
+val_seeds = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59]  # Validation seeds (matches GEPA terminology, used for top-K evaluation)
+reference_pool = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59]  # Reference corpus seeds (for meta-prompt context, same as val_seeds)
 
 # TPE hyperparameters
 [prompt_learning.mipro.tpe]
@@ -64,8 +65,7 @@ gamma = 0.25              # Quantile for splitting good/bad observations
 n_candidates = 32         # Number of candidates to evaluate Expected Improvement
 n_startup_trials = 10     # Uniform random trials before TPE kicks in
 epsilon = 0.1             # Exploration probability (uniform sample)
-categorical_alpha = 1.0   # Laplace smoothing for categorical variables
-prior_weight = 0.05       # Prior mixing weight to avoid zero-densities
+alpha = 1.0               # Smoothing parameter for KDE (Laplace smoothing for categorical variables)
 
 # Demo set selection hyperparameters
 [prompt_learning.mipro.demo]

@@ -15,7 +15,17 @@ Requirements:
     - GROQ_API_KEY in .env (for policy model)
     - OPENAI_API_KEY in .env (for meta-model)
     - cloudflared binary (will auto-install if missing)
-    - synth-ai backend running (localhost:8000)
+    - synth-ai backend running
+    
+Configuration:
+    The script automatically matches tunnel mode:
+    - If BACKEND_BASE_URL is localhost → both backend and task app use localhost (local/local)
+    - If BACKEND_BASE_URL is a tunnel URL → both backend and task app use tunnels (tunnel/tunnel)
+    
+    For tunnel mode:
+    - Start backend tunnel first: cd monorepo && bash scripts/run_backend_tunnel.sh
+    - Set BACKEND_BASE_URL to the tunnel URL: export BACKEND_BASE_URL=https://backend-local.usesynth.ai
+    - Then run this script
 """
 
 from __future__ import annotations
@@ -73,6 +83,34 @@ async def main():
     api_key = os.getenv("SYNTH_API_KEY", "test")
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY", "test")
 
+    # Determine tunnel mode based on backend URL
+    # Rule: Both backend and task app must use same mode (local/local or tunnel/tunnel)
+    is_backend_localhost = (
+        backend_url.startswith("http://localhost") 
+        or backend_url.startswith("http://127.0.0.1")
+    )
+    
+    if is_backend_localhost:
+        # Backend is localhost → use local mode for task app (no tunnel)
+        # Both backend and task app will use localhost (consistent configuration)
+        os.environ["SYNTH_TUNNEL_MODE"] = "local"
+        use_local_mode = True
+        print("ℹ️  Configuration: local/local")
+        print("   Backend: localhost:8000")
+        print("   Task App: localhost (no tunnel)")
+    else:
+        # Backend is tunneled → use tunnel mode for task app
+        # Both backend and task app will use tunnels (consistent configuration)
+        os.environ["SYNTH_TUNNEL_MODE"] = "quick"
+        use_local_mode = False
+        # Set EXTERNAL_BACKEND_URL so backend knows its public URL for interceptor
+        # This is critical: backend needs to know its tunnel URL to tell task apps
+        os.environ["EXTERNAL_BACKEND_URL"] = backend_url.rstrip("/")
+        print("ℹ️  Configuration: tunnel/tunnel")
+        print(f"   Backend tunnel: {backend_url}")
+        print(f"   Task app: will create its own tunnel")
+        print(f"   Note: Ensure backend is running with tunnel (use run_backend_tunnel.sh)")
+
     print("Configuration:")
     print(f"  Config: {config_path.name}")
     print(f"  Backend: {backend_url}")
@@ -100,7 +138,10 @@ async def main():
             api_key=task_app_api_key,
         ) as task_app:
             print(f"✅ Task app running at: {task_app.url}")
-            print(f"✅ Cloudflare tunnel active")
+            if use_local_mode:
+                print(f"✅ Using local mode (no tunnel)")
+            else:
+                print(f"✅ Cloudflare tunnel active")
             print()
 
             # Create MIPRO job
