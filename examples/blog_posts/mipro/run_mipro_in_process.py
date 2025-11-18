@@ -15,12 +15,19 @@ Requirements:
     - GROQ_API_KEY in .env (for policy model)
     - OPENAI_API_KEY in .env (for meta-model)
     - cloudflared binary (will auto-install if missing)
-    - synth-ai backend running
+    - Dev backend running (default: https://synth-backend-dev-docker.onrender.com)
     
 Configuration:
+    Default: Uses dev backend (synth-backend-dev-docker.onrender.com)
+    Override: Set BACKEND_BASE_URL env var to use different backend
+    
     The script automatically matches tunnel mode:
     - If BACKEND_BASE_URL is localhost → both backend and task app use localhost (local/local)
     - If BACKEND_BASE_URL is a tunnel URL → both backend and task app use tunnels (tunnel/tunnel)
+    
+    For local backend:
+    - Set BACKEND_BASE_URL=http://localhost:8000
+    - Both backend and task app will use localhost (no tunnels)
     
     For tunnel mode:
     - Start backend tunnel first: cd monorepo && bash scripts/run_backend_tunnel.sh
@@ -79,7 +86,8 @@ async def main():
         print(f"❌ Error: Config file not found: {config_path}")
         sys.exit(1)
 
-    backend_url = os.getenv("BACKEND_BASE_URL", "https://backend-local.usesynth.ai")
+    # Default to dev backend, allow override via BACKEND_BASE_URL env var
+    backend_url = os.getenv("BACKEND_BASE_URL", "https://synth-backend-dev-docker.onrender.com")
     api_key = os.getenv("SYNTH_API_KEY", "test")
     task_app_api_key = os.getenv("ENVIRONMENT_API_KEY", "test")
 
