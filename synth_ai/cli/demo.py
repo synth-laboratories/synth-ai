@@ -20,7 +20,6 @@ DemoType: TypeAlias = Literal[
 )
 def demo_cmd(demo_type: DemoType) -> None:
     src = REPO_ROOT / "synth_ai" / "demos" / demo_type
-    print(src)
     if not src.exists():
         raise click.ClickException(f"Demo source directory not found: {src}")
     dst = Path.cwd() / f"demo_{src.name}"
