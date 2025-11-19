@@ -45,12 +45,15 @@ def test_deploy_local_runtime_invokes_uvicorn(monkeypatch: pytest.MonkeyPatch, r
     monkeypatch.setattr("synth_ai.cli.deploy.deploy_app_uvicorn", fake_deploy)
 
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
+    env_file = _write_stub(tmp_path / ".env", "SYNTH_API_KEY=test\n")
 
     result = runner.invoke(
         deploy_module.deploy_cmd,
         [
             "local",
             str(task_app),
+            "--env",
+            str(env_file),
             "--host",
             "0.0.0.0",
             "--port",
@@ -82,12 +85,15 @@ def test_deploy_modal_runtime_invokes_modal(monkeypatch: pytest.MonkeyPatch, run
     monkeypatch.setattr("synth_ai.cli.deploy.deploy_app_modal", fake_modal)
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
+    env_file = _write_stub(tmp_path / ".env", "SYNTH_API_KEY=test\n")
 
     result = runner.invoke(
         deploy_module.deploy_cmd,
         [
             "modal",
             str(task_app),
+            "--env",
+            str(env_file),
             "--modal-app",
             str(modal_app),
             "--modal-cli",
@@ -124,12 +130,15 @@ def test_deploy_modal_requires_modal_app_path(monkeypatch: pytest.MonkeyPatch, t
     modal_cli = tmp_path / "modal"
     modal_cli.write_text("#!/bin/sh\n", encoding="utf-8")
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
+    env_file = _write_stub(tmp_path / ".env", "SYNTH_API_KEY=test\n")
 
     result = runner.invoke(
         deploy_module.deploy_cmd,
         [
             "modal",
             str(task_app),
+            "--env",
+            str(env_file),
             "--modal-cli",
             str(modal_cli),
         ],
@@ -155,11 +164,14 @@ def test_deploy_modal_disallows_dry_run_with_serve(monkeypatch: pytest.MonkeyPat
     modal_cli.write_text("#!/bin/sh\n", encoding="utf-8")
     task_app = _write_stub(tmp_path / "task_app.py", "app = object()\n")
     modal_app = _write_stub(tmp_path / "modal_app.py", "from modal import App\nApp('demo')\n")
+    env_file = _write_stub(tmp_path / ".env", "SYNTH_API_KEY=test\n")
     result = runner.invoke(
         deploy_module.deploy_cmd,
         [
             "modal",
             str(task_app),
+            "--env",
+            str(env_file),
             "--modal-app",
             str(modal_app),
             "--modal-cli",

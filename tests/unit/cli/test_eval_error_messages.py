@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from click.testing import CliRunner
-from synth_ai.cli.task_apps import eval_command
+from synth_ai.cli.commands.eval.core import eval_command
 
 
 def test_eval_config_not_found(tmp_path: Path) -> None:

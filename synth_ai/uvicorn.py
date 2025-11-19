@@ -82,13 +82,15 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
         try:
             # Try to get app_id from module's config factory or app state
             if hasattr(module, "build_config"):
-                config = module.build_config()  # type: ignore[call-arg]
+                config = module.build_config()
                 if hasattr(config, "app_id"):
                     app_id = config.app_id
-            elif hasattr(app, "state") and hasattr(app.state, "task_app_config"):
-                config = app.state.task_app_config
-                if hasattr(config, "app_id"):
-                    app_id = str(config.app_id) if config.app_id is not None else None  # type: ignore[assignment]
+            elif hasattr(app, "state"):
+                app_state = app.state
+                if hasattr(app_state, "task_app_config"):
+                    config = app_state.task_app_config
+                    if hasattr(config, "app_id"):
+                        app_id = config.app_id
         except Exception:
             pass
         
