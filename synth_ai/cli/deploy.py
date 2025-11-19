@@ -154,8 +154,8 @@ def deploy_cmd(
         env_file = kwargs.get("env")
         synth_api_key, env_api_key = get_synth_and_env_keys(env_file)
 
-        if not kwargs.get("force", False):
-            validate_task_app(task_app_path)
+        # if not kwargs.get("force", False):
+        #     validate_task_app(task_app_path)
 
         match runtime:
             case "local":

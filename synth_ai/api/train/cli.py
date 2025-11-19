@@ -327,6 +327,34 @@ def _build_stream_components(
     return config, handlers
 
 
+def _validate_openai_key_if_provider_is_openai(cfg_path: Path) -> None:
+    """Validate that OPENAI_API_KEY is set if the provider is OpenAI.
+
+    For prompt learning jobs, checks if policy.provider is 'openai' and raises
+    a ClickException if OPENAI_API_KEY is not set in the environment.
+    """
+    cfg = _load_toml_config(cfg_path)
+
+    # Check prompt_learning section
+    pl_section = cfg.get("prompt_learning", {})
+    if not isinstance(pl_section, dict):
+        return
+
+    policy = pl_section.get("policy", {})
+    if not isinstance(policy, dict):
+        return
+
+    provider = policy.get("provider", "").lower()
+
+    if provider == "openai":
+        openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not openai_key:
+            raise click.ClickException(
+                "OPENAI_API_KEY is required when using provider='openai'.\n"
+                "Please set OPENAI_API_KEY in your .env file or environment."
+            )
+
+
 # Module-level logging to track import and registration
 import logging as _logging  # noqa: E402
 import sys  # noqa: E402
@@ -530,7 +558,7 @@ def train_command(
             click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
             if backend_base_url_env:
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
-
+        _validate_openai_key_if_provider_is_openai(cfg_path)
         match train_type:
             case "prompt":
                 handle_prompt_learning(
