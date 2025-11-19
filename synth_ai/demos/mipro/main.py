@@ -68,7 +68,7 @@ def _validate_env() -> None:
         raise RuntimeError(f"SYNTH_API_KEY required. {first_party_msg}")
     if not os.getenv("ENVIRONMENT_API_KEY"):
         raise RuntimeError(f"ENVIRONMENT_API_KEY required. {first_party_msg}")
-    if not os.getenv("GROQ_API_KEY") or not not os.getenv("OPENAI_API_KEY"):
+    if not os.getenv("GROQ_API_KEY") and not os.getenv("OPENAI_API_KEY"):
         raise RuntimeError(f"Either GROQ_API_KEY or OPENAI_API_KEY required. {third_party_msg}")
 
 
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     _load_dotenv(args)
     try:
         _validate_env()
-    except:
+    except Exception:
         sys.exit(1)
     asyncio.run(main())
     sys.exit(0)

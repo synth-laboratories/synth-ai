@@ -5,7 +5,6 @@ from typing import Literal, TypeAlias, get_args
 import click
 from synth_ai.utils.paths import REPO_ROOT
 
-
 DemoType: TypeAlias = Literal[
     "mipro",
     "sft",

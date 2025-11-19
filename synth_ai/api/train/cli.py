@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import click
-from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils.env import get_synth_and_env_keys, mask_str
 from synth_ai.utils.paths import print_paths_formatted
 from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
@@ -1722,12 +1721,16 @@ def handle_prompt_learning(
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
     
     # Assertion: If using local backend, verify it's actually localhost
-    if os.getenv("BACKEND_BASE_URL") and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower():
-        if "localhost" not in backend_base.lower() and "127.0.0.1" not in backend_base:
-            raise click.ClickException(
-                f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
-                f"This indicates the environment variable is not being respected."
-            )
+    if (
+        os.getenv("BACKEND_BASE_URL")
+        and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower()
+        and "localhost" not in backend_base.lower()
+        and "127.0.0.1" not in backend_base
+    ):
+        raise click.ClickException(
+            f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
+            f"This indicates the environment variable is not being respected."
+        )
     
     # Increase timeout for job creation (can take longer due to validation checks)
     resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)

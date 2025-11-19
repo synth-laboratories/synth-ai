@@ -89,7 +89,11 @@ async def run_baseline_evaluation(
     # Instantiate runner if class-based
     runner_instance: Optional[BaselineTaskRunner] = None
     if is_class_based:
-        runner_instance = config.task_runner(policy_config, env_config)
+        # task_runner can be a class (needs instantiation) or a function
+        if isinstance(config.task_runner, type):
+            runner_instance = config.task_runner()  # type: ignore[call-arg]
+        else:
+            runner_instance = config.task_runner(policy_config, env_config)  # type: ignore[call-arg]
     
     # Create semaphore for concurrency control
     semaphore = asyncio.Semaphore(concurrency)
@@ -104,7 +108,13 @@ async def run_baseline_evaluation(
                 else:
                     # Function-based: call function directly
                     task_runner_fn = config.task_runner
-                    return await task_runner_fn(seed, policy_config, env_config)
+                    if callable(task_runner_fn):
+                        result = task_runner_fn(seed, policy_config, env_config)  # type: ignore[call-arg]
+                        # Handle both sync and async functions
+                        if hasattr(result, "__await__"):
+                            return await result
+                        return result
+                    raise RuntimeError("task_runner is not callable")
             except Exception as exc:
                 # Return error result
                 return TaskResult(

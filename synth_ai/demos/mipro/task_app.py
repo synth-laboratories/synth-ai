@@ -152,7 +152,7 @@ class ClassifyRes(BaseModel):
 
 @banking77_router.post("/classify", response_model=ClassifyRes)
 async def classify_endpoint(req: ClassifyReq, request: Request):
-    dataset: Banking77Dataset = request.app.state.banking77_dataset
+    _ = request.app.state.banking77_dataset  # Dataset loaded but not used in this stub endpoint
     return ClassifyRes(intent="activate_my_card", confidence=None)
 
 
@@ -200,7 +200,6 @@ async def call_chat_completion(
             ),
         )
     model = policy_config["model"].strip()
-    provider = str(policy_config.get("provider", "")).strip() or "groq"
     lowered = route_base.lower()
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
     # Normalize inference URL: allow bases like .../v1 and auto-append /chat/completions
@@ -325,7 +324,7 @@ async def call_chat_completion(
     try:
         import httpx  # type: ignore
     except Exception as _exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
+        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}") from _exc
 
     # Proxy target diagnostics (no preflight health; we go straight to POST)
     try:
@@ -356,7 +355,7 @@ async def call_chat_completion(
             response = await client.post(inference_url, json=payload, headers=headers)
         except Exception as e:
             print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
-            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}") from e
         
         # Always print status/headers/body BEFORE any error is raised
         print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
@@ -374,13 +373,13 @@ async def call_chat_completion(
                 )
             except HTTPException:
                 raise
-            except Exception:
+            except Exception as e:
                 error_text = response.text[:500]
                 print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Interceptor/provider returned error: {error_text}"
-                )
+                ) from e
         
         # Try JSON, fallback to text
         try:
@@ -423,15 +422,15 @@ async def call_chat_completion(
                 args_raw = fn.get("arguments", "{}")
                 try:
                     args = json.loads(args_raw)
-                except Exception:
-                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON")
+                except Exception as e:
+                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON") from e
                 if not str(args.get("intent", "")).strip():
                     raise HTTPException(status_code=502, detail="Tool call missing 'intent'")
     except HTTPException:
         raise
     except Exception as exc:
         # Convert unexpected errors to HTTP for visibility
-        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}") from exc
 
     response_text = ""
     tool_calls = []
