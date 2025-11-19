@@ -62,7 +62,7 @@ def _load_dotenv(args) -> None:
 
 
 def _validate_env() -> None:
-    first_party_msg = "Run `uvx synth-ai setup` to fetch from your browser, load to your process envrionment, and save to .env in CWD"
+    first_party_msg = "Run `uvx synth-ai setup` to fetch from your browser, load to your process environment, and save to .env in CWD"
     third_party_msg = "Pass the path to your .env via `uv run demo_mipro/main.py --env [PATH]` or load to process envrionment"
     if not os.getenv("SYNTH_API_KEY"):
         raise RuntimeError(f"SYNTH_API_KEY required. {first_party_msg}")
