@@ -276,13 +276,45 @@ async def main():
             
             # Try to get attempted_candidates from metadata
             attempted_candidates = combined_metadata.get("attempted_candidates")
+            
+            # ASSERTION: Show what we got from backend
+            print(f"🔍 Debug: attempted_candidates type: {type(attempted_candidates)}")
+            if attempted_candidates is not None:
+                if isinstance(attempted_candidates, list):
+                    print(f"🔍 Debug: attempted_candidates length: {len(attempted_candidates)}")
+                    if len(attempted_candidates) > 0:
+                        print(f"🔍 Debug: First candidate type: {type(attempted_candidates[0])}")
+                        if isinstance(attempted_candidates[0], dict):
+                            print(f"🔍 Debug: First candidate keys: {list(attempted_candidates[0].keys())}")
+                            # Show sample of first candidate structure
+                            first_candidate = attempted_candidates[0]
+                            print(f"🔍 Debug: First candidate sample:")
+                            for key in list(first_candidate.keys())[:10]:  # First 10 keys
+                                value = first_candidate[key]
+                                if isinstance(value, (dict, list)):
+                                    print(f"  {key}: {type(value).__name__} (len={len(value) if hasattr(value, '__len__') else 'N/A'})")
+                                else:
+                                    value_str = str(value)[:100] if value else "None"
+                                    print(f"  {key}: {value_str}")
+                else:
+                    print(f"🔍 Debug: attempted_candidates is not a list: {type(attempted_candidates)}")
+            
             if attempted_candidates is None:
                 # Fallback: try from events via get_prompts
+                print("🔍 Debug: attempted_candidates is None, trying get_prompts()...")
                 prompt_results = await client.get_prompts(job._job_id)
                 attempted_candidates = prompt_results.attempted_candidates
                 print(f"🔍 Debug: Got attempted_candidates from events: {len(attempted_candidates) if attempted_candidates else 0}")
+                if attempted_candidates and len(attempted_candidates) > 0:
+                    print(f"🔍 Debug: First candidate from events type: {type(attempted_candidates[0])}")
+                    if isinstance(attempted_candidates[0], dict):
+                        print(f"🔍 Debug: First candidate from events keys: {list(attempted_candidates[0].keys())}")
             else:
                 print(f"🔍 Debug: Got attempted_candidates from metadata: {len(attempted_candidates) if isinstance(attempted_candidates, list) else 'not a list'}")
+            
+            # ASSERTION: We should have candidates if job succeeded
+            assert attempted_candidates is not None, "attempted_candidates should not be None after fallback"
+            assert isinstance(attempted_candidates, list), f"attempted_candidates should be a list, got {type(attempted_candidates)}"
             
             # Best score
             best_score = (
@@ -304,17 +336,35 @@ async def main():
                         from synth_ai.learning.prompt_learning_types import OptimizedCandidate, AttemptedCandidate
                         
                         accuracies = []
-                        for c in candidates:
+                        for idx, c in enumerate(candidates):
+                            # ASSERTION: Show structure of each candidate
+                            if idx < 3:  # First 3 only
+                                print(f"🔍 Debug Candidate #{idx+1} for accuracy extraction:")
+                                print(f"  Type: {type(c)}")
+                                if isinstance(c, dict):
+                                    print(f"  Keys: {list(c.keys())}")
+                                    if "score" in c:
+                                        print(f"  score: {c['score']} (type: {type(c['score'])})")
+                                    if "accuracy" in c:
+                                        print(f"  accuracy (top-level): {c['accuracy']}")
+                            
                             if isinstance(c, OptimizedCandidate):
+                                assert c.score is not None, f"Candidate #{idx+1}: OptimizedCandidate.score is None"
                                 accuracies.append(c.score.accuracy)
                             elif isinstance(c, AttemptedCandidate):
                                 accuracies.append(c.accuracy)
                             elif isinstance(c, dict):
-                                score = c.get("score", {})
+                                score = c.get("score")
                                 if isinstance(score, dict):
-                                    accuracies.append(score.get("accuracy", 0.0))
+                                    accuracy = score.get("accuracy")
+                                    assert accuracy is not None, f"Candidate #{idx+1}: score.accuracy is None. score keys: {list(score.keys())}"
+                                    accuracies.append(accuracy)
                                 else:
-                                    accuracies.append(c.get("accuracy", 0.0))
+                                    accuracy = c.get("accuracy")
+                                    assert accuracy is not None, f"Candidate #{idx+1}: accuracy is None. candidate keys: {list(c.keys())}"
+                                    accuracies.append(accuracy)
+                            else:
+                                raise TypeError(f"Candidate #{idx+1}: Unexpected type {type(c)}")
                         
                         avg_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0.0
                         max_accuracy = max(accuracies) if accuracies else 0.0
@@ -333,34 +383,65 @@ async def main():
                             # Handle both typed dataclasses and raw dicts (backward compatibility)
                             from synth_ai.learning.prompt_learning_types import OptimizedCandidate, AttemptedCandidate
                             
+                            # Extract stats first
+                            accuracy = None
+                            prompt_length = None
+                            tool_call_rate = None
+                            
+                            # Debug: print candidate structure for first few
+                            if idx <= 3 and isinstance(candidate, dict):
+                                print(f"🔍 Debug Candidate #{idx} structure: keys={list(candidate.keys())}")
+                                if "score" in candidate:
+                                    print(f"  score type: {type(candidate['score'])}, value: {candidate['score']}")
+                            
                             if isinstance(candidate, OptimizedCandidate):
-                                accuracy = candidate.score.accuracy
-                                prompt_length = candidate.score.prompt_length
-                                tool_call_rate = candidate.score.tool_call_rate
+                                if candidate.score:
+                                    accuracy = candidate.score.accuracy
+                                    prompt_length = candidate.score.prompt_length
+                                    tool_call_rate = candidate.score.tool_call_rate
                             elif isinstance(candidate, AttemptedCandidate):
                                 accuracy = candidate.accuracy
                                 prompt_length = candidate.prompt_length
                                 tool_call_rate = candidate.tool_call_rate
                             elif isinstance(candidate, dict):
-                                # Handle raw dict (backward compatibility)
-                                score = candidate.get("score", {})
+                                # Handle raw dict - check nested score first, then top-level
+                                score = candidate.get("score")
                                 if isinstance(score, dict):
-                                    accuracy = score.get("accuracy", 0.0)
-                                    prompt_length = score.get("prompt_length", 0)
-                                    tool_call_rate = score.get("tool_call_rate", 0.0)
-                                else:
-                                    accuracy = candidate.get("accuracy", 0.0)
-                                    prompt_length = candidate.get("prompt_length", 0)
-                                    tool_call_rate = candidate.get("tool_call_rate", 0.0)
-                            else:
-                                continue
-                            
-                            print(f"--- Candidate #{idx} (Accuracy: {accuracy:.2%}, Length: {prompt_length}, Tool Call Rate: {tool_call_rate:.2%}) ---")
+                                    accuracy = score.get("accuracy")
+                                    prompt_length = score.get("prompt_length")
+                                    tool_call_rate = score.get("tool_call_rate")
+                                # Fallback to top-level fields (for AttemptedCandidate-style flat structure)
+                                if accuracy is None:
+                                    accuracy = candidate.get("accuracy")
+                                if prompt_length is None:
+                                    prompt_length = candidate.get("prompt_length")
+                                if tool_call_rate is None:
+                                    tool_call_rate = candidate.get("tool_call_rate")
+                                
+                                # Debug: show what we found
+                                if idx <= 3:
+                                    print(f"  Extracted stats: accuracy={accuracy}, length={prompt_length}, tool_call_rate={tool_call_rate}")
                             
                             # Extract prompt using SDK abstraction (works with both typed and raw)
                             from synth_ai.learning.prompt_extraction import PromptExtractor
                             
                             extracted = PromptExtractor.extract_from_candidate(candidate)
+                            
+                            # If prompt_length is missing but we have extracted prompt, compute it
+                            if prompt_length is None or prompt_length == 0:
+                                if extracted and extracted.text:
+                                    # Rough token estimate: ~4 chars per token
+                                    prompt_length = len(extracted.text) // 4
+                                else:
+                                    prompt_length = 0
+                            
+                            # Default to 0.0 if still None
+                            accuracy = accuracy if accuracy is not None else 0.0
+                            prompt_length = prompt_length if prompt_length is not None else 0
+                            tool_call_rate = tool_call_rate if tool_call_rate is not None else 0.0
+                            
+                            print(f"--- Candidate #{idx} (Accuracy: {accuracy:.2%}, Length: {prompt_length}, Tool Call Rate: {tool_call_rate:.2%}) ---")
+                            
                             if extracted:
                                 print(extracted.to_formatted_string())
                                 print()
@@ -375,7 +456,7 @@ async def main():
                                     obj_keys = list(candidate.object.keys()) if candidate.object else []
                                 else:
                                     obj = candidate.get("object", {})
-                                    payload_kind = candidate.get("payload_kind", "")
+                                    payload_kind = candidate.get("payload_kind", candidate.get("type", ""))
                                     obj_keys = list(obj.keys()) if isinstance(obj, dict) else []
                                 print(f"  Debug: payload_kind={payload_kind}, object_keys={obj_keys}")
                                 print()
