@@ -8,9 +8,11 @@ computes both event rewards (achievement deltas) and outcome rewards
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional, Set
 from uuid import uuid4
 
+import httpx
 from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 from synth_ai.environments.examples.crafter_classic.environment import (
     CrafterClassicEnvironment,
@@ -22,8 +24,6 @@ from synth_ai.environments.examples.crafter_classic.taskset import (
 from synth_ai.environments.tasks.core import Impetus, Intent
 from synth_ai.inference import InferenceClient
 from synth_ai.tracing_v3.session_tracer import SessionTracer
-import os
-
 
 # Action mapping: string names to action indices
 CRAFTER_ACTION_MAP: Dict[str, int] = {
@@ -211,9 +211,8 @@ Use 2-5 actions per call. Prefer long movement sequences."""
             ]
             
             # Record LLM event
-            llm_event_id = None
             if tracer and session_id:
-                llm_event_id = tracer.record_event(
+                tracer.record_event(
                     session_id=session_id,
                     event_type="cais",
                     data={"messages": messages, "step": step},
@@ -231,8 +230,6 @@ Use 2-5 actions per call. Prefer long movement sequences."""
                 )
             else:
                 # Fallback: use OpenAI-compatible API
-                import httpx
-                import json as json_lib
                 api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GROQ_API_KEY") or ""
                 base_url = "https://api.openai.com/v1" if "openai" in self.model.lower() else "https://api.groq.com/openai/v1"
                 async with httpx.AsyncClient() as client:
@@ -402,6 +399,6 @@ crafter_baseline = BaselineConfig(
         "reward_type": "achievements",
         "max_achievements": 22,
     },
-    tags=["rl", "gym", "survival", "achievements"],
+    tags=["rl", "gymnasium", "survival", "achievements"],
 )
 

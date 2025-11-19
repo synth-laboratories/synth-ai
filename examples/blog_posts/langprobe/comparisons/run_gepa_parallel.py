@@ -27,6 +27,16 @@ try:
 except ImportError:
     raise ImportError("PyYAML is required. Install with: pip install pyyaml")
 
+# Optional tunnel helpers
+try:
+    from synth_ai.cloudflare import open_quick_tunnel, stop_tunnel
+except ImportError:
+    try:
+        from synth_ai.tunnel import open_quick_tunnel, stop_tunnel  # type: ignore
+    except Exception:
+        open_quick_tunnel = None  # type: ignore
+        stop_tunnel = None  # type: ignore
+
 # Paths to config files
 # Script is in langprobe/comparisons/, so go up to synth-ai root
 # comparisons/ -> langprobe/ -> blog_posts/ -> examples/ -> synth-ai/
@@ -35,11 +45,52 @@ CONFIGS = {
     "Heart Disease": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/heartdisease/heartdisease_gepa.toml",
     "HotPotQA": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/hotpotqa/hotpotqa_gepa.toml",
     "Banking77": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/banking77/banking77_gepa.toml",
+    "Crafter": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/crafter/crafter_gepa.toml",
+    "Hover": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/hover/hover_gepa.toml",
+    "IfBench": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/ifbench/ifbench_gepa.toml",
+    "Pupa": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/pupa/pupa_gepa.toml",
+    "Sokoban": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/sokoban/sokoban_gepa.toml",
+    "Verilog": REPO_ROOT / "examples/blog_posts/langprobe/task_specific/verilog/verilog_gepa.toml",
+}
+TASK_APP_PATHS = {
+    "Banking77": REPO_ROOT / "examples/task_apps/banking77/banking77_task_app.py",
+    "Heart Disease": REPO_ROOT / "examples/task_apps/other_langprobe_benchmarks/heartdisease_task_app.py",
+    "HotPotQA": REPO_ROOT / "examples/task_apps/other_langprobe_benchmarks/hotpotqa_task_app.py",
+    "Crafter": REPO_ROOT / "examples/task_apps/gepa_benchmarks/crafter_task_app.py",
+    "Hover": REPO_ROOT / "examples/task_apps/gepa_benchmarks/hover_task_app.py",
+    "IfBench": REPO_ROOT / "examples/task_apps/gepa_benchmarks/ifbench_task_app.py",
+    "Pupa": REPO_ROOT / "examples/task_apps/gepa_benchmarks/pupa_task_app.py",
+    "Sokoban": REPO_ROOT / "examples/task_apps/gepa_benchmarks/sokoban_task_app.py",
+    "Verilog": REPO_ROOT / "examples/task_apps/gepa_benchmarks/verilog_task_app.py",
+}
+
+TASK_APP_PORT_DEFAULTS = {
+    "Banking77": 8102,
+    "Heart Disease": 8114,
+    "HotPotQA": 8110,
+    "Crafter": 8116,
+    "Hover": 8112,
+    "IfBench": 8111,
+    "Pupa": 8113,
+    "Sokoban": 8117,
+    "Verilog": 8115,
 }
 
 # Load configuration from YAML file
 COMPARISONS_DIR = Path(__file__).parent
 CONFIG_FILE = COMPARISONS_DIR / "synth_gepa_config.yaml"
+
+# Allow task filtering via GEPA_TASKS env (comma-separated names matching CONFIGS keys)
+TASK_FILTER = {
+    name.strip().lower()
+    for name in os.getenv("GEPA_TASKS", "").split(",")
+    if name.strip()
+}
+
+def _env_true(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "y"}
+
+TUNNEL_ENABLED = _env_true("USE_TASK_APP_TUNNEL")
 
 def load_config() -> Dict:
     """Load configuration from YAML file."""
@@ -107,6 +158,7 @@ def modify_config_for_limits(
     show_curve: bool = False,
     verbose_summary: bool = False,
     local_backend: bool = True,
+    task_app_url_override: Optional[str] = None,
 ) -> Path:
     """Create a temporary modified config with rollout and time limits."""
     # Read original config as text
@@ -126,6 +178,16 @@ def modify_config_for_limits(
         repo_root = Path(__file__).parent
     
     env_file_abs = (repo_root / ".env").resolve()
+    
+    # Extract original task_app_url to help with tunneling
+    original_task_app_url = None
+    try:
+        import tomllib
+        with open(config_path, "rb") as f:
+            raw_config = tomllib.load(f)
+        original_task_app_url = raw_config.get("prompt_learning", {}).get("task_app_url")
+    except Exception:
+        pass
     
     # Resolve results_folder to absolute path (relative to original config directory)
     results_folder_abs = None
@@ -177,6 +239,15 @@ def modify_config_for_limits(
             # Replace relative path with absolute path
             new_lines.append(f'env_file_path = "{env_file_abs}"')
             env_file_path_updated = True
+            continue
+        
+        # Override task_app_url if provided
+        if in_prompt_learning and task_app_url_override and "task_app_url" in line and "=" in line:
+            new_lines.append(f'task_app_url = "{task_app_url_override}"')
+            continue
+        elif in_prompt_learning and original_task_app_url and "task_app_url" in line and "=" in line and task_app_url_override == "":
+            # Explicit empty override means keep original (no change)
+            new_lines.append(line)
             continue
         
         if in_prompt_learning and "results_folder" in line and "=" in line and not results_folder_updated:
@@ -669,6 +740,105 @@ async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
     
     print(f"[{task_name}] Starting job...")
     
+    # Backend/task app overrides
+    backend_base_env = os.getenv("BACKEND_BASE_URL") or os.getenv("BACKEND_OVERRIDE")
+    backend_base_default = "https://agent-learning.onrender.com/api"
+    backend_base = (backend_base_env or backend_base_default).rstrip("/")
+    backend_root = backend_base.replace("/api", "") if backend_base.endswith("/api") else backend_base
+    # If backend is remote, default to tunneling unless explicitly disabled
+    tunnel_enabled = TUNNEL_ENABLED
+    if not tunnel_enabled:
+        localhost_like = backend_base.startswith("http://localhost") or backend_base.startswith("http://127.0.0.1")
+        if not localhost_like:
+            tunnel_enabled = True
+    
+    # Task-specific override: BANKING77_TASK_APP_URL or generic TASK_APP_URL_OVERRIDE
+    task_key = task_name.upper().replace(" ", "_")
+    task_app_url_override = os.getenv(f"{task_key}_TASK_APP_URL") or os.getenv("TASK_APP_URL_OVERRIDE")
+    
+    # Optionally create/adjust tunnel if enabled and task app is localhost (either from override or config)
+    tunnel_proc = None
+    tunnel_url = None
+    inprocess_app = None
+    if tunnel_enabled and open_quick_tunnel:
+        try:
+            import tomllib
+            with open(config_path, "rb") as f:
+                raw_cfg = tomllib.load(f)
+            raw_url_from_config = raw_cfg.get("prompt_learning", {}).get("task_app_url", "")
+        except Exception:
+            raw_url_from_config = ""
+        
+        candidate_url = task_app_url_override or raw_url_from_config
+        # Allow port override via env (e.g., BANKING77_TASK_APP_PORT)
+        env_port = os.getenv(f"{task_key}_TASK_APP_PORT") or os.getenv("TASK_APP_PORT")
+        if env_port:
+            try:
+                from urllib.parse import urlparse
+                parsed_raw = urlparse(candidate_url) if candidate_url else None
+                host = (parsed_raw.hostname if parsed_raw else "127.0.0.1") or "127.0.0.1"
+                scheme = (parsed_raw.scheme if parsed_raw else "http") or "http"
+                candidate_url = f"{scheme}://{host}:{env_port}"
+                print(f"[{task_name}] Overriding task_app_url port -> {candidate_url}")
+            except Exception as e:
+                print(f"[{task_name}] ⚠️ Failed to apply port override: {e}")
+        
+        if candidate_url:
+            from urllib.parse import urlparse
+            parsed = urlparse(candidate_url)
+            host = parsed.hostname or ""
+            port = parsed.port
+            if not port and env_port:
+                try:
+                    port = int(env_port)
+                except Exception:
+                    port = None
+            if (host in {"127.0.0.1", "localhost"} or host.endswith(".local")) and port:
+                print(f"[{task_name}] 🌀 Creating tunnel for task app port {port}...")
+                try:
+                    tunnel_url, tunnel_proc = open_quick_tunnel(port)  # type: ignore
+                    task_app_url_override = tunnel_url
+                    print(f"[{task_name}] ✅ Tunnel created: {tunnel_url}")
+                except Exception as e:
+                    print(f"[{task_name}] ⚠️ Tunnel creation failed: {e}")
+            else:
+                task_app_url_override = candidate_url
+        else:
+            # Fall back to raw config with no tunnel
+            if task_app_url_override:
+                print(f"[{task_name}] Using provided task_app_url_override: {task_app_url_override}")
+            else:
+                print(f"[{task_name}] No task_app_url_override; using config value")
+
+    # Optionally start task app in-process (guarantees availability + tunnel)
+    start_inprocess = tunnel_enabled or _env_true("START_TASK_APP")
+    if start_inprocess and task_name in TASK_APP_PATHS:
+        try:
+            from synth_ai.task import InProcessTaskApp
+            task_app_path = TASK_APP_PATHS[task_name]
+            api_key = os.getenv("ENVIRONMENT_API_KEY") or os.getenv("SYNTH_API_KEY", "test")
+            # Choose port: env override -> existing override port -> default from config or 8102
+            default_port = TASK_APP_PORT_DEFAULTS.get(task_name, 8102)
+            env_port = os.getenv(f"{task_key}_TASK_APP_PORT") or os.getenv("TASK_APP_PORT")
+            try:
+                chosen_port = int(env_port) if env_port else default_port
+            except Exception:
+                chosen_port = default_port
+            print(f"[{task_name}] 🚀 Starting in-process task app at port {chosen_port}...")
+            inprocess_app = InProcessTaskApp(
+                task_app_path=str(task_app_path),
+                port=chosen_port,
+                api_key=api_key,
+                auto_find_port=True,
+            )
+            await inprocess_app.__aenter__()
+            task_app_url_override = inprocess_app.url
+            print(f"[{task_name}] ✅ Task app running at {task_app_url_override}")
+        except Exception as e:
+            print(f"[{task_name}] ⚠️ Failed to start in-process task app: {e}")
+    if task_app_url_override:
+        print(f"[{task_name}] Overriding task_app_url -> {task_app_url_override}")
+    
     # Record start time to find new results files
     start_time = time.time()
     
@@ -702,6 +872,7 @@ async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
         show_curve=config["show_curve"],
         verbose_summary=config["verbose_summary"],
         local_backend=config["local_backend"],
+        task_app_url_override=task_app_url_override,
     )
     
     # ASSERT: Temp config file must exist
@@ -752,13 +923,19 @@ async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
         # Run the job (suppress all output by setting display options in TOML)
         cmd = [
             sys.executable, "-m", "synth_ai", "train",
-            "--config", str(temp_config),
-            "--local-backend",
         ]
         
-        # Add --env-file if we have an env_file_path to avoid prompts
         if env_file_path:
-            cmd.extend(["--env-file", str(env_file_path)])
+            cmd.extend(["--env", str(env_file_path)])
+        
+        if config.get("local_backend", False):
+            cmd.append("--local-backend")
+        else:
+            # Point to prod backend
+            cmd.extend(["--backend", backend_base])
+        
+        # TOML path as positional argument
+        cmd.append(str(temp_config))
         
         print(f"[{task_name}] Running command: {' '.join(cmd[:3])} ...")
         print(f"[{task_name}] Full command: {' '.join(cmd)}")
@@ -767,10 +944,15 @@ async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
         stdout_lines = []
         stderr_lines = []
         
+        env = os.environ.copy()
+        env["BACKEND_BASE_URL"] = backend_base
+        env.setdefault("EXTERNAL_BACKEND_URL", backend_root)
+        
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
         
         # Stream stdout and stderr in real-time
@@ -888,14 +1070,29 @@ async def run_gepa_job(task_name: str, config_path: Path, config: Dict) -> Dict:
             "status": "completed",
             "job_id": job_id,
             "config_path": config_path,
+            "tunnel_url": tunnel_url,
         }
     finally:
+        # Stop in-process app first (will also stop tunnel if it created one)
+        if inprocess_app:
+            try:
+                await inprocess_app.__aexit__(None, None, None)
+                print(f"[{task_name}] 🛑 In-process task app stopped")
+            except Exception as e:
+                print(f"[{task_name}] ⚠️ Failed to stop in-process task app: {e}")
         # Clean up temp config
         try:
             temp_config.unlink()
             print(f"[{task_name}] Cleaned up temp config")
         except Exception as e:
             print(f"[{task_name}] Failed to clean up temp config: {e}")
+        # Stop tunnel if we created one
+        if tunnel_proc and stop_tunnel:
+            try:
+                stop_tunnel(tunnel_proc)  # type: ignore
+                print(f"[{task_name}] 🛑 Tunnel stopped")
+            except Exception as e:
+                print(f"[{task_name}] ⚠️ Failed to stop tunnel: {e}")
 
 
 def extract_results_from_events(job_id: str, backend_base: str = "http://localhost:8000/api", api_key: Optional[str] = None, config_path: Optional[Path] = None) -> Dict:
@@ -1206,6 +1403,16 @@ async def main():
     # Run all jobs in parallel
     tasks = []
     for task_name, config_path in CONFIGS.items():
+        # Apply optional task filter
+        if TASK_FILTER and task_name.lower() not in TASK_FILTER:
+            print(f"[SKIP] {task_name} (not in GEPA_TASKS filter)")
+            continue
+        if not task_name and not TASK_FILTER and _env_true("USE_TASK_APP_TUNNEL"):
+            # Default to Banking77 when tunneling and no filter provided (avoids failing other tasks)
+            if task_name != "Banking77":
+                print(f"[SKIP] {task_name} (defaulting to Banking77 when tunneling)")
+                continue
+        
         if not config_path.exists():
             print(f"⚠️  Config not found: {config_path}")
             continue
@@ -1369,4 +1576,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

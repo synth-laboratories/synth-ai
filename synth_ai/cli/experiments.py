@@ -32,9 +32,9 @@ from synth_ai.experiment_queue.service import (
     list_experiments,
 )
 from synth_ai.experiment_queue.status import (
-    experiment_jobs_table,
-    experiment_trials_table,
-    render_dashboard,
+    experiment_jobs_table,  # type: ignore[attr-defined]
+    experiment_trials_table,  # type: ignore[attr-defined]
+    render_dashboard,  # type: ignore[attr-defined]
 )
 
 STATUS_CHOICES = [status.value for status in ExperimentStatus]

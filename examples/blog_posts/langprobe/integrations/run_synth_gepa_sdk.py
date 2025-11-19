@@ -16,6 +16,13 @@ from typing import Any, Optional
 REPO_ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(REPO_ROOT))
 
+from .backend_env import (
+    DEFAULT_TASK_APP_URLS,
+    resolve_backend_url,
+    resolve_task_app_url,
+    should_auto_tunnel,
+)
+
 try:
     from synth_ai.api.train.prompt_learning import PromptLearningJob
     SDK_AVAILABLE = True
@@ -26,7 +33,9 @@ except ImportError:
 
 
 async def run_synth_gepa_via_sdk(
-    task_app_url: str = "http://127.0.0.1:8115",
+    backend_url: str | None = None,
+    backend_env: str | None = None,
+    task_app_url: str | None = None,
     train_seeds: Optional[list[int]] = None,
     rollout_budget: int = 400,
     output_dir: Optional[Path] = None,
@@ -34,7 +43,9 @@ async def run_synth_gepa_via_sdk(
     """Run Synth GEPA via SDK API.
 
     Args:
-        task_app_url: Task app URL
+        backend_url: Backend API URL (defaults to prod via env)
+        backend_env: Shortcut selector for backend ("local" or "prod")
+        task_app_url: Task app URL (defaults to iris localhost or LANGPROBE_TASK_APP_URL)
         train_seeds: Training seeds (default: 0-99)
         rollout_budget: Rollout budget (default: 400)
         output_dir: Output directory
@@ -51,6 +62,23 @@ async def run_synth_gepa_via_sdk(
     if output_dir is None:
         output_dir = Path(__file__).parent.parent / "results" / "synth_gepa"
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    backend_url = resolve_backend_url(backend_url, backend_env)
+    task_app_url = resolve_task_app_url(
+        DEFAULT_TASK_APP_URLS.get("iris", "http://127.0.0.1:8115"),
+        task_app_url,
+    )
+
+    tunnel_needed = should_auto_tunnel(None, backend_url, task_app_url)
+    if tunnel_needed:
+        print(
+            "⚠️  Remote backend with localhost task app detected. "
+            "Provide a tunnel URL via LANGPROBE_TASK_APP_URL/TUNNEL_URL or "
+            "use run_synth_gepa_adapter.py with --auto-tunnel."
+        )
+
+    print(f"Backend URL: {backend_url}")
+    print(f"Task app URL: {task_app_url}")
 
     # Create TOML config content
     config_content = f"""
@@ -118,7 +146,6 @@ mutation_llm_provider = "groq"
     print(f"Submitting job to backend...")
 
     # Create job
-    backend_url = os.getenv("BACKEND_BASE_URL", "https://api.usesynth.ai")
     api_key = os.getenv("SYNTH_API_KEY")
     if not api_key:
         raise ValueError("SYNTH_API_KEY environment variable required")
@@ -169,9 +196,20 @@ async def main() -> None:
 
     parser = argparse.ArgumentParser(description="Run Synth GEPA on Iris via SDK")
     parser.add_argument(
+        "--backend-url",
+        default=None,
+        help="Backend API URL (overrides backend-env/env vars)",
+    )
+    parser.add_argument(
+        "--backend-env",
+        choices=["local", "prod"],
+        default=None,
+        help="Shortcut backend selector. Defaults to LANGPROBE_BACKEND_ENV or prod.",
+    )
+    parser.add_argument(
         "--task-app-url",
-        default="http://127.0.0.1:8115",
-        help="Task app URL",
+        default=None,
+        help="Task app URL (defaults to iris localhost or LANGPROBE_TASK_APP_URL)",
     )
     parser.add_argument(
         "--rollout-budget",
@@ -193,6 +231,8 @@ async def main() -> None:
         sys.exit(1)
 
     results = await run_synth_gepa_via_sdk(
+        backend_url=args.backend_url,
+        backend_env=args.backend_env,
         task_app_url=args.task_app_url,
         rollout_budget=args.rollout_budget,
         output_dir=args.output_dir,
@@ -206,4 +246,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

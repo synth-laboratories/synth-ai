@@ -517,7 +517,7 @@ class RichHandler(StreamHandler):
             self._ensure_progress_started()
             if self._task_id is not None:
                 description = f"Status: {self._current_status}"
-                self._progress.update(self._task_id, description=description)
+                self._progress.update(self._task_id, description=description)  # type: ignore[arg-type]
             self._render_summary()
             return
 
@@ -537,7 +537,7 @@ class RichHandler(StreamHandler):
             if step and total_steps:
                 self._ensure_progress_started(total_steps)
                 if self._task_id is not None:
-                    self._progress.update(self._task_id, completed=int(step), total=int(total_steps))
+                    self._progress.update(self._task_id, completed=int(step), total=int(total_steps))  # type: ignore[arg-type]
             self._render_summary()
             return
 
@@ -570,7 +570,7 @@ class RichHandler(StreamHandler):
                 f"Status: {self._current_status}", total=total or 100
             )
         elif total is not None and self._task_id is not None:
-            self._progress.update(self._task_id, total=total)
+            self._progress.update(self._task_id, total=total)  # type: ignore[arg-type]
 
     def _render_summary(self, force: bool = False) -> None:
         if force and self._progress_started:

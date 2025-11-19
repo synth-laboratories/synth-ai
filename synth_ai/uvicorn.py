@@ -88,7 +88,7 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
             elif hasattr(app, "state") and hasattr(app.state, "task_app_config"):
                 config = app.state.task_app_config
                 if hasattr(config, "app_id"):
-                    app_id = config.app_id
+                    app_id = str(config.app_id) if config.app_id is not None else None  # type: ignore[assignment]
         except Exception:
             pass
         
