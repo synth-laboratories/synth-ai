@@ -23,7 +23,6 @@ def demo_cmd(demo_type: DemoType) -> None:
     print(src)
     if not src.exists():
         raise click.ClickException(f"Demo source directory not found: {src}")
-#   dst = Path.cwd() / f"demo_{src.name}"
     dst = Path.cwd() / "demo_mipro"
     if dst.exists():
         if not click.confirm(f"Destination already exists: {dst}. Overwrite?", abort=True):
