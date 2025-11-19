@@ -387,16 +387,26 @@ async def call_chat_completion(
         if response.status_code != 200:
             try:
                 error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))
+                # Extract error message properly - handle both dict and string formats
+                error_obj = error_json.get("error")
+                if isinstance(error_obj, dict):
+                    error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                elif isinstance(error_obj, str):
+                    error_msg = error_obj
+                else:
+                    # Try detail field as fallback
+                    error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
+                
                 print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
+                print(f"[TASK_APP] ❌ Full error JSON: {error_json}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Interceptor/provider error: {error_msg}"
                 )
             except HTTPException:
                 raise
-            except Exception:
-                error_text = response.text[:500]
+            except Exception as e:
+                error_text = response.text[:500] if hasattr(response, 'text') else str(e)
                 print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
