@@ -13,6 +13,14 @@ from dotenv import load_dotenv
 from enum import Enum
 from tqdm import tqdm
 
+from .backend_env import (
+    DEFAULT_TASK_APP_URLS,
+    is_local_url,
+    normalize_backend_url,
+    resolve_backend_url,
+    resolve_task_app_url,
+    should_auto_tunnel,
+)
 from .learning_curve_tracker import LearningCurveTracker
 from .task_app_client import TaskAppClient
 
@@ -71,12 +79,17 @@ class JobStatus(str, Enum):
 
 # Try to import tunnel SDK - optional dependency
 try:
-    from synth_ai.tunnel import open_quick_tunnel, stop_tunnel
+    # Preferred lightweight tunnel helpers (may live under cloudflare module)
+    from synth_ai.tunnel import open_quick_tunnel, stop_tunnel  # type: ignore
     TUNNEL_AVAILABLE = True
 except ImportError:
-    TUNNEL_AVAILABLE = False
-    open_quick_tunnel = None  # type: ignore
-    stop_tunnel = None  # type: ignore
+    try:
+        from synth_ai.cloudflare import open_quick_tunnel, stop_tunnel  # type: ignore
+        TUNNEL_AVAILABLE = True
+    except ImportError:
+        TUNNEL_AVAILABLE = False
+        open_quick_tunnel = None  # type: ignore
+        stop_tunnel = None  # type: ignore
 
 
 class SynthGEPAAdapter:
@@ -90,7 +103,7 @@ class SynthGEPAAdapter:
         initial_prompt_messages: list[dict[str, Any]],
         rollout_budget: int = 400,
         tunnel_url: str | None = None,
-        auto_tunnel: bool = False,
+        auto_tunnel: bool | None = None,
     ):
         """Initialize Synth GEPA adapter.
 
@@ -106,13 +119,14 @@ class SynthGEPAAdapter:
             auto_tunnel: If True and task_app_url is localhost, automatically create
                         a Cloudflare tunnel. Requires synth_ai.tunnel to be available.
         """
-        self.backend_url = backend_url
+        self.backend_url = normalize_backend_url(backend_url)
         self.original_task_app_url = task_app_url
         self.task_app_id = task_app_id
         self.initial_prompt_messages = initial_prompt_messages
         self.rollout_budget = rollout_budget
-        self.auto_tunnel = auto_tunnel
+        self.auto_tunnel = should_auto_tunnel(auto_tunnel, self.backend_url, task_app_url)
         self._tunnel_proc = None  # Store tunnel process handle for cleanup
+        backend_is_local = is_local_url(self.backend_url)
         
         # Determine final task app URL - FAIL FAST if localhost without tunnel
         is_localhost = ("127.0.0.1" in task_app_url or "localhost" in task_app_url)
@@ -121,7 +135,7 @@ class SynthGEPAAdapter:
             self.task_app_url = tunnel_url
         elif os.getenv("TUNNEL_URL"):
             self.task_app_url = os.getenv("TUNNEL_URL")
-        elif auto_tunnel and is_localhost:
+        elif self.auto_tunnel and is_localhost:
             # Extract port from localhost URL and create tunnel
             port_match = re.search(r":(\d+)", task_app_url)
             if port_match:
@@ -146,6 +160,9 @@ class SynthGEPAAdapter:
                     )
             else:
                 raise ValueError(f"Cannot extract port from task_app_url: {task_app_url}")
+        elif is_localhost and backend_is_local:
+            # Local backend can reach local task app without a tunnel
+            self.task_app_url = task_app_url
         elif is_localhost:
             # FAIL FAST: localhost URL without tunnel
             raise ValueError(
@@ -244,7 +261,7 @@ class SynthGEPAAdapter:
         except ImportError:
             # Fallback: parse manually or use tomllib (Python 3.11+)
             import tomllib
-            config_dict = tomllib.loads(toml_str.encode('utf-8'))
+            config_dict = tomllib.loads(toml_str)
 
         # Call backend API
         async with httpx.AsyncClient(timeout=7200.0) as client:
@@ -640,29 +657,38 @@ enforce_pattern_limit = true
 
 
 async def run_synth_gepa_iris(
-    backend_url: str = "http://localhost:8000",
-    task_app_url: str = "http://127.0.0.1:8115",
+    backend_url: str | None = None,
+    backend_env: str | None = None,
+    task_app_url: str | None = None,
     train_seeds: list[int] | None = None,
     rollout_budget: int = 400,
     output_dir: Path | None = None,
     tunnel_url: str | None = None,
-    auto_tunnel: bool = False,
+    auto_tunnel: bool | None = None,
 ) -> dict[str, Any]:
     """Run Synth GEPA on Iris benchmark.
 
     Args:
-        backend_url: Backend API URL (default: http://localhost:8000)
-        task_app_url: Task app URL (local)
+        backend_url: Backend API URL. If None, resolved from env with agent-learning as prod default.
+        backend_env: Shortcut selector for backend ("local" or "prod")
+        task_app_url: Task app URL (default: iris localhost or LANGPROBE_TASK_APP_URL)
         train_seeds: Training seeds (default: 0-99)
         rollout_budget: Rollout budget (default: 400)
         output_dir: Output directory (default: results/synth_gepa/)
         tunnel_url: Public tunnel URL for task app (required for Modal).
                     If None, checks TUNNEL_URL env var.
-        auto_tunnel: If True, automatically create Cloudflare tunnel for localhost URLs.
+        auto_tunnel: Explicit tunnel toggle. When None, enables tunnel if backend is remote and task app is localhost.
 
     Returns:
         Results dictionary
     """
+    backend_url = resolve_backend_url(backend_url, backend_env)
+    task_app_url = resolve_task_app_url(
+        DEFAULT_TASK_APP_URLS.get("iris", "http://127.0.0.1:8115"),
+        task_app_url,
+    )
+    auto_tunnel = should_auto_tunnel(auto_tunnel, backend_url, task_app_url)
+
     if train_seeds is None:
         # Auto-scale number of seeds based on rollout budget for smoke tests
         if rollout_budget < 10:
@@ -676,6 +702,11 @@ async def run_synth_gepa_iris(
 
     if output_dir is None:
         output_dir = Path(__file__).parent.parent / "results" / "synth_gepa"
+
+    print(f"Backend URL: {backend_url}")
+    print(f"Task app URL: {task_app_url} (auto_tunnel={'on' if auto_tunnel else 'off'})")
+    if tunnel_url:
+        print(f"Using provided tunnel: {tunnel_url}")
 
     # Initial prompt messages (from iris_task_app.py)
     initial_prompt_messages = [
@@ -725,13 +756,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Synth GEPA on Iris")
     parser.add_argument(
         "--backend-url",
-        default="http://localhost:8000",
-        help="Backend API URL",
+        default=None,
+        help="Backend API URL (overrides backend-env/env vars)",
+    )
+    parser.add_argument(
+        "--backend-env",
+        choices=["local", "prod"],
+        default=None,
+        help="Shortcut backend selector. Defaults to LANGPROBE_BACKEND_ENV or prod.",
     )
     parser.add_argument(
         "--task-app-url",
-        default="http://127.0.0.1:8115",
-        help="Task app URL. If localhost, MUST use --auto-tunnel or --tunnel-url (Modal cannot reach localhost)",
+        default=None,
+        help="Task app URL. Defaults to iris localhost overrideable via LANGPROBE_TASK_APP_URL.",
     )
     parser.add_argument(
         "--rollout-budget",
@@ -755,16 +792,24 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--auto-tunnel",
+        dest="auto_tunnel",
         action="store_true",
-        help="Automatically create a Cloudflare tunnel if task_app_url is localhost. "
-             "Requires cloudflared to be installed.",
+        help="Force creation of a Cloudflare tunnel when using localhost task app.",
     )
+    parser.add_argument(
+        "--no-auto-tunnel",
+        dest="auto_tunnel",
+        action="store_false",
+        help="Disable auto tunnel even when backend is remote.",
+    )
+    parser.set_defaults(auto_tunnel=None)
 
     args = parser.parse_args()
 
     results = asyncio.run(
         run_synth_gepa_iris(
             backend_url=args.backend_url,
+            backend_env=args.backend_env,
             task_app_url=args.task_app_url,
             rollout_budget=args.rollout_budget,
             output_dir=args.output_dir,
@@ -775,4 +820,3 @@ if __name__ == "__main__":
 
     print(f"Best score: {results['best_score']}")
     print(f"Total rollouts: {results['total_rollouts']}")
-
