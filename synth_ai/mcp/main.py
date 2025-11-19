@@ -3,15 +3,14 @@ import os
 from pathlib import Path
 from typing import Any
 
-from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
-from synth_ai.mcp.setup import setup_fetch, setup_start
-from synth_ai.modal import deploy_app_modal
-from synth_ai.uvicorn import deploy_app_uvicorn
-
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import ServerCapabilities, TextContent, Tool, ToolsCapability
+from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
+from synth_ai.mcp.setup import setup_fetch, setup_start
+from synth_ai.modal import deploy_app_modal
+from synth_ai.uvicorn import deploy_app_uvicorn
 
 server = Server("synth-ai")
 
@@ -126,6 +125,16 @@ async def list_tools() -> list[Tool]:
             ),
             inputSchema={"type": "object"}
         ),
+        Tool(
+            name="create_rl_task_app",
+            description="Instructions on how to create a reinforcement learning task app, required for all deployments",
+            inputSchema={},
+        ),
+        Tool(
+            name="create_sft_task_app",
+            description="Instructions on how to create a supervised fine-tuning task app, required for all deployments",
+            inputSchema={},
+        )
     ]
 
 
@@ -213,6 +222,16 @@ async def call_tool(
             return [TextContent(
                 type="text",
                 text=msg or f"{name} task app deployed"
+            )]
+        case "create_rl_task_app":
+            return [TextContent(
+                type="text",
+                text="Instructions for creating an RL task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-rl",
+            )]
+        case "create_sft_task_app":
+            return [TextContent(
+                type="text",
+                text="Instructions for creating an SFT task app are at Synth AI's official docs: https://docs.usesynth.ai/task-app/task-app-sft",
             )]
     return [TextContent(
         type="text",

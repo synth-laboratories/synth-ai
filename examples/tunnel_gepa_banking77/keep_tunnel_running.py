@@ -12,8 +12,7 @@ repo_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(repo_root))
 
 from synth_ai.cfgs import CloudflareTunnelDeployCfg
-from synth_ai.tunnel_deploy import deploy_app_tunnel, _TUNNEL_PROCESSES
-from synth_ai.tunnel import stop_tunnel
+from synth_ai.cloudflare import deploy_app_tunnel, _TUNNEL_PROCESSES, stop_tunnel
 
 
 async def main():
@@ -57,4 +56,9 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+
+
+
 

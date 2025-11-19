@@ -45,6 +45,9 @@ def test_stream_message_key_variants() -> None:
     metric = StreamMessage.from_metric(
         "job_123", {"name": "train.loss", "value": 0.42, "step": 11, "created_at": "now"}
     )
+    metric_no_step = StreamMessage.from_metric(
+        "job_123", {"name": "train.loss", "value": 0.41, "created_at": "ts-1"}
+    )
     timeline = StreamMessage.from_timeline(
         "job_123", {"phase": "training", "created_at": "now", "metadata": {}}
     )
@@ -52,6 +55,7 @@ def test_stream_message_key_variants() -> None:
     assert status.key.startswith("status:")
     assert event.key == "event:7"
     assert metric.key == "metric:train.loss:11"
+    assert metric_no_step.key == "metric:train.loss:ts-1"
     assert timeline.key == "timeline:training:now"
 
 
@@ -196,9 +200,15 @@ async def test_job_streamer_streams_until_terminal() -> None:
 
         async def get(self, path: str, *, params=None, headers=None):
             if path.endswith("/events"):
-                return {"events": [_make_event(seq=1)]}
+                return [_make_event(seq=1)]
             if path.endswith("/metrics"):
-                return {"points": [{"name": "train.loss", "value": 0.42, "step": 1, "created_at": "t"}]}
+                return {
+                    "data": {
+                        "points": [
+                            {"name": "train.loss", "value": 0.42, "created_at": "t"}
+                        ]
+                    }
+                }
             if path.endswith("/timeline"):
                 return {"events": [{"phase": "training", "created_at": "t"}]}
             self.status_calls += 1

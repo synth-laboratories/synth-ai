@@ -144,12 +144,8 @@ class TestHelpIntegrationWithCommands:
         assert deploy_cmd is not None, "deploy_cmd should not be None"
         result = runner.invoke(deploy_cmd, ["--help"])
         assert result.exit_code == 0
-        # Should show either full DEPLOY_HELP or at least key sections
-        assert (
-            "Deploy" in result.output
-            or "OVERVIEW" in result.output
-            or "--runtime" in result.output
-        )
+        assert "[[local|modal|tunnel]]" in result.output
+        assert "--env" in result.output
 
 
 class TestHelpContentQuality:

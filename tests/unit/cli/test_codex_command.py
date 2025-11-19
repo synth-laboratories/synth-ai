@@ -119,8 +119,14 @@ def test_codex_cmd_with_force_flag(runner: CliRunner, mock_env):
 
     assert result.exit_code == 0
 
-    # Verify resolve_env_var was called with force=True
-    mock_resolve.assert_called_once_with("SYNTH_API_KEY", override_process_env=True)
+    # Resolve env var is invoked for both session creation and provider config
+    assert mock_resolve.call_count == 2
+    mock_resolve.assert_has_calls(
+        [
+            mock.call("SYNTH_API_KEY", override_process_env=True),
+            mock.call("SYNTH_API_KEY", override_process_env=True),
+        ]
+    )
 
 
 def test_codex_cmd_subprocess_error(runner: CliRunner, mock_env):

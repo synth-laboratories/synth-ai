@@ -1,11 +1,9 @@
 from . import task_app_state
 from .agents import write_agents_md
-from .apps import (
+from .apps.common import (
     extract_routes_from_app,
     get_asgi_app,
-    load_file_to_module,
-    validate_modal_app,
-    validate_task_app,
+    load_module,
 )
 from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
 from .bin import install_bin, verify_bin
@@ -14,7 +12,7 @@ from .cli import (
     PromptedChoiceOption,
     PromptedChoiceType,
     PromptedPathOption,
-    print_next_step,
+    ctx_print,
     prompt_choice,
     prompt_for_path,
 )
@@ -27,6 +25,7 @@ from .env import (
 )
 from .http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
+from .logging import flush_logger, log_batch, log_error, log_event, log_info, log_warning
 from .modal import (
     ensure_modal_installed,
     ensure_task_app_ready,
@@ -43,7 +42,7 @@ from .paths import (
     get_bin_path,
     get_env_file_paths,
     get_home_config_file_paths,
-    is_py_file,
+    is_hidden_path,
 )
 from .process import ensure_local_port_available, popen_capture, popen_stream, popen_stream_capture
 from .sqld import SQLD_VERSION, find_sqld_binary, install_sqld
@@ -113,12 +112,18 @@ __all__ = [
     "http_request",
     "install_bin",
     "install_sqld",
+    "is_hidden_path",
     "is_local_demo_url",
     "is_modal_public_url",
-    "is_py_file",
+    "flush_logger",
+    "log_batch",
+    "log_error",
+    "log_event",
+    "log_info",
+    "log_warning",
     "load_demo_dir",
     "load_json_to_dict",
-    "load_file_to_module",
+    "load_module",
     "load_template_id",
     "load_user_config",
     "load_user_env",
@@ -134,7 +139,7 @@ __all__ = [
     "popen_stream",
     "popen_stream_capture",
     "preflight_env_key",
-    "print_next_step",
+    "ctx_print",
     "prompt_choice",
     "read_env_var_from_file",
     "read_task_app_config",
@@ -149,8 +154,6 @@ __all__ = [
     "task_app_state",
     "update_task_app_entry",
     "update_user_config",
-    "validate_modal_app",
-    "validate_task_app",
     "verify_bin",
     'write_agents_md',
     "write_env_var_to_dotenv",

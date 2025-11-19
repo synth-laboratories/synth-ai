@@ -2,17 +2,17 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-0.2.22-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.2.25.dev1-orange)](https://pypi.org/project/synth-ai/)
 ![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 ![Blacksmith CI](https://img.shields.io/badge/CI-Blacksmith%20Worker-blue)
 
-> **Synth-AI** — Reinforcement Learning-as-a-Service for agents.  
+> **Synth-AI** — Serverless Posttraining for Agents.  
 > **Docs:** [Get Started →](https://docs.usesynth.ai/sdk/get-started)
 
 ---
 
-## 🚀 Install version 0.2.22
+## 🚀 Install latest version (0.2.25.dev1)
 
 ```bash
 pip install synth-ai
@@ -43,7 +43,7 @@ uvx synth-ai baseline  # For coding agents: get baseline scores
 When you run `uvx synth-ai setup`, the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
 
 
-Fast and effective reinforcement learning for agents, via an API.  
+Fast and effective serverless posttraining for agents, via an API.  
 Easily scale GPU topologies, train multi-node, and integrate with existing agent software.
 
 ### Highlights

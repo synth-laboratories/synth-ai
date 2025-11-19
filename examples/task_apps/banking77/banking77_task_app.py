@@ -36,6 +36,33 @@ from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig, create_task_app, run_task_app
 from synth_ai.task.vendors import normalize_vendor_keys
 
+# Import task app code extraction utility (from monorepo, but we'll use a local version)
+try:
+    from app.routes.prompt_learning.utils.task_app_code_extraction import get_current_module_code
+except ImportError:
+    # Fallback for synth-ai repo (not in monorepo)
+    import inspect
+    import sys
+    
+    def get_current_module_code():
+        """Extract source code for the caller's module using inspect."""
+        frame = inspect.currentframe()
+        try:
+            if frame is None:
+                return None
+            caller_frame = frame.f_back
+            if caller_frame is None:
+                return None
+            module = inspect.getmodule(caller_frame)
+            if module is None:
+                return None
+            try:
+                return inspect.getsource(module)
+            except (OSError, TypeError, IOError):
+                return None
+        finally:
+            del frame
+
 def _compute_repo_root() -> Path:
     p = Path(__file__).resolve()
     parents = list(p.parents)
@@ -198,15 +225,46 @@ async def call_chat_completion(
     lowered = route_base.lower()
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
     # Normalize inference URL: allow bases like .../v1 and auto-append /chat/completions
+    # Properly handles query strings and interceptor URLs with trial IDs
+    # Matches the pattern used in gepa_benchmarks/common.py for consistency
     def _normalize_chat_url(url: str) -> str:
+        from urllib.parse import urlparse, urlunparse
+        
         u = (url or "").rstrip("/")
-        if u.endswith("/chat/completions"):
+        if not u:
+            return "/chat/completions"
+        
+        # Parse URL to separate path from query parameters
+        parsed = urlparse(u)
+        path = parsed.path.rstrip("/")
+        query = parsed.query
+        fragment = parsed.fragment
+        
+        # Already complete
+        if path.endswith("/v1/chat/completions") or path.endswith("/chat/completions"):
             return u
-        if u.endswith("/v1"):
-            return u + "/chat/completions"
-        if u.endswith("/completions"):
-            return u.rsplit("/", 1)[0] + "/chat/completions"
-        return u + "/chat/completions"
+        
+        # Check if this looks like an interceptor URL with trial_id
+        # Interceptor URLs have /v1/ followed by an identifier (e.g., /v1/cli-mipro-..., /v1/gepa-...)
+        # These URLs already have /v1/{trial_id} in them, so we should append /chat/completions
+        if "/v1/" in path and not path.endswith("/v1"):
+            # This is likely an interceptor URL with trial_id - append /chat/completions to path
+            new_path = f"{path}/chat/completions"
+            # Reconstruct URL with query parameters preserved
+            result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+            return result
+        
+        # Standard case: append /v1/chat/completions
+        if path.endswith("/v1"):
+            new_path = f"{path}/chat/completions"
+        elif path.endswith("/completions"):
+            new_path = path.rsplit("/", 1)[0] + "/chat/completions"
+        else:
+            new_path = f"{path}/v1/chat/completions" if path else "/v1/chat/completions"
+        
+        # Reconstruct URL with query parameters preserved
+        result = urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, query, fragment))
+        return result
     inference_url = _normalize_chat_url(str(route_base))
     temperature = policy_config.get("temperature", 0.7)
     max_tokens = policy_config.get("max_completion_tokens", 100)
@@ -276,7 +334,7 @@ async def call_chat_completion(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "tools": [classify_tool],
-        "tool_choice": {"type": "function", "function": {"name": TOOL_NAME}},
+        "tool_choice": "required" if classify_tool else None,
     }
 
     print(
@@ -329,16 +387,26 @@ async def call_chat_completion(
         if response.status_code != 200:
             try:
                 error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))
+                # Extract error message properly - handle both dict and string formats
+                error_obj = error_json.get("error")
+                if isinstance(error_obj, dict):
+                    error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                elif isinstance(error_obj, str):
+                    error_msg = error_obj
+                else:
+                    # Try detail field as fallback
+                    error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
+                
                 print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
+                print(f"[TASK_APP] ❌ Full error JSON: {error_json}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Interceptor/provider error: {error_msg}"
                 )
             except HTTPException:
                 raise
-            except Exception:
-                error_text = response.text[:500]
+            except Exception as e:
+                error_text = response.text[:500] if hasattr(response, 'text') else str(e)
                 print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
@@ -814,14 +882,21 @@ def fastapi_app():
     app = create_task_app(build_config())
     
     # Replace default health endpoints with auth-tolerant handlers
-    filtered_routes = []
-    for route in app.router.routes:
-        path = getattr(route, "path", None)
-        methods = getattr(route, "methods", set()) or set()
-        if path in {"/health", "/health/rollout"} and "GET" in methods:
-            continue
-        filtered_routes.append(route)
-    app.router.routes = filtered_routes
+    # FastAPI matches routes in order, so we need to remove old routes and add new ones
+    # Access the router's route registry directly
+    routes_to_remove = []
+    for route in list(app.router.routes):
+        # Check if this is a route (not middleware or other components)
+        if hasattr(route, "path") and hasattr(route, "methods"):
+            path = getattr(route, "path", None)
+            methods = getattr(route, "methods", set()) or set()
+            if path in {"/health", "/health/rollout"} and "GET" in methods:
+                routes_to_remove.append(route)
+    
+    # Remove routes from router
+    for route in routes_to_remove:
+        app.router.routes.remove(route)
+        print(f"[banking77] Removed default route: {getattr(route, 'path', 'unknown')}", flush=True)
     
     def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
         if not env_key:
@@ -862,6 +937,38 @@ def fastapi_app():
             return JSONResponse(status_code=200, content=content)
         return {"ok": True, "authorized": True}
     
+    @app.get("/metadata")
+    async def get_metadata(request: StarletteRequest):
+        """Return program code and metadata for proposer use.
+        
+        This endpoint allows task apps to self-extract their own code using inspect,
+        keeping the architecture self-contained.
+        """
+        # Extract code using inspect
+        program_code = get_current_module_code()
+        
+        # Get module path
+        import inspect
+        frame = inspect.currentframe()
+        try:
+            if frame is None:
+                module_path = None
+            else:
+                caller_frame = frame.f_back
+                if caller_frame is None:
+                    module_path = None
+                else:
+                    module = inspect.getmodule(caller_frame)
+                    module_path = module.__name__ if module else None
+        finally:
+            del frame
+        
+        return {
+            "program_code": program_code,  # Full source code of task app
+            "module_path": module_path,    # Module path (e.g., "examples.task_apps.banking77.banking77_task_app")
+            "extraction_method": "inspect", # How code was extracted
+        }
+    
     @app.exception_handler(RequestValidationError)
     async def _on_validation_error(request: StarletteRequest, exc: RequestValidationError):
         try:
@@ -899,7 +1006,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    default_env = Path(__file__).resolve().parents[2] / ".env"
+    # Look for .env at repo root (3 levels up: banking77/ -> task_apps/ -> examples/ -> repo_root/)
+    default_env = Path(__file__).resolve().parents[3] / ".env"
     env_files = [str(default_env)] if default_env.exists() else []
     env_files.extend(args.env_file or [])
 

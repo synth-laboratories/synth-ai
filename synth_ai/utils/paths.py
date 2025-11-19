@@ -6,11 +6,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def is_py_file(path: Path) -> bool:
-    path = path.resolve()
-    if not path.is_file():
-        return False
-    return path.suffix == ".py"
+def is_file_type(path: Path, type: str) -> bool:
+    if not type.startswith('.'):
+        type = '.' + type
+    return path.is_file() and path.suffix == type
+
+
+def validate_file_type(path: Path, type: str) -> None:
+    if not is_file_type(path, type):
+        raise ValueError(f"{path} is not a {type} file")
+    return None
+
+
+def is_hidden_path(path: Path, root: Path) -> bool:
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        relative = path
+    return any(part.startswith('.') for part in relative.parts)
 
 
 def get_bin_path(name: str) -> Path | None:
@@ -34,34 +47,24 @@ def get_home_config_file_paths(
 
 
 def find_config_path(
-    bin_path: Path,
+    bin: Path,
     home_subdir: str,
     filename: str,
 ) -> Path | None:
-    """
-    Return a config file located in the user's home directory or alongside the binary.
-
-    Args:
-        bin_path: Resolved path to the executable.
-        home_subdir: Directory under the user's home to inspect (e.g., ".codex").
-        filename: Name of the config file to locate.
-    """
     home_candidate = Path.home() / home_subdir / filename
     if home_candidate.exists():
         return home_candidate
-
-    local_candidate = Path(bin_path).parent / home_subdir / filename
+    local_candidate = Path(bin).parent / home_subdir / filename
     if local_candidate.exists():
         return local_candidate
-
     return None
 
 
 def configure_import_paths(
-    app_path: Path,
-    repo_root: Path | None = None
+    app: Path,
+    repo_root: Path | None = REPO_ROOT
 ) -> None:
-    app_dir = app_path.parent.resolve()
+    app_dir = app.parent.resolve()
 
     initial_dirs: list[Path] = [app_dir]
     if (app_dir / "__init__.py").exists():
@@ -93,3 +96,12 @@ def cleanup_paths(*, file: Path, dir: Path) -> None:
         raise ValueError(f"{file} is not inside {dir}")
     file.unlink(missing_ok=True)
     shutil.rmtree(dir, ignore_errors=True)
+
+
+def print_paths_formatted(entries: list[tuple]) -> None:
+    for i, entry in enumerate(entries, start=1):
+        *item_parts, mtime = entry
+        suffix = " ← most recent" if i == 1 else ""
+        timestamp = f"modified {mtime}" if mtime else ""
+        start = f"[{item_parts[0]}] {item_parts[1]}" if len(item_parts) == 2 else str(item_parts[0])
+        print(f"{start}  |  {timestamp}{suffix}")

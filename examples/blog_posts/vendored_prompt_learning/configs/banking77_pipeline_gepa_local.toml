@@ -1,0 +1,101 @@
+# GEPA Prompt Learning for the Banking77 Two-Stage Pipeline
+# This config optimizes both classifier and calibrator stages using genetic evolution
+
+[prompt_learning]
+algorithm = "gepa"
+task_app_url = "https://synth-laboratories-dev--synth-banking77-pipeline-web-web.modal.run"
+task_app_id = "banking77-pipeline"
+
+[prompt_learning.initial_prompt]
+id = "banking77_pipeline_baseline"
+name = "Banking77 Pipeline Baseline"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "Pipeline placeholder message. Actual stage instructions are provided via metadata.pipeline_modules."
+order = 0
+
+[prompt_learning.initial_prompt.metadata]
+# Define the stages in the pipeline
+pipeline_modules = [
+  { name = "classifier", instruction_text = "You are an expert banking assistant. Classify the customer query into one of the known Banking77 intents. Always return the label using the `banking77_classify` tool.", few_shots = [] },
+  { name = "calibrator", instruction_text = "You refine intent predictions from an upstream classifier. Review the suggested intent alongside the original query. If the suggestion is valid, confirm it. Otherwise, choose the closest Banking77 intent. Always respond via the `banking77_classify` tool with the final label.", few_shots = [] }
+]
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "openai/gpt-oss-20b"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 128
+policy_name = "banking77-pipeline"
+
+[prompt_learning.env_config]
+pool = "train"
+
+# GEPA-specific configuration
+[prompt_learning.gepa]
+env_name = "banking77_pipeline"
+rng_seed = 42
+proposer_type = "spec"  # Use spec mode to include system specification in mutation prompts
+spec_path = "examples/task_apps/banking77_pipeline/banking77_pipeline_spec.json"
+spec_max_tokens = 5000
+spec_include_examples = true
+spec_priority_threshold = 8
+
+# Multi-stage module configuration (instruction-only for GEPA)
+# Each module defines constraints for its stage
+[[prompt_learning.gepa.modules]]
+module_id = "classifier"
+max_instruction_slots = 3
+max_tokens = 1024
+allowed_tools = ["banking77_classify"]  # Classifier must use this tool
+
+[[prompt_learning.gepa.modules]]
+module_id = "calibrator"
+max_instruction_slots = 3
+max_tokens = 1024
+allowed_tools = ["banking77_classify"]  # Calibrator must use this tool
+
+# Rollout configuration
+[prompt_learning.gepa.rollout]
+budget = 500  # Reduced for local testing
+max_concurrent = 10
+minibatch_size = 4
+
+# Evaluation configuration
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+validation_seeds = [15, 16, 17, 18, 19]
+test_pool = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+
+# Mutation configuration (LLM-guided)
+[prompt_learning.gepa.mutation]
+rate = 0.3
+llm_model = "llama3-groq-70b-8192-tool-use-preview"
+llm_provider = "groq"
+llm_inference_url = "https://api.groq.com/openai/v1"
+
+# Population/evolution configuration
+[prompt_learning.gepa.population]
+initial_size = 10  # Reduced for local testing
+num_generations = 5  # Reduced for local testing
+children_per_generation = 3
+crossover_rate = 0.5
+selection_pressure = 1.0
+patience_generations = 2
+
+# Archive/Pareto configuration
+[prompt_learning.gepa.archive]
+size = 32  # Reduced for local testing
+pareto_set_size = 32
+pareto_eps = 1e-6
+feedback_fraction = 0.5
+
+# Token/budget configuration
+[prompt_learning.gepa.token]
+max_limit = 50000
+counting_model = "gpt-4"
+enforce_pattern_limit = true
+max_spend_usd = 50.0  # Reduced for local testing
+

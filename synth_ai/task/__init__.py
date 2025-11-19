@@ -27,6 +27,7 @@ from .contracts import (
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
+from .in_process import InProcessTaskApp
 from .inference_api import InferenceAPIClient
 from .json import to_jsonable
 from .proxy import (
@@ -120,4 +121,5 @@ __all__ = [
     "ProxyConfig",
     "TaskAppConfig",
     "InferenceAPIClient",
+    "InProcessTaskApp",
 ]

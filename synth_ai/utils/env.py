@@ -2,12 +2,66 @@ import json
 import os
 import string
 from pathlib import Path
+from typing import List, Optional, Sequence, Tuple
 
 import click
+from dotenv import find_dotenv, load_dotenv
 
-from .paths import get_env_file_paths, get_home_config_file_paths
+from .paths import REPO_ROOT, get_env_file_paths, get_home_config_file_paths
 
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
+
+
+def get_synth_and_env_keys(env_file: Path | None) -> tuple[str, str]:
+    file_synth_api_key = None
+    file_env_api_key = None
+    if env_file is not None:
+        file_synth_api_key = read_env_var_from_file("SYNTH_API_KEY", env_file)
+        file_env_api_key = read_env_var_from_file("ENVIRONMENT_API_KEY", env_file)
+    env_synth_api_key = os.environ.get("SYNTH_API_KEY")
+    env_env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    synth_api_key = file_synth_api_key or env_synth_api_key
+    env_api_key = file_env_api_key or env_env_api_key
+    if not synth_api_key:
+        raise RuntimeError("SYNTH_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+    if not env_api_key:
+        raise RuntimeError("ENVIRONMENT_API_KEY not in process environment. Either run synth-ai setup to load automatically or manually load to process environment or pass .env via synth-ai deploy --env .env")
+    return synth_api_key, env_api_key
+
+
+def load_env_file(
+    env_file: Optional[str] = None,
+    required_vars: Optional[Sequence[str]] = None,
+) -> Tuple[Optional[str], List[str]]:
+    """Load a .env file (if found) and validate that required variables exist."""
+    env_path_str = env_file or find_dotenv(usecwd=True)
+    env_path: Optional[Path] = None
+    if env_path_str:
+        candidate = Path(env_path_str).expanduser()
+        if candidate.exists():
+            env_path = candidate.resolve()
+
+    if env_path:
+        load_dotenv(env_path, override=False)
+        click.secho(f"✓ Loaded environment from {env_path}", err=True)
+
+    missing: List[str] = []
+    if required_vars:
+        missing = [var for var in required_vars if not os.getenv(var)]
+        if missing:
+            click.secho(
+                f"⚠️  Missing environment variables: {', '.join(missing)}",
+                err=True,
+                fg="yellow",
+            )
+            if env_path:
+                click.secho(
+                    f"   Check {env_path} for KEY=value formatting (no spaces around '=')",
+                    err=True,
+                    fg="yellow",
+                )
+
+    return (str(env_path) if env_path else None, missing)
 
 
 def _format_env_value(value: str) -> str:
@@ -142,73 +196,85 @@ def resolve_env_var(
     key: str,
     override_process_env: bool = False
 ) -> str:
+    """Resolve an environment variable from available sources.
+    
+    Non-interactive: uses first available option or raises error.
+    Never prompts - fails hard if value cannot be found.
+    """
     env_value = os.getenv(key)
     if env_value is not None and not override_process_env:
         click.echo(f"Using {key}={mask_str(env_value)} from process environment")
         return env_value
 
-    value: str = ""
-
-    env_file_paths = filter_env_files_by_key(key, get_env_file_paths())
+    # Get all env files with the key, then prioritize:
+    # 1. Repo root .env (not .env.example)
+    # 2. Other .env files (excluding .example files)
+    # 3. .env.example files as last resort
+    all_env_files = filter_env_files_by_key(key, get_env_file_paths())
     synth_file_paths = filter_json_files_by_key(key, get_home_config_file_paths(".synth-ai"))
 
-    options: list[tuple[str, str]] = []
-    if env_value is not None:
-        if not override_process_env:
-            return env_value
-        options.append((f"(process environment)  {mask_str(env_value)}", env_value))
-    for path, value in env_file_paths:
-        resolved_path = path.resolve()
+    # Sort env files by priority: repo root .env first, then exclude .example files
+    repo_root_env = None
+    regular_env_files = []
+    example_env_files = []
+    
+    repo_root_env_path = REPO_ROOT / ".env"
+    for path, value in all_env_files:
+        resolved = path.resolve()
+        if resolved == repo_root_env_path:
+            repo_root_env = (path, value)
+        elif ".example" in resolved.name.lower():
+            example_env_files.append((path, value))
+        else:
+            regular_env_files.append((path, value))
+    
+    # Priority order: process env > repo root .env > regular .env files > example .env files > synth files
+    if env_value is not None and override_process_env:
+        value = env_value
+        source = "process environment"
+    elif repo_root_env:
+        _, value = repo_root_env
+        source = f".env file ({REPO_ROOT / '.env'})"
+    elif regular_env_files:
+        _, value = regular_env_files[0]
+        resolved_path = regular_env_files[0][0].resolve()
         try:
             rel_path = str(resolved_path.relative_to(Path.cwd()))
         except ValueError:
             rel_path = str(resolved_path)
-        label = f"({rel_path})  {mask_str(value)}"
-        options.append((label, value))
-    for path, value in synth_file_paths:
-        label = f"({path})  {mask_str(value)}"
-        options.append((label, value))
-
-    if options:
-        click.echo(f"\nFound the following options for {key}")
-        for i, (label, _) in enumerate(options, start=1):
-            click.echo(f" [{i}] {label}")
-        click.echo(" [m] Enter value manually")
-        click.echo()
-
-        while True:
-            try:
-                choice = click.prompt(
-                    "Select an option",
-                    default=1,
-                    type=str,
-                    show_choices=False,
-                ).strip()
-            except click.Abort:
-                raise
-            if choice.lower() == 'm':
-                value = _prompt_manual_env_value(key)
-                break
-
-            try:
-                index = int(choice)
-            except ValueError:
-                click.echo('Invalid selection. Enter a number or "m".')
-                continue
-
-            if 1 <= index <= len(options):
-                _, value = options[index - 1]
-                break
-
-            click.echo(f"Invalid selection. Enter a number between 1 and {len(options)} or 'm'.")
-
+        source = f".env file ({rel_path})"
+    elif example_env_files:
+        # Only use example files as absolute last resort, and warn
+        _, value = example_env_files[0]
+        resolved_path = example_env_files[0][0].resolve()
+        try:
+            rel_path = str(resolved_path.relative_to(Path.cwd()))
+        except ValueError:
+            rel_path = str(resolved_path)
+        click.echo(f"⚠️  Warning: Using example .env file ({rel_path}). Consider using {REPO_ROOT / '.env'} instead.", err=True)
+        source = f".env.example file ({rel_path})"
+    elif synth_file_paths:
+        _, value = synth_file_paths[0]
+        source = f"synth config ({synth_file_paths[0][0]})"
     else:
-        print(f"No value found for {key}")
-        value = _prompt_manual_env_value(key)
+        # No value found - fail hard (no prompting)
+        raise click.ClickException(
+            f"❌ Missing required environment variable: {key}\n\n"
+            f"  Options:\n"
+            f"  1. Set environment variable: export {key}=<value>\n"
+            f"  2. Add to .env file: {key}=<value>\n"
+            f"  3. Use --env-file to specify a .env file path\n"
+            f"  4. Add env_file_path to your TOML config: [prompt_learning]\n"
+            f"     env_file_path = \"/path/to/.env\"\n\n"
+            f"  Searched for {key} in:\n"
+            f"    - Process environment\n"
+            f"    - .env files in current directory and subdirectories\n"
+            f"    - ~/.synth-ai/*.json config files"
+        )
     
     os.environ[key] = value
     ensure_env_var(key, value)
-    print(f"Loaded {key}={mask_str(value)} into process environment")
+    click.echo(f"Loaded {key}={mask_str(value)} from {source}")
     return value
 
 

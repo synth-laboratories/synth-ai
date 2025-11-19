@@ -2,6 +2,7 @@
 import tempfile
 from pathlib import Path
 
+import click
 import pytest
 
 from synth_ai.api.train.validators import validate_prompt_learning_config
@@ -64,8 +65,8 @@ class TestGEPASpecConfigValidation:
         finally:
             path.unlink(missing_ok=True)
     
-    def test_accept_spec_mode_without_spec_path(self) -> None:
-        """Test that spec mode is accepted even without spec_path (will warn at runtime)."""
+    def test_spec_mode_requires_spec_path(self) -> None:
+        """Spec proposer_type must include a spec_path."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "gepa",
@@ -78,15 +79,14 @@ class TestGEPASpecConfigValidation:
                 "gepa": {
                     "num_generations": 10,
                     "proposer_type": "spec",
-                    # spec_path not provided - will warn at runtime but config is valid
                 },
             }
         }
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             path = Path(f.name)
         try:
-            # Should not raise - validation doesn't check for spec_path presence
-            validate_prompt_learning_config(config_data, path)
+            with pytest.raises(click.ClickException, match="spec_path"):
+                validate_prompt_learning_config(config_data, path)
         finally:
             path.unlink(missing_ok=True)
     
@@ -113,10 +113,8 @@ class TestGEPASpecConfigValidation:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
                 path = Path(f.name)
             try:
-                # Note: SDK validation might not catch this, but backend will raise ValueError
-                # This test documents expected behavior
-                validate_prompt_learning_config(config_data, path)
-                # If validation passes, that's okay - backend will catch it
+                with pytest.raises(click.ClickException, match="Invalid proposer_type"):
+                    validate_prompt_learning_config(config_data, path)
             finally:
                 path.unlink(missing_ok=True)
     
@@ -147,9 +145,40 @@ class TestGEPASpecConfigValidation:
         finally:
             path.unlink(missing_ok=True)
     
-    def test_proposer_type_case_insensitive(self) -> None:
-        """Test that proposer_type is case-insensitive."""
-        for proposer_type in ["spec", "SPEC", "Spec", "dspy", "DSPY", "Dspy"]:
+    def test_proposer_type_requires_exact_case(self) -> None:
+        """Validator currently expects exact lowercase values."""
+        valid = ["spec", "dspy"]
+        invalid = ["SPEC", "Spec", "DSPY", "Dspy"]
+
+        for proposer_type in valid:
+            config_data = {
+                "prompt_learning": {
+                    "algorithm": "gepa",
+                    "task_app_url": "http://localhost:8001",
+                    "policy": {
+                        "model": "gpt-4o-mini",
+                        "provider": "openai",
+                        "inference_mode": "synth_hosted",
+                    },
+                    "gepa": {
+                        "num_generations": 10,
+                        "proposer_type": proposer_type,
+                        **(
+                            {"spec_path": "examples/task_apps/banking77/spec.json"}
+                            if proposer_type == "spec"
+                            else {}
+                        ),
+                    },
+                }
+            }
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+                path = Path(f.name)
+            try:
+                validate_prompt_learning_config(config_data, path)
+            finally:
+                path.unlink(missing_ok=True)
+
+        for proposer_type in invalid:
             config_data = {
                 "prompt_learning": {
                     "algorithm": "gepa",
@@ -168,10 +197,8 @@ class TestGEPASpecConfigValidation:
             with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
                 path = Path(f.name)
             try:
-                # Should not raise
-                validate_prompt_learning_config(config_data, path)
+                with pytest.raises(click.ClickException, match="Invalid proposer_type"):
+                    validate_prompt_learning_config(config_data, path)
             finally:
                 path.unlink(missing_ok=True)
-
-
 

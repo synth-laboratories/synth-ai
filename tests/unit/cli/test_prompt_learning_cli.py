@@ -124,6 +124,7 @@ class TestSavePromptLearningResults:
                 api_key="sk-test",
                 job_id=job_id,
                 config_path=config_path,
+                results_folder=tmp_path / "results",
             )
 
         # Check that results directory was created
@@ -156,6 +157,7 @@ class TestSavePromptLearningResults:
                     api_key="sk-test",
                     job_id=job_id,
                     config_path=config_path,
+                    results_folder=tmp_path / "results",
                 )
 
     def test_save_results_extracts_baseline_score(self, tmp_path: Path) -> None:
@@ -192,6 +194,7 @@ class TestSavePromptLearningResults:
                 api_key="sk-test",
                 job_id=job_id,
                 config_path=config_path,
+                results_folder=tmp_path / "results",
             )
 
         # Check that results file contains baseline score
@@ -213,6 +216,7 @@ class TestHandlePromptLearning:
 algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
+results_folder = "results"
 
 [prompt_learning.gepa]
 num_generations = 5
@@ -279,6 +283,7 @@ num_generations = 5
 algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
+results_folder = "results"
 
 [prompt_learning.gepa]
 num_generations = 5
@@ -327,6 +332,7 @@ num_generations = 5
 algorithm = "gepa"
 task_app_url = "http://localhost:8001"
 task_app_api_key = "test-key"
+results_folder = "results"
 
 [prompt_learning.gepa]
 num_generations = 5

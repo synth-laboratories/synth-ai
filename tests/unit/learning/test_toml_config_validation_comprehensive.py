@@ -206,11 +206,15 @@ class TestRequiredFields:
             path.unlink(missing_ok=True)
 
     def test_missing_mipro_meta_model(self):
-        """Test that missing mipro.meta_model raises error."""
+        """Test that missing mipro.meta_model passes (backend applies defaults)."""
         config_data = {
             "prompt_learning": {
                 "algorithm": "mipro",
                 "task_app_url": "http://localhost:8001",
+                "initial_prompt": {
+                    "id": "test-prompt",
+                    "messages": [{"role": "system", "content": "Test"}],
+                },
                 "policy": {
                     "model": "gpt-4o-mini",
                     "provider": "openai",
@@ -221,13 +225,17 @@ class TestRequiredFields:
                     "num_evaluations_per_iteration": 2,
                     "batch_size": 6,
                     "max_concurrent": 16,
+                    "bootstrap_train_seeds": [0, 1, 2],
+                    "online_pool": [5, 6, 7],
+                    "reference_pool": [30, 31, 32],
+                    # Missing meta_model - backend will use defaults
                 },
             }
         }
         path = _create_config_file(config_data)
         try:
-            with pytest.raises(Exception, match="meta_model"):
-                validate_prompt_learning_config(config_data, path)
+            # Should pass validation since meta_model is optional
+            validate_prompt_learning_config(config_data, path)
         finally:
             path.unlink(missing_ok=True)
 

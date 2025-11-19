@@ -1,0 +1,64 @@
+[prompt_learning]
+algorithm = "mipro"
+task_app_url = "http://127.0.0.1:8112"
+task_app_api_key = "${ENVIRONMENT_API_KEY}"
+env_file_path = "../../../../../.env"
+results_folder = "results"
+
+[prompt_learning.initial_prompt]
+id = "hover_pattern"
+name = "HoVer Claim Verification Pattern"
+
+[[prompt_learning.initial_prompt.messages]]
+role = "system"
+pattern = "You verify Wikipedia claims. Decide whether each claim is SUPPORTED or REFUTED by the evidence provided. Respond with the format:\nLabel: <SUPPORTED|REFUTED>\nRationale: <short explanation>."
+order = 0
+
+[[prompt_learning.initial_prompt.messages]]
+role = "user"
+pattern = "Claim: {claim}\n\nEvidence:\n{evidence}\n\nReturn the label and rationale."
+order = 1
+
+[prompt_learning.initial_prompt.wildcards]
+claim = "REQUIRED"
+evidence = "REQUIRED"
+
+[prompt_learning.policy]
+inference_mode = "synth_hosted"
+model = "llama-3.1-8b-instant"
+provider = "groq"
+temperature = 0.0
+max_completion_tokens = 512
+
+[prompt_learning.mipro]
+env_name = "hover"
+num_iterations = 20
+num_evaluations_per_iteration = 10
+batch_size = 20
+max_concurrent = 5
+meta_model = "llama-3.3-70b-versatile"
+meta_model_provider = "groq"
+meta_model_inference_url = "https://api.groq.com"
+meta_model_temperature = 0.7
+meta_model_max_tokens = 512
+few_shot_score_threshold = 0.8
+max_instructions = 10
+max_demo_set_size = 20
+instructions_per_batch = 100
+bootstrap_train_seeds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+online_pool = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49]
+test_pool = [50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79]
+
+[prompt_learning.termination_config]
+max_cost_usd = 1.0
+max_trials = 200
+
+[display]
+local_backend = true
+tui = false
+show_curve = true
+verbose_summary = true
+show_trial_results = true
+show_transformations = false
+show_validation = true
+
