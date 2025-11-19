@@ -1,36 +1,31 @@
 import shutil
 from pathlib import Path
+from typing import Literal, TypeAlias, get_args
 
 import click
+from synth_ai.utils.paths import REPO_ROOT
 
-DEMO_SOURCES: dict[str, str] = {
-    "local": "crafter",
-    "modal": "math"
-}
+DemoType: TypeAlias = Literal[
+    "mipro",
+    "sft",
+    "rl"
+]
 
 
 @click.command()
-@click.option(
-    "--runtime",
-    "runtime",
-    type=click.Choice(tuple(DEMO_SOURCES.keys()), case_sensitive=False),
-    default="local",
-    show_default=True,
-    help="Select runtime to load a demo task app to your cwd. Options: local, modal"
+@click.argument(
+    "demo_type",
+    type=click.Choice(get_args(DemoType)),
 )
-def demo_cmd(runtime: str) -> None:
-      runtime_key = runtime.lower()
-      demo_name = DEMO_SOURCES[runtime_key]
-      package_root = Path(__file__).resolve().parents[1]
-      src = package_root / "demos" / demo_name
-      if not src.exists():
-          raise click.ClickException(f"Demo source directory not found: {src}")
-
-      dst = Path.cwd() / src.name
-      if dst.exists():
-          raise click.ClickException(
-              f"Destination already exists: {dst}. Remove it first if you want to re-copy."
-          )
-
-      shutil.copytree(src, dst)
-      click.echo(f"Copied {demo_name} demo to {dst}")
+def demo_cmd(demo_type: DemoType) -> None:
+    src = REPO_ROOT / "synth_ai" / "demos" / demo_type
+    if not src.exists():
+        raise click.ClickException(f"Demo source directory not found: {src}")
+    dst = Path.cwd() / f"demo_{src.name}"
+    if dst.exists():
+        if not click.confirm(f"Destination already exists: {dst}. Overwrite?", abort=True):
+            click.echo("Aborted.")
+            return
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+    click.echo(f"Copied {demo_type.upper()} demo to your CWD: {dst}")

@@ -3,40 +3,21 @@
 In-Process MIPRO Demo
 =====================
 
-This script runs MIPRO optimization with a task app started entirely 
+This script runs MIPRO optimization with a task app started entirely
 in-process - no separate terminals or manual process management needed!
 
 Usage:
-    cd /Users/joshpurtell/Documents/GitHub/synth-ai/examples/blog_posts/mipro
-    source ../../../.env
     uv run python run_mipro_in_process.py
+    uv run python run_mipro_in_process.py --env /path/to/.env
 
 Requirements:
     - GROQ_API_KEY in .env (for policy model)
     - OPENAI_API_KEY in .env (for meta-model)
     - cloudflared binary (will auto-install if missing)
     - Dev backend running (default: https://synth-backend-dev-docker.onrender.com)
-    
-Configuration:
-    Default: Uses dev backend (synth-backend-dev-docker.onrender.com)
-    Override: Set BACKEND_BASE_URL env var to use different backend
-    
-    The script automatically matches tunnel mode:
-    - If BACKEND_BASE_URL is localhost → both backend and task app use localhost (local/local)
-    - If BACKEND_BASE_URL is a tunnel URL → both backend and task app use tunnels (tunnel/tunnel)
-    
-    For local backend:
-    - Set BACKEND_BASE_URL=http://localhost:8000
-    - Both backend and task app will use localhost (no tunnels)
-    
-    For tunnel mode:
-    - Start backend tunnel first: cd monorepo && bash scripts/run_backend_tunnel.sh
-    - Set BACKEND_BASE_URL to the tunnel URL: export BACKEND_BASE_URL=https://backend-local.usesynth.ai
-    - Then run this script
 """
 
-from __future__ import annotations
-
+import argparse
 import asyncio
 import os
 import sys
@@ -44,158 +25,108 @@ import tempfile
 import time
 from pathlib import Path
 
+import toml
 from dotenv import load_dotenv
-
-# Load environment from repo root
-env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-load_dotenv(env_path)
-
-# Add parent to path for imports
-parent_dir = Path(__file__).resolve().parent.parent.parent.parent
-if str(parent_dir) not in sys.path:
-    sys.path.insert(0, str(parent_dir))
-
 from synth_ai.api.train.prompt_learning import PromptLearningJob
 from synth_ai.task import InProcessTaskApp
+from synth_ai.urls import BACKEND_URL_BASE
+
+CURRENT_DIR = Path(__file__).parent
+TASK_APP = CURRENT_DIR / "task_app.py"
+TRAIN_CFG = CURRENT_DIR / "train_cfg.toml"
+
+
+def _load_dotenv(args) -> None:
+    is_env_loaded = False
+    dotenv_path = None
+    if args.env:
+        if not Path(args.env).exists():
+            print(f"❌ Error: .env file not found: {args.env}")
+            sys.exit(1)
+        dotenv_path = Path(args.env)
+        is_env_loaded = load_dotenv(dotenv_path)
+    if not is_env_loaded:
+        default_path = Path.cwd() / ".env"
+        if default_path.exists():
+            dotenv_path = default_path
+            is_env_loaded = load_dotenv(dotenv_path)
+        else:
+            fallback_path = Path(".env")
+            if fallback_path.exists():
+                dotenv_path = fallback_path
+                is_env_loaded = load_dotenv(dotenv_path)
+    if is_env_loaded and dotenv_path:
+        print(f"Loaded .env from {dotenv_path.absolute()}")
+    elif is_env_loaded:
+        print("Loaded .env")
+
+
+def _validate_env() -> None:
+    first_party_msg = "Run `uvx synth-ai setup` to fetch from your browser, load to your process environment, and save to .env in CWD"
+    third_party_msg = "Pass the path to your .env via `uv run demo_mipro/main.py --env [PATH]` or load to process envrionment"
+    if not os.getenv("SYNTH_API_KEY"):
+        raise RuntimeError(f"SYNTH_API_KEY required. {first_party_msg}")
+    if not os.getenv("ENVIRONMENT_API_KEY"):
+        raise RuntimeError(f"ENVIRONMENT_API_KEY required. {first_party_msg}")
+    if not os.getenv("GROQ_API_KEY") and not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError(f"Either GROQ_API_KEY or OPENAI_API_KEY required. {third_party_msg}")
 
 
 async def main():
     """Run MIPRO optimization with in-process task app."""
 
-    print("\n" + "=" * 80)
-    print("In-Process MIPRO Demo")
-    print("=" * 80 + "\n")
-
-    # Check requirements
-    if not os.getenv("GROQ_API_KEY"):
-        print("❌ Error: GROQ_API_KEY required in .env (for policy model)")
-        sys.exit(1)
-    
-    if not os.getenv("OPENAI_API_KEY"):
-        print("❌ Error: OPENAI_API_KEY required in .env (for meta-model)")
-        sys.exit(1)
-
-    # Configuration
-    config_path = (
-        Path(__file__).parent
-        / "configs"
-        / "banking77_mipro_local.toml"
-    )
-
-    if not config_path.exists():
-        print(f"❌ Error: Config file not found: {config_path}")
-        sys.exit(1)
-
-    # Default to dev backend, allow override via BACKEND_BASE_URL env var
-    backend_url = os.getenv("BACKEND_BASE_URL", "https://synth-backend-dev-docker.onrender.com")
-    api_key = os.getenv("SYNTH_API_KEY", "test")
-    task_app_api_key = os.getenv("ENVIRONMENT_API_KEY", "test")
-
-    # Determine tunnel mode based on backend URL
-    # Rule: Both backend and task app must use same mode (local/local or tunnel/tunnel)
-    is_backend_localhost = (
-        backend_url.startswith("http://localhost") 
-        or backend_url.startswith("http://127.0.0.1")
-    )
-    
-    if is_backend_localhost:
-        # Backend is localhost → use local mode for task app (no tunnel)
-        # Both backend and task app will use localhost (consistent configuration)
-        os.environ["SYNTH_TUNNEL_MODE"] = "local"
-        use_local_mode = True
-        print("ℹ️  Configuration: local/local")
-        print("   Backend: localhost:8000")
-        print("   Task App: localhost (no tunnel)")
-    else:
-        # Backend is tunneled → use tunnel mode for task app
-        # Both backend and task app will use tunnels (consistent configuration)
-        os.environ["SYNTH_TUNNEL_MODE"] = "quick"
-        use_local_mode = False
-        # Set EXTERNAL_BACKEND_URL so backend knows its public URL for interceptor
-        # This is critical: backend needs to know its tunnel URL to tell task apps
-        os.environ["EXTERNAL_BACKEND_URL"] = backend_url.rstrip("/")
-        print("ℹ️  Configuration: tunnel/tunnel")
-        print(f"   Backend tunnel: {backend_url}")
-        print(f"   Task app: will create its own tunnel")
-        print(f"   Note: Ensure backend is running with tunnel (use run_backend_tunnel.sh)")
-
-    print("Configuration:")
-    print(f"  Config: {config_path.name}")
-    print(f"  Backend: {backend_url}")
-    print(f"  Task App: Starting in-process...")
-    print()
-
-    # Import task app config factory
-    task_app_path = (
-        Path(__file__).resolve().parent.parent.parent.parent
-        / "examples"
-        / "task_apps"
-        / "banking77"
-        / "banking77_task_app.py"
-    )
-
-    if not task_app_path.exists():
-        print(f"❌ Error: Task app not found: {task_app_path}")
-        sys.exit(1)
-
+    synth_key = os.getenv("SYNTH_API_KEY")
+    env_key = os.getenv("ENVIRONMENT_API_KEY")
     # Run MIPRO with in-process task app
     try:
         async with InProcessTaskApp(
-            task_app_path=task_app_path,
+            task_app_path=TASK_APP,
             port=8114,
-            api_key=task_app_api_key,
+            api_key=env_key,
         ) as task_app:
             print(f"✅ Task app running at: {task_app.url}")
-            if use_local_mode:
-                print(f"✅ Using local mode (no tunnel)")
-            else:
-                print(f"✅ Cloudflare tunnel active")
+            print("✅ Cloudflare tunnel active")
             print()
 
-            # Create MIPRO job
             print("=" * 80)
             print("Running MIPRO Optimization")
             print("=" * 80 + "\n")
 
-            # Load and modify config before creating job
-            import toml
-
-            config = toml.load(config_path)
-            config["prompt_learning"]["task_app_url"] = task_app.url
+            cfg = toml.load(TRAIN_CFG)
+            cfg["prompt_learning"]["task_app_url"] = task_app.url
             
             # Reduce budget for faster demo (optional)
-            if "mipro" in config["prompt_learning"]:
+            if "mipro" in cfg["prompt_learning"]:
                 # Reduce iterations for faster demo
-                original_iterations = config["prompt_learning"]["mipro"].get("num_iterations", 5)
-                config["prompt_learning"]["mipro"]["num_iterations"] = min(3, original_iterations)
-                print(f"📊 Reduced iterations to {config['prompt_learning']['mipro']['num_iterations']} for faster demo")
+                original_iterations = cfg["prompt_learning"]["mipro"].get("num_iterations", 5)
+                cfg["prompt_learning"]["mipro"]["num_iterations"] = min(3, original_iterations)
+                print(f"📊 Reduced iterations to {cfg['prompt_learning']['mipro']['num_iterations']} for faster demo")
                 print(f"   (Original: {original_iterations})\n")
 
             # Write modified config to temp file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as f:
-                toml.dump(config, f)
+                toml.dump(cfg, f)
                 temp_config_path = f.name
 
             try:
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
-                    backend_url=backend_url,
-                    api_key=api_key,
-                    task_app_api_key=task_app_api_key,
+                    backend_url=BACKEND_URL_BASE,
+                    api_key=synth_key,
+                    task_app_api_key=env_key,
                 )
 
                 print(f"Task app URL: {task_app.url}")
-                print(f"Backend URL: {backend_url}\n")
-                print(f"Submitting job...\n")
+                print("Submitting job...\n")
 
                 try:
                     job_id = job.submit()
                     print(f"✅ Job submitted: {job_id}\n")
                 except Exception as e:
-                    print(f"\n❌ Error submitting job:")
+                    print("\n❌ Error submitting job:")
                     print(f"   Type: {type(e).__name__}")
                     print(f"   Message: {str(e)}")
-                    print(f"\n   Full error details:")
+                    print("\n   Full error details:")
                     import traceback
                     traceback.print_exc()
                     raise
@@ -236,7 +167,7 @@ async def main():
                         print(f"[{timestamp}] {elapsed:6.1f}s  Status: {state}{score_str}")
                     last_status = state
 
-            result = await asyncio.get_event_loop().run_in_executor(
+            await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: job.poll_until_complete(
                     timeout=3600.0,
@@ -249,12 +180,12 @@ async def main():
             print(f"\n✅ MIPRO optimization complete in {total_time:.1f}s\n")
 
             # Get results
-            from synth_ai.learning.prompt_learning_client import PromptLearningClient
             from synth_ai.api.train.utils import ensure_api_base
+            from synth_ai.learning.prompt_learning_client import PromptLearningClient
 
             client = PromptLearningClient(
-                ensure_api_base(backend_url),
-                api_key,
+                ensure_api_base(BACKEND_URL_BASE),
+                synth_key,
             )
             prompt_results = await client.get_prompts(job._job_id)
 
@@ -282,7 +213,7 @@ async def main():
                         if accuracies:
                             print(f"  Accuracy range: {min_accuracy:.2%} - {max_accuracy:.2%} (avg: {avg_accuracy:.2%})")
                     else:
-                        print(f"Total candidates: 0 (no candidates evaluated)")
+                        print("Total candidates: 0 (no candidates evaluated)")
                 else:
                     print(f"Total candidates: {candidates}")
             else:
@@ -318,6 +249,22 @@ async def main():
     print("=" * 80 + "\n")
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
 
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run MIPRO optimization in-process")
+    parser.add_argument(
+        "--env",
+        type=str,
+        help="Path to .env file (default: .env in current directory)",
+        default=None,
+    )
+    args = parser.parse_args()
+    _load_dotenv(args)
+    try:
+        _validate_env()
+    except Exception:
+        sys.exit(1)
+    asyncio.run(main())
+    sys.exit(0)

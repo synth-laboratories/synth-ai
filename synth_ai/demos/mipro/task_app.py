@@ -1,27 +1,21 @@
 """Banking77 intent classification task app for Synth prompt optimization benchmarks."""
 
-from __future__ import annotations
-
 import contextlib
+import inspect
 import json
 import os
+import socket
 import uuid
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
-import socket
 from urllib.parse import urlparse
 
-# removed top-level httpx and datasets import to allow modal deploy without local deps
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
-from dotenv import load_dotenv
-
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.requests import Request as StarletteRequest
-
-from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.contracts import (
     RolloutMetrics,
@@ -33,55 +27,40 @@ from synth_ai.task.contracts import (
 )
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.rubrics import Rubric, load_rubric
-from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig, create_task_app, run_task_app
+from synth_ai.task.server import (
+    ProxyConfig,
+    RubricBundle,
+    TaskAppConfig,
+    create_task_app,
+    run_task_app,
+)
 from synth_ai.task.vendors import normalize_vendor_keys
-
-# Import task app code extraction utility (from monorepo, but we'll use a local version)
-try:
-    from app.routes.prompt_learning.utils.task_app_code_extraction import get_current_module_code
-except ImportError:
-    # Fallback for synth-ai repo (not in monorepo)
-    import inspect
-    import sys
-    
-    def get_current_module_code():
-        """Extract source code for the caller's module using inspect."""
-        frame = inspect.currentframe()
-        try:
-            if frame is None:
-                return None
-            caller_frame = frame.f_back
-            if caller_frame is None:
-                return None
-            module = inspect.getmodule(caller_frame)
-            if module is None:
-                return None
-            try:
-                return inspect.getsource(module)
-            except (OSError, TypeError, IOError):
-                return None
-        finally:
-            del frame
-
-def _compute_repo_root() -> Path:
-    p = Path(__file__).resolve()
-    parents = list(p.parents)
-    if len(parents) >= 4:
-        # parents[3] exists when file is within repo (e.g., examples/task_apps/…)
-        return parents[3]
-    # Modal inline deploy: code may be at /root/*.py, but we mount synth_ai at /opt/synth_ai_repo/synth_ai
-    if "/opt/synth_ai_repo" in os.getenv("PYTHONPATH", "") or Path("/opt/synth_ai_repo/synth_ai").exists():
-        return Path("/opt/synth_ai_repo")
-    # Fallback to current working directory
-    return Path.cwd()
-
-REPO_ROOT = _compute_repo_root()
 
 # Dataset configuration
 DATASET_NAME = os.getenv("BANKING77_DATASET_NAME", "banking77")
 DEFAULT_SPLIT = "train"
 AVAILABLE_SPLITS: tuple[str, ...] = ("train", "test")
 TOOL_NAME = "banking77_classify"
+
+
+def get_current_module_code():
+    """Extract source code for the caller's module using inspect."""
+    frame = inspect.currentframe()
+    try:
+        if frame is None:
+            return None
+        caller_frame = frame.f_back
+        if caller_frame is None:
+            return None
+        module = inspect.getmodule(caller_frame)
+        if module is None:
+            return None
+        try:
+            return inspect.getsource(module)
+        except (OSError, TypeError):
+            return None
+    finally:
+        del frame
 
 
 class Banking77Dataset:
@@ -162,19 +141,19 @@ BANKING77_DATASET_SPEC = TaskDatasetSpec(
 )
 
 
-class ClassifyRequest(BaseModel):
+class ClassifyReq(BaseModel):
     query: str
 
 
-class ClassifyResponse(BaseModel):
+class ClassifyRes(BaseModel):
     intent: str
     confidence: float | None = None
 
 
-@banking77_router.post("/classify", response_model=ClassifyResponse)
-async def classify_endpoint(req: ClassifyRequest, request: Request):
-    dataset: Banking77Dataset = request.app.state.banking77_dataset
-    return ClassifyResponse(intent="activate_my_card", confidence=None)
+@banking77_router.post("/classify", response_model=ClassifyRes)
+async def classify_endpoint(req: ClassifyReq, request: Request):
+    _ = request.app.state.banking77_dataset  # Dataset loaded but not used in this stub endpoint
+    return ClassifyRes(intent="activate_my_card", confidence=None)
 
 
 async def call_chat_completion(
@@ -221,7 +200,6 @@ async def call_chat_completion(
             ),
         )
     model = policy_config["model"].strip()
-    provider = str(policy_config.get("provider", "")).strip() or "groq"
     lowered = route_base.lower()
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
     # Normalize inference URL: allow bases like .../v1 and auto-append /chat/completions
@@ -308,11 +286,11 @@ async def call_chat_completion(
             # Verify the key is actually in the headers
             assert "X-API-Key" in headers, "X-API-Key missing from headers!"
             assert headers["X-API-Key"] == api_key, "X-API-Key value mismatch!"
-            print(f"[TASK_APP] ✅ Header validation passed: X-API-Key present", flush=True)
+            print("[TASK_APP] ✅ Header validation passed: X-API-Key present", flush=True)
     else:
         with contextlib.suppress(Exception):
             print("[TASK_APP] ⚠️  PROXY ROUTING (NO API KEY PROVIDED!)", flush=True)
-            print(f"[TASK_APP] ⚠️  This will likely fail auth at the proxy endpoint", flush=True)
+            print("[TASK_APP] ⚠️  This will likely fail auth at the proxy endpoint", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
@@ -346,7 +324,7 @@ async def call_chat_completion(
     try:
         import httpx  # type: ignore
     except Exception as _exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
+        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}") from _exc
 
     # Proxy target diagnostics (no preflight health; we go straight to POST)
     try:
@@ -371,13 +349,13 @@ async def call_chat_completion(
             if "X-API-Key" in headers:
                 print(f"[TASK_APP] ✅ X-API-Key IS in headers (len={len(headers['X-API-Key'])})", flush=True)
             else:
-                print(f"[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
+                print("[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
         
         try:
             response = await client.post(inference_url, json=payload, headers=headers)
         except Exception as e:
             print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
-            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}") from e
         
         # Always print status/headers/body BEFORE any error is raised
         print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
@@ -387,18 +365,8 @@ async def call_chat_completion(
         if response.status_code != 200:
             try:
                 error_json = response.json()
-                # Extract error message properly - handle both dict and string formats
-                error_obj = error_json.get("error")
-                if isinstance(error_obj, dict):
-                    error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
-                elif isinstance(error_obj, str):
-                    error_msg = error_obj
-                else:
-                    # Try detail field as fallback
-                    error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
-                
+                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))
                 print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
-                print(f"[TASK_APP] ❌ Full error JSON: {error_json}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Interceptor/provider error: {error_msg}"
@@ -406,12 +374,12 @@ async def call_chat_completion(
             except HTTPException:
                 raise
             except Exception as e:
-                error_text = response.text[:500] if hasattr(response, 'text') else str(e)
+                error_text = response.text[:500]
                 print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Interceptor/provider returned error: {error_text}"
-                )
+                ) from e
         
         # Try JSON, fallback to text
         try:
@@ -454,15 +422,15 @@ async def call_chat_completion(
                 args_raw = fn.get("arguments", "{}")
                 try:
                     args = json.loads(args_raw)
-                except Exception:
-                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON")
+                except Exception as e:
+                    raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON") from e
                 if not str(args.get("intent", "")).strip():
                     raise HTTPException(status_code=502, detail="Tool call missing 'intent'")
     except HTTPException:
         raise
     except Exception as exc:
         # Convert unexpected errors to HTTP for visibility
-        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}")
+        raise HTTPException(status_code=500, detail=f"Response validation failed: {exc}") from exc
 
     response_text = ""
     tool_calls = []
@@ -817,68 +785,9 @@ def build_config() -> TaskAppConfig:
     return config
 
 
-register_task_app(
-    entry=TaskAppEntry(
-        app_id="banking77",
-        description="Banking77 intent classification task app using the banking77 dataset.",
-        config_factory=build_config,
-        aliases=("banking-intents",),
-        modal=ModalDeploymentConfig(
-            app_name="synth-banking77",
-            pip_packages=(
-                "datasets>=2.14.0",
-                "fastapi>=0.115.0",
-                "pydantic>=2.0.0",
-                "httpx>=0.26.0",
-            ),
-            extra_local_dirs=((str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai"),),
-        ),
-    )
-)
-
-# Modal deployment
-try:
-    import modal
-    
-    # For direct Modal deployment (modal deploy banking77_task_app.py)
-    app = modal.App("synth-banking77")
-    
-    _image = (
-        modal.Image.debian_slim(python_version="3.11")
-        .pip_install(
-            "synth-ai",
-            "datasets>=2.14.0",
-            "fastapi>=0.115.0",
-            "pydantic>=2.0.0",
-            "httpx>=0.26.0",
-            "python-dotenv>=1.0.0",
-        )
-        .env({"PYTHONPATH": "/opt/synth_ai_repo"})
-        .add_local_dir(str(REPO_ROOT / "synth_ai"), "/opt/synth_ai_repo/synth_ai", copy=True)
-    )
-    _env_file = REPO_ROOT / ".env"
-    if _env_file.exists():
-        _image = _image.add_local_file(str(_env_file), "/opt/synth_ai_repo/.env")
-
-    @app.function(
-        image=_image,
-        timeout=600,
-    )
-    @modal.asgi_app()
-    def web():
-        return fastapi_app()
-        
-except ImportError:
-    pass
-
-
 def fastapi_app():
     """Return the FastAPI application for Modal or other ASGI hosts."""
-    
-    # Load environment from .env if present (works in Modal via added local file)
-    with contextlib.suppress(Exception):
-        load_dotenv(str(REPO_ROOT / ".env"), override=False)
-    
+        
     app = create_task_app(build_config())
     
     # Replace default health endpoints with auth-tolerant handlers

@@ -12,6 +12,9 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
+import uvicorn
+from uvicorn._types import ASGIApplication
+
 from synth_ai.cloudflare import (
     ensure_cloudflared_installed,
     open_quick_tunnel_with_dns_verification,
@@ -21,9 +24,6 @@ from synth_ai.cloudflare import (
 from synth_ai.task.server import TaskAppConfig, create_task_app
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
-
-import uvicorn
-from uvicorn._types import ASGIApplication
 
 logger = logging.getLogger(__name__)
 
@@ -280,12 +280,12 @@ class InProcessTaskApp:
 
         elif self._config:
             # TaskAppConfig - create app from it
-            self._app = create_task_app(self._config)
+            self._app = create_task_app(self._config)  # type: ignore[assignment]
 
         elif self._config_factory:
             # Callable - call it to get config, then create app
             config = self._config_factory()
-            self._app = create_task_app(config)
+            self._app = create_task_app(config)  # type: ignore[assignment]
 
         elif self._task_app_path:
             # File path - load module and extract app
@@ -297,13 +297,13 @@ class InProcessTaskApp:
             
             # Try to get app directly first
             try:
-                self._app = get_asgi_app(module)
+                self._app = get_asgi_app(module)  # type: ignore[assignment]
             except RuntimeError:
                 # If no app found, try to get build_config function
                 build_config = getattr(module, "build_config", None)
                 if build_config and callable(build_config):
                     config = build_config()
-                    self._app = create_task_app(config)
+                    self._app = create_task_app(config)  # type: ignore[assignment]
                 else:
                     # Try registry lookup as last resort
                     from synth_ai.task.apps import registry
@@ -311,7 +311,7 @@ class InProcessTaskApp:
                     entry = registry.get(app_id)
                     if entry and entry.config_factory:
                         config = entry.config_factory()
-                        self._app = create_task_app(config)
+                        self._app = create_task_app(config)  # type: ignore[assignment]
                     else:
                         raise RuntimeError(
                             f"Task app at {self._task_app_path} must expose either:\n"
@@ -328,7 +328,7 @@ class InProcessTaskApp:
         def serve():
             try:
                 uvicorn.run(
-                    self._app,
+                    self._app,  # type: ignore[arg-type]
                     host=self.host,
                     port=self.port,
                     reload=False,

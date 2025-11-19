@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import click
-from synth_ai.urls import BACKEND_URL_BASE
 from synth_ai.utils.env import get_synth_and_env_keys, mask_str
 from synth_ai.utils.paths import print_paths_formatted
 from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
@@ -327,6 +326,34 @@ def _build_stream_components(
     return config, handlers
 
 
+def _validate_openai_key_if_provider_is_openai(cfg_path: Path) -> None:
+    """Validate that OPENAI_API_KEY is set if the provider is OpenAI.
+
+    For prompt learning jobs, checks if policy.provider is 'openai' and raises
+    a ClickException if OPENAI_API_KEY is not set in the environment.
+    """
+    cfg = _load_toml_config(cfg_path)
+
+    # Check prompt_learning section
+    pl_section = cfg.get("prompt_learning", {})
+    if not isinstance(pl_section, dict):
+        return
+
+    policy = pl_section.get("policy", {})
+    if not isinstance(policy, dict):
+        return
+
+    provider = policy.get("provider", "").lower()
+
+    if provider == "openai":
+        openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not openai_key:
+            raise click.ClickException(
+                "OPENAI_API_KEY is required when using provider='openai'.\n"
+                "Please set OPENAI_API_KEY in your .env file or environment."
+            )
+
+
 # Module-level logging to track import and registration
 import logging as _logging  # noqa: E402
 import sys  # noqa: E402
@@ -530,7 +557,7 @@ def train_command(
             click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
             if backend_base_url_env:
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
-
+        _validate_openai_key_if_provider_is_openai(cfg_path)
         match train_type:
             case "prompt":
                 handle_prompt_learning(
@@ -1694,12 +1721,16 @@ def handle_prompt_learning(
     click.echo("Payload preview:\n" + preview_json(build.payload, limit=800))
     
     # Assertion: If using local backend, verify it's actually localhost
-    if os.getenv("BACKEND_BASE_URL") and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower():
-        if "localhost" not in backend_base.lower() and "127.0.0.1" not in backend_base:
-            raise click.ClickException(
-                f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
-                f"This indicates the environment variable is not being respected."
-            )
+    if (
+        os.getenv("BACKEND_BASE_URL")
+        and "localhost" in os.getenv("BACKEND_BASE_URL", "").lower()
+        and "localhost" not in backend_base.lower()
+        and "127.0.0.1" not in backend_base
+    ):
+        raise click.ClickException(
+            f"BACKEND_BASE_URL was set to localhost but backend_base resolved to {backend_base}. "
+            f"This indicates the environment variable is not being respected."
+        )
     
     # Increase timeout for job creation (can take longer due to validation checks)
     resp = http_post(create_url, headers=headers, json_body=build.payload, timeout=180.0)
