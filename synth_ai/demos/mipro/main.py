@@ -68,10 +68,8 @@ def _validate_env() -> None:
         raise RuntimeError(f"SYNTH_API_KEY required. {first_party_msg}")
     if not os.getenv("ENVIRONMENT_API_KEY"):
         raise RuntimeError(f"ENVIRONMENT_API_KEY required. {first_party_msg}")
-    if not os.getenv("GROQ_API_KEY"):
-        raise RuntimeError(f"GROQ_API_KEY required. {third_party_msg}")
-    if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError(f"OPENAI_API_KEY required. {third_party_msg}")
+    if not os.getenv("GROQ_API_KEY") or not not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError(f"Either GROQ_API_KEY or OPENAI_API_KEY required. {third_party_msg}")
 
 
 async def main():
