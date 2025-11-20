@@ -1,0 +1,26 @@
+# Deterministic prompt learning config for banking77 using gpt-5.1-nano
+algorithm = "gepa"
+model = "gpt-5.1-nano"
+evaluation_split = "train"
+evaluation_seed_count = 6
+test_pool_split = "validation"
+test_pool_seed_count = 6
+output_path = "artifacts/banking77_prompt_opt.json"
+
+[prompt_learning]
+algorithm = "gepa"
+evaluation_split = "train"
+evaluation_seed_count = 6
+test_pool_split = "validation"
+test_pool_seed_count = 6
+
+[prompt_learning.policy]
+model = "gpt-5.1-nano"
+temperature = 0.0
+
+[prompt_learning.gepa.evaluation]
+seeds = [0, 1, 2, 3, 4, 5]
+
+[prompt_learning.gepa.rollout]
+budget = 12
+max_concurrent = 1

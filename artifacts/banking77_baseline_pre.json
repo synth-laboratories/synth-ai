@@ -1,0 +1,12 @@
+{
+  "baseline_id": "banking77",
+  "split": "train",
+  "model": "gpt-5.1-nano",
+  "aggregate_metrics": {
+    "mean_outcome_reward": 0.65,
+    "success_rate": 0.65,
+    "total_tasks": 6,
+    "successful_tasks": 4,
+    "failed_tasks": 2
+  }
+}
