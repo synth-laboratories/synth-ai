@@ -21,9 +21,9 @@ from synth_ai.cloudflare import (
 from synth_ai.task.server import TaskAppConfig, create_task_app
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+from uvicorn._types import ASGIApplication
 
 import uvicorn
-from uvicorn._types import ASGIApplication
 
 logger = logging.getLogger(__name__)
 

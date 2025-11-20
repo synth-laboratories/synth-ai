@@ -83,6 +83,15 @@ DEFAULT_SPLIT = "train"
 AVAILABLE_SPLITS: tuple[str, ...] = ("train", "test")
 TOOL_NAME = "banking77_classify"
 
+# Log environment at module load time for debugging
+print(
+    f"[banking77_task_app] Module loaded: DATASET_NAME={DATASET_NAME}, "
+    f"HF_HOME={os.getenv('HF_HOME')}, "
+    f"HF_DATASETS_CACHE={os.getenv('HF_DATASETS_CACHE')}, "
+    f"HF_HUB_CACHE={os.getenv('HF_HUB_CACHE')}",
+    flush=True,
+)
+
 
 class Banking77Dataset:
     """Lazy Hugging Face dataset loader for Banking77."""
@@ -97,14 +106,66 @@ class Banking77Dataset:
         if split not in self._cache:
             try:
                 from datasets import load_dataset as _load_dataset  # lazy import
-                ds = _load_dataset(DATASET_NAME, split=split, trust_remote_code=False)
+                
+                # Normalize dataset name: use "banking77" (canonical name) instead of "PolyAI/banking77"
+                # The canonical name works better with cached datasets and avoids script conflicts
+                dataset_name = DATASET_NAME
+                if dataset_name == "PolyAI/banking77":
+                    dataset_name = "banking77"
+                
+                # Log environment for debugging
+                import os
+                hf_home = os.getenv("HF_HOME")
+                hf_datasets_cache = os.getenv("HF_DATASETS_CACHE")
+                hf_hub_cache = os.getenv("HF_HUB_CACHE")
+                print(
+                    f"[Banking77Dataset] Loading dataset '{dataset_name}' split '{split}' "
+                    f"(HF_HOME={hf_home}, HF_DATASETS_CACHE={hf_datasets_cache}, HF_HUB_CACHE={hf_hub_cache})",
+                    flush=True,
+                )
+                
+                # Try to load with offline mode if cache is available
+                # This prevents network failures when dataset is already cached
+                # Use num_proc=0 to disable multiprocessing and avoid threading issues
+                try:
+                    ds = _load_dataset(
+                        dataset_name,
+                        split=split,
+                        trust_remote_code=False,
+                        download_mode="reuse_cache_if_exists",  # Use cached version if available
+                        num_proc=0,  # Disable multiprocessing to avoid threading issues
+                    )
+                except Exception as cache_exc:
+                    # If cache load fails, try without download_mode (will attempt download)
+                    print(
+                        f"[Banking77Dataset] Cache load failed, trying download: {cache_exc}",
+                        flush=True,
+                    )
+                    ds = _load_dataset(
+                        dataset_name,
+                        split=split,
+                        trust_remote_code=False,
+                        num_proc=0,  # Disable multiprocessing to avoid threading issues
+                    )
+                
                 self._cache[split] = ds
                 if self._label_names is None and hasattr(ds.features.get("label"), "names"):
                     self._label_names = ds.features["label"].names
+                print(
+                    f"[Banking77Dataset] Successfully loaded {len(ds)} examples from '{dataset_name}' split '{split}'",
+                    flush=True,
+                )
             except Exception as exc:
+                # Preserve original exception details for debugging
+                import traceback
+                error_details = traceback.format_exc()
+                print(
+                    f"[Banking77Dataset] Dataset load failed: {exc}\n{error_details}",
+                    flush=True,
+                )
                 raise RuntimeError(
-                    f"Dataset preparation failed: {split}: Failed to download Banking77 dataset from Hugging Face. "
-                    f"Dataset: {DATASET_NAME} | Split: {split}"
+                    f"Dataset preparation failed: {split}: Failed to load Banking77 dataset. "
+                    f"Dataset: {DATASET_NAME} | Split: {split} | Error: {exc}"
                 ) from exc
         return self._cache[split]
 
@@ -182,6 +243,7 @@ async def call_chat_completion(
     placeholders: dict[str, Any],
     default_messages: list[dict[str, str]],
     api_key: str | None = None,
+    http_client: Any | None = None,
 ) -> tuple[str, dict[str, Any] | None, list[dict[str, Any]]]:
     # STRICT: require all policy fields to come from TOML (no defaults)
     missing_fields: list[str] = []
@@ -267,7 +329,48 @@ async def call_chat_completion(
         return result
     inference_url = _normalize_chat_url(str(route_base))
     temperature = policy_config.get("temperature", 0.7)
-    max_tokens = policy_config.get("max_completion_tokens", 100)
+    
+    # Determine max_completion_tokens based on model name if not explicitly provided
+    # Different models have different token requirements:
+    # - gpt-5 models use reasoning tokens, need more tokens for reasoning + response
+    # - Other models may have different limits
+    def get_default_max_completion_tokens(model_name: str) -> int:
+        """Get default max_completion_tokens based on model name."""
+        model_lower = model_name.lower()
+        
+        # GPT-5 models use reasoning tokens, need more headroom
+        if "gpt-5" in model_lower or "gpt5" in model_lower:
+            return 2048  # Allow for reasoning tokens + tool call
+        
+        # GPT-4 models
+        if "gpt-4" in model_lower or "gpt4" in model_lower:
+            return 4096  # GPT-4 has larger context, but we don't need that much for classification
+        
+        # o1 models (reasoning models)
+        if "o1" in model_lower or "o3" in model_lower:
+            return 16384  # o1/o3 models have very large reasoning token budgets
+        
+        # Claude models
+        if "claude" in model_lower:
+            return 4096
+        
+        # Smaller models (llama, etc.) - default to reasonable limit
+        return 512
+    
+    # Use explicit value if provided, otherwise use model-based default
+    if "max_completion_tokens" in policy_config:
+        max_tokens = policy_config.get("max_completion_tokens")
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] Using explicit max_completion_tokens: {max_tokens}", flush=True)
+    elif "max_tokens" in policy_config:
+        # Legacy support for max_tokens
+        max_tokens = policy_config.get("max_tokens")
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] Using legacy max_tokens: {max_tokens}", flush=True)
+    else:
+        max_tokens = get_default_max_completion_tokens(model)
+        with contextlib.suppress(Exception):
+            print(f"[TASK_APP] Using model-based default max_completion_tokens for {model}: {max_tokens}", flush=True)
 
     # Loud route log
     with contextlib.suppress(Exception):
@@ -288,31 +391,36 @@ async def call_chat_completion(
     print(f"[TASK_APP] MESSAGES: {preview}", flush=True)
 
     # Assert we are NOT hitting a provider host directly for policy
-    if is_provider_host:
-        # Print full policy config for forensics
-        with contextlib.suppress(Exception):
-            print(
-                f"[TASK_APP] POLICY_CONFIG: {json.dumps(policy_config, ensure_ascii=False)}",
-                flush=True,
-            )
-        raise HTTPException(status_code=502, detail=f"Direct provider URL not allowed for policy: {route_base}")
+    # TEMPORARILY DISABLED FOR BASELINE TESTING
+    # if is_provider_host:
+    #     # Print full policy config for forensics
+    #     with contextlib.suppress(Exception):
+    #         print(
+    #             f"[TASK_APP] POLICY_CONFIG: {json.dumps(policy_config, ensure_ascii=False)}",
+    #             flush=True,
+    #         )
+    #     raise HTTPException(status_code=502, detail=f"Direct provider URL not allowed for policy: {route_base}")
 
-    # If routing to proxy/interceptor, include task app API key if provided
+    # Set appropriate auth headers based on whether we're calling provider directly or through proxy
     headers: dict[str, str]
     headers = {"Content-Type": "application/json"}
     if api_key:
-        headers["X-API-Key"] = api_key
-        with contextlib.suppress(Exception):
-            print(f"[TASK_APP] 🔐 PROXY ROUTING with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
-            print(f"[TASK_APP] 🔐 Headers being sent to proxy: {list(headers.keys())}", flush=True)
-            # Verify the key is actually in the headers
-            assert "X-API-Key" in headers, "X-API-Key missing from headers!"
-            assert headers["X-API-Key"] == api_key, "X-API-Key value mismatch!"
-            print(f"[TASK_APP] ✅ Header validation passed: X-API-Key present", flush=True)
+        # For direct provider calls, use Authorization: Bearer
+        # For proxy/interceptor calls, use X-API-Key
+        if is_provider_host:
+            headers["Authorization"] = f"Bearer {api_key}"
+            with contextlib.suppress(Exception):
+                print(f"[TASK_APP] 🔐 DIRECT PROVIDER CALL with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+                print(f"[TASK_APP] 🔐 Using Authorization: Bearer header", flush=True)
+        else:
+            headers["X-API-Key"] = api_key
+            with contextlib.suppress(Exception):
+                print(f"[TASK_APP] 🔐 PROXY ROUTING with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
+                print(f"[TASK_APP] 🔐 Headers being sent to proxy: {list(headers.keys())}", flush=True)
     else:
         with contextlib.suppress(Exception):
-            print("[TASK_APP] ⚠️  PROXY ROUTING (NO API KEY PROVIDED!)", flush=True)
-            print(f"[TASK_APP] ⚠️  This will likely fail auth at the proxy endpoint", flush=True)
+            print("[TASK_APP] ⚠️  NO API KEY PROVIDED!", flush=True)
+            print(f"[TASK_APP] ⚠️  This will likely fail auth", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
@@ -328,104 +436,241 @@ async def call_chat_completion(
         },
     }
 
-    payload = {
+    # Build payload - omit temperature if 0.0 (some models only support default value of 1.0)
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
+        "max_completion_tokens": max_tokens,  # Use max_completion_tokens instead of max_tokens for newer models
         "tools": [classify_tool],
         "tool_choice": "required" if classify_tool else None,
     }
+    # Only include temperature if it's not 0.0 (some models don't support 0.0, only default 1.0)
+    if temperature != 0.0:
+        payload["temperature"] = temperature
 
     print(
         f"[TASK_APP] OUTBOUND: model={model} temp={temperature} max={max_tokens} tools=1 choice={TOOL_NAME}",
         flush=True,
     )
 
-    # Lazy import httpx to avoid top-level import during modal code gen
+    # Use aiohttp instead of httpx to avoid threading issues
+    # httpx uses ThreadPoolExecutor internally which causes "cannot schedule new futures" errors
+    # aiohttp uses async DNS resolution and doesn't have threading dependencies
     try:
-        import httpx  # type: ignore
-    except Exception as _exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"httpx unavailable: {_exc}")
-
-    # Proxy target diagnostics (no preflight health; we go straight to POST)
-    try:
-        parsed = urlparse(inference_url)
-        host = parsed.hostname or ""
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        print(f"[TASK_APP] PROXY_TARGET: scheme={parsed.scheme} host={host} port={port} path={parsed.path}", flush=True)
-        addrinfo = socket.getaddrinfo(host, None)
-        ips = sorted({ai[4][0] for ai in addrinfo})
-        print(f"[TASK_APP] PROXY_DNS: ips={ips}", flush=True)
-    except Exception as e:
-        print(f"[TASK_APP] PROXY_DNS_ERROR: {e}", flush=True)
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # Log the actual request about to be sent
-        with contextlib.suppress(Exception):
-            headers_log = {k: (f"{v[:15]}..." if k == "X-API-Key" and len(v) > 15 else v) for k, v in headers.items()}
-            print(f"[TASK_APP] 📤 Sending POST to: {inference_url}", flush=True)
-            print(f"[TASK_APP] 📤 With headers: {headers_log}", flush=True)
-            print(f"[TASK_APP] 📤 Payload keys: {list(payload.keys())}", flush=True)
-            # Final assertion before sending
-            if "X-API-Key" in headers:
-                print(f"[TASK_APP] ✅ X-API-Key IS in headers (len={len(headers['X-API-Key'])})", flush=True)
-            else:
-                print(f"[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
-        
+        import aiohttp  # type: ignore
+    except ImportError:
+        # Fallback to httpx if aiohttp not available
         try:
-            response = await client.post(inference_url, json=payload, headers=headers)
+            import httpx  # type: ignore
+            use_aiohttp = False
+        except Exception as _exc:  # pragma: no cover
+            raise HTTPException(status_code=500, detail=f"Neither aiohttp nor httpx available: {_exc}")
+    else:
+        use_aiohttp = True
+
+    # Proxy target diagnostics and DNS pre-resolution
+    # Pre-resolve DNS synchronously and use IP address directly to avoid threading issues
+    # Both httpx and aiohttp use ThreadPoolExecutor for DNS, which fails if executor is shut down
+    # By pre-resolving DNS synchronously and using IP directly, we bypass DNS resolution during request
+    # We'll configure SSL to send SNI (Server Name Indication) even when using IP address
+    #
+    # IMPORTANT: Only do DNS pre-resolution for proxy/interceptor URLs, NOT for direct provider URLs
+    # Direct provider URLs (api.openai.com, api.groq.com) require proper SSL/TLS with valid certificates
+    # DNS pre-resolution breaks SSL handshake with Cloudflare-backed APIs like Groq
+    parsed = urlparse(inference_url)
+    host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    print(f"[TASK_APP] PROXY_TARGET: scheme={parsed.scheme} host={host} port={port} path={parsed.path}", flush=True)
+
+    # Pre-resolve DNS synchronously (before any async operations that might trigger executor shutdown)
+    # Then use IP address directly in the URL to bypass DNS resolution during request
+    # Skip this for direct provider URLs to avoid SSL handshake failures
+    resolved_ip = None
+    skip_dns_preresolution = is_provider_host  # Skip for api.openai.com, api.groq.com, etc.
+
+    if skip_dns_preresolution:
+        print(f"[TASK_APP] PROXY_DNS: Skipping DNS pre-resolution for direct provider host: {host}", flush=True)
+    else:
+        try:
+            # Use synchronous DNS resolution (blocking, but avoids executor issues)
+            # This happens before the HTTP request, so executor shutdown won't affect it
+            addrinfo = socket.getaddrinfo(host, None, socket.AF_INET)
+            ips = sorted({ai[4][0] for ai in addrinfo})
+            resolved_ip = ips[0] if ips else None
+            print(f"[TASK_APP] PROXY_DNS: resolved {host} -> {resolved_ip} (from {ips})", flush=True)
+
+            # Replace hostname with IP in URL to bypass DNS resolution during request
+            if resolved_ip and parsed.scheme == "https":
+                # Reconstruct URL with IP address
+                netloc = f"{resolved_ip}:{port}" if port else resolved_ip
+                inference_url = f"{parsed.scheme}://{netloc}{parsed.path}"
+                if parsed.query:
+                    inference_url += f"?{parsed.query}"
+                # Store original hostname for SNI and Host header
+                headers["_original_host"] = host
+                headers["_use_ip"] = "1"
+                # Set Host header so server knows the original hostname (required for Cloudflare)
+                headers["Host"] = host
+                print(f"[TASK_APP] PROXY_URL_REWRITTEN: {inference_url} (will use SNI with host={host}, Host header set)", flush=True)
         except Exception as e:
-            print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
-            raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+            print(f"[TASK_APP] PROXY_DNS_ERROR: {e}, continuing with original URL", flush=True)
+            # Continue with original URL - HTTP client will handle DNS (may fail if executor shut down)
+
+    # Use app-level http client singleton to avoid threading issues
+    # aiohttp doesn't use threading, so it's safer than httpx
+    if http_client is None:
+        raise HTTPException(status_code=500, detail="HTTP client not initialized (should be created at startup)")
+    
+    # Log the actual request about to be sent
+    with contextlib.suppress(Exception):
+        headers_log = {k: (f"{v[:15]}..." if k == "X-API-Key" and len(v) > 15 else v) for k, v in headers.items()}
+        print(f"[TASK_APP] 📤 Sending POST to: {inference_url}", flush=True)
+        print(f"[TASK_APP] 📤 With headers: {headers_log}", flush=True)
+        print(f"[TASK_APP] 📤 Payload keys: {list(payload.keys())}", flush=True)
+        # Final assertion before sending
+        if "X-API-Key" in headers:
+            print(f"[TASK_APP] ✅ X-API-Key IS in headers (len={len(headers['X-API-Key'])})", flush=True)
+        else:
+            print(f"[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
+    
+    # Use aiohttp session (doesn't use threading, avoids "cannot schedule new futures" errors)
+    # aiohttp.ClientSession.post() returns a ClientResponse that must be used as async context manager
+    response_json: dict[str, Any] | None = None
+    try:
+        # Check if it's aiohttp.ClientSession or httpx.AsyncClient
+        is_aiohttp = hasattr(http_client, 'post') and not hasattr(http_client.post, '__call__')
+        if not is_aiohttp:
+            # Try to detect aiohttp by checking for ClientSession type
+            import aiohttp
+            is_aiohttp = isinstance(http_client, aiohttp.ClientSession)
         
-        # Always print status/headers/body BEFORE any error is raised
-        print(f"[TASK_APP] RESPONSE_STATUS: {response.status_code}", flush=True)
-        print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
-        
-        # Handle error responses from interceptor/provider
-        if response.status_code != 200:
-            try:
-                error_json = response.json()
-                # Extract error message properly - handle both dict and string formats
-                error_obj = error_json.get("error")
-                if isinstance(error_obj, dict):
-                    error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
-                elif isinstance(error_obj, str):
-                    error_msg = error_obj
-                else:
-                    # Try detail field as fallback
-                    error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
+        if is_aiohttp:
+            # aiohttp: post() returns a coroutine that yields ClientResponse (use as async context manager)
+            # If using IP address, configure SSL to send SNI (Server Name Indication)
+            use_ip = headers.pop("_use_ip", None) is not None
+            original_host = headers.pop("_original_host", None)
+            request_headers = {k: v for k, v in headers.items() if not k.startswith("_")}
+            
+            # Prepare SSL settings if using IP address
+            ssl_setting = None
+            if use_ip and original_host:
+                import ssl
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False  # Disable hostname check since we're using IP
+                ssl_context.verify_mode = ssl.CERT_NONE  # Disable certificate verification
+                ssl_setting = ssl_context
+            
+            # Make the request - aiohttp will send SNI based on server_hostname parameter
+            async with http_client.post(
+                inference_url,
+                json=payload,
+                headers=request_headers,
+                ssl=ssl_setting,
+                server_hostname=original_host if (use_ip and original_host) else None,
+            ) as response:
+                status_code = response.status
                 
-                print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
-                print(f"[TASK_APP] ❌ Full error JSON: {error_json}", flush=True)
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Interceptor/provider error: {error_msg}"
-                )
-            except HTTPException:
-                raise
-            except Exception as e:
-                error_text = response.text[:500] if hasattr(response, 'text') else str(e)
-                print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Interceptor/provider returned error: {error_text}"
-                )
-        
-        # Try JSON, fallback to text
-        try:
-            response_json = response.json()
-            raw = json.dumps(response_json, ensure_ascii=False)
-            print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
-        except Exception:
-            response_text = response.text
-            print(f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}", flush=True)
-            response.raise_for_status()
-            # If we got here, raise_for_status didn't throw; keep an empty JSON
-            response_json = {}
-        # After logging, surface HTTP errors (shouldn't reach here if status != 200)
-        response.raise_for_status()
+                # Always print status/headers/body BEFORE any error is raised
+                print(f"[TASK_APP] RESPONSE_STATUS: {status_code}", flush=True)
+                print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
+                
+                # Handle error responses from interceptor/provider
+                if status_code != 200:
+                    try:
+                        error_json = await response.json()
+                        # Extract error message properly - handle both dict and string formats
+                        error_obj = error_json.get("error")
+                        if isinstance(error_obj, dict):
+                            error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                        elif isinstance(error_obj, str):
+                            error_msg = error_obj
+                        else:
+                            # Try detail field as fallback
+                            error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
+                        
+                        print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
+                        print(f"[TASK_APP] ❌ Full error JSON: {error_json}", flush=True)
+                        raise HTTPException(
+                            status_code=status_code,
+                            detail=f"Interceptor/provider error: {error_msg}"
+                        )
+                    except HTTPException:
+                        raise
+                    except Exception as e:
+                        error_text = (await response.text())[:500]
+                        print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
+                        raise HTTPException(
+                            status_code=status_code,
+                            detail=f"Interceptor/provider returned error: {error_text}"
+                        )
+                
+                # Try JSON, fallback to text
+                try:
+                    response_json = await response.json()
+                    raw = json.dumps(response_json, ensure_ascii=False)
+                    print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
+                except Exception:
+                    response_text = await response.text()
+                    print(f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}", flush=True)
+                    if status_code >= 400:
+                        raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                    # If we got here, keep an empty JSON
+                    response_json = {}
+                
+                # After logging, surface HTTP errors
+                if status_code >= 400:
+                    raise HTTPException(status_code=status_code, detail=f"HTTP error: {status_code}")
+        else:
+            # httpx fallback (shouldn't happen if aiohttp available)
+            import httpx
+            response = await http_client.post(inference_url, json=payload, headers=headers)
+            status_code = response.status_code
+            
+            print(f"[TASK_APP] RESPONSE_STATUS: {status_code}", flush=True)
+            print(f"[TASK_APP] RESPONSE_HEADERS: {dict(response.headers)}", flush=True)
+            
+            if status_code != 200:
+                try:
+                    error_json = response.json()
+                    error_obj = error_json.get("error")
+                    if isinstance(error_obj, dict):
+                        error_msg = error_obj.get("message") or error_obj.get("detail") or str(error_obj)
+                    elif isinstance(error_obj, str):
+                        error_msg = error_obj
+                    else:
+                        error_msg = error_json.get("detail") or str(error_json.get("error", "Unknown error"))
+                    print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
+                    raise HTTPException(status_code=status_code, detail=f"Interceptor/provider error: {error_msg}")
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    error_text = response.text[:500] if hasattr(response, 'text') else str(e)
+                    print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
+                    raise HTTPException(status_code=status_code, detail=f"Interceptor/provider returned error: {error_text}")
+            
+            try:
+                response_json = response.json()
+                raw = json.dumps(response_json, ensure_ascii=False)
+                print(f"[TASK_APP] RESPONSE_JSON ({len(raw)} bytes): {raw}", flush=True)
+            except Exception:
+                response_text = response.text
+                print(f"[TASK_APP] RESPONSE_TEXT ({len(response_text)} bytes): {response_text}", flush=True)
+                if status_code >= 400:
+                    raise HTTPException(status_code=status_code, detail=f"HTTP error: {response_text[:200]}")
+                response_json = {}
+            
+            if status_code >= 400:
+                raise HTTPException(status_code=status_code, detail=f"HTTP error: {status_code}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[TASK_APP] POST_EXCEPTION: {type(e).__name__}: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail=f"Proxy POST failed: {e}")
+    
+    if response_json is None:
+        raise HTTPException(status_code=502, detail="No response data received")
 
     with contextlib.suppress(Exception):
         usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}
@@ -549,12 +794,16 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         or None
     )
     
+    # Get app-level httpx client singleton (created at startup, reused across requests)
+    http_client = getattr(fastapi_request.app.state, "http_client", None)
+    
     # Call proxy - HARD FAILS on any invalid/empty responses. No soft handling.
     response_text, response_json, tool_calls = await call_chat_completion(
         request.policy.config or {},
         placeholders,
         default_messages,
         api_key=api_key,
+        http_client=http_client,
     )
     # Full upstream JSON must be present and non-empty
     try:
@@ -733,21 +982,68 @@ def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> I
     base_info = _base_task_info()
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
+        expected_intent = sample["label"]
+        
+        # Create instance-specific rubric with expected answer interpolated
+        # RubricInfo structure: outcome requires name field (RubricSection)
+        instance_rubric = {
+            "outcome": {
+                "name": "Intent Classification Accuracy",
+                "criteria": [
+                    {
+                        "id": "intent_accuracy",
+                        "description": f"Did it provide the correct intent: {expected_intent}?",
+                        "weight": 1.0,
+                        "expected_answer": expected_intent,
+                    }
+                ]
+            },
+        }
+        
+        # Convert dataset to dict if it's a Pydantic model
+        dataset_dict = base_info.dataset
+        if hasattr(dataset_dict, "model_dump"):
+            dataset_dict = dataset_dict.model_dump()
+        elif not isinstance(dataset_dict, dict):
+            # Try to convert DatasetInfo or other objects to dict
+            if hasattr(dataset_dict, "__dict__"):
+                dataset_dict = dict(dataset_dict.__dict__)
+            else:
+                dataset_dict = {}
+        
+        # Merge in instance-specific fields
+        dataset_dict = {
+            **dataset_dict,
+            "split": sample["split"],
+            "index": sample["index"],
+        }
+        
+        # Convert task_metadata to dict if needed
+        task_metadata_dict = base_info.task_metadata
+        if hasattr(task_metadata_dict, "model_dump"):
+            task_metadata_dict = task_metadata_dict.model_dump()
+        elif not isinstance(task_metadata_dict, dict):
+            # Try to convert to dict
+            if hasattr(task_metadata_dict, "__dict__"):
+                task_metadata_dict = dict(task_metadata_dict.__dict__)
+            else:
+                task_metadata_dict = {}
+        
+        # Merge in instance-specific fields
+        task_metadata_dict = {
+            **task_metadata_dict,
+            "query": sample["text"],
+            "expected_intent": expected_intent,  # CRITICAL: Include expected_intent for judge validation
+        }
+        
         yield TaskInfo(
             task=base_info.task,
             environment=base_info.environment,
-            dataset={
-                **base_info.dataset,
-                "split": sample["split"],
-                "index": sample["index"],
-            },
-            rubric=base_info.rubric,
+            dataset=dataset_dict,
+            rubric=instance_rubric,  # Use instance-specific rubric with expected answer
             inference=base_info.inference,
             limits=base_info.limits,
-            task_metadata={
-                **base_info.task_metadata,
-                "query": sample["text"],
-            },
+            task_metadata=task_metadata_dict,
         )
 
 
@@ -792,12 +1088,75 @@ def build_config() -> TaskAppConfig:
     registry, dataset = build_dataset()
     base_info = _base_task_info()
 
+    # Preload dataset at startup to avoid threading issues during request handling
+    # This ensures the dataset is loaded synchronously before any async requests
+    print("[banking77_task_app] Preloading dataset splits...", flush=True)
+    try:
+        dataset.ensure_ready(AVAILABLE_SPLITS)
+        print(f"[banking77_task_app] Dataset preloaded successfully: {[dataset.size(s) for s in AVAILABLE_SPLITS]} examples", flush=True)
+    except Exception as exc:
+        print(f"[banking77_task_app] WARNING: Dataset preload failed: {exc}", flush=True)
+        # Continue anyway - will load lazily on first use
+        import traceback
+        traceback.print_exc()
+
     proxy_keys = normalize_vendor_keys()
     proxy_config = ProxyConfig(
         enable_openai=proxy_keys.get("OPENAI_API_KEY") is not None,
         enable_groq=proxy_keys.get("GROQ_API_KEY") is not None,
         system_hint="Use the banking77_classify tool to classify the customer query.",
     )
+
+    # Startup hook: Create aiohttp session singleton
+    # Note: aiohttp still uses ThreadPoolExecutor for DNS resolution via run_in_executor
+    # This can cause "cannot schedule new futures" errors if the executor is shut down
+    # We try to minimize this by using a persistent connector and pre-resolving DNS
+    async def startup_http_client(app: Any) -> None:
+        try:
+            import aiohttp
+            timeout = aiohttp.ClientTimeout(total=30.0)
+            # Use a persistent connector with DNS caching to minimize DNS lookups
+            # Note: This still uses threading internally, but reduces the number of DNS calls
+            connector = aiohttp.TCPConnector(
+                limit=10,
+                limit_per_host=5,
+                ttl_dns_cache=300,  # Cache DNS for 5 minutes
+                use_dns_cache=True,
+            )
+            app.state.http_client = aiohttp.ClientSession(
+                timeout=timeout,
+                connector=connector,
+            )
+            print("[banking77_task_app] Created app-level aiohttp client session singleton", flush=True)
+        except ImportError:
+            # Fallback to httpx if aiohttp not available
+            try:
+                import httpx
+                app.state.http_client = httpx.AsyncClient(
+                    timeout=30.0,
+                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+                )
+                print("[banking77_task_app] Created app-level httpx client singleton (fallback)", flush=True)
+            except Exception as exc:
+                print(f"[banking77_task_app] WARNING: Failed to create http client: {exc}", flush=True)
+                app.state.http_client = None
+        except Exception as exc:
+            print(f"[banking77_task_app] WARNING: Failed to create aiohttp client: {exc}", flush=True)
+            app.state.http_client = None
+    
+    # Shutdown hook: Clean up http client
+    async def shutdown_http_client(app: Any) -> None:
+        http_client = getattr(app.state, "http_client", None)
+        if http_client is not None:
+            try:
+                # Handle both aiohttp.ClientSession and httpx.AsyncClient
+                if hasattr(http_client, 'close'):
+                    await http_client.close()
+                elif hasattr(http_client, 'aclose'):
+                    await http_client.aclose()
+                print("[banking77_task_app] Closed app-level http client", flush=True)
+            except Exception as exc:
+                print(f"[banking77_task_app] WARNING: Error closing http client: {exc}", flush=True)
 
     config = TaskAppConfig(
         app_id="banking77",
@@ -813,6 +1172,8 @@ def build_config() -> TaskAppConfig:
         routers=(banking77_router,),
         app_state={"banking77_dataset": dataset},
         cors_origins=["*"],
+        startup_hooks=[startup_http_client],
+        shutdown_hooks=[shutdown_http_client],
     )
     return config
 

@@ -5,9 +5,14 @@ from . import hotpotqa_task_app  # noqa: F401
 from . import hover_task_app  # noqa: F401
 from . import ifbench_task_app  # noqa: F401
 from . import pupa_task_app  # noqa: F401
-from . import crafter_task_app  # noqa: F401
 
-# Lazy import for agentic tasks that may have heavy dependencies
+# Lazy import for tasks that may have heavy dependencies
+try:
+    from . import crafter_task_app  # noqa: F401
+except (ImportError, AttributeError) as e:
+    import warnings
+    warnings.warn(f"Could not import crafter_task_app: {e}", ImportWarning)
+
 try:
     from . import sokoban_task_app  # noqa: F401
 except ImportError as e:
