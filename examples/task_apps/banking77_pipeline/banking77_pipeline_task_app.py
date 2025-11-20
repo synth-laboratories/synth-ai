@@ -5,11 +5,18 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import sys
 import uuid
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 from typing import Any, Mapping, MutableMapping
 
 from fastapi import HTTPException, Request
+
+# Add parent directory to path for absolute imports
+task_apps_dir = Path(__file__).resolve().parents[1]
+if str(task_apps_dir) not in sys.path:
+    sys.path.insert(0, str(task_apps_dir))
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import (
@@ -23,7 +30,7 @@ from synth_ai.task.contracts import (
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.task.vendors import normalize_vendor_keys
 
-from ..banking77.banking77_task_app import (  # reuse single-step helpers
+from banking77.banking77_task_app import (  # reuse single-step helpers
     BANKING77_DATASET_SPEC,
     AVAILABLE_SPLITS,
     Banking77Dataset,
@@ -285,12 +292,16 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
                 print(f"[TASK_APP] ❌ NO API KEY extracted for module '{module_name}'!", flush=True)
                 print(f"[TASK_APP] ❌ X-API-Key header: {fastapi_request.headers.get('X-API-Key', '<not present>')[:20] if fastapi_request.headers.get('X-API-Key') else '<not present>'}", flush=True)
                 print(f"[TASK_APP] ❌ Authorization header: {fastapi_request.headers.get('Authorization', '<not present>')[:30] if fastapi_request.headers.get('Authorization') else '<not present>'}", flush=True)
-        
+
+        # Get app-level http client singleton (created at startup, reused across requests)
+        http_client = getattr(fastapi_request.app.state, "http_client", None)
+
         response_text, response_json, tool_calls = await call_chat_completion(
             policy_config,
             formatted_placeholders,
             messages,
             api_key=api_key,
+            http_client=http_client,
         )
 
         if not isinstance(response_json, dict) or not response_json:
@@ -445,6 +456,57 @@ def build_config() -> TaskAppConfig:
     dataset_payload["hf_dataset"] = DATASET_NAME
     base_payload["dataset"] = dataset_payload
 
+    # Startup hook: Create aiohttp session singleton
+    # Note: aiohttp still uses ThreadPoolExecutor for DNS resolution via run_in_executor
+    # This can cause "cannot schedule new futures" errors if the executor is shut down
+    # We try to minimize this by using a persistent connector and pre-resolving DNS
+    async def startup_http_client(app: Any) -> None:
+        try:
+            import aiohttp
+            timeout = aiohttp.ClientTimeout(total=30.0)
+            # Use a persistent connector with DNS caching to minimize DNS lookups
+            # Note: This still uses threading internally, but reduces the number of DNS calls
+            connector = aiohttp.TCPConnector(
+                limit=10,
+                limit_per_host=5,
+                ttl_dns_cache=300,  # Cache DNS for 5 minutes
+                use_dns_cache=True,
+            )
+            app.state.http_client = aiohttp.ClientSession(
+                timeout=timeout,
+                connector=connector,
+            )
+            print("[banking77_pipeline] Created app-level aiohttp client session singleton", flush=True)
+        except ImportError:
+            # Fallback to httpx if aiohttp not available
+            try:
+                import httpx
+                app.state.http_client = httpx.AsyncClient(
+                    timeout=30.0,
+                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
+                )
+                print("[banking77_pipeline] Created app-level httpx client singleton (fallback)", flush=True)
+            except Exception as exc:
+                print(f"[banking77_pipeline] WARNING: Failed to create http client: {exc}", flush=True)
+                app.state.http_client = None
+        except Exception as exc:
+            print(f"[banking77_pipeline] WARNING: Failed to create aiohttp client: {exc}", flush=True)
+            app.state.http_client = None
+
+    # Shutdown hook: Clean up http client
+    async def shutdown_http_client(app: Any) -> None:
+        http_client = getattr(app.state, "http_client", None)
+        if http_client is not None:
+            try:
+                # Handle both aiohttp.ClientSession and httpx.AsyncClient
+                if hasattr(http_client, 'close'):
+                    await http_client.close()
+                elif hasattr(http_client, 'aclose'):
+                    await http_client.aclose()
+                print("[banking77_pipeline] Closed app-level http client", flush=True)
+            except Exception as exc:
+                print(f"[banking77_pipeline] WARNING: Error closing http client: {exc}", flush=True)
+
     config = TaskAppConfig(
         app_id="banking77-pipeline",
         name="Banking77 Two-Step Pipeline",
@@ -462,6 +524,8 @@ def build_config() -> TaskAppConfig:
         routers=(banking77_router,),
         app_state={"banking77_dataset": dataset},
         cors_origins=["*"],
+        startup_hooks=[startup_http_client],
+        shutdown_hooks=[shutdown_http_client],
     )
     return config
 

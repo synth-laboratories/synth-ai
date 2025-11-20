@@ -1341,6 +1341,42 @@ async def deploy_app_tunnel(
         else:
             print("ℹ️  No managed tunnels found; provisioning a new managed tunnel.")
 
+    # Load environment variables from env_file before starting uvicorn
+    # This ensures all env vars (HF cache paths, dataset names, etc.) are available to the task app
+    if env_file and env_file.exists():
+        try:
+            from dotenv import load_dotenv
+            load_dotenv(str(env_file), override=True)
+            # Also explicitly set critical env vars to ensure they're available
+            # Read the file directly to set vars even if dotenv fails
+            try:
+                with open(env_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            # Remove quotes if present
+                            value = value.strip().strip('"').strip("'")
+                            os.environ[key.strip()] = value
+            except Exception as file_exc:
+                logger.debug(f"Could not read env_file directly: {file_exc}")
+            logger.debug(f"Loaded environment from {env_file}")
+        except ImportError:
+            logger.warning("python-dotenv not available, skipping env_file load")
+            # Fallback: read file directly
+            try:
+                with open(env_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            key, value = line.split("=", 1)
+                            value = value.strip().strip('"').strip("'")
+                            os.environ[key.strip()] = value
+            except Exception as file_exc:
+                logger.warning(f"Failed to read env_file directly: {file_exc}")
+        except Exception as exc:
+            logger.warning(f"Failed to load env_file {env_file}: {exc}")
+    
     os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
     if cfg.trace:
         os.environ["TASKAPP_TRACING_ENABLED"] = "1"

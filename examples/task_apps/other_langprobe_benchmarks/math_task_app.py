@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import os
 import re
+import sys
 import uuid
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -15,6 +16,11 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Request
 
 load_dotenv()  # Load environment variables from .env
+
+# Add parent directory to path for absolute imports
+task_apps_dir = Path(__file__).resolve().parents[1]
+if str(task_apps_dir) not in sys.path:
+    sys.path.insert(0, str(task_apps_dir))
 
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.contracts import (
@@ -30,7 +36,7 @@ from synth_ai.task.rubrics import Rubric, load_rubric
 from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.task.vendors import normalize_vendor_keys
 
-from ..gepa_benchmarks.common import call_chat_completion, normalise_answer
+from gepa_benchmarks.common import call_chat_completion, normalise_answer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

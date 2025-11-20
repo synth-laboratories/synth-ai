@@ -3,15 +3,14 @@ import os
 from pathlib import Path
 from typing import Any
 
-from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
-from synth_ai.mcp.setup import setup_fetch, setup_start
-from synth_ai.modal import deploy_app_modal
-from synth_ai.uvicorn import deploy_app_uvicorn
-
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import ServerCapabilities, TextContent, Tool, ToolsCapability
+from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
+from synth_ai.mcp.setup import setup_fetch, setup_start
+from synth_ai.modal import deploy_app_modal
+from synth_ai.uvicorn import deploy_app_uvicorn
 
 server = Server("synth-ai")
 

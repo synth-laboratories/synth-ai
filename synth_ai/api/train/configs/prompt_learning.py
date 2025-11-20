@@ -96,6 +96,28 @@ class MIPROSeedConfig(ExtraModel):
     reference: list[int] = Field(default_factory=list)
 
 
+class PromptLearningJudgeConfig(ExtraModel):
+    """Judge configuration shared by GEPA and MIPRO."""
+    enabled: bool = False
+    reward_source: Literal["task_app", "judge", "fused"] = "task_app"
+    backend_base: str = ""
+    backend_api_key_env: str = "SYNTH_API_KEY"
+    backend_provider: str = ""
+    backend_model: str = ""
+    backend_rubric_id: str = ""
+    backend_event_enabled: bool = True
+    backend_outcome_enabled: bool = True
+    backend_options: dict[str, Any] = Field(default_factory=dict)
+    concurrency: int = 8
+    timeout: float = 60.0
+    weight_env: float = 1.0
+    weight_event: float = 0.0
+    weight_outcome: float = 0.0
+    spec_path: str | None = None
+    spec_max_tokens: int = 5000
+    spec_context: str | None = None
+
+
 class MIPROConfig(ExtraModel):
     """MIPRO-specific configuration.
     
@@ -140,6 +162,9 @@ class MIPROConfig(ExtraModel):
     
     # Meta-update configuration
     meta_update: dict[str, Any] | None = None
+
+    # Judge configuration (shared with GEPA)
+    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
     
     # System spec configuration
     spec_path: str | None = None  # Path to system spec JSON file
@@ -474,6 +499,7 @@ class GEPAConfig(ExtraModel):
     population: GEPAPopulationConfig | None = None
     archive: GEPAArchiveConfig | None = None
     token: GEPATokenConfig | None = None
+    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
     
     # Backwards compatibility: flat fields (deprecated, prefer nested)
     # These will be flattened from nested configs if provided
@@ -705,6 +731,7 @@ class PromptLearningConfig(ExtraModel):
     policy: PromptLearningPolicyConfig | None = None
     mipro: MIPROConfig | None = None
     gepa: GEPAConfig | None = None
+    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
     env_config: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -729,6 +756,9 @@ class PromptLearningConfig(ExtraModel):
         if "gepa" in pl_data and isinstance(pl_data["gepa"], dict):
             gepa_data = pl_data["gepa"]
             pl_data["gepa"] = GEPAConfig.from_mapping(gepa_data)
+        
+        if "judge" in pl_data and isinstance(pl_data["judge"], dict):
+            pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
         
         return cls.model_validate(pl_data)
 
@@ -757,4 +787,5 @@ __all__ = [
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",
     "PromptPatternConfig",
+    "PromptLearningJudgeConfig",
 ]

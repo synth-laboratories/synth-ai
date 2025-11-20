@@ -320,6 +320,44 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 "The trainer provides the inference URL in rollout requests. "
                 "Remove base_url from your config file."
             )
+
+    # Validate judge config (shared by GEPA and MIPRO)
+    judge_section = pl_section.get("judge") or {}
+    if judge_section:
+        if not isinstance(judge_section, dict):
+            errors.append(f"prompt_learning.judge must be a table/dict, got {type(judge_section).__name__}")
+        else:
+            reward_source = str(judge_section.get("reward_source", "task_app")).strip().lower()
+            enabled = bool(judge_section.get("enabled"))
+            if reward_source and reward_source not in {"task_app", "judge", "fused"}:
+                errors.append("prompt_learning.judge.reward_source must be 'task_app', 'judge', or 'fused'")
+            backend_base = str(judge_section.get("backend_base", "") or "").strip()
+            backend_provider = str(judge_section.get("backend_provider", "") or "").strip()
+            backend_model = str(judge_section.get("backend_model", "") or "").strip()
+            if enabled:
+                if not backend_base:
+                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_base")
+                if not backend_provider:
+                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_provider")
+                if not backend_model:
+                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_model")
+            if reward_source == "fused":
+                weight_event = judge_section.get("weight_event", 0.0)
+                weight_outcome = judge_section.get("weight_outcome", 0.0)
+                try:
+                    weight_event_f = float(weight_event)
+                except (TypeError, ValueError):
+                    errors.append("prompt_learning.judge.weight_event must be numeric")
+                    weight_event_f = 0.0
+                try:
+                    weight_outcome_f = float(weight_outcome)
+                except (TypeError, ValueError):
+                    errors.append("prompt_learning.judge.weight_outcome must be numeric")
+                    weight_outcome_f = 0.0
+                if weight_event_f <= 0 and weight_outcome_f <= 0:
+                    errors.append(
+                        "prompt_learning.judge.reward_source='fused' requires weight_event > 0 or weight_outcome > 0"
+                    )
     
     # Check for multi-stage/multi-module pipeline config
     initial_prompt = pl_section.get("initial_prompt", {})
@@ -1767,4 +1805,3 @@ __all__ = [
     "validate_rl_config",
     "validate_sft_config",
 ]
-
