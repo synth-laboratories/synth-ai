@@ -837,8 +837,13 @@ async def verify_tunnel_dns_resolution(
                         logger.info(f"HTTP connectivity verified via IP: {test_url} -> {resp.status_code}")
                         return
                     else:
-                        logger.warning(f"HTTP check returned unexpected status: {resp.status_code}")
-                        last_exc = RuntimeError(f"unexpected HTTP status {resp.status_code}")
+                        # 530 errors are common when tunnel is still establishing - be lenient
+                        if resp.status_code == 530:
+                            logger.debug(f"HTTP 530 (tunnel establishing) - will retry")
+                            last_exc = RuntimeError(f"tunnel not ready yet (HTTP 530)")
+                        else:
+                            logger.warning(f"HTTP check returned unexpected status: {resp.status_code}")
+                            last_exc = RuntimeError(f"unexpected HTTP status {resp.status_code}")
             except Exception as http_exc:
                 logger.warning(f"HTTP connectivity check failed (attempt {attempt}): {http_exc}")
                 last_exc = http_exc
@@ -931,6 +936,11 @@ async def open_quick_tunnel_with_dns_verification(
             logger.info(f"Tunnel attempt {attempt}/{max_retries}")
             url, proc = open_quick_tunnel(port, wait_s=wait_s)
             logger.info(f"Tunnel URL obtained: {url}")
+            
+            # Give tunnel a moment to establish before verification
+            # Cloudflare tunnels can take a few seconds to become fully ready
+            logger.debug("Waiting 3s for tunnel to establish before verification...")
+            await asyncio.sleep(3.0)
             
             # Verify DNS (this is where failures usually happen)
             await verify_tunnel_dns_resolution(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}", api_key=api_key)
