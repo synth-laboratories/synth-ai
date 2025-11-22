@@ -895,7 +895,7 @@ async def open_quick_tunnel_with_dns_verification(
     wait_s: float = 10.0,
     max_retries: Optional[int] = None,
     dns_timeout_s: Optional[float] = None,
-    api_key: Optional[str] = None,
+    env_key: Optional[str] = None,
 ) -> Tuple[str, subprocess.Popen]:
     """
     Open a quick Cloudflare tunnel with DNS verification and retry logic.
@@ -920,14 +920,14 @@ async def open_quick_tunnel_with_dns_verification(
     dns_timeout_s = dns_timeout_s or float(os.getenv("SYNTH_TUNNEL_DNS_TIMEOUT_SECS", "60"))
     
     # Get API key from parameter or env var
-    if api_key is None:
+    if env_key is None:
         # Try to load .env file if available
         try:
             from dotenv import load_dotenv
             load_dotenv(override=False)
         except ImportError:
             pass
-        api_key = os.getenv("ENVIRONMENT_API_KEY")
+        env_key = os.getenv("ENVIRONMENT_API_KEY")
     
     last_err: Optional[Exception] = None
     for attempt in range(1, max_retries + 1):
@@ -943,7 +943,7 @@ async def open_quick_tunnel_with_dns_verification(
             await asyncio.sleep(3.0)
             
             # Verify DNS (this is where failures usually happen)
-            await verify_tunnel_dns_resolution(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}", api_key=api_key)
+            await verify_tunnel_dns_resolution(url, timeout_seconds=dns_timeout_s, name=f"tunnel attempt {attempt}", api_key=env_key)
             
             logger.info("Tunnel verified and ready!")
             return url, proc

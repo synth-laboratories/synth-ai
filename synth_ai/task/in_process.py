@@ -21,7 +21,7 @@ from synth_ai.cloudflare import (
 from synth_ai.task.server import TaskAppConfig, create_task_app
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
-from uvicorn._types import ASGIApplication
+from starlette.types import ASGIApp
 
 import uvicorn
 
@@ -161,14 +161,15 @@ class InProcessTaskApp:
     def __init__(
         self,
         *,
-        app: Optional[ASGIApplication] = None,
+        app: ASGIApp,
+        env_key: str,
         config: Optional[TaskAppConfig] = None,
         config_factory: Optional[Callable[[], TaskAppConfig]] = None,
         task_app_path: Optional[Path | str] = None,
         port: int = 8114,
         host: str = "127.0.0.1",
         tunnel_mode: str = "quick",
-        api_key: Optional[str] = None,
+        
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
         on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
@@ -185,7 +186,7 @@ class InProcessTaskApp:
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, must be localhost)
             tunnel_mode: Tunnel mode ("quick" for ephemeral tunnels)
-            api_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
+            env_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
             health_check_timeout: Max time to wait for health check in seconds
             auto_find_port: If True, automatically find available port if requested port is busy
             on_start: Optional callback called when task app starts (receives self)
@@ -235,7 +236,7 @@ class InProcessTaskApp:
         self.port = port
         self.host = host
         self.tunnel_mode = tunnel_mode
-        self.api_key = api_key
+        self.env_key = env_key
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
         self.on_start = on_start
@@ -243,7 +244,7 @@ class InProcessTaskApp:
 
         self.url: Optional[str] = None
         self._tunnel_proc: Optional[Any] = None
-        self._app: Optional[ASGIApplication] = None
+        self._app: Optional[ASGIApp] = None
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
 
@@ -345,10 +346,10 @@ class InProcessTaskApp:
         self._server_thread.start()
 
         # 3. Wait for health check
-        api_key = self.api_key or self._get_api_key()
+        env_key = self.env_key
         logger.debug(f"Waiting for health check on {self.host}:{self.port}")
         await wait_for_health_check(
-            self.host, self.port, api_key, timeout=self.health_check_timeout
+            self.host, self.port, env_key, timeout=self.health_check_timeout
         )
         logger.info(f"Health check passed for {self.host}:{self.port}")
 
@@ -367,8 +368,8 @@ class InProcessTaskApp:
         elif mode == "quick":
             # Quick tunnel mode: create tunnel with DNS verification and retry
             logger.info("Opening Cloudflare quick tunnel...")
-            api_key = self.api_key or self._get_api_key()
-            self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(self.port, api_key=api_key)
+            env_key = self.env_key
+            self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(self.port, env_key=env_key)
             
             # Apply hostname override if provided
             if override_host:
@@ -424,19 +425,6 @@ class InProcessTaskApp:
             except Exception as e:
                 logger.debug(f"Error killing process on port {self.port}: {e}")
             self._server_thread = None
-
-    def _get_api_key(self) -> str:
-        """Get API key from environment or default."""
-        import os
-        
-        # Try to load .env file if available
-        try:
-            from dotenv import load_dotenv
-            load_dotenv(override=False)
-        except ImportError:
-            pass
-
-        return os.getenv("ENVIRONMENT_API_KEY", "test")
 
 
 def _setup_signal_handlers() -> None:
