@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -7,7 +5,7 @@ from typing import Any
 
 import click
 
-from .utils import ensure_api_base, fmt_duration, http_get, sleep
+from .utils import fmt_duration, http_get, sleep
 
 
 @dataclass(slots=True)
@@ -18,9 +16,8 @@ class PollOutcome:
 
 class JobPoller:
     def __init__(
-        self, base_url: str, api_key: str, *, interval: float = 5.0, timeout: float = 3600.0
+        self, api_key: str, *, interval: float = 5.0, timeout: float = 3600.0
     ) -> None:
-        self.base_url = ensure_api_base(base_url)
         self.api_key = api_key
         self.interval = interval
         self.timeout = timeout
@@ -38,15 +35,8 @@ class JobPoller:
         click.echo("Polling job status...")
         while elapsed <= self.timeout:
             try:
-                # Normalize URL to avoid double /api/api
-                if self.base_url.endswith("/api") and path.startswith("/api"):
-                    # Remove /api from path since base_url already has it
-                    path_normalized = path[4:].lstrip("/")
-                    url = f"{self.base_url}/{path_normalized}"
-                else:
-                    # Ensure proper path joining
-                    path_clean = path.lstrip("/")
-                    url = f"{self.base_url}/{path_clean}"
+                from synth_ai.urls import BACKEND_BASE
+                url = BACKEND_BASE + path
                 resp = http_get(url, headers=self._headers())
                 info = (
                     resp.json()
