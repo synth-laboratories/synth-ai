@@ -145,6 +145,10 @@ class MIPROConfig(ExtraModel):
     modules: list[MIPROModuleConfig] | list[dict[str, Any]] | None = None
     seeds: MIPROSeedConfig | dict[str, Any] | None = None
 
+    # Proposer configuration
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"  # Effort level for proposer model selection
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"  # Output token limit: RAPID=3000 (gpt-oss-120b only), FAST=10000, SLOW=25000
+
     # Token and budget configuration (mirrors GEPA pattern)
     max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
     max_spend_usd: float | None = None  # Maximum spend in USD
@@ -486,6 +490,8 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "dspy"  # "dspy" or "synth"
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"  # Effort level for proposer model selection
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"  # Output token limit: RAPID=3000 (gpt-oss-120b only), FAST=10000, SLOW=25000
     # Custom metaprompt (optional)
     metaprompt: str | None = None  # Custom metaprompt text to include in mutation prompts
     

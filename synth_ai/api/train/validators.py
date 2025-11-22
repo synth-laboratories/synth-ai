@@ -584,6 +584,34 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     f"  Got: '{proposer_type}'"
                 )
             
+            # Proposer effort validation
+            proposer_effort = str(gepa_config.get("proposer_effort", "LOW")).upper()
+            valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+            if proposer_effort not in valid_effort_levels:
+                errors.append(
+                    f"Invalid proposer_effort: '{proposer_effort}'\n"
+                    f"  Must be one of: {', '.join(sorted(valid_effort_levels))}\n"
+                    f"  Got: '{proposer_effort}'"
+                )
+            
+            # Proposer output tokens validation
+            proposer_output_tokens = str(gepa_config.get("proposer_output_tokens", "FAST")).upper()
+            valid_output_tokens = {"RAPID", "FAST", "SLOW"}
+            if proposer_output_tokens not in valid_output_tokens:
+                errors.append(
+                    f"Invalid proposer_output_tokens: '{proposer_output_tokens}'\n"
+                    f"  Must be one of: {', '.join(sorted(valid_output_tokens))}\n"
+                    f"  Got: '{proposer_output_tokens}'"
+                )
+            
+            # Validate RAPID can only be used with LOW_CONTEXT
+            if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
+                errors.append(
+                    f"Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
+                    f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
+                    f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
+                )
+            
             # Spec validation when proposer_type is "spec"
             if proposer_type == "spec":
                 spec_path = gepa_config.get("spec_path")
@@ -1573,6 +1601,45 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     if meta_max_tokens is not None:
         if not isinstance(meta_max_tokens, int):
             errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
+    
+    # Validate proposer_effort (can be in instructions section or top-level mipro section)
+    instructions_section = mipro_section.get("instructions", {})
+    if not isinstance(instructions_section, dict):
+        instructions_section = {}
+    proposer_effort = str(
+        instructions_section.get("proposer_effort") or 
+        mipro_section.get("proposer_effort") or 
+        "LOW"
+    ).upper()
+    valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+    if proposer_effort not in valid_effort_levels:
+        errors.append(
+            f"❌ Invalid proposer_effort: '{proposer_effort}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_effort_levels))}\n"
+            f"  Got: '{proposer_effort}'"
+        )
+    
+    # Validate proposer_output_tokens (can be in instructions section or top-level mipro section)
+    proposer_output_tokens = str(
+        instructions_section.get("proposer_output_tokens") or 
+        mipro_section.get("proposer_output_tokens") or 
+        "FAST"
+    ).upper()
+    valid_output_tokens = {"RAPID", "FAST", "SLOW"}
+    if proposer_output_tokens not in valid_output_tokens:
+        errors.append(
+            f"❌ Invalid proposer_output_tokens: '{proposer_output_tokens}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_output_tokens))}\n"
+            f"  Got: '{proposer_output_tokens}'"
+        )
+    
+    # Validate RAPID can only be used with LOW_CONTEXT
+    if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
+        errors.append(
+            f"❌ Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
+            f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
+            f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
+        )
         elif meta_max_tokens <= 0:
             errors.append(f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens}")
     
