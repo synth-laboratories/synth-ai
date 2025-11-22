@@ -15,10 +15,8 @@ Example SDK usage:
     print(f"Best score: {result['best_score']}")
 """
 
-from __future__ import annotations
 
 import asyncio
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
@@ -26,7 +24,8 @@ from typing import Any, Callable, Dict, Optional
 from .builders import PromptLearningBuildResult, build_prompt_learning_payload
 from .pollers import JobPoller, PollOutcome
 from .task_app import check_task_app_health
-from .utils import ensure_api_base, http_post
+from .utils import http_post
+from synth_ai.utils import require_keys
 
 
 @dataclass
@@ -34,25 +33,10 @@ class PromptLearningJobConfig:
     """Configuration for a prompt learning job."""
     
     config_path: Path
-    api_key: str
-    task_app_api_key: Optional[str] = None
+    synth_key: str
+    env_key: str
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
-    
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        if not self.config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not self.api_key:
-            raise ValueError("api_key is required")
-        
-        # Get task_app_api_key from environment if not provided
-        if not self.task_app_api_key:
-            self.task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-            if not self.task_app_api_key:
-                raise ValueError(
-                    "task_app_api_key is required (provide explicitly or set ENVIRONMENT_API_KEY env var)"
-                )
 
 
 class PromptLearningJobPoller(JobPoller):
@@ -119,19 +103,15 @@ class PromptLearningJob:
     @classmethod
     def from_config(
         cls,
-        config_path: str | Path,
-        api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
+        *,
+        config_path: Path,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
-    ) -> PromptLearningJob:
+    ) -> "PromptLearningJob":
         """Create a job from a TOML config file.
         
         Args:
             config_path: Path to TOML config file
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
             allow_experimental: Allow experimental models
             overrides: Config overrides
             
@@ -142,59 +122,35 @@ class PromptLearningJob:
             ValueError: If required config is missing
             FileNotFoundError: If config file doesn't exist
         """
-        import os
-                
-        config_path_obj = Path(config_path)
 
-        
-        # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
-                raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
-                )
-        
-        config = PromptLearningJobConfig(
-            config_path=config_path_obj,
-            api_key=api_key,
-            task_app_api_key=task_app_api_key,
+
+        return cls(PromptLearningJobConfig(
+            config_path=config_path,
+            synth_key=require_keys("SYNTH_API_KEY")["SYNTH_API_KEY"],
+            env_key=require_keys("ENVIRONMENT_API_KEY")["ENVIRONMENT_API_KEY"],
             allow_experimental=allow_experimental,
             overrides=overrides or {},
-        )
-        
-        return cls(config)
+        ))
     
     @classmethod
     def from_job_id(
         cls,
         job_id: str,
-        synth_key: Optional[str] = None,
-    ) -> PromptLearningJob:
+    ) -> "PromptLearningJob":
         """Resume an existing job by ID.
         
         Args:
             job_id: Existing job ID
-            backend_url: Backend API URL (defaults to env or production)
-            api_key: API key (defaults to SYNTH_API_KEY env var)
             
         Returns:
             PromptLearningJob instance for the existing job
         """
-        import os
-        
-        # Resolve API key
-        if not synth_key:
-            synth_key = os.environ.get("SYNTH_API_KEY")
-            if not synth_key:
-                raise ValueError(
-                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
-                )
         
         # Create minimal config (we don't need the config file for resuming)
         config = PromptLearningJobConfig(
             config_path=Path("/dev/null"),  # Dummy path
-            api_key=synth_key,
+            synth_key=require_keys("SYNTH_API_KEY")["SYNTH_API_KEY"],
+            env_key=require_keys("ENVIRONMENT_API_KEY")["ENVIRONMENT_API_KEY"],
         )
         
         return cls(config, job_id=job_id)
@@ -234,7 +190,7 @@ class PromptLearningJob:
         build = self._build_payload()
         
         # Health check
-        health = check_task_app_health(build.task_url, self.config.task_app_api_key or "")
+        health = check_task_app_health(build.task_url, self.config.env_key or "")
         if not health.ok:
             raise ValueError(f"Task app health check failed: {health.detail}")
         
@@ -242,7 +198,7 @@ class PromptLearningJob:
         from synth_ai.urls import BACKEND_PO
         url = f"{BACKEND_PO}/online/jobs"
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.synth_key}",
             "Content-Type": "application/json",
         }
         
@@ -255,14 +211,6 @@ class PromptLearningJob:
         
         if resp.status_code not in (200, 201):
             error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
-            if resp.status_code == 404:
-                error_msg += (
-                    f"\n\nPossible causes:"
-                    f"\n1. Backend route /api/prompt-learning/online/jobs not registered"
-                    f"\n2. Backend server needs restart (lazy import may have failed)"
-                    f"\n3. Check backend logs for: 'Failed to import prompt_learning_online_router'"
-                    f"\n4. Verify backend is running at: {self.config.backend_url}"
-                )
             raise RuntimeError(error_msg)
         
         try:
@@ -298,11 +246,7 @@ class PromptLearningJob:
         from synth_ai.learning.prompt_learning_client import PromptLearningClient
         
         async def _fetch() -> Dict[str, Any]:
-            client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
-                timeout=30.0,
-            )
+            client = PromptLearningClient(self.config.synth_key)
             result = await client.get_job(self._job_id)  # type: ignore[arg-type]  # We check None above
             return dict(result) if isinstance(result, dict) else {}
         
@@ -333,8 +277,7 @@ class PromptLearningJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
         
         poller = PromptLearningJobPoller(
-            base_url=self.config.backend_url,
-            api_key=self.config.api_key,
+            api_key=self.config.synth_key,
             interval=interval,
             timeout=timeout,
         )
@@ -363,10 +306,7 @@ class PromptLearningJob:
         from synth_ai.learning.prompt_learning_client import PromptLearningClient
         
         async def _fetch() -> Dict[str, Any]:
-            client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
-            )
+            client = PromptLearningClient(self.config.synth_key)
             results = await client.get_prompts(self._job_id)  # type: ignore[arg-type]  # We check None above
             
             # Convert PromptResults dataclass to dict
@@ -415,10 +355,7 @@ class PromptLearningJob:
         from synth_ai.learning.prompt_learning_client import PromptLearningClient
         
         async def _fetch() -> Optional[str]:
-            client = PromptLearningClient(
-                ensure_api_base(self.config.backend_url),
-                self.config.api_key,
-            )
+            client = PromptLearningClient(self.config.synth_key)
             return await client.get_prompt_text(self._job_id, rank=rank)  # type: ignore[arg-type]  # We check None above
         
         return asyncio.run(_fetch())
@@ -429,4 +366,3 @@ __all__ = [
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
 ]
-
