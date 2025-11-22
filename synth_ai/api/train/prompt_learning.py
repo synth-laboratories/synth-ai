@@ -34,7 +34,6 @@ class PromptLearningJobConfig:
     """Configuration for a prompt learning job."""
     
     config_path: Path
-    backend_url: str
     api_key: str
     task_app_api_key: Optional[str] = None
     allow_experimental: Optional[bool] = None
@@ -44,8 +43,6 @@ class PromptLearningJobConfig:
         """Validate configuration."""
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not self.backend_url:
-            raise ValueError("backend_url is required")
         if not self.api_key:
             raise ValueError("api_key is required")
         
@@ -123,7 +120,6 @@ class PromptLearningJob:
     def from_config(
         cls,
         config_path: str | Path,
-        backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         task_app_api_key: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
@@ -147,17 +143,9 @@ class PromptLearningJob:
             FileNotFoundError: If config file doesn't exist
         """
         import os
-        
-        from synth_ai.config.base_url import get_backend_from_env
-        
+                
         config_path_obj = Path(config_path)
-        
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
+
         
         # Resolve API key
         if not api_key:
@@ -169,7 +157,6 @@ class PromptLearningJob:
         
         config = PromptLearningJobConfig(
             config_path=config_path_obj,
-            backend_url=backend_url,
             api_key=api_key,
             task_app_api_key=task_app_api_key,
             allow_experimental=allow_experimental,
@@ -182,8 +169,7 @@ class PromptLearningJob:
     def from_job_id(
         cls,
         job_id: str,
-        backend_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        synth_key: Optional[str] = None,
     ) -> PromptLearningJob:
         """Resume an existing job by ID.
         
@@ -197,19 +183,10 @@ class PromptLearningJob:
         """
         import os
         
-        from synth_ai.config.base_url import get_backend_from_env
-        
-        # Resolve backend URL
-        if not backend_url:
-            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
-            if not backend_url:
-                base, _ = get_backend_from_env()
-                backend_url = f"{base}/api" if not base.endswith("/api") else base
-        
         # Resolve API key
-        if not api_key:
-            api_key = os.environ.get("SYNTH_API_KEY")
-            if not api_key:
+        if not synth_key:
+            synth_key = os.environ.get("SYNTH_API_KEY")
+            if not synth_key:
                 raise ValueError(
                     "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
@@ -217,8 +194,7 @@ class PromptLearningJob:
         # Create minimal config (we don't need the config file for resuming)
         config = PromptLearningJobConfig(
             config_path=Path("/dev/null"),  # Dummy path
-            backend_url=backend_url,
-            api_key=api_key,
+            api_key=synth_key,
         )
         
         return cls(config, job_id=job_id)
@@ -233,7 +209,6 @@ class PromptLearningJob:
                 )
             
             overrides = self.config.overrides or {}
-            overrides["backend"] = self.config.backend_url
             
             self._build_result = build_prompt_learning_payload(
                 config_path=self.config.config_path,
@@ -264,7 +239,8 @@ class PromptLearningJob:
             raise ValueError(f"Task app health check failed: {health.detail}")
         
         # Submit job
-        create_url = f"{ensure_api_base(self.config.backend_url)}/prompt-learning/online/jobs"
+        from synth_ai.urls import BACKEND_PO
+        url = f"{BACKEND_PO}/online/jobs"
         headers = {
             "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
@@ -273,9 +249,9 @@ class PromptLearningJob:
         # Debug: log the URL being called
         import logging
         logger = logging.getLogger(__name__)
-        logger.debug(f"Submitting job to: {create_url}")
+        logger.debug(f"Submitting job to: {url}")
         
-        resp = http_post(create_url, headers=headers, json_body=build.payload)
+        resp = http_post(url, headers=headers, json_body=build.payload)
         
         if resp.status_code not in (200, 201):
             error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"

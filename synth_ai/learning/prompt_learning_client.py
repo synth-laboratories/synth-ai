@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from .._utils.http import AsyncHttpClient
 from .prompt_learning_types import PromptResults
+from synth_ai.urls import BACKEND_BASE
 
 
 def _validate_job_id(job_id: str) -> None:
@@ -27,7 +28,7 @@ def _validate_job_id(job_id: str) -> None:
 class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
-    def __init__(self, base_url: str, api_key: str, *, timeout: float = 30.0) -> None:
+    def __init__(self, api_key: str, *, timeout: float = 30.0) -> None:
         """Initialize the prompt learning client.
         
         Args:
@@ -35,12 +36,6 @@ class PromptLearningClient:
             api_key: API key for authentication
             timeout: Request timeout in seconds
         """
-        base_url = base_url.rstrip("/")
-        # Validate base_url format - warn if it already ends with /api (will be handled by AsyncHttpClient)
-        if base_url.endswith("/api"):
-            # This is OK - AsyncHttpClient._abs() will handle double /api/api paths
-            pass
-        self._base_url = base_url
         self._api_key = api_key
         self._timeout = timeout
 
@@ -57,7 +52,8 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        
+        async with AsyncHttpClient(BACKEND_BASE, self._api_key, timeout=self._timeout) as http:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
@@ -78,7 +74,7 @@ class PromptLearningClient:
         """
         _validate_job_id(job_id)
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(BACKEND_BASE, self._api_key, timeout=self._timeout) as http:
             js = await http.get(
                 f"/api/prompt-learning/online/jobs/{job_id}/events",
                 params=params
@@ -399,7 +395,7 @@ class PromptLearningClient:
 
 
 # Synchronous wrapper for convenience
-def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
+def get_prompts(job_id: str, api_key: str) -> PromptResults:
     """Synchronous wrapper to get prompts from a job.
     
     Args:
@@ -412,11 +408,11 @@ def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
     """
     import asyncio
     
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(api_key)
     return asyncio.run(client.get_prompts(job_id))
 
 
-def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> Optional[str]:
+def get_prompt_text(job_id: str, api_key: str, rank: int = 1) -> Optional[str]:
     """Synchronous wrapper to get prompt text by rank.
     
     Args:
@@ -430,11 +426,11 @@ def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> 
     """
     import asyncio
     
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(api_key)
     return asyncio.run(client.get_prompt_text(job_id, rank))
 
 
-def get_scoring_summary(job_id: str, base_url: str, api_key: str) -> Dict[str, Any]:
+def get_scoring_summary(job_id: str, api_key: str) -> Dict[str, Any]:
     """Synchronous wrapper to get scoring summary.
     
     Args:
@@ -447,6 +443,5 @@ def get_scoring_summary(job_id: str, base_url: str, api_key: str) -> Dict[str, A
     """
     import asyncio
     
-    client = PromptLearningClient(base_url, api_key)
+    client = PromptLearningClient(api_key)
     return asyncio.run(client.get_scoring_summary(job_id))
-

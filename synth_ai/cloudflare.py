@@ -23,7 +23,7 @@ import httpx
 import requests
 from starlette.types import ASGIApp
 from synth_ai.cfgs import CFDeployCfg
-from synth_ai.urls import BACKEND_URL_BASE
+from synth_ai.urls import BACKEND_BASE
 from synth_ai.utils import log_error, log_event
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
@@ -87,7 +87,7 @@ async def fetch_managed_tunnels(synth_api_key: str) -> list[ManagedTunnelRecord]
     Raises:
         RuntimeError: If backend returns an error or unexpected payload.
     """
-    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+    url = f"{BACKEND_BASE}/api/v1/tunnels/"
     headers = {"Authorization": f"Bearer {synth_api_key}"}
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -1184,7 +1184,7 @@ async def create_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
+    url = f"{BACKEND_BASE}/api/v1/tunnels/"
 
     try:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:

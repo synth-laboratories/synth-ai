@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from synth_ai.cli.commands.scan.health_checker import check_app_health, extract_app_info
 from synth_ai.cli.commands.scan.models import ScannedApp
-from synth_ai.urls import BACKEND_URL_BASE
+from synth_ai.urls import BACKEND_BASE
 
 # Regex for parsing quick tunnel URLs from cloudflared output
 _QUICK_TUNNEL_URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
@@ -193,7 +193,7 @@ async def fetch_managed_tunnels(api_key: str | None) -> list[dict[str, Any]]:
             headers["Authorization"] = f"Bearer {api_key}"
 
         async with httpx.AsyncClient(timeout=5.0) as client:
-            url = f"{BACKEND_URL_BASE.rstrip('/')}/api/v1/tunnels/"
+            url = f"{BACKEND_BASE.rstrip('/')}/api/v1/tunnels/"
             resp = await client.get(url, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
