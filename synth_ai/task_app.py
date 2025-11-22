@@ -1,14 +1,14 @@
-import tomllib
-from dotenv import load_dotenv
+import asyncio
+import sys
+import time
 from pathlib import Path
+
+from dotenv import load_dotenv
+from starlette.types import ASGIApp
 from synth_ai.task import InProcessTaskApp
 from synth_ai.utils import require_keys
 from synth_ai.utils.paths import print_paths_formatted
 from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
-from starlette.types import ASGIApp
-import sys
-import asyncio
-import time
 
 
 async def run_task_app(
@@ -28,7 +28,7 @@ async def run_task_app(
         print("Run `uvx synth-ai setup` to load required environment variables.")
         sys.exit(1)
     try:
-        async with InProcessTaskApp(app=task_app) as ta:
+        async with InProcessTaskApp(app=task_app):
             if not train_config:
                 available_cfgs = find_train_cfgs_in_cwd()
                 if len(available_cfgs) == 1:
