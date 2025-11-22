@@ -12,6 +12,13 @@ from .paths import REPO_ROOT, get_env_file_paths, get_home_config_file_paths
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
 
 
+def require_keys(*keys: str) -> dict[str, str]:
+    missing = [k for k in keys if k not in os.environ]
+    if missing:
+        raise RuntimeError(f"Missing environment variables: {', '.join(missing)}")
+    return {k: os.environ[k] for k in keys}
+
+
 def get_synth_and_env_keys(env_file: Path | None) -> tuple[str, str]:
     file_synth_api_key = None
     file_env_api_key = None
