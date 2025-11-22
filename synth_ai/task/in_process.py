@@ -1,6 +1,5 @@
 """In-process task app support for local development and demos."""
 
-from __future__ import annotations
 
 import asyncio
 import logging
@@ -19,6 +18,7 @@ from synth_ai.cloudflare import (
     wait_for_health_check,
 )
 from synth_ai.task.server import TaskAppConfig, create_task_app
+from synth_ai.utils import require_keys
 from synth_ai.utils.apps.common import get_asgi_app, load_module
 from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
 from starlette.types import ASGIApp
@@ -28,7 +28,7 @@ import uvicorn
 logger = logging.getLogger(__name__)
 
 # Global registry for signal handlers
-_registered_instances: set[InProcessTaskApp] = set()
+_registered_instances: set["InProcessTaskApp"] = set()
 
 
 def _find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
@@ -162,7 +162,7 @@ class InProcessTaskApp:
         self,
         *,
         app: ASGIApp,
-        env_key: str,
+        env_key: str | None = None,
         config: Optional[TaskAppConfig] = None,
         config_factory: Optional[Callable[[], TaskAppConfig]] = None,
         task_app_path: Optional[Path | str] = None,
@@ -172,8 +172,8 @@ class InProcessTaskApp:
         
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
-        on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
-        on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
+        on_start: Optional[Callable[["InProcessTaskApp"], None]] = None,
+        on_stop: Optional[Callable[["InProcessTaskApp"], None]] = None,
     ):
         """
         Initialize in-process task app.
@@ -236,7 +236,7 @@ class InProcessTaskApp:
         self.port = port
         self.host = host
         self.tunnel_mode = tunnel_mode
-        self.env_key = env_key
+        self.env_key = require_keys("ENVIRONMENT_API_KEY")["ENVIRONMENT_API_KEY"]
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
         self.on_start = on_start
@@ -248,7 +248,7 @@ class InProcessTaskApp:
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
 
-    async def __aenter__(self) -> InProcessTaskApp:
+    async def __aenter__(self) -> "InProcessTaskApp":
         """Start task app and tunnel."""
         logger.info(f"Starting in-process task app on {self.host}:{self.port}")
 
