@@ -28,7 +28,7 @@ def _validate_job_id(job_id: str) -> None:
 class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
-    def __init__(self, api_key: str, *, timeout: float = 30.0) -> None:
+    def __init__(self, synth_key: str, *, timeout: float = 30.0) -> None:
         """Initialize the prompt learning client.
         
         Args:
@@ -36,7 +36,7 @@ class PromptLearningClient:
             api_key: API key for authentication
             timeout: Request timeout in seconds
         """
-        self._api_key = api_key
+        self._synth_key = synth_key
         self._timeout = timeout
 
     async def get_job(self, job_id: str) -> Dict[str, Any]:
@@ -53,7 +53,7 @@ class PromptLearningClient:
         """
         _validate_job_id(job_id)
         
-        async with AsyncHttpClient(BACKEND_BASE, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(BACKEND_BASE, self._synth_key, timeout=self._timeout) as http:
             return await http.get(f"/api/prompt-learning/online/jobs/{job_id}")
 
     async def get_events(
@@ -74,7 +74,7 @@ class PromptLearningClient:
         """
         _validate_job_id(job_id)
         params = {"since_seq": since_seq, "limit": limit}
-        async with AsyncHttpClient(BACKEND_BASE, self._api_key, timeout=self._timeout) as http:
+        async with AsyncHttpClient(BACKEND_BASE, self._synth_key, timeout=self._timeout) as http:
             js = await http.get(
                 f"/api/prompt-learning/online/jobs/{job_id}/events",
                 params=params
