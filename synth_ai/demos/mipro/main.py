@@ -29,7 +29,7 @@ import toml
 from dotenv import load_dotenv
 from synth_ai.api.train.prompt_learning import PromptLearningJob
 from synth_ai.task import InProcessTaskApp
-from synth_ai.urls import BACKEND_URL_BASE
+from synth_ai.urls import BACKEND_BASE
 
 CURRENT_DIR = Path(__file__).parent
 TASK_APP = CURRENT_DIR / "task_app.py"
@@ -82,10 +82,9 @@ async def main():
         async with InProcessTaskApp(
             task_app_path=TASK_APP,
             port=8114,
-            api_key=env_key,
+            env_key=env_key,
         ) as task_app:
             print(f"✅ Task app running at: {task_app.url}")
-            print("✅ Cloudflare tunnel active")
             print()
 
             print("=" * 80)
@@ -111,7 +110,6 @@ async def main():
             try:
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
-                    backend_url=BACKEND_URL_BASE,
                     api_key=synth_key,
                     task_app_api_key=env_key,
                 )
@@ -184,7 +182,7 @@ async def main():
             from synth_ai.learning.prompt_learning_client import PromptLearningClient
 
             client = PromptLearningClient(
-                ensure_api_base(BACKEND_URL_BASE),
+                ensure_api_base(BACKEND_BASE),
                 synth_key,
             )
             prompt_results = await client.get_prompts(job._job_id)
@@ -235,10 +233,9 @@ async def main():
                 print()
 
     except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\nError: {e}")
         import traceback
 
         traceback.print_exc()
@@ -247,9 +244,6 @@ async def main():
     print("=" * 80)
     print("✅ In-process MIPRO demo complete!")
     print("=" * 80 + "\n")
-
-
-
 
 
 if __name__ == "__main__":
@@ -264,7 +258,8 @@ if __name__ == "__main__":
     _load_dotenv(args)
     try:
         _validate_env()
-    except Exception:
+    except Exception as exc:
+        print(f"{exc}", file=sys.stderr)
         sys.exit(1)
     asyncio.run(main())
     sys.exit(0)
