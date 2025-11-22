@@ -19,6 +19,7 @@ from .cli import (
 from .env import (
     mask_str,
     read_env_var_from_file,
+    require_keys,
     resolve_env_var,
     write_env_var_to_dotenv,
     write_env_var_to_json,
@@ -144,6 +145,7 @@ __all__ = [
     "read_env_var_from_file",
     "read_task_app_config",
     "record_task_app",
+    "require_keys",
     "resolve_env_var",
     "resolve_task_app_entry",
     "save_user_config",
