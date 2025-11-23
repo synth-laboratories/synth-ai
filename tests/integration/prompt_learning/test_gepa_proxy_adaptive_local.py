@@ -17,10 +17,31 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
 from typing import Sequence, Tuple
+
+# Load environment variables from .env files if available
+try:
+    from dotenv import load_dotenv
+    
+    # Try synth-ai/.env
+    synth_ai_root = Path(__file__).resolve().parents[3]
+    synth_ai_env = synth_ai_root / ".env"
+    if synth_ai_env.exists():
+        load_dotenv(synth_ai_env, override=False)
+    
+    # Try synth-ai/examples/rl/.env
+    rl_env = synth_ai_root / "examples" / "rl" / ".env"
+    if rl_env.exists():
+        load_dotenv(rl_env, override=False)
+        
+except ImportError:
+    pass  # dotenv not available, skip
+except Exception:
+    pass  # Best effort
 
 # Configure logging
 logging.basicConfig(
@@ -138,10 +159,16 @@ def main():
     print()
 
     # Create job using synth-ai SDK
-    # For local backend, use dummy API keys if not set
-    import os
-    api_key = os.environ.get("SYNTH_API_KEY", "local-test-key")
-    task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY", "local-test-key")
+    # Load API keys from environment (loaded from .env files above)
+    api_key = os.environ.get("SYNTH_API_KEY")
+    task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    
+    if not api_key:
+        print("WARNING: SYNTH_API_KEY not found in environment. Using dummy key.")
+        api_key = "local-test-key"
+    if not task_app_api_key:
+        print("WARNING: ENVIRONMENT_API_KEY not found in environment. Using dummy key.")
+        task_app_api_key = "local-test-key"
     
     print("Creating prompt learning job...")
     try:
