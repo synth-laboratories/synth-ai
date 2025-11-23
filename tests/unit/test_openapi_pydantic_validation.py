@@ -6,7 +6,6 @@ with Pydantic models in synth_ai/task/contracts.py.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -16,11 +15,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from synth_ai.task.contracts import (  # noqa: E402
+    RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RolloutTrajectory,
     RolloutStep,
-    RolloutMetrics,
+    RolloutTrajectory,
     TaskInfo,
 )
 
@@ -201,7 +200,7 @@ class TestOpenAPIPydanticValidation:
 
     def test_contracts_module_importable(self):
         """Test that contracts module can be imported."""
-        from synth_ai.contracts import get_task_app_contract, TASK_APP_CONTRACT_PATH
+        from synth_ai.contracts import TASK_APP_CONTRACT_PATH, get_task_app_contract
         
         assert callable(get_task_app_contract)
         assert TASK_APP_CONTRACT_PATH.exists()
