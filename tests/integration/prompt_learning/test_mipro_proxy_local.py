@@ -264,88 +264,160 @@ def main():
             # Extract metrics from results
             if results:
                 print()
-                print("Job Results:")
+                print("=" * 80)
+                print("Metrics Report")
                 print("-" * 80)
 
                 # Extract metrics if available
                 metrics_rows: list[Tuple[str, str]] = []
 
                 # Basic job info
-                metrics_rows.append(("Job ID", job_id))
-                metrics_rows.append(("Status", final_status_value))
-                metrics_rows.append(("Total Time", f"{time.time() - start_time:.1f}s"))
+                elapsed_time = time.time() - start_time
+                metrics_rows.append(("Total Time", f"{elapsed_time:.1f}s"))
 
                 # Try to extract optimization metrics from results
                 if isinstance(results, dict):
                     best_score = results.get("best_score") or results.get("final_score")
                     baseline_score = results.get("baseline_score")
-                    if best_score is not None:
-                        metrics_rows.append(("Best Score", _fmt_float(best_score, 4)))
+                    
                     if baseline_score is not None:
                         metrics_rows.append(("Baseline Score", _fmt_float(baseline_score, 4)))
-                        if best_score is not None:
+                    if best_score is not None:
+                        metrics_rows.append(("Final Score", _fmt_float(best_score, 4)))
+                        if baseline_score is not None:
                             lift = best_score - baseline_score
                             metrics_rows.append(("Lift", f"{lift:+.4f}"))
 
                     # Proxy model stats
-                    proxy_stats = results.get("proxy_stats") or results.get("proxy_models")
+                    proxy_stats = results.get("proxy_stats") or results.get("proxy_models") or results.get("proxy")
                     if proxy_stats:
-                        hi_count = proxy_stats.get("hi_count", 0)
-                        lo_count = proxy_stats.get("lo_count", 0)
-                        both_count = proxy_stats.get("both_count", 0)
+                        hi_count = proxy_stats.get("hi_count", proxy_stats.get("total_hi", 0))
+                        lo_count = proxy_stats.get("lo_count", proxy_stats.get("total_lo", 0))
+                        both_count = proxy_stats.get("both_count", proxy_stats.get("total_both", 0))
                         total_decisions = hi_count + lo_count + both_count
                         if total_decisions > 0:
+                            hi_pct = (hi_count / total_decisions) * 100
+                            lo_pct = (lo_count / total_decisions) * 100
+                            both_pct = (both_count / total_decisions) * 100
+                            metrics_rows.append(
+                                (
+                                    "Proxy Seed Decisions",
+                                    f"HI-only: {hi_count}/{total_decisions} ({hi_pct:.1f}%), "
+                                    f"LO-only: {lo_count}/{total_decisions} ({lo_pct:.1f}%), "
+                                    f"BOTH: {both_count}/{total_decisions} ({both_pct:.1f}%)",
+                                )
+                            )
                             metrics_rows.append(
                                 (
                                     "Proxy Decisions",
-                                    f"HI: {hi_count}, LO: {lo_count}, BOTH: {both_count}",
+                                    f"HI-only: {hi_count}, LO-only: {lo_count}, BOTH: {both_count} (total: {total_decisions})",
                                 )
                             )
-                        net_gain = proxy_stats.get("net_gain_usd")
+                        
+                        # Proxy evaluations
+                        hi_evals = proxy_stats.get("hi_evals", hi_count + both_count)
+                        lo_evals = proxy_stats.get("lo_evals", lo_count + both_count)
+                        metrics_rows.append(
+                            (
+                                "Proxy Evaluations",
+                                f"HI evals: {hi_evals}, LO evals: {lo_evals} (BOTH counts as both)",
+                            )
+                        )
+                        
+                        net_gain = proxy_stats.get("net_gain_usd") or proxy_stats.get("total_net_gain_usd")
                         if net_gain is not None:
-                            metrics_rows.append(("Proxy Net Gain", f"${net_gain:.4f}"))
+                            if net_gain >= 0:
+                                metrics_rows.append(("Proxy Net Gain (USD)", f"${net_gain:.4f} (saved)"))
+                            else:
+                                metrics_rows.append(("Proxy Net Gain (USD)", f"-${abs(net_gain):.4f} (cost)"))
 
                         # Correlation stats
-                        r2 = proxy_stats.get("r2")
-                        pearson = proxy_stats.get("pearson")
+                        corr_stats = proxy_stats.get("correlation") or {}
+                        r2 = corr_stats.get("r2") or proxy_stats.get("r2")
+                        pearson = corr_stats.get("pearson") or corr_stats.get("correlation") or proxy_stats.get("pearson")
+                        rmse = corr_stats.get("rmse") or proxy_stats.get("rmse")
+                        n_pairs = corr_stats.get("n_pairs") or proxy_stats.get("n_pairs")
+                        mean_lo = corr_stats.get("mean_lo") or proxy_stats.get("mean_lo")
+                        mean_hi = corr_stats.get("mean_hi") or proxy_stats.get("mean_hi")
+                        
                         if r2 is not None:
-                            metrics_rows.append(("Proxy R²", _fmt_float(r2, 4)))
+                            metrics_rows.append(("Proxy Correlation (R²)", _fmt_float(r2, 4)))
                         if pearson is not None:
-                            metrics_rows.append(("Proxy Pearson", _fmt_float(pearson, 4)))
+                            metrics_rows.append(("Proxy Correlation (Pearson)", _fmt_float(pearson, 4)))
+                        if rmse is not None:
+                            metrics_rows.append(("Proxy Correlation (RMSE)", _fmt_float(rmse, 4)))
+                        if n_pairs is not None:
+                            metrics_rows.append(("Proxy Correlation Pairs", str(n_pairs)))
+                        if mean_lo is not None and mean_hi is not None:
+                            metrics_rows.append(("Proxy Score Means", f"LO: {mean_lo:.3f}, HI: {mean_hi:.3f}"))
 
                     # Adaptive pool stats
-                    adaptive_pool_stats = results.get("adaptive_pool_stats")
+                    adaptive_pool_stats = results.get("adaptive_pool_stats") or results.get("adaptive_pool")
                     if adaptive_pool_stats:
-                        net_gain = adaptive_pool_stats.get("net_gain_usd")
+                        net_gain = adaptive_pool_stats.get("net_gain_usd") or adaptive_pool_stats.get("total_net_gain_usd")
                         if net_gain is not None:
-                            metrics_rows.append(("Adaptive Pool Net Gain", f"${net_gain:.4f}"))
+                            if net_gain >= 0:
+                                metrics_rows.append(("Adaptive Pool Net Gain (USD)", f"${net_gain:.4f} (saved)"))
+                            else:
+                                metrics_rows.append(("Adaptive Pool Net Gain (USD)", f"-${abs(net_gain):.4f} (cost)"))
+                        
+                        effective_size = adaptive_pool_stats.get("effective_size")
+                        if effective_size is not None:
+                            metrics_rows.append(("Adaptive Pool Effective Size", f"{effective_size:.1f} seeds"))
+                        pool_init_size = adaptive_pool_stats.get("pool_init_size")
+                        pool_final_size = adaptive_pool_stats.get("pool_final_size")
+                        if pool_init_size is not None:
+                            metrics_rows.append(("Adaptive Pool Initial Size", f"{pool_init_size} seeds"))
+                        if pool_final_size is not None:
+                            metrics_rows.append(("Adaptive Pool Final Size", f"{pool_final_size} seeds"))
 
                     # Cost stats
-                    cost_stats = results.get("cost_stats") or results.get("costs")
+                    cost_stats = results.get("cost_stats") or results.get("costs") or results.get("cost")
                     if cost_stats:
-                        total_cost = cost_stats.get("total_cost_usd")
-                        rollout_cost = cost_stats.get("rollout_cost_usd")
-                        proposal_cost = cost_stats.get("proposal_cost_usd")
+                        total_cost = cost_stats.get("total_cost_usd") or cost_stats.get("total")
+                        rollout_cost = cost_stats.get("rollout_cost_usd") or cost_stats.get("rollout")
+                        proposal_cost = cost_stats.get("proposal_cost_usd") or cost_stats.get("proposal")
                         if total_cost is not None:
-                            metrics_rows.append(("Total Cost", f"${total_cost:.4f}"))
+                            metrics_rows.append(("Total Cost (USD)", f"${total_cost:.4f}"))
                         if rollout_cost is not None:
-                            metrics_rows.append(("Rollout Cost", f"${rollout_cost:.4f}"))
+                            metrics_rows.append(("Rollout Cost (USD)", f"${rollout_cost:.4f}"))
                         if proposal_cost is not None:
-                            metrics_rows.append(("Proposal Cost", f"${proposal_cost:.4f}"))
+                            metrics_rows.append(("Proposal Cost (USD)", f"${proposal_cost:.4f}"))
+                    
+                    # Token stats
+                    token_stats = results.get("token_stats") or results.get("tokens")
+                    if token_stats:
+                        total_tokens = token_stats.get("total") or token_stats.get("total_tokens")
+                        hi_tokens = token_stats.get("hi") or token_stats.get("hi_tokens")
+                        lo_tokens = token_stats.get("lo") or token_stats.get("lo_tokens")
+                        if total_tokens is not None:
+                            metrics_rows.append(("Rollout Tokens (Total)", _fmt_int(total_tokens)))
+                        if hi_tokens is not None:
+                            metrics_rows.append(("Rollout Tokens (HI)", _fmt_int(hi_tokens)))
+                        if lo_tokens is not None:
+                            metrics_rows.append(("Rollout Tokens (LO/Proxy)", _fmt_int(lo_tokens)))
+                    
+                    # Total net gain
+                    total_net_gain = results.get("total_net_gain_usd") or results.get("net_gain")
+                    if total_net_gain is not None:
+                        if total_net_gain >= 0:
+                            metrics_rows.append(("Total Net Gain (USD)", f"${total_net_gain:.4f} (saved)"))
+                        else:
+                            metrics_rows.append(("Total Net Gain (USD)", f"-${abs(total_net_gain):.4f} (cost)"))
 
                 if metrics_rows:
                     print()
                     _print_metrics_table(metrics_rows)
                     print()
-
-                # Print full results if available
-                print("Full Results:")
-                print("-" * 80)
-                import json
-
-                print(json.dumps(results, indent=2, default=str))
-            else:
-                print("No results available")
+                else:
+                    print("No metrics available in results")
+                    print()
+                
+                # Print summary
+                print("=" * 80)
+                print(f"Job ID: {job_id}")
+                print(f"Status: {final_status_value}")
+                print("=" * 80)
 
         else:
             print(f"Job submitted. Use --poll to wait for completion.")
