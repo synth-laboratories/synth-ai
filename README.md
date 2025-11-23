@@ -193,6 +193,35 @@ When you run `uvx synth-ai setup` (or legacy `uvx synth-ai rl_demo setup`):
 
 ---
 
+## 🌍 Language-Agnostic: Build Task Apps in Any Language
+
+**Synth works with any programming language.** You don't need Python to build Task Apps or run prompt optimization. Implement the OpenAPI contract in your preferred language and start optimizing.
+
+### Supported Languages
+
+We provide complete, tested examples in:
+- **Rust** - Fast, type-safe implementation with Axum
+- **Go** - Zero dependencies, single static binary
+- **TypeScript** - Works with Node.js, Deno, Bun, and Cloudflare Workers
+- **Zig** - Minimal binaries, trivial cross-compilation
+
+**👉 See all examples:** [`examples/polyglot/`](examples/polyglot/)
+
+### How It Works
+
+Task Apps implement a simple HTTP contract:
+- `GET /health` - Health check
+- `POST /rollout` - Evaluate prompts and return rewards
+- `GET /task_info` - (Optional) Dataset metadata
+
+The optimizer calls your endpoints with candidate prompts, and you return rewards. That's it—no Python required!
+
+**📖 Full guide:** [Polyglot Task Apps Documentation](https://docs.usesynth.ai/prompt-optimization/polyglot-task-apps)  
+**📋 OpenAPI Contract:** [`synth_ai/contracts/task_app.yaml`](synth_ai/contracts/task_app.yaml)  
+**🔧 CLI Access:** `synth contracts show task-app` or `synth contracts path task-app`
+
+---
+
 ## 🎯 Prompt Optimization
 
 Automatically optimize prompts for classification, reasoning, and instruction-following tasks using evolutionary algorithms. Synth supports two state-of-the-art algorithms: **GEPA** (Genetic Evolution of Prompt Architectures) and **MIPRO** (Meta-Instruction PROposer).
