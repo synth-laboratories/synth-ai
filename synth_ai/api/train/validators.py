@@ -1939,8 +1939,16 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
             f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
         )
-        elif meta_max_tokens <= 0:
-            errors.append(f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens}")
+    
+    # Validate meta_max_tokens if present
+    meta_max_tokens = mipro_section.get("meta_model_max_tokens")
+    if meta_max_tokens is not None:
+        try:
+            meta_max_tokens_val = int(meta_max_tokens)
+            if meta_max_tokens_val <= 0:
+                errors.append(f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens_val}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
     
     # Validate generate_at_iterations
     generate_at_iterations = mipro_section.get("generate_at_iterations")
