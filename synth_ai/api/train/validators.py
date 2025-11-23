@@ -85,6 +85,166 @@ def _is_supported_google_model(model: str) -> bool:
     return model_lower in {m.lower() for m in GOOGLE_SUPPORTED_MODELS}
 
 
+def _validate_adaptive_pool_config(
+    adaptive_pool_section: dict[str, Any],
+    prefix: str,  # e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool"
+    errors: list[str],
+) -> None:
+    """Validate adaptive_pool configuration section.
+    
+    Validates all fields in adaptive_pool config including:
+    - Level presets (NONE, LOW, MODERATE, HIGH)
+    - Numeric fields with min/max constraints
+    - Relationship constraints (pool_init_size >= pool_min_size >= anchor_size)
+    - String enum fields (anchor_selection_method, exploration_strategy, etc.)
+    - Heat-up phase configuration
+    
+    Args:
+        adaptive_pool_section: Dict containing adaptive_pool config with fields:
+            - level: Preset level (NONE, LOW, MODERATE, HIGH)
+            - anchor_size: Number of anchor examples (always evaluated)
+            - pool_init_size: Initial pool size
+            - pool_min_size: Target minimum pool size after annealing
+            - warmup_iters: Iterations before starting annealing
+            - anneal_stop_iter: Iteration when pool reaches min_size
+            - pool_update_period: Update informativeness every N generations
+            - min_evals_per_example: Min evals before computing informativeness
+            - k_info_prompts: Number of prompts for informativeness
+            - info_buffer_factor: Buffer factor (0.0-1.0) for preserving info
+            - info_epsilon: Epsilon for informativeness calculations
+            - anchor_selection_method: "random" or "clustering"
+            - exploration_strategy: "random" or "diversity"
+            - heatup_trigger: "after_min_size", "immediate", or "every_N_trials_after_min"
+            - heatup_schedule: "repeat" or "once"
+            - heatup_size: Number of seeds to add during heat-up
+            - heatup_cooldown_trials: Trials to wait before cooling down
+            - heatup_reserve_pool: Optional list of seed IDs for heat-up
+        prefix: Prefix for error messages (e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool")
+        errors: List to append validation errors to
+    """
+    if not isinstance(adaptive_pool_section, dict):
+        errors.append(f"❌ {prefix} must be a table/dict when provided")
+        return
+    
+    # Validate level
+    level = adaptive_pool_section.get("level")
+    if level is not None:
+        valid_levels = {"NONE", "LOW", "MODERATE", "HIGH"}
+        if str(level).upper() not in valid_levels:
+            errors.append(
+                f"❌ {prefix}.level must be one of {valid_levels}, got '{level}'"
+            )
+    
+    # Validate numeric fields
+    for field, min_val in [
+        ("anchor_size", 0),
+        ("pool_init_size", 0),
+        ("pool_min_size", 0),
+        ("warmup_iters", 0),
+        ("anneal_stop_iter", 0),
+        ("pool_update_period", 1),
+        ("min_evals_per_example", 1),
+        ("k_info_prompts", 0),
+    ]:
+        val = adaptive_pool_section.get(field)
+        if val is not None:
+            try:
+                ival = int(val)
+                if ival < min_val:
+                    errors.append(f"❌ {prefix}.{field} must be >= {min_val}, got {ival}")
+            except (TypeError, ValueError):
+                errors.append(f"❌ {prefix}.{field} must be an integer, got {type(val).__name__}")
+    
+    # Validate pool_init_size >= pool_min_size if both provided
+    pool_init = adaptive_pool_section.get("pool_init_size")
+    pool_min = adaptive_pool_section.get("pool_min_size")
+    if pool_init is not None and pool_min is not None:
+        try:
+            pool_init_int = int(pool_init)
+            pool_min_int = int(pool_min)
+            if pool_init_int < pool_min_int:
+                errors.append(
+                    f"❌ {prefix}.pool_init_size ({pool_init}) must be >= pool_min_size ({pool_min})"
+                )
+        except (TypeError, ValueError):
+            pass  # Already validated above
+    
+    # Validate pool_min_size >= anchor_size if both provided
+    anchor_size = adaptive_pool_section.get("anchor_size")
+    if pool_min is not None and anchor_size is not None:
+        try:
+            pool_min_int = int(pool_min)
+            anchor_size_int = int(anchor_size)
+            if pool_min_int < anchor_size_int:
+                errors.append(
+                    f"❌ {prefix}.pool_min_size ({pool_min}) must be >= anchor_size ({anchor_size})"
+                )
+        except (TypeError, ValueError):
+            pass  # Already validated above
+    
+    # Validate info_buffer_factor and info_epsilon
+    for field, min_val, max_val in [("info_buffer_factor", 0.0, 1.0), ("info_epsilon", 0.0, None)]:
+        val = adaptive_pool_section.get(field)
+        if val is not None:
+            try:
+                fval = float(val)
+                if fval < min_val:
+                    errors.append(f"❌ {prefix}.{field} must be >= {min_val}, got {fval}")
+                if max_val is not None and fval > max_val:
+                    errors.append(f"❌ {prefix}.{field} must be <= {max_val}, got {fval}")
+            except (TypeError, ValueError):
+                errors.append(f"❌ {prefix}.{field} must be numeric, got {type(val).__name__}")
+    
+    # Validate string fields
+    anchor_method = adaptive_pool_section.get("anchor_selection_method")
+    if anchor_method is not None and anchor_method not in ("random", "clustering"):
+        errors.append(
+            f"❌ {prefix}.anchor_selection_method must be 'random' or 'clustering', got '{anchor_method}'"
+        )
+    
+    exploration_strategy = adaptive_pool_section.get("exploration_strategy")
+    if exploration_strategy is not None and exploration_strategy not in ("random", "diversity"):
+        errors.append(
+            f"❌ {prefix}.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
+        )
+    
+    # Validate heatup fields
+    heatup_trigger = adaptive_pool_section.get("heatup_trigger")
+    if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate", "every_N_trials_after_min"):
+        errors.append(
+            f"❌ {prefix}.heatup_trigger must be 'after_min_size', 'immediate', or 'every_N_trials_after_min', got '{heatup_trigger}'"
+        )
+    
+    heatup_schedule = adaptive_pool_section.get("heatup_schedule")
+    if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
+        errors.append(
+            f"❌ {prefix}.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
+        )
+    
+    heatup_size = adaptive_pool_section.get("heatup_size")
+    if heatup_size is not None:
+        try:
+            if int(heatup_size) <= 0:
+                errors.append(f"❌ {prefix}.heatup_size must be > 0, got {heatup_size}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ {prefix}.heatup_size must be an integer, got {type(heatup_size).__name__}")
+    
+    heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
+    if heatup_cooldown_trials is not None:
+        try:
+            if int(heatup_cooldown_trials) < 0:
+                errors.append(f"❌ {prefix}.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ {prefix}.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
+    
+    heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
+    if heatup_reserve_pool is not None:
+        if not isinstance(heatup_reserve_pool, list):
+            errors.append(f"❌ {prefix}.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
+        elif not all(isinstance(s, int) for s in heatup_reserve_pool):
+            errors.append(f"❌ {prefix}.heatup_reserve_pool must contain only integers")
+
+
 def _validate_model_for_provider(model: str, provider: str, field_name: str, *, allow_nano: bool = False) -> list[str]:
     """
     Validate that a model is supported for the given provider.
@@ -1542,100 +1702,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
     # Validate adaptive_pool section (GEPA-specific)
     adaptive_pool_section = gepa_section.get("adaptive_pool")
     if adaptive_pool_section:
-        if not isinstance(adaptive_pool_section, dict):
-            errors.append("❌ gepa.adaptive_pool must be a table/dict when provided")
-        else:
-            level = adaptive_pool_section.get("level")
-            if level is not None:
-                valid_levels = {"NONE", "LOW", "MODERATE", "HIGH"}
-                if str(level).upper() not in valid_levels:
-                    errors.append(
-                        f"❌ gepa.adaptive_pool.level must be one of {valid_levels}, got '{level}'"
-                    )
-            # Validate numeric fields
-            for field, min_val in [
-                ("anchor_size", 0),
-                ("pool_init_size", 0),
-                ("pool_min_size", 0),
-                ("warmup_iters", 0),
-                ("anneal_stop_iter", 0),
-                ("pool_update_period", 1),
-                ("min_evals_per_example", 1),
-                ("k_info_prompts", 0),
-            ]:
-                val = adaptive_pool_section.get(field)
-                if val is not None:
-                    try:
-                        ival = int(val)
-                        if ival < min_val:
-                            errors.append(f"❌ gepa.adaptive_pool.{field} must be >= {min_val}, got {ival}")
-                    except (TypeError, ValueError):
-                        errors.append(f"❌ gepa.adaptive_pool.{field} must be an integer, got {type(val).__name__}")
-            # Validate pool_init_size >= pool_min_size if both provided
-            pool_init = adaptive_pool_section.get("pool_init_size")
-            pool_min = adaptive_pool_section.get("pool_min_size")
-            if pool_init is not None and pool_min is not None:
-                try:
-                    if int(pool_init) < int(pool_min):
-                        errors.append(
-                            f"❌ gepa.adaptive_pool.pool_init_size ({pool_init}) must be >= pool_min_size ({pool_min})"
-                        )
-                except (TypeError, ValueError):
-                    pass  # Already validated above
-            # Validate info_buffer_factor and info_epsilon
-            for field, min_val, max_val in [("info_buffer_factor", 0.0, 1.0), ("info_epsilon", 0.0, None)]:
-                val = adaptive_pool_section.get(field)
-                if val is not None:
-                    try:
-                        fval = float(val)
-                        if fval < min_val:
-                            errors.append(f"❌ gepa.adaptive_pool.{field} must be >= {min_val}, got {fval}")
-                        if max_val is not None and fval > max_val:
-                            errors.append(f"❌ gepa.adaptive_pool.{field} must be <= {max_val}, got {fval}")
-                    except (TypeError, ValueError):
-                        errors.append(f"❌ gepa.adaptive_pool.{field} must be numeric, got {type(val).__name__}")
-            # Validate string fields
-            anchor_method = adaptive_pool_section.get("anchor_selection_method")
-            if anchor_method is not None and anchor_method not in ("random", "clustering"):
-                errors.append(
-                    f"❌ gepa.adaptive_pool.anchor_selection_method must be 'random' or 'clustering', got '{anchor_method}'"
-                )
-            exploration_strategy = adaptive_pool_section.get("exploration_strategy")
-            if exploration_strategy is not None and exploration_strategy not in ("random", "diversity"):
-                errors.append(
-                    f"❌ gepa.adaptive_pool.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
-                )
-            # Validate heatup fields
-            heatup_trigger = adaptive_pool_section.get("heatup_trigger")
-            if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate"):
-                errors.append(
-                    f"❌ gepa.adaptive_pool.heatup_trigger must be 'after_min_size' or 'immediate', got '{heatup_trigger}'"
-                )
-            heatup_schedule = adaptive_pool_section.get("heatup_schedule")
-            if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
-                errors.append(
-                    f"❌ gepa.adaptive_pool.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
-                )
-            heatup_size = adaptive_pool_section.get("heatup_size")
-            if heatup_size is not None:
-                try:
-                    if int(heatup_size) <= 0:
-                        errors.append(f"❌ gepa.adaptive_pool.heatup_size must be > 0, got {heatup_size}")
-                except (TypeError, ValueError):
-                    errors.append(f"❌ gepa.adaptive_pool.heatup_size must be an integer, got {type(heatup_size).__name__}")
-            heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
-            if heatup_cooldown_trials is not None:
-                try:
-                    if int(heatup_cooldown_trials) < 0:
-                        errors.append(f"❌ gepa.adaptive_pool.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
-                except (TypeError, ValueError):
-                    errors.append(f"❌ gepa.adaptive_pool.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
-            heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
-            if heatup_reserve_pool is not None:
-                if not isinstance(heatup_reserve_pool, list):
-                    errors.append(f"❌ gepa.adaptive_pool.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
-                elif not all(isinstance(s, int) for s in heatup_reserve_pool):
-                    errors.append("❌ gepa.adaptive_pool.heatup_reserve_pool must contain only integers")
+        _validate_adaptive_pool_config(adaptive_pool_section, "gepa.adaptive_pool", errors)
     
     # Validate adaptive_batch section (GEPA-specific)
     adaptive_batch_section = gepa_section.get("adaptive_batch")
@@ -2236,100 +2303,7 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     # Validate adaptive_pool section (MIPRO-specific, can be nested or flat)
     adaptive_pool_section = mipro_section.get("adaptive_pool")
     if adaptive_pool_section:
-        if not isinstance(adaptive_pool_section, dict):
-            errors.append("❌ mipro.adaptive_pool must be a table/dict when provided")
-        else:
-            level = adaptive_pool_section.get("level")
-            if level is not None:
-                valid_levels = {"NONE", "LOW", "MODERATE", "HIGH"}
-                if str(level).upper() not in valid_levels:
-                    errors.append(
-                        f"❌ mipro.adaptive_pool.level must be one of {valid_levels}, got '{level}'"
-                    )
-            # Validate numeric fields (same as GEPA)
-            for field, min_val in [
-                ("anchor_size", 0),
-                ("pool_init_size", 0),
-                ("pool_min_size", 0),
-                ("warmup_iters", 0),
-                ("anneal_stop_iter", 0),
-                ("pool_update_period", 1),
-                ("min_evals_per_example", 1),
-                ("k_info_prompts", 0),
-            ]:
-                val = adaptive_pool_section.get(field)
-                if val is not None:
-                    try:
-                        ival = int(val)
-                        if ival < min_val:
-                            errors.append(f"❌ mipro.adaptive_pool.{field} must be >= {min_val}, got {ival}")
-                    except (TypeError, ValueError):
-                        errors.append(f"❌ mipro.adaptive_pool.{field} must be an integer, got {type(val).__name__}")
-            # Validate pool_init_size >= pool_min_size if both provided
-            pool_init = adaptive_pool_section.get("pool_init_size")
-            pool_min = adaptive_pool_section.get("pool_min_size")
-            if pool_init is not None and pool_min is not None:
-                try:
-                    if int(pool_init) < int(pool_min):
-                        errors.append(
-                            f"❌ mipro.adaptive_pool.pool_init_size ({pool_init}) must be >= pool_min_size ({pool_min})"
-                        )
-                except (TypeError, ValueError):
-                    pass  # Already validated above
-            # Validate info_buffer_factor and info_epsilon
-            for field, min_val, max_val in [("info_buffer_factor", 0.0, 1.0), ("info_epsilon", 0.0, None)]:
-                val = adaptive_pool_section.get(field)
-                if val is not None:
-                    try:
-                        fval = float(val)
-                        if fval < min_val:
-                            errors.append(f"❌ mipro.adaptive_pool.{field} must be >= {min_val}, got {fval}")
-                        if max_val is not None and fval > max_val:
-                            errors.append(f"❌ mipro.adaptive_pool.{field} must be <= {max_val}, got {fval}")
-                    except (TypeError, ValueError):
-                        errors.append(f"❌ mipro.adaptive_pool.{field} must be numeric, got {type(val).__name__}")
-            # Validate string fields
-            anchor_method = adaptive_pool_section.get("anchor_selection_method")
-            if anchor_method is not None and anchor_method not in ("random", "clustering"):
-                errors.append(
-                    f"❌ mipro.adaptive_pool.anchor_selection_method must be 'random' or 'clustering', got '{anchor_method}'"
-                )
-            exploration_strategy = adaptive_pool_section.get("exploration_strategy")
-            if exploration_strategy is not None and exploration_strategy not in ("random", "diversity"):
-                errors.append(
-                    f"❌ mipro.adaptive_pool.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
-                )
-            # Validate heatup fields (same as GEPA)
-            heatup_trigger = adaptive_pool_section.get("heatup_trigger")
-            if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate"):
-                errors.append(
-                    f"❌ mipro.adaptive_pool.heatup_trigger must be 'after_min_size' or 'immediate', got '{heatup_trigger}'"
-                )
-            heatup_schedule = adaptive_pool_section.get("heatup_schedule")
-            if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
-                errors.append(
-                    f"❌ mipro.adaptive_pool.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
-                )
-            heatup_size = adaptive_pool_section.get("heatup_size")
-            if heatup_size is not None:
-                try:
-                    if int(heatup_size) <= 0:
-                        errors.append(f"❌ mipro.adaptive_pool.heatup_size must be > 0, got {heatup_size}")
-                except (TypeError, ValueError):
-                    errors.append(f"❌ mipro.adaptive_pool.heatup_size must be an integer, got {type(heatup_size).__name__}")
-            heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
-            if heatup_cooldown_trials is not None:
-                try:
-                    if int(heatup_cooldown_trials) < 0:
-                        errors.append(f"❌ mipro.adaptive_pool.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
-                except (TypeError, ValueError):
-                    errors.append(f"❌ mipro.adaptive_pool.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
-            heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
-            if heatup_reserve_pool is not None:
-                if not isinstance(heatup_reserve_pool, list):
-                    errors.append(f"❌ mipro.adaptive_pool.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
-                elif not all(isinstance(s, int) for s in heatup_reserve_pool):
-                    errors.append("❌ mipro.adaptive_pool.heatup_reserve_pool must contain only integers")
+        _validate_adaptive_pool_config(adaptive_pool_section, "mipro.adaptive_pool", errors)
     
     return len(errors) == 0, errors
 

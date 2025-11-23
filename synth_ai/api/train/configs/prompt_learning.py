@@ -131,18 +131,48 @@ class ProxyModelsConfig(ExtraModel):
     
     Uses a low-fidelity (LO) model for most evaluations and a high-fidelity (HI) model
     for verification, with dynamic switching based on calibration and correlation.
+    
+    The proxy system starts by evaluating examples with both HI and LO models to build
+    a calibration regression. Once calibrated (R² >= r2_thresh), it switches to using
+    only the LO model for most evaluations, falling back to HI when reliability drops.
+    
+    Attributes:
+        hi_provider: Provider for high-fidelity model (e.g., "openai", "groq", "google").
+            This is the expensive model used for ground-truth evaluations.
+        hi_model: High-fidelity model name (e.g., "gpt-4o", "gpt-oss-120b").
+            Must be a supported model for the provider.
+        lo_provider: Provider for low-fidelity proxy model (e.g., "groq", "openai").
+            This is the cheaper model used for most evaluations after calibration.
+        lo_model: Low-fidelity proxy model name (e.g., "gpt-oss-20b", "gpt-4o-mini").
+            Must be a supported model for the provider. Should be cheaper than hi_model.
+        n_min_hi: Minimum number of HI evaluations before allowing proxy substitution.
+            Default: 5. Ensures sufficient calibration data before proxying.
+        r2_thresh: R² correlation threshold (0.0-1.0) required to enable proxying.
+            Default: 0.5. Higher values require stronger correlation before proxying.
+        r2_stop: R² threshold (0.0-1.0) below which proxying is disabled.
+            Default: 0.2. If correlation drops below this, revert to HI-only.
+        sigma_max: Maximum residual variance (sigma²) allowed for proxy calibration.
+            Default: 1e6. Higher values allow more variance in predictions.
+        sigma_stop: Stop proxying if residual variance exceeds this value.
+            Default: 1e9. If variance exceeds this, revert to HI-only.
+        verify_every: Periodically verify calibration every N LO-only evaluations.
+            Default: 0 (no periodic verification). Set to >0 to periodically run BOTH
+            to check if calibration is still valid.
+        proxy_patience_usd: Stop proxying if cumulative net gain drops below this (USD).
+            Default: -100.0. Negative values allow some loss before stopping. Set to 0.0
+            to stop immediately if proxy becomes unprofitable.
     """
-    hi_provider: str  # Provider for high-fidelity model
-    hi_model: str  # High-fidelity model name
-    lo_provider: str  # Provider for low-fidelity proxy model
-    lo_model: str  # Low-fidelity proxy model name
-    n_min_hi: int = 5  # Minimum HI evaluations before proxying
-    r2_thresh: float = 0.5  # R² threshold for proxy calibration
-    r2_stop: float = 0.2  # Stop proxying if R² drops below this
-    sigma_max: float = 1e6  # Maximum sigma for proxy calibration
-    sigma_stop: float = 1e9  # Stop proxying if sigma exceeds this
-    verify_every: int = 0  # Verify proxy calibration every N LO calls (0 = no periodic verify)
-    proxy_patience_usd: float = -100.0  # Stop proxying if net gain drops below this (USD)
+    hi_provider: str
+    hi_model: str
+    lo_provider: str
+    lo_model: str
+    n_min_hi: int = 5
+    r2_thresh: float = 0.5
+    r2_stop: float = 0.2
+    sigma_max: float = 1e6
+    sigma_stop: float = 1e9
+    verify_every: int = 0
+    proxy_patience_usd: float = -100.0
 
 
 class AdaptiveCurriculumLevel(str, Enum):
@@ -158,24 +188,88 @@ class AdaptivePoolConfig(ExtraModel):
     
     Reduces evaluation costs by focusing on the most informative examples while
     maintaining optimization quality through informativeness-based selection.
+    
+    The adaptive pool starts with a larger pool and gradually reduces to a minimum
+    size, selecting examples based on informativeness (variance across prompts).
+    Examples are divided into anchors (always evaluated) and exploration pool
+    (selected based on informativeness).
+    
+    Attributes:
+        level: Preset level (NONE, LOW, MODERATE, HIGH). Default: LOW.
+            NONE disables adaptive pooling. Higher levels use smaller pools and
+            more aggressive annealing for greater cost savings.
+        anchor_size: Number of anchor examples that are always evaluated.
+            Default: 30. Anchors provide stable baseline for optimization.
+            Must be <= pool_min_size.
+        pool_init_size: Initial pool size at start of optimization.
+            Default: None (uses all available examples). Set to limit initial pool.
+            Must be >= pool_min_size if both are set.
+        pool_min_size: Target minimum pool size after annealing completes.
+            Default: None (uses anchor_size). Pool anneals linearly from
+            pool_init_size to pool_min_size between warmup_iters and anneal_stop_iter.
+            Must be >= anchor_size.
+        warmup_iters: Number of iterations before starting pool annealing.
+            Default: 5. During warmup, pool stays at pool_init_size to gather
+            informativeness data.
+        anneal_stop_iter: Iteration at which pool reaches pool_min_size.
+            Default: 20. Pool size decreases linearly from warmup_iters to this.
+            Must be > warmup_iters.
+        pool_update_period: Update informativeness scores every N generations.
+            Default: 3. More frequent updates (lower value) adapt faster but
+            require more computation.
+        min_evals_per_example: Minimum evaluations per example before computing
+            informativeness. Default: 3. Examples with fewer evals get info=0.0.
+        k_info_prompts: Number of top-performing prompts used for informativeness
+            computation. Default: 10. Only scores from these prompts are used to
+            compute variance-based informativeness.
+        info_buffer_factor: Buffer factor (0.0-1.0) for preserving informativeness
+            during pool reduction. Default: 0.9. Higher values preserve more
+            informativeness but allow less reduction. Lower values allow more
+            aggressive reduction but may lose informativeness.
+        info_epsilon: Small epsilon value added to prevent division by zero in
+            informativeness calculations. Default: 1e-6.
+        anchor_selection_method: Method for selecting anchor examples.
+            Default: "clustering". Options:
+            - "random": Random selection
+            - "clustering": Select diverse examples via clustering
+        exploration_strategy: Strategy for selecting exploration pool examples.
+            Default: "diversity". Options:
+            - "random": Random selection
+            - "diversity": Select diverse examples based on informativeness
+        heatup_reserve_pool: Optional list of seed IDs reserved for heat-up phase.
+            Default: None. If provided, these seeds are added back to pool during
+            heat-up phases to prevent overfitting to small pool.
+        heatup_trigger: When to trigger heat-up phase (adding seeds back to pool).
+            Default: "after_min_size". Options:
+            - "after_min_size": Trigger after pool reaches min_size
+            - "immediate": Trigger immediately
+            - "every_N_trials_after_min": Trigger periodically after min_size
+        heatup_size: Number of seeds to add during heat-up phase.
+            Default: 20. Seeds are selected from heatup_reserve_pool or reserve pool.
+        heatup_cooldown_trials: Number of trials to wait before cooling down
+            (removing heat-up seeds) after heat-up. Default: 50.
+        heatup_schedule: Whether heat-up repeats or happens once.
+            Default: "repeat". Options:
+            - "once": Heat-up happens once
+            - "repeat": Heat-up repeats after cooldown
     """
     level: AdaptiveCurriculumLevel = AdaptiveCurriculumLevel.LOW
-    anchor_size: int = 30  # Frozen examples (always evaluated)
-    pool_init_size: int | None = None  # Initial pool size (None = use all available)
-    pool_min_size: int | None = None  # Target minimum after annealing
-    warmup_iters: int = 5  # Don't start annealing until this iteration
-    anneal_stop_iter: int = 20  # Reach min_size by this iteration
-    pool_update_period: int = 3  # Update informativeness every N generations
-    min_evals_per_example: int = 3  # Min evals per example for informativeness
-    k_info_prompts: int = 10  # Number of prompts for informativeness
-    info_buffer_factor: float = 0.9  # Buffer factor for informativeness
-    info_epsilon: float = 1e-6  # Epsilon for informativeness
+    anchor_size: int = 30
+    pool_init_size: int | None = None
+    pool_min_size: int | None = None
+    warmup_iters: int = 5
+    anneal_stop_iter: int = 20
+    pool_update_period: int = 3
+    min_evals_per_example: int = 3
+    k_info_prompts: int = 10
+    info_buffer_factor: float = 0.9
+    info_epsilon: float = 1e-6
     anchor_selection_method: Literal["random", "clustering"] = "clustering"
     exploration_strategy: Literal["random", "diversity"] = "diversity"
-    heatup_reserve_pool: list[int] | None = None  # Reserve pool for heat-up phase
-    heatup_trigger: Literal["after_min_size", "immediate"] = "after_min_size"
-    heatup_size: int = 20  # Size of heat-up pool
-    heatup_cooldown_trials: int = 50  # Cooldown trials after heat-up
+    heatup_reserve_pool: list[int] | None = None
+    heatup_trigger: Literal["after_min_size", "immediate", "every_N_trials_after_min"] = "after_min_size"
+    heatup_size: int = 20
+    heatup_cooldown_trials: int = 50
     heatup_schedule: Literal["repeat", "once"] = "repeat"
     
     @property
@@ -448,6 +542,23 @@ class MIPROConfig(ExtraModel):
     
     MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
     to efficiently optimize prompts with fewer evaluations than genetic algorithms.
+    
+    Attributes:
+        proposer_effort: Effort level for proposer model selection. Controls which model
+            is used for generating prompt proposals. Default: "LOW".
+            Options:
+            - "LOW_CONTEXT": Uses gpt-oss-120b (Groq) with minimal context. Fastest/cheapest.
+                Required when proposer_output_tokens="RAPID".
+            - "LOW": Uses smaller/faster models (e.g., gpt-4o-mini). Good balance.
+            - "MEDIUM": Uses medium models (e.g., gpt-4o). Higher quality proposals.
+            - "HIGH": Uses best models (e.g., gpt-5). Highest quality but expensive.
+        proposer_output_tokens: Maximum output tokens allowed for proposer model.
+            Default: "FAST". Controls proposal length and cost.
+            Options:
+            - "RAPID": 3000 tokens max. Fastest/cheapest. Requires proposer_effort="LOW_CONTEXT"
+                and gpt-oss-120b model. Use for short, focused proposals.
+            - "FAST": 10000 tokens max. Good balance. Works with any effort level.
+            - "SLOW": 25000 tokens max. Allows longer proposals. Use for complex prompts.
     """
     task_app_url: str | None = None
     task_app_api_key: str | None = None
@@ -471,8 +582,8 @@ class MIPROConfig(ExtraModel):
     seeds: MIPROSeedConfig | dict[str, Any] | None = None
 
     # Proposer configuration
-    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"  # Effort level for proposer model selection
-    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"  # Output token limit: RAPID=3000 (gpt-oss-120b only), FAST=10000, SLOW=25000
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
 
     # Token and budget configuration (mirrors GEPA pattern)
     max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
@@ -838,16 +949,41 @@ class GEPAModuleConfig(ExtraModel):
 
 
 class GEPAConfig(ExtraModel):
-    """GEPA-specific configuration with nested subsections."""
+    """GEPA-specific configuration with nested subsections.
+    
+    GEPA (Genetic Evolution of Prompt Architectures) uses evolutionary algorithms
+    with LLM-guided mutations to optimize prompts through population-based search.
+    
+    Attributes:
+        proposer_type: Type of proposer to use for generating mutations.
+            Default: "dspy". Options: "dspy" (DSPy-style proposer) or "spec" (spec-based).
+        proposer_effort: Effort level for proposer model selection. Controls which model
+            is used for generating prompt mutations. Default: "LOW".
+            Options:
+            - "LOW_CONTEXT": Uses gpt-oss-120b (Groq) with minimal context. Fastest/cheapest.
+                Required when proposer_output_tokens="RAPID".
+            - "LOW": Uses smaller/faster models (e.g., gpt-4o-mini). Good balance.
+            - "MEDIUM": Uses medium models (e.g., gpt-4o). Higher quality mutations.
+            - "HIGH": Uses best models (e.g., gpt-5). Highest quality but expensive.
+        proposer_output_tokens: Maximum output tokens allowed for proposer model.
+            Default: "FAST". Controls mutation length and cost.
+            Options:
+            - "RAPID": 3000 tokens max. Fastest/cheapest. Requires proposer_effort="LOW_CONTEXT"
+                and gpt-oss-120b model. Use for short, focused mutations.
+            - "FAST": 10000 tokens max. Good balance. Works with any effort level.
+            - "SLOW": 25000 tokens max. Allows longer mutations. Use for complex prompts.
+        metaprompt: Optional custom metaprompt text to include in mutation prompts.
+            Default: None. If provided, replaces default metaprompt template.
+    """
     # Top-level fields (for backwards compatibility)
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
-    proposer_type: str = "dspy"  # "dspy" or "synth"
-    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"  # Effort level for proposer model selection
-    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"  # Output token limit: RAPID=3000 (gpt-oss-120b only), FAST=10000, SLOW=25000
+    proposer_type: str = "dspy"
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
     # Custom metaprompt (optional)
-    metaprompt: str | None = None  # Custom metaprompt text to include in mutation prompts
+    metaprompt: str | None = None
     
     # Multi-stage pipeline support
     modules: list[GEPAModuleConfig] | None = None
