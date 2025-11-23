@@ -1078,12 +1078,17 @@ class GEPAConfig(ExtraModel):
                         GEPAModuleConfig.model_validate(m) if isinstance(m, dict) else m
                         for m in modules_data
                     ]
+            # Handle proxy_models in gepa config (only if specified, defaults to None)
             if "proxy_models" in nested_data and isinstance(nested_data["proxy_models"], dict):
                 nested_data["proxy_models"] = ProxyModelsConfig.model_validate(nested_data["proxy_models"])
+            # If proxy_models not specified, leave as None (defaults to disabled)
+            
+            # Handle adaptive_pool in gepa config (only if specified, defaults to None)
             if "adaptive_pool" in nested_data and isinstance(nested_data["adaptive_pool"], dict):
                 # Resolve adaptive pool config with level and overrides
                 adaptive_pool_data = nested_data["adaptive_pool"]
                 level = adaptive_pool_data.get("level")
+                # If level not specified, default to LOW (conservative SDK default)
                 overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
                 # Get dev_pool_size from evaluation.seeds if available
                 dev_pool_size = None
@@ -1092,10 +1097,11 @@ class GEPAConfig(ExtraModel):
                     if isinstance(eval_seeds, list):
                         dev_pool_size = len(eval_seeds)
                 nested_data["adaptive_pool"] = resolve_adaptive_pool_config(
-                    level=level,
+                    level=level,  # Will default to LOW if None (via resolve_adaptive_pool_config)
                     overrides=overrides if overrides else None,
                     dev_pool_size=dev_pool_size,
                 )
+            # If adaptive_pool not specified, leave as None (defaults to disabled)
             if "adaptive_batch" in nested_data and isinstance(nested_data["adaptive_batch"], dict):
                 # Resolve adaptive batch config with level and overrides
                 adaptive_batch_data = nested_data["adaptive_batch"]
@@ -1149,10 +1155,12 @@ class PromptLearningConfig(ExtraModel):
         
         # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
         # This ensures top-level proxy_models is available for algorithm configs to check
+        # Default: None (proxy models disabled unless explicitly configured)
         top_level_proxy_models = None
         if "proxy_models" in pl_data and isinstance(pl_data["proxy_models"], dict):
             top_level_proxy_models = ProxyModelsConfig.model_validate(pl_data["proxy_models"])
             pl_data["proxy_models"] = top_level_proxy_models
+        # If proxy_models not specified, leave as None (defaults to disabled)
         
         # Handle gepa config specially to support nested structure
         if "gepa" in pl_data and isinstance(pl_data["gepa"], dict):
@@ -1184,10 +1192,11 @@ class PromptLearningConfig(ExtraModel):
             if "reference_pool" not in mipro_data and "reference_pool" in pl_data:
                 mipro_data["reference_pool"] = pl_data["reference_pool"]
             
-            # Handle adaptive_pool in mipro config
+            # Handle adaptive_pool in mipro config (only if specified, defaults to None)
             if "adaptive_pool" in mipro_data and isinstance(mipro_data["adaptive_pool"], dict):
                 adaptive_pool_data = mipro_data["adaptive_pool"]
                 level = adaptive_pool_data.get("level")
+                # If level not specified, default to LOW (conservative SDK default)
                 overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
                 # Get dev_pool_size from online_pool if available
                 dev_pool_size = None
@@ -1196,17 +1205,19 @@ class PromptLearningConfig(ExtraModel):
                     dev_pool_size = len(online_pool)
                 try:
                     mipro_data["adaptive_pool"] = resolve_adaptive_pool_config(
-                        level=level,
+                        level=level,  # Will default to LOW if None (via resolve_adaptive_pool_config)
                         overrides=overrides if overrides else None,
                         dev_pool_size=dev_pool_size,
                     )
                 except Exception as exc:
                     # Re-raise with clearer context
                     raise ValueError(f"Failed to resolve mipro.adaptive_pool config: {exc}") from exc
+            # If adaptive_pool not specified, leave as None (defaults to disabled)
             
-            # Handle proxy_models in mipro config
+            # Handle proxy_models in mipro config (only if specified, defaults to None)
             if "proxy_models" in mipro_data and isinstance(mipro_data["proxy_models"], dict):
                 mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
+            # If proxy_models not specified, leave as None (defaults to disabled)
         
         if "judge" in pl_data and isinstance(pl_data["judge"], dict):
             pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
