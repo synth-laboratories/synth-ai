@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # Look for PyPI token in common locations
-ENV_FILE="$HOME/Documents/GitHub/monorepo/backend/.env.dev"
+ENV_FILE="$HOME/Documents/GitHub/monorepo/.env.dev"
 
 if [ -z "$PYPI_API_KEY" ]; then
     if [ -f "$ENV_FILE" ]; then
@@ -31,10 +31,10 @@ cd "$REPO_ROOT"
 rm -rf dist/ build/ *.egg-info
 
 # Build
-python -m build
+uv run python -m build
 
 echo "Publishing to PyPI..."
-python -m twine upload dist/* -u __token__ -p "$PYPI_API_KEY"
+uv run python -m twine upload dist/* -u __token__ -p "$PYPI_API_KEY"
 
 echo "Done! Published version:"
 grep "^version" pyproject.toml
