@@ -74,12 +74,20 @@ class MIPROMetaConfig(ExtraModel):
 
 
 class MIPROStageConfig(ExtraModel):
-    """Configuration for a single MIPRO stage inside a module."""
+    """Configuration for a single MIPRO stage inside a module.
+    
+    Each stage MUST have its own policy configuration. The policy field is required
+    and must include 'model' and 'provider' fields.
+    """
     stage_id: str
     baseline_instruction: str
     baseline_messages: list[dict[str, str]] = Field(default_factory=list)
     max_instruction_slots: int | None = None
     max_demo_slots: int | None = None
+    policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
+        ...,
+        description="Required per-stage policy configuration. Must include 'model' and 'provider' fields."
+    )
 
 
 class MIPROModuleConfig(ExtraModel):
@@ -118,11 +126,439 @@ class PromptLearningJudgeConfig(ExtraModel):
     spec_context: str | None = None
 
 
+class ProxyModelsConfig(ExtraModel):
+    """Configuration for proxy usage on policy evaluations.
+    
+    Uses a low-fidelity (LO) model for most evaluations and a high-fidelity (HI) model
+    for verification, with dynamic switching based on calibration and correlation.
+    
+    The proxy system starts by evaluating examples with both HI and LO models to build
+    a calibration regression. Once calibrated (R² >= r2_thresh), it switches to using
+    only the LO model for most evaluations, falling back to HI when reliability drops.
+    
+    Attributes:
+        hi_provider: Provider for high-fidelity model (e.g., "openai", "groq", "google").
+            This is the expensive model used for ground-truth evaluations.
+        hi_model: High-fidelity model name (e.g., "gpt-4o", "gpt-oss-120b").
+            Must be a supported model for the provider.
+        lo_provider: Provider for low-fidelity proxy model (e.g., "groq", "openai").
+            This is the cheaper model used for most evaluations after calibration.
+        lo_model: Low-fidelity proxy model name (e.g., "gpt-oss-20b", "gpt-4o-mini").
+            Must be a supported model for the provider. Should be cheaper than hi_model.
+        n_min_hi: Minimum number of HI evaluations before allowing proxy substitution.
+            Default: 5. Ensures sufficient calibration data before proxying.
+        r2_thresh: R² correlation threshold (0.0-1.0) required to enable proxying.
+            Default: 0.5. Higher values require stronger correlation before proxying.
+        r2_stop: R² threshold (0.0-1.0) below which proxying is disabled.
+            Default: 0.2. If correlation drops below this, revert to HI-only.
+        sigma_max: Maximum residual variance (sigma²) allowed for proxy calibration.
+            Default: 1e6. Higher values allow more variance in predictions.
+        sigma_stop: Stop proxying if residual variance exceeds this value.
+            Default: 1e9. If variance exceeds this, revert to HI-only.
+        verify_every: Periodically verify calibration every N LO-only evaluations.
+            Default: 0 (no periodic verification). Set to >0 to periodically run BOTH
+            to check if calibration is still valid.
+        proxy_patience_usd: Stop proxying if cumulative net gain drops below this (USD).
+            Default: -100.0. Negative values allow some loss before stopping. Set to 0.0
+            to stop immediately if proxy becomes unprofitable.
+    """
+    hi_provider: str
+    hi_model: str
+    lo_provider: str
+    lo_model: str
+    n_min_hi: int = 5
+    r2_thresh: float = 0.5
+    r2_stop: float = 0.2
+    sigma_max: float = 1e6
+    sigma_stop: float = 1e9
+    verify_every: int = 0
+    proxy_patience_usd: float = -100.0
+
+
+class AdaptiveCurriculumLevel(str, Enum):
+    """Preset levels for adaptive pooling curriculum."""
+    NONE = "NONE"
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
+
+
+class AdaptivePoolConfig(ExtraModel):
+    """Configuration for adaptive pooling (dynamically adjusting evaluation pool size).
+    
+    Reduces evaluation costs by focusing on the most informative examples while
+    maintaining optimization quality through informativeness-based selection.
+    
+    The adaptive pool starts with a larger pool and gradually reduces to a minimum
+    size, selecting examples based on informativeness (variance across prompts).
+    Examples are divided into anchors (always evaluated) and exploration pool
+    (selected based on informativeness).
+    
+    Attributes:
+        level: Preset level (NONE, LOW, MODERATE, HIGH). Default: LOW.
+            NONE disables adaptive pooling. Higher levels use smaller pools and
+            more aggressive annealing for greater cost savings.
+        anchor_size: Number of anchor examples that are always evaluated.
+            Default: 30. Anchors provide stable baseline for optimization.
+            Must be <= pool_min_size.
+        pool_init_size: Initial pool size at start of optimization.
+            Default: None (uses all available examples). Set to limit initial pool.
+            Must be >= pool_min_size if both are set.
+        pool_min_size: Target minimum pool size after annealing completes.
+            Default: None (uses anchor_size). Pool anneals linearly from
+            pool_init_size to pool_min_size between warmup_iters and anneal_stop_iter.
+            Must be >= anchor_size.
+        warmup_iters: Number of iterations before starting pool annealing.
+            Default: 5. During warmup, pool stays at pool_init_size to gather
+            informativeness data.
+        anneal_stop_iter: Iteration at which pool reaches pool_min_size.
+            Default: 20. Pool size decreases linearly from warmup_iters to this.
+            Must be > warmup_iters.
+        pool_update_period: Update informativeness scores every N generations.
+            Default: 3. More frequent updates (lower value) adapt faster but
+            require more computation.
+        min_evals_per_example: Minimum evaluations per example before computing
+            informativeness. Default: 3. Examples with fewer evals get info=0.0.
+        k_info_prompts: Number of top-performing prompts used for informativeness
+            computation. Default: 10. Only scores from these prompts are used to
+            compute variance-based informativeness.
+        info_buffer_factor: Buffer factor (0.0-1.0) for preserving informativeness
+            during pool reduction. Default: 0.9. Higher values preserve more
+            informativeness but allow less reduction. Lower values allow more
+            aggressive reduction but may lose informativeness.
+        info_epsilon: Small epsilon value added to prevent division by zero in
+            informativeness calculations. Default: 1e-6.
+        anchor_selection_method: Method for selecting anchor examples.
+            Default: "clustering". Options:
+            - "random": Random selection
+            - "clustering": Select diverse examples via clustering
+        exploration_strategy: Strategy for selecting exploration pool examples.
+            Default: "diversity". Options:
+            - "random": Random selection
+            - "diversity": Select diverse examples based on informativeness
+        heatup_reserve_pool: Optional list of seed IDs reserved for heat-up phase.
+            Default: None. If provided, these seeds are added back to pool during
+            heat-up phases to prevent overfitting to small pool.
+        heatup_trigger: When to trigger heat-up phase (adding seeds back to pool).
+            Default: "after_min_size". Options:
+            - "after_min_size": Trigger after pool reaches min_size
+            - "immediate": Trigger immediately
+            - "every_N_trials_after_min": Trigger periodically after min_size
+        heatup_size: Number of seeds to add during heat-up phase.
+            Default: 20. Seeds are selected from heatup_reserve_pool or reserve pool.
+        heatup_cooldown_trials: Number of trials to wait before cooling down
+            (removing heat-up seeds) after heat-up. Default: 50.
+        heatup_schedule: Whether heat-up repeats or happens once.
+            Default: "repeat". Options:
+            - "once": Heat-up happens once
+            - "repeat": Heat-up repeats after cooldown
+    """
+    level: AdaptiveCurriculumLevel = AdaptiveCurriculumLevel.LOW
+    anchor_size: int = 30
+    pool_init_size: int | None = None
+    pool_min_size: int | None = None
+    warmup_iters: int = 5
+    anneal_stop_iter: int = 20
+    pool_update_period: int = 3
+    min_evals_per_example: int = 3
+    k_info_prompts: int = 10
+    info_buffer_factor: float = 0.9
+    info_epsilon: float = 1e-6
+    anchor_selection_method: Literal["random", "clustering"] = "clustering"
+    exploration_strategy: Literal["random", "diversity"] = "diversity"
+    heatup_reserve_pool: list[int] | None = None
+    heatup_trigger: Literal["after_min_size", "immediate", "every_N_trials_after_min"] = "after_min_size"
+    heatup_size: int = 20
+    heatup_cooldown_trials: int = 50
+    heatup_schedule: Literal["repeat", "once"] = "repeat"
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether adaptive pooling is enabled (level != NONE)."""
+        return self.level != AdaptiveCurriculumLevel.NONE
+
+
+class AdaptiveBatchLevel(str, Enum):
+    """Preset levels for adaptive batch curriculum (GEPA only)."""
+    NONE = "NONE"
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
+
+
+class GEPAAdaptiveBatchConfig(ExtraModel):
+    """Configuration for adaptive batch evaluation (GEPA only).
+    
+    Reduces evaluation costs by using smaller minibatches and subsampling validation.
+    """
+    level: AdaptiveBatchLevel = AdaptiveBatchLevel.MODERATE
+    reflection_minibatch_size: int = 3  # Train examples per reflection step
+    min_local_improvement: float = 0.0  # Threshold for accepting proposals
+    val_evaluation_mode: Literal["full", "subsample"] = "subsample"  # Validation mode
+    val_subsample_size: int = 64  # Subsample size when mode="subsample"
+    candidate_selection_strategy: Literal["coverage", "random"] = "coverage"
+    
+    @property
+    def enabled(self) -> bool:
+        """Whether adaptive batch is enabled (level != NONE)."""
+        return self.level != AdaptiveBatchLevel.NONE
+
+
+# Default presets for adaptive pool (mirrors monorepo structure)
+_ADAPTIVE_POOL_DEFAULTS: dict[AdaptiveCurriculumLevel, dict[str, Any]] = {
+    AdaptiveCurriculumLevel.NONE: {
+        "anchor_size": 0,
+        "pool_init_size": None,
+        "pool_min_size": None,
+        "warmup_iters": 999_999,
+        "anneal_stop_iter": 999_999,
+        "pool_update_period": 999_999,
+        "min_evals_per_example": 1,
+        "k_info_prompts": 0,
+        "info_buffer_factor": 1.0,
+        "info_epsilon": 1e-6,
+        "anchor_selection_method": "random",
+        "exploration_strategy": "random",
+        "heatup_reserve_pool": None,
+        "heatup_trigger": "after_min_size",
+        "heatup_size": 20,
+        "heatup_cooldown_trials": 50,
+        "heatup_schedule": "repeat",
+    },
+    AdaptiveCurriculumLevel.LOW: {
+        "anchor_size": 50,
+        "pool_init_size": 150,
+        "pool_min_size": 100,
+        "warmup_iters": 10,
+        "anneal_stop_iter": 30,
+        "pool_update_period": 2,
+        "min_evals_per_example": 5,
+        "k_info_prompts": 15,
+        "info_buffer_factor": 0.95,
+        "info_epsilon": 1e-6,
+        "anchor_selection_method": "clustering",
+        "exploration_strategy": "diversity",
+        "heatup_reserve_pool": None,
+        "heatup_trigger": "after_min_size",
+        "heatup_size": 20,
+        "heatup_cooldown_trials": 50,
+        "heatup_schedule": "repeat",
+    },
+    AdaptiveCurriculumLevel.MODERATE: {
+        "anchor_size": 30,
+        "pool_init_size": 100,
+        "pool_min_size": 50,
+        "warmup_iters": 5,
+        "anneal_stop_iter": 20,
+        "pool_update_period": 3,
+        "min_evals_per_example": 3,
+        "k_info_prompts": 10,
+        "info_buffer_factor": 0.9,
+        "info_epsilon": 1e-6,
+        "anchor_selection_method": "clustering",
+        "exploration_strategy": "diversity",
+        "heatup_reserve_pool": None,
+        "heatup_trigger": "after_min_size",
+        "heatup_size": 20,
+        "heatup_cooldown_trials": 50,
+        "heatup_schedule": "repeat",
+    },
+    AdaptiveCurriculumLevel.HIGH: {
+        "anchor_size": 20,
+        "pool_init_size": 60,
+        "pool_min_size": 30,
+        "warmup_iters": 3,
+        "anneal_stop_iter": 10,
+        "pool_update_period": 5,
+        "min_evals_per_example": 2,
+        "k_info_prompts": 5,
+        "info_buffer_factor": 0.8,
+        "info_epsilon": 1e-6,
+        "anchor_selection_method": "clustering",
+        "exploration_strategy": "diversity",
+        "heatup_reserve_pool": None,
+        "heatup_trigger": "after_min_size",
+        "heatup_size": 20,
+        "heatup_cooldown_trials": 50,
+        "heatup_schedule": "repeat",
+    },
+}
+
+# Default presets for adaptive batch (GEPA only)
+_ADAPTIVE_BATCH_DEFAULTS: dict[AdaptiveBatchLevel, dict[str, Any]] = {
+    AdaptiveBatchLevel.NONE: {
+        "reflection_minibatch_size": 8,
+        "min_local_improvement": 0.0,
+        "val_evaluation_mode": "full",
+        "val_subsample_size": 64,
+        "candidate_selection_strategy": "random",
+    },
+    AdaptiveBatchLevel.LOW: {
+        "reflection_minibatch_size": 5,
+        "min_local_improvement": 0.0,
+        "val_evaluation_mode": "subsample",
+        "val_subsample_size": 80,
+        "candidate_selection_strategy": "coverage",
+    },
+    AdaptiveBatchLevel.MODERATE: {
+        "reflection_minibatch_size": 3,
+        "min_local_improvement": 0.0,
+        "val_evaluation_mode": "subsample",
+        "val_subsample_size": 64,
+        "candidate_selection_strategy": "coverage",
+    },
+    AdaptiveBatchLevel.HIGH: {
+        "reflection_minibatch_size": 2,
+        "min_local_improvement": 0.0,
+        "val_evaluation_mode": "subsample",
+        "val_subsample_size": 48,
+        "candidate_selection_strategy": "coverage",
+    },
+}
+
+
+def resolve_adaptive_pool_config(
+    *,
+    level: AdaptiveCurriculumLevel | str | None = None,
+    overrides: dict[str, Any] | None = None,
+    dev_pool_size: int | None = None,
+) -> AdaptivePoolConfig:
+    """Resolve adaptive pool config from level preset and overrides.
+    
+    Args:
+        level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to LOW if None.
+        overrides: Dict of field overrides to apply on top of level defaults.
+        dev_pool_size: Optional dev pool size to cap pool_init_size if needed.
+    
+    Returns:
+        AdaptivePoolConfig with resolved values.
+    """
+    # Normalize level
+    if level is None:
+        level = AdaptiveCurriculumLevel.LOW
+    elif isinstance(level, str):
+        try:
+            level = AdaptiveCurriculumLevel[level.strip().upper()]
+        except KeyError:
+            valid_levels = ", ".join(l.name for l in AdaptiveCurriculumLevel)
+            raise ValueError(f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}")
+    
+    # Get defaults for level
+    defaults = _ADAPTIVE_POOL_DEFAULTS[level].copy()
+    
+    # Apply overrides
+    if overrides:
+        defaults.update(overrides)
+    
+    # Handle pool_init_size and pool_min_size with dev_pool_size
+    pool_init_size = defaults.get("pool_init_size")
+    pool_min_size = defaults.get("pool_min_size")
+    
+    if pool_init_size is None:
+        pool_init_size = dev_pool_size
+    if pool_min_size is None:
+        pool_min_size = dev_pool_size
+    
+    # Cap pool_init_size if dev_pool_size is provided
+    if dev_pool_size is not None and pool_init_size is not None:
+        if pool_init_size > dev_pool_size:
+            pool_init_size = dev_pool_size
+    
+    # Handle heatup_reserve_pool (can be list, None, or single value)
+    heatup_reserve = defaults.get("heatup_reserve_pool")
+    if heatup_reserve is not None and not isinstance(heatup_reserve, (list, tuple)):
+        # Convert single value or other types to list
+        heatup_reserve = [heatup_reserve] if heatup_reserve else None
+    
+    # Create config with proper types
+    config = AdaptivePoolConfig(
+        level=level,
+        anchor_size=int(defaults["anchor_size"]),
+        pool_init_size=None if pool_init_size is None else int(pool_init_size),
+        pool_min_size=None if pool_min_size is None else int(pool_min_size),
+        warmup_iters=int(defaults["warmup_iters"]),
+        anneal_stop_iter=int(defaults["anneal_stop_iter"]),
+        pool_update_period=int(defaults["pool_update_period"]),
+        min_evals_per_example=int(defaults["min_evals_per_example"]),
+        k_info_prompts=int(defaults["k_info_prompts"]),
+        info_buffer_factor=float(defaults["info_buffer_factor"]),
+        info_epsilon=float(defaults["info_epsilon"]),
+        anchor_selection_method=str(defaults["anchor_selection_method"]),
+        exploration_strategy=str(defaults["exploration_strategy"]),
+        heatup_reserve_pool=list(heatup_reserve) if heatup_reserve else None,
+        heatup_trigger=str(defaults.get("heatup_trigger", "after_min_size")),
+        heatup_size=int(defaults.get("heatup_size", 20)),
+        heatup_cooldown_trials=int(defaults.get("heatup_cooldown_trials", 50)),
+        heatup_schedule=str(defaults.get("heatup_schedule", "repeat")),
+    )
+    
+    return config
+
+
+def resolve_adaptive_batch_config(
+    *,
+    level: AdaptiveBatchLevel | str | None = None,
+    overrides: dict[str, Any] | None = None,
+) -> GEPAAdaptiveBatchConfig:
+    """Resolve adaptive batch config from level preset and overrides.
+    
+    Args:
+        level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to MODERATE if None.
+        overrides: Dict of field overrides to apply on top of level defaults.
+    
+    Returns:
+        GEPAAdaptiveBatchConfig with resolved values.
+    """
+    # Normalize level
+    if level is None:
+        level = AdaptiveBatchLevel.MODERATE
+    elif isinstance(level, str):
+        try:
+            level = AdaptiveBatchLevel[level.strip().upper()]
+        except KeyError:
+            valid_levels = ", ".join(l.name for l in AdaptiveBatchLevel)
+            raise ValueError(f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}")
+    
+    # Get defaults for level
+    defaults = _ADAPTIVE_BATCH_DEFAULTS[level].copy()
+    
+    # Apply overrides
+    if overrides:
+        defaults.update(overrides)
+    
+    # Create config with proper types
+    return GEPAAdaptiveBatchConfig(
+        level=level,
+        reflection_minibatch_size=int(defaults["reflection_minibatch_size"]),
+        min_local_improvement=float(defaults["min_local_improvement"]),
+        val_evaluation_mode=str(defaults["val_evaluation_mode"]),
+        val_subsample_size=int(defaults["val_subsample_size"]),
+        candidate_selection_strategy=str(defaults["candidate_selection_strategy"]),
+    )
+
+
 class MIPROConfig(ExtraModel):
     """MIPRO-specific configuration.
     
     MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
     to efficiently optimize prompts with fewer evaluations than genetic algorithms.
+    
+    Attributes:
+        proposer_effort: Effort level for proposer model selection. Controls which model
+            is used for generating prompt proposals. Default: "LOW".
+            Options:
+            - "LOW_CONTEXT": Uses gpt-oss-120b (Groq) with minimal context. Fastest/cheapest.
+                Required when proposer_output_tokens="RAPID".
+            - "LOW": Uses smaller/faster models (e.g., gpt-4o-mini). Good balance.
+            - "MEDIUM": Uses medium models (e.g., gpt-4o). Higher quality proposals.
+            - "HIGH": Uses best models (e.g., gpt-5). Highest quality but expensive.
+        proposer_output_tokens: Maximum output tokens allowed for proposer model.
+            Default: "FAST". Controls proposal length and cost.
+            Options:
+            - "RAPID": 3000 tokens max. Fastest/cheapest. Requires proposer_effort="LOW_CONTEXT"
+                and gpt-oss-120b model. Use for short, focused proposals.
+            - "FAST": 10000 tokens max. Good balance. Works with any effort level.
+            - "SLOW": 25000 tokens max. Allows longer proposals. Use for complex prompts.
     """
     task_app_url: str | None = None
     task_app_api_key: str | None = None
@@ -145,6 +581,10 @@ class MIPROConfig(ExtraModel):
     modules: list[MIPROModuleConfig] | list[dict[str, Any]] | None = None
     seeds: MIPROSeedConfig | dict[str, Any] | None = None
 
+    # Proposer configuration
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
+
     # Token and budget configuration (mirrors GEPA pattern)
     max_token_limit: int | None = None  # Total tokens across all rollouts (policy + proposer)
     max_spend_usd: float | None = None  # Maximum spend in USD
@@ -165,6 +605,12 @@ class MIPROConfig(ExtraModel):
 
     # Judge configuration (shared with GEPA)
     judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    
+    # Proxy models configuration (optional, can also be at top-level)
+    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None
+    
+    # Adaptive pool configuration (optional)
+    adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None
     
     # System spec configuration
     spec_path: str | None = None  # Path to system spec JSON file
@@ -457,11 +903,19 @@ class GEPATokenConfig(ExtraModel):
 
 
 class GEPAModuleConfig(ExtraModel):
-    """Configuration for a single GEPA pipeline module/stage (instruction-only)."""
+    """Configuration for a single GEPA pipeline module/stage (instruction-only).
+    
+    Each module MUST have its own policy configuration. The policy field is required
+    and must include 'model' and 'provider' fields.
+    """
     module_id: str
     max_instruction_slots: int = 3
     allowed_tools: list[str] | None = None
     max_tokens: int | None = None
+    policy: PromptLearningPolicyConfig | dict[str, Any] = Field(
+        ...,
+        description="Required per-module policy configuration. Must include 'model' and 'provider' fields."
+    )
     
     @field_validator("module_id")
     @classmethod
@@ -477,17 +931,59 @@ class GEPAModuleConfig(ExtraModel):
         if v < 1:
             raise ValueError("max_instruction_slots must be >= 1")
         return v
+    
+    @field_validator("policy", mode="before")
+    @classmethod
+    def _validate_policy(cls, v: Any) -> dict[str, Any]:
+        """Validate that policy is a dict with required fields."""
+        if v is None:
+            raise ValueError("policy is required for each module/stage")
+        if isinstance(v, dict):
+            if not v.get("model"):
+                raise ValueError("policy must include 'model' field")
+            if not v.get("provider"):
+                raise ValueError("policy must include 'provider' field")
+            return v
+        # If it's already a PromptLearningPolicyConfig, it will be validated by Pydantic
+        return v
 
 
 class GEPAConfig(ExtraModel):
-    """GEPA-specific configuration with nested subsections."""
+    """GEPA-specific configuration with nested subsections.
+    
+    GEPA (Genetic Evolution of Prompt Architectures) uses evolutionary algorithms
+    with LLM-guided mutations to optimize prompts through population-based search.
+    
+    Attributes:
+        proposer_type: Type of proposer to use for generating mutations.
+            Default: "dspy". Options: "dspy" (DSPy-style proposer) or "spec" (spec-based).
+        proposer_effort: Effort level for proposer model selection. Controls which model
+            is used for generating prompt mutations. Default: "LOW".
+            Options:
+            - "LOW_CONTEXT": Uses gpt-oss-120b (Groq) with minimal context. Fastest/cheapest.
+                Required when proposer_output_tokens="RAPID".
+            - "LOW": Uses smaller/faster models (e.g., gpt-4o-mini). Good balance.
+            - "MEDIUM": Uses medium models (e.g., gpt-4o). Higher quality mutations.
+            - "HIGH": Uses best models (e.g., gpt-5). Highest quality but expensive.
+        proposer_output_tokens: Maximum output tokens allowed for proposer model.
+            Default: "FAST". Controls mutation length and cost.
+            Options:
+            - "RAPID": 3000 tokens max. Fastest/cheapest. Requires proposer_effort="LOW_CONTEXT"
+                and gpt-oss-120b model. Use for short, focused mutations.
+            - "FAST": 10000 tokens max. Good balance. Works with any effort level.
+            - "SLOW": 25000 tokens max. Allows longer mutations. Use for complex prompts.
+        metaprompt: Optional custom metaprompt text to include in mutation prompts.
+            Default: None. If provided, replaces default metaprompt template.
+    """
     # Top-level fields (for backwards compatibility)
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
-    proposer_type: str = "dspy"  # "dspy" or "synth"
+    proposer_type: str = "dspy"
+    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
     # Custom metaprompt (optional)
-    metaprompt: str | None = None  # Custom metaprompt text to include in mutation prompts
+    metaprompt: str | None = None
     
     # Multi-stage pipeline support
     modules: list[GEPAModuleConfig] | None = None
@@ -500,6 +996,9 @@ class GEPAConfig(ExtraModel):
     archive: GEPAArchiveConfig | None = None
     token: GEPATokenConfig | None = None
     judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or gepa-specific)
+    adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
+    adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = None  # Adaptive batch config (GEPA only)
     
     # Backwards compatibility: flat fields (deprecated, prefer nested)
     # These will be flattened from nested configs if provided
@@ -689,7 +1188,7 @@ class GEPAConfig(ExtraModel):
         flat_data = {}
         
         for key, value in data.items():
-            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules"):
+            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules", "proxy_models", "adaptive_pool", "adaptive_batch", "judge"):
                 nested_data[key] = value
             else:
                 flat_data[key] = value
@@ -715,6 +1214,43 @@ class GEPAConfig(ExtraModel):
                         GEPAModuleConfig.model_validate(m) if isinstance(m, dict) else m
                         for m in modules_data
                     ]
+            # Handle proxy_models in gepa config (only if specified, defaults to None)
+            if "proxy_models" in nested_data and isinstance(nested_data["proxy_models"], dict):
+                nested_data["proxy_models"] = ProxyModelsConfig.model_validate(nested_data["proxy_models"])
+            # If proxy_models not specified, leave as None (defaults to disabled)
+            
+            # Handle adaptive_pool in gepa config (only if specified, defaults to None)
+            if "adaptive_pool" in nested_data and isinstance(nested_data["adaptive_pool"], dict):
+                # Resolve adaptive pool config with level and overrides
+                adaptive_pool_data = nested_data["adaptive_pool"]
+                level = adaptive_pool_data.get("level")
+                # If level not specified, default to LOW (conservative SDK default)
+                overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
+                # Get dev_pool_size from evaluation.seeds if available
+                dev_pool_size = None
+                if "evaluation" in nested_data and isinstance(nested_data["evaluation"], dict):
+                    eval_seeds = nested_data["evaluation"].get("seeds")
+                    if isinstance(eval_seeds, list):
+                        dev_pool_size = len(eval_seeds)
+                nested_data["adaptive_pool"] = resolve_adaptive_pool_config(
+                    level=level,  # Will default to LOW if None (via resolve_adaptive_pool_config)
+                    overrides=overrides if overrides else None,
+                    dev_pool_size=dev_pool_size,
+                )
+            # If adaptive_pool not specified, leave as None (defaults to disabled)
+            if "adaptive_batch" in nested_data and isinstance(nested_data["adaptive_batch"], dict):
+                # Resolve adaptive batch config with level and overrides
+                adaptive_batch_data = nested_data["adaptive_batch"]
+                level = adaptive_batch_data.get("level")
+                overrides = {k: v for k, v in adaptive_batch_data.items() if k != "level"}
+                try:
+                    nested_data["adaptive_batch"] = resolve_adaptive_batch_config(
+                        level=level,
+                        overrides=overrides if overrides else None,
+                    )
+                except Exception as exc:
+                    # Re-raise with clearer context
+                    raise ValueError(f"Failed to resolve adaptive_batch config: {exc}") from exc
         
         # Merge nested and flat data
         merged_data = {**flat_data, **nested_data}
@@ -732,6 +1268,7 @@ class PromptLearningConfig(ExtraModel):
     mipro: MIPROConfig | None = None
     gepa: GEPAConfig | None = None
     judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or algorithm-specific)
     env_config: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -752,10 +1289,71 @@ class PromptLearningConfig(ExtraModel):
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
         
+        # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
+        # This ensures top-level proxy_models is available for algorithm configs to check
+        # Default: None (proxy models disabled unless explicitly configured)
+        top_level_proxy_models = None
+        if "proxy_models" in pl_data and isinstance(pl_data["proxy_models"], dict):
+            top_level_proxy_models = ProxyModelsConfig.model_validate(pl_data["proxy_models"])
+            pl_data["proxy_models"] = top_level_proxy_models
+        # If proxy_models not specified, leave as None (defaults to disabled)
+        
         # Handle gepa config specially to support nested structure
         if "gepa" in pl_data and isinstance(pl_data["gepa"], dict):
             gepa_data = pl_data["gepa"]
+            # If top-level proxy_models exists, remove gepa-specific proxy_models (top-level takes precedence)
+            if top_level_proxy_models is not None and "proxy_models" in gepa_data:
+                gepa_data.pop("proxy_models")
             pl_data["gepa"] = GEPAConfig.from_mapping(gepa_data)
+            # Ensure gepa config uses top-level proxy_models if available
+            if top_level_proxy_models is not None:
+                # Note: gepa.proxy_models will be None, but top-level proxy_models will be used by backend
+                pass
+        
+        # Handle mipro config - check for adaptive_pool
+        if "mipro" in pl_data and isinstance(pl_data["mipro"], dict):
+            mipro_data = pl_data["mipro"]
+            # If top-level proxy_models exists, remove mipro-specific proxy_models (top-level takes precedence)
+            if top_level_proxy_models is not None and "proxy_models" in mipro_data:
+                mipro_data.pop("proxy_models")
+            
+            # Extract bootstrap_train_seeds and online_pool from top-level pl_data if not in mipro_data
+            # These fields can be at top-level [prompt_learning] or nested [prompt_learning.mipro]
+            if "bootstrap_train_seeds" not in mipro_data and "bootstrap_train_seeds" in pl_data:
+                mipro_data["bootstrap_train_seeds"] = pl_data["bootstrap_train_seeds"]
+            if "online_pool" not in mipro_data and "online_pool" in pl_data:
+                mipro_data["online_pool"] = pl_data["online_pool"]
+            if "test_pool" not in mipro_data and "test_pool" in pl_data:
+                mipro_data["test_pool"] = pl_data["test_pool"]
+            if "reference_pool" not in mipro_data and "reference_pool" in pl_data:
+                mipro_data["reference_pool"] = pl_data["reference_pool"]
+            
+            # Handle adaptive_pool in mipro config (only if specified, defaults to None)
+            if "adaptive_pool" in mipro_data and isinstance(mipro_data["adaptive_pool"], dict):
+                adaptive_pool_data = mipro_data["adaptive_pool"]
+                level = adaptive_pool_data.get("level")
+                # If level not specified, default to LOW (conservative SDK default)
+                overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
+                # Get dev_pool_size from online_pool if available
+                dev_pool_size = None
+                online_pool = mipro_data.get("online_pool") or (mipro_data.get("seeds") or {}).get("online", [])
+                if isinstance(online_pool, list):
+                    dev_pool_size = len(online_pool)
+                try:
+                    mipro_data["adaptive_pool"] = resolve_adaptive_pool_config(
+                        level=level,  # Will default to LOW if None (via resolve_adaptive_pool_config)
+                        overrides=overrides if overrides else None,
+                        dev_pool_size=dev_pool_size,
+                    )
+                except Exception as exc:
+                    # Re-raise with clearer context
+                    raise ValueError(f"Failed to resolve mipro.adaptive_pool config: {exc}") from exc
+            # If adaptive_pool not specified, leave as None (defaults to disabled)
+            
+            # Handle proxy_models in mipro config (only if specified, defaults to None)
+            if "proxy_models" in mipro_data and isinstance(mipro_data["proxy_models"], dict):
+                mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
+            # If proxy_models not specified, leave as None (defaults to disabled)
         
         if "judge" in pl_data and isinstance(pl_data["judge"], dict):
             pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
@@ -778,6 +1376,7 @@ __all__ = [
     "GEPAPopulationConfig",
     "GEPAArchiveConfig",
     "GEPATokenConfig",
+    "GEPAAdaptiveBatchConfig",
     "MIPROConfig",
     "MIPROMetaConfig",
     "MIPROModuleConfig",
@@ -788,4 +1387,10 @@ __all__ = [
     "PromptLearningPolicyConfig",
     "PromptPatternConfig",
     "PromptLearningJudgeConfig",
+    "ProxyModelsConfig",
+    "AdaptivePoolConfig",
+    "AdaptiveCurriculumLevel",
+    "AdaptiveBatchLevel",
+    "resolve_adaptive_pool_config",
+    "resolve_adaptive_batch_config",
 ]

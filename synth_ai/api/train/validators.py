@@ -85,6 +85,166 @@ def _is_supported_google_model(model: str) -> bool:
     return model_lower in {m.lower() for m in GOOGLE_SUPPORTED_MODELS}
 
 
+def _validate_adaptive_pool_config(
+    adaptive_pool_section: dict[str, Any],
+    prefix: str,  # e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool"
+    errors: list[str],
+) -> None:
+    """Validate adaptive_pool configuration section.
+    
+    Validates all fields in adaptive_pool config including:
+    - Level presets (NONE, LOW, MODERATE, HIGH)
+    - Numeric fields with min/max constraints
+    - Relationship constraints (pool_init_size >= pool_min_size >= anchor_size)
+    - String enum fields (anchor_selection_method, exploration_strategy, etc.)
+    - Heat-up phase configuration
+    
+    Args:
+        adaptive_pool_section: Dict containing adaptive_pool config with fields:
+            - level: Preset level (NONE, LOW, MODERATE, HIGH)
+            - anchor_size: Number of anchor examples (always evaluated)
+            - pool_init_size: Initial pool size
+            - pool_min_size: Target minimum pool size after annealing
+            - warmup_iters: Iterations before starting annealing
+            - anneal_stop_iter: Iteration when pool reaches min_size
+            - pool_update_period: Update informativeness every N generations
+            - min_evals_per_example: Min evals before computing informativeness
+            - k_info_prompts: Number of prompts for informativeness
+            - info_buffer_factor: Buffer factor (0.0-1.0) for preserving info
+            - info_epsilon: Epsilon for informativeness calculations
+            - anchor_selection_method: "random" or "clustering"
+            - exploration_strategy: "random" or "diversity"
+            - heatup_trigger: "after_min_size", "immediate", or "every_N_trials_after_min"
+            - heatup_schedule: "repeat" or "once"
+            - heatup_size: Number of seeds to add during heat-up
+            - heatup_cooldown_trials: Trials to wait before cooling down
+            - heatup_reserve_pool: Optional list of seed IDs for heat-up
+        prefix: Prefix for error messages (e.g., "gepa.adaptive_pool" or "mipro.adaptive_pool")
+        errors: List to append validation errors to
+    """
+    if not isinstance(adaptive_pool_section, dict):
+        errors.append(f"❌ {prefix} must be a table/dict when provided")
+        return
+    
+    # Validate level
+    level = adaptive_pool_section.get("level")
+    if level is not None:
+        valid_levels = {"NONE", "LOW", "MODERATE", "HIGH"}
+        if str(level).upper() not in valid_levels:
+            errors.append(
+                f"❌ {prefix}.level must be one of {valid_levels}, got '{level}'"
+            )
+    
+    # Validate numeric fields
+    for field, min_val in [
+        ("anchor_size", 0),
+        ("pool_init_size", 0),
+        ("pool_min_size", 0),
+        ("warmup_iters", 0),
+        ("anneal_stop_iter", 0),
+        ("pool_update_period", 1),
+        ("min_evals_per_example", 1),
+        ("k_info_prompts", 0),
+    ]:
+        val = adaptive_pool_section.get(field)
+        if val is not None:
+            try:
+                ival = int(val)
+                if ival < min_val:
+                    errors.append(f"❌ {prefix}.{field} must be >= {min_val}, got {ival}")
+            except (TypeError, ValueError):
+                errors.append(f"❌ {prefix}.{field} must be an integer, got {type(val).__name__}")
+    
+    # Validate pool_init_size >= pool_min_size if both provided
+    pool_init = adaptive_pool_section.get("pool_init_size")
+    pool_min = adaptive_pool_section.get("pool_min_size")
+    if pool_init is not None and pool_min is not None:
+        try:
+            pool_init_int = int(pool_init)
+            pool_min_int = int(pool_min)
+            if pool_init_int < pool_min_int:
+                errors.append(
+                    f"❌ {prefix}.pool_init_size ({pool_init}) must be >= pool_min_size ({pool_min})"
+                )
+        except (TypeError, ValueError):
+            pass  # Already validated above
+    
+    # Validate pool_min_size >= anchor_size if both provided
+    anchor_size = adaptive_pool_section.get("anchor_size")
+    if pool_min is not None and anchor_size is not None:
+        try:
+            pool_min_int = int(pool_min)
+            anchor_size_int = int(anchor_size)
+            if pool_min_int < anchor_size_int:
+                errors.append(
+                    f"❌ {prefix}.pool_min_size ({pool_min}) must be >= anchor_size ({anchor_size})"
+                )
+        except (TypeError, ValueError):
+            pass  # Already validated above
+    
+    # Validate info_buffer_factor and info_epsilon
+    for field, min_val, max_val in [("info_buffer_factor", 0.0, 1.0), ("info_epsilon", 0.0, None)]:
+        val = adaptive_pool_section.get(field)
+        if val is not None:
+            try:
+                fval = float(val)
+                if fval < min_val:
+                    errors.append(f"❌ {prefix}.{field} must be >= {min_val}, got {fval}")
+                if max_val is not None and fval > max_val:
+                    errors.append(f"❌ {prefix}.{field} must be <= {max_val}, got {fval}")
+            except (TypeError, ValueError):
+                errors.append(f"❌ {prefix}.{field} must be numeric, got {type(val).__name__}")
+    
+    # Validate string fields
+    anchor_method = adaptive_pool_section.get("anchor_selection_method")
+    if anchor_method is not None and anchor_method not in ("random", "clustering"):
+        errors.append(
+            f"❌ {prefix}.anchor_selection_method must be 'random' or 'clustering', got '{anchor_method}'"
+        )
+    
+    exploration_strategy = adaptive_pool_section.get("exploration_strategy")
+    if exploration_strategy is not None and exploration_strategy not in ("random", "diversity"):
+        errors.append(
+            f"❌ {prefix}.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
+        )
+    
+    # Validate heatup fields
+    heatup_trigger = adaptive_pool_section.get("heatup_trigger")
+    if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate", "every_N_trials_after_min"):
+        errors.append(
+            f"❌ {prefix}.heatup_trigger must be 'after_min_size', 'immediate', or 'every_N_trials_after_min', got '{heatup_trigger}'"
+        )
+    
+    heatup_schedule = adaptive_pool_section.get("heatup_schedule")
+    if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
+        errors.append(
+            f"❌ {prefix}.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
+        )
+    
+    heatup_size = adaptive_pool_section.get("heatup_size")
+    if heatup_size is not None:
+        try:
+            if int(heatup_size) <= 0:
+                errors.append(f"❌ {prefix}.heatup_size must be > 0, got {heatup_size}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ {prefix}.heatup_size must be an integer, got {type(heatup_size).__name__}")
+    
+    heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
+    if heatup_cooldown_trials is not None:
+        try:
+            if int(heatup_cooldown_trials) < 0:
+                errors.append(f"❌ {prefix}.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ {prefix}.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
+    
+    heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
+    if heatup_reserve_pool is not None:
+        if not isinstance(heatup_reserve_pool, list):
+            errors.append(f"❌ {prefix}.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
+        elif not all(isinstance(s, int) for s in heatup_reserve_pool):
+            errors.append(f"❌ {prefix}.heatup_reserve_pool must contain only integers")
+
+
 def _validate_model_for_provider(model: str, provider: str, field_name: str, *, allow_nano: bool = False) -> list[str]:
     """
     Validate that a model is supported for the given provider.
@@ -321,6 +481,53 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 "Remove base_url from your config file."
             )
 
+    # Validate proxy_models config (can be at top-level or algorithm-specific)
+    proxy_models_section = pl_section.get("proxy_models")
+    if proxy_models_section:
+        if not isinstance(proxy_models_section, dict):
+            errors.append(f"prompt_learning.proxy_models must be a table/dict, got {type(proxy_models_section).__name__}")
+        else:
+            required_fields = ["hi_provider", "hi_model", "lo_provider", "lo_model"]
+            for field in required_fields:
+                if not proxy_models_section.get(field):
+                    errors.append(f"prompt_learning.proxy_models.{field} is required")
+            # Validate numeric fields
+            for field, min_val in [("n_min_hi", 0), ("r2_thresh", 0.0), ("r2_stop", 0.0), ("sigma_max", 0.0), ("sigma_stop", 0.0), ("verify_every", 0)]:
+                val = proxy_models_section.get(field)
+                if val is not None:
+                    try:
+                        if field in ("r2_thresh", "r2_stop"):
+                            fval = float(val)
+                            if not (0.0 <= fval <= 1.0):
+                                errors.append(f"prompt_learning.proxy_models.{field} must be between 0.0 and 1.0, got {fval}")
+                        elif field.startswith("sigma"):
+                            fval = float(val)
+                            if fval < min_val:
+                                errors.append(f"prompt_learning.proxy_models.{field} must be >= {min_val}, got {fval}")
+                        else:
+                            ival = int(val)
+                            if ival < min_val:
+                                errors.append(f"prompt_learning.proxy_models.{field} must be >= {min_val}, got {ival}")
+                    except (TypeError, ValueError):
+                        errors.append(f"prompt_learning.proxy_models.{field} must be numeric, got {type(val).__name__}")
+            # Validate provider/model combinations
+            if proxy_models_section.get("hi_provider") and proxy_models_section.get("hi_model"):
+                hi_errors = _validate_model_for_provider(
+                    proxy_models_section["hi_model"],
+                    proxy_models_section["hi_provider"],
+                    "prompt_learning.proxy_models.hi_model",
+                    allow_nano=True,
+                )
+                errors.extend(hi_errors)
+            if proxy_models_section.get("lo_provider") and proxy_models_section.get("lo_model"):
+                lo_errors = _validate_model_for_provider(
+                    proxy_models_section["lo_model"],
+                    proxy_models_section["lo_provider"],
+                    "prompt_learning.proxy_models.lo_model",
+                    allow_nano=True,
+                )
+                errors.extend(lo_errors)
+    
     # Validate judge config (shared by GEPA and MIPRO)
     judge_section = pl_section.get("judge") or {}
     if judge_section:
@@ -584,6 +791,34 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     f"  Got: '{proposer_type}'"
                 )
             
+            # Proposer effort validation
+            proposer_effort = str(gepa_config.get("proposer_effort", "LOW")).upper()
+            valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+            if proposer_effort not in valid_effort_levels:
+                errors.append(
+                    f"Invalid proposer_effort: '{proposer_effort}'\n"
+                    f"  Must be one of: {', '.join(sorted(valid_effort_levels))}\n"
+                    f"  Got: '{proposer_effort}'"
+                )
+            
+            # Proposer output tokens validation
+            proposer_output_tokens = str(gepa_config.get("proposer_output_tokens", "FAST")).upper()
+            valid_output_tokens = {"RAPID", "FAST", "SLOW"}
+            if proposer_output_tokens not in valid_output_tokens:
+                errors.append(
+                    f"Invalid proposer_output_tokens: '{proposer_output_tokens}'\n"
+                    f"  Must be one of: {', '.join(sorted(valid_output_tokens))}\n"
+                    f"  Got: '{proposer_output_tokens}'"
+                )
+            
+            # Validate RAPID can only be used with LOW_CONTEXT
+            if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
+                errors.append(
+                    f"Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
+                    f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
+                    f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
+                )
+            
             # Spec validation when proposer_type is "spec"
             if proposer_type == "spec":
                 spec_path = gepa_config.get("spec_path")
@@ -739,6 +974,53 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                                                 )
                                             else:
                                                 seen_tools.add(tool.strip())
+                            
+                            # Validate per-module policy config (REQUIRED)
+                            module_policy = module_entry.get("policy")
+                            if module_policy is None:
+                                errors.append(
+                                    f"❌ gepa.modules[{idx}]: [policy] table is REQUIRED. "
+                                    f"Each module must have its own policy configuration with 'model' and 'provider' fields."
+                                )
+                            elif not isinstance(module_policy, dict):
+                                errors.append(
+                                    f"❌ gepa.modules[{idx}]: [policy] must be a table/dict, got {type(module_policy).__name__}"
+                                )
+                            else:
+                                # Validate required fields in module policy
+                                if not module_policy.get("model"):
+                                    errors.append(
+                                        f"❌ gepa.modules[{idx}]: [policy].model is required"
+                                    )
+                                if not module_policy.get("provider"):
+                                    errors.append(
+                                        f"❌ gepa.modules[{idx}]: [policy].provider is required"
+                                    )
+                                # Validate model/provider combination
+                                module_model = module_policy.get("model")
+                                module_provider = module_policy.get("provider")
+                                if module_model and module_provider:
+                                    errors.extend(_validate_model_for_provider(
+                                        module_model, module_provider,
+                                        f"prompt_learning.gepa.modules[{idx}].policy.model",
+                                        allow_nano=True,  # Policy models can be nano
+                                    ))
+                                # Reject inference_url in module policy (trainer provides it)
+                                if "inference_url" in module_policy:
+                                    errors.append(
+                                        f"❌ gepa.modules[{idx}]: [policy].inference_url must not be specified. "
+                                        f"The trainer provides the inference URL in rollout requests. Remove inference_url from module policy."
+                                    )
+                                if "api_base" in module_policy:
+                                    errors.append(
+                                        f"❌ gepa.modules[{idx}]: [policy].api_base must not be specified. "
+                                        f"Remove api_base from module policy."
+                                    )
+                                if "base_url" in module_policy:
+                                    errors.append(
+                                        f"❌ gepa.modules[{idx}]: [policy].base_url must not be specified. "
+                                        f"Remove base_url from module policy."
+                                    )
     
     elif algorithm == "mipro":
         mipro_config = pl_section.get("mipro")
@@ -1370,6 +1652,118 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
         if not policy_section.get("provider"):
             errors.append("❌ [prompt_learning.policy].provider is required")
     
+    # Validate proxy_models section (can be at top-level or gepa-specific)
+    proxy_models_section = pl_section.get("proxy_models") or gepa_section.get("proxy_models")
+    if proxy_models_section:
+        if not isinstance(proxy_models_section, dict):
+            errors.append("❌ proxy_models must be a table/dict when provided")
+        else:
+            required_fields = ["hi_provider", "hi_model", "lo_provider", "lo_model"]
+            for field in required_fields:
+                if not proxy_models_section.get(field):
+                    errors.append(f"❌ proxy_models.{field} is required")
+            # Validate numeric fields
+            for field, min_val in [("n_min_hi", 0), ("r2_thresh", 0.0), ("r2_stop", 0.0), ("sigma_max", 0.0), ("sigma_stop", 0.0), ("verify_every", 0)]:
+                val = proxy_models_section.get(field)
+                if val is not None:
+                    try:
+                        if field in ("r2_thresh", "r2_stop"):
+                            fval = float(val)
+                            if not (0.0 <= fval <= 1.0):
+                                errors.append(f"❌ proxy_models.{field} must be between 0.0 and 1.0, got {fval}")
+                        elif field.startswith("sigma"):
+                            fval = float(val)
+                            if fval < min_val:
+                                errors.append(f"❌ proxy_models.{field} must be >= {min_val}, got {fval}")
+                        else:
+                            ival = int(val)
+                            if ival < min_val:
+                                errors.append(f"❌ proxy_models.{field} must be >= {min_val}, got {ival}")
+                    except (TypeError, ValueError):
+                        errors.append(f"❌ proxy_models.{field} must be numeric, got {type(val).__name__}")
+            # Validate provider/model combinations
+            if proxy_models_section.get("hi_provider") and proxy_models_section.get("hi_model"):
+                hi_errors = _validate_model_for_provider(
+                    proxy_models_section["hi_model"],
+                    proxy_models_section["hi_provider"],
+                    "proxy_models.hi_model",
+                    allow_nano=True,
+                )
+                errors.extend(hi_errors)
+            if proxy_models_section.get("lo_provider") and proxy_models_section.get("lo_model"):
+                lo_errors = _validate_model_for_provider(
+                    proxy_models_section["lo_model"],
+                    proxy_models_section["lo_provider"],
+                    "proxy_models.lo_model",
+                    allow_nano=True,
+                )
+                errors.extend(lo_errors)
+    
+    # Validate adaptive_pool section (GEPA-specific)
+    adaptive_pool_section = gepa_section.get("adaptive_pool")
+    if adaptive_pool_section:
+        _validate_adaptive_pool_config(adaptive_pool_section, "gepa.adaptive_pool", errors)
+    
+    # Validate adaptive_batch section (GEPA-specific)
+    adaptive_batch_section = gepa_section.get("adaptive_batch")
+    if adaptive_batch_section:
+        if not isinstance(adaptive_batch_section, dict):
+            errors.append("❌ gepa.adaptive_batch must be a table/dict when provided")
+        else:
+            level = adaptive_batch_section.get("level")
+            if level is not None:
+                valid_levels = {"NONE", "LOW", "MODERATE", "HIGH"}
+                if str(level).upper() not in valid_levels:
+                    errors.append(
+                        f"❌ gepa.adaptive_batch.level must be one of {valid_levels}, got '{level}'"
+                    )
+            # Validate numeric fields
+            for field, min_val in [
+                ("reflection_minibatch_size", 1),
+                ("val_subsample_size", 1),
+            ]:
+                val = adaptive_batch_section.get(field)
+                if val is not None:
+                    try:
+                        ival = int(val)
+                        if ival < min_val:
+                            errors.append(f"❌ gepa.adaptive_batch.{field} must be >= {min_val}, got {ival}")
+                    except (TypeError, ValueError):
+                        errors.append(f"❌ gepa.adaptive_batch.{field} must be an integer, got {type(val).__name__}")
+            # Validate min_local_improvement
+            min_improvement = adaptive_batch_section.get("min_local_improvement")
+            if min_improvement is not None:
+                try:
+                    float(min_improvement)  # Just validate it's numeric
+                except (TypeError, ValueError):
+                    errors.append(
+                        f"❌ gepa.adaptive_batch.min_local_improvement must be numeric, got {type(min_improvement).__name__}"
+                    )
+            # Validate val_evaluation_mode
+            val_mode = adaptive_batch_section.get("val_evaluation_mode")
+            if val_mode is not None and val_mode not in ("full", "subsample"):
+                errors.append(
+                    f"❌ gepa.adaptive_batch.val_evaluation_mode must be 'full' or 'subsample', got '{val_mode}'"
+                )
+            # Validate candidate_selection_strategy
+            selection_strategy = adaptive_batch_section.get("candidate_selection_strategy")
+            if selection_strategy is not None and selection_strategy not in ("coverage", "random"):
+                errors.append(
+                    f"❌ gepa.adaptive_batch.candidate_selection_strategy must be 'coverage' or 'random', got '{selection_strategy}'"
+                )
+            # Validate val_evaluation_mode="subsample" requires val_subsample_size > 0
+            val_mode = adaptive_batch_section.get("val_evaluation_mode")
+            if val_mode == "subsample":
+                subsample_size = adaptive_batch_section.get("val_subsample_size")
+                if subsample_size is None:
+                    errors.append(
+                        "❌ gepa.adaptive_batch.val_evaluation_mode='subsample' requires val_subsample_size to be set"
+                    )
+                elif isinstance(subsample_size, (int, float)) and subsample_size <= 0:
+                    errors.append(
+                        f"❌ gepa.adaptive_batch.val_subsample_size must be > 0 when val_evaluation_mode='subsample', got {subsample_size}"
+                    )
+    
     return len(errors) == 0, errors
 
 
@@ -1573,8 +1967,55 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     if meta_max_tokens is not None:
         if not isinstance(meta_max_tokens, int):
             errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
-        elif meta_max_tokens <= 0:
-            errors.append(f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens}")
+    
+    # Validate proposer_effort (can be in instructions section or top-level mipro section)
+    instructions_section = mipro_section.get("instructions", {})
+    if not isinstance(instructions_section, dict):
+        instructions_section = {}
+    proposer_effort = str(
+        instructions_section.get("proposer_effort") or 
+        mipro_section.get("proposer_effort") or 
+        "LOW"
+    ).upper()
+    valid_effort_levels = {"LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"}
+    if proposer_effort not in valid_effort_levels:
+        errors.append(
+            f"❌ Invalid proposer_effort: '{proposer_effort}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_effort_levels))}\n"
+            f"  Got: '{proposer_effort}'"
+        )
+    
+    # Validate proposer_output_tokens (can be in instructions section or top-level mipro section)
+    proposer_output_tokens = str(
+        instructions_section.get("proposer_output_tokens") or 
+        mipro_section.get("proposer_output_tokens") or 
+        "FAST"
+    ).upper()
+    valid_output_tokens = {"RAPID", "FAST", "SLOW"}
+    if proposer_output_tokens not in valid_output_tokens:
+        errors.append(
+            f"❌ Invalid proposer_output_tokens: '{proposer_output_tokens}'\n"
+            f"  Must be one of: {', '.join(sorted(valid_output_tokens))}\n"
+            f"  Got: '{proposer_output_tokens}'"
+        )
+    
+    # Validate RAPID can only be used with LOW_CONTEXT
+    if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
+        errors.append(
+            f"❌ Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
+            f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
+            f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
+        )
+    
+    # Validate meta_max_tokens if present
+    meta_max_tokens = mipro_section.get("meta_model_max_tokens")
+    if meta_max_tokens is not None:
+        try:
+            meta_max_tokens_val = int(meta_max_tokens)
+            if meta_max_tokens_val <= 0:
+                errors.append(f"❌ mipro.meta_model_max_tokens must be > 0, got {meta_max_tokens_val}")
+        except (TypeError, ValueError):
+            errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
     
     # Validate generate_at_iterations
     generate_at_iterations = mipro_section.get("generate_at_iterations")
@@ -1702,6 +2143,53 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                                         errors.append(
                                             f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be an integer"
                                         )
+                                
+                                # Validate per-stage policy config (REQUIRED)
+                                stage_policy = stage_entry.get("policy")
+                                if stage_policy is None:
+                                    errors.append(
+                                        f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] table is REQUIRED. "
+                                        f"Each stage must have its own policy configuration with 'model' and 'provider' fields."
+                                    )
+                                elif not isinstance(stage_policy, dict):
+                                    errors.append(
+                                        f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] must be a table/dict, got {type(stage_policy).__name__}"
+                                    )
+                                else:
+                                    # Validate required fields in stage policy
+                                    if not stage_policy.get("model"):
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].model is required"
+                                        )
+                                    if not stage_policy.get("provider"):
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].provider is required"
+                                        )
+                                    # Validate model/provider combination
+                                    stage_model = stage_policy.get("model")
+                                    stage_provider = stage_policy.get("provider")
+                                    if stage_model and stage_provider:
+                                        errors.extend(_validate_model_for_provider(
+                                            stage_model, stage_provider,
+                                            f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].policy.model",
+                                            allow_nano=True,  # Policy models can be nano
+                                        ))
+                                    # Reject inference_url in stage policy (trainer provides it)
+                                    if "inference_url" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].inference_url must not be specified. "
+                                            f"The trainer provides the inference URL in rollout requests. Remove inference_url from stage policy."
+                                        )
+                                    if "api_base" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].api_base must not be specified. "
+                                            f"Remove api_base from stage policy."
+                                        )
+                                    if "base_url" in stage_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].base_url must not be specified. "
+                                            f"Remove base_url from stage policy."
+                                        )
                 
                 # Validate edges reference valid stages
                 edges = module_entry.get("edges")
@@ -1764,6 +2252,58 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             errors.append("❌ [prompt_learning.policy].model is required")
         if not policy_section.get("provider"):
             errors.append("❌ [prompt_learning.policy].provider is required")
+    
+    # Validate proxy_models section (can be at top-level or mipro-specific)
+    proxy_models_section = pl_section.get("proxy_models") or mipro_section.get("proxy_models")
+    if proxy_models_section:
+        if not isinstance(proxy_models_section, dict):
+            errors.append("❌ proxy_models must be a table/dict when provided")
+        else:
+            required_fields = ["hi_provider", "hi_model", "lo_provider", "lo_model"]
+            for field in required_fields:
+                if not proxy_models_section.get(field):
+                    errors.append(f"❌ proxy_models.{field} is required")
+            # Validate numeric fields (same as GEPA)
+            for field, min_val in [("n_min_hi", 0), ("r2_thresh", 0.0), ("r2_stop", 0.0), ("sigma_max", 0.0), ("sigma_stop", 0.0), ("verify_every", 0)]:
+                val = proxy_models_section.get(field)
+                if val is not None:
+                    try:
+                        if field in ("r2_thresh", "r2_stop"):
+                            fval = float(val)
+                            if not (0.0 <= fval <= 1.0):
+                                errors.append(f"❌ proxy_models.{field} must be between 0.0 and 1.0, got {fval}")
+                        elif field.startswith("sigma"):
+                            fval = float(val)
+                            if fval < min_val:
+                                errors.append(f"❌ proxy_models.{field} must be >= {min_val}, got {fval}")
+                        else:
+                            ival = int(val)
+                            if ival < min_val:
+                                errors.append(f"❌ proxy_models.{field} must be >= {min_val}, got {ival}")
+                    except (TypeError, ValueError):
+                        errors.append(f"❌ proxy_models.{field} must be numeric, got {type(val).__name__}")
+            # Validate provider/model combinations
+            if proxy_models_section.get("hi_provider") and proxy_models_section.get("hi_model"):
+                hi_errors = _validate_model_for_provider(
+                    proxy_models_section["hi_model"],
+                    proxy_models_section["hi_provider"],
+                    "proxy_models.hi_model",
+                    allow_nano=True,
+                )
+                errors.extend(hi_errors)
+            if proxy_models_section.get("lo_provider") and proxy_models_section.get("lo_model"):
+                lo_errors = _validate_model_for_provider(
+                    proxy_models_section["lo_model"],
+                    proxy_models_section["lo_provider"],
+                    "proxy_models.lo_model",
+                    allow_nano=True,
+                )
+                errors.extend(lo_errors)
+    
+    # Validate adaptive_pool section (MIPRO-specific, can be nested or flat)
+    adaptive_pool_section = mipro_section.get("adaptive_pool")
+    if adaptive_pool_section:
+        _validate_adaptive_pool_config(adaptive_pool_section, "mipro.adaptive_pool", errors)
     
     return len(errors) == 0, errors
 
