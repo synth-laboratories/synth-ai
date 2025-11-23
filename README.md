@@ -278,6 +278,34 @@ Backend → prompt_template in payload → Task App (NEVER DO THIS)
 
 ---
 
+## 🛠️ Development
+
+### CI/CD
+
+This project uses GitHub Actions for continuous integration. On every PR and push to `main`, the following checks run:
+
+- **Lint (ruff)** — Code style and linting
+- **Type Check (ty)** — Static type checking
+- **Tests** — Unit tests (fast, ≤5s)
+- **OpenAPI ↔ Pydantic Sync** — Schema validation (see below)
+- **Integration Tests** — Dev endpoint testing
+
+### OpenAPI/Pydantic Schema Validation
+
+The Task App contract is defined in two places that must stay in sync:
+- **OpenAPI spec:** `synth_ai/contracts/task_app.yaml` (source of truth for polyglot implementers)
+- **Python models:** `synth_ai/task/contracts.py` (Pydantic models for SDK)
+
+CI automatically validates these match. To run locally:
+
+```bash
+uv run --group dev python scripts/validate_openapi_pydantic.py
+```
+
+If schemas drift, CI will fail with specific mismatches to fix.
+
+---
+
 ## 🧠 Meta
 
 - Package: [`synth-ai`](https://pypi.org/project/synth-ai)

@@ -26,6 +26,33 @@
 - `RubricBundle` (synth_ai/task/server.py:24) keeps outcome/events rubric references consistent for downstream scoring.  
 - Proxy helpers (`synth_ai/task/server.py:68`) and auth requirements (`synth_ai/task/auth.py`) enforce consistent handling of API keys and vendor routing.
 
+## Authentication & Inference URL Handling
+
+Task Apps involve two separate authentication mechanisms that must be handled correctly:
+
+### Task App Authentication vs LLM Authentication
+
+1. **Task App Auth (`X-API-Key` header)**: The optimizer sends this header to authenticate requests *to* the task app. Task apps should verify this matches `ENVIRONMENT_API_KEY`.
+
+2. **LLM API Auth (`Authorization: Bearer` header)**: Task apps must add their own Bearer token when making requests *to* OpenAI/Groq/etc. This should be read from `OPENAI_API_KEY` or `GROQ_API_KEY` environment variables.
+
+**Critical:** Do NOT forward the `X-API-Key` header to the LLM API - it's for task app auth only.
+
+### Inference URL Query Parameter Handling
+
+The `policy.config.inference_url` field may contain query parameters (e.g., `?model=gpt-4o-mini`). When constructing the full chat completions URL, implementations must preserve the query string:
+
+```python
+# WRONG: https://api.openai.com/v1?model=gpt-4o-mini/chat/completions
+# CORRECT: https://api.openai.com/v1/chat/completions?model=gpt-4o-mini
+
+if "?" in inference_url:
+    base, query = inference_url.split("?", 1)
+    url = f"{base.rstrip('/')}/chat/completions?{query}"
+else:
+    url = f"{inference_url.rstrip('/')}/chat/completions"
+```
+
 ## Recommended Standards & Additions
 - **Dataset Validation**: require every task app dataset loader to perform record-level validation (like Agora’s `_validate_record`) and expose an automated `validate_dataset.py` entrypoint. Encourage standard fields: `id`, `seed`, `split`, rubric metadata, and schema version. Consider augmenting `TaskDatasetSpec` with a `schema_version` and optional `record_schema` callable.  
 - **Task Info Guarantees**: codify that `TaskInfo` must include: observation description, action space semantics, dataset descriptor (with version + selection info), rubric summary, inference endpoints/limits, capabilities flags (`supports_rollout`, `supports_env_lifecycle`), and limits (max turns/tokens or ops/time). Validation could live in a helper that asserts required keys before `TaskAppConfig` is accepted.  

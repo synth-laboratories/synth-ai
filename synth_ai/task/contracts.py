@@ -62,7 +62,7 @@ class RolloutRequest(BaseModel):
     run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    ops: list[dict[str, Any]] | list[str]
+    ops: list[dict[str, Any]] | list[str] = Field(default_factory=list)
     record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
@@ -81,7 +81,7 @@ class RolloutStep(BaseModel):
     obs: dict[str, Any]
     tool_calls: list[dict[str, Any]]
     reward: float | None = None
-    done: bool = False
+    done: bool
     truncated: bool | None = None
     info: dict[str, Any] | None = None
 
@@ -227,9 +227,9 @@ class TaskInfo(_ExtraAllowModel):
     task: TaskDescriptor
     environment: str
     dataset: DatasetInfo
-    rubric: RubricInfo
+    rubric: RubricInfo | None = None
     inference: InferenceInfo
-    limits: LimitsInfo
+    limits: LimitsInfo | None = None
     task_metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Task-specific extras (e.g. prompt version info, documentation links).",

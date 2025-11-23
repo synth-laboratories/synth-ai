@@ -66,6 +66,7 @@ dev = [
     "pyright>=1.1.350",
     "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
+    "pyyaml>=6.0",  # For OpenAPI/Pydantic schema validation
 ]
 research = [
     # Heavy game environment dependencies
@@ -218,4 +219,5 @@ dev = [
     "responses>=0.25.7",
     "httpx>=0.28.1",
     "crafter>=1.8.3",
+    "pyyaml>=6.0",  # For OpenAPI/Pydantic schema validation
 ]

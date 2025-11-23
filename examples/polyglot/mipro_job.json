@@ -1,0 +1,71 @@
+{
+  "algorithm": "mipro",
+  "config_body": {
+    "prompt_learning": {
+      "algorithm": "mipro",
+      "task_app_url": "http://localhost:8001",
+      "task_app_api_key": "test-polyglot-key",
+      "task_app_id": "banking77-polyglot",
+      "initial_prompt": {
+        "id": "banking77_pattern",
+        "name": "Banking77 Classification Pattern",
+        "messages": [
+          {
+            "role": "system",
+            "pattern": "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the classify tool.",
+            "order": 0
+          },
+          {
+            "role": "user",
+            "pattern": "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call.",
+            "order": 1
+          }
+        ],
+        "wildcards": {
+          "query": "REQUIRED"
+        }
+      },
+      "policy": {
+        "inference_mode": "synth_hosted",
+        "model": "openai/gpt-oss-20b",
+        "provider": "groq",
+        "temperature": 0.0,
+        "max_completion_tokens": 128,
+        "policy_name": "banking77-mipro-polyglot"
+      },
+      "env_config": {
+        "pool": "train"
+      },
+      "mipro": {
+        "env_name": "banking77",
+        "num_iterations": 2,
+        "num_evaluations_per_iteration": 2,
+        "batch_size": 3,
+        "max_concurrent": 6,
+        "meta_model": "llama-3.3-70b-versatile",
+        "meta_model_provider": "groq",
+        "few_shot_score_threshold": 0.85,
+        "max_instructions": 2,
+        "duplicate_retry_limit": 10,
+        "bootstrap_train_seeds": [0, 1, 2],
+        "online_pool": [3, 4, 5, 6],
+        "test_pool": [7, 8],
+        "val_seeds": [9],
+        "reference_pool": [9],
+        "stages": [
+          {
+            "stage_id": "stage_default",
+            "max_instruction_slots": 2,
+            "max_demo_slots": 2,
+            "policy": {
+              "model": "openai/gpt-oss-20b",
+              "provider": "groq",
+              "temperature": 0.0,
+              "max_completion_tokens": 128
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -31,6 +31,18 @@ jobs:
       - name: ty check
         run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore possibly-unbound-attribute --ignore deprecated
 
+  schema-validation:
+    name: OpenAPI ↔ Pydantic Sync
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Validate OpenAPI matches Pydantic schemas
+        run: uv run --group dev python scripts/validate_openapi_pydantic.py
+
   tests:
     name: Tests (unit, fast≤5s)
     runs-on: blacksmith-4vcpu-ubuntu-2404
