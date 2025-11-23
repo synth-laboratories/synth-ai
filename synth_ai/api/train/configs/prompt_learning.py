@@ -1172,6 +1172,18 @@ class PromptLearningConfig(ExtraModel):
             # If top-level proxy_models exists, remove mipro-specific proxy_models (top-level takes precedence)
             if top_level_proxy_models is not None and "proxy_models" in mipro_data:
                 mipro_data.pop("proxy_models")
+            
+            # Extract bootstrap_train_seeds and online_pool from top-level pl_data if not in mipro_data
+            # These fields can be at top-level [prompt_learning] or nested [prompt_learning.mipro]
+            if "bootstrap_train_seeds" not in mipro_data and "bootstrap_train_seeds" in pl_data:
+                mipro_data["bootstrap_train_seeds"] = pl_data["bootstrap_train_seeds"]
+            if "online_pool" not in mipro_data and "online_pool" in pl_data:
+                mipro_data["online_pool"] = pl_data["online_pool"]
+            if "test_pool" not in mipro_data and "test_pool" in pl_data:
+                mipro_data["test_pool"] = pl_data["test_pool"]
+            if "reference_pool" not in mipro_data and "reference_pool" in pl_data:
+                mipro_data["reference_pool"] = pl_data["reference_pool"]
+            
             # Handle adaptive_pool in mipro config
             if "adaptive_pool" in mipro_data and isinstance(mipro_data["adaptive_pool"], dict):
                 adaptive_pool_data = mipro_data["adaptive_pool"]
@@ -1191,6 +1203,10 @@ class PromptLearningConfig(ExtraModel):
                 except Exception as exc:
                     # Re-raise with clearer context
                     raise ValueError(f"Failed to resolve mipro.adaptive_pool config: {exc}") from exc
+            
+            # Handle proxy_models in mipro config
+            if "proxy_models" in mipro_data and isinstance(mipro_data["proxy_models"], dict):
+                mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
         
         if "judge" in pl_data and isinstance(pl_data["judge"], dict):
             pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
