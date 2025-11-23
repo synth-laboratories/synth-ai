@@ -47,9 +47,9 @@ if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from synth_ai.api.train.prompt_learning import PromptLearningJob
-from synth_ai.task import InProcessTaskApp
-from synth_ai.learning.rl.secrets import mint_environment_api_key
 from synth_ai.cli.lib.task_app_env import preflight_env_key
+from synth_ai.learning.rl.secrets import mint_environment_api_key
+from synth_ai.task import InProcessTaskApp
 
 
 async def main():
@@ -128,12 +128,12 @@ async def main():
         os.environ["EXTERNAL_BACKEND_URL"] = backend_url.rstrip("/")
         print("ℹ️  Configuration: tunnel/tunnel")
         print(f"   Backend: {backend_url}")
-        print(f"   Task App: will create its own tunnel")
+        print("   Task App: will create its own tunnel")
 
     print("\nConfiguration:")
     print(f"  Config: {config_path.name}")
     print(f"  Backend: {backend_url}")
-    print(f"  Task App: Starting in-process...")
+    print("  Task App: Starting in-process...")
     print()
 
     # Find task app path (from walkthroughs/gepa/task_app/)
@@ -166,7 +166,7 @@ async def main():
                 config = toml.load(config_path)
                 config["prompt_learning"]["task_app_url"] = task_app.url
             except Exception as e:
-                print(f"\n❌ Error loading/modifying config:")
+                print("\n❌ Error loading/modifying config:")
                 print(f"   Type: {type(e).__name__}")
                 print(f"   Message: {str(e)}")
                 import traceback
@@ -197,7 +197,7 @@ async def main():
                     temp_config_path = f.name
                 print(f"✅ Config written to: {temp_config_path}\n")
             except Exception as e:
-                print(f"\n❌ Error writing config file:")
+                print("\n❌ Error writing config file:")
                 print(f"   Type: {type(e).__name__}")
                 print(f"   Message: {str(e)}")
                 import traceback
@@ -207,7 +207,7 @@ async def main():
             job = None
             job_id = None
             try:
-                print(f"Creating job from config...\n")
+                print("Creating job from config...\n")
                 
                 job = PromptLearningJob.from_config(
                     config_path=temp_config_path,
@@ -215,17 +215,17 @@ async def main():
                     api_key=api_key,
                     task_app_api_key=task_app_api_key,
                 )
-                print(f"✅ Job created successfully\n")
+                print("✅ Job created successfully\n")
 
-                print(f"Submitting job...\n")
+                print("Submitting job...\n")
                 job_id = job.submit()
                 print(f"✅ Job submitted: {job_id}\n")
                 
             except Exception as e:
-                print(f"\n❌ Error during job creation/submission:")
+                print("\n❌ Error during job creation/submission:")
                 print(f"   Type: {type(e).__name__}")
                 print(f"   Message: {str(e)}")
-                print(f"\n   Full error details:")
+                print("\n   Full error details:")
                 import traceback
                 traceback.print_exc()
                 raise  # Re-raise to exit context manager
@@ -329,7 +329,6 @@ async def main():
             # Get results
             import httpx
             from synth_ai.learning.prompt_learning_client import PromptLearningClient
-            from synth_ai.api.train.utils import ensure_api_base
 
             client = PromptLearningClient(
                 ensure_api_base(backend_url),

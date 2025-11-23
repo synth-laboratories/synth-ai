@@ -839,8 +839,8 @@ async def verify_tunnel_dns_resolution(
                     else:
                         # 530 errors are common when tunnel is still establishing - be lenient
                         if resp.status_code == 530:
-                            logger.debug(f"HTTP 530 (tunnel establishing) - will retry")
-                            last_exc = RuntimeError(f"tunnel not ready yet (HTTP 530)")
+                            logger.debug("HTTP 530 (tunnel establishing) - will retry")
+                            last_exc = RuntimeError("tunnel not ready yet (HTTP 530)")
                         else:
                             logger.warning(f"HTTP check returned unexpected status: {resp.status_code}")
                             last_exc = RuntimeError(f"unexpected HTTP status {resp.status_code}")
