@@ -332,7 +332,7 @@ def resolve_adaptive_pool_config(
     """Resolve adaptive pool config from level preset and overrides.
     
     Args:
-        level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to MODERATE if None.
+        level: Preset level (NONE, LOW, MODERATE, HIGH). Defaults to LOW if None.
         overrides: Dict of field overrides to apply on top of level defaults.
         dev_pool_size: Optional dev pool size to cap pool_init_size if needed.
     
