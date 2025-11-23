@@ -321,6 +321,53 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 "Remove base_url from your config file."
             )
 
+    # Validate proxy_models config (can be at top-level or algorithm-specific)
+    proxy_models_section = pl_section.get("proxy_models")
+    if proxy_models_section:
+        if not isinstance(proxy_models_section, dict):
+            errors.append(f"prompt_learning.proxy_models must be a table/dict, got {type(proxy_models_section).__name__}")
+        else:
+            required_fields = ["hi_provider", "hi_model", "lo_provider", "lo_model"]
+            for field in required_fields:
+                if not proxy_models_section.get(field):
+                    errors.append(f"prompt_learning.proxy_models.{field} is required")
+            # Validate numeric fields
+            for field, min_val in [("n_min_hi", 0), ("r2_thresh", 0.0), ("r2_stop", 0.0), ("sigma_max", 0.0), ("sigma_stop", 0.0), ("verify_every", 0)]:
+                val = proxy_models_section.get(field)
+                if val is not None:
+                    try:
+                        if field in ("r2_thresh", "r2_stop"):
+                            fval = float(val)
+                            if not (0.0 <= fval <= 1.0):
+                                errors.append(f"prompt_learning.proxy_models.{field} must be between 0.0 and 1.0, got {fval}")
+                        elif field.startswith("sigma"):
+                            fval = float(val)
+                            if fval < min_val:
+                                errors.append(f"prompt_learning.proxy_models.{field} must be >= {min_val}, got {fval}")
+                        else:
+                            ival = int(val)
+                            if ival < min_val:
+                                errors.append(f"prompt_learning.proxy_models.{field} must be >= {min_val}, got {ival}")
+                    except (TypeError, ValueError):
+                        errors.append(f"prompt_learning.proxy_models.{field} must be numeric, got {type(val).__name__}")
+            # Validate provider/model combinations
+            if proxy_models_section.get("hi_provider") and proxy_models_section.get("hi_model"):
+                hi_errors = _validate_model_for_provider(
+                    proxy_models_section["hi_model"],
+                    proxy_models_section["hi_provider"],
+                    "prompt_learning.proxy_models.hi_model",
+                    allow_nano=True,
+                )
+                errors.extend(hi_errors)
+            if proxy_models_section.get("lo_provider") and proxy_models_section.get("lo_model"):
+                lo_errors = _validate_model_for_provider(
+                    proxy_models_section["lo_model"],
+                    proxy_models_section["lo_provider"],
+                    "prompt_learning.proxy_models.lo_model",
+                    allow_nano=True,
+                )
+                errors.extend(lo_errors)
+    
     # Validate judge config (shared by GEPA and MIPRO)
     judge_section = pl_section.get("judge") or {}
     if judge_section:
@@ -1558,6 +1605,37 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                 errors.append(
                     f"❌ gepa.adaptive_pool.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
                 )
+            # Validate heatup fields
+            heatup_trigger = adaptive_pool_section.get("heatup_trigger")
+            if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate"):
+                errors.append(
+                    f"❌ gepa.adaptive_pool.heatup_trigger must be 'after_min_size' or 'immediate', got '{heatup_trigger}'"
+                )
+            heatup_schedule = adaptive_pool_section.get("heatup_schedule")
+            if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
+                errors.append(
+                    f"❌ gepa.adaptive_pool.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
+                )
+            heatup_size = adaptive_pool_section.get("heatup_size")
+            if heatup_size is not None:
+                try:
+                    if int(heatup_size) <= 0:
+                        errors.append(f"❌ gepa.adaptive_pool.heatup_size must be > 0, got {heatup_size}")
+                except (TypeError, ValueError):
+                    errors.append(f"❌ gepa.adaptive_pool.heatup_size must be an integer, got {type(heatup_size).__name__}")
+            heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
+            if heatup_cooldown_trials is not None:
+                try:
+                    if int(heatup_cooldown_trials) < 0:
+                        errors.append(f"❌ gepa.adaptive_pool.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
+                except (TypeError, ValueError):
+                    errors.append(f"❌ gepa.adaptive_pool.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
+            heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
+            if heatup_reserve_pool is not None:
+                if not isinstance(heatup_reserve_pool, list):
+                    errors.append(f"❌ gepa.adaptive_pool.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
+                elif not all(isinstance(s, int) for s in heatup_reserve_pool):
+                    errors.append("❌ gepa.adaptive_pool.heatup_reserve_pool must contain only integers")
     
     # Validate adaptive_batch section (GEPA-specific)
     adaptive_batch_section = gepa_section.get("adaptive_batch")
@@ -1606,6 +1684,18 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                 errors.append(
                     f"❌ gepa.adaptive_batch.candidate_selection_strategy must be 'coverage' or 'random', got '{selection_strategy}'"
                 )
+            # Validate val_evaluation_mode="subsample" requires val_subsample_size > 0
+            val_mode = adaptive_batch_section.get("val_evaluation_mode")
+            if val_mode == "subsample":
+                subsample_size = adaptive_batch_section.get("val_subsample_size")
+                if subsample_size is None:
+                    errors.append(
+                        "❌ gepa.adaptive_batch.val_evaluation_mode='subsample' requires val_subsample_size to be set"
+                    )
+                elif isinstance(subsample_size, (int, float)) and subsample_size <= 0:
+                    errors.append(
+                        f"❌ gepa.adaptive_batch.val_subsample_size must be > 0 when val_evaluation_mode='subsample', got {subsample_size}"
+                    )
     
     return len(errors) == 0, errors
 
@@ -2201,6 +2291,37 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                 errors.append(
                     f"❌ mipro.adaptive_pool.exploration_strategy must be 'random' or 'diversity', got '{exploration_strategy}'"
                 )
+            # Validate heatup fields (same as GEPA)
+            heatup_trigger = adaptive_pool_section.get("heatup_trigger")
+            if heatup_trigger is not None and heatup_trigger not in ("after_min_size", "immediate"):
+                errors.append(
+                    f"❌ mipro.adaptive_pool.heatup_trigger must be 'after_min_size' or 'immediate', got '{heatup_trigger}'"
+                )
+            heatup_schedule = adaptive_pool_section.get("heatup_schedule")
+            if heatup_schedule is not None and heatup_schedule not in ("repeat", "once"):
+                errors.append(
+                    f"❌ mipro.adaptive_pool.heatup_schedule must be 'repeat' or 'once', got '{heatup_schedule}'"
+                )
+            heatup_size = adaptive_pool_section.get("heatup_size")
+            if heatup_size is not None:
+                try:
+                    if int(heatup_size) <= 0:
+                        errors.append(f"❌ mipro.adaptive_pool.heatup_size must be > 0, got {heatup_size}")
+                except (TypeError, ValueError):
+                    errors.append(f"❌ mipro.adaptive_pool.heatup_size must be an integer, got {type(heatup_size).__name__}")
+            heatup_cooldown_trials = adaptive_pool_section.get("heatup_cooldown_trials")
+            if heatup_cooldown_trials is not None:
+                try:
+                    if int(heatup_cooldown_trials) < 0:
+                        errors.append(f"❌ mipro.adaptive_pool.heatup_cooldown_trials must be >= 0, got {heatup_cooldown_trials}")
+                except (TypeError, ValueError):
+                    errors.append(f"❌ mipro.adaptive_pool.heatup_cooldown_trials must be an integer, got {type(heatup_cooldown_trials).__name__}")
+            heatup_reserve_pool = adaptive_pool_section.get("heatup_reserve_pool")
+            if heatup_reserve_pool is not None:
+                if not isinstance(heatup_reserve_pool, list):
+                    errors.append(f"❌ mipro.adaptive_pool.heatup_reserve_pool must be a list, got {type(heatup_reserve_pool).__name__}")
+                elif not all(isinstance(s, int) for s in heatup_reserve_pool):
+                    errors.append("❌ mipro.adaptive_pool.heatup_reserve_pool must contain only integers")
     
     return len(errors) == 0, errors
 

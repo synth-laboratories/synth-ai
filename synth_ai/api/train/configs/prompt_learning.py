@@ -343,7 +343,11 @@ def resolve_adaptive_pool_config(
     if level is None:
         level = AdaptiveCurriculumLevel.MODERATE
     elif isinstance(level, str):
-        level = AdaptiveCurriculumLevel[level.strip().upper()]
+        try:
+            level = AdaptiveCurriculumLevel[level.strip().upper()]
+        except KeyError:
+            valid_levels = ", ".join(l.name for l in AdaptiveCurriculumLevel)
+            raise ValueError(f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}")
     
     # Get defaults for level
     defaults = _ADAPTIVE_POOL_DEFAULTS[level].copy()
@@ -352,16 +356,49 @@ def resolve_adaptive_pool_config(
     if overrides:
         defaults.update(overrides)
     
-    # Cap pool_init_size if dev_pool_size is provided
-    if dev_pool_size is not None and defaults.get("pool_init_size") is not None:
-        if defaults["pool_init_size"] > dev_pool_size:
-            defaults["pool_init_size"] = dev_pool_size
+    # Handle pool_init_size and pool_min_size with dev_pool_size
+    pool_init_size = defaults.get("pool_init_size")
+    pool_min_size = defaults.get("pool_min_size")
     
-    # Create config
-    return AdaptivePoolConfig(
+    if pool_init_size is None:
+        pool_init_size = dev_pool_size
+    if pool_min_size is None:
+        pool_min_size = dev_pool_size
+    
+    # Cap pool_init_size if dev_pool_size is provided
+    if dev_pool_size is not None and pool_init_size is not None:
+        if pool_init_size > dev_pool_size:
+            pool_init_size = dev_pool_size
+    
+    # Handle heatup_reserve_pool (can be list, None, or single value)
+    heatup_reserve = defaults.get("heatup_reserve_pool")
+    if heatup_reserve is not None and not isinstance(heatup_reserve, (list, tuple)):
+        # Convert single value or other types to list
+        heatup_reserve = [heatup_reserve] if heatup_reserve else None
+    
+    # Create config with proper types
+    config = AdaptivePoolConfig(
         level=level,
-        **defaults,
+        anchor_size=int(defaults["anchor_size"]),
+        pool_init_size=None if pool_init_size is None else int(pool_init_size),
+        pool_min_size=None if pool_min_size is None else int(pool_min_size),
+        warmup_iters=int(defaults["warmup_iters"]),
+        anneal_stop_iter=int(defaults["anneal_stop_iter"]),
+        pool_update_period=int(defaults["pool_update_period"]),
+        min_evals_per_example=int(defaults["min_evals_per_example"]),
+        k_info_prompts=int(defaults["k_info_prompts"]),
+        info_buffer_factor=float(defaults["info_buffer_factor"]),
+        info_epsilon=float(defaults["info_epsilon"]),
+        anchor_selection_method=str(defaults["anchor_selection_method"]),
+        exploration_strategy=str(defaults["exploration_strategy"]),
+        heatup_reserve_pool=list(heatup_reserve) if heatup_reserve else None,
+        heatup_trigger=str(defaults.get("heatup_trigger", "after_min_size")),
+        heatup_size=int(defaults.get("heatup_size", 20)),
+        heatup_cooldown_trials=int(defaults.get("heatup_cooldown_trials", 50)),
+        heatup_schedule=str(defaults.get("heatup_schedule", "repeat")),
     )
+    
+    return config
 
 
 def resolve_adaptive_batch_config(
@@ -382,7 +419,11 @@ def resolve_adaptive_batch_config(
     if level is None:
         level = AdaptiveBatchLevel.MODERATE
     elif isinstance(level, str):
-        level = AdaptiveBatchLevel[level.strip().upper()]
+        try:
+            level = AdaptiveBatchLevel[level.strip().upper()]
+        except KeyError:
+            valid_levels = ", ".join(l.name for l in AdaptiveBatchLevel)
+            raise ValueError(f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}")
     
     # Get defaults for level
     defaults = _ADAPTIVE_BATCH_DEFAULTS[level].copy()
@@ -391,10 +432,14 @@ def resolve_adaptive_batch_config(
     if overrides:
         defaults.update(overrides)
     
-    # Create config
+    # Create config with proper types
     return GEPAAdaptiveBatchConfig(
         level=level,
-        **defaults,
+        reflection_minibatch_size=int(defaults["reflection_minibatch_size"]),
+        min_local_improvement=float(defaults["min_local_improvement"]),
+        val_evaluation_mode=str(defaults["val_evaluation_mode"]),
+        val_subsample_size=int(defaults["val_subsample_size"]),
+        candidate_selection_strategy=str(defaults["candidate_selection_strategy"]),
     )
 
 
@@ -1007,7 +1052,7 @@ class GEPAConfig(ExtraModel):
         flat_data = {}
         
         for key, value in data.items():
-            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules"):
+            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules", "proxy_models", "adaptive_pool", "adaptive_batch", "judge"):
                 nested_data[key] = value
             else:
                 flat_data[key] = value
@@ -1056,10 +1101,14 @@ class GEPAConfig(ExtraModel):
                 adaptive_batch_data = nested_data["adaptive_batch"]
                 level = adaptive_batch_data.get("level")
                 overrides = {k: v for k, v in adaptive_batch_data.items() if k != "level"}
-                nested_data["adaptive_batch"] = resolve_adaptive_batch_config(
-                    level=level,
-                    overrides=overrides if overrides else None,
-                )
+                try:
+                    nested_data["adaptive_batch"] = resolve_adaptive_batch_config(
+                        level=level,
+                        overrides=overrides if overrides else None,
+                    )
+                except Exception as exc:
+                    # Re-raise with clearer context
+                    raise ValueError(f"Failed to resolve adaptive_batch config: {exc}") from exc
         
         # Merge nested and flat data
         merged_data = {**flat_data, **nested_data}
@@ -1098,14 +1147,30 @@ class PromptLearningConfig(ExtraModel):
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
         
+        # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
+        # This ensures top-level proxy_models is available for algorithm configs to check
+        top_level_proxy_models = None
+        if "proxy_models" in pl_data and isinstance(pl_data["proxy_models"], dict):
+            top_level_proxy_models = ProxyModelsConfig.model_validate(pl_data["proxy_models"])
+            pl_data["proxy_models"] = top_level_proxy_models
+        
         # Handle gepa config specially to support nested structure
         if "gepa" in pl_data and isinstance(pl_data["gepa"], dict):
             gepa_data = pl_data["gepa"]
+            # If top-level proxy_models exists, remove gepa-specific proxy_models (top-level takes precedence)
+            if top_level_proxy_models is not None and "proxy_models" in gepa_data:
+                gepa_data.pop("proxy_models")
             pl_data["gepa"] = GEPAConfig.from_mapping(gepa_data)
+            # Ensure gepa config uses top-level proxy_models if available
+            if top_level_proxy_models is not None:
+                # Note: gepa.proxy_models will be None, but top-level proxy_models will be used by backend
         
         # Handle mipro config - check for adaptive_pool
         if "mipro" in pl_data and isinstance(pl_data["mipro"], dict):
             mipro_data = pl_data["mipro"]
+            # If top-level proxy_models exists, remove mipro-specific proxy_models (top-level takes precedence)
+            if top_level_proxy_models is not None and "proxy_models" in mipro_data:
+                mipro_data.pop("proxy_models")
             # Handle adaptive_pool in mipro config
             if "adaptive_pool" in mipro_data and isinstance(mipro_data["adaptive_pool"], dict):
                 adaptive_pool_data = mipro_data["adaptive_pool"]
@@ -1116,21 +1181,18 @@ class PromptLearningConfig(ExtraModel):
                 online_pool = mipro_data.get("online_pool") or (mipro_data.get("seeds") or {}).get("online", [])
                 if isinstance(online_pool, list):
                     dev_pool_size = len(online_pool)
-                mipro_data["adaptive_pool"] = resolve_adaptive_pool_config(
-                    level=level,
-                    overrides=overrides if overrides else None,
-                    dev_pool_size=dev_pool_size,
-                )
-            # Handle proxy_models in mipro config
-            if "proxy_models" in mipro_data and isinstance(mipro_data["proxy_models"], dict):
-                mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
+                try:
+                    mipro_data["adaptive_pool"] = resolve_adaptive_pool_config(
+                        level=level,
+                        overrides=overrides if overrides else None,
+                        dev_pool_size=dev_pool_size,
+                    )
+                except Exception as exc:
+                    # Re-raise with clearer context
+                    raise ValueError(f"Failed to resolve mipro.adaptive_pool config: {exc}") from exc
         
         if "judge" in pl_data and isinstance(pl_data["judge"], dict):
             pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
-        
-        # Handle proxy_models at top-level (takes precedence over algorithm-specific)
-        if "proxy_models" in pl_data and isinstance(pl_data["proxy_models"], dict):
-            pl_data["proxy_models"] = ProxyModelsConfig.model_validate(pl_data["proxy_models"])
         
         return cls.model_validate(pl_data)
 
