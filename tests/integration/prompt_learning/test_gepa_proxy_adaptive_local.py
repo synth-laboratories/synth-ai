@@ -179,7 +179,7 @@ def main():
 
             # Poll until complete
             try:
-                results = job.poll_until_complete(timeout=3600.0, poll_interval=5.0)
+                results = job.poll_until_complete(timeout=3600.0, interval=5.0)
                 final_status_value = "completed"
 
             except Exception as poll_error:
