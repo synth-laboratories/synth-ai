@@ -12,7 +12,6 @@ Exit codes:
   1 - Validation failed (schema mismatch or missing fields)
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -24,17 +23,15 @@ from pydantic import BaseModel
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from synth_ai.task.contracts import (
+from synth_ai.task.contracts import (  # noqa: E402
     DatasetInfo,
     InferenceInfo,
     LimitsInfo,
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
-    RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
-    RolloutSafetyConfig,
     RolloutStep,
     RolloutTrajectory,
     RubricInfo,
