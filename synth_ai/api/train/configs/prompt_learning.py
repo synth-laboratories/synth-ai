@@ -1164,6 +1164,7 @@ class PromptLearningConfig(ExtraModel):
             # Ensure gepa config uses top-level proxy_models if available
             if top_level_proxy_models is not None:
                 # Note: gepa.proxy_models will be None, but top-level proxy_models will be used by backend
+                pass
         
         # Handle mipro config - check for adaptive_pool
         if "mipro" in pl_data and isinstance(pl_data["mipro"], dict):

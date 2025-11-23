@@ -34,9 +34,22 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Add monorepo backend to path for config loading
-MONOREPO_BACKEND = Path(__file__).resolve().parents[5] / "monorepo" / "backend"
-if MONOREPO_BACKEND.exists():
-    sys.path.insert(0, str(MONOREPO_BACKEND))
+# Try multiple possible paths
+MONOREPO_BACKEND = None
+for parent_count in [5, 6, 7]:
+    candidate = Path(__file__).resolve().parents[parent_count] / "monorepo" / "backend"
+    if candidate.exists():
+        MONOREPO_BACKEND = candidate
+        sys.path.insert(0, str(candidate))
+        break
+
+# Also try relative to synth-ai root
+if MONOREPO_BACKEND is None:
+    synth_ai_root = Path(__file__).resolve().parents[3]
+    candidate = synth_ai_root.parent / "monorepo" / "backend"
+    if candidate.exists():
+        MONOREPO_BACKEND = candidate
+        sys.path.insert(0, str(candidate))
 
 from synth_ai.api.train.prompt_learning import PromptLearningJob
 
@@ -88,14 +101,28 @@ def main():
         config_path = Path(args.config)
     else:
         # Default to monorepo config
-        config_path = (
-            MONOREPO_BACKEND
-            / "app"
-            / "routes"
-            / "prompt_learning"
-            / "configs"
-            / "banking77_mipro_lowrisk_proxy.toml"
-        )
+        if MONOREPO_BACKEND and MONOREPO_BACKEND.exists():
+            config_path = (
+                MONOREPO_BACKEND
+                / "app"
+                / "routes"
+                / "prompt_learning"
+                / "configs"
+                / "banking77_mipro_lowrisk_proxy.toml"
+            )
+        else:
+            # Try relative to synth-ai root
+            synth_ai_root = Path(__file__).resolve().parents[3]
+            config_path = (
+                synth_ai_root.parent
+                / "monorepo"
+                / "backend"
+                / "app"
+                / "routes"
+                / "prompt_learning"
+                / "configs"
+                / "banking77_mipro_lowrisk_proxy.toml"
+            )
 
     if not config_path.exists():
         print(f"ERROR: Config file not found: {config_path}")
@@ -111,9 +138,10 @@ def main():
     print()
 
     # Create job using synth-ai SDK
-    # For local backend, use a dummy API key if not set
+    # For local backend, use dummy API keys if not set
     import os
     api_key = os.environ.get("SYNTH_API_KEY", "local-test-key")
+    task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY", "local-test-key")
     
     print("Creating prompt learning job...")
     try:
@@ -121,6 +149,7 @@ def main():
             config_path=config_path,
             backend_url=args.backend,
             api_key=api_key,
+            task_app_api_key=task_app_api_key,
             overrides={"backend": args.backend},
         )
     except Exception as e:
@@ -131,13 +160,17 @@ def main():
         sys.exit(1)
 
     print(f"✅ Job created successfully")
-    print(f"   Task URL: {job.config.task_app_url}")
-    print(f"   Algorithm: {job.config.algorithm}")
-    print()
-
+    
+    # Build payload to get task URL and verify config
+    build_result = job._build_payload()
+    print(f"   Task URL: {build_result.task_url}")
+    
     # Verify config includes proxy models
-    pl_config = job.config.to_dict().get("prompt_learning", {})
+    config_body = build_result.payload["config_body"]
+    pl_config = config_body.get("prompt_learning", {})
     mipro_config = pl_config.get("mipro", {})
+    print(f"   Algorithm: {pl_config.get('algorithm', 'unknown')}")
+    print()
 
     proxy_models = pl_config.get("proxy_models") or mipro_config.get("proxy_models")
     adaptive_pool = mipro_config.get("adaptive_pool")
