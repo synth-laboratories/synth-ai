@@ -6,7 +6,6 @@ GEPA-AI uses example-driven feedback and instruction history for prompt optimiza
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import time
@@ -19,12 +18,12 @@ from dotenv import load_dotenv
 try:
     from .dspy_banking77_adapter import (
         Banking77Classifier,
+        LearningCurveTracker,
+        _warn_if_dotenv_is_messy,
+        banking77_metric_gepa,
         create_dspy_examples,
         get_available_intents,
         load_banking77_dataset,
-        banking77_metric_gepa,
-        LearningCurveTracker,
-        _warn_if_dotenv_is_messy,
     )
 except ImportError:
     # Fallback: try absolute import
@@ -37,12 +36,12 @@ except ImportError:
         sys.path.insert(0, str(_langprobe_dir))
     from task_specific.banking77.dspy_banking77_adapter import (
         Banking77Classifier,
+        LearningCurveTracker,
+        _warn_if_dotenv_is_messy,
+        banking77_metric_gepa,
         create_dspy_examples,
         get_available_intents,
         load_banking77_dataset,
-        banking77_metric_gepa,
-        LearningCurveTracker,
-        _warn_if_dotenv_is_messy,
     )
 
 load_dotenv()
@@ -120,9 +119,9 @@ async def run_gepa_ai_banking77(
         )
     
     # ✅ IMPLEMENT: GEPAAdapter for Banking77
-    from gepa.core.adapter import GEPAAdapter, EvaluationBatch
-    from typing import Any
+
     import requests  # Use requests for synchronous HTTP calls
+    from gepa.core.adapter import EvaluationBatch, GEPAAdapter
     
     class Banking77GEPAAdapter(GEPAAdapter[dict, dict, dict]):
         """GEPAAdapter for Banking77 intent classification."""
@@ -370,7 +369,7 @@ async def run_gepa_ai_banking77(
     )
     
     # Run gepa optimization
-    print(f"🚀 Starting GEPA-AI optimization")
+    print("🚀 Starting GEPA-AI optimization")
     print(f"   Budget: {rollout_budget} metric calls")
     print(f"   Training examples: {len(trainset)}")
     print(f"   Validation examples: {len(valset)}")
@@ -425,26 +424,26 @@ async def run_gepa_ai_banking77(
             
             # Log the prompt with metadata
             prompt_log_handle.write("=" * 80 + "\n")
-            prompt_log_handle.write(f"GEPA-AI PROPOSAL PROMPT\n")
+            prompt_log_handle.write("GEPA-AI PROPOSAL PROMPT\n")
             prompt_log_handle.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
             prompt_log_handle.write("=" * 80 + "\n")
-            prompt_log_handle.write(f"\nCurrent Instruction:\n")
+            prompt_log_handle.write("\nCurrent Instruction:\n")
             prompt_log_handle.write(f"{input_dict.get('current_instruction_doc', 'N/A')}\n")
             prompt_log_handle.write(f"\nDataset with Feedback ({len(input_dict.get('dataset_with_feedback', []))} examples):\n")
             import json
             prompt_log_handle.write(json.dumps(input_dict.get('dataset_with_feedback', []), indent=2, default=str))
-            prompt_log_handle.write(f"\n\n--- FULL PROMPT SENT TO LLM ---\n")
+            prompt_log_handle.write("\n\n--- FULL PROMPT SENT TO LLM ---\n")
             prompt_log_handle.write(prompt)
-            prompt_log_handle.write(f"\n--- END PROMPT ---\n\n")
+            prompt_log_handle.write("\n--- END PROMPT ---\n\n")
             prompt_log_handle.flush()
             
             # Call original method
             result = original_run(lm, input_dict)
             
             # Log the response
-            prompt_log_handle.write(f"--- LLM RESPONSE ---\n")
+            prompt_log_handle.write("--- LLM RESPONSE ---\n")
             prompt_log_handle.write(f"{result.get('new_instruction', 'N/A')}\n")
-            prompt_log_handle.write(f"--- END RESPONSE ---\n\n")
+            prompt_log_handle.write("--- END RESPONSE ---\n\n")
             prompt_log_handle.flush()
             
             return result
@@ -527,10 +526,10 @@ async def run_gepa_ai_banking77(
             is_pareto_bug = "pareto_front_valset" in tb_str or "pareto" in tb_str.lower()
             
             if is_pareto_bug:
-                print(f"\n⚠️  GEPA assertion error: pareto_front_valset length mismatch")
+                print("\n⚠️  GEPA assertion error: pareto_front_valset length mismatch")
                 print(f"   Validation set size: {len(valset)} examples")
-                print(f"   GEPA requires a larger validation set (try 100+ examples)")
-                print(f"   Current valset is too small for pareto front tracking.")
+                print("   GEPA requires a larger validation set (try 100+ examples)")
+                print("   Current valset is too small for pareto front tracking.")
                 
                 raise RuntimeError(
                     f"GEPA optimization failed: validation set too small ({len(valset)} examples).\n"
@@ -551,7 +550,7 @@ async def run_gepa_ai_banking77(
             InstructionProposalSignature.run = original_run
             print(f"📝 Saved proposal prompts to: {prompt_log_file}")
     
-    print(f"✅ Optimization complete")
+    print("✅ Optimization complete")
     
     # Track training time (optimization phase)
     training_time = time.time() - start_time
@@ -761,8 +760,8 @@ async def run_gepa_ai_banking77(
         f.write("=" * 80 + "\n")
         f.write("GEPA-AI OPTIMIZATION RESULTS\n")
         f.write("=" * 80 + "\n")
-        f.write(f"Benchmark: Banking77\n")
-        f.write(f"Framework: GEPA-AI (gepa package)\n")
+        f.write("Benchmark: Banking77\n")
+        f.write("Framework: GEPA-AI (gepa package)\n")
         f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Rollout Budget: {rollout_budget}\n")
         f.write(f"Training Examples: {len(trainset)}\n")
@@ -796,14 +795,14 @@ async def run_gepa_ai_banking77(
                 f.write(f"\n[Candidate {i}]")
                 if is_best:
                     f.write(" ⭐ BEST")
-                f.write(f"\n")
+                f.write("\n")
                 f.write(f"  Validation Score: {val_score:.4f} ({val_score*100:.1f}%)" if val_score is not None else "  Validation Score: N/A")
-                f.write(f"\n")
+                f.write("\n")
                 f.write(f"  Discovery Rollouts: {discovery_rollouts}" if discovery_rollouts is not None else "  Discovery Rollouts: N/A")
-                f.write(f"\n")
+                f.write("\n")
                 f.write(f"  Parent Indices: {parents}" if parents else "  Parent Indices: None (seed)")
-                f.write(f"\n")
-                f.write(f"  Instructions:\n")
+                f.write("\n")
+                f.write("  Instructions:\n")
                 if isinstance(cand, dict):
                     for comp_name, instr_text in cand.items():
                         f.write(f"    [{comp_name}]\n")
@@ -823,7 +822,7 @@ async def run_gepa_ai_banking77(
                     if idx < len(result.candidates):
                         score = result.val_aggregate_scores[idx] if idx < len(result.val_aggregate_scores) else None
                         f.write(f"  Candidate {idx}: Score {score:.4f}" if score is not None else f"  Candidate {idx}: Score N/A")
-                        f.write(f"\n")
+                        f.write("\n")
         f.write("\n")
         
         # Lineage
@@ -884,7 +883,7 @@ async def run_gepa_ai_banking77(
                         instr_str = str(instr_text)
                         if len(instr_str) > 500:
                             f.write(f"    {instr_str[:500]}...\n")
-                            f.write(f"    [Truncated - full text in JSON file]\n")
+                            f.write("    [Truncated - full text in JSON file]\n")
                         else:
                             f.write(f"    {instr_str}\n")
                 f.write("\n")
@@ -894,21 +893,21 @@ async def run_gepa_ai_banking77(
         f.write("📁 OUTPUT FILES\n")
         f.write("=" * 80 + "\n")
         f.write(f"Detailed JSON results: {detailed_results_file}\n")
-        f.write(f"  - Contains all candidates, scores, pareto fronts, lineage, and metadata\n")
+        f.write("  - Contains all candidates, scores, pareto fronts, lineage, and metadata\n")
         f.write(f"Optimized prompt: {prompt_file}\n")
         f.write(f"Verbose log: {log_file}\n")
-        f.write(f"  - Contains gepa logger output (proposals, iterations, etc.)\n")
+        f.write("  - Contains gepa logger output (proposals, iterations, etc.)\n")
         gepa_opt_log = output_dir / "gepa_optimization.log"
         if gepa_opt_log.exists():
             f.write(f"Optimization stdout/stderr log: {gepa_opt_log}\n")
-            f.write(f"  - Contains all iteration logs, proposals, and detailed progress\n")
+            f.write("  - Contains all iteration logs, proposals, and detailed progress\n")
         prompt_log_file = output_dir / "gepa_ai_proposal_prompts.log"
         if prompt_log_file.exists():
             f.write(f"Proposal prompts log: {prompt_log_file}\n")
-            f.write(f"  - Contains ALL raw prompts sent to LLM for generating candidates\n")
-            f.write(f"  - Includes current instruction, feedback dataset, and LLM responses\n")
+            f.write("  - Contains ALL raw prompts sent to LLM for generating candidates\n")
+            f.write("  - Includes current instruction, feedback dataset, and LLM responses\n")
         f.write(f"Optimization run directory: {output_dir / 'gepa_optimization'}\n")
-        f.write(f"  - Contains gepa state files and artifacts\n")
+        f.write("  - Contains gepa state files and artifacts\n")
         f.write("\n")
         
         f.write("=" * 80 + "\n")
@@ -947,8 +946,9 @@ async def _run_dspy_gepa_with_gepa_ai_config(
     This uses DSPy's GEPA optimizer but configures it to emphasize example-driven
     feedback and instruction history, similar to GEPA-AI's approach.
     """
-    import dspy
     import logging
+
+    import dspy
     
     start_time = time.time()
     
@@ -1044,16 +1044,16 @@ async def _run_dspy_gepa_with_gepa_ai_config(
             # These parameters may not exist in DSPy GEPA, but we try
         )
         
-        print(f"🚀 Starting GEPA-AI-style optimization (using DSPy GEPA fallback)")
+        print("🚀 Starting GEPA-AI-style optimization (using DSPy GEPA fallback)")
         print(f"   Budget: {rollout_budget} metric calls")
         print(f"   Training examples: {len(trainset)}")
         print(f"   Validation examples: {len(valset)}")
-        print(f"   Note: GEPA uses subsample evaluation (3 examples) before full evaluation for efficiency")
+        print("   Note: GEPA uses subsample evaluation (3 examples) before full evaluation for efficiency")
         print(f"   Progress updates will be printed here; detailed logs saved to {log_file.name}")
         
         optimized_module = optimizer.compile(student=module, trainset=trainset, valset=valset)
         
-        print(f"✅ Optimization complete")
+        print("✅ Optimization complete")
         
         print(f"📊 Evaluating optimized module on {len(valset)} validation examples...")
         val_score = evaluate(optimized_module)

@@ -5,22 +5,21 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import socket
 import uuid
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
-import socket
 from urllib.parse import urlparse
+
+from dotenv import load_dotenv
 
 # removed top-level httpx and datasets import to allow modal deploy without local deps
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
-from dotenv import load_dotenv
-
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from starlette.requests import Request as StarletteRequest
-
 from synth_ai.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 from synth_ai.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.task.contracts import (
@@ -33,7 +32,13 @@ from synth_ai.task.contracts import (
 )
 from synth_ai.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
 from synth_ai.task.rubrics import Rubric, load_rubric
-from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig, create_task_app, run_task_app
+from synth_ai.task.server import (
+    ProxyConfig,
+    RubricBundle,
+    TaskAppConfig,
+    create_task_app,
+    run_task_app,
+)
 from synth_ai.task.vendors import normalize_vendor_keys
 
 # Import task app code extraction utility (from monorepo, but we'll use a local version)
@@ -42,7 +47,6 @@ try:
 except ImportError:
     # Fallback for synth-ai repo (not in monorepo)
     import inspect
-    import sys
     
     def get_current_module_code():
         """Extract source code for the caller's module using inspect."""
@@ -58,7 +62,7 @@ except ImportError:
                 return None
             try:
                 return inspect.getsource(module)
-            except (OSError, TypeError, IOError):
+            except (OSError, TypeError):
                 return None
         finally:
             del frame
@@ -411,7 +415,7 @@ async def call_chat_completion(
             headers["Authorization"] = f"Bearer {api_key}"
             with contextlib.suppress(Exception):
                 print(f"[TASK_APP] 🔐 DIRECT PROVIDER CALL with API key: {api_key[:12]}...{api_key[-4:]} (len={len(api_key)})", flush=True)
-                print(f"[TASK_APP] 🔐 Using Authorization: Bearer header", flush=True)
+                print("[TASK_APP] 🔐 Using Authorization: Bearer header", flush=True)
         else:
             headers["X-API-Key"] = api_key
             with contextlib.suppress(Exception):
@@ -420,7 +424,7 @@ async def call_chat_completion(
     else:
         with contextlib.suppress(Exception):
             print("[TASK_APP] ⚠️  NO API KEY PROVIDED!", flush=True)
-            print(f"[TASK_APP] ⚠️  This will likely fail auth", flush=True)
+            print("[TASK_APP] ⚠️  This will likely fail auth", flush=True)
 
     # Define tool schema for banking77 classification (no enum to keep payload small)
     classify_tool = {
@@ -461,7 +465,6 @@ async def call_chat_completion(
     except ImportError:
         # Fallback to httpx if aiohttp not available
         try:
-            import httpx  # type: ignore
             use_aiohttp = False
         except Exception as _exc:  # pragma: no cover
             raise HTTPException(status_code=500, detail=f"Neither aiohttp nor httpx available: {_exc}")
@@ -531,7 +534,7 @@ async def call_chat_completion(
         if "X-API-Key" in headers:
             print(f"[TASK_APP] ✅ X-API-Key IS in headers (len={len(headers['X-API-Key'])})", flush=True)
         else:
-            print(f"[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
+            print("[TASK_APP] ❌ X-API-Key NOT in headers!", flush=True)
     
     # Use aiohttp session (doesn't use threading, avoids "cannot schedule new futures" errors)
     # aiohttp.ClientSession.post() returns a ClientResponse that must be used as async context manager
@@ -596,7 +599,7 @@ async def call_chat_completion(
                         )
                     except HTTPException:
                         raise
-                    except Exception as e:
+                    except Exception:
                         error_text = (await response.text())[:500]
                         print(f"[TASK_APP] ❌ Non-JSON error response: {error_text}", flush=True)
                         raise HTTPException(
@@ -622,7 +625,6 @@ async def call_chat_completion(
                     raise HTTPException(status_code=status_code, detail=f"HTTP error: {status_code}")
         else:
             # httpx fallback (shouldn't happen if aiohttp available)
-            import httpx
             response = await http_client.post(inference_url, json=payload, headers=headers)
             status_code = response.status_code
             
