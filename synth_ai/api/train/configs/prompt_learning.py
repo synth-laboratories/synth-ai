@@ -159,7 +159,7 @@ class AdaptivePoolConfig(ExtraModel):
     Reduces evaluation costs by focusing on the most informative examples while
     maintaining optimization quality through informativeness-based selection.
     """
-    level: AdaptiveCurriculumLevel = AdaptiveCurriculumLevel.MODERATE
+    level: AdaptiveCurriculumLevel = AdaptiveCurriculumLevel.LOW
     anchor_size: int = 30  # Frozen examples (always evaluated)
     pool_init_size: int | None = None  # Initial pool size (None = use all available)
     pool_min_size: int | None = None  # Target minimum after annealing
@@ -341,7 +341,7 @@ def resolve_adaptive_pool_config(
     """
     # Normalize level
     if level is None:
-        level = AdaptiveCurriculumLevel.MODERATE
+        level = AdaptiveCurriculumLevel.LOW
     elif isinstance(level, str):
         try:
             level = AdaptiveCurriculumLevel[level.strip().upper()]
