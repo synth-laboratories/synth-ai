@@ -41,6 +41,7 @@ dependencies = [
     "aiohttp>=3.8.0", # For async HTTP requests
     "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
     "modal>=1.1.4,<2.0.0",
+    "docker>=7.0.0",
     "mcp>=1.21.0",
     "ruff>=0.12.9",
     "tomli_w>=1.0.0",

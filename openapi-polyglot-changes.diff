@@ -1,0 +1,6084 @@
+diff --git a/examples/polyglot/README.md b/examples/polyglot/README.md
+new file mode 100644
+index 0000000..a67d512
+--- /dev/null
++++ b/examples/polyglot/README.md
+@@ -0,0 +1,208 @@
++# Polyglot Task App Examples
++
++Task App implementations in multiple languages for Synth prompt optimization.
++
++## What is a Task App?
++
++A Task App is an HTTP service that evaluates prompts for Synth's MIPRO and GEPA optimizers. The optimizer calls your `/rollout` endpoint with candidate prompts, and you return a reward indicating how well each prompt performed.
++
++```
++┌─────────────────┐         ┌──────────────────┐
++│  MIPRO/GEPA     │  HTTP   │  Your Task App   │
++│  Optimizer      │ ──────> │  (any language)  │
++│                 │         │                  │
++│  Proposes new   │         │  Evaluates the   │
++│  prompts        │ <────── │  prompt, returns │
++│                 │  reward │  reward          │
++└─────────────────┘         └──────────────────┘
++```
++
++## Available Examples
++
++| Language | Framework | Dependencies | Notes |
++|----------|-----------|--------------|-------|
++| [Rust](./rust/) | Axum | axum, tokio, reqwest | Fast, type-safe |
++| [Go](./go/) | stdlib | None | Single binary, no deps |
++| [TypeScript](./typescript/) | Hono | hono | Works with Node, Deno, Bun, Workers |
++| [Zig](./zig/) | stdlib | None | Single static binary, cross-compile |
++
++## Quick Start
++
++### 1. Choose a Language
++
++```bash
++cd rust/      # or go/, typescript/, zig/
++```
++
++### 2. Build and Run
++
++**Rust:**
++```bash
++cargo run --release
++```
++
++**Go:**
++```bash
++go build && ./synth-task-app
++```
++
++**TypeScript:**
++```bash
++npm install && npm run dev
++```
++
++**Zig:**
++```bash
++zig build -Doptimize=ReleaseFast && ./zig-out/bin/synth-task-app
++```
++
++### 3. Expose via Tunnel
++
++```bash
++cloudflared tunnel --url http://localhost:8001
++# Note the URL: https://random-words.trycloudflare.com
++```
++
++### 4. Start Optimization (No Python Required!)
++
++```bash
++curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++  -H "Authorization: Bearer $SYNTH_API_KEY" \
++  -H "Content-Type: application/json" \
++  -d '{
++    "algorithm": "mipro",
++    "config_body": {
++      "prompt_learning": {
++        "task_app_url": "https://random-words.trycloudflare.com",
++        "task_app_api_key": "your-env-key"
++      }
++    }
++  }'
++```
++
++## Contract
++
++All examples implement the same OpenAPI contract:
++
++**Required Endpoints:**
++- `GET /health` - Health check (unauthenticated OK)
++- `GET /task_info` - Dataset metadata (authenticated)
++- `POST /rollout` - Evaluate a prompt (authenticated)
++
++**Key Request Fields:**
++- `env.seed` - Dataset index
++- `policy.config.inference_url` - LLM endpoint (see notes below)
++- `policy.config.prompt_template` - The prompt to evaluate
++
++**Key Response Fields:**
++- `metrics.mean_return` - Reward (0.0-1.0) that drives optimization
++- `trajectories[].steps[].reward` - Per-step reward
++
++See [`synth_ai/contracts/task_app.yaml`](../../synth_ai/contracts/task_app.yaml) for the full OpenAPI specification.
++
++## Authentication
++
++Task Apps involve **two separate authentication flows**:
++
++### 1. Task App Authentication (`X-API-Key`)
++
++Requests *to* your task app from the optimizer include an `X-API-Key` header. This authenticates the optimizer to your task app.
++
++```bash
++# Set this when starting your task app
++export ENVIRONMENT_API_KEY=your-secret-key
++```
++
++Your task app should verify `X-API-Key` matches `ENVIRONMENT_API_KEY` on `/rollout` and `/task_info` endpoints.
++
++### 2. LLM API Authentication (`Authorization: Bearer`)
++
++When your task app makes requests *to* OpenAI/Groq/etc, you need to add a Bearer token:
++
++```bash
++# Set this when starting your task app
++export OPENAI_API_KEY=sk-...    # or
++export GROQ_API_KEY=gsk_...
++```
++
++Your task app should read this from the environment and add it to LLM requests:
++```
++Authorization: Bearer sk-...
++```
++
++**Important:** The `X-API-Key` header from the optimizer is for task app auth only - do NOT forward it to the LLM API.
++
++## Handling `inference_url`
++
++The `policy.config.inference_url` field specifies the LLM endpoint base URL. It may contain query parameters:
++
++```
++https://api.openai.com/v1                    # Simple case
++https://api.openai.com/v1?model=gpt-4o-mini  # With query params
++```
++
++When constructing the full endpoint URL, preserve any query string:
++
++```
++# WRONG - query params end up in wrong place
++https://api.openai.com/v1?model=gpt-4o-mini/chat/completions
++
++# CORRECT - insert path before query string
++https://api.openai.com/v1/chat/completions?model=gpt-4o-mini
++```
++
++Example URL construction:
++```python
++if "?" in inference_url:
++    base, query = inference_url.split("?", 1)
++    url = f"{base.rstrip('/')}/chat/completions?{query}"
++else:
++    url = f"{inference_url.rstrip('/')}/chat/completions"
++```
++
++## Shared Dataset
++
++All examples load from the same dataset file:
++
++```
++data/banking77.json
++```
++
++This contains 100 Banking77-style samples for intent classification.
++
++## Project Structure
++
++```
++polyglot/
++├── README.md           # This file
++├── data/
++│   └── banking77.json  # Shared dataset
++├── rust/
++│   ├── Cargo.toml
++│   ├── src/main.rs
++│   └── README.md
++├── go/
++│   ├── go.mod
++│   ├── main.go
++│   └── README.md
++├── typescript/
++│   ├── package.json
++│   ├── src/index.ts
++│   └── README.md
++└── zig/
++    ├── build.zig
++    ├── src/main.zig
++    └── README.md
++```
++
++## Customizing for Your Task
++
++1. **Replace the dataset** - Edit `data/banking77.json` or load your own
++2. **Update the tool schema** - Modify the `classify` tool to match your output format
++3. **Adjust reward computation** - Change how you compare predictions to ground truth
++
++## See Also
++
++- [API Documentation](../../synth_ai/contracts/task_app.yaml) - Full OpenAPI spec
++- [Python Task Apps](../task_apps/) - Python implementations
++- [Synth API Docs](https://docs.usesynth.ai) - Full platform documentation
+diff --git a/examples/polyglot/data/banking77.json b/examples/polyglot/data/banking77.json
+new file mode 100644
+index 0000000..4063003
+--- /dev/null
++++ b/examples/polyglot/data/banking77.json
+@@ -0,0 +1,182 @@
++{
++  "description": "Banking77 intent classification dataset subset for Synth polyglot examples",
++  "source": "Adapted from PolyAI/banking77 (https://huggingface.co/datasets/PolyAI/banking77)",
++  "labels": [
++    "activate_my_card",
++    "age_limit",
++    "apple_pay_or_google_pay",
++    "atm_support",
++    "automatic_top_up",
++    "balance_not_updated_after_bank_transfer",
++    "beneficiary_not_allowed",
++    "cancel_transfer",
++    "card_about_to_expire",
++    "card_acceptance",
++    "card_arrival",
++    "card_delivery_estimate",
++    "card_linking",
++    "card_not_working",
++    "card_payment_fee_charged",
++    "card_payment_not_recognised",
++    "card_swallowed",
++    "cash_withdrawal_charge",
++    "cash_withdrawal_not_recognised",
++    "change_pin",
++    "compromised_card",
++    "contactless_not_working",
++    "country_support",
++    "declined_card_payment",
++    "declined_cash_withdrawal",
++    "declined_transfer",
++    "direct_debit_payment_not_recognised",
++    "disposable_card_limits",
++    "edit_personal_details",
++    "exchange_charge",
++    "exchange_rate",
++    "exchange_via_app",
++    "extra_charge_on_statement",
++    "failed_transfer",
++    "fiat_currency_support",
++    "get_disposable_virtual_card",
++    "get_physical_card",
++    "getting_spare_card",
++    "getting_virtual_card",
++    "lost_or_stolen_card",
++    "lost_or_stolen_phone",
++    "order_physical_card",
++    "passcode_forgotten",
++    "pending_card_payment",
++    "pending_cash_withdrawal",
++    "pending_top_up",
++    "pending_transfer",
++    "pin_blocked",
++    "receiving_money",
++    "refund_not_showing_up",
++    "request_refund",
++    "reverted_card_payment",
++    "supported_cards_and_currencies",
++    "terminate_account",
++    "top_up_by_bank_transfer_charge",
++    "top_up_by_card_charge",
++    "top_up_by_cash_or_cheque",
++    "top_up_failed",
++    "top_up_limits",
++    "top_up_reverted",
++    "topping_up_by_card",
++    "transaction_charged_twice",
++    "transfer_fee_charged",
++    "transfer_into_account",
++    "transfer_not_received_by_recipient",
++    "transfer_timing",
++    "unable_to_verify_identity",
++    "verify_my_identity",
++    "verify_source_of_funds",
++    "verify_top_up",
++    "virtual_card_not_working",
++    "visa_or_mastercard",
++    "why_verify_identity",
++    "wrong_amount_of_cash_received",
++    "wrong_exchange_rate_for_cash_withdrawal"
++  ],
++  "samples": [
++    {"text": "How do I reset my PIN?", "label": "change_pin"},
++    {"text": "I need to change my PIN code", "label": "change_pin"},
++    {"text": "Can I change my card PIN?", "label": "change_pin"},
++    {"text": "My card hasn't arrived yet", "label": "card_arrival"},
++    {"text": "When will my card be delivered?", "label": "card_arrival"},
++    {"text": "I've been waiting for my card for 2 weeks", "label": "card_arrival"},
++    {"text": "I want to cancel my card", "label": "terminate_account"},
++    {"text": "How do I close my account?", "label": "terminate_account"},
++    {"text": "I want to terminate my account", "label": "terminate_account"},
++    {"text": "How do I activate my new card?", "label": "activate_my_card"},
++    {"text": "I received my card, how do I activate it?", "label": "activate_my_card"},
++    {"text": "My card needs to be activated", "label": "activate_my_card"},
++    {"text": "What's my current balance?", "label": "pending_transfer"},
++    {"text": "I need to dispute a transaction", "label": "transaction_charged_twice"},
++    {"text": "I was charged twice for the same thing", "label": "transaction_charged_twice"},
++    {"text": "Can I get a refund?", "label": "request_refund"},
++    {"text": "How do I request a refund?", "label": "request_refund"},
++    {"text": "I want my money back", "label": "request_refund"},
++    {"text": "How do I transfer money?", "label": "transfer_into_account"},
++    {"text": "I want to send money to someone", "label": "transfer_into_account"},
++    {"text": "How can I transfer funds?", "label": "transfer_into_account"},
++    {"text": "I lost my card", "label": "lost_or_stolen_card"},
++    {"text": "My card was stolen", "label": "lost_or_stolen_card"},
++    {"text": "I can't find my card anywhere", "label": "lost_or_stolen_card"},
++    {"text": "Is there a fee for this?", "label": "transfer_fee_charged"},
++    {"text": "What are the transfer fees?", "label": "transfer_fee_charged"},
++    {"text": "Will I be charged for this transfer?", "label": "transfer_fee_charged"},
++    {"text": "My contactless payment isn't working", "label": "contactless_not_working"},
++    {"text": "Why won't my card tap work?", "label": "contactless_not_working"},
++    {"text": "Contactless is not functioning", "label": "contactless_not_working"},
++    {"text": "What's the exchange rate?", "label": "exchange_rate"},
++    {"text": "How much is 1 dollar in euros?", "label": "exchange_rate"},
++    {"text": "What rate will I get for currency exchange?", "label": "exchange_rate"},
++    {"text": "My payment was declined", "label": "declined_card_payment"},
++    {"text": "Why was my card declined?", "label": "declined_card_payment"},
++    {"text": "The store said my card was rejected", "label": "declined_card_payment"},
++    {"text": "I forgot my passcode", "label": "passcode_forgotten"},
++    {"text": "I can't remember my PIN", "label": "passcode_forgotten"},
++    {"text": "I've forgotten my app password", "label": "passcode_forgotten"},
++    {"text": "How do I top up my account?", "label": "topping_up_by_card"},
++    {"text": "I want to add money to my account", "label": "topping_up_by_card"},
++    {"text": "Can I top up with my credit card?", "label": "topping_up_by_card"},
++    {"text": "My transfer is pending", "label": "pending_transfer"},
++    {"text": "Why hasn't my transfer gone through?", "label": "pending_transfer"},
++    {"text": "The money I sent is still processing", "label": "pending_transfer"},
++    {"text": "I need to verify my identity", "label": "verify_my_identity"},
++    {"text": "How do I complete verification?", "label": "verify_my_identity"},
++    {"text": "What documents do you need for verification?", "label": "verify_my_identity"},
++    {"text": "Can I use Apple Pay?", "label": "apple_pay_or_google_pay"},
++    {"text": "Is Google Pay supported?", "label": "apple_pay_or_google_pay"},
++    {"text": "How do I add my card to my phone?", "label": "apple_pay_or_google_pay"},
++    {"text": "Is there an ATM nearby?", "label": "atm_support"},
++    {"text": "Where can I withdraw cash?", "label": "atm_support"},
++    {"text": "Which ATMs can I use?", "label": "atm_support"},
++    {"text": "Can I get a virtual card?", "label": "getting_virtual_card"},
++    {"text": "How do I get a disposable card?", "label": "get_disposable_virtual_card"},
++    {"text": "I need a temporary card number", "label": "get_disposable_virtual_card"},
++    {"text": "My PIN is blocked", "label": "pin_blocked"},
++    {"text": "I entered my PIN wrong too many times", "label": "pin_blocked"},
++    {"text": "My card won't accept my PIN anymore", "label": "pin_blocked"},
++    {"text": "When will I receive my money?", "label": "receiving_money"},
++    {"text": "Someone sent me money but I don't see it", "label": "receiving_money"},
++    {"text": "How long for incoming transfers?", "label": "receiving_money"},
++    {"text": "My card is about to expire", "label": "card_about_to_expire"},
++    {"text": "When will I get my replacement card?", "label": "card_about_to_expire"},
++    {"text": "My card expires next month", "label": "card_about_to_expire"},
++    {"text": "Can I cancel a transfer?", "label": "cancel_transfer"},
++    {"text": "I made a transfer by mistake", "label": "cancel_transfer"},
++    {"text": "How do I reverse a payment?", "label": "cancel_transfer"},
++    {"text": "I think my card was compromised", "label": "compromised_card"},
++    {"text": "Someone might have my card details", "label": "compromised_card"},
++    {"text": "I see suspicious transactions", "label": "compromised_card"},
++    {"text": "Why do I need to verify my identity?", "label": "why_verify_identity"},
++    {"text": "What's the point of verification?", "label": "why_verify_identity"},
++    {"text": "Why are you asking for documents?", "label": "why_verify_identity"},
++    {"text": "My transfer failed", "label": "failed_transfer"},
++    {"text": "The payment didn't go through", "label": "failed_transfer"},
++    {"text": "Why did my transfer fail?", "label": "failed_transfer"},
++    {"text": "What cards do you support?", "label": "supported_cards_and_currencies"},
++    {"text": "Do you accept Mastercard?", "label": "visa_or_mastercard"},
++    {"text": "Is it Visa or Mastercard?", "label": "visa_or_mastercard"},
++    {"text": "I want to order a physical card", "label": "order_physical_card"},
++    {"text": "Can I get a real card?", "label": "get_physical_card"},
++    {"text": "How do I get a plastic card?", "label": "get_physical_card"},
++    {"text": "My top up failed", "label": "top_up_failed"},
++    {"text": "I tried to add money but it didn't work", "label": "top_up_failed"},
++    {"text": "Top up unsuccessful", "label": "top_up_failed"},
++    {"text": "I can't verify my identity", "label": "unable_to_verify_identity"},
++    {"text": "Verification keeps failing", "label": "unable_to_verify_identity"},
++    {"text": "My documents were rejected", "label": "unable_to_verify_identity"},
++    {"text": "What are the top up limits?", "label": "top_up_limits"},
++    {"text": "How much can I add to my account?", "label": "top_up_limits"},
++    {"text": "Is there a maximum top up?", "label": "top_up_limits"},
++    {"text": "My card was swallowed by the ATM", "label": "card_swallowed"},
++    {"text": "The machine kept my card", "label": "card_swallowed"},
++    {"text": "ATM ate my card", "label": "card_swallowed"},
++    {"text": "What countries do you support?", "label": "country_support"},
++    {"text": "Can I use my card abroad?", "label": "country_support"},
++    {"text": "Does the card work internationally?", "label": "country_support"}
++  ]
++}
+diff --git a/examples/polyglot/go/README.md b/examples/polyglot/go/README.md
+new file mode 100644
+index 0000000..516deaa
+--- /dev/null
++++ b/examples/polyglot/go/README.md
+@@ -0,0 +1,197 @@
++# Go Task App Example
++
++A minimal but complete Task App implementation in Go for Synth prompt optimization.
++**Tested end-to-end with MIPRO optimizer** - achieves 100% accuracy on Banking77 classification.
++
++## Features
++
++- Zero external dependencies (uses only Go standard library)
++- Single static binary
++- Cross-compilation built-in
++- Implements `/health`, `/task_info`, and `/rollout` endpoints per OpenAPI contract
++- Loads dataset from shared JSON file (with embedded fallback)
++- Proper URL construction with query parameter handling
++
++## Quick Start
++
++```bash
++# Build
++go build -o synth-task-app
++
++# Run
++./synth-task-app
++
++# With authentication
++ENVIRONMENT_API_KEY=your-secret ./synth-task-app
++
++# Custom port
++PORT=3000 ./synth-task-app
++
++# Or run directly
++go run main.go
++```
++
++## Cross-Compilation
++
++Go makes cross-compilation simple:
++
++```bash
++# Linux AMD64
++GOOS=linux GOARCH=amd64 go build -o synth-task-app-linux-amd64
++
++# Linux ARM64
++GOOS=linux GOARCH=arm64 go build -o synth-task-app-linux-arm64
++
++# macOS ARM64 (Apple Silicon)
++GOOS=darwin GOARCH=arm64 go build -o synth-task-app-macos-arm64
++
++# Windows
++GOOS=windows GOARCH=amd64 go build -o synth-task-app.exe
++```
++
++## Testing
++
++```bash
++# Health check
++curl http://localhost:8001/health
++
++# Manual rollout
++curl -X POST http://localhost:8001/rollout \
++  -H "Content-Type: application/json" \
++  -H "X-API-Key: your-secret" \
++  -d '{
++    "run_id": "test-1",
++    "env": {"seed": 0},
++    "policy": {
++      "config": {
++        "model": "gpt-4o-mini",
++        "inference_url": "https://api.openai.com/v1"
++      }
++    },
++    "mode": "eval"
++  }'
++```
++
++## Running with Synth Optimizer
++
++### Local Development (Recommended for Testing)
++
++1. **Start the local backend** (from monorepo):
++   ```bash
++   cd monorepo && bash scripts/run_backend_local.sh
++   # Starts: Redis, sqld, uvicorn on port 8000
++   ```
++
++2. **Start the task app:**
++   ```bash
++   go build -o synth-task-app
++   ENVIRONMENT_API_KEY=test-polyglot-key ./synth-task-app
++   ```
++
++3. **Submit a job** using the example config:
++   ```bash
++   curl -X POST "http://localhost:8000/api/prompt-learning/online/jobs" \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d @../mipro_job.json
++   ```
++
++### Production (via Cloudflare Tunnel)
++
++1. **Build and run:**
++   ```bash
++   go build -o synth-task-app
++   ENVIRONMENT_API_KEY=my-secret ./synth-task-app
++   ```
++
++2. **Expose via Cloudflare tunnel:**
++   ```bash
++   cloudflared tunnel --url http://localhost:8001
++   ```
++
++3. **Start optimization:**
++   ```bash
++   curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d '{
++       "algorithm": "mipro",
++       "config_body": {
++         "prompt_learning": {
++           "task_app_url": "https://your-tunnel.trycloudflare.com",
++           "task_app_api_key": "my-secret"
++         }
++       }
++     }'
++   ```
++
++## Critical Implementation Details
++
++### URL Construction with Query Parameters
++
++The `inference_url` provided by the optimizer includes query parameters for tracing:
++```
++http://localhost:8000/api/interceptor/v1/trial-id?cid=trace_xxx
++```
++
++When appending `/chat/completions`, the path must come BEFORE the query string:
++
++```go
++// CORRECT: path before query
++var url string
++if queryIdx := strings.Index(inferenceURL, "?"); queryIdx != -1 {
++    base := strings.TrimSuffix(inferenceURL[:queryIdx], "/")
++    query := inferenceURL[queryIdx:]
++    url = base + "/chat/completions" + query
++} else {
++    url = strings.TrimSuffix(inferenceURL, "/") + "/chat/completions"
++}
++
++// Result: http://host/path/chat/completions?cid=xxx
++```
++
++**Wrong approach** (causes 404):
++```go
++// WRONG: appends path after query string
++url := inferenceURL + "/chat/completions"
++// Result: http://host/path?cid=xxx/chat/completions  <-- 404!
++```
++
++### Handling Multiple Seeds in /task_info
++
++The backend sends seed parameters as repeated keys: `?seeds=0&seeds=1&seeds=2`.
++Parse both `seed` and `seeds` variants:
++
++```go
++var requestedSeeds []int
++query := r.URL.RawQuery
++for _, param := range strings.Split(query, "&") {
++    parts := strings.SplitN(param, "=", 2)
++    if len(parts) == 2 && (parts[0] == "seed" || parts[0] == "seeds") {
++        if seed, err := strconv.Atoi(parts[1]); err == nil {
++            requestedSeeds = append(requestedSeeds, seed)
++        }
++    }
++}
++```
++
++## Why Go?
++
++- **No external dependencies** - Uses only the standard library
++- **Single static binary** - Easy deployment
++- **Fast compilation** - Quick iteration
++- **Built-in cross-compilation** - Deploy anywhere
++- **Excellent concurrency** - Handles many requests efficiently
++
++## Project Structure
++
++```
++go/
++├── go.mod      # Module definition
++├── main.go     # Task app implementation
++└── README.md
++```
++
++## Contract Reference
++
++See [`synth_ai/contracts/task_app.yaml`](../../../synth_ai/contracts/task_app.yaml) for the full OpenAPI specification.
+diff --git a/examples/polyglot/go/go.mod b/examples/polyglot/go/go.mod
+new file mode 100644
+index 0000000..2800989
+--- /dev/null
++++ b/examples/polyglot/go/go.mod
+@@ -0,0 +1,3 @@
++module github.com/synth-ai/examples/polyglot/go
++
++go 1.21
+diff --git a/examples/polyglot/go/main.go b/examples/polyglot/go/main.go
+new file mode 100644
+index 0000000..99c592e
+--- /dev/null
++++ b/examples/polyglot/go/main.go
+@@ -0,0 +1,724 @@
++// Synth Task App Example - Go Implementation
++//
++// A minimal but complete Task App implementing the Synth contract for prompt optimization.
++//
++// ## Building
++//
++//	go build -o synth-task-app
++//
++// ## Running
++//
++//	./synth-task-app
++//	ENVIRONMENT_API_KEY=secret PORT=8001 ./synth-task-app
++//
++// ## Cross-compiling
++//
++//	GOOS=linux GOARCH=amd64 go build -o synth-task-app-linux
++//	GOOS=darwin GOARCH=arm64 go build -o synth-task-app-macos
++package main
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"io"
++	"log"
++	"net/http"
++	"os"
++	"path/filepath"
++	"regexp"
++	"strconv"
++	"strings"
++)
++
++// =============================================================================
++// Types (matching OpenAPI contract)
++// =============================================================================
++
++type Sample struct {
++	Text  string `json:"text"`
++	Label string `json:"label"`
++}
++
++type Dataset struct {
++	Samples []Sample `json:"samples"`
++	Labels  []string `json:"labels"`
++}
++
++type RolloutRequest struct {
++	RunID  string     `json:"run_id"`
++	Env    EnvSpec    `json:"env"`
++	Policy PolicySpec `json:"policy"`
++	Mode   string     `json:"mode"`
++}
++
++type EnvSpec struct {
++	Seed   *int64                 `json:"seed"`
++	Config map[string]interface{} `json:"config"`
++}
++
++type PolicySpec struct {
++	PolicyID   string                 `json:"policy_id"`
++	PolicyName string                 `json:"policy_name"`
++	Config     map[string]interface{} `json:"config"`
++}
++
++type RolloutResponse struct {
++	RunID        string       `json:"run_id"`
++	Trajectories []Trajectory `json:"trajectories"`
++	Metrics      Metrics      `json:"metrics"`
++	Aborted      bool         `json:"aborted"`
++	OpsExecuted  int          `json:"ops_executed"`
++}
++
++type Trajectory struct {
++	EnvID        string                 `json:"env_id"`
++	PolicyID     string                 `json:"policy_id"`
++	Steps        []Step                 `json:"steps"`
++	Length       int                    `json:"length"`
++	InferenceURL string                 `json:"inference_url"`
++}
++
++type Step struct {
++	Obs       map[string]interface{} `json:"obs"`
++	ToolCalls []ToolCall             `json:"tool_calls"`
++	Reward    float64                `json:"reward"`
++	Done      bool                   `json:"done"`
++	Info      map[string]interface{} `json:"info"`
++}
++
++type ToolCall struct {
++	ID       string   `json:"id"`
++	Type     string   `json:"type"`
++	Function Function `json:"function"`
++}
++
++type Function struct {
++	Name      string `json:"name"`
++	Arguments string `json:"arguments"`
++}
++
++type Metrics struct {
++	EpisodeReturns []float64 `json:"episode_returns"`
++	MeanReturn     float64   `json:"mean_return"`
++	NumSteps       int       `json:"num_steps"`
++	NumEpisodes    int       `json:"num_episodes"`
++	OutcomeScore   float64   `json:"outcome_score"`
++}
++
++type HealthResponse struct {
++	Healthy bool `json:"healthy"`
++}
++
++type ErrorResponse struct {
++	Detail string `json:"detail"`
++}
++
++// TaskInfo types
++type TaskInfo struct {
++	Task        TaskSpec      `json:"task"`
++	Environment string        `json:"environment"`
++	Dataset     DatasetInfo   `json:"dataset"`
++	Rubric      RubricSpec    `json:"rubric"`
++	Inference   InferenceSpec `json:"inference"`
++	Limits      LimitsSpec    `json:"limits"`
++}
++
++type TaskSpec struct {
++	TaskID      string `json:"task_id"`
++	Name        string `json:"name"`
++	Description string `json:"description"`
++	Version     string `json:"version"`
++}
++
++type DatasetInfo struct {
++	Seeds      []int `json:"seeds"`
++	TrainCount int   `json:"train_count"`
++	ValCount   int   `json:"val_count"`
++	TestCount  int   `json:"test_count"`
++}
++
++type RubricSpec struct {
++	ScoringCriteria string    `json:"scoring_criteria"`
++	MetricPrimary   string    `json:"metric_primary"`
++	MetricRange     []float64 `json:"metric_range"`
++}
++
++type InferenceSpec struct {
++	Mode           string   `json:"mode"`
++	SupportedTools []string `json:"supported_tools"`
++}
++
++type LimitsSpec struct {
++	MaxResponseTokens int `json:"max_response_tokens"`
++	TimeoutSeconds    int `json:"timeout_seconds"`
++}
++
++// LLM types
++type ChatRequest struct {
++	Model       string        `json:"model"`
++	Messages    []ChatMessage `json:"messages"`
++	Tools       []Tool        `json:"tools"`
++	ToolChoice  string        `json:"tool_choice"`
++	Temperature float64       `json:"temperature"`
++	MaxTokens   int           `json:"max_tokens"`
++}
++
++type ChatMessage struct {
++	Role    string `json:"role"`
++	Content string `json:"content"`
++}
++
++type Tool struct {
++	Type     string       `json:"type"`
++	Function ToolFunction `json:"function"`
++}
++
++type ToolFunction struct {
++	Name        string                 `json:"name"`
++	Description string                 `json:"description"`
++	Parameters  map[string]interface{} `json:"parameters"`
++}
++
++type ChatResponse struct {
++	Choices []Choice `json:"choices"`
++}
++
++type Choice struct {
++	Message ResponseMessage `json:"message"`
++}
++
++type ResponseMessage struct {
++	Content   string             `json:"content"`
++	ToolCalls []ResponseToolCall `json:"tool_calls"`
++}
++
++type ResponseToolCall struct {
++	ID       string           `json:"id"`
++	Function ResponseFunction `json:"function"`
++}
++
++type ResponseFunction struct {
++	Name      string `json:"name"`
++	Arguments string `json:"arguments"`
++}
++
++// =============================================================================
++// Globals
++// =============================================================================
++
++var dataset Dataset
++var apiKey string
++var llmApiKey string
++
++// =============================================================================
++// Dataset Loading
++// =============================================================================
++
++func loadDataset() Dataset {
++	// Try loading from file
++	paths := []string{
++		"../data/banking77.json",
++		"data/banking77.json",
++		"../../data/banking77.json",
++	}
++
++	for _, path := range paths {
++		absPath, _ := filepath.Abs(path)
++		data, err := os.ReadFile(absPath)
++		if err == nil {
++			var ds Dataset
++			if err := json.Unmarshal(data, &ds); err == nil {
++				log.Printf("Loaded %d samples from %s", len(ds.Samples), absPath)
++				return ds
++			}
++		}
++	}
++
++	// Fallback to embedded samples
++	log.Println("Dataset file not found, using embedded samples")
++	return Dataset{
++		Samples: []Sample{
++			{Text: "How do I reset my PIN?", Label: "change_pin"},
++			{Text: "My card hasn't arrived yet", Label: "card_arrival"},
++			{Text: "I want to cancel my card", Label: "terminate_account"},
++			{Text: "How do I activate my new card?", Label: "activate_my_card"},
++			{Text: "I need to dispute a transaction", Label: "transaction_charged_twice"},
++			{Text: "Can I get a refund?", Label: "request_refund"},
++			{Text: "How do I transfer money?", Label: "transfer_into_account"},
++			{Text: "I lost my card", Label: "lost_or_stolen_card"},
++			{Text: "Is there a fee for this?", Label: "transfer_fee_charged"},
++		},
++		Labels: []string{
++			"change_pin", "card_arrival", "terminate_account", "activate_my_card",
++			"transaction_charged_twice", "request_refund", "transfer_into_account",
++			"lost_or_stolen_card", "transfer_fee_charged",
++		},
++	}
++}
++
++func getSample(seed int) Sample {
++	return dataset.Samples[seed%len(dataset.Samples)]
++}
++
++// =============================================================================
++// Prompt Rendering
++// =============================================================================
++
++func renderTemplate(template string, placeholders map[string]string) string {
++	result := template
++	for key, value := range placeholders {
++		pattern := regexp.MustCompile(`\{` + regexp.QuoteMeta(key) + `\}`)
++		result = pattern.ReplaceAllString(result, value)
++	}
++	return result
++}
++
++func buildMessages(policyConfig map[string]interface{}, sample Sample) []ChatMessage {
++	placeholders := map[string]string{
++		"query":   sample.Text,
++		"intents": strings.Join(dataset.Labels, ", "),
++	}
++
++	// Check for prompt_template
++	if promptTemplate, ok := policyConfig["prompt_template"].(map[string]interface{}); ok {
++		var sections []interface{}
++		if s, ok := promptTemplate["prompt_sections"].([]interface{}); ok {
++			sections = s
++		} else if s, ok := promptTemplate["sections"].([]interface{}); ok {
++			sections = s
++		}
++
++		if sections != nil {
++			var messages []ChatMessage
++			for _, s := range sections {
++				section := s.(map[string]interface{})
++				role := "user"
++				if r, ok := section["role"].(string); ok {
++					role = r
++				}
++
++				content := ""
++				if c, ok := section["content"].(string); ok {
++					content = c
++				} else if p, ok := section["pattern"].(string); ok {
++					content = p
++				}
++
++				messages = append(messages, ChatMessage{
++					Role:    role,
++					Content: renderTemplate(content, placeholders),
++				})
++			}
++			return messages
++		}
++	}
++
++	// Default messages
++	return []ChatMessage{
++		{
++			Role:    "system",
++			Content: "You are an expert banking assistant. Classify queries using the classify tool.",
++		},
++		{
++			Role:    "user",
++			Content: fmt.Sprintf("Query: %s\nIntents: %s\nClassify this query.", sample.Text, strings.Join(dataset.Labels, ", ")),
++		},
++	}
++}
++
++// =============================================================================
++// LLM Client
++// =============================================================================
++
++func callLLM(inferenceURL, model string, messages []ChatMessage, providedKey string) (*ChatResponse, error) {
++	// Build URL - handle query params correctly
++	// inference_url may be "http://host/path?query" - we need "http://host/path/chat/completions?query"
++	var url string
++	if queryIdx := strings.Index(inferenceURL, "?"); queryIdx != -1 {
++		base := strings.TrimSuffix(inferenceURL[:queryIdx], "/")
++		query := inferenceURL[queryIdx:]
++		url = base + "/chat/completions" + query
++	} else {
++		url = strings.TrimSuffix(inferenceURL, "/") + "/chat/completions"
++	}
++
++	log.Printf("LLM call: inference_url=%s full_url=%s model=%s", inferenceURL, url, model)
++
++	tool := Tool{
++		Type: "function",
++		Function: ToolFunction{
++			Name:        "classify",
++			Description: "Classify the customer query into an intent category",
++			Parameters: map[string]interface{}{
++				"type": "object",
++				"properties": map[string]interface{}{
++					"intent": map[string]interface{}{
++						"type":        "string",
++						"description": "The classified intent",
++					},
++				},
++				"required": []string{"intent"},
++			},
++		},
++	}
++
++	reqBody := ChatRequest{
++		Model:       model,
++		Messages:    messages,
++		Tools:       []Tool{tool},
++		ToolChoice:  "required",
++		Temperature: 0,
++		MaxTokens:   100,
++	}
++
++	jsonData, err := json.Marshal(reqBody)
++	if err != nil {
++		return nil, err
++	}
++
++	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
++	if err != nil {
++		return nil, err
++	}
++
++	req.Header.Set("Content-Type", "application/json")
++	if providedKey != "" {
++		req.Header.Set("X-API-Key", providedKey)
++	}
++	// Add Bearer auth for OpenAI-compatible APIs
++	if llmApiKey != "" {
++		req.Header.Set("Authorization", "Bearer "+llmApiKey)
++	}
++
++	client := &http.Client{}
++	resp, err := client.Do(req)
++	if err != nil {
++		return nil, err
++	}
++	defer resp.Body.Close()
++
++	if resp.StatusCode != http.StatusOK {
++		body, _ := io.ReadAll(resp.Body)
++		return nil, fmt.Errorf("LLM request failed: %d - %s", resp.StatusCode, string(body))
++	}
++
++	var chatResp ChatResponse
++	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
++		return nil, err
++	}
++
++	return &chatResp, nil
++}
++
++func extractPrediction(resp *ChatResponse) (string, []ToolCall) {
++	var toolCalls []ToolCall
++	var predicted string
++
++	if len(resp.Choices) > 0 {
++		choice := resp.Choices[0]
++		for _, call := range choice.Message.ToolCalls {
++			toolCalls = append(toolCalls, ToolCall{
++				ID:   call.ID,
++				Type: "function",
++				Function: Function{
++					Name:      call.Function.Name,
++					Arguments: call.Function.Arguments,
++				},
++			})
++
++			if call.Function.Name == "classify" {
++				var args map[string]interface{}
++				if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err == nil {
++					if intent, ok := args["intent"].(string); ok {
++						predicted = intent
++					}
++				}
++			}
++		}
++
++		// Fallback to content
++		if predicted == "" && choice.Message.Content != "" {
++			predicted = strings.TrimSpace(choice.Message.Content)
++		}
++	}
++
++	return predicted, toolCalls
++}
++
++// =============================================================================
++// Handlers
++// =============================================================================
++
++func healthHandler(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Content-Type", "application/json")
++	json.NewEncoder(w).Encode(HealthResponse{Healthy: true})
++}
++
++func taskInfoHandler(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Content-Type", "application/json")
++
++	// Check authentication
++	if apiKey != "" {
++		providedKey := r.Header.Get("X-API-Key")
++		if providedKey != apiKey {
++			w.WriteHeader(http.StatusUnauthorized)
++			json.NewEncoder(w).Encode(ErrorResponse{Detail: "Invalid or missing API key"})
++			return
++		}
++	}
++
++	// Parse seeds from query string - handles both ?seed=0&seed=1 and ?seeds=0&seeds=1
++	var requestedSeeds []int
++	query := r.URL.RawQuery
++	for _, param := range strings.Split(query, "&") {
++		parts := strings.SplitN(param, "=", 2)
++		if len(parts) == 2 && (parts[0] == "seed" || parts[0] == "seeds") {
++			if seed, err := strconv.Atoi(parts[1]); err == nil {
++				requestedSeeds = append(requestedSeeds, seed)
++			}
++		}
++	}
++
++	datasetSize := len(dataset.Samples)
++
++	// Build response - one TaskInfo per requested seed, or all seeds if none specified
++	var infos []TaskInfo
++	if len(requestedSeeds) > 0 {
++		for _, seed := range requestedSeeds {
++			infos = append(infos, TaskInfo{
++				Task: TaskSpec{
++					TaskID:      "banking77-go",
++					Name:        "Banking77 Intent Classification (Go)",
++					Description: "Classify banking customer queries into intent categories",
++					Version:     "1.0.0",
++				},
++				Environment: "banking77",
++				Dataset: DatasetInfo{
++					Seeds:      []int{seed},
++					TrainCount: datasetSize,
++					ValCount:   0,
++					TestCount:  0,
++				},
++				Rubric: RubricSpec{
++					ScoringCriteria: "exact_match",
++					MetricPrimary:   "accuracy",
++					MetricRange:     []float64{0.0, 1.0},
++				},
++				Inference: InferenceSpec{
++					Mode:           "tool_call",
++					SupportedTools: []string{"classify"},
++				},
++				Limits: LimitsSpec{
++					MaxResponseTokens: 100,
++					TimeoutSeconds:    30,
++				},
++			})
++		}
++	} else {
++		// Return all seeds
++		allSeeds := make([]int, datasetSize)
++		for i := 0; i < datasetSize; i++ {
++			allSeeds[i] = i
++		}
++		infos = append(infos, TaskInfo{
++			Task: TaskSpec{
++				TaskID:      "banking77-go",
++				Name:        "Banking77 Intent Classification (Go)",
++				Description: "Classify banking customer queries into intent categories",
++				Version:     "1.0.0",
++			},
++			Environment: "banking77",
++			Dataset: DatasetInfo{
++				Seeds:      allSeeds,
++				TrainCount: datasetSize,
++				ValCount:   0,
++				TestCount:  0,
++			},
++			Rubric: RubricSpec{
++				ScoringCriteria: "exact_match",
++				MetricPrimary:   "accuracy",
++				MetricRange:     []float64{0.0, 1.0},
++			},
++			Inference: InferenceSpec{
++				Mode:           "tool_call",
++				SupportedTools: []string{"classify"},
++			},
++			Limits: LimitsSpec{
++				MaxResponseTokens: 100,
++				TimeoutSeconds:    30,
++			},
++		})
++	}
++
++	json.NewEncoder(w).Encode(infos)
++}
++
++func rolloutHandler(w http.ResponseWriter, r *http.Request) {
++	w.Header().Set("Content-Type", "application/json")
++
++	// Check authentication
++	if apiKey != "" {
++		providedKey := r.Header.Get("X-API-Key")
++		if providedKey != apiKey {
++			w.WriteHeader(http.StatusUnauthorized)
++			json.NewEncoder(w).Encode(ErrorResponse{Detail: "Invalid or missing API key"})
++			return
++		}
++	}
++
++	// Parse request
++	var req RolloutRequest
++	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
++		w.WriteHeader(http.StatusBadRequest)
++		json.NewEncoder(w).Encode(ErrorResponse{Detail: "Invalid request body"})
++		return
++	}
++
++	// Get sample
++	seed := 0
++	if req.Env.Seed != nil {
++		seed = int(*req.Env.Seed)
++	}
++	sample := getSample(seed)
++
++	log.Printf("Rollout: run_id=%s seed=%d query=%s", req.RunID, seed, sample.Text)
++
++	// Get inference URL
++	inferenceURL := ""
++	for _, key := range []string{"inference_url", "api_base", "base_url"} {
++		if v, ok := req.Policy.Config[key].(string); ok && v != "" {
++			inferenceURL = v
++			break
++		}
++	}
++
++	if inferenceURL == "" {
++		w.WriteHeader(http.StatusBadRequest)
++		json.NewEncoder(w).Encode(ErrorResponse{Detail: "Missing inference_url in policy.config"})
++		return
++	}
++
++	model := "gpt-4o-mini"
++	if m, ok := req.Policy.Config["model"].(string); ok && m != "" {
++		model = m
++	}
++
++	// Build messages and call LLM
++	messages := buildMessages(req.Policy.Config, sample)
++	providedKey := r.Header.Get("X-API-Key")
++
++	llmResp, err := callLLM(inferenceURL, model, messages, providedKey)
++	if err != nil {
++		log.Printf("LLM call failed: %v", err)
++		w.WriteHeader(http.StatusBadGateway)
++		json.NewEncoder(w).Encode(ErrorResponse{Detail: fmt.Sprintf("LLM call failed: %v", err)})
++		return
++	}
++
++	// Extract prediction
++	predicted, toolCalls := extractPrediction(llmResp)
++
++	// Compute reward
++	isCorrect := strings.EqualFold(predicted, sample.Label)
++	reward := 0.0
++	if isCorrect {
++		reward = 1.0
++	}
++
++	log.Printf("Result: expected=%s predicted=%s correct=%v reward=%.1f", sample.Label, predicted, isCorrect, reward)
++
++	// Build response
++	policyID := req.Policy.PolicyID
++	if policyID == "" {
++		policyID = req.Policy.PolicyName
++	}
++	if policyID == "" {
++		policyID = "policy"
++	}
++
++	resp := RolloutResponse{
++		RunID: req.RunID,
++		Trajectories: []Trajectory{
++			{
++				EnvID:    fmt.Sprintf("task::train::%d", seed),
++				PolicyID: policyID,
++				Steps: []Step{
++					{
++						Obs: map[string]interface{}{
++							"query": sample.Text,
++							"index": seed,
++						},
++						ToolCalls: toolCalls,
++						Reward:    reward,
++						Done:      true,
++						Info: map[string]interface{}{
++							"expected":  sample.Label,
++							"predicted": predicted,
++							"correct":   isCorrect,
++						},
++					},
++				},
++				Length:       1,
++				InferenceURL: inferenceURL,
++			},
++		},
++		Metrics: Metrics{
++			EpisodeReturns: []float64{reward},
++			MeanReturn:     reward,
++			NumSteps:       1,
++			NumEpisodes:    1,
++			OutcomeScore:   reward,
++		},
++		Aborted:     false,
++		OpsExecuted: 1,
++	}
++
++	json.NewEncoder(w).Encode(resp)
++}
++
++// =============================================================================
++// Main
++// =============================================================================
++
++func main() {
++	// Load configuration
++	port := os.Getenv("PORT")
++	if port == "" {
++		port = "8001"
++	}
++
++	apiKey = os.Getenv("ENVIRONMENT_API_KEY")
++	if apiKey != "" {
++		log.Println("API key authentication enabled")
++	} else {
++		log.Println("WARNING: No ENVIRONMENT_API_KEY set - running without authentication")
++	}
++
++	// Load LLM API key for Bearer auth
++	llmApiKey = os.Getenv("GROQ_API_KEY")
++	if llmApiKey == "" {
++		llmApiKey = os.Getenv("OPENAI_API_KEY")
++	}
++	if llmApiKey != "" {
++		log.Println("LLM API key configured")
++	} else {
++		log.Println("WARNING: No GROQ_API_KEY or OPENAI_API_KEY set - LLM calls may fail")
++	}
++
++	// Load dataset
++	dataset = loadDataset()
++	log.Printf("Dataset loaded: %d samples", len(dataset.Samples))
++
++	// Set up routes
++	http.HandleFunc("/health", healthHandler)
++	http.HandleFunc("/task_info", taskInfoHandler)
++	http.HandleFunc("/rollout", rolloutHandler)
++
++	// Start server
++	addr := ":" + port
++	log.Printf("Starting task app on %s", addr)
++	if err := http.ListenAndServe(addr, nil); err != nil {
++		log.Fatal(err)
++	}
++}
+diff --git a/examples/polyglot/mipro_job.json b/examples/polyglot/mipro_job.json
+new file mode 100644
+index 0000000..008ca7b
+--- /dev/null
++++ b/examples/polyglot/mipro_job.json
+@@ -0,0 +1,71 @@
++{
++  "algorithm": "mipro",
++  "config_body": {
++    "prompt_learning": {
++      "algorithm": "mipro",
++      "task_app_url": "http://localhost:8001",
++      "task_app_api_key": "test-polyglot-key",
++      "task_app_id": "banking77-polyglot",
++      "initial_prompt": {
++        "id": "banking77_pattern",
++        "name": "Banking77 Classification Pattern",
++        "messages": [
++          {
++            "role": "system",
++            "pattern": "You are an expert banking assistant that classifies customer queries into banking intents. Given a customer message, respond with exactly one intent label from the provided list using the classify tool.",
++            "order": 0
++          },
++          {
++            "role": "user",
++            "pattern": "Customer Query: {query}\n\nClassify this query into one of the banking intents using the tool call.",
++            "order": 1
++          }
++        ],
++        "wildcards": {
++          "query": "REQUIRED"
++        }
++      },
++      "policy": {
++        "inference_mode": "synth_hosted",
++        "model": "openai/gpt-oss-20b",
++        "provider": "groq",
++        "temperature": 0.0,
++        "max_completion_tokens": 128,
++        "policy_name": "banking77-mipro-polyglot"
++      },
++      "env_config": {
++        "pool": "train"
++      },
++      "mipro": {
++        "env_name": "banking77",
++        "num_iterations": 2,
++        "num_evaluations_per_iteration": 2,
++        "batch_size": 3,
++        "max_concurrent": 6,
++        "meta_model": "llama-3.3-70b-versatile",
++        "meta_model_provider": "groq",
++        "few_shot_score_threshold": 0.85,
++        "max_instructions": 2,
++        "duplicate_retry_limit": 10,
++        "bootstrap_train_seeds": [0, 1, 2],
++        "online_pool": [3, 4, 5, 6],
++        "test_pool": [7, 8],
++        "val_seeds": [9],
++        "reference_pool": [9],
++        "stages": [
++          {
++            "stage_id": "stage_default",
++            "max_instruction_slots": 2,
++            "max_demo_slots": 2,
++            "policy": {
++              "model": "openai/gpt-oss-20b",
++              "provider": "groq",
++              "temperature": 0.0,
++              "max_completion_tokens": 128
++            }
++          }
++        ]
++      }
++    }
++  }
++}
+diff --git a/examples/polyglot/rust/Cargo.toml b/examples/polyglot/rust/Cargo.toml
+new file mode 100644
+index 0000000..d667090
+--- /dev/null
++++ b/examples/polyglot/rust/Cargo.toml
+@@ -0,0 +1,22 @@
++[package]
++name = "synth-task-app"
++version = "0.1.0"
++edition = "2021"
++description = "Example Task App for Synth prompt optimization (Rust)"
++
++[dependencies]
++# Web framework
++axum = "0.7"
++tokio = { version = "1", features = ["full"] }
++
++# Serialization
++serde = { version = "1", features = ["derive"] }
++serde_json = "1"
++
++# HTTP client for LLM calls
++reqwest = { version = "0.12", features = ["json"] }
++
++# Utilities
++anyhow = "1"
++tracing = "0.1"
++tracing-subscriber = "0.3"
+diff --git a/examples/polyglot/rust/README.md b/examples/polyglot/rust/README.md
+new file mode 100644
+index 0000000..d29822e
+--- /dev/null
++++ b/examples/polyglot/rust/README.md
+@@ -0,0 +1,174 @@
++# Rust Task App Example
++
++A minimal but complete Task App implementation in Rust for Synth prompt optimization.
++**Tested end-to-end with MIPRO optimizer** - achieves 100% accuracy on Banking77 classification.
++
++## Features
++
++- Implements `/health`, `/task_info`, and `/rollout` endpoints per OpenAPI contract
++- Embedded sample dataset (Banking77-style)
++- Prompt template rendering with `{placeholder}` substitution
++- LLM calls via `inference_url` (with proper query parameter handling)
++- Tool-based classification with reward computation
++
++## Quick Start
++
++```bash
++# Build and run
++cargo run --release
++
++# With authentication (recommended)
++ENVIRONMENT_API_KEY=your-secret-key cargo run --release
++
++# Custom port
++PORT=3000 cargo run --release
++```
++
++## Testing Locally
++
++```bash
++# Health check
++curl http://localhost:8001/health
++
++# Manual rollout (requires running optimizer or mock inference)
++curl -X POST http://localhost:8001/rollout \
++  -H "Content-Type: application/json" \
++  -H "X-API-Key: your-secret-key" \
++  -d '{
++    "run_id": "test-1",
++    "env": {"seed": 0},
++    "policy": {
++      "config": {
++        "model": "gpt-4o-mini",
++        "inference_url": "https://api.openai.com/v1"
++      }
++    },
++    "mode": "eval"
++  }'
++```
++
++## Running with Synth Optimizer
++
++### Local Development (Recommended for Testing)
++
++1. **Start the local backend** (from monorepo):
++   ```bash
++   cd monorepo && ./scripts/run_backend_local.sh
++   # Starts: Redis, sqld, uvicorn on port 8000
++   ```
++
++2. **Start the task app:**
++   ```bash
++   ENVIRONMENT_API_KEY=test-polyglot-key cargo run --release
++   ```
++
++3. **Submit a job** using the example config:
++   ```bash
++   curl -X POST "http://localhost:8000/api/prompt-learning/online/jobs" \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d @../mipro_job.json
++   ```
++
++4. **Monitor job:**
++   ```bash
++   curl "http://localhost:8000/api/prompt-learning/online/jobs/{job_id}" \
++     -H "Authorization: Bearer $SYNTH_API_KEY"
++   ```
++
++### Production (via Cloudflare Tunnel)
++
++1. **Start the task app:**
++   ```bash
++   ENVIRONMENT_API_KEY=my-secret cargo run --release
++   ```
++
++2. **Expose via Cloudflare tunnel:**
++   ```bash
++   cloudflared tunnel --url http://localhost:8001
++   # Note the URL: https://random-words.trycloudflare.com
++   ```
++
++3. **Start optimization:**
++   ```bash
++   curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d '{
++       "algorithm": "mipro",
++       "config_body": {
++         "prompt_learning": {
++           "task_app_url": "https://random-words.trycloudflare.com",
++           "task_app_api_key": "my-secret"
++         }
++       }
++     }'
++   ```
++
++## Critical Implementation Details
++
++### URL Construction with Query Parameters
++
++The `inference_url` provided by the optimizer includes query parameters for tracing:
++```
++http://localhost:8000/api/interceptor/v1/trial-id?cid=trace_xxx
++```
++
++When appending `/chat/completions`, the path must come BEFORE the query string:
++
++```rust
++// CORRECT: path before query
++let url = if let Some(query_start) = inference_url.find('?') {
++    let (base, query) = inference_url.split_at(query_start);
++    format!("{}/chat/completions{}", base.trim_end_matches('/'), query)
++} else {
++    format!("{}/chat/completions", inference_url.trim_end_matches('/'))
++};
++
++// Result: http://host/path/chat/completions?cid=xxx
++```
++
++**Wrong approach** (causes 404):
++```rust
++// WRONG: appends path after query string
++let url = format!("{}/chat/completions", inference_url);
++// Result: http://host/path?cid=xxx/chat/completions  <-- 404!
++```
++
++### Handling Multiple Seeds in /task_info
++
++The backend sends seed parameters as repeated keys: `?seeds=0&seeds=1&seeds=2`.
++Parse both `seed` and `seeds` variants:
++
++```rust
++let seeds: Vec<i32> = query_string
++    .split('&')
++    .filter_map(|param| {
++        let mut parts = param.split('=');
++        match (parts.next(), parts.next()) {
++            (Some("seed"), Some(val)) | (Some("seeds"), Some(val)) => val.parse().ok(),
++            _ => None,
++        }
++    })
++    .collect();
++```
++
++## Contract Reference
++
++See [`synth_ai/contracts/task_app.yaml`](../../../synth_ai/contracts/task_app.yaml) for the full OpenAPI specification.
++
++## Customizing for Your Task
++
++1. **Replace the dataset** - Load your own samples in `Dataset::new()`
++2. **Update labels** - Modify the intent/label list
++3. **Adjust the tool schema** - Change `classify` to match your output format
++4. **Update reward logic** - Modify `extract_prediction()` and reward computation
++
++## Dependencies
++
++- `axum` - Web framework
++- `tokio` - Async runtime
++- `serde` / `serde_json` - Serialization
++- `reqwest` - HTTP client for LLM calls
++- `anyhow` - Error handling
++- `tracing` - Logging
+diff --git a/examples/polyglot/rust/src/main.rs b/examples/polyglot/rust/src/main.rs
+new file mode 100644
+index 0000000..1a393f5
+--- /dev/null
++++ b/examples/polyglot/rust/src/main.rs
+@@ -0,0 +1,782 @@
++//! Synth Task App Example - Rust Implementation
++//!
++//! This is a minimal but complete Task App that implements the Synth contract
++//! for prompt optimization. It demonstrates:
++//!
++//! - `/health` endpoint (unauthenticated)
++//! - `/rollout` endpoint (authenticated)
++//! - Dataset loading and sample retrieval
++//! - Prompt template rendering with placeholders
++//! - LLM calls via inference_url
++//! - Reward computation
++//!
++//! ## Running
++//!
++//! ```bash
++//! cargo run --release
++//! ```
++//!
++//! ## Connecting to Optimizer
++//!
++//! ```bash
++//! # Expose via Cloudflare tunnel
++//! cloudflared tunnel --url http://localhost:8001
++//!
++//! # Start optimization (no Python needed)
++//! curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++//!   -H "Authorization: Bearer $SYNTH_API_KEY" \
++//!   -H "Content-Type: application/json" \
++//!   -d '{
++//!     "algorithm": "mipro",
++//!     "config_body": {
++//!       "prompt_learning": {
++//!         "task_app_url": "https://your-tunnel.trycloudflare.com",
++//!         "task_app_api_key": "your-env-key"
++//!       }
++//!     }
++//!   }'
++//! ```
++
++use anyhow::Result;
++use axum::{
++    extract::{Request, State},
++    http::{HeaderMap, StatusCode},
++    response::Json,
++    routing::{get, post},
++    Router,
++};
++use serde::{Deserialize, Serialize};
++use std::{collections::HashMap, env, sync::Arc};
++use tracing::{info, warn};
++
++// =============================================================================
++// Dataset
++// =============================================================================
++
++/// A single sample in our dataset
++#[derive(Debug, Clone, Serialize, Deserialize)]
++struct Sample {
++    text: String,
++    label: String,
++}
++
++/// Simple in-memory dataset
++struct Dataset {
++    samples: Vec<Sample>,
++    labels: Vec<String>,
++}
++
++impl Dataset {
++    fn new() -> Self {
++        // Embedded Banking77-style samples for demonstration
++        // In production, load from file or database
++        let samples = vec![
++            Sample { text: "How do I reset my PIN?".into(), label: "change_pin".into() },
++            Sample { text: "My card hasn't arrived yet".into(), label: "card_arrival".into() },
++            Sample { text: "I want to cancel my card".into(), label: "card_cancellation".into() },
++            Sample { text: "How do I activate my new card?".into(), label: "activate_my_card".into() },
++            Sample { text: "What's my current balance?".into(), label: "balance".into() },
++            Sample { text: "I need to dispute a transaction".into(), label: "dispute_charge".into() },
++            Sample { text: "Can I get a refund?".into(), label: "refund".into() },
++            Sample { text: "How do I transfer money?".into(), label: "transfer".into() },
++            Sample { text: "I lost my card".into(), label: "lost_card".into() },
++            Sample { text: "Is there a fee for this?".into(), label: "fee".into() },
++        ];
++
++        let labels: Vec<String> = samples.iter().map(|s| s.label.clone()).collect();
++        let mut unique_labels: Vec<String> = labels.clone();
++        unique_labels.sort();
++        unique_labels.dedup();
++
++        Dataset { samples, labels: unique_labels }
++    }
++
++    fn get(&self, index: usize) -> &Sample {
++        &self.samples[index % self.samples.len()]
++    }
++
++    fn len(&self) -> usize {
++        self.samples.len()
++    }
++}
++
++// =============================================================================
++// Request/Response Types (matching OpenAPI contract)
++// =============================================================================
++
++#[derive(Debug, Deserialize)]
++struct RolloutRequest {
++    run_id: String,
++    env: EnvSpec,
++    policy: PolicySpec,
++    #[serde(default)]
++    mode: String,
++}
++
++#[derive(Debug, Deserialize)]
++struct EnvSpec {
++    seed: Option<i64>,
++    #[serde(default)]
++    config: HashMap<String, serde_json::Value>,
++}
++
++#[derive(Debug, Deserialize)]
++struct PolicySpec {
++    policy_id: Option<String>,
++    policy_name: Option<String>,
++    #[serde(default)]
++    config: HashMap<String, serde_json::Value>,
++}
++
++#[derive(Debug, Serialize)]
++struct RolloutResponse {
++    run_id: String,
++    trajectories: Vec<Trajectory>,
++    metrics: Metrics,
++    aborted: bool,
++    ops_executed: i32,
++}
++
++#[derive(Debug, Serialize)]
++struct Trajectory {
++    env_id: String,
++    policy_id: String,
++    steps: Vec<Step>,
++    length: i32,
++    inference_url: String,
++}
++
++#[derive(Debug, Serialize)]
++struct Step {
++    obs: HashMap<String, serde_json::Value>,
++    tool_calls: Vec<ToolCall>,
++    reward: f64,
++    done: bool,
++    info: HashMap<String, serde_json::Value>,
++}
++
++#[derive(Debug, Serialize)]
++struct ToolCall {
++    id: String,
++    #[serde(rename = "type")]
++    call_type: String,
++    function: FunctionCall,
++}
++
++#[derive(Debug, Serialize)]
++struct FunctionCall {
++    name: String,
++    arguments: String,
++}
++
++#[derive(Debug, Serialize)]
++struct Metrics {
++    episode_returns: Vec<f64>,
++    mean_return: f64,
++    num_steps: i32,
++    num_episodes: i32,
++    outcome_score: f64,
++}
++
++#[derive(Debug, Serialize)]
++struct HealthResponse {
++    healthy: bool,
++}
++
++#[derive(Debug, Serialize)]
++struct ErrorResponse {
++    detail: String,
++}
++
++// TaskInfo types
++#[derive(Debug, Serialize)]
++struct TaskInfo {
++    task: TaskDescriptor,
++    environment: String,
++    dataset: DatasetInfo,
++    rubric: RubricInfo,
++    inference: InferenceInfo,
++    limits: LimitsInfo,
++}
++
++#[derive(Debug, Serialize)]
++struct TaskDescriptor {
++    task_id: String,
++    name: String,
++    description: String,
++    version: String,
++}
++
++#[derive(Debug, Serialize)]
++struct DatasetInfo {
++    seeds: Vec<i32>,
++    train_count: i32,
++    val_count: i32,
++    test_count: i32,
++}
++
++#[derive(Debug, Serialize)]
++struct RubricInfo {
++    scoring_criteria: String,
++    metric_primary: String,
++    metric_range: Vec<f64>,
++}
++
++#[derive(Debug, Serialize)]
++struct InferenceInfo {
++    mode: String,
++    supported_tools: Vec<String>,
++}
++
++#[derive(Debug, Serialize)]
++struct LimitsInfo {
++    max_response_tokens: i32,
++    timeout_seconds: i32,
++}
++
++// =============================================================================
++// LLM Client
++// =============================================================================
++
++#[derive(Debug, Serialize)]
++struct ChatRequest {
++    model: String,
++    messages: Vec<ChatMessage>,
++    tools: Vec<Tool>,
++    tool_choice: String,
++    temperature: f64,
++    max_tokens: i32,
++}
++
++#[derive(Debug, Serialize, Deserialize)]
++struct ChatMessage {
++    role: String,
++    content: String,
++}
++
++#[derive(Debug, Serialize)]
++struct Tool {
++    #[serde(rename = "type")]
++    tool_type: String,
++    function: ToolFunction,
++}
++
++#[derive(Debug, Serialize)]
++struct ToolFunction {
++    name: String,
++    description: String,
++    parameters: serde_json::Value,
++}
++
++#[derive(Debug, Deserialize)]
++struct ChatResponse {
++    choices: Vec<Choice>,
++}
++
++#[derive(Debug, Deserialize)]
++struct Choice {
++    message: ResponseMessage,
++}
++
++#[derive(Debug, Deserialize)]
++struct ResponseMessage {
++    content: Option<String>,
++    tool_calls: Option<Vec<ResponseToolCall>>,
++}
++
++#[derive(Debug, Deserialize)]
++struct ResponseToolCall {
++    id: String,
++    function: ResponseFunction,
++}
++
++#[derive(Debug, Deserialize)]
++struct ResponseFunction {
++    name: String,
++    arguments: String,
++}
++
++async fn call_llm(
++    client: &reqwest::Client,
++    inference_url: &str,
++    model: &str,
++    messages: Vec<ChatMessage>,
++    api_key: Option<&str>,
++    llm_api_key: Option<&str>,
++) -> Result<ChatResponse> {
++    // Build the full URL - handle query params correctly
++    // inference_url may be "http://host/path?query" - we need "http://host/path/chat/completions?query"
++    let url = if let Some(query_start) = inference_url.find('?') {
++        let (base, query) = inference_url.split_at(query_start);
++        format!("{}/chat/completions{}", base.trim_end_matches('/'), query)
++    } else {
++        format!("{}/chat/completions", inference_url.trim_end_matches('/'))
++    };
++
++    info!("LLM call: inference_url={} full_url={} model={}", inference_url, url, model);
++
++    // Define our classification tool
++    let tool = Tool {
++        tool_type: "function".into(),
++        function: ToolFunction {
++            name: "classify".into(),
++            description: "Classify the customer query into an intent category".into(),
++            parameters: serde_json::json!({
++                "type": "object",
++                "properties": {
++                    "intent": {
++                        "type": "string",
++                        "description": "The classified intent"
++                    }
++                },
++                "required": ["intent"]
++            }),
++        },
++    };
++
++    let request = ChatRequest {
++        model: model.into(),
++        messages,
++        tools: vec![tool],
++        tool_choice: "required".into(),
++        temperature: 0.0,
++        max_tokens: 100,
++    };
++
++    let mut req = client.post(&url).json(&request);
++
++    // Forward API key if provided
++    if let Some(key) = api_key {
++        req = req.header("X-API-Key", key);
++    }
++
++    // Add Bearer auth for OpenAI-compatible APIs
++    if let Some(key) = llm_api_key {
++        req = req.header("Authorization", format!("Bearer {}", key));
++    }
++
++    let response = req.send().await?;
++
++    if !response.status().is_success() {
++        let status = response.status();
++        let body = response.text().await.unwrap_or_default();
++        anyhow::bail!("LLM request failed: {} - {}", status, body);
++    }
++
++    Ok(response.json().await?)
++}
++
++// =============================================================================
++// Prompt Rendering
++// =============================================================================
++
++fn render_template(template: &str, placeholders: &HashMap<String, String>) -> String {
++    let mut result = template.to_string();
++    for (key, value) in placeholders {
++        result = result.replace(&format!("{{{}}}", key), value);
++    }
++    result
++}
++
++fn build_messages(
++    policy_config: &HashMap<String, serde_json::Value>,
++    sample: &Sample,
++    labels: &[String],
++) -> Vec<ChatMessage> {
++    // Check for prompt_template in policy config
++    let prompt_template = policy_config.get("prompt_template");
++
++    // Build placeholders
++    let mut placeholders = HashMap::new();
++    placeholders.insert("query".into(), sample.text.clone());
++    placeholders.insert("intents".into(), labels.join(", "));
++
++    if let Some(template) = prompt_template {
++        // Use prompt template from optimizer
++        let sections = template
++            .get("prompt_sections")
++            .or_else(|| template.get("sections"))
++            .and_then(|s| s.as_array());
++
++        if let Some(sections) = sections {
++            let mut messages = Vec::new();
++            let mut sorted_sections: Vec<_> = sections.iter().collect();
++            sorted_sections.sort_by_key(|s| s.get("order").and_then(|o| o.as_i64()).unwrap_or(0));
++
++            for section in sorted_sections {
++                let role = section.get("role").and_then(|r| r.as_str()).unwrap_or("user");
++                let content = section
++                    .get("content")
++                    .or_else(|| section.get("pattern"))
++                    .and_then(|c| c.as_str())
++                    .unwrap_or("");
++
++                let rendered = render_template(content, &placeholders);
++                messages.push(ChatMessage {
++                    role: role.into(),
++                    content: rendered,
++                });
++            }
++            return messages;
++        }
++    }
++
++    // Default messages if no template provided
++    vec![
++        ChatMessage {
++            role: "system".into(),
++            content: "You are an expert banking assistant that classifies customer queries. \
++                      Use the classify tool to return the intent.".into(),
++        },
++        ChatMessage {
++            role: "user".into(),
++            content: format!(
++                "Customer Query: {}\n\nAvailable intents: {}\n\nClassify this query.",
++                sample.text,
++                labels.join(", ")
++            ),
++        },
++    ]
++}
++
++// =============================================================================
++// App State
++// =============================================================================
++
++struct AppState {
++    dataset: Dataset,
++    http_client: reqwest::Client,
++    api_key: Option<String>,
++    llm_api_key: Option<String>,
++}
++
++// =============================================================================
++// Handlers
++// =============================================================================
++
++async fn health_handler() -> Json<HealthResponse> {
++    Json(HealthResponse { healthy: true })
++}
++
++async fn task_info_handler(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    req: Request,
++) -> Result<Json<Vec<TaskInfo>>, (StatusCode, Json<ErrorResponse>)> {
++    // Parse seeds from query string manually
++    // Handles: ?seed=0&seed=1 OR ?seeds=0&seeds=1 (httpx serializes list params with repeated keys)
++    let query_string = req.uri().query().unwrap_or("");
++    let seeds: Vec<i32> = query_string
++        .split('&')
++        .filter_map(|param| {
++            let mut parts = param.split('=');
++            match (parts.next(), parts.next()) {
++                // Handle both singular "seed" and plural "seeds" parameters
++                (Some("seed"), Some(val)) | (Some("seeds"), Some(val)) => val.parse().ok(),
++                _ => None,
++            }
++        })
++        .collect();
++
++    // Verify API key (same as rollout)
++    let provided_key = headers
++        .get("x-api-key")
++        .and_then(|v| v.to_str().ok());
++
++    if let Some(expected_key) = &state.api_key {
++        match provided_key {
++            Some(key) if key == expected_key => {}
++            _ => {
++                return Err((
++                    StatusCode::UNAUTHORIZED,
++                    Json(ErrorResponse {
++                        detail: "Invalid or missing API key".into(),
++                    }),
++                ));
++            }
++        }
++    }
++
++    let dataset_size = state.dataset.len() as i32;
++    let all_seeds: Vec<i32> = (0..dataset_size).collect();
++
++    // If seeds are specified, return one TaskInfo per seed
++    // Otherwise return a single TaskInfo with all seeds
++    let seeds_to_return = if seeds.is_empty() {
++        vec![all_seeds.clone()]
++    } else {
++        seeds.iter().map(|s| vec![*s]).collect()
++    };
++
++    let infos: Vec<TaskInfo> = seeds_to_return
++        .iter()
++        .map(|seeds| TaskInfo {
++            task: TaskDescriptor {
++                task_id: "banking77-rust".into(),
++                name: "Banking77 Intent Classification (Rust)".into(),
++                description: "Classify banking customer queries into intent categories".into(),
++                version: "1.0.0".into(),
++            },
++            environment: "banking77".into(),
++            dataset: DatasetInfo {
++                seeds: seeds.clone(),
++                train_count: dataset_size,
++                val_count: 0,
++                test_count: 0,
++            },
++            rubric: RubricInfo {
++                scoring_criteria: "exact_match".into(),
++                metric_primary: "accuracy".into(),
++                metric_range: vec![0.0, 1.0],
++            },
++            inference: InferenceInfo {
++                mode: "tool_call".into(),
++                supported_tools: vec!["classify".into()],
++            },
++            limits: LimitsInfo {
++                max_response_tokens: 100,
++                timeout_seconds: 30,
++            },
++        })
++        .collect();
++
++    Ok(Json(infos))
++}
++
++async fn rollout_handler(
++    State(state): State<Arc<AppState>>,
++    headers: HeaderMap,
++    Json(request): Json<RolloutRequest>,
++) -> Result<Json<RolloutResponse>, (StatusCode, Json<ErrorResponse>)> {
++    // Verify API key
++    let provided_key = headers
++        .get("x-api-key")
++        .and_then(|v| v.to_str().ok());
++
++    if let Some(expected_key) = &state.api_key {
++        match provided_key {
++            Some(key) if key == expected_key => {}
++            _ => {
++                return Err((
++                    StatusCode::UNAUTHORIZED,
++                    Json(ErrorResponse {
++                        detail: "Invalid or missing API key".into(),
++                    }),
++                ));
++            }
++        }
++    }
++
++    // Extract seed and get sample
++    let seed = request.env.seed.unwrap_or(0) as usize;
++    let sample = state.dataset.get(seed);
++
++    info!(
++        "Rollout: run_id={} seed={} query={}",
++        request.run_id, seed, sample.text
++    );
++
++    // Get inference URL from policy config
++    let inference_url = request
++        .policy
++        .config
++        .get("inference_url")
++        .or_else(|| request.policy.config.get("api_base"))
++        .or_else(|| request.policy.config.get("base_url"))
++        .and_then(|v| v.as_str())
++        .ok_or_else(|| {
++            (
++                StatusCode::BAD_REQUEST,
++                Json(ErrorResponse {
++                    detail: "Missing inference_url in policy.config".into(),
++                }),
++            )
++        })?;
++
++    let model = request
++        .policy
++        .config
++        .get("model")
++        .and_then(|v| v.as_str())
++        .unwrap_or("gpt-4o-mini");
++
++    // Build messages
++    let messages = build_messages(&request.policy.config, sample, &state.dataset.labels);
++
++    // Call LLM
++    let llm_response = call_llm(
++        &state.http_client,
++        inference_url,
++        model,
++        messages,
++        provided_key,
++        state.llm_api_key.as_deref(),
++    )
++    .await
++    .map_err(|e| {
++        warn!("LLM call failed: {}", e);
++        (
++            StatusCode::BAD_GATEWAY,
++            Json(ErrorResponse {
++                detail: format!("LLM call failed: {}", e),
++            }),
++        )
++    })?;
++
++    // Extract prediction from response
++    let (predicted_intent, tool_calls) = extract_prediction(&llm_response);
++
++    // Compute reward
++    let is_correct = predicted_intent
++        .as_ref()
++        .map(|p| p.to_lowercase() == sample.label.to_lowercase())
++        .unwrap_or(false);
++    let reward = if is_correct { 1.0 } else { 0.0 };
++
++    info!(
++        "Result: expected={} predicted={:?} correct={} reward={}",
++        sample.label, predicted_intent, is_correct, reward
++    );
++
++    // Build response
++    let mut obs = HashMap::new();
++    obs.insert("query".into(), serde_json::json!(sample.text));
++    obs.insert("index".into(), serde_json::json!(seed));
++
++    let mut info = HashMap::new();
++    info.insert("expected".into(), serde_json::json!(sample.label));
++    info.insert("predicted".into(), serde_json::json!(predicted_intent));
++    info.insert("correct".into(), serde_json::json!(is_correct));
++
++    let step = Step {
++        obs,
++        tool_calls,
++        reward,
++        done: true,
++        info,
++    };
++
++    let trajectory = Trajectory {
++        env_id: format!("task::train::{}", seed),
++        policy_id: request
++            .policy
++            .policy_id
++            .or(request.policy.policy_name)
++            .unwrap_or_else(|| "policy".into()),
++        steps: vec![step],
++        length: 1,
++        inference_url: inference_url.into(),
++    };
++
++    let response = RolloutResponse {
++        run_id: request.run_id,
++        trajectories: vec![trajectory],
++        metrics: Metrics {
++            episode_returns: vec![reward],
++            mean_return: reward,
++            num_steps: 1,
++            num_episodes: 1,
++            outcome_score: reward,
++        },
++        aborted: false,
++        ops_executed: 1,
++    };
++
++    Ok(Json(response))
++}
++
++fn extract_prediction(response: &ChatResponse) -> (Option<String>, Vec<ToolCall>) {
++    let mut tool_calls = Vec::new();
++    let mut predicted = None;
++
++    if let Some(choice) = response.choices.first() {
++        if let Some(calls) = &choice.message.tool_calls {
++            for call in calls {
++                if call.function.name == "classify" {
++                    if let Ok(args) = serde_json::from_str::<serde_json::Value>(&call.function.arguments) {
++                        predicted = args.get("intent").and_then(|i| i.as_str()).map(String::from);
++                    }
++                }
++
++                tool_calls.push(ToolCall {
++                    id: call.id.clone(),
++                    call_type: "function".into(),
++                    function: FunctionCall {
++                        name: call.function.name.clone(),
++                        arguments: call.function.arguments.clone(),
++                    },
++                });
++            }
++        }
++
++        // Fallback to content if no tool calls
++        if predicted.is_none() {
++            if let Some(content) = &choice.message.content {
++                predicted = Some(content.trim().to_string());
++            }
++        }
++    }
++
++    (predicted, tool_calls)
++}
++
++// =============================================================================
++// Main
++// =============================================================================
++
++#[tokio::main]
++async fn main() -> Result<()> {
++    // Initialize tracing
++    tracing_subscriber::fmt::init();
++
++    // Load configuration from environment
++    let port: u16 = env::var("PORT")
++        .ok()
++        .and_then(|p| p.parse().ok())
++        .unwrap_or(8001);
++
++    let api_key = env::var("ENVIRONMENT_API_KEY").ok();
++
++    if api_key.is_some() {
++        info!("API key authentication enabled");
++    } else {
++        warn!("No ENVIRONMENT_API_KEY set - running without authentication");
++    }
++
++    // Load LLM API key for Bearer auth
++    let llm_api_key = env::var("GROQ_API_KEY")
++        .ok()
++        .or_else(|| env::var("OPENAI_API_KEY").ok());
++
++    if llm_api_key.is_some() {
++        info!("LLM API key configured");
++    } else {
++        warn!("No GROQ_API_KEY or OPENAI_API_KEY set - LLM calls may fail");
++    }
++
++    // Initialize state
++    let state = Arc::new(AppState {
++        dataset: Dataset::new(),
++        http_client: reqwest::Client::new(),
++        api_key,
++        llm_api_key,
++    });
++
++    info!("Dataset loaded: {} samples", state.dataset.len());
++
++    // Build router
++    let app = Router::new()
++        .route("/health", get(health_handler))
++        .route("/task_info", get(task_info_handler))
++        .route("/rollout", post(rollout_handler))
++        .with_state(state);
++
++    // Start server
++    let addr = format!("0.0.0.0:{}", port);
++    info!("Starting task app on {}", addr);
++
++    let listener = tokio::net::TcpListener::bind(&addr).await?;
++    axum::serve(listener, app).await?;
++
++    Ok(())
++}
+diff --git a/examples/polyglot/typescript/README.md b/examples/polyglot/typescript/README.md
+new file mode 100644
+index 0000000..ffb8644
+--- /dev/null
++++ b/examples/polyglot/typescript/README.md
+@@ -0,0 +1,201 @@
++# TypeScript Task App Example
++
++A minimal but complete Task App implementation in TypeScript for Synth prompt optimization.
++**Tested end-to-end with MIPRO optimizer.**
++
++## Features
++
++- Uses [Hono](https://hono.dev/) - fast, lightweight web framework
++- Loads dataset from shared JSON file (with embedded fallback)
++- Implements `/health`, `/task_info`, and `/rollout` endpoints per OpenAPI contract
++- Prompt template rendering with `{placeholder}` substitution
++- Proper URL construction with query parameter handling
++- Works with Node.js, Deno, Bun, and Cloudflare Workers
++
++## Quick Start
++
++```bash
++# Install dependencies
++npm install
++
++# Run in development (with hot reload)
++npm run dev
++
++# Build and run production
++npm run build
++npm start
++
++# With authentication
++ENVIRONMENT_API_KEY=your-secret npm run dev
++
++# Custom port
++PORT=3000 npm run dev
++```
++
++## Testing
++
++```bash
++# Health check
++curl http://localhost:8001/health
++
++# Manual rollout
++curl -X POST http://localhost:8001/rollout \
++  -H "Content-Type: application/json" \
++  -H "X-API-Key: your-secret" \
++  -d '{
++    "run_id": "test-1",
++    "env": {"seed": 0},
++    "policy": {
++      "config": {
++        "model": "gpt-4o-mini",
++        "inference_url": "https://api.openai.com/v1"
++      }
++    },
++    "mode": "eval"
++  }'
++```
++
++## Running with Synth Optimizer
++
++### Local Development (Recommended for Testing)
++
++1. **Start the local backend** (from monorepo):
++   ```bash
++   cd monorepo && bash scripts/run_backend_local.sh
++   # Starts: Redis, sqld, uvicorn on port 8000
++   ```
++
++2. **Start the task app:**
++   ```bash
++   npm install
++   ENVIRONMENT_API_KEY=test-polyglot-key npm run dev
++   ```
++
++3. **Submit a job** using the example config:
++   ```bash
++   curl -X POST "http://localhost:8000/api/prompt-learning/online/jobs" \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d @../mipro_job.json
++   ```
++
++### Production (via Cloudflare Tunnel)
++
++1. **Install and run:**
++   ```bash
++   npm install
++   ENVIRONMENT_API_KEY=my-secret npm run dev
++   ```
++
++2. **Expose via Cloudflare tunnel:**
++   ```bash
++   cloudflared tunnel --url http://localhost:8001
++   ```
++
++3. **Start optimization:**
++   ```bash
++   curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d '{
++       "algorithm": "mipro",
++       "config_body": {
++         "prompt_learning": {
++           "task_app_url": "https://your-tunnel.trycloudflare.com",
++           "task_app_api_key": "my-secret"
++         }
++       }
++     }'
++   ```
++
++## Critical Implementation Details
++
++### URL Construction with Query Parameters
++
++The `inference_url` provided by the optimizer includes query parameters for tracing:
++```
++http://localhost:8000/api/interceptor/v1/trial-id?cid=trace_xxx
++```
++
++When appending `/chat/completions`, the path must come BEFORE the query string:
++
++```typescript
++// CORRECT: path before query
++let url: string;
++const queryIndex = inferenceUrl.indexOf("?");
++if (queryIndex !== -1) {
++  const base = inferenceUrl.slice(0, queryIndex).replace(/\/$/, "");
++  const query = inferenceUrl.slice(queryIndex);
++  url = `${base}/chat/completions${query}`;
++} else {
++  url = `${inferenceUrl.replace(/\/$/, "")}/chat/completions`;
++}
++
++// Result: http://host/path/chat/completions?cid=xxx
++```
++
++**Wrong approach** (causes 404):
++```typescript
++// WRONG: appends path after query string
++const url = `${inferenceUrl}/chat/completions`;
++// Result: http://host/path?cid=xxx/chat/completions  <-- 404!
++```
++
++### Handling Multiple Seeds in /task_info
++
++The backend sends seed parameters as repeated keys: `?seeds=0&seeds=1&seeds=2`.
++Parse both `seed` and `seeds` variants using URLSearchParams:
++
++```typescript
++const url = new URL(c.req.url);
++const seedParams = url.searchParams.getAll("seed");
++const seedsParams = url.searchParams.getAll("seeds");
++const requestedSeeds = [...seedParams, ...seedsParams]
++  .map((s) => parseInt(s, 10))
++  .filter((n) => !isNaN(n));
++```
++
++## Deploying to Cloudflare Workers
++
++The Hono framework supports Cloudflare Workers out of the box:
++
++1. **Install Wrangler:**
++   ```bash
++   npm install -g wrangler
++   ```
++
++2. **Create `wrangler.toml`:**
++   ```toml
++   name = "synth-task-app"
++   main = "src/index.ts"
++   compatibility_date = "2024-01-01"
++
++   [vars]
++   ENVIRONMENT_API_KEY = "your-secret"
++   ```
++
++3. **Modify for Workers (change server start):**
++   ```typescript
++   // Replace the serve() call at the bottom with:
++   export default app;
++   ```
++
++4. **Deploy:**
++   ```bash
++   wrangler deploy
++   ```
++
++## Project Structure
++
++```
++typescript/
++├── package.json
++├── tsconfig.json
++├── src/
++│   └── index.ts    # Task app implementation
++└── README.md
++```
++
++## Contract Reference
++
++See [`synth_ai/contracts/task_app.yaml`](../../../synth_ai/contracts/task_app.yaml) for the full OpenAPI specification.
+diff --git a/examples/polyglot/typescript/package-lock.json b/examples/polyglot/typescript/package-lock.json
+new file mode 100644
+index 0000000..834764e
+--- /dev/null
++++ b/examples/polyglot/typescript/package-lock.json
+@@ -0,0 +1,615 @@
++{
++  "name": "synth-task-app",
++  "version": "0.1.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "synth-task-app",
++      "version": "0.1.0",
++      "dependencies": {
++        "@hono/node-server": "^1.0.0",
++        "hono": "^4.0.0"
++      },
++      "devDependencies": {
++        "@types/node": "^20.0.0",
++        "tsx": "^4.0.0",
++        "typescript": "^5.0.0"
++      }
++    },
++    "node_modules/@esbuild/aix-ppc64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.25.12.tgz",
++      "integrity": "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==",
++      "cpu": [
++        "ppc64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "aix"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-arm": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.25.12.tgz",
++      "integrity": "sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.25.12.tgz",
++      "integrity": "sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.25.12.tgz",
++      "integrity": "sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/darwin-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.25.12.tgz",
++      "integrity": "sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/darwin-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.25.12.tgz",
++      "integrity": "sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/freebsd-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.25.12.tgz",
++      "integrity": "sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/freebsd-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.25.12.tgz",
++      "integrity": "sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-arm": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.25.12.tgz",
++      "integrity": "sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.25.12.tgz",
++      "integrity": "sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-ia32": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.25.12.tgz",
++      "integrity": "sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA==",
++      "cpu": [
++        "ia32"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-loong64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.25.12.tgz",
++      "integrity": "sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng==",
++      "cpu": [
++        "loong64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-mips64el": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.25.12.tgz",
++      "integrity": "sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw==",
++      "cpu": [
++        "mips64el"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-ppc64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.25.12.tgz",
++      "integrity": "sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA==",
++      "cpu": [
++        "ppc64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-riscv64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.25.12.tgz",
++      "integrity": "sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w==",
++      "cpu": [
++        "riscv64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-s390x": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.25.12.tgz",
++      "integrity": "sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg==",
++      "cpu": [
++        "s390x"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.25.12.tgz",
++      "integrity": "sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/netbsd-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-arm64/-/netbsd-arm64-0.25.12.tgz",
++      "integrity": "sha512-xXwcTq4GhRM7J9A8Gv5boanHhRa/Q9KLVmcyXHCTaM4wKfIpWkdXiMog/KsnxzJ0A1+nD+zoecuzqPmCRyBGjg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "netbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/netbsd-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.25.12.tgz",
++      "integrity": "sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "netbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openbsd-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-arm64/-/openbsd-arm64-0.25.12.tgz",
++      "integrity": "sha512-fF96T6KsBo/pkQI950FARU9apGNTSlZGsv1jZBAlcLL1MLjLNIWPBkj5NlSz8aAzYKg+eNqknrUJ24QBybeR5A==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openbsd-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.25.12.tgz",
++      "integrity": "sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openharmony-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/openharmony-arm64/-/openharmony-arm64-0.25.12.tgz",
++      "integrity": "sha512-rm0YWsqUSRrjncSXGA7Zv78Nbnw4XL6/dzr20cyrQf7ZmRcsovpcRBdhD43Nuk3y7XIoW2OxMVvwuRvk9XdASg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openharmony"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/sunos-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.25.12.tgz",
++      "integrity": "sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "sunos"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-arm64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.25.12.tgz",
++      "integrity": "sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-ia32": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.25.12.tgz",
++      "integrity": "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ==",
++      "cpu": [
++        "ia32"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-x64": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz",
++      "integrity": "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@hono/node-server": {
++      "version": "1.19.6",
++      "resolved": "https://registry.npmjs.org/@hono/node-server/-/node-server-1.19.6.tgz",
++      "integrity": "sha512-Shz/KjlIeAhfiuE93NDKVdZ7HdBVLQAfdbaXEaoAVO3ic9ibRSLGIQGkcBbFyuLr+7/1D5ZCINM8B+6IvXeMtw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18.14.1"
++      },
++      "peerDependencies": {
++        "hono": "^4"
++      }
++    },
++    "node_modules/@types/node": {
++      "version": "20.19.25",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-20.19.25.tgz",
++      "integrity": "sha512-ZsJzA5thDQMSQO788d7IocwwQbI8B5OPzmqNvpf3NY/+MHDAS759Wo0gd2WQeXYt5AAAQjzcrTVC6SKCuYgoCQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": "~6.21.0"
++      }
++    },
++    "node_modules/esbuild": {
++      "version": "0.25.12",
++      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.25.12.tgz",
++      "integrity": "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "bin": {
++        "esbuild": "bin/esbuild"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "optionalDependencies": {
++        "@esbuild/aix-ppc64": "0.25.12",
++        "@esbuild/android-arm": "0.25.12",
++        "@esbuild/android-arm64": "0.25.12",
++        "@esbuild/android-x64": "0.25.12",
++        "@esbuild/darwin-arm64": "0.25.12",
++        "@esbuild/darwin-x64": "0.25.12",
++        "@esbuild/freebsd-arm64": "0.25.12",
++        "@esbuild/freebsd-x64": "0.25.12",
++        "@esbuild/linux-arm": "0.25.12",
++        "@esbuild/linux-arm64": "0.25.12",
++        "@esbuild/linux-ia32": "0.25.12",
++        "@esbuild/linux-loong64": "0.25.12",
++        "@esbuild/linux-mips64el": "0.25.12",
++        "@esbuild/linux-ppc64": "0.25.12",
++        "@esbuild/linux-riscv64": "0.25.12",
++        "@esbuild/linux-s390x": "0.25.12",
++        "@esbuild/linux-x64": "0.25.12",
++        "@esbuild/netbsd-arm64": "0.25.12",
++        "@esbuild/netbsd-x64": "0.25.12",
++        "@esbuild/openbsd-arm64": "0.25.12",
++        "@esbuild/openbsd-x64": "0.25.12",
++        "@esbuild/openharmony-arm64": "0.25.12",
++        "@esbuild/sunos-x64": "0.25.12",
++        "@esbuild/win32-arm64": "0.25.12",
++        "@esbuild/win32-ia32": "0.25.12",
++        "@esbuild/win32-x64": "0.25.12"
++      }
++    },
++    "node_modules/fsevents": {
++      "version": "2.3.3",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
++      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
++    "node_modules/get-tsconfig": {
++      "version": "4.13.0",
++      "resolved": "https://registry.npmjs.org/get-tsconfig/-/get-tsconfig-4.13.0.tgz",
++      "integrity": "sha512-1VKTZJCwBrvbd+Wn3AOgQP/2Av+TfTCOlE4AcRJE72W1ksZXbAx8PPBR9RzgTeSPzlPMHrbANMH3LbltH73wxQ==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "resolve-pkg-maps": "^1.0.0"
++      },
++      "funding": {
++        "url": "https://github.com/privatenumber/get-tsconfig?sponsor=1"
++      }
++    },
++    "node_modules/hono": {
++      "version": "4.10.6",
++      "resolved": "https://registry.npmjs.org/hono/-/hono-4.10.6.tgz",
++      "integrity": "sha512-BIdolzGpDO9MQ4nu3AUuDwHZZ+KViNm+EZ75Ae55eMXMqLVhDFqEMXxtUe9Qh8hjL+pIna/frs2j6Y2yD5Ua/g==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=16.9.0"
++      }
++    },
++    "node_modules/resolve-pkg-maps": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/resolve-pkg-maps/-/resolve-pkg-maps-1.0.0.tgz",
++      "integrity": "sha512-seS2Tj26TBVOC2NIc2rOe2y2ZO7efxITtLZcGSOnHHNOQ7CkiUBfw0Iw2ck6xkIhPwLhKNLS8BO+hEpngQlqzw==",
++      "dev": true,
++      "license": "MIT",
++      "funding": {
++        "url": "https://github.com/privatenumber/resolve-pkg-maps?sponsor=1"
++      }
++    },
++    "node_modules/tsx": {
++      "version": "4.20.6",
++      "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.20.6.tgz",
++      "integrity": "sha512-ytQKuwgmrrkDTFP4LjR0ToE2nqgy886GpvRSpU0JAnrdBYppuY5rLkRUYPU1yCryb24SsKBTL/hlDQAEFVwtZg==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "esbuild": "~0.25.0",
++        "get-tsconfig": "^4.7.5"
++      },
++      "bin": {
++        "tsx": "dist/cli.mjs"
++      },
++      "engines": {
++        "node": ">=18.0.0"
++      },
++      "optionalDependencies": {
++        "fsevents": "~2.3.3"
++      }
++    },
++    "node_modules/typescript": {
++      "version": "5.9.3",
++      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
++      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=14.17"
++      }
++    },
++    "node_modules/undici-types": {
++      "version": "6.21.0",
++      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz",
++      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
++      "dev": true,
++      "license": "MIT"
++    }
++  }
++}
+diff --git a/examples/polyglot/typescript/package.json b/examples/polyglot/typescript/package.json
+new file mode 100644
+index 0000000..b3bbe60
+--- /dev/null
++++ b/examples/polyglot/typescript/package.json
+@@ -0,0 +1,22 @@
++{
++  "name": "synth-task-app",
++  "version": "0.1.0",
++  "description": "Example Task App for Synth prompt optimization (TypeScript)",
++  "main": "dist/index.js",
++  "type": "module",
++  "scripts": {
++    "build": "tsc",
++    "start": "node dist/index.js",
++    "dev": "tsx src/index.ts",
++    "typecheck": "tsc --noEmit"
++  },
++  "dependencies": {
++    "hono": "^4.0.0",
++    "@hono/node-server": "^1.0.0"
++  },
++  "devDependencies": {
++    "@types/node": "^20.0.0",
++    "tsx": "^4.0.0",
++    "typescript": "^5.0.0"
++  }
++}
+diff --git a/examples/polyglot/typescript/src/index.ts b/examples/polyglot/typescript/src/index.ts
+new file mode 100644
+index 0000000..586c06b
+--- /dev/null
++++ b/examples/polyglot/typescript/src/index.ts
+@@ -0,0 +1,506 @@
++/**
++ * Synth Task App Example - TypeScript Implementation
++ *
++ * A minimal but complete Task App implementing the Synth contract for prompt optimization.
++ *
++ * ## Running
++ * ```bash
++ * npm install
++ * npm run dev  # Development with hot reload
++ * npm run build && npm start  # Production
++ * ```
++ *
++ * ## Deploying to Cloudflare Workers
++ * See README.md for Cloudflare Workers deployment instructions.
++ */
++
++import { Hono } from "hono";
++import { serve } from "@hono/node-server";
++
++// =============================================================================
++// Types (matching OpenAPI contract)
++// =============================================================================
++
++interface Sample {
++  text: string;
++  label: string;
++}
++
++interface RolloutRequest {
++  run_id: string;
++  env: {
++    seed?: number;
++    config?: Record<string, unknown>;
++  };
++  policy: {
++    policy_id?: string;
++    policy_name?: string;
++    config: {
++      model?: string;
++      inference_url?: string;
++      api_base?: string;
++      base_url?: string;
++      prompt_template?: PromptTemplate;
++      [key: string]: unknown;
++    };
++  };
++  mode?: string;
++}
++
++interface PromptTemplate {
++  prompt_template_id?: string;
++  id?: string;
++  prompt_sections?: PromptSection[];
++  sections?: PromptSection[];
++  [key: string]: unknown;
++}
++
++interface PromptSection {
++  role: string;
++  content?: string;
++  pattern?: string;
++  order?: number;
++}
++
++interface RolloutResponse {
++  run_id: string;
++  trajectories: Trajectory[];
++  metrics: Metrics;
++  aborted: boolean;
++  ops_executed: number;
++}
++
++interface Trajectory {
++  env_id: string;
++  policy_id: string;
++  steps: Step[];
++  length: number;
++  inference_url: string;
++}
++
++interface Step {
++  obs: Record<string, unknown>;
++  tool_calls: ToolCall[];
++  reward: number;
++  done: boolean;
++  info: Record<string, unknown>;
++}
++
++interface ToolCall {
++  id: string;
++  type: string;
++  function: {
++    name: string;
++    arguments: string;
++  };
++}
++
++interface Metrics {
++  episode_returns: number[];
++  mean_return: number;
++  num_steps: number;
++  num_episodes: number;
++  outcome_score: number;
++}
++
++// =============================================================================
++// Dataset
++// =============================================================================
++
++// Load dataset from JSON file
++import { readFileSync } from "fs";
++import { fileURLToPath } from "url";
++import { dirname, join } from "path";
++
++const __filename = fileURLToPath(import.meta.url);
++const __dirname = dirname(__filename);
++
++interface Dataset {
++  samples: Sample[];
++  labels: string[];
++}
++
++function loadDataset(): Dataset {
++  const dataPath = join(__dirname, "../../data/banking77.json");
++  try {
++    const data = JSON.parse(readFileSync(dataPath, "utf-8"));
++    console.log(`Loaded ${data.samples.length} samples from ${dataPath}`);
++    return data;
++  } catch {
++    // Fallback to embedded samples if file not found
++    console.warn("Dataset file not found, using embedded samples");
++    return {
++      samples: [
++        { text: "How do I reset my PIN?", label: "change_pin" },
++        { text: "My card hasn't arrived yet", label: "card_arrival" },
++        { text: "I want to cancel my card", label: "terminate_account" },
++        { text: "How do I activate my new card?", label: "activate_my_card" },
++        { text: "I need to dispute a transaction", label: "transaction_charged_twice" },
++        { text: "Can I get a refund?", label: "request_refund" },
++        { text: "How do I transfer money?", label: "transfer_into_account" },
++        { text: "I lost my card", label: "lost_or_stolen_card" },
++        { text: "Is there a fee for this?", label: "transfer_fee_charged" },
++      ],
++      labels: ["change_pin", "card_arrival", "terminate_account", "activate_my_card",
++               "transaction_charged_twice", "request_refund", "transfer_into_account",
++               "lost_or_stolen_card", "transfer_fee_charged"],
++    };
++  }
++}
++
++const dataset = loadDataset();
++const samples = dataset.samples;
++const labels = dataset.labels;
++
++function getSample(seed: number): Sample {
++  return samples[seed % samples.length];
++}
++
++// =============================================================================
++// Prompt Rendering
++// =============================================================================
++
++function renderTemplate(
++  template: string,
++  placeholders: Record<string, string>
++): string {
++  let result = template;
++  for (const [key, value] of Object.entries(placeholders)) {
++    result = result.replace(new RegExp(`\\{${key}\\}`, "g"), value);
++  }
++  return result;
++}
++
++function buildMessages(
++  policyConfig: RolloutRequest["policy"]["config"],
++  sample: Sample
++): { role: string; content: string }[] {
++  const placeholders = {
++    query: sample.text,
++    intents: labels.join(", "),
++  };
++
++  const promptTemplate = policyConfig.prompt_template;
++  if (promptTemplate) {
++    const sections =
++      promptTemplate.prompt_sections || promptTemplate.sections || [];
++    const sorted = [...sections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
++
++    return sorted.map((section) => {
++      const template = section.content || section.pattern || "";
++      return {
++        role: section.role,
++        content: renderTemplate(template, placeholders),
++      };
++    });
++  }
++
++  // Default messages
++  return [
++    {
++      role: "system",
++      content:
++        "You are an expert banking assistant. Classify queries using the classify tool.",
++    },
++    {
++      role: "user",
++      content: `Query: ${sample.text}\nIntents: ${labels.join(", ")}\nClassify this query.`,
++    },
++  ];
++}
++
++// =============================================================================
++// LLM Client
++// =============================================================================
++
++async function callLlm(
++  inferenceUrl: string,
++  model: string,
++  messages: { role: string; content: string }[],
++  apiKey?: string,
++  llmApiKey?: string
++): Promise<{ predicted: string | null; toolCalls: ToolCall[] }> {
++  // Build URL - handle query params correctly
++  // inference_url may be "http://host/path?query" - we need "http://host/path/chat/completions?query"
++  let url: string;
++  const queryIndex = inferenceUrl.indexOf("?");
++  if (queryIndex !== -1) {
++    const base = inferenceUrl.slice(0, queryIndex).replace(/\/$/, "");
++    const query = inferenceUrl.slice(queryIndex);
++    url = `${base}/chat/completions${query}`;
++  } else {
++    url = `${inferenceUrl.replace(/\/$/, "")}/chat/completions`;
++  }
++
++  console.log(`LLM call: inference_url=${inferenceUrl} full_url=${url} model=${model}`);
++
++  const tool = {
++    type: "function",
++    function: {
++      name: "classify",
++      description: "Classify the customer query into an intent category",
++      parameters: {
++        type: "object",
++        properties: {
++          intent: { type: "string", description: "The classified intent" },
++        },
++        required: ["intent"],
++      },
++    },
++  };
++
++  const headers: Record<string, string> = {
++    "Content-Type": "application/json",
++  };
++  if (apiKey) {
++    headers["X-API-Key"] = apiKey;
++  }
++  // Add Bearer auth for OpenAI-compatible APIs
++  if (llmApiKey) {
++    headers["Authorization"] = `Bearer ${llmApiKey}`;
++  }
++
++  const response = await fetch(url, {
++    method: "POST",
++    headers,
++    body: JSON.stringify({
++      model,
++      messages,
++      tools: [tool],
++      tool_choice: "required",
++      temperature: 0,
++      max_tokens: 100,
++    }),
++  });
++
++  if (!response.ok) {
++    const body = await response.text();
++    throw new Error(`LLM request failed: ${response.status} - ${body}`);
++  }
++
++  const data = await response.json();
++  const toolCalls: ToolCall[] = [];
++  let predicted: string | null = null;
++
++  const choice = data.choices?.[0];
++  if (choice?.message?.tool_calls) {
++    for (const call of choice.message.tool_calls) {
++      toolCalls.push({
++        id: call.id,
++        type: "function",
++        function: {
++          name: call.function.name,
++          arguments: call.function.arguments,
++        },
++      });
++
++      if (call.function.name === "classify") {
++        try {
++          const args = JSON.parse(call.function.arguments);
++          predicted = args.intent;
++        } catch {}
++      }
++    }
++  }
++
++  // Fallback to content
++  if (!predicted && choice?.message?.content) {
++    predicted = choice.message.content.trim();
++  }
++
++  return { predicted, toolCalls };
++}
++
++// =============================================================================
++// App
++// =============================================================================
++
++const app = new Hono();
++
++const API_KEY = process.env.ENVIRONMENT_API_KEY;
++const LLM_API_KEY = process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
++
++if (API_KEY) {
++  console.log("API key authentication enabled");
++} else {
++  console.warn("No ENVIRONMENT_API_KEY set - running without authentication");
++}
++
++if (LLM_API_KEY) {
++  console.log("LLM API key configured");
++} else {
++  console.warn("No GROQ_API_KEY or OPENAI_API_KEY set - LLM calls may fail");
++}
++
++// Health endpoint (unauthenticated)
++app.get("/health", (c) => {
++  return c.json({ healthy: true });
++});
++
++// Task info endpoint (authenticated)
++app.get("/task_info", (c) => {
++  // Check authentication
++  if (API_KEY) {
++    const providedKey = c.req.header("x-api-key");
++    if (providedKey !== API_KEY) {
++      return c.json({ detail: "Invalid or missing API key" }, 401);
++    }
++  }
++
++  // Parse seeds from query string - handles both ?seed=0&seed=1 and ?seeds=0&seeds=1
++  const url = new URL(c.req.url);
++  const seedParams = url.searchParams.getAll("seed");
++  const seedsParams = url.searchParams.getAll("seeds");
++  const requestedSeeds = [...seedParams, ...seedsParams]
++    .map((s) => parseInt(s, 10))
++    .filter((n) => !isNaN(n));
++
++  const datasetSize = samples.length;
++  const allSeeds = Array.from({ length: datasetSize }, (_, i) => i);
++
++  // If seeds specified, return one TaskInfo per seed; otherwise return all
++  const seedsToReturn = requestedSeeds.length > 0
++    ? requestedSeeds.map((s) => [s])
++    : [allSeeds];
++
++  const infos = seedsToReturn.map((seeds) => ({
++    task: {
++      task_id: "banking77-typescript",
++      name: "Banking77 Intent Classification (TypeScript)",
++      description: "Classify banking customer queries into intent categories",
++      version: "1.0.0",
++    },
++    environment: "banking77",
++    dataset: {
++      seeds,
++      train_count: datasetSize,
++      val_count: 0,
++      test_count: 0,
++    },
++    rubric: {
++      scoring_criteria: "exact_match",
++      metric_primary: "accuracy",
++      metric_range: [0.0, 1.0],
++    },
++    inference: {
++      mode: "tool_call",
++      supported_tools: ["classify"],
++    },
++    limits: {
++      max_response_tokens: 100,
++      timeout_seconds: 30,
++    },
++  }));
++
++  return c.json(infos);
++});
++
++// Rollout endpoint (authenticated)
++app.post("/rollout", async (c) => {
++  // Check authentication
++  if (API_KEY) {
++    const providedKey = c.req.header("x-api-key");
++    if (providedKey !== API_KEY) {
++      return c.json({ detail: "Invalid or missing API key" }, 401);
++    }
++  }
++
++  const request: RolloutRequest = await c.req.json();
++
++  // Get sample
++  const seed = request.env.seed ?? 0;
++  const sample = getSample(seed);
++
++  console.log(
++    `Rollout: run_id=${request.run_id} seed=${seed} query=${sample.text}`
++  );
++
++  // Get inference URL
++  const inferenceUrl =
++    request.policy.config.inference_url ||
++    request.policy.config.api_base ||
++    request.policy.config.base_url;
++
++  if (!inferenceUrl) {
++    return c.json({ detail: "Missing inference_url in policy.config" }, 400);
++  }
++
++  const model = (request.policy.config.model as string) || "gpt-4o-mini";
++
++  // Build messages and call LLM
++  const messages = buildMessages(request.policy.config, sample);
++
++  let predicted: string | null = null;
++  let toolCalls: ToolCall[] = [];
++
++  try {
++    const providedKey = c.req.header("x-api-key");
++    const result = await callLlm(inferenceUrl, model, messages, providedKey, LLM_API_KEY);
++    predicted = result.predicted;
++    toolCalls = result.toolCalls;
++  } catch (error) {
++    console.warn("LLM call failed:", error);
++    return c.json({ detail: `LLM call failed: ${error}` }, 502);
++  }
++
++  // Compute reward
++  const isCorrect =
++    predicted?.toLowerCase() === sample.label.toLowerCase();
++  const reward = isCorrect ? 1.0 : 0.0;
++
++  console.log(
++    `Result: expected=${sample.label} predicted=${predicted} correct=${isCorrect} reward=${reward}`
++  );
++
++  // Build response
++  const response: RolloutResponse = {
++    run_id: request.run_id,
++    trajectories: [
++      {
++        env_id: `task::train::${seed}`,
++        policy_id:
++          request.policy.policy_id || request.policy.policy_name || "policy",
++        steps: [
++          {
++            obs: { query: sample.text, index: seed },
++            tool_calls: toolCalls,
++            reward,
++            done: true,
++            info: {
++              expected: sample.label,
++              predicted,
++              correct: isCorrect,
++            },
++          },
++        ],
++        length: 1,
++        inference_url: inferenceUrl,
++      },
++    ],
++    metrics: {
++      episode_returns: [reward],
++      mean_return: reward,
++      num_steps: 1,
++      num_episodes: 1,
++      outcome_score: reward,
++    },
++    aborted: false,
++    ops_executed: 1,
++  };
++
++  return c.json(response);
++});
++
++// =============================================================================
++// Server
++// =============================================================================
++
++const port = parseInt(process.env.PORT || "8001", 10);
++
++console.log(`Dataset loaded: ${samples.length} samples`);
++console.log(`Starting task app on port ${port}`);
++
++serve({
++  fetch: app.fetch,
++  port,
++});
+diff --git a/examples/polyglot/typescript/tsconfig.json b/examples/polyglot/typescript/tsconfig.json
+new file mode 100644
+index 0000000..5f1bfaf
+--- /dev/null
++++ b/examples/polyglot/typescript/tsconfig.json
+@@ -0,0 +1,15 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "strict": true,
++    "esModuleInterop": true,
++    "skipLibCheck": true,
++    "outDir": "dist",
++    "rootDir": "src",
++    "declaration": true
++  },
++  "include": ["src/**/*"],
++  "exclude": ["node_modules", "dist"]
++}
+diff --git a/examples/polyglot/zig/README.md b/examples/polyglot/zig/README.md
+new file mode 100644
+index 0000000..8d8e93f
+--- /dev/null
++++ b/examples/polyglot/zig/README.md
+@@ -0,0 +1,144 @@
++# Zig Task App Example
++
++A minimal but complete Task App implementation in Zig for Synth prompt optimization.
++
++**Requires Zig 0.15+** (uses new HTTP client and I/O APIs)
++
++## Features
++
++- Zero external dependencies (uses only Zig standard library)
++- Single static binary (~1MB optimized)
++- Cross-compilation to any target
++- Implements `/health`, `/task_info`, and `/rollout` endpoints per OpenAPI contract
++- Embedded sample dataset (Banking77 - 12 samples matching shared `banking77.json`)
++- Multiple `seed` query parameter support for `/task_info`
++
++## Quick Start
++
++```bash
++# Build (debug)
++zig build
++
++# Build (release - optimized)
++zig build -Doptimize=ReleaseFast
++
++# Run
++./zig-out/bin/synth-task-app
++
++# With authentication
++ENVIRONMENT_API_KEY=your-secret ./zig-out/bin/synth-task-app
++
++# Custom port
++PORT=3000 ./zig-out/bin/synth-task-app
++```
++
++## Cross-Compilation
++
++Zig makes cross-compilation trivial:
++
++```bash
++# Linux (static musl)
++zig build -Doptimize=ReleaseFast -Dtarget=x86_64-linux-musl
++
++# Linux ARM64
++zig build -Doptimize=ReleaseFast -Dtarget=aarch64-linux-musl
++
++# macOS ARM64
++zig build -Doptimize=ReleaseFast -Dtarget=aarch64-macos
++
++# Windows
++zig build -Doptimize=ReleaseFast -Dtarget=x86_64-windows
++```
++
++## Testing
++
++```bash
++# Run unit tests
++zig build test
++
++# Health check
++curl http://localhost:8001/health
++
++# Task info (all seeds)
++curl -H "X-API-Key: your-secret" http://localhost:8001/task_info
++
++# Task info (specific seeds)
++curl -H "X-API-Key: your-secret" "http://localhost:8001/task_info?seed=0&seed=1&seed=2"
++
++# Manual rollout
++curl -X POST http://localhost:8001/rollout \
++  -H "Content-Type: application/json" \
++  -H "X-API-Key: your-secret" \
++  -d '{
++    "run_id": "test-1",
++    "env": {"seed": 0},
++    "policy": {
++      "config": {
++        "inference_url": "https://your-llm-proxy/v1?model=gpt-4o-mini"
++      }
++    }
++  }'
++```
++
++## Critical Implementation Details
++
++1. **URL Construction**: The `inference_url` may contain query params (e.g., `?model=x`). When appending `/chat/completions`, preserve the query:
++   - Input: `https://api.example.com/v1?model=gpt-4o-mini`
++   - Output: `https://api.example.com/v1/chat/completions?model=gpt-4o-mini`
++
++2. **Multiple Seed Parameters**: The `/task_info` endpoint must handle multiple `seed` query params:
++   - `/task_info?seed=0&seed=1` → returns TaskInfo for seeds 0 and 1
++   - `/task_info` (no seeds) → returns TaskInfo with all available seeds
++
++3. **Dataset Alignment**: The embedded samples must match `../data/banking77.json` exactly for MIPRO to work correctly.
++
++## Running with Synth Optimizer
++
++1. **Build and run:**
++   ```bash
++   zig build -Doptimize=ReleaseFast
++   ENVIRONMENT_API_KEY=my-secret ./zig-out/bin/synth-task-app
++   ```
++
++2. **Expose via Cloudflare tunnel:**
++   ```bash
++   cloudflared tunnel --url http://localhost:8001
++   ```
++
++3. **Start optimization:**
++   ```bash
++   curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++     -H "Authorization: Bearer $SYNTH_API_KEY" \
++     -H "Content-Type: application/json" \
++     -d '{
++       "algorithm": "mipro",
++       "config_body": {
++         "prompt_learning": {
++           "task_app_url": "https://your-tunnel.trycloudflare.com",
++           "task_app_api_key": "my-secret"
++         }
++       }
++     }'
++   ```
++
++## Why Zig?
++
++- **No runtime dependencies** - Produces fully static binaries
++- **Trivial cross-compilation** - Build for any target from any host
++- **Small binaries** - ReleaseFast builds are typically 2-5MB
++- **No garbage collection** - Predictable, low latency
++- **C interop** - Easy to integrate existing C libraries if needed
++
++## Contract Reference
++
++See [`synth_ai/contracts/task_app.yaml`](../../../synth_ai/contracts/task_app.yaml) for the full OpenAPI specification.
++
++## Project Structure
++
++```
++zig/
++├── build.zig       # Build configuration
++├── src/
++│   └── main.zig    # Task app implementation
++└── README.md
++```
+diff --git a/examples/polyglot/zig/build.zig b/examples/polyglot/zig/build.zig
+new file mode 100644
+index 0000000..c52ff95
+--- /dev/null
++++ b/examples/polyglot/zig/build.zig
+@@ -0,0 +1,39 @@
++const std = @import("std");
++
++pub fn build(b: *std.Build) void {
++    const target = b.standardTargetOptions(.{});
++    const optimize = b.standardOptimizeOption(.{});
++
++    const exe = b.addExecutable(.{
++        .name = "synth-task-app",
++        .root_module = b.createModule(.{
++            .root_source_file = b.path("src/main.zig"),
++            .target = target,
++            .optimize = optimize,
++        }),
++    });
++
++    b.installArtifact(exe);
++
++    const run_cmd = b.addRunArtifact(exe);
++    run_cmd.step.dependOn(b.getInstallStep());
++
++    if (b.args) |args| {
++        run_cmd.addArgs(args);
++    }
++
++    const run_step = b.step("run", "Run the task app");
++    run_step.dependOn(&run_cmd.step);
++
++    const unit_tests = b.addTest(.{
++        .root_module = b.createModule(.{
++            .root_source_file = b.path("src/main.zig"),
++            .target = target,
++            .optimize = optimize,
++        }),
++    });
++
++    const run_unit_tests = b.addRunArtifact(unit_tests);
++    const test_step = b.step("test", "Run unit tests");
++    test_step.dependOn(&run_unit_tests.step);
++}
+diff --git a/examples/polyglot/zig/src/main.zig b/examples/polyglot/zig/src/main.zig
+new file mode 100644
+index 0000000..f2ca16a
+--- /dev/null
++++ b/examples/polyglot/zig/src/main.zig
+@@ -0,0 +1,529 @@
++//! Synth Task App Example - Zig Implementation
++//!
++//! A minimal but complete Task App implementing the Synth contract for prompt optimization.
++//!
++//! ## Building
++//! ```bash
++//! zig build -Doptimize=ReleaseFast
++//! ```
++//!
++//! ## Running
++//! ```bash
++//! ./zig-out/bin/synth-task-app
++//! # Or with env vars:
++//! ENVIRONMENT_API_KEY=secret PORT=8001 ./zig-out/bin/synth-task-app
++//! ```
++//!
++//! ## Cross-compiling
++//! ```bash
++//! zig build -Doptimize=ReleaseFast -Dtarget=x86_64-linux-musl
++//! zig build -Doptimize=ReleaseFast -Dtarget=aarch64-macos
++//! ```
++
++const std = @import("std");
++const net = std.net;
++const http = std.http;
++const mem = std.mem;
++const json = std.json;
++const Allocator = std.mem.Allocator;
++
++// =============================================================================
++// Dataset
++// =============================================================================
++
++const Sample = struct {
++    text: []const u8,
++    label: []const u8,
++};
++
++// Embedded samples matching banking77.json (first 12 entries)
++const samples = [_]Sample{
++    .{ .text = "How do I reset my PIN?", .label = "change_pin" },
++    .{ .text = "I need to change my PIN code", .label = "change_pin" },
++    .{ .text = "Can I change my card PIN?", .label = "change_pin" },
++    .{ .text = "My card hasn't arrived yet", .label = "card_arrival" },
++    .{ .text = "When will my card be delivered?", .label = "card_arrival" },
++    .{ .text = "I've been waiting for my card for 2 weeks", .label = "card_arrival" },
++    .{ .text = "I want to cancel my card", .label = "terminate_account" },
++    .{ .text = "How do I close my account?", .label = "terminate_account" },
++    .{ .text = "I want to terminate my account", .label = "terminate_account" },
++    .{ .text = "How do I activate my new card?", .label = "activate_my_card" },
++    .{ .text = "I received my card, how do I activate it?", .label = "activate_my_card" },
++    .{ .text = "My card needs to be activated", .label = "activate_my_card" },
++};
++
++const labels = [_][]const u8{
++    "activate_my_card",
++    "card_arrival",
++    "change_pin",
++    "terminate_account",
++    "transaction_charged_twice",
++    "pending_transfer",
++};
++
++fn getSample(seed: usize) *const Sample {
++    return &samples[seed % samples.len];
++}
++
++// =============================================================================
++// JSON Helpers
++// =============================================================================
++
++fn jsonString(allocator: Allocator, obj: anytype) ![]u8 {
++    return try json.stringifyAlloc(allocator, obj, .{});
++}
++
++// =============================================================================
++// HTTP Server
++// =============================================================================
++
++const Context = struct {
++    api_key: ?[]const u8,
++    llm_api_key: ?[]const u8,
++    allocator: Allocator,
++};
++
++pub fn main() !void {
++    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
++    defer _ = gpa.deinit();
++    const allocator = gpa.allocator();
++
++    // Read configuration from environment
++    const port_str = std.posix.getenv("PORT") orelse "8001";
++    const port = try std.fmt.parseInt(u16, port_str, 10);
++    const api_key = std.posix.getenv("ENVIRONMENT_API_KEY");
++
++    // LLM API key - try GROQ_API_KEY first, then OPENAI_API_KEY
++    const llm_api_key = std.posix.getenv("GROQ_API_KEY") orelse std.posix.getenv("OPENAI_API_KEY");
++
++    if (api_key) |_| {
++        std.log.info("API key authentication enabled", .{});
++    } else {
++        std.log.warn("No ENVIRONMENT_API_KEY set - running without authentication", .{});
++    }
++
++    if (llm_api_key) |_| {
++        std.log.info("LLM API key configured", .{});
++    } else {
++        std.log.warn("No GROQ_API_KEY or OPENAI_API_KEY set - LLM calls will fail", .{});
++    }
++
++    const ctx = Context{
++        .api_key = api_key,
++        .llm_api_key = llm_api_key,
++        .allocator = allocator,
++    };
++
++    // Create server
++    const address = net.Address.initIp4(.{ 0, 0, 0, 0 }, port);
++    var server = try address.listen(.{ .reuse_address = true });
++    defer server.deinit();
++
++    std.log.info("Task app listening on port {d}", .{port});
++    std.log.info("Dataset loaded: {d} samples", .{samples.len});
++
++    // Accept connections
++    while (true) {
++        const conn = server.accept() catch |err| {
++            std.log.err("Accept error: {}", .{err});
++            continue;
++        };
++
++        handleConnection(allocator, conn, ctx) catch |err| {
++            std.log.err("Connection error: {}", .{err});
++        };
++    }
++}
++
++fn handleConnection(allocator: Allocator, conn: net.Server.Connection, ctx: Context) !void {
++    defer conn.stream.close();
++
++    // Simple HTTP parsing
++    var request_buf: [8192]u8 = undefined;
++    const bytes_read = conn.stream.read(&request_buf) catch return;
++    if (bytes_read == 0) return;
++
++    const request_data = request_buf[0..bytes_read];
++
++    // Parse first line: "METHOD PATH HTTP/1.x"
++    const first_line_end = mem.indexOf(u8, request_data, "\r\n") orelse return;
++    const first_line = request_data[0..first_line_end];
++
++    var parts = mem.splitScalar(u8, first_line, ' ');
++    const method = parts.next() orelse return;
++    const target = parts.next() orelse return;
++
++    // Parse headers to find x-api-key
++    var api_key: ?[]const u8 = null;
++    var headers_section = request_data[first_line_end + 2 ..];
++    while (mem.indexOf(u8, headers_section, "\r\n")) |line_end| {
++        const header_line = headers_section[0..line_end];
++        if (header_line.len == 0) break; // Empty line = end of headers
++
++        if (mem.indexOf(u8, header_line, ":")) |colon_idx| {
++            const key = mem.trim(u8, header_line[0..colon_idx], " ");
++            const val = mem.trim(u8, header_line[colon_idx + 1 ..], " ");
++            if (std.ascii.eqlIgnoreCase(key, "x-api-key")) {
++                api_key = val;
++            }
++        }
++        headers_section = headers_section[line_end + 2 ..];
++    }
++
++    // Find body (after double CRLF)
++    const body_start = mem.indexOf(u8, request_data, "\r\n\r\n");
++    const body = if (body_start) |idx| request_data[idx + 4 ..] else "";
++
++    // Route request
++    const query_start = mem.indexOf(u8, target, "?") orelse target.len;
++    const path = target[0..query_start];
++    const query_string = if (query_start < target.len) target[query_start + 1 ..] else "";
++
++    if (mem.eql(u8, path, "/health")) {
++        try sendResponse(conn.stream, "200 OK", "{\"healthy\": true}");
++    } else if (mem.eql(u8, path, "/task_info")) {
++        try handleTaskInfoSimple(allocator, conn.stream, ctx, api_key, query_string);
++    } else if (mem.eql(u8, path, "/rollout") and mem.eql(u8, method, "POST")) {
++        try handleRolloutSimple(allocator, conn.stream, ctx, api_key, body);
++    } else {
++        try sendResponse(conn.stream, "404 Not Found", "{\"detail\": \"Not Found\"}");
++    }
++}
++
++fn sendResponse(stream: net.Stream, status: []const u8, body: []const u8) !void {
++    var response_buf: [8192]u8 = undefined;
++    const response = std.fmt.bufPrint(&response_buf,
++        "HTTP/1.1 {s}\r\nContent-Type: application/json\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n{s}",
++        .{ status, body.len, body }
++    ) catch return;
++    _ = stream.write(response) catch {};
++}
++
++fn sendResponseAlloc(allocator: Allocator, stream: net.Stream, status: []const u8, body: []const u8) !void {
++    const header = try std.fmt.allocPrint(allocator,
++        "HTTP/1.1 {s}\r\nContent-Type: application/json\r\nContent-Length: {d}\r\nConnection: close\r\n\r\n",
++        .{ status, body.len }
++    );
++    defer allocator.free(header);
++    _ = stream.write(header) catch {};
++    _ = stream.write(body) catch {};
++}
++
++fn handleTaskInfoSimple(allocator: Allocator, stream: net.Stream, ctx: Context, api_key: ?[]const u8, query_string: []const u8) !void {
++    // Check authentication
++    if (ctx.api_key) |expected_key| {
++        if (api_key == null or !mem.eql(u8, api_key.?, expected_key)) {
++            try sendResponse(stream, "401 Unauthorized", "{\"detail\": \"Invalid or missing API key\"}");
++            return;
++        }
++    }
++
++    // Parse seeds from query string
++    var requested_seeds = std.ArrayListUnmanaged(usize){};
++    defer requested_seeds.deinit(allocator);
++
++    var params_iter = mem.splitScalar(u8, query_string, '&');
++    while (params_iter.next()) |param| {
++        var kv_iter = mem.splitScalar(u8, param, '=');
++        const key = kv_iter.next() orelse continue;
++        const val = kv_iter.next() orelse continue;
++
++        if (mem.eql(u8, key, "seed") or mem.eql(u8, key, "seeds")) {
++            if (std.fmt.parseInt(usize, val, 10)) |seed| {
++                try requested_seeds.append(allocator, seed);
++            } else |_| {}
++        }
++    }
++
++    // Build response
++    var response_buf = std.ArrayListUnmanaged(u8){};
++    defer response_buf.deinit(allocator);
++    const writer = response_buf.writer(allocator);
++
++    try writer.writeAll("[");
++    if (requested_seeds.items.len > 0) {
++        for (requested_seeds.items, 0..) |seed, i| {
++            if (i > 0) try writer.writeAll(",");
++            try std.fmt.format(writer,
++                \\{{"task":{{"task_id":"banking77-zig","name":"Banking77 (Zig)","description":"Classify banking queries","version":"1.0.0"}},"environment":"banking77","dataset":{{"seeds":[{d}],"train_count":{d},"val_count":0,"test_count":0}},"rubric":{{"scoring_criteria":"exact_match","metric_primary":"accuracy","metric_range":[0.0,1.0]}},"inference":{{"mode":"tool_call","supported_tools":["classify"]}},"limits":{{"max_response_tokens":100,"timeout_seconds":30}}}}
++            , .{ seed, samples.len });
++        }
++    } else {
++        try writer.writeAll("{\"task\":{\"task_id\":\"banking77-zig\",\"name\":\"Banking77 (Zig)\",\"description\":\"Classify banking queries\",\"version\":\"1.0.0\"},\"environment\":\"banking77\",\"dataset\":{\"seeds\":[");
++        for (0..samples.len) |i| {
++            if (i > 0) try writer.writeAll(",");
++            try std.fmt.format(writer, "{d}", .{i});
++        }
++        try std.fmt.format(writer, "],\"train_count\":{d},\"val_count\":0,\"test_count\":0}},\"rubric\":{{\"scoring_criteria\":\"exact_match\",\"metric_primary\":\"accuracy\",\"metric_range\":[0.0,1.0]}},\"inference\":{{\"mode\":\"tool_call\",\"supported_tools\":[\"classify\"]}},\"limits\":{{\"max_response_tokens\":100,\"timeout_seconds\":30}}}}", .{samples.len});
++    }
++    try writer.writeAll("]");
++
++    try sendResponseAlloc(allocator, stream, "200 OK", response_buf.items);
++}
++
++fn handleRolloutSimple(allocator: Allocator, stream: net.Stream, ctx: Context, api_key: ?[]const u8, body: []const u8) !void {
++    // Check authentication
++    if (ctx.api_key) |expected_key| {
++        if (api_key == null or !mem.eql(u8, api_key.?, expected_key)) {
++            try sendResponse(stream, "401 Unauthorized", "{\"detail\": \"Invalid or missing API key\"}");
++            return;
++        }
++    }
++
++    // Parse request
++    const parsed = json.parseFromSlice(json.Value, allocator, body, .{}) catch {
++        try sendResponse(stream, "400 Bad Request", "{\"detail\": \"Invalid JSON\"}");
++        return;
++    };
++    defer parsed.deinit();
++    const root = parsed.value;
++
++    const run_id = if (root.object.get("run_id")) |v| v.string else "unknown";
++
++    const seed: usize = blk: {
++        if (root.object.get("env")) |env| {
++            if (env.object.get("seed")) |s| {
++                break :blk @intCast(s.integer);
++            }
++        }
++        break :blk 0;
++    };
++
++    const sample = getSample(seed);
++    std.log.info("Rollout: run_id={s} seed={d} query={s}", .{ run_id, seed, sample.text });
++
++    // Get inference_url
++    const inference_url = blk: {
++        if (root.object.get("policy")) |policy| {
++            if (policy.object.get("config")) |config| {
++                if (config.object.get("inference_url")) |url| break :blk url.string;
++                if (config.object.get("api_base")) |url| break :blk url.string;
++            }
++        }
++        break :blk null;
++    };
++
++    if (inference_url == null) {
++        try sendResponse(stream, "400 Bad Request", "{\"detail\": \"Missing inference_url\"}");
++        return;
++    }
++
++    // Call LLM
++    const prediction_result = callLlmAndPredict(allocator, inference_url.?, sample, ctx) catch {
++        try sendResponse(stream, "502 Bad Gateway", "{\"detail\": \"LLM call failed\"}");
++        return;
++    };
++    defer if (prediction_result.predicted) |p| allocator.free(p);
++
++    const predicted = prediction_result.predicted orelse "";
++    const correct = mem.eql(u8, predicted, sample.label);
++    const reward: f64 = if (correct) 1.0 else 0.0;
++
++    std.log.info("Result: expected={s} predicted={s} correct={} reward={d:.1}", .{ sample.label, predicted, correct, reward });
++
++    // Build response
++    const response_json = try std.fmt.allocPrint(allocator,
++        \\{{"run_id":"{s}","trajectories":[{{"env_id":"task::train::{d}","policy_id":"policy","steps":[{{"obs":{{"query":"{s}","index":{d}}},"tool_calls":[],"reward":{d:.1},"done":true,"info":{{"expected":"{s}","predicted":"{s}","correct":{s}}}}}],"length":1,"inference_url":"{s}"}}],"metrics":{{"episode_returns":[{d:.1}],"mean_return":{d:.1},"num_steps":1,"num_episodes":1,"outcome_score":{d:.1}}},"aborted":false,"ops_executed":1}}
++    , .{ run_id, seed, sample.text, seed, reward, sample.label, predicted, if (correct) "true" else "false", inference_url.?, reward, reward, reward });
++    defer allocator.free(response_json);
++
++    try sendResponseAlloc(allocator, stream, "200 OK", response_json);
++}
++
++
++const PredictionResult = struct {
++    predicted: ?[]u8,
++};
++
++fn callLlmAndPredict(allocator: Allocator, inference_url: []const u8, sample: *const Sample, ctx: Context) !PredictionResult {
++    // Build LLM request
++    const labels_str = blk: {
++        var buf = std.ArrayListUnmanaged(u8){};
++        for (labels, 0..) |label, i| {
++            if (i > 0) try buf.appendSlice(allocator, ", ");
++            try buf.appendSlice(allocator, label);
++        }
++        break :blk try buf.toOwnedSlice(allocator);
++    };
++    defer allocator.free(labels_str);
++
++    const request_body = try std.fmt.allocPrint(allocator,
++        \\{{
++        \\  "model": "gpt-4o-mini",
++        \\  "messages": [
++        \\    {{"role": "system", "content": "You are an expert banking assistant. Classify queries using the classify tool."}},
++        \\    {{"role": "user", "content": "Query: {s}\\nIntents: {s}\\nClassify this query."}}
++        \\  ],
++        \\  "tools": [{{
++        \\    "type": "function",
++        \\    "function": {{
++        \\      "name": "classify",
++        \\      "description": "Classify the query",
++        \\      "parameters": {{
++        \\        "type": "object",
++        \\        "properties": {{"intent": {{"type": "string"}}}},
++        \\        "required": ["intent"]
++        \\      }}
++        \\    }}
++        \\  }}],
++        \\  "tool_choice": "required",
++        \\  "temperature": 0
++        \\}}
++    , .{ sample.text, labels_str });
++    defer allocator.free(request_body);
++
++    // Build URL - handle query params correctly
++    // inference_url may be "http://host/path?query" - we need "http://host/path/chat/completions?query"
++    const url_str = blk: {
++        if (mem.indexOf(u8, inference_url, "?")) |query_idx| {
++            const base = mem.trimRight(u8, inference_url[0..query_idx], "/");
++            const query = inference_url[query_idx..];
++            break :blk try std.fmt.allocPrint(allocator, "{s}/chat/completions{s}", .{ base, query });
++        } else {
++            const base = mem.trimRight(u8, inference_url, "/");
++            break :blk try std.fmt.allocPrint(allocator, "{s}/chat/completions", .{base});
++        }
++    };
++    defer allocator.free(url_str);
++
++    std.log.debug("LLM call: {s}", .{url_str});
++
++    // Make HTTP request using fetch API
++    var client = http.Client{ .allocator = allocator };
++    defer client.deinit();
++
++    // Prepare extra headers - use Bearer auth for OpenAI-compatible APIs
++    var extra_headers_list = std.ArrayListUnmanaged(http.Header){};
++    defer extra_headers_list.deinit(allocator);
++    try extra_headers_list.append(allocator, .{ .name = "Content-Type", .value = "application/json" });
++
++    // Build auth header if we have an LLM API key
++    var auth_value: ?[]u8 = null;
++    defer if (auth_value) |av| allocator.free(av);
++    if (ctx.llm_api_key) |key| {
++        auth_value = try std.fmt.allocPrint(allocator, "Bearer {s}", .{key});
++        try extra_headers_list.append(allocator, .{ .name = "Authorization", .value = auth_value.? });
++    }
++
++    // Use low-level request API
++    const uri = std.Uri.parse(url_str) catch {
++        std.log.warn("Failed to parse URL: {s}", .{url_str});
++        return PredictionResult{ .predicted = null };
++    };
++
++    var req = client.request(.POST, uri, .{
++        .extra_headers = extra_headers_list.items,
++    }) catch |err| {
++        std.log.warn("Failed to create request: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    defer req.deinit();
++
++    // Send request body
++    req.transfer_encoding = .{ .content_length = request_body.len };
++    var body_writer = req.sendBody(&.{}) catch |err| {
++        std.log.warn("Failed to send body: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    body_writer.writer.writeAll(request_body) catch |err| {
++        std.log.warn("Failed to write body: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    body_writer.end() catch |err| {
++        std.log.warn("Failed to end body: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    req.connection.?.flush() catch |err| {
++        std.log.warn("Failed to flush: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++
++    // Receive response
++    var redirect_buffer: [8192]u8 = undefined;
++    var response = req.receiveHead(&redirect_buffer) catch |err| {
++        std.log.warn("Failed to receive head: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++
++    if (response.head.status != .ok) {
++        std.log.warn("LLM request failed with status: {}", .{response.head.status});
++        return PredictionResult{ .predicted = null };
++    }
++
++    // Read response body with decompression support
++    var transfer_buffer: [4096]u8 = undefined;
++    var decompress_buffer: [std.compress.flate.max_window_len]u8 = undefined;
++    var decompress: http.Decompress = undefined;
++    var body_reader = response.readerDecompressing(&transfer_buffer, &decompress, &decompress_buffer);
++    const response_body = body_reader.allocRemaining(allocator, std.Io.Limit.limited(1024 * 1024)) catch |err| {
++        std.log.warn("Failed to read response body: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    defer allocator.free(response_body);
++
++    std.log.debug("LLM response ({d} bytes)", .{response_body.len});
++
++    // Parse and extract intent
++    const llm_parsed = json.parseFromSlice(json.Value, allocator, response_body, .{}) catch |err| {
++        std.log.warn("Failed to parse LLM response JSON: {}", .{err});
++        return PredictionResult{ .predicted = null };
++    };
++    defer llm_parsed.deinit();
++
++    // Extract from tool_calls
++    if (llm_parsed.value.object.get("choices")) |choices| {
++        if (choices.array.items.len > 0) {
++            if (choices.array.items[0].object.get("message")) |msg| {
++                if (msg.object.get("tool_calls")) |tool_calls| {
++                    if (tool_calls.array.items.len > 0) {
++                        if (tool_calls.array.items[0].object.get("function")) |func| {
++                            if (func.object.get("arguments")) |args_str| {
++                                const args_parsed = json.parseFromSlice(json.Value, allocator, args_str.string, .{}) catch |err| {
++                                    std.log.warn("Failed to parse tool call arguments: {}", .{err});
++                                    return PredictionResult{ .predicted = null };
++                                };
++                                defer args_parsed.deinit();
++
++                                if (args_parsed.value.object.get("intent")) |intent| {
++                                    return PredictionResult{
++                                        .predicted = try allocator.dupe(u8, intent.string),
++                                    };
++                                } else {
++                                    std.log.warn("No 'intent' field in tool call arguments", .{});
++                                }
++                            } else {
++                                std.log.warn("No 'arguments' in function", .{});
++                            }
++                        } else {
++                            std.log.warn("No 'function' in tool_call", .{});
++                        }
++                    } else {
++                        std.log.warn("tool_calls array is empty", .{});
++                    }
++                } else {
++                    std.log.warn("No 'tool_calls' in message", .{});
++                }
++            } else {
++                std.log.warn("No 'message' in choice", .{});
++            }
++        } else {
++            std.log.warn("choices array is empty", .{});
++        }
++    } else {
++        std.log.warn("No 'choices' in LLM response", .{});
++    }
++
++    return PredictionResult{ .predicted = null };
++}
++
++test "basic sample retrieval" {
++    const s = getSample(0);
++    try std.testing.expectEqualStrings("How do I reset my PIN?", s.text);
++    try std.testing.expectEqualStrings("change_pin", s.label);
++}
++
++test "sample wrapping" {
++    const s = getSample(samples.len + 1);
++    // samples.len is 12, so index 13 % 12 = 1
++    try std.testing.expectEqualStrings("I need to change my PIN code", s.text);
++}
+diff --git a/scripts/validate_openapi_pydantic.py b/scripts/validate_openapi_pydantic.py
+new file mode 100644
+index 0000000..014165c
+--- /dev/null
++++ b/scripts/validate_openapi_pydantic.py
+@@ -0,0 +1,226 @@
++#!/usr/bin/env python3
++"""Validate that OpenAPI spec and Pydantic models stay in sync.
++
++This script compares the OpenAPI task_app.yaml schema against the Pydantic
++models in synth_ai/task/contracts.py to catch drift between spec and code.
++
++Run: python scripts/validate_openapi_pydantic.py
++CI:  Add to CI workflow to prevent drift
++
++Exit codes:
++  0 - All schemas match
++  1 - Validation failed (schema mismatch or missing fields)
++"""
++
++import json
++import sys
++from pathlib import Path
++from typing import Any
++
++import yaml
++from pydantic import BaseModel
++
++# Add project root to path
++PROJECT_ROOT = Path(__file__).parent.parent
++sys.path.insert(0, str(PROJECT_ROOT))
++
++from synth_ai.task.contracts import (
++    DatasetInfo,
++    InferenceInfo,
++    LimitsInfo,
++    RolloutEnvSpec,
++    RolloutMetrics,
++    RolloutPolicySpec,
++    RolloutRecordConfig,
++    RolloutRequest,
++    RolloutResponse,
++    RolloutSafetyConfig,
++    RolloutStep,
++    RolloutTrajectory,
++    RubricInfo,
++    TaskDescriptor,
++    TaskInfo,
++)
++
++
++def load_openapi_spec() -> dict[str, Any]:
++    """Load the OpenAPI task_app.yaml spec."""
++    spec_path = PROJECT_ROOT / "synth_ai" / "contracts" / "task_app.yaml"
++    with open(spec_path) as f:
++        return yaml.safe_load(f)
++
++
++def get_pydantic_json_schema(model: type[BaseModel]) -> dict[str, Any]:
++    """Get JSON schema from a Pydantic model."""
++    return model.model_json_schema()
++
++
++def normalize_type(openapi_type: dict[str, Any]) -> str:
++    """Normalize OpenAPI type to comparable string."""
++    if "anyOf" in openapi_type:
++        types = [normalize_type(t) for t in openapi_type["anyOf"]]
++        return f"anyOf[{','.join(sorted(types))}]"
++    if "allOf" in openapi_type:
++        types = [normalize_type(t) for t in openapi_type["allOf"]]
++        return f"allOf[{','.join(sorted(types))}]"
++    if "$ref" in openapi_type:
++        return openapi_type["$ref"].split("/")[-1]
++
++    base_type = openapi_type.get("type", "any")
++    if base_type == "array":
++        items = openapi_type.get("items", {})
++        item_type = normalize_type(items)
++        return f"array[{item_type}]"
++    if base_type == "object":
++        if "additionalProperties" in openapi_type:
++            val_type = normalize_type(openapi_type["additionalProperties"])
++            return f"dict[string,{val_type}]"
++        return "object"
++    return base_type
++
++
++def compare_properties(
++    openapi_props: dict[str, Any],
++    pydantic_props: dict[str, Any],
++    openapi_required: list[str],
++    pydantic_required: list[str],
++    path: str,
++) -> list[str]:
++    """Compare OpenAPI and Pydantic properties, returning list of issues."""
++    issues = []
++
++    all_props = set(openapi_props.keys()) | set(pydantic_props.keys())
++
++    for prop in sorted(all_props):
++        prop_path = f"{path}.{prop}"
++
++        # Check if property exists in both
++        in_openapi = prop in openapi_props
++        in_pydantic = prop in pydantic_props
++
++        if in_openapi and not in_pydantic:
++            issues.append(f"MISSING IN PYDANTIC: {prop_path}")
++            continue
++        if in_pydantic and not in_openapi:
++            # Allow extra fields in Pydantic (they use extra="allow")
++            pass
++
++        if in_openapi and in_pydantic:
++            # Compare requiredness
++            openapi_req = prop in openapi_required
++            pydantic_req = prop in pydantic_required
++
++            if openapi_req and not pydantic_req:
++                issues.append(f"REQUIRED MISMATCH: {prop_path} (required in OpenAPI, optional in Pydantic)")
++            elif pydantic_req and not openapi_req:
++                issues.append(f"REQUIRED MISMATCH: {prop_path} (optional in OpenAPI, required in Pydantic)")
++
++    return issues
++
++
++def validate_schema_match(
++    openapi_schema: dict[str, Any],
++    pydantic_model: type[BaseModel],
++    model_name: str,
++) -> list[str]:
++    """Validate that OpenAPI schema matches Pydantic model."""
++    issues = []
++
++    pydantic_schema = get_pydantic_json_schema(pydantic_model)
++
++    # Get properties from both
++    openapi_props = openapi_schema.get("properties", {})
++    pydantic_props = pydantic_schema.get("properties", {})
++
++    # Get required fields
++    openapi_required = openapi_schema.get("required", [])
++    pydantic_required = pydantic_schema.get("required", [])
++
++    issues.extend(compare_properties(
++        openapi_props,
++        pydantic_props,
++        openapi_required,
++        pydantic_required,
++        model_name,
++    ))
++
++    return issues
++
++
++# Map OpenAPI schema names to Pydantic models
++SCHEMA_MODEL_MAP: dict[str, type[BaseModel]] = {
++    "RolloutRequest": RolloutRequest,
++    "RolloutResponse": RolloutResponse,
++    "RolloutTrajectory": RolloutTrajectory,
++    "RolloutStep": RolloutStep,
++    "RolloutMetrics": RolloutMetrics,
++    "RolloutEnvSpec": RolloutEnvSpec,
++    "RolloutPolicySpec": RolloutPolicySpec,
++    "TaskInfo": TaskInfo,
++    "TaskDescriptor": TaskDescriptor,
++    "DatasetInfo": DatasetInfo,
++    "RubricInfo": RubricInfo,
++    "InferenceInfo": InferenceInfo,
++    "LimitsInfo": LimitsInfo,
++}
++
++
++def main() -> int:
++    """Main validation entry point."""
++    print("=" * 60)
++    print("OpenAPI ↔ Pydantic Schema Validation")
++    print("=" * 60)
++    print()
++
++    try:
++        spec = load_openapi_spec()
++    except FileNotFoundError:
++        print("ERROR: OpenAPI spec not found at synth_ai/contracts/task_app.yaml")
++        return 1
++
++    schemas = spec.get("components", {}).get("schemas", {})
++
++    all_issues: list[str] = []
++    validated = 0
++    skipped = 0
++
++    for schema_name, pydantic_model in SCHEMA_MODEL_MAP.items():
++        if schema_name not in schemas:
++            print(f"⚠ SKIPPED: {schema_name} (not in OpenAPI spec)")
++            skipped += 1
++            continue
++
++        openapi_schema = schemas[schema_name]
++        issues = validate_schema_match(openapi_schema, pydantic_model, schema_name)
++
++        if issues:
++            print(f"✗ {schema_name}: {len(issues)} issue(s)")
++            for issue in issues:
++                print(f"    {issue}")
++            all_issues.extend(issues)
++        else:
++            print(f"✓ {schema_name}: OK")
++        validated += 1
++
++    print()
++    print("-" * 60)
++    print(f"Validated: {validated} schemas")
++    print(f"Skipped: {skipped} schemas")
++    print(f"Issues: {len(all_issues)}")
++
++    if all_issues:
++        print()
++        print("VALIDATION FAILED - OpenAPI and Pydantic schemas have drifted")
++        print()
++        print("To fix:")
++        print("  1. Update synth_ai/task/contracts.py to match task_app.yaml")
++        print("  2. Or update task_app.yaml if Python changes are intentional")
++        return 1
++
++    print()
++    print("✓ All schemas in sync")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/synth_ai/contracts/__init__.py b/synth_ai/contracts/__init__.py
+new file mode 100644
+index 0000000..7012cbe
+--- /dev/null
++++ b/synth_ai/contracts/__init__.py
+@@ -0,0 +1,67 @@
++"""
++Synth AI Contracts
++
++OpenAPI contracts for implementing Task Apps in any language.
++These contracts define the HTTP interface between Synth optimizers
++(MIPRO, GEPA) and your Task App service.
++
++Usage:
++    # Get the contract file path
++    from synth_ai.contracts import TASK_APP_CONTRACT_PATH
++
++    # Get the contract as a string
++    from synth_ai.contracts import get_task_app_contract
++    yaml_content = get_task_app_contract()
++
++    # Or access directly via CLI
++    # synth contracts show task-app
++"""
++
++from pathlib import Path
++
++CONTRACTS_DIR = Path(__file__).parent
++TASK_APP_CONTRACT_PATH = CONTRACTS_DIR / "task_app.yaml"
++
++
++def get_task_app_contract() -> str:
++    """Return the Task App contract as a YAML string.
++
++    This OpenAPI spec defines the HTTP interface that Task Apps must implement
++    to work with Synth's MIPRO and GEPA prompt optimizers.
++
++    Returns:
++        The full OpenAPI 3.1 specification as a YAML string.
++
++    Example:
++        >>> contract = get_task_app_contract()
++        >>> print(contract[:50])
++        openapi: 3.1.0
++        info:
++          title: Synth Task App
++    """
++    return TASK_APP_CONTRACT_PATH.read_text()
++
++
++def get_contract_path(contract_name: str = "task-app") -> Path:
++    """Get the filesystem path to a contract file.
++
++    Args:
++        contract_name: Name of the contract. Currently only "task-app" is supported.
++
++    Returns:
++        Path to the contract YAML file.
++
++    Raises:
++        ValueError: If the contract name is not recognized.
++    """
++    if contract_name in ("task-app", "task_app"):
++        return TASK_APP_CONTRACT_PATH
++    raise ValueError(f"Unknown contract: {contract_name}. Available: task-app")
++
++
++__all__ = [
++    "CONTRACTS_DIR",
++    "TASK_APP_CONTRACT_PATH",
++    "get_task_app_contract",
++    "get_contract_path",
++]
+diff --git a/synth_ai/contracts/task_app.yaml b/synth_ai/contracts/task_app.yaml
+new file mode 100644
+index 0000000..7231afc
+--- /dev/null
++++ b/synth_ai/contracts/task_app.yaml
+@@ -0,0 +1,1237 @@
++openapi: 3.1.0
++info:
++  title: Synth Task App Contract
++  version: 1.0.0
++  description: |
++    # Task App Contract
++
++    Task Apps are HTTP services that evaluate prompts for Synth's MIPRO and
++    GEPA optimizers. Implement this contract in any language.
++
++    ## How It Works
++
++    ```
++    ┌─────────────────┐         ┌──────────────────┐
++    │  MIPRO/GEPA     │  HTTP   │  Your Task App   │
++    │  Optimizer      │ ──────> │  (any language)  │
++    │                 │         │                  │
++    │  Proposes new   │         │  Evaluates the   │
++    │  prompts        │ <────── │  prompt, returns │
++    │                 │  reward │  reward          │
++    └─────────────────┘         └──────────────────┘
++    ```
++
++    1. Optimizer generates candidate prompts
++    2. Calls your `/rollout` endpoint with the prompt
++    3. You evaluate it against your data and return a reward
++    4. Optimizer uses rewards to find better prompts
++
++    ## Required Endpoints
++
++    - `GET /health` - Health check (unauthenticated OK)
++    - `POST /rollout` - Evaluate a prompt (authenticated)
++
++    ## Optional Endpoints
++
++    - `GET /info` - Task metadata (authenticated)
++
++    ## Quick Start
++
++    1. Implement `/health` and `/rollout`
++    2. Run locally: `./your-task-app --port 8001`
++    3. Expose via tunnel:
++       ```bash
++       cloudflared tunnel --url http://localhost:8001
++       # Returns URL like: https://random-words.trycloudflare.com
++       ```
++    4. Start optimization (see below)
++
++    ## Running the Optimizer
++
++    **Option A - Via CLI (requires Python):**
++    ```bash
++    uv tool install synth-ai
++    synth prompt-learning run \
++      --task-app-url https://your-tunnel.trycloudflare.com \
++      --task-app-api-key your-env-key \
++      --algorithm mipro
++    ```
++
++    **Option B - Via API (no Python needed):**
++    ```bash
++    curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
++      -H "Authorization: Bearer $SYNTH_API_KEY" \
++      -H "Content-Type: application/json" \
++      -d '{
++        "algorithm": "mipro",
++        "config_body": {
++          "prompt_learning": {
++            "task_app_url": "https://your-tunnel.trycloudflare.com",
++            "task_app_api_key": "your-env-key"
++          }
++        }
++      }'
++    ```
++
++    ## Authentication
++
++    The optimizer sends `X-API-Key` header to `/rollout` (and `/info` if implemented).
++    Match this against your `ENVIRONMENT_API_KEY` environment variable.
++
++    `/health` MAY be unauthenticated for simpler "is the tunnel alive?" checks.
++
++servers:
++  - url: http://localhost:8001
++    description: Local development
++
++components:
++  securitySchemes:
++    ApiKeyAuth:
++      type: apiKey
++      in: header
++      name: X-API-Key
++      description: |
++        API key for authentication. The optimizer sends this if
++        `task_app_api_key` is configured. Match against your
++        `ENVIRONMENT_API_KEY` environment variable.
++
++  schemas:
++    # =========================================================================
++    # REQUEST SCHEMAS
++    # =========================================================================
++    RolloutRequest:
++      type: object
++      description: |
++        Request from optimizer to evaluate a prompt.
++
++        ## What Your Service Should Do
++
++        1. Extract `seed` from `env.seed` (or `env.config.seed`)
++        2. Load your dataset sample at index: `sample = dataset[seed % len(dataset)]`
++        3. Get the prompt from `policy.config.prompt_template.sections`
++        4. Sort sections by `order` field
++        5. Render each section: replace `{placeholders}` with your sample data
++        6. POST to `policy.config.inference_url` + `/chat/completions`
++        7. Parse the LLM response (tool_calls or content)
++        8. Compare prediction to your ground truth
++        9. Return RolloutResponse with reward in `metrics.mean_return`
++      required:
++        - run_id
++        - env
++        - policy
++        - mode
++      properties:
++        run_id:
++          type: string
++          description: Unique ID for this rollout - echo it back in response
++
++        env:
++          $ref: '#/components/schemas/RolloutEnvSpec'
++
++        policy:
++          $ref: '#/components/schemas/RolloutPolicySpec'
++
++        ops:
++          type: array
++          items: {}
++          default: []
++          description: Task-specific operations (can be ignored for most tasks)
++
++        record:
++          $ref: '#/components/schemas/RolloutRecordConfig'
++
++        on_done:
++          type: string
++          default: "reset"
++          description: Action when episode ends (usually "reset")
++
++        safety:
++          $ref: '#/components/schemas/RolloutSafetyConfig'
++
++        training_session_id:
++          type: string
++          nullable: true
++          description: ID of the training session (if applicable)
++
++        synth_base_url:
++          type: string
++          nullable: true
++          description: Base URL for Synth API callbacks
++
++        mode:
++          type: string
++          enum:
++            - rl
++            - eval
++          description: |
++            Rollout mode. Task Apps MAY ignore this field.
++            Synth uses `"eval"` for prompt optimization.
++      example:
++        run_id: "run_abc123"
++        env:
++          seed: 42
++          config:
++            split: "train"
++        policy:
++          policy_id: "policy_1"
++          config:
++            model: "gpt-4o-mini"
++            inference_url: "https://api.usesynth.ai/v1/trial-xyz"
++            temperature: 0.0
++            max_completion_tokens: 512
++            prompt_template:
++              sections:
++                - role: "system"
++                  content: "You are a banking intent classifier."
++                  order: 0
++                - role: "user"
++                  pattern: "Customer query: {query}\n\nClassify into one of: {intents}"
++                  order: 1
++        mode: "eval"
++
++    RolloutEnvSpec:
++      type: object
++      description: Environment/task specification
++      properties:
++        env_id:
++          type: string
++          nullable: true
++          description: Environment identifier (optional)
++
++        env_name:
++          type: string
++          nullable: true
++          description: Human-readable environment name (optional)
++
++        config:
++          type: object
++          additionalProperties: true
++          default: {}
++          description: |
++            Task-specific config. Common fields:
++            - `seed`: alternative location for dataset index
++            - `split`: "train" or "test"
++
++        seed:
++          type: integer
++          nullable: true
++          description: |
++            INDEX into your dataset. Load the sample at this position.
++            Use modulo: `index = seed % len(dataset)`
++
++    RolloutPolicySpec:
++      type: object
++      description: Policy (model + prompt) specification
++      properties:
++        policy_id:
++          type: string
++          nullable: true
++          description: Unique identifier for this policy
++
++        policy_name:
++          type: string
++          nullable: true
++          description: Human-readable policy name
++
++        config:
++          $ref: '#/components/schemas/PolicyConfig'
++
++    PolicyConfig:
++      type: object
++      additionalProperties: true
++      description: |
++        Model and prompt configuration.
++
++        This is a flexible dictionary - the fields below are common ones,
++        but task apps may receive additional fields. Use `additionalProperties`
++        to handle unknown fields gracefully.
++      properties:
++        model:
++          type: string
++          description: Model identifier (e.g., "gpt-4o-mini", "claude-3-5-sonnet")
++          example: "gpt-4o-mini"
++
++        provider:
++          type: string
++          description: Provider name (informational only)
++          example: "openai"
++
++        inference_url:
++          type: string
++          format: uri
++          description: |
++            BASE URL for LLM inference (WITHOUT `/chat/completions`).
++
++            This URL is provided by the optimizer. Route ALL LLM requests
++            through this URL - it handles API key injection, logging, and
++            cost tracking.
++
++            **Always append `/chat/completions` when making requests:**
++
++            ```
++            POST {inference_url}/chat/completions
++            Content-Type: application/json
++
++            {
++              "model": "gpt-4o-mini",
++              "messages": [...],
++              "tools": [...],
++              "tool_choice": "required"
++            }
++            ```
++          example: "https://api.usesynth.ai/v1/trial-xyz"
++
++        api_base:
++          type: string
++          format: uri
++          description: Alternative to inference_url (same semantics - BASE URL)
++
++        base_url:
++          type: string
++          format: uri
++          description: Alternative to inference_url (same semantics - BASE URL)
++
++        temperature:
++          type: number
++          default: 0.0
++          description: Sampling temperature for LLM calls
++
++        max_completion_tokens:
++          type: integer
++          default: 512
++          description: Maximum tokens in LLM response
++
++        max_tokens:
++          type: integer
++          description: Alternative to max_completion_tokens (same semantics)
++
++        prompt_template:
++          $ref: '#/components/schemas/PromptTemplate'
++
++        tools:
++          type: array
++          items:
++            $ref: '#/components/schemas/ToolDefinition'
++          description: |
++            Tool definitions to include in LLM request.
++            If not provided, use your task-specific tools.
++
++        tool_choice:
++          oneOf:
++            - type: string
++              enum:
++                - auto
++                - required
++                - none
++            - type: object
++              properties:
++                type:
++                  type: string
++                  enum:
++                    - function
++                function:
++                  type: object
++                  properties:
++                    name:
++                      type: string
++          description: Tool choice mode for LLM requests
++
++    PromptTemplate:
++      type: object
++      additionalProperties: true
++      description: |
++        THE PROMPT BEING EVALUATED.
++
++        Contains message sections to send to the LLM.
++        Your job: render these with your sample data.
++
++        **Field Naming:** The Python SDK serializes with `prompt_` prefixes
++        (e.g., `prompt_template_id`, `prompt_sections`). Both conventions
++        are supported - check for both when parsing:
++
++        ```
++        id = template.get("prompt_template_id") or template.get("id")
++        sections = template.get("prompt_sections") or template.get("sections")
++        ```
++      properties:
++        # Standard naming
++        id:
++          type: string
++          description: Unique identifier for this prompt template
++
++        name:
++          type: string
++          description: Human-readable name for this template
++
++        sections:
++          type: array
++          items:
++            $ref: '#/components/schemas/PromptSection'
++          description: |
++            Messages in the prompt. Sort by `order` before rendering.
++
++            For each section, the `content` field contains the template
++            string with `{placeholders}` to replace with your sample data.
++
++            Example:
++            ```
++            content: "Classify this query: {query}"
++            your_data: {"query": "How do I reset my PIN?"}
++            rendered: "Classify this query: How do I reset my PIN?"
++            ```
++
++        variables:
++          type: object
++          additionalProperties:
++            type: string
++          description: Variable definitions ("required" or "optional")
++
++        metadata:
++          type: object
++          additionalProperties: true
++          description: Additional prompt metadata
++
++        # Python SDK naming (alternative)
++        prompt_template_id:
++          type: string
++          description: Alternative to `id` (Python SDK serialization)
++
++        prompt_template_name:
++          type: string
++          description: Alternative to `name` (Python SDK serialization)
++
++        prompt_sections:
++          type: array
++          items:
++            $ref: '#/components/schemas/PromptSection'
++          description: Alternative to `sections` (Python SDK serialization)
++
++        prompt_variables:
++          type: object
++          additionalProperties:
++            type: string
++          description: Alternative to `variables` (Python SDK serialization)
++
++        prompt_metadata:
++          type: object
++          additionalProperties: true
++          description: Alternative to `metadata` (Python SDK serialization)
++
++    PromptSection:
++      type: object
++      required:
++        - role
++      properties:
++        name:
++          type: string
++          description: |
++            Section name (e.g., "instruction", "examples", "constraints").
++            Used by Python SDK for identification. Optional for polyglot implementations.
++
++        role:
++          type: string
++          enum:
++            - system
++            - user
++            - assistant
++          description: Message role (system, user, or assistant)
++
++        content:
++          type: string
++          description: |
++            Template string with `{placeholders}` for variable substitution.
++            This is the primary field used by the Python SDK.
++
++            Example:
++            ```
++            content: "Classify the banking intent: {query}"
++            ```
++
++        pattern:
++          type: string
++          description: |
++            Alternative name for `content` used by some task apps.
++            Template with {placeholders} to replace with your sample data.
++            Check both `content` and `pattern` when parsing.
++
++        order:
++          type: integer
++          default: 0
++          description: Sort sections by this before rendering into messages
++
++    ToolDefinition:
++      type: object
++      description: OpenAI-compatible tool definition
++      required:
++        - type
++        - function
++      properties:
++        type:
++          type: string
++          enum:
++            - function
++          default: "function"
++
++        function:
++          type: object
++          required:
++            - name
++          properties:
++            name:
++              type: string
++              description: Function name
++
++            description:
++              type: string
++              description: What this function does
++
++            parameters:
++              type: object
++              description: JSON Schema for function parameters
++              additionalProperties: true
++
++            strict:
++              type: boolean
++              default: false
++              description: Enable strict mode for parameter validation
++
++    RolloutRecordConfig:
++      type: object
++      description: Recording configuration for trajectories
++      properties:
++        trajectories:
++          type: boolean
++          default: true
++          description: Whether to record full trajectories
++
++        logprobs:
++          type: boolean
++          default: false
++          description: Whether to record log probabilities
++
++        value:
++          type: boolean
++          default: false
++          description: Whether to record value estimates
++
++        return_trace:
++          type: boolean
++          default: false
++          description: Whether to return detailed trace
++
++        trace_format:
++          type: string
++          enum:
++            - compact
++            - full
++            - structured
++          default: compact
++          description: Format for trace output
++
++    RolloutSafetyConfig:
++      type: object
++      description: Safety limits for rollout execution
++      properties:
++        max_ops:
++          type: integer
++          default: 100000
++          description: Maximum operations allowed
++
++        max_time_s:
++          type: number
++          default: 3600.0
++          description: Maximum execution time in seconds
++
++    # =========================================================================
++    # RESPONSE SCHEMAS
++    # =========================================================================
++    RolloutResponse:
++      type: object
++      description: |
++        Your response after evaluating the prompt.
++
++        THE KEY FIELD IS `metrics.mean_return` - this is the reward
++        that guides optimization. Higher = better prompt.
++      required:
++        - run_id
++        - trajectories
++        - metrics
++      properties:
++        run_id:
++          type: string
++          description: Echo the run_id from the request
++
++        trajectories:
++          type: array
++          minItems: 1
++          items:
++            $ref: '#/components/schemas/RolloutTrajectory'
++          description: |
++            Execution trace. Must contain at least one trajectory
++            with at least one step that includes a reward.
++
++        branches:
++          type: object
++          additionalProperties:
++            type: array
++            items:
++              type: string
++          default: {}
++          description: Branch information (for multi-branch tasks)
++
++        metrics:
++          $ref: '#/components/schemas/RolloutMetrics'
++
++        aborted:
++          type: boolean
++          default: false
++          description: Whether the rollout was aborted early
++
++        ops_executed:
++          type: integer
++          default: 0
++          description: Number of operations executed
++
++        trace_correlation_id:
++          type: string
++          nullable: true
++          description: Correlation ID for distributed tracing
++
++        trace:
++          type: object
++          nullable: true
++          additionalProperties: true
++          description: Optional detailed trace for debugging
++
++        pipeline_metadata:
++          type: object
++          additionalProperties: true
++          default: {}
++          description: Pipeline-specific metadata
++      example:
++        run_id: "run_abc123"
++        trajectories:
++          - env_id: "banking77::train::42"
++            policy_id: "policy_1"
++            steps:
++              - obs:
++                  query: "How do I reset my PIN?"
++                  index: 42
++                tool_calls:
++                  - id: "call_1"
++                    type: "function"
++                    function:
++                      name: "classify"
++                      arguments: '{"intent": "change_pin"}'
++                reward: 1.0
++                done: true
++                info:
++                  expected: "change_pin"
++                  predicted: "change_pin"
++                  correct: true
++            length: 1
++            inference_url: "https://api.usesynth.ai/v1/trial-xyz"
++        metrics:
++          episode_returns:
++            - 1.0
++          mean_return: 1.0
++          num_steps: 1
++          num_episodes: 1
++          outcome_score: 1.0
++        aborted: false
++        ops_executed: 1
++
++    RolloutTrajectory:
++      type: object
++      description: A single trajectory (episode) of execution
++      required:
++        - env_id
++        - policy_id
++        - steps
++        - length
++        - inference_url
++      properties:
++        env_id:
++          type: string
++          description: |
++            Identifier for this task instance.
++            Recommend format: `{task_name}::{split}::{seed}`
++          example: "banking77::train::42"
++
++        policy_id:
++          type: string
++          description: Echo policy_id or policy_name from request
++
++        steps:
++          type: array
++          minItems: 1
++          items:
++            $ref: '#/components/schemas/RolloutStep'
++          description: |
++            Execution steps. Must contain at least one step with a reward.
++
++        final:
++          type: object
++          additionalProperties: true
++          nullable: true
++          description: Final state information (optional)
++
++        length:
++          type: integer
++          minimum: 1
++          description: Number of steps in this trajectory
++
++        inference_url:
++          type: string
++          description: The inference URL used for LLM calls
++
++        decision_samples:
++          type: array
++          items: {}
++          nullable: true
++          description: Sampled decisions for analysis (optional)
++
++    RolloutStep:
++      type: object
++      description: A single step in the trajectory
++      required:
++        - obs
++        - tool_calls
++        - done
++      properties:
++        obs:
++          type: object
++          additionalProperties: true
++          description: |
++            The input data for this step. Include your sample data
++            here for debugging/logging purposes.
++
++        tool_calls:
++          type: array
++          items:
++            $ref: '#/components/schemas/ToolCall'
++          description: |
++            Tool calls from LLM response.
++            Can be empty array if using content-based responses.
++
++        reward:
++          type: number
++          nullable: true
++          description: |
++            THE REWARD FOR THIS STEP.
++
++            For classification tasks:
++            - 1.0 = prediction matches ground truth
++            - 0.0 = prediction does not match
++
++            For other tasks, use appropriate continuous scores.
++            Can be null for intermediate steps in multi-step tasks.
++
++        done:
++          type: boolean
++          description: Whether the episode is complete (usually true for single-step tasks)
++
++        truncated:
++          type: boolean
++          nullable: true
++          description: Whether the episode was truncated early
++
++        info:
++          type: object
++          additionalProperties: true
++          nullable: true
++          description: |
++            Debug info. Recommend including:
++            - expected: ground truth value
++            - predicted: model's prediction
++            - correct: boolean
++
++    ToolCall:
++      type: object
++      description: A tool call from the LLM response
++      properties:
++        id:
++          type: string
++          description: Unique identifier for this tool call
++
++        type:
++          type: string
++          default: "function"
++          description: Type of tool call (always "function")
++
++        function:
++          type: object
++          properties:
++            name:
++              type: string
++              description: Name of the function called
++
++            arguments:
++              type: string
++              description: JSON string of function arguments
++
++    RolloutMetrics:
++      type: object
++      description: Aggregated metrics for the rollout
++      required:
++        - episode_returns
++        - mean_return
++        - num_steps
++      properties:
++        episode_returns:
++          type: array
++          items:
++            type: number
++          description: List of rewards (usually `[reward]` for single-step tasks)
++
++        mean_return:
++          type: number
++          description: |
++            THE OPTIMIZATION TARGET.
++
++            This is what MIPRO/GEPA maximizes. For classification:
++            - 1.0 = prompt produced correct answer
++            - 0.0 = prompt produced wrong answer
++
++            For batch evaluation, this is the average reward.
++
++        num_steps:
++          type: integer
++          description: Total number of steps across all trajectories
++
++        num_episodes:
++          type: integer
++          default: 1
++          description: Number of episodes (usually 1)
++
++        outcome_score:
++          type: number
++          nullable: true
++          description: Same as mean_return for most tasks
++
++        events_score:
++          type: number
++          nullable: true
++          description: Score based on events (for event-driven tasks)
++
++        details:
++          type: object
++          additionalProperties: true
++          description: Additional metric details
++
++    # =========================================================================
++    # INFO ENDPOINT SCHEMAS
++    # =========================================================================
++    TaskInfo:
++      type: object
++      additionalProperties: true
++      description: |
++        Task metadata returned by `/info` endpoint.
++        Matches Python SDK's `TaskInfo` model structure.
++      required:
++        - task
++        - environment
++        - dataset
++        - inference
++      properties:
++        task:
++          $ref: '#/components/schemas/TaskDescriptor'
++
++        environment:
++          type: string
++          description: Environment identifier (e.g., "banking77", "crafter")
++
++        dataset:
++          $ref: '#/components/schemas/DatasetInfo'
++
++        rubric:
++          $ref: '#/components/schemas/RubricInfo'
++
++        inference:
++          $ref: '#/components/schemas/InferenceInfo'
++
++        limits:
++          $ref: '#/components/schemas/LimitsInfo'
++
++        task_metadata:
++          type: object
++          additionalProperties: true
++          description: Task-specific extras (e.g., prompt version info, documentation links)
++
++    TaskDescriptor:
++      type: object
++      additionalProperties: true
++      description: Human-readable task identifiers
++      required:
++        - id
++        - name
++      properties:
++        id:
++          type: string
++          description: Unique task identifier
++
++        name:
++          type: string
++          description: Human-readable task name
++
++        description:
++          type: string
++          nullable: true
++          description: Task description
++
++        version:
++          type: string
++          nullable: true
++          description: Task version
++
++    DatasetInfo:
++      type: object
++      additionalProperties: true
++      description: Metadata about the dataset powering the environment
++      properties:
++        id:
++          type: string
++          nullable: true
++          description: Dataset identifier
++
++        name:
++          type: string
++          nullable: true
++          description: Human-readable dataset name
++
++        version:
++          type: string
++          nullable: true
++          description: Dataset version
++
++        splits:
++          type: array
++          items:
++            type: string
++          nullable: true
++          description: Available data splits (e.g., ["train", "test"])
++
++        default_split:
++          type: string
++          nullable: true
++          description: Default split to use
++
++        description:
++          type: string
++          nullable: true
++          description: Dataset description
++
++    RubricInfo:
++      type: object
++      additionalProperties: true
++      description: Outcome and event scoring definitions used by judges
++      properties:
++        outcome:
++          $ref: '#/components/schemas/RubricSection'
++
++        events:
++          $ref: '#/components/schemas/RubricSection'
++
++    RubricSection:
++      type: object
++      additionalProperties: true
++      properties:
++        name:
++          type: string
++          description: Section name
++
++        criteria:
++          type: array
++          items:
++            $ref: '#/components/schemas/RubricCriterion'
++          default: []
++
++    RubricCriterion:
++      type: object
++      additionalProperties: true
++      required:
++        - id
++        - description
++      properties:
++        id:
++          type: string
++          description: Criterion identifier
++
++        description:
++          type: string
++          description: Criterion description
++
++        weight:
++          type: number
++          nullable: true
++          description: Weight for scoring
++
++    InferenceInfo:
++      type: object
++      additionalProperties: true
++      description: Recommended defaults for policy model routing
++      properties:
++        model:
++          type: string
++          nullable: true
++          description: Recommended model identifier
++
++        inference_url:
++          type: string
++          nullable: true
++          description: Recommended inference URL
++
++    LimitsInfo:
++      type: object
++      additionalProperties: true
++      description: Operational limits the environment enforces
++      properties:
++        max_turns:
++          type: integer
++          nullable: true
++          description: Maximum turns per episode
++
++        max_response_tokens:
++          type: integer
++          nullable: true
++          description: Maximum response tokens
++
++        timeout_seconds:
++          type: integer
++          nullable: true
++          description: Timeout for each rollout in seconds
++
++    # =========================================================================
++    # COMMON SCHEMAS
++    # =========================================================================
++    HealthResponse:
++      type: object
++      description: Health check response
++      required:
++        - healthy
++      properties:
++        healthy:
++          type: boolean
++          description: Whether the service is healthy
++
++        auth:
++          type: object
++          description: Authentication info (optional)
++          properties:
++            required:
++              type: boolean
++              description: Whether auth is required for /rollout
++
++            expected_prefix:
++              type: string
++              description: First few chars of expected API key (for debugging)
++
++    Error:
++      type: object
++      description: Error response
++      required:
++        - detail
++      properties:
++        detail:
++          type: string
++          description: Human-readable error message
++
++paths:
++  # ===========================================================================
++  # HEALTH ENDPOINT (unauthenticated - for simple tunnel checks)
++  # ===========================================================================
++  /health:
++    get:
++      summary: Health check
++      operationId: healthCheck
++      description: |
++        Basic health check. This endpoint MAY be unauthenticated to allow
++        simple "is the tunnel alive?" checks.
++
++        If you require auth, the optimizer will send `X-API-Key` here too.
++      tags:
++        - Health
++      responses:
++        '200':
++          description: Service is healthy
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/HealthResponse'
++              example:
++                healthy: true
++        '503':
++          description: Service unavailable
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "Service is starting up"
++
++  # ===========================================================================
++  # INFO ENDPOINT (optional, authenticated)
++  # ===========================================================================
++  /info:
++    get:
++      summary: Task metadata (optional)
++      operationId: getTaskInfo
++      description: |
++        Returns information about the task, dataset, and capabilities.
++        This endpoint is OPTIONAL - implement it if you want the optimizer
++        to discover your task's metadata.
++      tags:
++        - Info
++      security:
++        - ApiKeyAuth: []
++      responses:
++        '200':
++          description: Task info
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/TaskInfo'
++              example:
++                task:
++                  id: "banking77"
++                  name: "Banking77 Intent Classification"
++                  description: "Classify banking customer queries into 77 intent categories"
++                  version: "1.0.0"
++                environment: "banking77"
++                dataset:
++                  id: "banking77"
++                  name: "Banking77"
++                  splits:
++                    - "train"
++                    - "test"
++                  default_split: "train"
++                rubric:
++                  outcome:
++                    name: "intent_accuracy"
++                    criteria:
++                      - id: "correct_intent"
++                        description: "Correctly classify the customer query"
++                        weight: 1.0
++                inference:
++                  model: "gpt-4o-mini"
++                limits:
++                  max_turns: 1
++                  timeout_seconds: 30
++                task_metadata:
++                  format: "tool_call"
++                  tool_name: "banking77_classify"
++        '401':
++          description: Unauthorized
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "Invalid or missing API key"
++
++  # ===========================================================================
++  # ROLLOUT ENDPOINT (required, authenticated)
++  # ===========================================================================
++  /rollout:
++    post:
++      summary: Evaluate a prompt
++      operationId: executeRollout
++      description: |
++        THE CORE ENDPOINT.
++
++        The optimizer calls this repeatedly with different prompts.
++        You evaluate each prompt and return a reward.
++
++        ## Implementation Checklist
++
++        1. [ ] Parse the RolloutRequest
++        2. [ ] Extract seed: `request.env.seed` or `request.env.config.seed`
++        3. [ ] Load your sample: `dataset[seed % len(dataset)]`
++        4. [ ] Get prompt sections: `request.policy.config.prompt_template.sections`
++        5. [ ] Sort sections by `order` field
++        6. [ ] Render each section: replace `{placeholders}` with your sample data
++        7. [ ] Build messages array for LLM
++        8. [ ] POST to `request.policy.config.inference_url` + `/chat/completions`
++        9. [ ] Parse LLM response (tool_calls or content)
++        10. [ ] Compare prediction to ground truth
++        11. [ ] Return RolloutResponse with `metrics.mean_return` = reward
++
++        ## Example: Classification Task
++
++        Your dataset:
++        ```json
++        [
++          {"query": "How do I reset my PIN?", "label": "change_pin"},
++          {"query": "Card not arriving", "label": "card_arrival"},
++          ...
++        ]
++        ```
++
++        Request comes in with `seed=0`, prompt_template with sections:
++        - system: "You are a classifier..."
++        - user (pattern): "Query: {query}\nClassify using the tool."
++
++        You:
++        1. Load `dataset[0]` = `{"query": "How do I reset my PIN?", "label": "change_pin"}`
++        2. Render: "Query: How do I reset my PIN?\nClassify using the tool."
++        3. POST to `inference_url/chat/completions` with messages + your tool schema
++        4. LLM returns tool_call with `{"intent": "change_pin"}`
++        5. Compare: "change_pin" == "change_pin" -> correct!
++        6. Return: `metrics.mean_return = 1.0`
++      tags:
++        - Rollout
++      security:
++        - ApiKeyAuth: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/RolloutRequest'
++      responses:
++        '200':
++          description: Rollout completed successfully
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/RolloutResponse'
++        '400':
++          description: Bad request (invalid seed, missing fields, etc.)
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "Invalid seed: 99999 exceeds dataset size"
++        '401':
++          description: Unauthorized (missing or invalid API key)
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "Invalid or missing API key"
++        '500':
++          description: Internal server error
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "Internal error: failed to load dataset"
++        '502':
++          description: Upstream LLM error
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/Error'
++              example:
++                detail: "LLM returned error: rate limit exceeded"
++
++tags:
++  - name: Health
++    description: Health check endpoint
++  - name: Info
++    description: Task metadata endpoint (optional)
++  - name: Rollout
++    description: Core prompt evaluation endpoint
