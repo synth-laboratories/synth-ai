@@ -19,6 +19,39 @@ jobs:
       - name: ruff check
         run: uv run --group dev ruff check
 
+  check-version:
+    name: Check README version matches pyproject.toml
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version from pyproject.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/' | tr -d '"')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Found version: $VERSION"
+      - name: Check README version matches
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          README_BADGE=$(grep -o 'PyPI-.*-orange' README.md | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "")
+          README_INSTALL=$(grep -o 'synth-ai==[0-9]\+\.[0-9]\+\.[0-9]\+' README.md | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 || echo "")
+          
+          echo "pyproject.toml version: $VERSION"
+          echo "README badge version: $README_BADGE"
+          echo "README install version: $README_INSTALL"
+          
+          if [ "$README_BADGE" != "$VERSION" ]; then
+            echo "❌ README badge version ($README_BADGE) does not match pyproject.toml ($VERSION)"
+            exit 1
+          fi
+          
+          if [ "$README_INSTALL" != "$VERSION" ]; then
+            echo "❌ README install version ($README_INSTALL) does not match pyproject.toml ($VERSION)"
+            exit 1
+          fi
+          
+          echo "✅ README version matches pyproject.toml ($VERSION)"
+
   type-check:
     name: Type Check (ty)
     runs-on: blacksmith-4vcpu-ubuntu-2404
