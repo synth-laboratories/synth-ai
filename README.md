@@ -10,9 +10,9 @@ Serverless Posttraining APIs for Developers
 
 <p align="center">
   <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA (lib), DSPy MIPRO, and DSPy GEPA with baseline vs optimized." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_light.png">
   </picture>
 </p>
 
