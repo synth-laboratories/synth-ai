@@ -14,7 +14,27 @@ warnings.warn(
     stacklevel=2,
 )
 
-# Re-export everything from the new location
+# Re-export submodules
+from synth_ai.cli.local.experiment_queue import (
+    config,
+    celery_app,
+    database,
+    models,
+    tasks,
+    schemas,
+    service,
+    dispatcher,
+    config_utils,
+    results,
+    validation,
+    status,
+    status_tracker,
+    trace_storage,
+    progress_info,
+    api_schemas,
+)
+
+# Re-export main items from __init__
 from synth_ai.cli.local.experiment_queue import (
     Base,
     Experiment,
@@ -30,6 +50,24 @@ from synth_ai.cli.local.experiment_queue import (
 )
 
 __all__ = [
+    # Submodules
+    "config",
+    "celery_app",
+    "database",
+    "models",
+    "tasks",
+    "schemas",
+    "service",
+    "dispatcher",
+    "config_utils",
+    "results",
+    "validation",
+    "status",
+    "status_tracker",
+    "trace_storage",
+    "progress_info",
+    "api_schemas",
+    # Main exports
     "Base",
     "Experiment",
     "ExperimentJob",
@@ -42,4 +80,3 @@ __all__ = [
     "init_db",
     "session_scope",
 ]
-

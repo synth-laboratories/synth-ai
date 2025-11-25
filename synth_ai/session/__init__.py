@@ -14,6 +14,16 @@ warnings.warn(
     stacklevel=2,
 )
 
+# Re-export submodules for backwards compatibility
+from synth_ai.cli.local.session import (
+    client,
+    constants,
+    exceptions,
+    manager,
+    models,
+    query,
+)
+
 # Re-export everything from the new location
 from synth_ai.cli.local.session import (
     AgentSession,
@@ -46,19 +56,32 @@ from synth_ai.cli.local.session import (
 )
 
 __all__ = [
+    # Submodules
+    "client",
+    "constants",
+    "exceptions",
+    "manager",
+    "models",
+    "query",
+    # Exceptions
     "SessionUsageError",
     "LimitExceededError",
     "SessionNotFoundError",
     "SessionNotActiveError",
     "InvalidLimitError",
+    # Models
     "AgentSession",
     "AgentSessionLimit",
     "AgentSessionUsage",
     "LimitCheckResult",
     "SessionUsageRecord",
+    # Client
     "AgentSessionClient",
+    # Manager
     "AgentSessionManager",
+    # Query
     "AgentSessionQuery",
+    # Constants
     "SESSION_STATUS_ACTIVE",
     "SESSION_STATUS_ENDED",
     "SESSION_STATUS_LIMIT_EXCEEDED",
@@ -74,4 +97,3 @@ __all__ = [
     "VALID_LIMIT_TYPES",
     "VALID_METRIC_TYPES",
 ]
-
