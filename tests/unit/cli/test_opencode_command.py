@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from synth_ai.cli.opencode import (
+from synth_ai.cli.agents.opencode import (
     opencode_cmd,
     CONFIG_PATH,
     AUTH_PATH,

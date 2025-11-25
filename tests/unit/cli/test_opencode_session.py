@@ -10,7 +10,7 @@ from unittest import mock
 import pytest
 from click.testing import CliRunner
 
-from synth_ai.cli.opencode import opencode_cmd, _load_session_config
+from synth_ai.cli.agents.opencode import opencode_cmd, _load_session_config
 
 
 @pytest.fixture()
