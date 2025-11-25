@@ -36,4 +36,4 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 ## Documentation
 
-Synth's documentation is available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
+Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
