@@ -26,19 +26,4 @@ uv add synth-ai==0.3.0
 pip install synth-ai --pre
 # or check PyPI for latest .dev version
 ```
-
-**Import:**
-```python
-import synth_ai
-```
-
-**CLI (with uvx):**
-```bash
-uvx synth-ai setup
-uvx synth-ai demo
-uvx synth-ai deploy
-uvx synth-ai run
-uvx synth-ai baseline  # For coding agents: get baseline scores
-```
-
 > Full quickstart: [https://docs.usesynth.ai/sdk/get-started](https://docs.usesynth.ai/sdk/get-started)
