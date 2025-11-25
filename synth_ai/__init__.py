@@ -12,8 +12,7 @@ except Exception:
     # Silently fail if log filter can't be installed
     pass
 
-import synth_ai.environments as environments  # expose module name for __all__
-from synth_ai.environments import *  # noqa
+# NOTE: environments/ moved to synth-research repo (see refactor_spec.txt Q1)
 from synth_ai.judge_schemas import (
     CriterionScorePayload,
     JudgeOptions,
@@ -46,7 +45,6 @@ EventPartitionElement = RewardSignal = SystemTrace = TrainingQuestion = None  # 
 trace_event_async = trace_event_sync = upload = None  # type: ignore
 
 __all__ = [
-    "environments",
     # Judge API contracts
     "JudgeScoreRequest",
     "JudgeScoreResponse",
