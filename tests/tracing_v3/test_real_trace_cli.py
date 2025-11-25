@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
-from synth_ai.cli.commands.status import register as register_status
+from synth_ai.cli.infra.status import register as register_status
 from synth_ai.cli.traces import register as register_traces
 from synth_ai.core.tracing_v3.constants import TRACE_DB_BASENAME, canonical_trace_db_name
 

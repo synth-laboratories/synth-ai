@@ -5,12 +5,12 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
-from synth_ai.cli.commands.status.errors import StatusAPIError
-from synth_ai.cli.commands.status.subcommands.files import files_group
-from synth_ai.cli.commands.status.subcommands.jobs import jobs_group
-from synth_ai.cli.commands.status.subcommands.models import models_group
-from synth_ai.cli.commands.status.subcommands.runs import runs_group
-from synth_ai.cli.commands.status.subcommands.summary import summary_command
+from synth_ai.cli.infra.status.errors import StatusAPIError
+from synth_ai.cli.infra.status.subcommands.files import files_group
+from synth_ai.cli.infra.status.subcommands.jobs import jobs_group
+from synth_ai.cli.infra.status.subcommands.models import models_group
+from synth_ai.cli.infra.status.subcommands.runs import runs_group
+from synth_ai.cli.infra.status.subcommands.summary import summary_command
 
 
 @pytest.fixture
