@@ -56,6 +56,9 @@ from synth_ai.sdk.specs import (
 # Research Agent
 from synth_ai.sdk.research_agent import ResearchAgentJob, ResearchAgentJobConfig
 
+# Jobs API Client
+from synth_ai.sdk.jobs import JobsClient
+
 __all__ = [
     # Training
     "PromptLearningJob",
@@ -80,5 +83,7 @@ __all__ = [
     # Research Agent
     "ResearchAgentJob",
     "ResearchAgentJobConfig",
+    # Jobs API Client
+    "JobsClient",
 ]
 
