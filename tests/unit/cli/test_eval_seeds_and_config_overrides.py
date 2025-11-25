@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-from synth_ai.cli.task_apps import eval_command
+from synth_ai.cli.commands.eval.core import eval_command
 
 
 @pytest.mark.slow

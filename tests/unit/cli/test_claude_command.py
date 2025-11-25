@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from synth_ai.cli.agents.claude import claude_cmd
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
+from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
 
 
 @pytest.fixture()

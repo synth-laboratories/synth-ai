@@ -3,7 +3,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from synth_ai.cfgs import CFDeployCfg
+from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.cloudflare import (
     ManagedTunnelRecord,
     _select_existing_tunnel,

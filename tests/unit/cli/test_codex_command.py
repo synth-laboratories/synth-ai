@@ -7,7 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from synth_ai.cli.agents.codex import codex_cmd
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
+from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
 
 
 @pytest.fixture()

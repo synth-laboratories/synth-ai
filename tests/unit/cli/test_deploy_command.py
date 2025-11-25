@@ -8,7 +8,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from synth_ai.cfgs import LocalDeployCfg, ModalDeployCfg
+from synth_ai.core.cfgs import LocalDeployCfg, ModalDeployCfg
 
 
 @pytest.fixture()

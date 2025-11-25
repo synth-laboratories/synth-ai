@@ -11,7 +11,7 @@ from synth_ai.cli.agents.opencode import (
     AUTH_PATH,
     SYNTH_PROVIDER_ID,
 )
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
+from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 
 
 @pytest.fixture()
