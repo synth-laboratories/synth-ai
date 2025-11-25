@@ -96,7 +96,7 @@ def _create_celery_app() -> Celery:
         "synth_ai.experiment_queue",
         broker=config.broker_url,
         backend=config.result_backend_url,
-        include=["synth_ai.experiment_queue.tasks"],
+        include=["synth_ai.cli.local.experiment_queue.tasks"],
     )
 
     app.conf.update(
@@ -113,7 +113,7 @@ def _create_celery_app() -> Celery:
         # Celery Beat schedule for periodic queue processing
         beat_schedule={
             "process-experiment-queue": {
-                "task": "synth_ai.experiment_queue.process_experiment_queue",
+                "task": "synth_ai.cli.local.experiment_queue.process_experiment_queue",
                 "schedule": 5.0,  # Run every 5 seconds
             },
         },

@@ -16,15 +16,15 @@ Example:
 from __future__ import annotations
 
 # Re-export from existing locations
-from synth_ai.api.train.prompt_learning import (
+from synth_ai.sdk.api.train.prompt_learning import (
     PromptLearningJob,
     PromptLearningJobConfig,
     PromptLearningJobPoller,
 )
-from synth_ai.api.train.sft import SFTJob
+from synth_ai.sdk.api.train.sft import SFTJob
 
 # Pollers and utilities
-from synth_ai.api.train.pollers import JobPoller, PollOutcome
+from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome
 
 __all__ = [
     "PromptLearningJob",

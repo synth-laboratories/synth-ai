@@ -163,7 +163,7 @@ def scan_registry() -> list[ScannedApp]:
     apps: list[ScannedApp] = []
 
     try:
-        from synth_ai.task.apps import registry
+        from synth_ai.sdk.task.apps import registry
 
         for entry in registry.list():
             # Try to construct a URL - we don't know the port, so we'll mark it as unknown

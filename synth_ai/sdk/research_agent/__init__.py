@@ -1,34 +1,33 @@
-"""Research Agent SDK - scaffold tuning, evaluation, and trace analysis.
-
-This module provides the SDK for running research agent jobs:
-- Scaffold tuning
-- Evaluation
-- Trace analysis
-
-Example:
-    from synth_ai.sdk.research_agent import ResearchAgentJob
-    
-    job = ResearchAgentJob.from_config("config.toml")
-    job.submit()
-    result = job.poll_until_complete()
-"""
-
-from __future__ import annotations
-
-# Re-export from existing location
-from synth_ai.api.research_agent.job import (
-    ResearchAgentJob,
-    ResearchAgentJobConfig,
-    ResearchAgentJobPoller,
-    AlgorithmType,
-    BackendType,
+from synth_ai.sdk.research_agent.container_builder import (
+    ContainerBackend,
+    DockerBackend,
+    ModalBackend,
+    get_backend,
 )
+from synth_ai.sdk.research_agent.container_spec import ContainerSpec
+from synth_ai.sdk.research_agent.defaults import (
+    DEFAULT_BACKEND,
+    DEFAULT_BASE_IMAGE,
+    DEFAULT_INSTRUCTIONS,
+    DEFAULT_PACKAGES,
+    DEFAULT_PYTHON_VERSION,
+    DEFAULT_REASONING_EFFORT,
+    DEFAULT_RESULT_PATTERNS,
+)
+from synth_ai.sdk.research_agent.results_collector import ResultsCollector
 
 __all__ = [
-    "ResearchAgentJob",
-    "ResearchAgentJobConfig",
-    "ResearchAgentJobPoller",
-    "AlgorithmType",
-    "BackendType",
+    "ContainerBackend",
+    "ContainerSpec",
+    "DockerBackend",
+    "ModalBackend",
+    "ResultsCollector",
+    "get_backend",
+    "DEFAULT_BACKEND",
+    "DEFAULT_BASE_IMAGE",
+    "DEFAULT_INSTRUCTIONS",
+    "DEFAULT_PACKAGES",
+    "DEFAULT_PYTHON_VERSION",
+    "DEFAULT_REASONING_EFFORT",
+    "DEFAULT_RESULT_PATTERNS",
 ]
-

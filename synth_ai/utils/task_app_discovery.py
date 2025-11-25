@@ -19,7 +19,7 @@ import click
 from click.exceptions import Abort
 
 try:
-    _task_apps_module = importlib.import_module("synth_ai.task.apps")
+    _task_apps_module = importlib.import_module("synth_ai.sdk.task.apps")
     ModalDeploymentConfig = _task_apps_module.ModalDeploymentConfig
     TaskAppConfig = _task_apps_module.TaskAppConfig
     TaskAppEntry = _task_apps_module.TaskAppEntry
@@ -148,7 +148,7 @@ def _candidate_search_roots() -> list[Path]:
     roots: list[Path] = []
 
     try:
-        demo_module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        demo_module = importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
     except Exception:
         demo_module = None
     if demo_module:
@@ -442,7 +442,7 @@ def _collect_modal_scripts() -> list[AppChoice]:
 def _app_choice_sort_key(choice: AppChoice) -> tuple[int, int, int, int, int, str, str]:
     demo_rank = 1
     try:
-        demo_module = importlib.import_module("synth_ai.demos.demo_task_apps.core")
+        demo_module = importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
     except Exception:
         demo_module = None
     if demo_module:
@@ -647,7 +647,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
     registry.clear()
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        importlib.import_module("synth_ai.demos.demo_task_apps")
+        importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps")
     choices.extend(_collect_registered_choices())
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())

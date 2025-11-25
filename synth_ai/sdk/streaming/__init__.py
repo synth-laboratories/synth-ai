@@ -1,36 +1,31 @@
-"""Streaming SDK - consume training events.
-
-This module provides utilities for streaming training events
-during job execution for real-time monitoring.
-
-Example:
-    from synth_ai.sdk.streaming import JobStreamer, StreamConfig
-    
-    streamer = JobStreamer(config)
-    async for message in streamer.stream():
-        print(f"Event: {message}")
-"""
-
-from __future__ import annotations
-
-# Re-export from existing location
-from synth_ai.streaming import (
-    JobStreamer,
-    StreamConfig,
-    StreamEndpoints,
-    StreamMessage,
-    StreamType,
-    StreamHandler,
+from .config import StreamConfig
+from .handlers import (
+    BufferedHandler,
     CallbackHandler,
+    CLIHandler,
+    IntegrationTestHandler,
+    JSONHandler,
+    LossCurveHandler,
+    PromptLearningHandler,
+    RichHandler,
+    StreamHandler,
 )
+from .streamer import JobStreamer, StreamEndpoints
+from .types import StreamMessage, StreamType
 
 __all__ = [
+    "BufferedHandler",
+    "CallbackHandler",
+    "CLIHandler",
+    "PromptLearningHandler",
+    "IntegrationTestHandler",
+    "JSONHandler",
+    "LossCurveHandler",
     "JobStreamer",
-    "StreamConfig",
+    "RichHandler",
     "StreamEndpoints",
+    "StreamConfig",
+    "StreamHandler",
     "StreamMessage",
     "StreamType",
-    "StreamHandler",
-    "CallbackHandler",
 ]
-

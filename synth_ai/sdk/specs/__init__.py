@@ -1,26 +1,23 @@
-"""Specs SDK - system specification loading and validation.
+"""System specification abstractions for synth-ai.
 
-This module provides utilities for working with system specifications:
-- Loading specs from files or dicts
-- Validating spec structure
-- Converting specs to prompt context
-
-Example:
-    from synth_ai.sdk.specs import load_spec_from_file, spec_to_prompt_context
-    
-    spec = load_spec_from_file("my_spec.yaml")
-    context = spec_to_prompt_context(spec)
+Provides hierarchical specification format inspired by Sean Grove's "spec as code" pattern.
+Specs encode intent, policies, and rules as versioned, testable artifacts.
 """
 
-from __future__ import annotations
-
-# Re-export from existing location
-from synth_ai.spec import (
+from synth_ai.sdk.specs.dataclasses import (
+    Constraints,
+    Example,
+    GlossaryItem,
+    Interfaces,
+    Metadata,
+    Principle,
+    Rule,
     Spec,
-    load_spec_from_dict,
-    load_spec_from_file,
-    spec_to_compact_context,
-    spec_to_prompt_context,
+    TestCase,
+)
+from synth_ai.sdk.specs.loader import load_spec_from_dict, load_spec_from_file
+from synth_ai.sdk.specs.serializer import spec_to_compact_context, spec_to_prompt_context
+from synth_ai.sdk.specs.validation import (
     SpecValidationError,
     SpecValidator,
     validate_spec_dict,
@@ -28,15 +25,19 @@ from synth_ai.spec import (
 )
 
 __all__ = [
-    # Types
     "Spec",
-    # Loading
-    "load_spec_from_dict",
+    "Metadata",
+    "Principle",
+    "Rule",
+    "Constraints",
+    "Example",
+    "TestCase",
+    "Interfaces",
+    "GlossaryItem",
     "load_spec_from_file",
-    # Serialization
+    "load_spec_from_dict",
     "spec_to_prompt_context",
     "spec_to_compact_context",
-    # Validation
     "SpecValidator",
     "SpecValidationError",
     "validate_spec_dict",

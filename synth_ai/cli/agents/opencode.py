@@ -4,7 +4,7 @@ from typing import Any
 
 import click
 from synth_ai.data.enums import SYNTH_MODEL_NAMES
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
+from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
 from synth_ai.utils import (
     create_and_write_json,
     get_backend_from_env,

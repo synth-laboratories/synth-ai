@@ -66,14 +66,14 @@ ModalDeploymentConfigType = TaskAppConfigType = TaskAppEntryType = Any
 
 try:  # Resolve base URL defaults lazily
     _config_module = cast(
-        Any, importlib.import_module("synth_ai.config.base_url")
+        Any, importlib.import_module("synth_ai.core.env")
     )
     PROD_BASE_URL_DEFAULT = cast(str, _config_module.PROD_BASE_URL_DEFAULT)
 except Exception:  # pragma: no cover - fallback
     PROD_BASE_URL_DEFAULT = "https://agent-learning.onrender.com"
 
 try:
-    _task_apps_module = cast(Any, importlib.import_module("synth_ai.task.apps"))
+    _task_apps_module = cast(Any, importlib.import_module("synth_ai.sdk.task.apps"))
     ModalDeploymentConfig = cast(
         type[ModalDeploymentConfigType], _task_apps_module.ModalDeploymentConfig
     )
@@ -84,7 +84,7 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load task app registry") from exc
 
 try:
-    _task_server_module = cast(Any, importlib.import_module("synth_ai.task.server"))
+    _task_server_module = cast(Any, importlib.import_module("synth_ai.sdk.task.server"))
     create_task_app = cast(Callable[..., Any], _task_server_module.create_task_app)
     run_task_app = cast(Callable[..., Any], _task_server_module.run_task_app)
 except Exception as exc:  # pragma: no cover - critical dependency
@@ -96,7 +96,7 @@ def _load_demo_directory() -> Path | None:
 
     try:
         module = cast(
-            Any, importlib.import_module("synth_ai.demos.demo_task_apps.core")
+            Any, importlib.import_module("synth_ai.cli.demo_apps.demo_task_apps.core")
         )
         loader = cast(Callable[[], str | Path | None], module.load_demo_dir)
         demo_dir = loader()
@@ -629,7 +629,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
 
     choices: list[AppChoice] = []
     with contextlib.suppress(Exception):
-        _maybe_import("synth_ai.demos.demo_task_apps")
+        _maybe_import("synth_ai.cli.demo_apps.demo_task_apps")
     # Only use discovered task apps, not registered ones (since we moved them to examples)
     choices.extend(_collect_scanned_task_configs())
     choices.extend(_collect_modal_scripts())
@@ -1101,7 +1101,7 @@ def _safe_import_context() -> Iterator[None]:
 
     try:
         _task_server_patch = cast(
-            Any, importlib.import_module("synth_ai.task.server")
+            Any, importlib.import_module("synth_ai.sdk.task.server")
         )
         run_task_app_orig = cast(Callable[..., Any], _task_server_patch.run_task_app)
         _task_server_patch.run_task_app = (  # type: ignore[assignment]
@@ -1125,7 +1125,7 @@ def _safe_import_context() -> Iterator[None]:
         if run_task_app_orig is not None:
             try:
                 _task_server_patch = cast(
-                    Any, importlib.import_module("synth_ai.task.server")
+                    Any, importlib.import_module("synth_ai.sdk.task.server")
                 )
                 _task_server_patch.run_task_app = run_task_app_orig  # type: ignore[assignment]
             except Exception:
@@ -1698,7 +1698,7 @@ def _preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_fail
 
         minted = False
         if not env_api_key:
-            secrets_module = _maybe_import("synth_ai.learning.rl.secrets")
+            secrets_module = _maybe_import("synth_ai.sdk.learning.rl.secrets")
             try:
                 if secrets_module is None:
                     raise RuntimeError("secrets module unavailable")
@@ -2463,7 +2463,7 @@ def info_command(base_url: str | None, api_key: str | None, seeds: tuple[int, ..
     base = (base_url or _os.getenv("TASK_APP_BASE_URL") or "http://127.0.0.1:8001").rstrip("/")
 
     # Resolve API key, permitting dev fallbacks
-    auth_module = _maybe_import("synth_ai.task.auth")
+    auth_module = _maybe_import("synth_ai.sdk.task.auth")
     if auth_module is not None:
         _norm_key = getattr(auth_module, "normalize_environment_api_key", lambda: _os.getenv("ENVIRONMENT_API_KEY"))
     else:
@@ -3101,8 +3101,8 @@ def fastapi_app():
         raise RuntimeError("Task app import failed: " + str(e))
 
     # Get the entry from registry (now that it's registered)
-    from synth_ai.task.apps import registry
-    from synth_ai.task.server import create_task_app
+    from synth_ai.sdk.task.apps import registry
+    from synth_ai.sdk.task.server import create_task_app
     entry = registry.get(ENTRY_ID)
     cfg = entry.modal
     if cfg is None:

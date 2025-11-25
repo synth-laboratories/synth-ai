@@ -10,14 +10,14 @@ from pathlib import Path
 from typing import Any, Optional, Sequence
 
 import click
-from synth_ai.baseline.config import BaselineResults
-from synth_ai.baseline.discovery import (
+from synth_ai.sdk.baseline.config import BaselineResults
+from synth_ai.sdk.baseline.discovery import (
     BASELINE_FILE_PATTERNS,
     BaselineChoice,
     discover_baseline_files,
     load_baseline_config_from_file,
 )
-from synth_ai.baseline.execution import aggregate_results, run_baseline_evaluation
+from synth_ai.sdk.baseline.execution import aggregate_results, run_baseline_evaluation
 
 
 class BaselineGroup(click.Group):

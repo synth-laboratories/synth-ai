@@ -11,7 +11,7 @@ _validators_module: Any | None = None
 validate_task_app: Callable[..., Any] | None = None
 
 try:
-    _validators_module = importlib.import_module("synth_ai.task.validators")
+    _validators_module = importlib.import_module("synth_ai.sdk.task.validators")
 except Exception:
     _validators_module = None
 

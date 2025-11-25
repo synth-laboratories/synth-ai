@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass
 
 import click
-from synth_ai.config.base_url import get_backend_from_env
+from synth_ai.core.env import get_backend_from_env
 
 DEFAULT_TIMEOUT = 30.0
 

@@ -15,9 +15,9 @@ DEFAULT_TIMEOUT = 30.0
 
 
 def _load_backend_helpers() -> tuple[str, Callable[[], tuple[str, str]] | None]:
-    """Attempt to load shared backend helpers from synth_ai.config.base_url."""
+    """Attempt to load shared backend helpers from synth_ai.core.env."""
     try:
-        module = importlib.import_module("synth_ai.config.base_url")
+        module = importlib.import_module("synth_ai.core.env")
     except Exception:
         return "https://agent-learning.onrender.com", None
 

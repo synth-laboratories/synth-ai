@@ -12,8 +12,8 @@ except Exception:
     # Silently fail if log filter can't be installed
     pass
 
-# NOTE: environments/ moved to synth-research repo (see refactor_spec.txt Q1)
-from synth_ai.judge_schemas import (
+# Judge schemas moved to sdk/judging/schemas.py
+from synth_ai.sdk.judging.schemas import (
     CriterionScorePayload,
     JudgeOptions,
     JudgeScoreRequest,

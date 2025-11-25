@@ -20,7 +20,7 @@ from rich.table import Table
 
 def _load_base_url_module() -> tuple[str, Callable[[], tuple[str, str]]]:
     try:
-        module = cast(Any, importlib.import_module("synth_ai.config.base_url"))
+        module = cast(Any, importlib.import_module("synth_ai.core.env"))
         default = cast(str, module.PROD_BASE_URL_DEFAULT)
         getter = cast(Callable[[], tuple[str, str]], module.get_backend_from_env)
         return str(default), getter

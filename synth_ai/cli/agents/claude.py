@@ -2,7 +2,7 @@ import os
 import subprocess
 
 import click
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
+from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
 from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bin, write_agents_md
 
 

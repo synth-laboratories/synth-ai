@@ -6,10 +6,17 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
-from synth_ai import __version__ as sdk_version
-
 from .base_url import get_backend_from_env
 from .http import http_request
+
+
+def _get_sdk_version() -> str:
+    """Lazy import of SDK version to avoid circular imports."""
+    try:
+        from synth_ai import __version__
+        return __version__
+    except ImportError:
+        return "0.0.0"
 
 Severity = str
 
@@ -110,7 +117,7 @@ def _build_entry(
         "level": normalized_level,
         "message": safe_message,
         "timestamp": datetime.now(UTC).isoformat(),
-        "sdk_version": sdk_version,
+        "sdk_version": _get_sdk_version(),
         "request_id": req_id or uuid.uuid4().hex,
         "attributes": _normalize_mapping(attributes),
         "context": _normalize_mapping(ctx),

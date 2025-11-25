@@ -5,15 +5,28 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse, urlunparse
 
-from synth_ai.demos import core as demo_core
-from synth_ai.demos.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
 from synth_ai.utils.env import mask_str
 from synth_ai.utils.http import http_request
 from synth_ai.utils.process import popen_capture
 from synth_ai.utils.user_config import load_user_config
+
+if TYPE_CHECKING:
+    from synth_ai.cli.demo_apps.core import DemoEnv
+
+
+def _get_demo_core():
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.demo_apps import core as demo_core
+    return demo_core
+
+
+def _get_default_task_app_secret_name():
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.demo_apps.core import DEFAULT_TASK_APP_SECRET_NAME
+    return DEFAULT_TASK_APP_SECRET_NAME
 
 
 def is_modal_public_url(url: str | None) -> bool:
@@ -99,7 +112,9 @@ def find_asgi_apps(root: Path) -> list[Path]:
     return results
 
 
-def ensure_task_app_ready(env: DemoEnv, synth_key: str, *, label: str) -> DemoEnv:
+def ensure_task_app_ready(env: "DemoEnv", synth_key: str, *, label: str) -> "DemoEnv":
+    demo_core = _get_demo_core()
+    DEFAULT_TASK_APP_SECRET_NAME = _get_default_task_app_secret_name()
     persist_path = demo_core.load_demo_dir() or os.getcwd()
     user_config_map = load_user_config()
 
@@ -285,6 +300,7 @@ def ensure_modal_installed() -> None:
             print("Warning: unable to verify modal installation.")
             return
 
+    demo_core = _get_demo_core()
     auth_ok, auth_msg = demo_core.modal_auth_status()
     if auth_ok:
         print(f"✓ Modal authenticated: {auth_msg}")

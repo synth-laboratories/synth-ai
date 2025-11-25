@@ -10,8 +10,8 @@ from pathlib import Path
 
 import click
 from click.exceptions import Abort
-from synth_ai.config.base_url import PROD_BASE_URL_DEFAULT
-from synth_ai.task.apps import TaskAppEntry
+from synth_ai.core.env import PROD_BASE_URL_DEFAULT
+from synth_ai.sdk.task.apps import TaskAppEntry
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -263,7 +263,7 @@ def print_demo_next_steps_if_applicable() -> None:
     """Print helpful instructions when operating inside a demo directory."""
 
     try:
-        from synth_ai.demos.demo_task_apps.core import load_demo_dir
+        from synth_ai.cli.demo_apps.demo_task_apps.core import load_demo_dir
 
         cwd = Path.cwd().resolve()
         demo_dir = load_demo_dir()
@@ -308,7 +308,7 @@ def preflight_env_key(env_paths: Sequence[Path] | None = None, *, crash_on_failu
 
     def _mint_key() -> str | None:
         try:
-            from synth_ai.learning.rl.secrets import mint_environment_api_key
+            from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
 
             key = mint_environment_api_key()
             os.environ["ENVIRONMENT_API_KEY"] = key

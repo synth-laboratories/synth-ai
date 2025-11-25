@@ -106,8 +106,8 @@ _maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 # Register scan command
 _maybe_call("synth_ai.cli.commands.scan", "register", cli)
 
-# Train CLI lives under synth_ai.api.train
-_maybe_call("synth_ai.api.train", "register", cli)
+# Train CLI lives under synth_ai.sdk.api.train
+_maybe_call("synth_ai.sdk.api.train", "register", cli)
 
 # Task app group/commands are optional and have richer API surface
 _task_apps_module = _maybe_import("synth_ai.cli.task_apps")
@@ -136,4 +136,4 @@ _maybe_call("synth_ai.cli.utils.queue", "register", cli)
 _maybe_call("synth_ai.cli.commands.artifacts", "register", cli)
 
 # Research Agent commands
-_maybe_call("synth_ai.api.research_agent", "register", cli)
+_maybe_call("synth_ai.sdk.api.research_agent", "register", cli)

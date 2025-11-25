@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import click
-from synth_ai.task.config import EvalConfig
+from synth_ai.sdk.task.config import EvalConfig
 from synth_ai.tracing_v3.session_tracer import SessionTracer
 from synth_ai.utils.task_app_discovery import discover_eval_config_paths
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from synth_ai._utils.http import AsyncHttpClient
+from synth_ai.core._utils.http import AsyncHttpClient
 
 logger = logging.getLogger(__name__)
 

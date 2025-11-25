@@ -12,9 +12,9 @@ from fastapi.routing import APIRoute, APIRouter
 from fastapi.testclient import TestClient
 from starlette.middleware import Middleware
 from starlette.types import ASGIApp
-from synth_ai.task.contracts import TaskInfo
-from synth_ai.task.datasets import TaskDatasetRegistry
-from synth_ai.task.server import ProxyConfig, RubricBundle, TaskAppConfig
+from synth_ai.sdk.task.contracts import TaskInfo
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry
+from synth_ai.sdk.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.utils.cli import ctx_print
 from synth_ai.utils.paths import is_hidden_path, validate_file_type
 

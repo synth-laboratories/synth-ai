@@ -79,7 +79,7 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
 
     def _mint_key() -> str | None:
         try:
-            from synth_ai.learning.rl.secrets import mint_environment_api_key
+            from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
 
             key = mint_environment_api_key()
             os.environ["ENVIRONMENT_API_KEY"] = key

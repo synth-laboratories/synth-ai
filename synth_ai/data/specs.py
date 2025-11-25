@@ -9,7 +9,7 @@ Specs are the source of truth that encode intent, policies, and rules.
 
 from __future__ import annotations
 
-from synth_ai.spec.dataclasses import (
+from synth_ai.sdk.specs.dataclasses import (
     Constraints,
     Example,
     GlossaryItem,

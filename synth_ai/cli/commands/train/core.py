@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import click
-from synth_ai.api.train.cli import (
+from synth_ai.sdk.api.train.cli import (
     register as _register_with_cli,
 )
-from synth_ai.api.train.cli import (
+from synth_ai.sdk.api.train.cli import (
     train_command as _train_command,
 )
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from pydantic import Field, model_validator
-from synth_ai.api.train.configs.shared import ExtraModel
+from synth_ai.sdk.api.train.configs.shared import ExtraModel
 
 __all__ = [
     "RubricWeightsConfig",

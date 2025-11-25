@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
-from synth_ai.http_client import AsyncHttpClient, HTTPError
+from synth_ai.core.http import AsyncHttpClient, HTTPError
 from .exceptions import (
     InvalidLimitError,
     SessionNotActiveError,

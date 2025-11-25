@@ -21,7 +21,7 @@ from typing import Any, cast
 import click
 from click.exceptions import Exit
 
-demo_commands = cast(Any, importlib.import_module("synth_ai.demos.core.cli"))
+demo_commands = cast(Any, importlib.import_module("synth_ai.cli.demo_apps.core.cli"))
 
 
 def _run_demo_command(func, *args, **kwargs) -> None:

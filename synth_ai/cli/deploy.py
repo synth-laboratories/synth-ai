@@ -3,14 +3,14 @@ from pathlib import Path
 from typing import Literal, TypeAlias, cast, get_args
 
 import click
-from synth_ai.cfgs import CFDeployCfg, LocalDeployCfg, ModalDeployCfg
-from synth_ai.cloudflare import deploy_app_tunnel
-from synth_ai.modal import deploy_app_modal
+from synth_ai.core.cfgs import CFDeployCfg, LocalDeployCfg, ModalDeployCfg
+from synth_ai.core.integrations.cloudflare import deploy_app_tunnel
+from synth_ai.core.integrations.modal import deploy_app_modal
 from synth_ai.utils import flush_logger, log_error, log_info
 from synth_ai.utils.apps.task_app import find_task_apps_in_cwd
 from synth_ai.utils.env import get_synth_and_env_keys
 from synth_ai.utils.paths import print_paths_formatted
-from synth_ai.uvicorn import deploy_app_uvicorn
+from synth_ai.core.uvicorn import deploy_app_uvicorn
 
 RuntimeType: TypeAlias = Literal[
     "local",

@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from synth_ai.cli.commands.scan.health_checker import check_app_health, extract_app_info
 from synth_ai.cli.commands.scan.models import ScannedApp
-from synth_ai.urls import BACKEND_URL_BASE
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 # Regex for parsing quick tunnel URLs from cloudflared output
 _QUICK_TUNNEL_URL_RE = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com", re.I)
@@ -213,7 +213,7 @@ def get_tunnel_processes() -> dict[int, Any]:
         Dict mapping port -> process handle
     """
     try:
-        from synth_ai.cloudflare import _TUNNEL_PROCESSES
+        from synth_ai.core.integrations.cloudflare import _TUNNEL_PROCESSES
 
         return _TUNNEL_PROCESSES.copy()
     except Exception:

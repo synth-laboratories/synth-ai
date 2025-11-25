@@ -420,7 +420,7 @@ def start_cmd(
     base_cmd = [
         celery_bin,
         "-A",
-        "synth_ai.experiment_queue.celery_app",
+        "synth_ai.cli.local.experiment_queue.celery_app",
         "worker",
         "--loglevel",
         loglevel,

@@ -20,7 +20,7 @@ from .models import Experiment, ExperimentJob, ExperimentJobStatus
 
 logger = logging.getLogger(__name__)
 
-TASK_NAME = "synth_ai.experiment_queue.run_experiment_job"
+TASK_NAME = "synth_ai.cli.local.experiment_queue.run_experiment_job"
 
 
 def _active_jobs_query(experiment_id: str) -> Select[tuple[int]]:

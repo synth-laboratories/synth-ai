@@ -32,7 +32,7 @@ from synth_ai.sdk.training import (
 )
 
 # Task Apps
-from synth_ai.sdk.task_apps import (
+from synth_ai.sdk.task import (
     InProcessTaskApp,
     TaskAppConfig,
     create_task_app,
@@ -54,7 +54,7 @@ from synth_ai.sdk.specs import (
 )
 
 # Research Agent
-from synth_ai.sdk.research_agent import ResearchAgentJob, ResearchAgentJobConfig
+from synth_ai.sdk.api.research_agent import ResearchAgentJob, ResearchAgentJobConfig
 
 # Jobs API Client
 from synth_ai.sdk.jobs import JobsClient

@@ -199,7 +199,7 @@ def _poll_backend_progress(
     from .api_schemas import BackendJobEvent  # noqa: F811
     
     # Get logger for this thread (logger from parent thread may not work correctly)
-    poller_logger = logging.getLogger(f"synth_ai.experiment_queue.poller.{backend_job_id}")
+    poller_logger = logging.getLogger(f"synth_ai.cli.local.experiment_queue.poller.{backend_job_id}")
     
     # Set log level from environment variable if set (allows --loglevel flag to control verbosity)
     # Use Celery's logger hierarchy instead of creating our own handler to avoid duplicates
@@ -1007,7 +1007,7 @@ def _finalize_job(
         return summary.to_dict()
 
 
-@celery_app.task(bind=True, name="synth_ai.experiment_queue.run_experiment_job")
+@celery_app.task(bind=True, name="synth_ai.cli.local.experiment_queue.run_experiment_job")
 def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
     """Celery task entrypoint for running a prompt learning experiment job.
     
@@ -1908,7 +1908,7 @@ def run_experiment_job(self, job_id: str) -> dict[str, Any] | None:
     )
 
 
-@celery_app.task(name="synth_ai.experiment_queue.process_experiment_queue")
+@celery_app.task(name="synth_ai.cli.local.experiment_queue.process_experiment_queue")
 def process_experiment_queue() -> dict[str, Any]:
     """Periodic task that checks for queued jobs and dispatches them.
     
