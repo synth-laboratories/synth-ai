@@ -8,7 +8,7 @@ from importlib import import_module
 from synth_ai.sdk.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
 
 try:
-    from synth_ai.sdk.task.apps.math_single_step import (
+    from synth_ai.sdk.task.apps.math_single_step import (  # type: ignore[unresolved-import]
         build_config as base_build_config,  # type: ignore[import-untyped]
     )
 except ModuleNotFoundError:
