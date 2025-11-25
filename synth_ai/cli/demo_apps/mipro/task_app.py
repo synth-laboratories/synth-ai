@@ -78,8 +78,9 @@ class Banking77Dataset:
                 from datasets import load_dataset as _load_dataset  # lazy import
                 ds = _load_dataset(DATASET_NAME, split=split, trust_remote_code=False)
                 self._cache[split] = ds
-                if self._label_names is None and hasattr(ds.features.get("label"), "names"):
-                    self._label_names = ds.features["label"].names
+                label_feature = ds.features.get("label")  # type: ignore[attr-defined]
+                if self._label_names is None and label_feature is not None and hasattr(label_feature, "names"):
+                    self._label_names = label_feature.names
             except Exception as exc:
                 raise RuntimeError(
                     f"Dataset preparation failed: {split}: Failed to download Banking77 dataset from Hugging Face. "
@@ -365,7 +366,7 @@ async def call_chat_completion(
         if response.status_code != 200:
             try:
                 error_json = response.json()
-                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))
+                error_msg = str(error_json.get("error", {}).get("message", error_json.get("error", "Unknown error")))  # type: ignore[misc]
                 print(f"[TASK_APP] ❌ Error response from interceptor: {error_msg}", flush=True)
                 raise HTTPException(
                     status_code=response.status_code,
@@ -396,10 +397,10 @@ async def call_chat_completion(
         response.raise_for_status()
 
     with contextlib.suppress(Exception):
-        usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}
-        ch = (response_json.get("choices") or [{}])[0]
-        txt = (ch.get("message", {}) or {}).get("content", "")
-        tc = (ch.get("message", {}) or {}).get("tool_calls", [])
+        usage = response_json.get("usage", {}) if isinstance(response_json, dict) else {}  # type: ignore[misc]
+        ch = (response_json.get("choices") or [{}])[0]  # type: ignore[misc]
+        txt = (ch.get("message", {}) or {}).get("content", "")  # type: ignore[misc]
+        tc = (ch.get("message", {}) or {}).get("tool_calls", [])  # type: ignore[misc]
         print(
             f"[TASK_APP] RESPONSE: usage={usage} choices={len(response_json.get('choices', []))} first_len={len(txt)} tool_calls={len(tc)}",
             flush=True,
@@ -407,24 +408,24 @@ async def call_chat_completion(
 
     # Hard assertions: require either tool_calls or non-empty content
     try:
-        choices = response_json.get("choices") or []
-        first_msg = (choices[0] or {}).get("message", {}) if choices else {}
-        tool_calls = first_msg.get("tool_calls", []) or []
-        content_text = str(first_msg.get("content", ""))
+        choices = response_json.get("choices") or []  # type: ignore[misc]
+        first_msg = (choices[0] or {}).get("message", {}) if choices else {}  # type: ignore[misc]
+        tool_calls = first_msg.get("tool_calls", []) or []  # type: ignore[misc]
+        content_text = str(first_msg.get("content", ""))  # type: ignore[misc]
         if not tool_calls and not content_text.strip():
             raise HTTPException(status_code=502, detail="Empty model output: no tool_calls and no content")
         # If tool_calls present, validate schema
         if tool_calls:
             for call in tool_calls:
-                fn = (call or {}).get("function", {}) or {}
-                if fn.get("name") != TOOL_NAME:
-                    raise HTTPException(status_code=502, detail=f"Unexpected tool name: {fn.get('name')}")
-                args_raw = fn.get("arguments", "{}")
+                fn = (call or {}).get("function", {}) or {}  # type: ignore[misc]
+                if fn.get("name") != TOOL_NAME:  # type: ignore[misc]
+                    raise HTTPException(status_code=502, detail=f"Unexpected tool name: {fn.get('name')}")  # type: ignore[misc]
+                args_raw = fn.get("arguments", "{}")  # type: ignore[misc]
                 try:
                     args = json.loads(args_raw)
                 except Exception as e:
                     raise HTTPException(status_code=502, detail="Tool call arguments not valid JSON") from e
-                if not str(args.get("intent", "")).strip():
+                if not str(args.get("intent", "")).strip():  # type: ignore[misc]
                     raise HTTPException(status_code=502, detail="Tool call missing 'intent'")
     except HTTPException:
         raise
@@ -601,11 +602,11 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     )
 
     inference_url = (request.policy.config or {}).get("inference_url")
-    trajectory = RolloutTrajectory(
+    trajectory = RolloutTrajectory(  # type: ignore[call-overload]
         env_id=f"banking77::{sample['split']}::{sample['index']}",
         policy_id=request.policy.policy_id or request.policy.policy_name or "policy",
         steps=[step],
-        final={"observation": observation, "reward": reward},
+        final={"observation": observation, "reward": reward},  # type: ignore[arg-type]
         length=1,
         inference_url=str(inference_url or ""),
     )
@@ -658,8 +659,8 @@ def build_dataset() -> tuple[TaskDatasetRegistry, Banking77Dataset]:
 
 
 def _base_task_info() -> TaskInfo:
-    return TaskInfo(
-        task={
+    return TaskInfo(  # type: ignore[call-overload]
+        task={  # type: ignore[arg-type]
             "id": "banking77",
             "name": "Banking77 Intent Classification",
             "version": "1.0.0",
@@ -670,21 +671,21 @@ def _base_task_info() -> TaskInfo:
             },
         },
         environment="banking77",
-        dataset={
+        dataset={  # type: ignore[arg-type]
             **BANKING77_DATASET_SPEC.model_dump(),
             "hf_dataset": DATASET_NAME,
         },
-        rubric={
+        rubric={  # type: ignore[arg-type]
             "version": "1",
             "criteria_count": 1,
             "source": "inline",
         },
-        inference={
+        inference={  # type: ignore[arg-type]
             "supports_proxy": True,
             "tool": TOOL_NAME,
         },
-        limits={"max_turns": 1},
-        task_metadata={"format": "tool_call"},
+        limits={"max_turns": 1},  # type: ignore[arg-type]
+        task_metadata={"format": "tool_call"},  # type: ignore[arg-type]
     )
 
 
@@ -701,10 +702,10 @@ def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> I
     base_info = _base_task_info()
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
-        yield TaskInfo(
+        yield TaskInfo(  # type: ignore[call-overload]
             task=base_info.task,
             environment=base_info.environment,
-            dataset={
+            dataset={  # type: ignore[arg-type]
                 **base_info.dataset,
                 "split": sample["split"],
                 "index": sample["index"],
@@ -884,9 +885,9 @@ def fastapi_app():
             hdr = request.headers
             snapshot = {
                 "path": str(request.url.path),
-                "have_x_api_key": bool(hdr.get("x-api-key")),
-                "have_x_api_keys": bool(hdr.get("x-api-keys")),
-                "have_authorization": bool(hdr.get("authorization")),
+                "have_x_api_key": bool(hdr.get("x-api-key")),  # type: ignore[misc]
+                "have_x_api_keys": bool(hdr.get("x-api-keys")),  # type: ignore[misc]
+                "have_authorization": bool(hdr.get("authorization")),  # type: ignore[misc]
                 "errors": exc.errors()[:5],
             }
             print("[422] validation", snapshot, flush=True)

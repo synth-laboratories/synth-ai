@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import click
+
 from synth_ai.sdk.api.train.cli import (
     register as _register_with_cli,
 )

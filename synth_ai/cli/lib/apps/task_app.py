@@ -12,12 +12,7 @@ from fastapi.routing import APIRoute, APIRouter
 from fastapi.testclient import TestClient
 from starlette.middleware import Middleware
 from starlette.types import ASGIApp
-from synth_ai.sdk.task.contracts import TaskInfo
-from synth_ai.sdk.task.datasets import TaskDatasetRegistry
-from synth_ai.sdk.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 from synth_ai.cli.lib.prompts import ctx_print
-from synth_ai.core.paths import is_hidden_path, validate_file_type
-
 from synth_ai.core.apps.common import (
     build_fastapi_route_index,
     extract_routes_from_app,
@@ -25,6 +20,10 @@ from synth_ai.core.apps.common import (
     load_module,
     validate_py_file_compiles,
 )
+from synth_ai.core.paths import is_hidden_path, validate_file_type
+from synth_ai.sdk.task.contracts import TaskInfo
+from synth_ai.sdk.task.datasets import TaskDatasetRegistry
+from synth_ai.sdk.task.server import ProxyConfig, RubricBundle, TaskAppConfig
 
 
 def validate_required_routes_exist(app: ASGIApp) -> None:
@@ -360,7 +359,7 @@ def test_route_contracts(app: ASGIApp) -> None:
     rollout_trace_id = "trace_contract_validation"
 
     try:
-        with TestClient(cast(ASGIApp, app)) as client:
+        with TestClient(cast(ASGIApp, app)) as client:  # type: ignore[redundant-cast]
             for path, spec in ROUTE_CONTRACTS.items():
                 headers = auth_headers if spec.get("require_auth") else {}
                 params = None

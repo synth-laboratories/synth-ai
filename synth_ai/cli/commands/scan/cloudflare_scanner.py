@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
 from synth_ai.cli.commands.scan.health_checker import check_app_health, extract_app_info
 from synth_ai.cli.commands.scan.models import ScannedApp
 from synth_ai.core.urls import BACKEND_URL_BASE

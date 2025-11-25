@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal, TypeAlias, get_args
 
 import click
+
 from synth_ai.core.paths import REPO_ROOT
 
 DemoType: TypeAlias = Literal[

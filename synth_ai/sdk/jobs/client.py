@@ -1,3 +1,32 @@
+"""Jobs API client for managing training jobs, files, and models.
+
+This module provides a unified interface for interacting with Synth AI's job APIs,
+including file uploads, SFT jobs, RL jobs, and model management.
+
+Example:
+    >>> from synth_ai.sdk.jobs import JobsClient
+    >>> 
+    >>> async with JobsClient(
+    ...     base_url="https://api.usesynth.ai",
+    ...     api_key=os.environ["SYNTH_API_KEY"],
+    ... ) as client:
+    ...     # Upload training data
+    ...     file_result = await client.files.upload(
+    ...         filename="train.jsonl",
+    ...         content=b"...",
+    ...         purpose="training",
+    ...     )
+    ...     
+    ...     # Create SFT job
+    ...     job = await client.sft.create(
+    ...         training_file=file_result["id"],
+    ...         model="Qwen/Qwen3-4B",
+    ...     )
+    ...     
+    ...     # Check job status
+    ...     status = await client.sft.retrieve(job["id"])
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -269,7 +298,46 @@ class ModelsApi:
 
 
 class JobsClient:
-    """High-level client aggregating job APIs."""
+    """High-level client for interacting with Synth AI job APIs.
+    
+    This client provides a unified interface for managing training jobs, files, and models
+    across different job types (SFT, RL, prompt learning). It aggregates multiple API
+    endpoints into a single, easy-to-use interface.
+    
+    The client is an async context manager, so it should be used with `async with`:
+    
+    Example:
+        >>> from synth_ai.sdk.jobs import JobsClient
+        >>> 
+        >>> async with JobsClient(
+        ...     base_url="https://api.usesynth.ai",
+        ...     api_key=os.environ["SYNTH_API_KEY"],
+        ... ) as client:
+        ...     # Upload a file
+        ...     file_result = await client.files.upload(
+        ...         filename="data.jsonl",
+        ...         content=b"...",
+        ...         purpose="training",
+        ...     )
+        ...     
+        ...     # Create an SFT job
+        ...     job_result = await client.sft.create(
+        ...         training_file=file_result["id"],
+        ...         model="Qwen/Qwen3-4B",
+        ...     )
+        ...     
+        ...     # Check RL job status
+        ...     rl_status = await client.rl.retrieve("rl_job_123")
+        ...     
+        ...     # List models
+        ...     models = await client.models.list()
+    
+    Attributes:
+        files: FilesApi - File upload and management
+        sft: SftJobsApi - Supervised fine-tuning jobs
+        rl: RlJobsApi - Reinforcement learning jobs
+        models: ModelsApi - Model management
+    """
 
     def __init__(
         self,
@@ -278,6 +346,14 @@ class JobsClient:
         timeout: float = 30.0,
         http: AsyncHttpClient | None = None,
     ) -> None:
+        """Initialize the Jobs API client.
+        
+        Args:
+            base_url: Base URL for the Synth AI API (e.g., "https://api.usesynth.ai")
+            api_key: API key for authentication
+            timeout: Request timeout in seconds (default: 30.0)
+            http: Optional pre-configured HTTP client (for testing/customization)
+        """
         self._base_url = base_url
         self._api_key = api_key
         self._timeout = timeout

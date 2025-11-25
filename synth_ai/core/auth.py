@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import requests
 from requests import RequestException
+
 from synth_ai.core.urls import FRONTEND_URL_BASE
 
 INIT_URL = FRONTEND_URL_BASE + "/api/sdk/handshake/init"

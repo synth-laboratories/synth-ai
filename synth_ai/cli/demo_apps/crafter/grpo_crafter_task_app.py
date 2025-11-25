@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
+
 from synth_ai.sdk.task.apps import ModalDeploymentConfig, TaskAppEntry, registry
 from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.sdk.task.server import TaskAppConfig, create_task_app, run_task_app
@@ -50,11 +51,11 @@ def _load_build_config():
         with suppress(ValueError):
             original_register(entry)
 
-    task_apps.registry.register = _safe_register
+    task_apps.registry.register = _safe_register  # type: ignore[assignment]
     try:
         spec.loader.exec_module(module)
     finally:
-        task_apps.registry.register = original_register
+        task_apps.registry.register = original_register  # type: ignore[assignment]
     return module.build_config
 
 

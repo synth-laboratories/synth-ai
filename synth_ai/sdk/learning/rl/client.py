@@ -5,12 +5,11 @@ from collections.abc import Callable
 from contextlib import suppress
 from typing import Any
 
+from synth_ai.core._utils.http import AsyncHttpClient, HTTPError, sleep
 from synth_ai.sdk.api.models.supported import (
     UnsupportedModelError,
     normalize_model_identifier,
 )
-
-from synth_ai.core._utils.http import AsyncHttpClient, HTTPError, sleep
 
 
 def _api_base(b: str) -> str:

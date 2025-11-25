@@ -4,6 +4,7 @@ import typing
 from pathlib import Path
 
 import click
+
 from synth_ai.core.integrations.mcp.claude import ClaudeConfig
 
 Agent = typing.Literal[

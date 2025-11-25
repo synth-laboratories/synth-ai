@@ -1,8 +1,8 @@
 import json
 import os
 
-from synth_ai.core.auth import AuthSession, fetch_data, init_auth_session
 from synth_ai.cli.lib.env import mask_str, write_env_var_to_dotenv, write_env_var_to_json
+from synth_ai.core.auth import AuthSession, fetch_data, init_auth_session
 
 
 def setup_start() -> str:

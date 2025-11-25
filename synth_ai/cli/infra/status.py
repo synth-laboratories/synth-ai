@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import click
+
 from synth_ai.cli.commands.status import register as _register_status
 
 

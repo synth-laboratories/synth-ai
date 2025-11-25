@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import click
-from synth_ai.core.paths import print_paths_formatted
+
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
+from synth_ai.core.paths import print_paths_formatted
 
 
 @click.command()

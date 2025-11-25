@@ -3,3 +3,4 @@
 from synth_ai.core.integrations.mcp.main import main
 
 __all__ = ["main"]
+

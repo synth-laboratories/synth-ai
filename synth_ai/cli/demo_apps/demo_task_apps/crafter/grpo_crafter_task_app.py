@@ -15,6 +15,7 @@ from pathlib import Path
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
+
 from synth_ai.sdk.task.apps import ModalDeploymentConfig, registry
 from synth_ai.sdk.task.auth import is_api_key_header_authorized, normalize_environment_api_key
 from synth_ai.sdk.task.server import TaskAppConfig, create_task_app, run_task_app

@@ -13,9 +13,9 @@ from typing import Any
 from synth_ai.cli.agents import claude_cmd, codex_cmd, opencode_cmd
 from synth_ai.cli.commands.baseline import command as baseline_cmd
 from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
+from synth_ai.cli.commands.eval import command as eval_cmd
 from synth_ai.cli.demos.demo import demo_cmd
 from synth_ai.cli.deploy import deploy_cmd
-from synth_ai.cli.commands.eval import command as eval_cmd
 from synth_ai.cli.infra.mcp import mcp_cmd
 from synth_ai.cli.infra.modal_app import modal_app_cmd
 from synth_ai.cli.infra.setup import setup_cmd

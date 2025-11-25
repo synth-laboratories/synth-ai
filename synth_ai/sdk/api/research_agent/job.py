@@ -65,7 +65,7 @@ class ResearchAgentJobConfig:
             )
 
     @classmethod
-    def from_toml(cls, config_path: str | Path) -> "ResearchAgentJobConfig":
+    def from_toml(cls, config_path: str | Path) -> ResearchAgentJobConfig:
         """Load configuration from a TOML file.
 
         Expected TOML structure:
@@ -181,8 +181,7 @@ class ResearchAgentJobPoller:
             response = httpx.get(url, headers=headers, params=params, timeout=30.0)
             response.raise_for_status()
             events = response.json()
-            for event in events:
-                yield event
+            yield from events
         except Exception:
             pass
 
@@ -239,16 +238,27 @@ class ResearchAgentJob:
         config_path: str | Path,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "ResearchAgentJob":
-        """Create a job from a TOML config file.
-
+    ) -> ResearchAgentJob:
+        """Create a research agent job from a TOML config file.
+        
+        The config file should have a `[research_agent]` section with algorithm,
+        repo_url, backend, model, and algorithm-specific configuration.
+        
         Args:
             config_path: Path to TOML config file
-            backend_url: Override backend URL
-            api_key: Override API key
-
+            backend_url: Override backend URL (defaults to env or production)
+            api_key: Override API key (defaults to SYNTH_API_KEY env var)
+            
         Returns:
-            ResearchAgentJob instance
+            ResearchAgentJob instance configured from the file
+            
+        Raises:
+            FileNotFoundError: If config file doesn't exist
+            ValueError: If config is invalid or missing required fields
+            
+        Example:
+            >>> job = ResearchAgentJob.from_config("research_agent_config.toml")
+            >>> job_id = job.submit()
         """
         config = ResearchAgentJobConfig.from_toml(config_path)
 
@@ -265,7 +275,7 @@ class ResearchAgentJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "ResearchAgentJob":
+    ) -> ResearchAgentJob:
         """Resume a job by ID.
 
         Args:
@@ -296,7 +306,7 @@ class ResearchAgentJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         use_synth_proxy: bool = True,
-    ) -> "ResearchAgentJob":
+    ) -> ResearchAgentJob:
         """Create a job from inline files (no repo required).
 
         This is a convenience method for running research agent jobs on code
@@ -397,9 +407,9 @@ class ResearchAgentJob:
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
                 f"Failed to submit job: HTTP {e.response.status_code} - {e.response.text[:500]}"
-            )
+            ) from e
         except Exception as e:
-            raise RuntimeError(f"Failed to submit job: {e}")
+            raise RuntimeError(f"Failed to submit job: {e}") from e
 
     def get_status(self) -> Dict[str, Any]:
         """Get current job status.
@@ -519,6 +529,6 @@ class ResearchAgentJob:
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
                 f"Failed to get results: HTTP {e.response.status_code}"
-            )
+            ) from e
         except Exception as e:
-            raise RuntimeError(f"Failed to get results: {e}")
+            raise RuntimeError(f"Failed to get results: {e}") from e

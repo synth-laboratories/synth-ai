@@ -7,9 +7,8 @@ from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 
-from starlette.requests import Request
-
 from modal import App, Image, Secret, asgi_app
+from starlette.requests import Request
 
 try:  # Backward compatibility with older installed SDKs
     from synth_ai.cli.demo_apps.core import DEFAULT_TASK_APP_SECRET_NAME
@@ -76,7 +75,9 @@ def _build_inline_secret() -> Secret:
     print(f"[startup] TASK_APP_SECRET_NAME={DEFAULT_TASK_APP_SECRET_NAME}")
     print(f"[startup] inline secret prepared ({previews})")
 
-    return Secret.from_dict(payload)
+    # Modal.Secret.from_dict expects dict[str, Optional[str]]
+    secrets_dict: dict[str, str | None] = {k: v for k, v in payload.items()}
+    return Secret.from_dict(secrets_dict)
 
 
 INLINE_SECRET = _build_inline_secret()
@@ -146,7 +147,8 @@ def fastapi_app():
             for token in auth:
                 if isinstance(token, str) and token.lower().startswith("bearer "):
                     bearer.append(token.split(" ", 1)[1].strip())
-            candidates = _split(single + multi + bearer)
+            # Convert Iterable[str] to list for concatenation
+            candidates = _split(list(single) + list(multi) + bearer)
             return any(candidate == expected for candidate in candidates)
 
     @lru_cache(maxsize=1)
@@ -162,7 +164,8 @@ def fastapi_app():
         except ValueError:
             base = load_dataset("nlile/hendrycks-MATH-benchmark", split=s)
             if subject and subject not in {"", "default"}:
-                if "subject" in base.column_names:
+                column_names = getattr(base, "column_names", None)
+                if column_names is not None and "subject" in column_names:
                     base = base.filter(lambda ex: ex.get("subject") == subject)
                 elif isinstance(base, list):
                     base = [ex for ex in base if ex.get("subject") == subject]
@@ -205,8 +208,8 @@ def fastapi_app():
     def create_app():
 
         app = FastAPI(title="Hendrycks Math Task App", version="0.1.0")
-        app.add_middleware(
-            CORSMiddleware,
+        app.add_middleware(  # type: ignore[misc]
+            CORSMiddleware,  # type: ignore[arg-type]
             allow_origins=["*"],
             allow_credentials=True,
             allow_methods=["*"],
@@ -469,18 +472,17 @@ def fastapi_app():
         ops = data.get("ops") if isinstance(data, dict) else []
         if not isinstance(ops, list):
             ops = []
-        env_name = (env or {}).get("env_name") or "math"
-        policy_cfg = (policy or {}).get("config") or {}
-        model = policy_cfg.get("model")
-        inference_url = (policy_cfg.get("inference_url") or "").rstrip("/")
+        env_name = (env or {}).get("env_name") or "math"  # type: ignore[misc]
+        policy_cfg = (policy or {}).get("config") or {}  # type: ignore[misc]
+        model = policy_cfg.get("model")  # type: ignore[misc]
+        inference_url = (policy_cfg.get("inference_url") or "").rstrip("/")  # type: ignore[misc]
 
-        env_cfg = (env or {}).get("config") or {}
+        env_dict: dict[str, Any] = env if isinstance(env, dict) else {}  # type: ignore[assignment]
+        config_val = env_dict.get("config")
+        env_cfg: dict[str, Any] = config_val if isinstance(config_val, dict) else {}
         try:
-            seed_val = (
-                int((env or {}).get("seed"))
-                if isinstance(env, dict) and (env or {}).get("seed") is not None
-                else 0
-            )
+            seed_val_raw = env_dict.get("seed")
+            seed_val = int(seed_val_raw) if seed_val_raw is not None else 0
         except Exception:
             seed_val = 0
         if seed_val == 0:
@@ -683,7 +685,7 @@ def fastapi_app():
             "trajectories": [
                 {
                     "env_id": env_name,
-                    "policy_id": (policy or {}).get("policy_name") or "math-react",
+                    "policy_id": (policy or {}).get("policy_name") or "math-react",  # type: ignore[misc]
                     "steps": steps,
                     "final": {"observation": {}},
                     "length": len(steps),

@@ -136,7 +136,7 @@ class InferenceAPIClient:
         generation_config = types.GenerateContentConfig(**cfg_kwargs)
 
         # Make the API call
-        resp = await client.aio.models.generate_content(
+        resp = await client.aio.models.generate_content(  # type: ignore[attr-defined]
             model=model,
             contents=contents,
             config=generation_config,

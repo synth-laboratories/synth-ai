@@ -6,6 +6,7 @@ from contextlib import suppress
 from typing import Any
 
 from synth_ai.core._utils.http import AsyncHttpClient, sleep
+
 from .constants import TERMINAL_EVENT_FAILURE, TERMINAL_EVENT_SUCCESS, TERMINAL_STATUSES
 
 

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 import click
+
 from synth_ai.cli.commands.scan.cloudflare_scanner import scan_cloudflare_apps
 from synth_ai.cli.commands.scan.local_scanner import scan_local_ports, scan_registry
 from synth_ai.cli.commands.scan.models import ScannedApp

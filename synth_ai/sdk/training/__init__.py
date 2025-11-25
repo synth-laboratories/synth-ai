@@ -23,6 +23,9 @@ Example:
 
 from __future__ import annotations
 
+# Pollers and utilities
+from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome, RLJobPoller
+
 # Re-export from existing locations
 from synth_ai.sdk.api.train.prompt_learning import (
     PromptLearningJob,
@@ -31,9 +34,6 @@ from synth_ai.sdk.api.train.prompt_learning import (
 )
 from synth_ai.sdk.api.train.rl import RLJob, RLJobConfig
 from synth_ai.sdk.api.train.sft import SFTJob
-
-# Pollers and utilities
-from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome, RLJobPoller
 
 __all__ = [
     "PromptLearningJob",

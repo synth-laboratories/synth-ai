@@ -15,6 +15,26 @@ from synth_ai.core.errors import ConfigError
 
 @dataclass
 class BaseJobConfig:
+    """Base class for all job configuration dataclasses.
+    
+    This class provides common functionality shared across all job types
+    (prompt learning, SFT, RL, research agent). Subclasses should inherit
+    from this and add job-specific fields.
+    
+    The base class ensures consistent handling of:
+    - Backend URL resolution
+    - API key validation
+    - Common configuration patterns
+    
+    Example:
+        >>> from synth_ai.core.config import BaseJobConfig
+        >>> from dataclasses import dataclass
+        >>> 
+        >>> @dataclass
+        ... class MyJobConfig(BaseJobConfig):
+        ...     model: str
+        ...     temperature: float = 0.7
+    """
     """Base configuration shared by all job types.
 
     All job configs should inherit from this class to ensure consistent
@@ -68,6 +88,27 @@ class BaseJobConfig:
 
 
 class ConfigValidator:
+    """Base class for configuration validators.
+    
+    Validators provide a way to validate and normalize configuration
+    before it's used to create jobs. This is useful for:
+    - Type checking
+    - Value validation
+    - Default value injection
+    - Cross-field validation
+    
+    Subclasses should implement the `validate()` method to perform
+    job-specific validation logic.
+    
+    Example:
+        >>> from synth_ai.core.config import ConfigValidator
+        >>> 
+        >>> class MyJobValidator(ConfigValidator):
+        ...     def validate(self, config: dict) -> dict:
+        ...         if config.get("temperature", 0) < 0:
+        ...             raise ValueError("temperature must be >= 0")
+        ...         return config
+    """
     """Utility for validating configurations."""
 
     @staticmethod

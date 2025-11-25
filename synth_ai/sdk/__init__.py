@@ -24,25 +24,17 @@ Dependency rules:
 
 from __future__ import annotations
 
-# Training
-from synth_ai.sdk.training import (
-    PromptLearningJob,
-    PromptLearningJobConfig,
-    SFTJob,
-)
-
-# Task Apps
-from synth_ai.sdk.task import (
-    InProcessTaskApp,
-    TaskAppConfig,
-    create_task_app,
-)
-
-# Judging
-from synth_ai.sdk.judging import JudgeClient, JudgeOptions, JudgeScoreResponse
+# Research Agent
+from synth_ai.sdk.api.research_agent import ResearchAgentJob, ResearchAgentJobConfig
 
 # Inference
 from synth_ai.sdk.inference import InferenceClient
+
+# Jobs API Client
+from synth_ai.sdk.jobs import JobsClient
+
+# Judging
+from synth_ai.sdk.judging import JudgeClient, JudgeOptions, JudgeScoreResponse
 
 # Specs
 from synth_ai.sdk.specs import (
@@ -53,11 +45,19 @@ from synth_ai.sdk.specs import (
     validate_spec_file,
 )
 
-# Research Agent
-from synth_ai.sdk.api.research_agent import ResearchAgentJob, ResearchAgentJobConfig
+# Task Apps
+from synth_ai.sdk.task import (
+    InProcessTaskApp,
+    TaskAppConfig,
+    create_task_app,
+)
 
-# Jobs API Client
-from synth_ai.sdk.jobs import JobsClient
+# Training
+from synth_ai.sdk.training import (
+    PromptLearningJob,
+    PromptLearningJobConfig,
+    SFTJob,
+)
 
 __all__ = [
     # Training

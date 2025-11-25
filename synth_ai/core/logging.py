@@ -44,8 +44,10 @@ def configure_logging(
         level_str = os.environ.get("SYNTH_LOG_LEVEL", "INFO").upper()
         if level_str not in ("DEBUG", "INFO", "WARNING", "ERROR"):
             level_str = "INFO"
-        level = level_str  # type: ignore
+        level = level_str  # type: ignore[assignment]
 
+    # After assignment, level is guaranteed to be str
+    assert isinstance(level, str), "level must be str at this point"
     log_level = getattr(logging, level)
 
     if format_style == "detailed":

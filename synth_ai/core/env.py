@@ -65,10 +65,7 @@ def get_backend_url(
     # Determine mode
     if mode is None:
         mode_env = os.environ.get("SYNTH_BACKEND_MODE", "").lower()
-        if mode_env in ("prod", "dev", "local"):
-            mode = mode_env  # type: ignore
-        else:
-            mode = "prod"
+        mode = mode_env if mode_env in ("prod", "dev", "local") else "prod"  # type: ignore
 
     if mode == "local":
         url = os.environ.get("SYNTH_LOCAL_URL", "http://localhost:8000")

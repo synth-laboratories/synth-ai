@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import click
+
 from synth_ai.sdk.task.apps import registry
 
 from .commands import task_app_group

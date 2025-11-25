@@ -7,6 +7,7 @@ from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 from mcp.types import ServerCapabilities, TextContent, Tool, ToolsCapability
+
 from synth_ai.core.cfgs import LocalDeployCfg, ModalDeployCfg
 from synth_ai.core.integrations.mcp.setup import setup_fetch, setup_start
 from synth_ai.core.integrations.modal import deploy_app_modal

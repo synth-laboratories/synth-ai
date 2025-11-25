@@ -724,7 +724,7 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         if not rows:
             if pd is not None:
-                return pd.DataFrame(columns=list(columns))
+                return pd.DataFrame(columns=list(columns))  # type: ignore[arg-type]
             return []
 
         records = [dict(zip(columns, row, strict=True)) for row in rows]

@@ -340,7 +340,7 @@ def _extract_modal_app_name(node: ast.Call) -> str | None:
 
 def _collect_registered_choices() -> list[AppChoice]:
     result: list[AppChoice] = []
-    for entry in registry.list():
+    for entry in registry.list():  # type: ignore[attr-defined]
         module_name = entry.config_factory.__module__
         module = sys.modules.get(module_name)
         if module is None:
@@ -508,7 +508,7 @@ def _choice_has_modal_support(choice: AppChoice) -> bool:
         entry = choice.ensure_entry()
     except click.ClickException:
         return _has_modal_support_in_file(choice.path)
-    return entry.modal is not None
+    return entry.modal is not None  # type: ignore[attr-defined]
 
 
 def _choice_has_local_support(choice: AppChoice) -> bool:
@@ -844,6 +844,8 @@ def _load_entry_from_path(
     if factory_callable is None or config_obj is None:
         try:
             entry = registry.get(app_id)
+            if entry is None:
+                raise KeyError(f"TaskApp '{app_id}' not found in registry")
             return entry
         except KeyError as exc:
             raise click.ClickException(

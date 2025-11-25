@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Dict, Iterable
 
@@ -42,7 +42,7 @@ class ResultsCollector:
                 }
                 for name, path in saved_files.items()
             ],
-            "collected_at": datetime.now(timezone.utc).isoformat(),
+            "collected_at": datetime.now(UTC).isoformat(),
             "total_size_bytes": sum(path.stat().st_size for path in saved_files.values()),
         }
         manifest_path = self.output_dir / "manifest.json"

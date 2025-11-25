@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
+
 from synth_ai.sdk.baseline.config import BaselineConfig
 from synth_ai.sdk.baseline.discovery import (
     BaselineChoice,

@@ -205,3 +205,4 @@ class TestOpenAPIPydanticValidation:
         assert callable(get_task_app_contract)
         assert TASK_APP_CONTRACT_PATH.exists()
 
+

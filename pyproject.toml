@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.26.dev2"
+version = "0.3.0"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -207,6 +207,11 @@ ignore = [
 "synth_ai/http.py" = ["F403"]
 "**/__init__.py" = ["N999"]
 "**/__main__.py" = ["N999"]
+
+[tool.ty]
+# Suppress conservative warnings about possibly-missing-attribute
+# These are false positives for dict.get() calls and dynamic attributes
+rules = { "possibly-missing-attribute" = "ignore" }
 
 [dependency-groups]
 dev = [

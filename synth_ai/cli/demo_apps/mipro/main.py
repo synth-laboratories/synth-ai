@@ -27,9 +27,9 @@ from pathlib import Path
 
 import toml
 from dotenv import load_dotenv
+from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.task import InProcessTaskApp
-from synth_ai.core.urls import BACKEND_URL_BASE
 
 CURRENT_DIR = Path(__file__).parent
 TASK_APP = CURRENT_DIR / "task_app.py"
@@ -183,11 +183,12 @@ async def main():
             from synth_ai.sdk.api.train.utils import ensure_api_base
             from synth_ai.sdk.learning.prompt_learning_client import PromptLearningClient
 
+            assert synth_key is not None, "synth_key must be set"
             client = PromptLearningClient(
                 ensure_api_base(BACKEND_URL_BASE),
                 synth_key,
             )
-            prompt_results = await client.get_prompts(job._job_id)
+            prompt_results = await client.get_prompts(str(job._job_id))
 
             print("=" * 80)
             print("Results")

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Optional, Sequence
 
 import click
+
 from synth_ai.sdk.baseline.config import BaselineResults
 from synth_ai.sdk.baseline.discovery import (
     BASELINE_FILE_PATTERNS,

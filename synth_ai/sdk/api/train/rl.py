@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from .builders import RLBuildResult, build_rl_payload
-from .pollers import JobPoller, PollOutcome, RLJobPoller
+from .pollers import RLJobPoller
 from .task_app import check_task_app_health
 from .utils import ensure_api_base, http_post
 
@@ -119,7 +119,7 @@ class RLJob:
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         idempotency_key: Optional[str] = None,
-    ) -> "RLJob":
+    ) -> RLJob:
         """Create an RL job from a config file.
         
         Args:
@@ -189,7 +189,7 @@ class RLJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> "RLJob":
+    ) -> RLJob:
         """Resume an existing RL job by ID.
         
         Args:
@@ -394,7 +394,7 @@ class RLJob:
             
             # Terminal states
             if status in ("succeeded", "failed", "cancelled"):
-                return outcome.payload
+                return dict(outcome.payload) if isinstance(outcome.payload, dict) else {}
             
             # Check timeout
             elapsed = time.time() - start_time

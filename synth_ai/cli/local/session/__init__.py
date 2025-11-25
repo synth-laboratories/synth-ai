@@ -2,16 +2,6 @@
 
 from __future__ import annotations
 
-# Import submodules for re-export
-from . import (
-    client,
-    constants,
-    exceptions,
-    manager,
-    models,
-    query,
-)
-
 from synth_ai.cli.local.session.client import AgentSessionClient
 from synth_ai.cli.local.session.constants import (
     LIMIT_TYPE_HARD,
@@ -45,6 +35,16 @@ from synth_ai.cli.local.session.models import (
     SessionUsageRecord,
 )
 from synth_ai.cli.local.session.query import AgentSessionQuery
+
+# Import submodules for re-export
+from . import (
+    client,
+    constants,
+    exceptions,
+    manager,
+    models,
+    query,
+)
 
 __all__ = [
     # Submodules

@@ -4,15 +4,19 @@ Commands for managing Synth task apps - local serving, Modal deployment,
 validation, and discovery.
 """
 
-from synth_ai.cli.task_apps.main import task_app_cmd
 from synth_ai.cli.task_apps.commands import (
-    task_app_group,
-    serve_command,
+    AppChoice,
+    TaskAppEntryType,
     register,
+    serve_command,
+    task_app_group,
 )
+from synth_ai.cli.task_apps.main import task_app_cmd
 
 # Re-export for backward compatibility
 __all__ = [
+    "AppChoice",
+    "TaskAppEntryType",
     "task_app_cmd",
     "task_app_group",
     "serve_command",

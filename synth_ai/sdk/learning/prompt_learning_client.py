@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core._utils.http import AsyncHttpClient
+
 from .prompt_learning_types import PromptResults
 
 

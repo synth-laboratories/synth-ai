@@ -21,26 +21,26 @@ from urllib.parse import urlparse
 import click
 import httpx
 import requests
+import uvicorn
 from starlette.types import ASGIApp
-from synth_ai.core.cfgs import CFDeployCfg
-from synth_ai.core.urls import BACKEND_URL_BASE
-from synth_ai.core.telemetry import log_error, log_event
+
 from synth_ai.core.apps.common import get_asgi_app, load_module
+from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.core.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.telemetry import log_error, log_event
+from synth_ai.core.urls import BACKEND_URL_BASE
 
 
 def __resolve_env_var(key: str) -> str:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.env import _resolve_env_var
-    return _resolve_env_var(key)
+    from synth_ai.cli.lib.env import resolve_env_var
+    return resolve_env_var(key)
 
 
 def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
     """Lazy import to avoid circular dependency."""
-    from synth_ai.cli.lib.env import _write_env_var_to_dotenv
-    _write_env_var_to_dotenv(key, value, **kwargs)
-
-import uvicorn
+    from synth_ai.cli.lib.env import write_env_var_to_dotenv
+    write_env_var_to_dotenv(key, value, **kwargs)
 
 logger = logging.getLogger(__name__)
 
@@ -1140,7 +1140,7 @@ def store_tunnel_credentials(
         access_client_secret: Cloudflare Access client secret (optional)
         env_file: Path to .env file (defaults to .env in current directory)
     """
-    _write_env_var_to_dotenv(
+    __write_env_var_to_dotenv(
         "TASK_APP_URL",
         tunnel_url,
         output_file_path=env_file,
@@ -1149,7 +1149,7 @@ def store_tunnel_credentials(
     )
 
     if access_client_id:
-        _write_env_var_to_dotenv(
+        __write_env_var_to_dotenv(
             "CF_ACCESS_CLIENT_ID",
             access_client_id,
             output_file_path=env_file,
@@ -1158,7 +1158,7 @@ def store_tunnel_credentials(
         )
 
     if access_client_secret:
-        _write_env_var_to_dotenv(
+        __write_env_var_to_dotenv(
             "CF_ACCESS_CLIENT_SECRET",
             access_client_secret,
             output_file_path=env_file,
@@ -1352,7 +1352,7 @@ async def deploy_app_tunnel(
     synth_api_key: Optional[str] = None
 
     if cfg.mode == "managed":
-        synth_api_key = _resolve_env_var("SYNTH_API_KEY")
+        synth_api_key = __resolve_env_var("SYNTH_API_KEY")
         tunnels = await fetch_managed_tunnels(synth_api_key)
         if tunnels:
             selected_managed = _select_existing_tunnel(tunnels, cfg.subdomain)
@@ -1455,7 +1455,7 @@ async def deploy_app_tunnel(
                 access_client_secret = selected_managed.credential("access_client_secret")
             else:
                 if not synth_api_key:
-                    synth_api_key = _resolve_env_var("SYNTH_API_KEY")
+                    synth_api_key = __resolve_env_var("SYNTH_API_KEY")
                 data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
                 tunnel_token = data["tunnel_token"]
                 hostname = data["hostname"]

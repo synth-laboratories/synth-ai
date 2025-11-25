@@ -8,7 +8,6 @@ continues to work without modification.
 from __future__ import annotations
 
 from importlib import import_module
-from types import ModuleType
 from typing import Any
 
 # Modules that can be eagerly loaded (no circular deps)

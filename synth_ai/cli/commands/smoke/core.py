@@ -15,6 +15,9 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
+
+from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
+from synth_ai.core.tracing_v3.turso.daemon import start_sqld
 from synth_ai.sdk.task.client import TaskAppClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
@@ -29,8 +32,6 @@ from synth_ai.sdk.task.validators import (
     validate_rollout_response_for_rl,
     validate_task_app_url,
 )
-from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
-from synth_ai.core.tracing_v3.turso.daemon import start_sqld
 
 
 def _append_query_param(url: str, key: str, value: str) -> str:
@@ -443,7 +444,7 @@ class MockRLTrainer:
                         status_code=500,
                     )
                 try:
-                    from examples.task_apps.crafter.task_app.synth_envs_hosted.inference.openai_client import (
+                    from examples.task_apps.crafter.task_app.synth_envs_hosted.inference.openai_client import (  # type: ignore[import-untyped]
                         OpenAIClient as _HostedOpenAIClient,
                     )
 

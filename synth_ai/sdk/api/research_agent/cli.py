@@ -135,6 +135,8 @@ def run_cmd(
     if config_path:
         click.echo(f"Loading config from {config_path}...")
         config = ResearchAgentJobConfig.from_toml(config_path)
+        # api_key is guaranteed to be str at this point (checked above)
+        assert api_key is not None, "api_key should be set by this point"
         config.api_key = api_key
         config.backend_url = backend_url
 
@@ -160,12 +162,12 @@ def run_cmd(
 
         config = ResearchAgentJobConfig(
             algorithm=algorithm,  # type: ignore
-            repo_url=repo_url,
+            repo_url=repo_url,  # type: ignore[arg-type]
             repo_branch=repo_branch,
             backend=backend,  # type: ignore
             model=model,
             backend_url=backend_url,
-            api_key=api_key,
+            api_key=api_key,  # type: ignore[arg-type]
         )
 
     # Create and submit job

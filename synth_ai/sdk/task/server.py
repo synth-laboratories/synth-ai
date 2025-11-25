@@ -60,7 +60,56 @@ class ProxyConfig:
 
 @dataclass(slots=True)
 class TaskAppConfig:
-    """Declarative configuration describing a Task App."""
+    """Declarative configuration describing a Task App.
+    
+    A TaskAppConfig defines all the components needed to create a task app:
+    - Task information (base_task_info)
+    - Task set description (describe_taskset)
+    - Task instance provider (provide_task_instances)
+    - Rollout executor (rollout)
+    - Optional rubrics, datasets, proxy config, etc.
+    
+    This config is used by `create_task_app()` to build a FastAPI application
+    that implements the Synth AI task app contract.
+    
+    Example:
+        >>> from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
+        >>> from synth_ai.sdk.task.contracts import TaskInfo
+        >>> 
+        >>> def build_config() -> TaskAppConfig:
+        ...     return TaskAppConfig(
+        ...         app_id="my_task",
+        ...         name="My Task App",
+        ...         description="A simple task app",
+        ...         base_task_info=TaskInfo(...),
+        ...         describe_taskset=lambda: {"splits": ["train", "val"]},
+        ...         provide_task_instances=lambda seeds: [...],
+        ...         rollout=lambda req, r: {...},
+        ...     )
+        >>> 
+        >>> app = create_task_app(build_config())
+        >>> # app is a FastAPI instance ready to run
+    
+    Attributes:
+        app_id: Unique identifier for this task app
+        name: Human-readable name
+        description: Description of what this task app does
+        base_task_info: Base TaskInfo that all instances inherit from
+        describe_taskset: Function that returns taskset metadata
+        provide_task_instances: Function that yields TaskInfo instances for given seeds
+        rollout: Function that executes a rollout request and returns response
+        dataset_registry: Optional registry for task datasets
+        rubrics: Optional rubrics for evaluation
+        proxy: Optional proxy config for vendor endpoints
+        routers: Additional FastAPI routers to include
+        middleware: Additional middleware to apply
+        app_state: Mutable state dict accessible to routes
+        require_api_key: Whether to require API key authentication
+        expose_debug_env: Whether to expose debug environment endpoint
+        cors_origins: CORS allowed origins
+        startup_hooks: Functions to call on app startup
+        shutdown_hooks: Functions to call on app shutdown
+    """
 
     app_id: str
     name: str
@@ -220,6 +269,43 @@ def _auth_dependency_factory(config: TaskAppConfig) -> Callable[[Request], None]
 
 
 def create_task_app(config: TaskAppConfig) -> FastAPI:
+    """Create a FastAPI application from a TaskAppConfig.
+    
+    This function builds a complete FastAPI application that implements the Synth AI
+    task app contract. The resulting app includes:
+    - Health check endpoints (/health, /)
+    - Task info endpoint (/task_info)
+    - Rollout endpoint (/rollout)
+    - Optional proxy endpoints for OpenAI/Groq
+    - Optional dataset registry endpoints
+    - CORS middleware (if configured)
+    - Authentication middleware (if require_api_key=True)
+    
+    The app is ready to run with uvicorn or deploy to any ASGI-compatible server.
+    
+    Args:
+        config: TaskAppConfig describing the task app
+        
+    Returns:
+        FastAPI application instance ready to run
+        
+    Example:
+        >>> from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
+        >>> 
+        >>> def build_config() -> TaskAppConfig:
+        ...     return TaskAppConfig(
+        ...         app_id="my_task",
+        ...         name="My Task",
+        ...         description="A task app",
+        ...         base_task_info=TaskInfo(...),
+        ...         describe_taskset=lambda: {"splits": ["train"]},
+        ...         provide_task_instances=lambda seeds: [...],
+        ...         rollout=lambda req, r: {...},
+        ...     )
+        >>> 
+        >>> app = create_task_app(build_config())
+        >>> # Run with: uvicorn.run(app, host="0.0.0.0", port=8001)
+    """
     cfg = config.clone()
     cfg.rubrics = cfg.rubrics or RubricBundle()
     app = FastAPI(title=cfg.name, description=cfg.description)
@@ -408,7 +494,35 @@ def run_task_app(
     reload: bool = False,
     env_files: Sequence[str] = (),
 ) -> None:
-    """Run the provided Task App configuration with uvicorn."""
+    """Run a task app locally with uvicorn.
+    
+    This is a convenience function that creates a task app from a config factory
+    and runs it with uvicorn. It handles environment file loading and service
+    registration for tunnel management.
+    
+    Args:
+        config_factory: Function that returns a TaskAppConfig
+        host: Host to bind to (default: "0.0.0.0")
+        port: Port to listen on (default: 8001)
+        reload: Enable auto-reload on file changes (default: False)
+        env_files: Paths to .env files to load (default: empty)
+        
+    Example:
+        >>> from synth_ai.sdk.task.server import run_task_app
+        >>> from my_task_app import build_config
+        >>> 
+        >>> run_task_app(
+        ...     build_config,
+        ...     host="127.0.0.1",
+        ...     port=8114,
+        ...     reload=True,
+        ...     env_files=[".env.local"],
+        ... )
+        
+    Raises:
+        RuntimeError: If uvicorn is not installed
+        TypeError: If config_factory doesn't return TaskAppConfig
+    """
 
     loaded_files = _load_env_files(env_files)
     if loaded_files:

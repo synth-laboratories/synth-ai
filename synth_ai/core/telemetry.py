@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any, Mapping, Sequence
 
 from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.http import http_request
 
 
 def _get_sdk_version() -> str:

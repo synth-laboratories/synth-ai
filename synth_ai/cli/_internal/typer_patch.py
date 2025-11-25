@@ -3,7 +3,7 @@ from click import Parameter
 
 def patch_typer_make_metavar() -> None:
     try:
-        from typer.main import TyperArgument, TyperOption
+        from typer.main import TyperArgument, TyperOption  # type: ignore[import-untyped]
     except Exception:
         return
 

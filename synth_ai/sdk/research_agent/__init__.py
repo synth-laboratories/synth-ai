@@ -31,3 +31,4 @@ __all__ = [
     "DEFAULT_REASONING_EFFORT",
     "DEFAULT_RESULT_PATTERNS",
 ]
+

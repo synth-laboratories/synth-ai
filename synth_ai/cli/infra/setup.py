@@ -3,12 +3,13 @@ import typing
 from typing import Literal
 
 import click
-from synth_ai.core.auth import fetch_credentials_from_web_browser
+
 from synth_ai.cli.lib.env import (
     resolve_env_var,
     write_env_var_to_dotenv,
     write_env_var_to_json,
 )
+from synth_ai.core.auth import fetch_credentials_from_web_browser
 
 SourceType = Literal[
     "web",

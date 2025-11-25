@@ -8,6 +8,7 @@ from typing import Optional
 import click
 from rich.console import Console
 from rich.table import Table
+
 from synth_ai.cli.commands.status.config import resolve_backend_config
 from synth_ai.cli.local.session import AgentSessionClient, SessionNotFoundError
 

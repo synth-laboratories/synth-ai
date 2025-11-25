@@ -440,8 +440,8 @@ def resolve_adaptive_pool_config(
         try:
             level = AdaptiveCurriculumLevel[level.strip().upper()]
         except KeyError:
-            valid_levels = ", ".join(l.name for l in AdaptiveCurriculumLevel)
-            raise ValueError(f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}")
+            valid_levels = ", ".join(level_item.name for level_item in AdaptiveCurriculumLevel)
+            raise ValueError(f"Invalid adaptive pool level '{level}'. Must be one of: {valid_levels}") from None
     
     # Get defaults for level
     defaults = _ADAPTIVE_POOL_DEFAULTS[level].copy()
@@ -460,9 +460,8 @@ def resolve_adaptive_pool_config(
         pool_min_size = dev_pool_size
     
     # Cap pool_init_size if dev_pool_size is provided
-    if dev_pool_size is not None and pool_init_size is not None:
-        if pool_init_size > dev_pool_size:
-            pool_init_size = dev_pool_size
+    if dev_pool_size is not None and pool_init_size is not None and pool_init_size > dev_pool_size:
+        pool_init_size = dev_pool_size
     
     # Handle heatup_reserve_pool (can be list, None, or single value)
     heatup_reserve = defaults.get("heatup_reserve_pool")
@@ -483,13 +482,13 @@ def resolve_adaptive_pool_config(
         k_info_prompts=int(defaults["k_info_prompts"]),
         info_buffer_factor=float(defaults["info_buffer_factor"]),
         info_epsilon=float(defaults["info_epsilon"]),
-        anchor_selection_method=str(defaults["anchor_selection_method"]),
-        exploration_strategy=str(defaults["exploration_strategy"]),
+        anchor_selection_method=defaults["anchor_selection_method"] if defaults["anchor_selection_method"] in ("random", "clustering") else "clustering",
+        exploration_strategy=defaults["exploration_strategy"] if defaults["exploration_strategy"] in ("random", "diversity") else "diversity",
         heatup_reserve_pool=list(heatup_reserve) if heatup_reserve else None,
-        heatup_trigger=str(defaults.get("heatup_trigger", "after_min_size")),
+        heatup_trigger=defaults.get("heatup_trigger", "after_min_size") if defaults.get("heatup_trigger", "after_min_size") in ("after_min_size", "immediate", "every_N_trials_after_min") else "after_min_size",
         heatup_size=int(defaults.get("heatup_size", 20)),
         heatup_cooldown_trials=int(defaults.get("heatup_cooldown_trials", 50)),
-        heatup_schedule=str(defaults.get("heatup_schedule", "repeat")),
+        heatup_schedule=defaults.get("heatup_schedule", "repeat") if defaults.get("heatup_schedule", "repeat") in ("repeat", "once") else "repeat",
     )
     
     return config
@@ -516,8 +515,8 @@ def resolve_adaptive_batch_config(
         try:
             level = AdaptiveBatchLevel[level.strip().upper()]
         except KeyError:
-            valid_levels = ", ".join(l.name for l in AdaptiveBatchLevel)
-            raise ValueError(f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}")
+            valid_levels = ", ".join(level_item.name for level_item in AdaptiveBatchLevel)
+            raise ValueError(f"Invalid adaptive batch level '{level}'. Must be one of: {valid_levels}") from None
     
     # Get defaults for level
     defaults = _ADAPTIVE_BATCH_DEFAULTS[level].copy()
@@ -531,9 +530,9 @@ def resolve_adaptive_batch_config(
         level=level,
         reflection_minibatch_size=int(defaults["reflection_minibatch_size"]),
         min_local_improvement=float(defaults["min_local_improvement"]),
-        val_evaluation_mode=str(defaults["val_evaluation_mode"]),
+        val_evaluation_mode=defaults["val_evaluation_mode"] if defaults["val_evaluation_mode"] in ("full", "subsample") else "full",
         val_subsample_size=int(defaults["val_subsample_size"]),
-        candidate_selection_strategy=str(defaults["candidate_selection_strategy"]),
+        candidate_selection_strategy=defaults["candidate_selection_strategy"] if defaults["candidate_selection_strategy"] in ("coverage", "random") else "coverage",
     )
 
 

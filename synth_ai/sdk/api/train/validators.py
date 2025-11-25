@@ -1964,9 +1964,8 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
     
     # Validate meta model max_tokens
     meta_max_tokens = mipro_section.get("meta_model_max_tokens")
-    if meta_max_tokens is not None:
-        if not isinstance(meta_max_tokens, int):
-            errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
+    if meta_max_tokens is not None and not isinstance(meta_max_tokens, int):
+        errors.append(f"❌ mipro.meta_model_max_tokens must be an integer, got {type(meta_max_tokens).__name__}")
     
     # Validate proposer_effort (can be in instructions section or top-level mipro section)
     instructions_section = mipro_section.get("instructions", {})

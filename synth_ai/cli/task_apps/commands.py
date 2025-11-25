@@ -32,6 +32,7 @@ except Exception:  # pragma: no cover - fallback
 
 import click
 from click.exceptions import Abort
+
 from synth_ai.cli.commands.eval import core as eval_core
 from synth_ai.cli.commands.filter import core as filter_core
 
@@ -223,22 +224,30 @@ def _time_record_from_dict(payload: dict[str, Any] | None) -> TimeRecord:
 
 
 def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
-    base_kwargs = {
-        "system_instance_id": payload.get("system_instance_id", ""),
-        "time_record": _time_record_from_dict(payload.get("time_record")),
-        "metadata": payload.get("metadata") or {},
-        "event_metadata": payload.get("event_metadata"),
-    }
+    system_instance_id = payload.get("system_instance_id", "")
+    time_record = _time_record_from_dict(payload.get("time_record"))
+    metadata = payload.get("metadata") or {}
+    event_metadata = payload.get("event_metadata")
+    
     if "actions" in payload:
-        return RuntimeEvent(actions=payload.get("actions") or [], **base_kwargs)
+        return RuntimeEvent(
+            system_instance_id=system_instance_id,
+            time_record=time_record,
+            metadata=metadata,
+            event_metadata=event_metadata,
+            actions=payload.get("actions") or [],
+        )
     if any(key in payload for key in ("reward", "terminated", "truncated")):
         return EnvironmentEvent(
+            system_instance_id=system_instance_id,
+            time_record=time_record,
+            metadata=metadata,
+            event_metadata=event_metadata,
             reward=float(payload.get("reward", 0.0) or 0.0),
             terminated=bool(payload.get("terminated", False)),
             truncated=bool(payload.get("truncated", False)),
             system_state_before=payload.get("system_state_before"),
             system_state_after=payload.get("system_state_after"),
-            **base_kwargs,
         )
     # Check for LM CAIS event fields
     if any(key in payload for key in ("model_name", "provider", "call_records")):
@@ -246,6 +255,10 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
         # Note: call_records are left as dicts - the storage layer will handle serialization
         call_records = payload.get("call_records") or []
         return LMCAISEvent(
+            system_instance_id=system_instance_id,
+            time_record=time_record,
+            metadata=metadata,
+            event_metadata=event_metadata,
             model_name=payload.get("model_name", ""),
             provider=payload.get("provider", ""),
             input_tokens=payload.get("input_tokens"),
@@ -256,9 +269,13 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
             span_id=payload.get("span_id"),
             trace_id=payload.get("trace_id"),
             call_records=call_records,
-            **base_kwargs,
         )
-    return BaseEvent(**base_kwargs)
+    return BaseEvent(
+        system_instance_id=system_instance_id,
+        time_record=time_record,
+        metadata=metadata,
+        event_metadata=event_metadata,
+    )
 
 
 def _markov_message_from_dict(payload: dict[str, Any]) -> SessionEventMarkovBlanketMessage:
@@ -395,7 +412,7 @@ async def _store_trace(
     trace_obj.metadata = meta
     
     _logger.info(f"[STORE_TRACE_DEBUG] Calling insert_session_trace for session_id={trace_obj.session_id}")
-    await tracer.db.insert_session_trace(trace_obj)
+    await tracer.db.insert_session_trace(trace_obj)  # type: ignore[attr-defined]
     _logger.info("[STORE_TRACE_DEBUG] Successfully inserted trace")
 
 def _temporary_sys_path(paths: Sequence[Path]):
@@ -655,7 +672,7 @@ def _collect_task_app_choices() -> list[AppChoice]:
 
 def _collect_registered_choices() -> list[AppChoice]:
     result: list[AppChoice] = []
-    for entry in registry.list():
+    for entry in registry.list():  # type: ignore[attr-defined]
         module_name = entry.config_factory.__module__
         module = sys.modules.get(module_name)
         if module is None:
@@ -828,7 +845,7 @@ def _choice_has_modal_support(choice: AppChoice) -> bool:
     except click.ClickException:
         # If we can't load the entry, try to detect Modal support via AST parsing
         return _has_modal_support_in_file(choice.path)
-    return entry.modal is not None
+    return entry.modal is not None  # type: ignore[attr-defined]
 
 
 def _has_modal_support_in_file(path: Path) -> bool:
@@ -1100,7 +1117,7 @@ def _safe_import_context() -> Iterator[None]:
         uvicorn_run = None
 
     try:
-        _task_server_patch = cast(
+        _task_server_patch = cast(  # type: ignore[redundant-cast]
             Any, importlib.import_module("synth_ai.sdk.task.server")
         )
         run_task_app_orig = cast(Callable[..., Any], _task_server_patch.run_task_app)
@@ -2062,7 +2079,7 @@ def _deploy_entry(
     env_file: Sequence[str],
     original_path: Path | None = None,
 ) -> None:
-    modal_cfg = entry.modal
+    modal_cfg = entry.modal  # type: ignore[attr-defined]
     if modal_cfg is None:
         raise click.ClickException(
             f"Task app '{entry.app_id}' does not define Modal deployment settings"
@@ -2089,7 +2106,7 @@ def _modal_serve_entry(
     env_file: Sequence[str],
     original_path: Path | None = None,
 ) -> None:
-    modal_cfg = entry.modal
+    modal_cfg = entry.modal  # type: ignore[attr-defined]
     if modal_cfg is None:
         raise click.ClickException(
             f"Task app '{entry.app_id}' does not define Modal deployment settings"

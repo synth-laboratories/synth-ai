@@ -114,7 +114,7 @@ def find_asgi_apps(root: Path) -> list[Path]:
 
 def ensure_task_app_ready(env: "DemoEnv", synth_key: str, *, label: str) -> "DemoEnv":
     demo_core = _get_demo_core()
-    DEFAULT_TASK_APP_SECRET_NAME = _get_default_task_app_secret_name()
+    default_task_app_secret_name = _get_default_task_app_secret_name()
     persist_path = demo_core.load_demo_dir() or os.getcwd()
     user_config_map = load_user_config()
 
@@ -252,12 +252,12 @@ def ensure_task_app_ready(env: "DemoEnv", synth_key: str, *, label: str) -> "Dem
 
     os.environ["TASK_APP_BASE_URL"] = task_url
     os.environ["ENVIRONMENT_API_KEY"] = env_key
-    os.environ["TASK_APP_SECRET_NAME"] = DEFAULT_TASK_APP_SECRET_NAME
+    os.environ["TASK_APP_SECRET_NAME"] = default_task_app_secret_name
     updated_env = demo_core.load_env()
     updated_env.env_api_key = env_key
     updated_env.task_app_base_url = task_url
     updated_env.task_app_name = app_name if requires_modal_name else ""
-    updated_env.task_app_secret_name = DEFAULT_TASK_APP_SECRET_NAME
+    updated_env.task_app_secret_name = default_task_app_secret_name
     return updated_env
 
 

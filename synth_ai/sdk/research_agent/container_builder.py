@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import fnmatch
 import io
 import tarfile
@@ -105,7 +106,7 @@ class DockerBackend(ContainerBackend):
         workdir_str = str(workdir or spec.workdir)
 
         def _run():
-            result = container.exec_run(
+            result = container.exec_run(  # type: ignore[attr-defined]
                 cmd=["bash", "-lc", command],
                 environment=exec_env,
                 workdir=workdir_str,
@@ -127,7 +128,7 @@ class DockerBackend(ContainerBackend):
 
         def _pull():
             try:
-                stream, _ = container.get_archive(str(spec.artifacts_dir))
+                stream, _ = container.get_archive(str(spec.artifacts_dir))  # type: ignore[attr-defined]
             except Exception:
                 return {}
             tar_bytes = b"".join(stream)
@@ -152,14 +153,10 @@ class DockerBackend(ContainerBackend):
             return
 
         def _stop():
-            try:
-                container.kill()
-            except Exception:
-                pass
-            try:
-                container.remove(force=True)
-            except Exception:
-                pass
+            with contextlib.suppress(Exception):
+                container.kill()  # type: ignore[attr-defined]
+            with contextlib.suppress(Exception):
+                container.remove(force=True)  # type: ignore[attr-defined]
 
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, _stop)
@@ -207,24 +204,27 @@ class ModalBackend(ContainerBackend):
             return modal.Image.from_dockerfile(
                 path=ctx_dir.name,
                 build_args=spec.build_args,
-                nocache=True,
+                force_build=True,
             )
 
         image = await loop.run_in_executor(None, _build_image)
 
+        # Combine env_vars and secrets into a Modal Secret
+        # Modal function decorator doesn't accept 'env' parameter directly
+        # Environment variables must be passed via secrets
+        combined_env: dict[str, str | None] = {**spec.env_vars, **spec.secrets}
         secret_obj = None
-        if spec.secrets:
-            secret_obj = modal.Secret.from_dict(spec.secrets)
+        if combined_env:
+            secret_obj = modal.Secret.from_dict(combined_env)
 
         app = modal.App(f"oneshot-research-{int(time.time())}")
 
         workdir_str = str(spec.workdir)
-
+        
         @app.function(
             image=image,
             timeout=60 * 60,
             secrets=[secret_obj] if secret_obj else [],
-            env={**spec.env_vars, **spec.secrets},
         )
         def run_task(command: str, patterns: list[str], artifacts_dir: str = "/app/artifacts") -> Dict:
             """Execute the agent and pull artifacts matching patterns."""
@@ -300,7 +300,7 @@ class ModalBackend(ContainerBackend):
             return {}
         result = run_info.get("result") or {}
         artifacts: Dict[str, bytes] = {}
-        encoded = result.get("artifacts") or {}
+        encoded = result.get("artifacts") or {}  # type: ignore[misc]
         for name, b64 in encoded.items():
             try:
                 artifacts[name] = base64.b64decode(b64)
@@ -314,10 +314,8 @@ class ModalBackend(ContainerBackend):
             return
         ctx_dir = info.get("ctx_dir")
         if ctx_dir and hasattr(ctx_dir, "cleanup"):
-            try:
+            with contextlib.suppress(Exception):
                 ctx_dir.cleanup()  # type: ignore[call-arg]
-            except Exception:
-                pass
 
 
 def get_backend(name: str = DEFAULT_BACKEND) -> ContainerBackend:
