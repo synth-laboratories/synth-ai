@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from synth_ai.cloudflare import (
+from synth_ai.core.integrations.cloudflare import (
     _URL_RE,
     _URL_PARTIAL_RE,
     _URL_PARTIAL_RE2,
