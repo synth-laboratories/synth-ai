@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 from click.testing import CliRunner
 
-from synth_ai.cli.infra.status.subcommands.session import session_status_cmd
+from synth_ai.cli.commands.status.subcommands.session import session_status_cmd
 from synth_ai.session.models import AgentSession, AgentSessionLimit, AgentSessionUsage
 
 
