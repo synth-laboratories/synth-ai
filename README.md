@@ -33,3 +33,7 @@ Serverless Posttraining APIs for Developers
 - 🖥️ Supports HTTP-based training across all programming languages
 
 Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
+
+## Documentation
+
+Synth's documentation is available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
