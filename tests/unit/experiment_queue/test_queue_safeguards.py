@@ -16,7 +16,7 @@ if not os.getenv("EXPERIMENT_QUEUE_DB_PATH"):
     tmp_db = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
     os.environ["EXPERIMENT_QUEUE_DB_PATH"] = tmp_db.name
 
-from synth_ai.experiment_queue import celery_app, config
+from synth_ai.cli.local.experiment_queue import celery_app, config
 
 
 def test_database_path_required():

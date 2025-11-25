@@ -14,7 +14,7 @@ if not os.getenv("EXPERIMENT_QUEUE_DB_PATH"):
     tmp_db = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
     os.environ["EXPERIMENT_QUEUE_DB_PATH"] = tmp_db.name
 
-from synth_ai.experiment_queue import celery_app, config
+from synth_ai.cli.local.experiment_queue import celery_app, config
 
 
 @pytest.mark.skip(reason="EXPERIMENT_QUEUE_DB_PATH now uses default path instead of raising error")
@@ -79,7 +79,7 @@ def test_celery_app_module_level_creation_bypasses_safeguards():
     
     # Force reload the module
     import importlib
-    import synth_ai.experiment_queue.celery_app as celery_module
+    import synth_ai.cli.local.experiment_queue.celery_app as celery_module
     
     # Reset the module-level app
     celery_module._celery_app_instance = None

@@ -8,7 +8,7 @@ import stat
 
 import pytest
 
-from synth_ai.experiment_queue import tasks as queue_tasks
+from synth_ai.cli.local.experiment_queue import tasks as queue_tasks
 
 
 def _reload_tasks() -> None:
