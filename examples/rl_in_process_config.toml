@@ -1,0 +1,110 @@
+# Example RL/GSPO Config for In-Process Training
+# ===============================================
+#
+# This config demonstrates RL training with an in-process task app.
+# The task_app_url will be automatically set by the SDK when using
+# InProcessTaskApp context manager.
+#
+# Usage:
+#   from synth_ai.sdk.api.train.rl import RLJob
+#   from synth_ai.sdk.task.in_process import InProcessTaskApp
+#
+#   async with InProcessTaskApp(task_app_path="my_task_app.py", port=8114) as task_app:
+#       job = RLJob.from_config(
+#           config_path="rl_in_process_config.toml",
+#           task_app_url=task_app.url,  # Automatically injected
+#       )
+#       job.submit()
+#       result = job.poll_until_complete()
+
+[algorithm]
+type = "online"
+method = "policy_gradient"
+variety = "gspo"
+
+[services]
+# task_url will be automatically set by RLJob.from_config(task_app_url=...)
+task_url = ""  # Placeholder - will be overridden
+
+[model]
+base = "Qwen/Qwen3-4B"
+trainer_mode = "lora"
+label = "rl-in-process-demo"
+
+[lora]
+r = 16
+alpha = 32
+dropout = 0.05
+target_modules = ["all-linear"]
+
+[policy]
+trainer_mode = "lora"
+model = "Qwen/Qwen3-4B"
+backend = "vllm"
+vllm_tensor_parallel_size = 1
+max_model_len = 4096
+
+[reference]
+placement = "none"
+
+[rollout]
+env_name = "crafter"  # Update to match your task app environment
+policy_name = "crafter-react"
+max_turns = 10
+episodes_per_batch = 16  # Reduced for faster demo
+max_concurrent_rollouts = 4
+batches_per_step = 2
+ops = ["agent", "env"]
+
+  [rollout.env_config]
+  # Add environment-specific config here
+
+  [rollout.policy_config]
+  temperature = 0.7
+  max_tokens = 512
+
+[evaluation]
+instances = 8  # Reduced for faster demo
+every_n_iters = 5
+seeds = [0, 1, 2, 3, 4, 5, 6, 7]
+
+[training]
+num_epochs = 2  # Reduced for faster demo
+iterations_per_epoch = 5  # Reduced for faster demo
+max_turns = 10
+batch_size = 4
+group_size = 4  # GSPO group size
+gradient_accumulation_steps = 4
+learning_rate = 5e-5
+log_interval = 1
+weight_sync_interval = 1
+
+[training.weight_sync]
+enable = true
+targets = ["policy"]
+mode = "direct"
+direct = true
+verify_every_k = 0
+
+[compute]
+gpu_type = "H100"
+gpu_count = 1
+
+[topology]
+type = "single_node_split"
+gpus_for_vllm = 1
+gpus_for_training = 0
+gpus_for_ref = 0
+tensor_parallel = 1
+
+[vllm]
+tensor_parallel_size = 1
+max_model_len = 4096
+
+[judge]
+type = "none"  # No judge for this example
+
+[tags]
+experiment = "rl_in_process_demo"
+demo = true
+
