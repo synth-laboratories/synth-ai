@@ -1,0 +1,1165 @@
+# Synth AI SDK Refactoring Specification
+# ================================================================================
+# Goal: Create clear abstractions for data, core, SDK, and CLI layers with clean
+# dependency flow: data → core → sdk → cli (no cycles back up)
+#
+# This doc sketches the target structure and migration path.
+
+## 1. CORE PRINCIPLES
+
+### 1.1 Layer Dependencies
+```
+  data/      ← Pure data models, schemas, enums, no IO
+  core/      ← Internal plumbing: HTTP, env, config, storage
+  sdk/       ← User-facing Python API (imports data + core)
+  cli/       ← Shell interface (imports sdk + core for env/logging)
+```
+
+Rules:
+- `data` imports nothing from synth_ai (except typing helpers)
+- `core` imports `data`, never `sdk` or `cli`
+- `sdk` imports `data` + `core`, never `cli`
+- `cli` imports `sdk` for business logic, may import `core` for:
+  - Environment resolution (core/env.py)
+  - Logging setup (core/logging.py)
+  - Config discovery (core/config/)
+  - Error types (core/errors.py)
+
+### 1.2 What Lives Where
+
+**data/** - Immutable schemas and types:
+- Trace schemas (V3 trace format, events, messages)
+- Reward schemas (outcome, event-level rewards)
+- Job schemas (job status, job types, job configs)
+- Experiment schemas (experiment metadata, trial definitions)
+- SFT data schemas (SFTExample, SFTMessage, etc.)
+- Task app contracts (request/response types)
+
+**core/** - Internal plumbing:
+- HTTP client (auth, retries, base URL resolution)
+- Environment resolution (SYNTH_API_KEY, ENVIRONMENT_API_KEY, backend URL)
+- Config parsing (TOML loaders, validators)
+- Storage adapters (Turso, SQLite, local file)
+- Logging utilities
+- Error types
+
+**sdk/** - Public Python API:
+- Task apps (InProcessTaskApp, TaskAppConfig, create_task_app)
+- Training jobs (PromptLearningJob, SFTJob, RLJob)
+- Tracing (SessionTracer, trace recording)
+- Results (get_prompt_text, get_scoring_summary)
+- Judging (JudgeClient)
+- Data helpers (validate_training_jsonl, iter_sft_examples)
+
+**cli/** - Command-line interface:
+- Typer/Click app setup
+- Individual command files (train, deploy, eval, etc.)
+- UI utilities (progress bars, tables, prompts)
+- Local infra (experiment queue, local DB)
+
+--------------------------------------------------------------------------------
+
+## 2. TARGET PACKAGE LAYOUT
+
+```
+synth_ai/
+├── __init__.py              # Public re-exports from sdk/
+├── py.typed
+│
+├── data/                    # Pure data models, enums (no IO)
+│   ├── __init__.py
+│   ├── enums.py             # TrainingMethod, JobType, JobStatus, etc.
+│   ├── traces.py            # SessionTrace, TimeStep, BaseEvent, etc. (re-exports from tracing_v3)
+│   ├── rewards.py           # RewardRecord, OutcomeReward, EventReward
+│   ├── jobs.py              # BaseJobConfig, JobInfo, JobResult base classes
+│   ├── experiments.py       # Experiment, Trial, ExperimentStatus
+│   ├── sft.py               # SFTExample, SFTMessage, SFTToolCall (from learning/sft/data.py)
+│   ├── judges.py            # JudgeScoreRequest, JudgeScoreResponse, etc.
+│   └── specs.py             # Spec dataclasses (first-class data type)
+│
+├── contracts/               # Polyglot contracts (language-agnostic interfaces)
+│   ├── __init__.py
+│   ├── task_app.yaml        # Task app OpenAPI contract
+│   ├── task_app.py          # Python dataclasses for task app contracts
+│   ├── rl.py                # RL contracts
+│   ├── sft.py               # SFT contracts
+│   └── traces.py            # Trace format contracts
+│
+├── core/                    # Internal plumbing
+│   ├── __init__.py
+│   ├── http.py              # SynthHTTPClient, auth, retries
+│   ├── env.py               # resolve_api_key, resolve_backend_url, resolve_env_key
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── base.py          # TOML loading, config discovery
+│   │   ├── training.py      # Training config schemas (RL, SFT, prompt learning)
+│   │   └── task_app.py      # Task app config schemas
+│   ├── storage/
+│   │   ├── __init__.py
+│   │   ├── base.py          # Abstract storage interface
+│   │   ├── sqlite.py        # Local SQLite storage
+│   │   └── turso.py         # Turso/sqld storage
+│   ├── logging.py           # Structured logging setup
+│   └── errors.py            # SynthAPIError, ConfigError, etc.
+│
+├── sdk/                     # Public Python SDK
+│   ├── __init__.py          # Main public exports
+│   ├── task_apps/
+│   │   ├── __init__.py      # InProcessTaskApp, ModalTaskApp, create_task_app
+│   │   ├── in_process.py    # InProcessTaskApp implementation
+│   │   ├── modal.py         # ModalTaskApp for Modal deployments
+│   │   ├── server.py        # FastAPI app creation, TaskAppConfig
+│   │   ├── validation.py    # Task app health checks, endpoint validation
+│   │   └── tunnels.py       # Cloudflare tunnel management
+│   ├── training/
+│   │   ├── __init__.py      # PromptLearningJob, SFTJob, RLJob, GSPOJob
+│   │   ├── base.py          # BaseTrainingJob, BaseJobConfig, BaseJobResult
+│   │   ├── prompt_learning.py  # PromptLearningJob + PromptLearningResult
+│   │   ├── sft.py           # SFTJob + SFTResult
+│   │   ├── rl.py            # RLJob + RLResult
+│   │   └── gspo.py          # GSPOJob + GSPOResult (if distinct from RL)
+│   ├── tracing/
+│   │   ├── __init__.py      # Re-exports from tracing_v3 (no changes to format)
+│   │   └── _compat.py       # Any SDK-specific wrappers if needed
+│   ├── judging/
+│   │   ├── __init__.py      # JudgeClient
+│   │   └── client.py
+│   ├── specs/
+│   │   ├── __init__.py      # Spec loading and validation
+│   │   ├── loader.py        # Load specs from files/URLs
+│   │   ├── serializer.py    # Serialize specs to various formats
+│   │   └── validation.py    # Validate spec correctness
+│   ├── research_agent/      # Research agent (scaffold tuning, eval, trace analysis)
+│   │   ├── __init__.py      # ResearchAgentJob, ResearchAgentJobConfig
+│   │   ├── job.py           # Main SDK class
+│   │   └── poller.py        # Polling logic
+│   ├── streaming/           # Training event streaming
+│   │   ├── __init__.py
+│   │   └── handlers.py      # Event handlers
+│   └── data/
+│       ├── __init__.py      # validate_training_jsonl, iter_sft_examples
+│       └── validators.py    # JSONL validation, dataset utilities
+│
+├── cli/                     # CLI implementation
+│   ├── __init__.py
+│   ├── main.py              # Typer app, command registration
+│   ├── commands/
+│   │   ├── __init__.py
+│   │   ├── train.py         # `synth-ai train`
+│   │   ├── deploy.py        # `synth-ai deploy`
+│   │   ├── eval.py          # `synth-ai eval`
+│   │   ├── setup.py         # `synth-ai setup`
+│   │   ├── status.py        # `synth-ai status`
+│   │   ├── scan.py          # `synth-ai scan`
+│   │   ├── agent.py         # `synth-ai agent` (research agent commands)
+│   │   └── ...
+│   ├── ui/
+│   │   ├── __init__.py
+│   │   ├── logging.py       # CLI logging setup
+│   │   ├── progress.py      # Progress bars, spinners
+│   │   ├── tables.py        # Rich tables
+│   │   └── prompts.py       # Interactive prompts
+│   └── local/               # Local infrastructure
+│       ├── __init__.py
+│       ├── database.py      # Local experiment DB
+│       ├── queue.py         # Experiment queue (Celery)
+│       └── service.py       # Background services
+│
+└── _compat/                 # Backward compatibility re-exports
+    ├── __init__.py
+    ├── task.py              # from synth_ai.task import X -> sdk.task_apps
+    ├── learning.py          # from synth_ai.learning import X -> sdk.*
+    ├── tracing_v3.py        # from synth_ai.tracing_v3 import X -> sdk.tracing
+    └── api_train.py         # from synth_ai.api.train import X -> sdk.training
+```
+
+**Decision:** Use re-exports in original locations (no _compat/ directory).
+Keep `synth_ai/task/__init__.py`, `synth_ai/learning/__init__.py` etc. as re-export
+layers that import from the new locations. Simpler than a separate _compat/ dir.
+
+--------------------------------------------------------------------------------
+
+## 3. KEY ABSTRACTIONS TO NAIL
+
+Based on refactor_notes.txt priorities: Trace → Job → TaskApp → Environment → Experiment → Queue
+
+### 3.1 Trace (data/traces.py) - RE-EXPORTS ONLY
+
+The trace format in `tracing_v3/abstractions.py` is very good and should NOT be changed.
+
+```python
+# data/traces.py - RE-EXPORTS from tracing_v3, no new definitions
+"""
+Trace data types - re-exported from tracing_v3.
+
+The tracing_v3 format is stable and well-tested. This module provides
+a cleaner import path: `from synth_ai.data.traces import SessionTrace`
+"""
+from synth_ai.tracing_v3.abstractions import (
+    SessionTrace,
+    SessionTimeStep,
+    BaseEvent,
+    RuntimeEvent,
+    EnvironmentEvent,
+    SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
+    TimeRecord,
+)
+
+__all__ = [
+    "SessionTrace",
+    "SessionTimeStep", 
+    "BaseEvent",
+    "RuntimeEvent",
+    "EnvironmentEvent",
+    "SessionEventMarkovBlanketMessage",
+    "SessionMessageContent",
+    "TimeRecord",
+]
+```
+
+**Key decision: DO NOT redefine trace types.** 
+
+The existing `tracing_v3/abstractions.py` types are battle-tested. We just provide
+a cleaner import path via `data/traces.py`. If you need the types, import from either:
+- `from synth_ai.data.traces import SessionTrace` (new clean path)
+- `from synth_ai.tracing_v3 import SessionTrace` (existing path, still works)
+
+### 3.2 Enums (data/enums.py)
+
+Centralized enums for training methods and job types:
+
+```python
+# data/enums.py
+from enum import Enum
+
+class JobType(str, Enum):
+    PROMPT_LEARNING = "prompt_learning"
+    SFT = "sft"
+    RL = "rl"
+    GSPO = "gspo"
+    EVAL = "eval"
+    RESEARCH_AGENT = "research_agent"
+
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+class PromptLearningMethod(str, Enum):
+    """Prompt optimization algorithms."""
+    GEPA = "gepa"
+    MIPRO = "mipro"
+
+class RLMethod(str, Enum):
+    """RL training algorithms."""
+    PPO = "ppo"
+    GRPO = "grpo"
+    REINFORCE = "reinforce"
+
+class SFTMethod(str, Enum):
+    """SFT training approaches."""
+    FULL = "full"
+    LORA = "lora"
+    QLORA = "qlora"
+
+class ResearchAgentAlgorithm(str, Enum):
+    """Research agent algorithms."""
+    SCAFFOLD_TUNING = "scaffold_tuning"
+    EVALUATION = "evaluation"
+    TRACE_ANALYSIS = "trace_analysis"
+
+class ContainerBackend(str, Enum):
+    """Container backends for research agent."""
+    DAYTONA = "daytona"
+    MODAL = "modal"
+    DOCKER = "docker"
+```
+
+### 3.3 Job Base Classes (data/jobs.py)
+
+Jobs unify all long-running operations with shared base classes:
+
+```python
+# data/jobs.py
+from dataclasses import dataclass, field
+from typing import Any
+from datetime import datetime
+from .enums import JobType, JobStatus
+
+@dataclass
+class BaseJobConfig:
+    """Base configuration shared by all job types."""
+    task_app_url: str | None = None
+    backend_url: str | None = None
+    api_key: str | None = None
+    environment_api_key: str | None = None
+    
+    # Subclasses add their specific fields
+
+@dataclass
+class PromptLearningJobConfig(BaseJobConfig):
+    """Config for prompt learning (GEPA/MIPRO) jobs."""
+    method: PromptLearningMethod = PromptLearningMethod.GEPA
+    config_path: str | None = None
+    num_candidates: int = 10
+    # ... other GEPA/MIPRO specific fields
+
+@dataclass
+class SFTJobConfig(BaseJobConfig):
+    """Config for SFT jobs."""
+    method: SFTMethod = SFTMethod.FULL
+    dataset_path: str | None = None
+    model: str = ""
+    # ... other SFT specific fields
+
+@dataclass
+class RLJobConfig(BaseJobConfig):
+    """Config for RL jobs."""
+    method: RLMethod = RLMethod.GRPO
+    # ... other RL specific fields
+
+@dataclass
+class ResearchAgentJobConfig(BaseJobConfig):
+    """Config for research agent jobs."""
+    algorithm: ResearchAgentAlgorithm = ResearchAgentAlgorithm.SCAFFOLD_TUNING
+    repo_url: str = ""
+    repo_branch: str = "main"
+    inline_files: dict[str, str] | None = None  # Alternative to repo
+    backend: ContainerBackend = ContainerBackend.DAYTONA
+    model: str = "gpt-4o"
+    algorithm_config: dict = field(default_factory=dict)
+
+@dataclass
+class PollOutcome:
+    """Result of polling a job (generic, used by any job type)."""
+    status: str
+    data: dict[str, Any]
+    is_terminal: bool = False
+    error: str | None = None
+
+@dataclass
+class JobInfo:
+    """Job metadata returned by backend."""
+    job_id: str
+    job_type: JobType
+    status: JobStatus
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class BaseJobResult:
+    """Base result class for all job types."""
+    job_id: str
+    status: JobStatus
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+```
+
+Key design decisions:
+- All job configs inherit from `BaseJobConfig` for shared fields
+- Each training type has a `method` enum (GEPA/MIPRO, PPO/GRPO, etc.)
+- Results are proper objects, not dicts with helper functions
+
+### 3.3 Task App (data/task_app.py)
+
+Task apps are the user's world. Keep contracts clean.
+
+```python
+# data/task_app.py - Already mostly exists in synth_ai/task/contracts.py
+# Move those dataclasses here:
+# - RolloutRequest, RolloutResponse
+# - TaskInfo, TaskDescriptor
+# - RubricInfo, DatasetInfo, InferenceInfo, LimitsInfo
+# - RolloutEnvSpec, RolloutPolicySpec, etc.
+```
+
+**Decision:** Keep contracts at top level as `synth_ai/contracts/` and expand it.
+
+Contracts are polyglot - people in many languages (not just Python) should be able
+to use them. Expand to include:
+- `contracts/task_app.yaml` (existing)
+- `contracts/task_app.py` (Python dataclasses)
+- `contracts/rl.py` (RL contracts)
+- `contracts/sft.py` (SFT contracts)
+- `contracts/traces.py` (trace format contracts)
+
+This keeps contracts as a first-class, language-agnostic interface.
+
+### 3.4 SFT Data (data/sft.py)
+
+The SFT data types in learning/sft/data.py are well-designed. Move as-is.
+
+```python
+# data/sft.py - Move from synth_ai/learning/sft/data.py:
+# - SFTExample, SFTMessage, SFTToolCall, SFTToolDefinition
+# - SFTDataError
+# - SFTMessageContent type alias
+```
+
+Keep the parsing/validation utilities in sdk/data/validators.py since they do IO.
+
+--------------------------------------------------------------------------------
+
+## 4. SDK MODULE DETAILS
+
+### 4.1 sdk/task_apps/
+
+**What goes here:**
+- `InProcessTaskApp` - context manager for local task app + Cloudflare tunnel
+- `ModalTaskApp` - context manager for Modal-deployed task apps
+- `TaskAppConfig` - configuration for task app server
+- `create_task_app()` - FastAPI app factory
+- `run_task_app()` - run task app with uvicorn
+- Validation utilities (health checks, endpoint validation)
+- Cloudflare tunnel management
+
+**Current locations being consolidated:**
+- `synth_ai/task/in_process.py` → `sdk/task_apps/in_process.py`
+- `synth_ai/task/server.py` → `sdk/task_apps/server.py`
+- `synth_ai/task/validators.py` → `sdk/task_apps/validation.py`
+- `synth_ai/cloudflare.py` → `sdk/task_apps/tunnels.py`
+- `synth_ai/task/health.py` → `sdk/task_apps/validation.py` (merge)
+- `synth_ai/modal.py` → `sdk/task_apps/modal.py`
+- `synth_ai/cli/modal_app.py` → `sdk/task_apps/modal.py` (merge relevant parts)
+- `synth_ai/cli/task_app_modal_serve.py` → `sdk/task_apps/modal.py`
+
+**Example usage after refactor:**
+```python
+from synth_ai.sdk.task_apps import (
+    InProcessTaskApp, 
+    ModalTaskApp,
+    TaskAppConfig, 
+    create_task_app,
+)
+
+# In-process with Cloudflare tunnel
+async with InProcessTaskApp(config_factory=build_config, port=8114) as task_app:
+    print(f"Running at: {task_app.url}")
+
+# Modal deployment
+async with ModalTaskApp(app_name="my-task-app", config=config) as task_app:
+    print(f"Running on Modal at: {task_app.url}")
+
+# Programmatic server creation (for custom deployments)
+config = TaskAppConfig(rubrics=[...], datasets=[...])
+app = create_task_app(config)
+```
+
+**Modal-specific considerations:**
+- `ModalTaskApp` handles Modal app deployment, URL retrieval, and teardown
+- Should support both ephemeral (for testing) and persistent deployments
+- Environment API key handling for Modal secrets
+
+### 4.2 sdk/training/
+
+**What goes here:**
+- `PromptLearningJob` - prompt optimization jobs (GEPA, MIPRO)
+- `SFTJob` - supervised fine-tuning jobs
+- `RLJob` - reinforcement learning jobs (PPO, GRPO, etc.)
+- `GSPOJob` - if distinct from RL
+- Base `TrainingJob` abstraction
+- Result objects for each job type
+
+**Current locations being consolidated:**
+- `synth_ai/api/train/prompt_learning.py` → `sdk/training/prompt_learning.py`
+- `synth_ai/api/train/sft.py` → `sdk/training/sft.py`
+- `synth_ai/learning/rl/client.py` → `sdk/training/rl.py`
+- `synth_ai/learning/prompt_learning_client.py` → `sdk/training/prompt_learning.py` (merged)
+
+**Key design - Base classes:**
+```python
+# sdk/training/base.py
+from abc import ABC, abstractmethod
+from typing import Self, Generic, TypeVar
+from synth_ai.data.jobs import BaseJobConfig, BaseJobResult, JobInfo
+
+TConfig = TypeVar("TConfig", bound=BaseJobConfig)
+TResult = TypeVar("TResult", bound=BaseJobResult)
+
+class BaseTrainingJob(ABC, Generic[TConfig, TResult]):
+    """Base class for all training jobs."""
+    
+    config: TConfig
+    _job_id: str | None = None
+    
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config_path: Path, **kwargs) -> Self: ...
+    
+    @abstractmethod
+    def submit(self) -> str: ...  # Returns job_id
+    
+    @abstractmethod
+    def get_status(self) -> JobInfo: ...
+    
+    @abstractmethod
+    def poll_until_complete(self, timeout: float = 3600.0) -> TResult: ...
+    
+    @abstractmethod
+    def get_result(self) -> TResult: ...
+    
+    @property
+    def job_id(self) -> str | None:
+        return self._job_id
+```
+
+**Key design - Result objects (not helper functions):**
+```python
+# sdk/training/prompt_learning.py
+from dataclasses import dataclass, field
+from synth_ai.data.jobs import BaseJobResult
+from synth_ai.data.enums import PromptLearningMethod
+
+@dataclass
+class PromptLearningResult(BaseJobResult):
+    """Result of a prompt learning job."""
+    method: PromptLearningMethod = PromptLearningMethod.GEPA
+    best_prompt: str | None = None
+    best_score: float | None = None
+    top_prompts: list[dict] = field(default_factory=list)
+    scoring_summary: dict = field(default_factory=dict)
+    
+    def get_prompt_text(self, rank: int = 1) -> str | None:
+        """Get prompt text by rank (1 = best)."""
+        if rank == 1:
+            return self.best_prompt
+        if rank <= len(self.top_prompts):
+            return self.top_prompts[rank - 1].get("text")
+        return None
+
+class PromptLearningJob(BaseTrainingJob[PromptLearningJobConfig, PromptLearningResult]):
+    """Job for prompt optimization (GEPA/MIPRO)."""
+    
+    def get_result(self) -> PromptLearningResult:
+        """Fetch and return structured result object."""
+        # ... implementation fetches from backend, returns PromptLearningResult
+        pass
+
+# Usage:
+# job = PromptLearningJob.from_config("config.toml")
+# job.submit()
+# result = job.poll_until_complete()
+# print(result.best_prompt)
+# print(result.get_prompt_text(rank=2))
+```
+
+```python
+# sdk/training/sft.py
+@dataclass
+class SFTResult(BaseJobResult):
+    """Result of an SFT job."""
+    model_path: str | None = None
+    final_loss: float | None = None
+    eval_metrics: dict = field(default_factory=dict)
+    checkpoint_paths: list[str] = field(default_factory=list)
+
+# sdk/training/rl.py  
+@dataclass
+class RLResult(BaseJobResult):
+    """Result of an RL job."""
+    model_path: str | None = None
+    final_reward: float | None = None
+    training_curves: dict = field(default_factory=dict)
+```
+
+This replaces the ugly `get_prompt_text(job_id)` helper pattern with proper
+`result.get_prompt_text()` methods on result objects.
+
+### 4.2.1 sdk/research_agent/ (from synth-async-agent)
+
+The research agent module follows the same pattern as training jobs:
+
+**What goes here:**
+- `ResearchAgentJob` - main SDK class for submitting/polling/canceling jobs
+- `ResearchAgentJobPoller` - polling logic
+- Config loading from TOML files
+
+**Current location:** `synth_ai/api/research_agent/` (needs refactoring)
+
+**Key design - Follows training job pattern:**
+```python
+# sdk/research_agent/job.py
+from synth_ai.data.configs.research_agent import ResearchAgentJobConfig
+from synth_ai.data.enums import ResearchAgentAlgorithm, ContainerBackend
+from synth_ai.data.jobs import PollOutcome
+
+class ResearchAgentJob:
+    """SDK class for running research agent jobs.
+    
+    Supports algorithms:
+    - scaffold_tuning: Iteratively improve code/prompts to optimize a metric
+    - evaluation: Run evaluation suites across datasets
+    - trace_analysis: Analyze past execution traces for patterns
+    
+    Example:
+        >>> from synth_ai.sdk.research_agent import ResearchAgentJob
+        >>> job = ResearchAgentJob.from_config("my_config.toml")
+        >>> job.submit()
+        >>> result = job.poll_until_complete()
+    """
+    
+    @classmethod
+    def from_config(cls, config_path: Path, **kwargs) -> "ResearchAgentJob": ...
+    
+    @classmethod
+    def from_files(cls, files: dict[str, str], algorithm: str, ...) -> "ResearchAgentJob": ...
+    
+    @classmethod
+    def from_id(cls, job_id: str, **kwargs) -> "ResearchAgentJob": ...
+    
+    def submit(self) -> str: ...  # Returns job_id
+    def get_status(self) -> dict: ...
+    def get_events(self, since_seq: int = 0) -> list[dict]: ...
+    def poll_until_complete(self, timeout: float = 3600.0, on_event=None) -> dict: ...
+    def cancel(self) -> bool: ...
+    def get_results(self) -> dict: ...
+```
+
+**CLI integration:**
+```python
+# cli/commands/agent.py
+# Commands: run, status, events, cancel, results
+# Uses sdk/research_agent for all business logic
+```
+
+### 4.3 sdk/tracing/
+
+**What goes here:**
+- Re-exports from tracing_v3 (the format is very good, don't change it)
+- Any SDK-convenience wrappers if needed (rare)
+
+**Current location:** `synth_ai/tracing_v3/` - KEEP AS-IS
+
+**Key decision: DO NOT refactor tracing_v3 internals.**
+
+The tracing_v3 module is well-designed and stable. Refactoring it adds risk for
+minimal benefit. Instead:
+
+1. Keep `synth_ai/tracing_v3/` exactly where it is
+2. Create `sdk/tracing/__init__.py` as a re-export layer
+3. Users can import from either location
+
+```python
+# sdk/tracing/__init__.py
+"""
+Tracing SDK - re-exports from tracing_v3.
+
+The tracing_v3 format is stable and well-tested. This module provides
+a cleaner import path without changing any underlying implementation.
+"""
+from synth_ai.tracing_v3 import (
+    # Core types
+    SessionTracer,
+    SessionTrace,
+    SessionTimeStep,
+    BaseEvent,
+    RuntimeEvent,
+    EnvironmentEvent,
+    SessionEventMarkovBlanketMessage,
+    SessionMessageContent,
+    TimeRecord,
+    # Config
+    TursoConfig,
+    # LM call helpers
+    BaseLMResponse,
+)
+
+__all__ = [
+    "SessionTracer",
+    "SessionTrace",
+    "SessionTimeStep",
+    "BaseEvent",
+    "RuntimeEvent", 
+    "EnvironmentEvent",
+    "SessionEventMarkovBlanketMessage",
+    "SessionMessageContent",
+    "TimeRecord",
+    "TursoConfig",
+    "BaseLMResponse",
+]
+```
+
+Storage backends (SQLite, Turso) stay in `tracing_v3/storage/` and `tracing_v3/turso/`.
+No migration to `core/storage/` needed - tracing owns its storage.
+
+### 4.4 sdk/data/
+
+**What goes here:**
+- JSONL validation utilities
+- Dataset iteration helpers
+- SFT data parsing (not schemas - those are in data/sft.py)
+
+**Example:**
+```python
+# sdk/data/__init__.py
+from synth_ai.data.sft import SFTExample, SFTMessage  # Re-export schemas
+from .validators import (
+    validate_training_jsonl,
+    iter_sft_examples,
+    collect_sft_jsonl_errors,
+)
+```
+
+--------------------------------------------------------------------------------
+
+## 5. CLI REFACTORING
+
+### 5.1 Command Structure
+
+The CLI should be a thin wrapper around SDK. Each command file should:
+1. Parse arguments
+2. Call SDK functions
+3. Display results using UI utilities
+
+**Target structure:**
+```python
+# cli/commands/train.py
+import typer
+from synth_ai.sdk.training import PromptLearningJob, SFTJob, RLJob
+from ..ui import progress, tables
+
+app = typer.Typer()
+
+@app.command()
+def train(
+    config: Path = typer.Option(...),
+    type: str = typer.Option("auto"),
+    poll: bool = typer.Option(True),
+):
+    """Run a training job."""
+    # Determine job type
+    if type == "prompt_learning" or _is_prompt_learning_config(config):
+        job = PromptLearningJob.from_config(config)
+    elif type == "sft":
+        job = SFTJob.from_config(config)
+    elif type == "rl":
+        job = RLJob.from_config(config)
+    else:
+        raise typer.BadParameter(f"Unknown job type: {type}")
+    
+    # Submit
+    job_id = job.submit()
+    console.print(f"Job submitted: {job_id}")
+    
+    # Poll if requested
+    if poll:
+        with progress.spinner("Waiting for job..."):
+            result = job.poll_until_complete()
+        tables.print_job_result(result)
+```
+
+### 5.2 Local Infrastructure (cli/local/)
+
+**What goes here:**
+- Experiment queue (Celery integration)
+- Local SQLite database for experiments
+- Background service management
+
+**Current location:** `synth_ai/experiment_queue/`
+
+**Decision:** Move to `cli/local/experiment_queue/`
+- It's primarily used by CLI commands
+- Keeps CLI self-contained for local development
+- SDK shouldn't depend on it
+
+--------------------------------------------------------------------------------
+
+## 6. MIGRATION PLAN
+
+### Phase 0: Move environments/ to synth-research (Independent, do first)
+
+1. Move `synth_ai/environments/` → `synth-research/environments/`
+2. Update any imports in synth-research that reference it
+3. Remove from synth-ai package
+4. This is independent of the refactor and reduces package size
+
+### Phase 1: Create data/ layer (Low risk, foundational)
+
+1. Create `synth_ai/data/__init__.py`
+2. Move pure dataclasses:
+   - `synth_ai/task/contracts.py` → `data/task_app.py`
+   - `synth_ai/learning/sft/data.py` (schema parts) → `data/sft.py`
+   - `synth_ai/judge_schemas.py` → `data/judges.py`
+   - Create `data/traces.py` from `tracing_v3/abstractions.py`
+   - Create `data/jobs.py` (new unified job schemas)
+3. Update original locations to re-export from data/
+
+**Testing:** All existing imports should continue to work.
+
+### Phase 2: Create core/ layer (Medium risk)
+
+1. Create `synth_ai/core/`
+2. Consolidate HTTP client code:
+   - `synth_ai/http.py`, `synth_ai/http_client.py` → `core/http.py`
+   - `synth_ai/_utils/http.py` → merge into `core/http.py`
+3. Consolidate env/config code:
+   - `synth_ai/utils/env.py` → `core/env.py`
+   - `synth_ai/config/base_url.py` → `core/env.py`
+   - `synth_ai/_utils/base_url.py` → merge into `core/env.py`
+4. Consolidate error types:
+   - `synth_ai/task/errors.py` + other error definitions → `core/errors.py`
+
+### Phase 3: Create sdk/ layer (Higher risk, most impactful)
+
+1. Create `synth_ai/sdk/`
+2. Move task app code:
+   - `synth_ai/task/in_process.py` → `sdk/task_apps/in_process.py`
+   - `synth_ai/task/server.py` → `sdk/task_apps/server.py`
+   - etc.
+3. Move training code:
+   - `synth_ai/api/train/prompt_learning.py` → `sdk/training/prompt_learning.py`
+   - `synth_ai/api/train/sft.py` → `sdk/training/sft.py`
+   - etc.
+4. Create sdk/tracing/ re-exports
+5. Create sdk/data/ with validation utilities
+6. Update `synth_ai/__init__.py` to export from sdk/
+
+### Phase 4: Slim down CLI (Lower risk)
+
+1. CLI commands use sdk/ for business logic (training, eval, results)
+2. CLI can use core/ for: env resolution, logging, config discovery
+3. Move CLI-specific utilities to cli/ui/
+4. Keep experiment_queue/ as-is but ensure clean boundary
+5. Keep CLI-only things (interactive prompts, local services) in CLI
+
+### Phase 5: Cleanup and deprecation (Ongoing)
+
+1. Add deprecation warnings to old import paths
+2. Update documentation to use new paths
+3. Update cookbooks/synth-research to use new paths
+4. Plan removal of old paths in next major version
+
+--------------------------------------------------------------------------------
+
+## 7. FILE-BY-FILE MIGRATION MAPPING
+
+### Task App Files
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `task/__init__.py` | `sdk/task_apps/__init__.py` + compat | Re-export |
+| `task/in_process.py` | `sdk/task_apps/in_process.py` | Direct move |
+| `task/server.py` | `sdk/task_apps/server.py` | Direct move |
+| `task/config.py` | `core/config/task_app.py` | Config schemas |
+| `task/contracts.py` | `data/task_app.py` | Pure dataclasses |
+| `task/validators.py` | `sdk/task_apps/validation.py` | Validation logic |
+| `task/health.py` | `sdk/task_apps/validation.py` | Merge |
+| `task/client.py` | `sdk/task_apps/client.py` | HTTP client for task apps |
+| `task/auth.py` | `core/auth.py` | Auth utilities (shared) |
+| `task/datasets.py` | `sdk/data/datasets.py` | Dataset utilities |
+| `task/rubrics.py` + `task/rubrics/` | `sdk/task_apps/rubrics/` | Rubric handling |
+| `task/proxy.py` | `sdk/task_apps/proxy.py` | Message proxying |
+| `task/vendors.py` | `core/vendors.py` | Vendor key handling |
+| `task/errors.py` | `core/errors.py` | Merge with other errors |
+| `task/json.py` | `core/json.py` | JSON utilities |
+| `cloudflare.py` | `sdk/task_apps/tunnels.py` | Tunnel management |
+| `modal.py` | `sdk/task_apps/modal.py` | Modal task app support |
+| `cli/modal_app.py` | `sdk/task_apps/modal.py` | Merge Modal logic |
+| `cli/task_app_modal_serve.py` | `sdk/task_apps/modal.py` | Merge Modal serve |
+
+### Learning Files
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `learning/__init__.py` | `sdk/__init__.py` + compat | Re-export |
+| `learning/prompt_learning_client.py` | `sdk/training/prompt_learning.py` | Merged with job class |
+| `learning/rl_client.py` | `sdk/training/rl.py` | RL training + results |
+| `learning/ft_client.py` | `sdk/training/sft.py` | SFT training + results |
+| `learning/client.py` | `core/http.py` | Base HTTP client |
+| `learning/config.py` | `core/config/training.py` | Training config |
+| `learning/health.py` | `sdk/health.py` or remove | Health checks |
+| `learning/jobs.py` | `sdk/training/_jobs.py` | Internal job utilities |
+| `learning/rl/` | `sdk/training/` | RL specific, flatten |
+| `learning/sft/data.py` | `data/sft.py` + `sdk/data/` | Split schemas/utils |
+| `learning/sft/config.py` | `core/config/training.py` | Merge |
+| `learning/sft/client.py` | `sdk/training/sft.py` | Merge |
+
+**Note:** Results (get_prompt_text, etc.) are now methods on result objects
+returned by `job.get_result()`, not standalone functions.
+
+### API/Train Files
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `api/train/__init__.py` | `sdk/training/__init__.py` | Re-export |
+| `api/train/prompt_learning.py` | `sdk/training/prompt_learning.py` | Direct move |
+| `api/train/sft.py` | `sdk/training/sft.py` | Direct move |
+| `api/train/builders.py` | `sdk/training/_builders.py` | Internal |
+| `api/train/pollers.py` | `sdk/training/_pollers.py` | Internal |
+| `api/train/configs/` | `core/config/training/` | Config schemas |
+| `api/train/cli.py` | Remove, CLI uses sdk/ | |
+| `api/train/env_resolver.py` | `core/env.py` | Merge |
+
+### Research Agent Files (from synth-async-agent branch)
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `api/research_agent/__init__.py` | `sdk/research_agent/__init__.py` | Re-export SDK + CLI register |
+| `api/research_agent/job.py` → `ResearchAgentJobConfig` | `data/configs/research_agent.py` | Pure config dataclass |
+| `api/research_agent/job.py` → `PollOutcome` | `data/jobs.py` | Generic polling result type |
+| `api/research_agent/job.py` → `AlgorithmType, BackendType` | `data/enums.py` | Add to enums |
+| `api/research_agent/job.py` → `ResearchAgentJobPoller` | `sdk/research_agent/poller.py` | Polling logic |
+| `api/research_agent/job.py` → `ResearchAgentJob` | `sdk/research_agent/job.py` | Main SDK class |
+| `api/research_agent/cli.py` | `cli/commands/agent.py` | CLI commands |
+
+**Pattern:** Same as other jobs - config in `data/`, SDK class in `sdk/`, CLI in `cli/`.
+
+### Tracing Files - KEEP AS-IS
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `tracing_v3/*` | KEEP IN PLACE | DO NOT MOVE |
+| `sdk/tracing/__init__.py` | NEW: re-exports | Just re-export from tracing_v3 |
+| `data/traces.py` | NEW: re-exports | Just re-export from tracing_v3/abstractions |
+
+**The entire tracing_v3/ directory stays exactly where it is.**
+We only add re-export layers in `sdk/tracing/` and `data/traces.py`.
+
+### Spec Files
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `spec/dataclasses.py` | `data/specs.py` | Spec schemas (first-class data) |
+| `spec/loader.py` | `sdk/specs/loader.py` | Loading logic |
+| `spec/serializer.py` | `sdk/specs/serializer.py` | Serialization |
+| `spec/validation.py` | `sdk/specs/validation.py` | Validation logic |
+| `spec/__init__.py` | `sdk/specs/__init__.py` | Re-export all |
+
+### Utils Files
+
+| Current Location | Target Location | Notes |
+|-----------------|-----------------|-------|
+| `utils/env.py` | `core/env.py` | Environment resolution |
+| `utils/http.py` | `core/http.py` | HTTP utilities |
+| `utils/config.py` | `core/config/base.py` | Config utilities |
+| `utils/logging.py` | `core/logging.py` | Logging setup |
+| `utils/errors.py` | `core/errors.py` | Error types |
+| `utils/paths.py` | `core/paths.py` | Path utilities |
+| `utils/task_app_discovery.py` | `sdk/task_apps/discovery.py` | Task app discovery |
+| `utils/task_app_env.py` | `core/env.py` | Merge |
+| `utils/task_app_state.py` | `sdk/task_apps/state.py` | State management |
+| `utils/train_cfgs.py` | `core/config/training.py` | Merge |
+| `utils/tunnel_records.py` | `sdk/task_apps/tunnels.py` | Merge |
+| `utils/apps/` | `sdk/task_apps/` | App utilities |
+| Other utils/ | `core/` | Most utils → core (use best judgement) |
+
+--------------------------------------------------------------------------------
+
+## 8. BACKWARD COMPATIBILITY STRATEGY
+
+### Approach 1: Re-export from original locations (Recommended)
+
+```python
+# synth_ai/task/__init__.py (after migration)
+"""
+Backward compatibility layer for synth_ai.task imports.
+New code should use synth_ai.sdk.task_apps instead.
+"""
+import warnings
+from synth_ai.sdk.task_apps import (
+    InProcessTaskApp,
+    TaskAppConfig,
+    create_task_app,
+    run_task_app,
+    # ... all other exports
+)
+
+# Optionally add deprecation warning
+def __getattr__(name):
+    warnings.warn(
+        f"synth_ai.task.{name} is deprecated, use synth_ai.sdk.task_apps.{name}",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return globals()[name]
+```
+
+### Approach 2: __init__.py-only compat layer
+
+Only update the __init__.py files to re-export from new locations, don't move
+the actual implementation files. This is lower risk but doesn't clean up the
+directory structure.
+
+**Decision:** Approach 1 - actually move files to new locations.
+Cleaner long-term, worth the extra work. Do it right the first time.
+
+--------------------------------------------------------------------------------
+
+## 9. OPEN QUESTIONS
+
+### Q1: What about synth_ai/environments/?
+The `environments/` directory has examples, environment implementations, etc.
+This is research/experiment code, not core SDK functionality.
+
+**Decision: Move to synth-research repo.**
+- `synth_ai/environments/` → `synth-research/environments/`
+- Remove from synth-ai package entirely
+- This reduces synth-ai surface area and keeps research separate
+
+### Q2: What about synth_ai/demos/?
+Demo code (crafter, math, mipro demos) for the `uvx synth-ai demo` command.
+
+**Decision: Keep under CLI.**
+- Demos provide super fast references for users and coding agents to start Synth runs
+- Tied to `synth-ai demo` command - stays in `cli/demos/` or keep as `demos/`
+- Demo registry stays to support the CLI command
+- Unlike environments/ (research code), demos are user-facing quick starts
+
+### Q3: What about synth_ai/evals/?
+The evals module has JudgeClient and related code for scoring traces with rubrics.
+
+**JudgeClient is SDK code** - agents/scripts want to score traces programmatically:
+```python
+client = JudgeClient(base_url="...", api_key="...")
+result = await client.score(trace=trace, policy_name="p", task_app_id="env", options={...})
+```
+
+**Decision:**
+- `evals/client.py` → `sdk/judging/client.py` (JudgeClient)
+- `evals/types.py` → `data/judges.py` (Judgement, RewardJudgement, etc.)
+- `judge_schemas.py` → `data/judges.py` (merge all judge schemas)
+
+**CLI exposure:** May have `synth-ai eval` command that uses sdk/judging/ under the hood.
+
+### Q4: What about synth_ai/session/?
+The session module has SessionManager, SessionClient, etc.
+
+**Sessions are CLI infrastructure** for managing agent runs with spending limits/containment.
+An agent can start a session where spending is limited, useful for avoiding huge charges.
+
+**Decision:** Keep in CLI layer.
+- `session/` → `cli/session/` (or `cli/local/session/`)
+- SessionManager, SessionClient stay CLI-specific
+- This is operational tooling, not SDK business logic
+
+### Q5: What about synth_ai/spec/?
+Has dataclasses.py, loader.py, serializer.py, validation.py.
+
+**Specs are first-class data types.** They deserve good abstractions and loaders.
+
+**Decision:**
+- `spec/dataclasses.py` → `data/specs.py` (spec schemas as data types)
+- `spec/loader.py` → `sdk/specs/loader.py` (loading/parsing logic)
+- `spec/serializer.py` → `sdk/specs/serializer.py` (serialization logic)
+- `spec/validation.py` → `sdk/specs/validation.py` (validation logic)
+
+This keeps specs as a clean data type with dedicated SDK utilities for working with them.
+
+### Q6: What about synth_ai/streaming/?
+Has streaming types and handlers for job events (training job progress, etc.).
+
+**Decision:** SDK - code may want to consume training events programmatically.
+- `streaming/` → `sdk/training/streaming.py` or `sdk/streaming/`
+- Used by both SDK (programmatic job monitoring) and CLI (progress display)
+- Types/handlers for consuming training job event streams
+
+### Q7: What about synth_ai/pricing/?
+Has model pricing information.
+
+**Decision:** `core/pricing.py` - internal utility for cost calculations.
+
+### Q8: What about synth_ai/inference/?
+Has InferenceClient for calling models.
+
+**Decision:** `sdk/inference/` - programmatic model inference belongs in SDK.
+
+### Q9: What about synth_ai/mcp/?
+MCP (Model Context Protocol) integration.
+
+**Decision:** `core/integrations/mcp/` - not actively supported.
+- Move to `core/integrations/mcp/`
+- Add README noting this is experimental/not actively maintained
+- Keep isolated so it doesn't pollute main SDK surface
+
+--------------------------------------------------------------------------------
+
+## 10. CLI vs SDK BOUNDARIES
+
+**Don't be dogmatic.** The goal is clean code, not architectural purity.
+
+### 10.1 General Principle
+
+- SDK: programmatic Python API for training, task apps, tracing
+- CLI: command-line interface with its own logic where needed
+- If something naturally fits SDK, put it there
+- If something is CLI-specific, keep it in CLI - don't force an SDK abstraction
+
+### 10.2 What Goes in SDK
+
+Things that Python users (agents, scripts, notebooks) would want to call:
+
+- `PromptLearningJob.from_config().submit().poll_until_complete()`
+- `InProcessTaskApp(config_factory=...).` as async context manager
+- `SessionTracer` for recording traces
+- Result objects with methods like `result.get_prompt_text()`
+
+### 10.3 What Stays in CLI
+
+CLI has its own logic that doesn't need SDK abstraction:
+
+- **Interactive flows**: `synth-ai setup` with prompts, env file writing
+- **Local infra**: experiment queue, local DB, background services
+- **Discovery/scanning**: finding running task apps, TOML config discovery
+- **UX sugar**: auto-selecting configs, progress bars, rich tables
+- **Process management**: watching services, killing tunnels
+
+These don't need SDK wrappers. CLI can call `core/` directly for utilities.
+
+### 10.4 Practical Rule
+
+Ask: "Would a Python script/agent want to call this?"
+- Yes → SDK
+- No, it's CLI UX → CLI (can use core/ for utilities)
+- Unclear → Start in CLI, promote to SDK if needed later
+
+--------------------------------------------------------------------------------
+
+## 11. SUCCESS CRITERIA
+
+After refactoring:
+
+1. **Modularity**: Can point to `sdk/task_apps/` and say "this is all the task app code"
+2. **Clear dependencies**: data/ has no imports from core/sdk/cli
+3. **Clean separation**: SDK for programmatic use, CLI for command-line use (not forced)
+4. **Backward compat**: All existing imports work (with deprecation warnings)
+5. **Testability**: Each layer can be tested independently
+6. **Documentation**: Clear import paths for users
+7. **Proper typing**: Enums for methods (GEPA/MIPRO, etc.), base classes for configs/results
+8. **Result objects**: `job.get_result()` returns typed objects, not helper functions
+9. **Leaner package**: environments/ moved to synth-research
+
+--------------------------------------------------------------------------------
+
+## 12. IMMEDIATE NEXT STEPS
+
+1. [ ] Create `synth_ai/data/` with basic schemas
+2. [ ] Test that data/ has no circular dependencies
+3. [ ] Create `synth_ai/core/` with env.py and http.py
+4. [ ] Create `synth_ai/sdk/` with __init__.py re-exports
+5. [ ] Verify no breaking changes with a test script
+6. [ ] Update one CLI command (e.g., `train`) to use sdk/ directly
+7. [ ] Document the new structure in README
+
+--------------------------------------------------------------------------------
+
+## 13. ESTIMATED EFFORT
+
+| Phase | Effort | Risk |
+|-------|--------|------|
+| Phase 1: data/ layer | 2-3 days | Low |
+| Phase 2: core/ layer | 3-4 days | Medium |
+| Phase 3: sdk/ layer | 5-7 days | Medium-High |
+| Phase 4: CLI slim | 2-3 days | Low |
+| Phase 5: Cleanup | Ongoing | Low |
+
+Total: ~2-3 weeks for main refactor, ongoing cleanup after.
+
+--------------------------------------------------------------------------------
+
