@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse, urlunparse
 
 from synth_ai.utils.env import mask_str
-from synth_ai.utils.http import http_request
+from synth_ai.core.http import http_request
 from synth_ai.utils.process import popen_capture
 from synth_ai.utils.user_config import load_user_config
 

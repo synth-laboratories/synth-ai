@@ -2,7 +2,7 @@ import os
 
 import click
 
-from .base_url import PROD_BASE_URL_DEFAULT
+from synth_ai.core.env import PROD_BASE_URL_DEFAULT
 from .env import mask_str, resolve_env_var
 from .process import ensure_local_port_available
 from .task_app_state import persist_env_api_key

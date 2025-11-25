@@ -5,7 +5,7 @@ from .apps.common import (
     get_asgi_app,
     load_module,
 )
-from .base_url import PROD_BASE_URL_DEFAULT, get_backend_from_env, get_learning_v2_base_url
+from synth_ai.core.env import PROD_BASE_URL_DEFAULT, get_backend_from_env
 from .bin import install_bin, verify_bin
 from .claude import ClaudeConfig
 from .cli import (
@@ -23,7 +23,7 @@ from .env import (
     write_env_var_to_dotenv,
     write_env_var_to_json,
 )
-from .http import AsyncHttpClient, HTTPError, http_request
+from synth_ai.core.http import AsyncHttpClient, HTTPError, http_request
 from .json import create_and_write_json, load_json_to_dict, strip_json_comments
 from .logging import flush_logger, log_batch, log_error, log_event, log_info, log_warning
 from .modal import (
@@ -108,7 +108,6 @@ __all__ = [
     "get_env_file_paths",
     "get_asgi_app",
     "get_home_config_file_paths",
-    "get_learning_v2_base_url",
     "http_request",
     "install_bin",
     "install_sqld",

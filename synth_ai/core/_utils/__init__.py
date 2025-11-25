@@ -12,8 +12,8 @@ from importlib import import_module
 from types import ModuleType
 
 _MAPPING = {
-    "base_url": "synth_ai.utils.base_url",
-    "http": "synth_ai.utils.http",
+    "base_url": "synth_ai.core.env",
+    "http": "synth_ai.core.http",
     "prompts": "synth_ai.utils.prompts",
     "task_app_state": "synth_ai.utils.task_app_state",
     "user_config": "synth_ai.utils.user_config",

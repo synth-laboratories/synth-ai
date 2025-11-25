@@ -15,6 +15,7 @@ from .errors import AuthenticationError, ConfigError
 
 # Default production URL
 PROD_BASE_URL = "https://agent-learning.onrender.com"
+PROD_BASE_URL_DEFAULT = PROD_BASE_URL  # Alias for backward compatibility
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
@@ -217,5 +218,6 @@ __all__ = [
     "load_env_file",
     "mask_value",
     "PROD_BASE_URL",
+    "PROD_BASE_URL_DEFAULT",
 ]
 
