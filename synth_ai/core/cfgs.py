@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Literal, Optional, cast
 
 from pydantic import BaseModel
-from synth_ai.utils import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_event
 from synth_ai.core.paths import get_bin_path
 
 

@@ -5,16 +5,12 @@ from typing import Any
 import click
 from synth_ai.data.enums import SYNTH_MODEL_NAMES
 from synth_ai.core.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
-from synth_ai.utils import (
-    create_and_write_json,
-    get_backend_from_env,
-    get_bin_path,
-    install_bin,
-    load_json_to_dict,
-    resolve_env_var,
-    verify_bin,
-    write_agents_md,
-)
+from synth_ai.cli.lib.agents import write_agents_md
+from synth_ai.cli.lib.bin import install_bin, verify_bin
+from synth_ai.cli.lib.env import resolve_env_var
+from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.json import create_and_write_json, load_json_to_dict
+from synth_ai.core.paths import get_bin_path
 
 CONFIG_PATH = Path.home() / ".config" / "opencode" / "opencode.json"
 AUTH_PATH = Path.home() / ".local" / "share" / "opencode" / "auth.json"

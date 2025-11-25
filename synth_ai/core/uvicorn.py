@@ -6,7 +6,7 @@ from pathlib import Path
 
 from starlette.types import ASGIApp
 from synth_ai.core.cfgs import LocalDeployCfg
-from synth_ai.utils import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_event
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.paths import REPO_ROOT, configure_import_paths
 

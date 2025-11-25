@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 from modal.config import config
 from synth_ai.core.cfgs import ModalDeployCfg
-from synth_ai.utils import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_event
 from synth_ai.core.paths import REPO_ROOT, cleanup_paths, configure_import_paths
 
 
