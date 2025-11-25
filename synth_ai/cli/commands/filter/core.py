@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover
     _toml = None  # type: ignore[assignment]
 
 from synth_ai.sdk.task.config import FilterConfig
-from synth_ai.tracing_v3 import SessionTracer  # type: ignore[import-untyped]
+from synth_ai.core.tracing_v3 import SessionTracer  # type: ignore[import-untyped]
 
 from .errors import (
     FilterCliError,

@@ -7,7 +7,7 @@ import os
 import shutil
 from typing import TYPE_CHECKING, Optional
 
-from synth_ai.tracing_v3.constants import canonical_trace_db_path
+from synth_ai.core.tracing_v3.constants import canonical_trace_db_path
 
 if TYPE_CHECKING:
     from .turso.daemon import SqldDaemon

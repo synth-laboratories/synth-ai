@@ -11,7 +11,7 @@ import warnings
 from typing import Any, Literal, TypedDict
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
-from synth_ai.tracing_v3.serialization import normalize_for_json
+from synth_ai.core.tracing_v3.serialization import normalize_for_json
 
 Provider = Literal["groq", "gemini"]
 

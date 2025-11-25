@@ -560,7 +560,7 @@ async def _baseline_command_impl(
     # 6. Setup trace storage (if requested)
     tracer = None
     if trace_db_url and trace_db_url.lower() not in {"none", "off"}:
-        from synth_ai.tracing_v3.session_tracer import SessionTracer
+        from synth_ai.core.tracing_v3.session_tracer import SessionTracer
         tracer = SessionTracer(db_url=trace_db_url, auto_save=True)
         await tracer.initialize()
     

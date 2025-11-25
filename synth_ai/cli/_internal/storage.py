@@ -14,7 +14,7 @@ from typing import Any, cast
 
 def load_storage() -> tuple[Any, Any]:
     """Return (create_storage, StorageConfig) from tracing_v3.storage."""
-    storage_module = cast(Any, importlib.import_module("synth_ai.tracing_v3.storage"))
+    storage_module = cast(Any, importlib.import_module("synth_ai.core.tracing_v3.storage"))
     create_storage = cast(Callable[..., Any], storage_module.create_storage)
     storage_config = storage_module.StorageConfig
     return create_storage, storage_config

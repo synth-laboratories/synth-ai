@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from synth_ai.tracing_v3.constants import canonical_trace_db_path
+from synth_ai.core.tracing_v3.constants import canonical_trace_db_path
 
 # STARTUP DIAGNOSTIC - Commented out to reduce noise
 # print(f"[TRACING_V3_CONFIG_LOADED] Python={sys.version_info.major}.{sys.version_info.minor} MODAL_IS_REMOTE={os.getenv('MODAL_IS_REMOTE')}", flush=True)

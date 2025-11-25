@@ -48,7 +48,7 @@ Key Features:
 
 Usage Example:
 -------------
-    from synth_ai.tracing_v3 import SessionTracer
+    from synth_ai.core.tracing_v3 import SessionTracer
 
     tracer = SessionTracer()
     await tracer.initialize()

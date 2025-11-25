@@ -37,7 +37,7 @@ from synth_ai.cli.commands.filter import core as filter_core
 
 # Tracing imports - make conditional for optional dependencies
 try:
-    from synth_ai.tracing_v3 import (  # type: ignore[import-untyped]
+    from synth_ai.core.tracing_v3 import (  # type: ignore[import-untyped]
         BaseEvent,
         EnvironmentEvent,
         RuntimeEvent,
@@ -47,7 +47,7 @@ try:
         SessionTracer,
         TimeRecord,
     )
-    from synth_ai.tracing_v3 import (  # type: ignore[import-untyped]
+    from synth_ai.core.tracing_v3 import (  # type: ignore[import-untyped]
         SessionTrace as V3SessionTrace,
     )
     _TRACING_AVAILABLE = True
@@ -242,7 +242,7 @@ def _event_from_dict(payload: dict[str, Any]) -> BaseEvent:
         )
     # Check for LM CAIS event fields
     if any(key in payload for key in ("model_name", "provider", "call_records")):
-        from synth_ai.tracing_v3.abstractions import LMCAISEvent
+        from synth_ai.core.tracing_v3.abstractions import LMCAISEvent
         # Note: call_records are left as dicts - the storage layer will handle serialization
         call_records = payload.get("call_records") or []
         return LMCAISEvent(
@@ -2853,7 +2853,7 @@ def _serve_entry(
             os.environ["SQLD_DB_PATH"] = str(db_path)
             os.environ["TURSO_LOCAL_DB_URL"] = db_url
             click.echo(f"Tracing DB path set to {db_path}")
-        tracing_config_module = _maybe_import("synth_ai.tracing_v3.config")
+        tracing_config_module = _maybe_import("synth_ai.core.tracing_v3.config")
         if tracing_config_module is not None:
             trace_config = tracing_config_module.CONFIG
             new_db_url = os.getenv("TURSO_LOCAL_DB_URL") or trace_config.db_url

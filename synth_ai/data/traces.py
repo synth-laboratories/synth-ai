@@ -8,7 +8,7 @@ DO NOT modify tracing_v3 internals. This module only re-exports types.
 
 from __future__ import annotations
 
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     BaseEvent,
     EnvironmentEvent,
     LMCAISEvent,

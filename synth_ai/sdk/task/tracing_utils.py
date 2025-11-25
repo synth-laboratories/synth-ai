@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from synth_ai.tracing_v3.constants import TRACE_DB_DIR, canonical_trace_db_name
+from synth_ai.core.tracing_v3.constants import TRACE_DB_DIR, canonical_trace_db_name
 
 
 def tracing_env_enabled(default: bool = False) -> bool:
@@ -28,11 +28,11 @@ def tracing_env_enabled(default: bool = False) -> bool:
 def resolve_tracing_db_url() -> str | None:
     """Resolve tracing database URL using centralized tracing_v3 config logic.
     
-    This delegates to synth_ai.tracing_v3.config.resolve_trace_db_settings() which
+    This delegates to synth_ai.core.tracing_v3.config.resolve_trace_db_settings() which
     handles Modal detection, remote Turso, local sqld, and SQLite fallbacks.
     """
     try:
-        from synth_ai.tracing_v3.config import resolve_trace_db_settings
+        from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
         db_url, _ = resolve_trace_db_settings(ensure_dir=True)
         return db_url
     except ImportError:

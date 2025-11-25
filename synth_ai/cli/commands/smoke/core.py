@@ -29,8 +29,8 @@ from synth_ai.sdk.task.validators import (
     validate_rollout_response_for_rl,
     validate_task_app_url,
 )
-from synth_ai.tracing_v3.config import resolve_trace_db_settings
-from synth_ai.tracing_v3.turso.daemon import start_sqld
+from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
+from synth_ai.core.tracing_v3.turso.daemon import start_sqld
 
 
 def _append_query_param(url: str, key: str, value: str) -> str:
@@ -107,8 +107,8 @@ def _ensure_local_libsql() -> None:
 def _refresh_tracing_config() -> None:
     """Rebuild global tracing configuration so new env vars take effect."""
 
-    from synth_ai.tracing_v3 import config as tracing_config_module
-    from synth_ai.tracing_v3.storage import config as storage_config_module
+    from synth_ai.core.tracing_v3 import config as tracing_config_module
+    from synth_ai.core.tracing_v3.storage import config as storage_config_module
 
     tracing_config_module.CONFIG = tracing_config_module.TursoConfig()  # type: ignore[assignment]
     storage_config_module.STORAGE_CONFIG = storage_config_module.StorageConfig(  # type: ignore[assignment]
