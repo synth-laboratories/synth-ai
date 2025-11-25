@@ -1,16 +1,18 @@
 # Synth
 
-[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
-[![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
-[![Python](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
+[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
+![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
 
 Serverless Posttraining APIs for Developers
 
 <p align="center">
   <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="langprobe_benchmark_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="langprobe_benchmark_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="langprobe_benchmark_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_benchmark_light.png">
   </picture>
 </p>
 
