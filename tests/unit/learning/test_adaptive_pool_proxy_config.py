@@ -224,7 +224,8 @@ class TestGEPAAdaptivePoolParsing:
         assert config.adaptive_pool.level == AdaptiveCurriculumLevel.LOW
         assert config.adaptive_pool.anchor_size == 60  # Override
         assert config.adaptive_pool.pool_min_size == 80  # Override
-        assert config.adaptive_pool.pool_init_size == 150  # Still LOW default
+        # pool_init_size is capped at dev_pool_size (100 from evaluation.seeds) even though LOW default is 150
+        assert config.adaptive_pool.pool_init_size == 100  # Capped at dev_pool_size
 
 
 class TestMIPROAdaptivePoolParsing:

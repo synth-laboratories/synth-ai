@@ -1228,8 +1228,14 @@ class GEPAConfig(ExtraModel):
                 overrides = {k: v for k, v in adaptive_pool_data.items() if k != "level"}
                 # Get dev_pool_size from evaluation.seeds if available
                 dev_pool_size = None
-                if "evaluation" in nested_data and isinstance(nested_data["evaluation"], dict):
-                    eval_seeds = nested_data["evaluation"].get("seeds")
+                if "evaluation" in nested_data:
+                    eval_config = nested_data["evaluation"]
+                    # Handle both dict and Pydantic model (GEPAEvaluationConfig)
+                    if isinstance(eval_config, dict):
+                        eval_seeds = eval_config.get("seeds")
+                    else:
+                        # Pydantic model - use attribute access
+                        eval_seeds = getattr(eval_config, "seeds", None)
                     if isinstance(eval_seeds, list):
                         dev_pool_size = len(eval_seeds)
                 nested_data["adaptive_pool"] = resolve_adaptive_pool_config(

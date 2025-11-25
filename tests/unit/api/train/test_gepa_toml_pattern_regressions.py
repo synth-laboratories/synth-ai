@@ -32,11 +32,21 @@ class TestGEPATOMLPatternRegressions:
     @pytest.fixture
     def heartdisease_config_path(self, repo_root: Path) -> Path:
         """Path to heartdisease GEPA config."""
+        # Check cookbooks first (moved location), then fallback to examples if it exists
+        cookbooks_path = repo_root.parent / "cookbooks" / "dev" / "blog_posts" / "langprobe" / "task_specific" / "heartdisease" / "heartdisease_gepa.toml"
+        if cookbooks_path.exists():
+            return cookbooks_path
+        # Fallback to examples if it still exists
         return repo_root / "examples" / "blog_posts" / "langprobe" / "task_specific" / "heartdisease" / "heartdisease_gepa.toml"
 
     @pytest.fixture
     def banking77_config_path(self, repo_root: Path) -> Path:
         """Path to banking77 GEPA config."""
+        # Check cookbooks first (moved location), then fallback to examples if it exists
+        cookbooks_path = repo_root.parent / "cookbooks" / "dev" / "blog_posts" / "langprobe" / "task_specific" / "banking77" / "banking77_gepa.toml"
+        if cookbooks_path.exists():
+            return cookbooks_path
+        # Fallback to examples if it still exists
         return repo_root / "examples" / "blog_posts" / "langprobe" / "task_specific" / "banking77" / "banking77_gepa.toml"
 
     def test_heartdisease_toml_uses_single_braces(self, heartdisease_config_path: Path) -> None:

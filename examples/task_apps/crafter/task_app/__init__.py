@@ -1,5 +1,0 @@
-"""Crafter task app implementation."""
-
-
-
-

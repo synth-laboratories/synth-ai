@@ -104,19 +104,24 @@ def init_db() -> None:
     Base.metadata.create_all(engine)
     
     # Migrate schema: add status_json column if it doesn't exist
-    with engine.connect() as conn:
-        # Check if status_json column exists
-        result = conn.execute(text(
-            "SELECT COUNT(*) FROM pragma_table_info('experiment_jobs') WHERE name='status_json'"
-        ))
-        column_exists = result.scalar() > 0
+    with engine.begin() as conn:  # Use begin() to ensure transaction is committed
+        # Check if table exists first
+        table_exists = conn.execute(text(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='experiment_jobs'"
+        )).scalar() > 0
         
-        if not column_exists:
-            # Add status_json column
-            conn.execute(text(
-                "ALTER TABLE experiment_jobs ADD COLUMN status_json TEXT"
+        if table_exists:
+            # Check if status_json column exists
+            result = conn.execute(text(
+                "SELECT COUNT(*) FROM pragma_table_info('experiment_jobs') WHERE name='status_json'"
             ))
-            conn.commit()
+            column_exists = result.scalar() > 0
+            
+            if not column_exists:
+                # Add status_json column
+                conn.execute(text(
+                    "ALTER TABLE experiment_jobs ADD COLUMN status_json TEXT"
+                ))
     
     # Migrate schema: create job_execution_logs table if it doesn't exist
     with engine.connect() as conn:

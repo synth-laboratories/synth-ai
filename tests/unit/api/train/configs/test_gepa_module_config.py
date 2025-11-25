@@ -16,6 +16,7 @@ class TestGEPAModuleConfig:
             max_instruction_slots=3,
             max_tokens=1024,
             allowed_tools=["classify", "format"],
+            policy={"model": "gpt-4o-mini", "provider": "openai"},
         )
         assert config.module_id == "classifier"
         assert config.max_instruction_slots == 3
@@ -24,7 +25,10 @@ class TestGEPAModuleConfig:
     
     def test_module_config_defaults(self):
         """Test module configuration with defaults."""
-        config = GEPAModuleConfig(module_id="stage1")
+        config = GEPAModuleConfig(
+            module_id="stage1",
+            policy={"model": "gpt-4o-mini", "provider": "openai"},
+        )
         assert config.module_id == "stage1"
         assert config.max_instruction_slots == 3  # Default
         assert config.max_tokens is None
@@ -33,16 +37,26 @@ class TestGEPAModuleConfig:
     def test_module_id_validation_empty(self):
         """Test that empty module_id is rejected."""
         with pytest.raises(ValueError, match="cannot be empty"):
-            GEPAModuleConfig(module_id="  ")
+            GEPAModuleConfig(
+                module_id="  ",
+                policy={"model": "gpt-4o-mini", "provider": "openai"},
+            )
     
     def test_max_instruction_slots_validation(self):
         """Test that invalid max_instruction_slots is rejected."""
         with pytest.raises(ValueError, match="must be >= 1"):
-            GEPAModuleConfig(module_id="stage1", max_instruction_slots=0)
+            GEPAModuleConfig(
+                module_id="stage1",
+                max_instruction_slots=0,
+                policy={"model": "gpt-4o-mini", "provider": "openai"},
+            )
     
     def test_module_id_stripped(self):
         """Test that module_id is stripped of whitespace."""
-        config = GEPAModuleConfig(module_id="  stage1  ")
+        config = GEPAModuleConfig(
+            module_id="  stage1  ",
+            policy={"model": "gpt-4o-mini", "provider": "openai"},
+        )
         assert config.module_id == "stage1"
 
 
@@ -61,8 +75,16 @@ class TestGEPAConfigWithModules:
     def test_multi_stage_config(self):
         """Test GEPA config with multiple modules."""
         modules = [
-            GEPAModuleConfig(module_id="query_analyzer", max_instruction_slots=2),
-            GEPAModuleConfig(module_id="classifier", max_instruction_slots=3),
+            GEPAModuleConfig(
+                module_id="query_analyzer",
+                max_instruction_slots=2,
+                policy={"model": "gpt-4o-mini", "provider": "openai"},
+            ),
+            GEPAModuleConfig(
+                module_id="classifier",
+                max_instruction_slots=3,
+                policy={"model": "gpt-4o-mini", "provider": "openai"},
+            ),
         ]
         config = GEPAConfig(
             env_name="banking77_pipeline",
@@ -80,8 +102,17 @@ class TestGEPAConfigWithModules:
             "env_name": "banking77_pipeline",
             "proposer_type": "dspy",
             "modules": [
-                {"module_id": "query_analyzer", "max_instruction_slots": 2, "max_tokens": 512},
-                {"module_id": "classifier", "max_instruction_slots": 3},
+                {
+                    "module_id": "query_analyzer",
+                    "max_instruction_slots": 2,
+                    "max_tokens": 512,
+                    "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                },
+                {
+                    "module_id": "classifier",
+                    "max_instruction_slots": 3,
+                    "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                },
             ],
             "rollout": {"budget": 1000, "max_concurrent": 20},
         }
@@ -124,7 +155,11 @@ class TestGEPAConfigWithModules:
             "env_name": "test",
             "rng_seed": 42,
             "modules": [
-                {"module_id": "stage1", "max_instruction_slots": 1},
+                {
+                    "module_id": "stage1",
+                    "max_instruction_slots": 1,
+                    "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                },
             ],
         }
         config = GEPAConfig.from_mapping(data)

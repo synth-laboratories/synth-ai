@@ -23,9 +23,16 @@ class ResearchAgentJobConfig:
     """Configuration for a research agent job."""
 
     algorithm: AlgorithmType
-    repo_url: str
+
+    # Repository (optional if inline_files provided)
+    repo_url: str = ""
     repo_branch: str = "main"
     repo_commit: Optional[str] = None
+
+    # Inline files - alternative to repo_url
+    # Dict of filepath -> content (e.g., {"pipeline.py": "...", "eval.py": "..."})
+    inline_files: Optional[Dict[str, str]] = None
+
     backend: BackendType = "daytona"
     model: str = "gpt-4o"
     use_synth_proxy: bool = True
@@ -51,6 +58,10 @@ class ResearchAgentJobConfig:
         if not self.api_key:
             raise ValueError(
                 "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+            )
+        if not self.repo_url and not self.inline_files:
+            raise ValueError(
+                "Either repo_url or inline_files must be provided"
             )
 
     @classmethod
@@ -96,6 +107,7 @@ class ResearchAgentJobConfig:
             repo_url=ra_config.get("repo_url", ""),
             repo_branch=ra_config.get("repo_branch", "main"),
             repo_commit=ra_config.get("repo_commit"),
+            inline_files=ra_config.get("inline_files"),
             backend=ra_config.get("backend", "daytona"),
             model=ra_config.get("model", "gpt-4o"),
             use_synth_proxy=ra_config.get("use_synth_proxy", True),
@@ -264,14 +276,71 @@ class ResearchAgentJob:
         Returns:
             ResearchAgentJob instance
         """
-        # Create minimal config for polling
+        # Create minimal config for polling (use inline_files placeholder to pass validation)
         config = ResearchAgentJobConfig(
             algorithm="scaffold_tuning",  # Placeholder
-            repo_url="",  # Placeholder
+            inline_files={"_placeholder": ""},  # Placeholder to pass validation
             backend_url=backend_url or "",
             api_key=api_key or "",
         )
         return cls(config=config, job_id=job_id)
+
+    @classmethod
+    def from_files(
+        cls,
+        files: Dict[str, str],
+        algorithm: AlgorithmType = "scaffold_tuning",
+        algorithm_config: Optional[Dict[str, Any]] = None,
+        model: str = "gpt-4o",
+        backend: BackendType = "daytona",
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        use_synth_proxy: bool = True,
+    ) -> "ResearchAgentJob":
+        """Create a job from inline files (no repo required).
+
+        This is a convenience method for running research agent jobs on code
+        provided directly as strings, without needing a git repository.
+
+        Args:
+            files: Dict of filepath -> content (e.g., {"pipeline.py": "...", "eval.py": "..."})
+            algorithm: Algorithm to use (scaffold_tuning, evaluation, trace_analysis)
+            algorithm_config: Algorithm-specific configuration
+            model: Model for the agent to use
+            backend: Container backend (daytona, modal, docker)
+            backend_url: Override backend URL
+            api_key: Override API key
+            use_synth_proxy: Whether to route LLM calls through Synth proxy (default True)
+
+        Returns:
+            ResearchAgentJob instance
+
+        Example:
+            >>> job = ResearchAgentJob.from_files(
+            ...     files={
+            ...         "pipeline.py": open("pipeline.py").read(),
+            ...         "eval.py": open("eval.py").read(),
+            ...     },
+            ...     algorithm="scaffold_tuning",
+            ...     algorithm_config={
+            ...         "objective": {"metric_name": "accuracy", "max_iterations": 5},
+            ...         "target_files": ["pipeline.py"],
+            ...         "metric": {"metric_type": "custom", "custom_script": "eval.py"},
+            ...     },
+            ... )
+            >>> job.submit()
+        """
+        config = ResearchAgentJobConfig(
+            algorithm=algorithm,
+            inline_files=files,
+            backend=backend,
+            model=model,
+            use_synth_proxy=use_synth_proxy,
+            algorithm_config=algorithm_config or {},
+            backend_url=backend_url or "",
+            api_key=api_key or "",
+        )
+        return cls(config=config)
 
     @property
     def job_id(self) -> Optional[str]:
@@ -300,15 +369,21 @@ class ResearchAgentJob:
         payload: Dict[str, Any] = {
             "algorithm": self.config.algorithm,
             "backend": self.config.backend,
-            "repo_url": self.config.repo_url,
-            "repo_branch": self.config.repo_branch,
             "model": self.config.model,
             "use_synth_proxy": self.config.use_synth_proxy,
             "metadata": self.config.metadata,
         }
 
-        if self.config.repo_commit:
-            payload["repo_commit"] = self.config.repo_commit
+        # Add repo_url if provided
+        if self.config.repo_url:
+            payload["repo_url"] = self.config.repo_url
+            payload["repo_branch"] = self.config.repo_branch
+            if self.config.repo_commit:
+                payload["repo_commit"] = self.config.repo_commit
+
+        # Add inline_files if provided
+        if self.config.inline_files:
+            payload["inline_files"] = self.config.inline_files
 
         # Add algorithm-specific config
         payload[self.config.algorithm] = self.config.algorithm_config

@@ -229,6 +229,15 @@ def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | 
                     f"Config override validation failed: '{override_key}' was not found in config after merge.{similar_msg} "
                     f"Override value: {override_value!r}. This indicates the override path is incorrect or the config structure doesn't match."
                 )
+            elif isinstance(current, dict) and isinstance(override_value, dict):
+                # For dict overrides, check that override_value is a subset of current
+                # (i.e., all keys in override_value match current)
+                for key, val in override_value.items():
+                    if key not in current or current[key] != val:
+                        raise ValueError(
+                            f"Config override validation failed: '{override_key}.{key}' was set to {current.get(key)!r} "
+                            f"but override specified {val!r}. Override may not have been applied correctly."
+                        )
             elif current != override_value:
                 # Value exists but doesn't match - this is a problem
                 # This is critical for rollout limits - if base config has 300 but override specifies 100,

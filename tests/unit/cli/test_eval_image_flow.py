@@ -7,6 +7,7 @@ from click.testing import CliRunner
 from synth_ai.cli.task_apps import eval_command
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("use_remote", [False, True])
 def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
     # Mock ASGI transport and httpx client to avoid any network
@@ -23,11 +24,12 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
     monkeypatch.setattr("httpx.AsyncClient.post", mock.AsyncMock(side_effect=fake_post))
 
     # Provide a minimal config via temp file
+    # Use "banking77" which is available in synth-ai demos
     cfg = tmp_path / "eval.toml"
     cfg.write_text(
         """
 [eval]
-app_id = "grpo-crafter-task-app"
+app_id = "banking77"
 model = "gpt-4o-mini-2024-07-18"
 seeds = [0]
 trace_db = "none"
@@ -46,7 +48,7 @@ use_vision = true
     # Run eval command via Click runner; network calls are mocked
     runner = CliRunner()
     args = [
-        "grpo-crafter-task-app",
+        "banking77",
         "--config",
         str(cfg),
         "--seeds",
