@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.tracing_v3.constants import canonical_trace_db_name
+from synth_ai.core.tracing_v3.constants import canonical_trace_db_name
 
 @pytest.mark.asyncio
 @pytest.mark.fast
@@ -14,7 +14,7 @@ async def test_session_tracer_persists_reward_metadata(tmp_path: Path, monkeypat
     monkeypatch.setenv("TURSO_LOCAL_DB_URL", db_url)
 
     # Lazy import after env set so tracing picks up the DB URL
-    from synth_ai.tracing_v3 import SessionTracer  # type: ignore
+    from synth_ai.core.tracing_v3 import SessionTracer  # type: ignore
 
     tracer = SessionTracer(auto_save=True, db_url=db_url)
 
@@ -60,7 +60,7 @@ async def test_manager_insert_outcome_reward_accepts_reward_metadata(tmp_path: P
     db_url = f"sqlite+aiosqlite:///{db_path}"
     monkeypatch.setenv("TURSO_LOCAL_DB_URL", db_url)
 
-    from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager  # type: ignore
+    from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager  # type: ignore
     from datetime import datetime
 
     mgr = NativeLibsqlTraceManager(db_url)

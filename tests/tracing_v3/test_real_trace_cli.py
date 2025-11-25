@@ -14,7 +14,7 @@ from click.testing import CliRunner
 
 from synth_ai.cli.status import register as register_status
 from synth_ai.cli.traces import register as register_traces
-from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME, canonical_trace_db_name
+from synth_ai.core.tracing_v3.constants import TRACE_DB_BASENAME, canonical_trace_db_name
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"

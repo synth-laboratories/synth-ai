@@ -7,7 +7,7 @@ import numpy as np
 
 import pytest
 
-from synth_ai.http_client import HTTPError
+from synth_ai.core.http import HTTPError
 
 # Placeholder import path; the implementation will be added to synth_ai/evals/client.py
 # Tests focus on request/response contracts and error mapping, to be satisfied once implemented.

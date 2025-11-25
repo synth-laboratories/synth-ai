@@ -15,15 +15,15 @@ from typing import Any
 
 import pytest
 
-from synth_ai.tracing_v3 import SessionTracer
-from synth_ai.tracing_v3.abstractions import LMCAISEvent
-from synth_ai.tracing_v3.lm_call_record_abstractions import (
+from synth_ai.core.tracing_v3 import SessionTracer
+from synth_ai.core.tracing_v3.abstractions import LMCAISEvent
+from synth_ai.core.tracing_v3.lm_call_record_abstractions import (
     LLMCallRecord,
     LLMContentPart,
     LLMMessage,
     LLMUsage,
 )
-from synth_ai.tracing_v3.llm_call_record_helpers import (
+from synth_ai.core.tracing_v3.llm_call_record_helpers import (
     create_llm_call_record_from_response,
 )
 
@@ -209,7 +209,7 @@ async def test_trace_image_in_messages(tmp_path: Path):
 
                 # Record the LLM event
                 from datetime import datetime, UTC
-                from synth_ai.tracing_v3.abstractions import TimeRecord
+                from synth_ai.core.tracing_v3.abstractions import TimeRecord
 
                 event = LMCAISEvent(
                     system_instance_id="test-llm",
@@ -404,7 +404,7 @@ async def test_full_image_tracing_pipeline(tmp_path: Path):
         async with tracer.session(session_id="pipeline_test") as session_id:
             async with tracer.timestep(step_id="step_5", turn_number=5):
                 from datetime import datetime, UTC
-                from synth_ai.tracing_v3.abstractions import TimeRecord
+                from synth_ai.core.tracing_v3.abstractions import TimeRecord
 
                 event = LMCAISEvent(
                     system_instance_id="gpt-4o-mini",

@@ -9,7 +9,7 @@ from enum import Enum
 
 import pytest
 
-from synth_ai.tracing_v3.serialization import (
+from synth_ai.core.tracing_v3.serialization import (
     dumps_http_json,
     normalize_for_json,
     serialize_trace_for_http,

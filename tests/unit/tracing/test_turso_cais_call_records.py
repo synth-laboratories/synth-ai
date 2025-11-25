@@ -4,8 +4,8 @@ from datetime import datetime, UTC
 import pytest
 pytest.importorskip("libsql")
 
-from synth_ai.tracing_v3.abstractions import LMCAISEvent, SessionTrace, TimeRecord
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.abstractions import LMCAISEvent, SessionTrace, TimeRecord
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 
 @pytest.mark.asyncio

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 
 async def _run_with_factory(factory, session_id: str) -> str:

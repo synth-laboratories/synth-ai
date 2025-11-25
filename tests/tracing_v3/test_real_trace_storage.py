@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import MetaData
 
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     EnvironmentEvent,
     SessionEventMarkovBlanketMessage,
     SessionMessageContent,
@@ -22,11 +22,11 @@ from synth_ai.tracing_v3.abstractions import (
     SessionTrace,
     TimeRecord,
 )
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
-from synth_ai.tracing_v3.storage.factory import create_storage
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
-from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.storage.config import StorageBackend, StorageConfig
+from synth_ai.core.tracing_v3.storage.factory import create_storage
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.constants import TRACE_DB_BASENAME
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"

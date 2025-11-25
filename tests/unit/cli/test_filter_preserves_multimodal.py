@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from synth_ai.tracing_v3.session_tracer import SessionTracer
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.session_tracer import SessionTracer
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
 from synth_ai.cli.task_apps import filter_command
 
@@ -28,7 +28,7 @@ def test_filter_preserves_multimodal_messages(tmp_path, monkeypatch):
     mgr = NativeLibsqlTraceManager(db_url=f"sqlite+aiosqlite:///{db_path}")
 
     # Insert minimal session with a multimodal user message
-    from synth_ai.tracing_v3.abstractions import (
+    from synth_ai.core.tracing_v3.abstractions import (
         SessionTrace,
         SessionEventMarkovBlanketMessage,
         SessionMessageContent,

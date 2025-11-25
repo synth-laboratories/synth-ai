@@ -6,13 +6,13 @@ import click
 import pytest
 import asyncio
 
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     SessionTrace,
     SessionEventMarkovBlanketMessage,
     SessionMessageContent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
 
 from synth_ai.cli.commands.filter import core as filter_core
