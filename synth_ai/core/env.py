@@ -163,9 +163,56 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...{value[-visible_chars:]}"
 
 
+def get_backend_from_env() -> tuple[str, str]:
+    """Resolve (base_url, api_key) using LOCAL/DEV/PROD override scheme.
+
+    Env vars consulted:
+    - BACKEND_OVERRIDE = full URL (with or without /api)
+    - SYNTH_BACKEND_URL_OVERRIDE = local|dev|prod (case-insensitive)
+    - LOCAL_BACKEND_URL, TESTING_LOCAL_SYNTH_API_KEY
+    - DEV_BACKEND_URL, DEV_SYNTH_API_KEY
+    - PROD_BACKEND_URL, TESTING_PROD_SYNTH_API_KEY (fallback to SYNTH_API_KEY)
+
+    Base URL is normalized (no trailing /api).
+    Defaults: prod base URL → https://agent-learning.onrender.com
+
+    Returns:
+        Tuple of (base_url, api_key)
+    """
+    direct_override = (os.environ.get("BACKEND_OVERRIDE") or "").strip()
+    if direct_override:
+        base = _normalize_url(direct_override)
+        api_key = os.environ.get("SYNTH_API_KEY", "").strip()
+        return base, api_key
+
+    # Determine mode from env
+    mode_override = (os.environ.get("SYNTH_BACKEND_URL_OVERRIDE", "") or "").strip().lower()
+    mode = mode_override if mode_override in ("local", "dev", "prod") else "prod"
+
+    if mode == "local":
+        base = os.environ.get("LOCAL_BACKEND_URL", "http://localhost:8000")
+        key = os.environ.get("TESTING_LOCAL_SYNTH_API_KEY", "")
+        return _normalize_url(base), key
+
+    if mode == "dev":
+        base = os.environ.get("DEV_BACKEND_URL", "") or "http://localhost:8000"
+        key = os.environ.get("DEV_SYNTH_API_KEY", "")
+        return _normalize_url(base), key
+
+    # prod
+    base = os.environ.get("PROD_BACKEND_URL", PROD_BASE_URL)
+    key = (
+        os.environ.get("PROD_SYNTH_API_KEY", "")
+        or os.environ.get("TESTING_PROD_SYNTH_API_KEY", "")
+        or os.environ.get("SYNTH_API_KEY", "")
+    )
+    return _normalize_url(base), key
+
+
 __all__ = [
     "get_api_key",
     "get_backend_url",
+    "get_backend_from_env",
     "resolve_env_file",
     "load_env_file",
     "mask_value",

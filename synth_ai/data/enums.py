@@ -111,6 +111,17 @@ class AdaptiveBatchLevel(str, Enum):
     HIGH = "HIGH"
 
 
+class SynthModelName(str, Enum):
+    """Synth-hosted model names for routing through Synth backend."""
+
+    SYNTH_SMALL = "synth-small"
+    SYNTH_MEDIUM = "synth-medium"
+
+
+# Legacy: list of model names for CLI validation
+SYNTH_MODEL_NAMES: list[str] = [m.value for m in SynthModelName]
+
+
 __all__ = [
     "JobType",
     "JobStatus",
@@ -124,5 +135,7 @@ __all__ = [
     "RewardSource",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",
+    "SynthModelName",
+    "SYNTH_MODEL_NAMES",
 ]
 

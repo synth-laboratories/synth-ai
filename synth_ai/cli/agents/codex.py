@@ -1,24 +1,19 @@
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import click
-from synth_ai.types import MODEL_NAMES, ModelName
-from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_BASE
+from synth_ai.data.enums import SYNTH_MODEL_NAMES
+from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_OPENAI
 from synth_ai.utils import (
-    create_and_write_json,
     get_backend_from_env,
     get_bin_path,
     install_bin,
-    load_json_to_dict,
     resolve_env_var,
     verify_bin,
     write_agents_md,
 )
-
-CONFIG_PATH = Path.home() / ".config" / "opencode" / "opencode.json"
-AUTH_PATH = Path.home() / ".local" / "share" / "opencode" / "auth.json"
-SYNTH_PROVIDER_ID = "synth"
 
 try:
     import tomllib  # Python 3.11+
@@ -40,8 +35,8 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
     Returns dict with session limits.
     """
     if config_path is None:
-        # Look for opencode.toml or synth.toml in current directory
-        for name in ["opencode.toml", "synth.toml"]:
+        # Look for codex.toml or synth.toml in current directory
+        for name in ["codex.toml", "synth.toml"]:
             path = Path(name)
             if path.exists():
                 config_path = path
@@ -75,7 +70,7 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
         return {"limit_cost_usd": 20.0}
 
 
-@click.command("opencode")
+@click.command("codex")
 @click.option(
     "--model",
     "model_name",
@@ -94,44 +89,51 @@ def _load_session_config(config_path: Path | None = None) -> dict[str, Any]:
     default=None,
 )
 @click.option(
+    "--wire-api",
+    "wire_api",
+    type=click.Choice(["chat", "responses"], case_sensitive=False),
+    default=None,
+    help="API wire format: 'chat' for Chat Completions, 'responses' for Responses API"
+)
+@click.option(
     "--config",
     "config_path",
     type=click.Path(exists=True, path_type=Path),
     default=None,
-    help="Path to TOML config file (default: opencode.toml or synth.toml in current directory)"
+    help="Path to TOML config file (default: codex.toml or synth.toml in current directory)"
 )
-def opencode_cmd(
-    model_name: ModelName | None = None,
+def codex_cmd(
+    model_name: str | None = None,
     force: bool = False,
     override_url: str | None = None,
+    wire_api: str | None = None,
     config_path: Path | None = None,
 ) -> None:
 
     while True:
-        bin_path = get_bin_path("opencode")
+        bin_path = get_bin_path("codex")
         if bin_path:
             break
         if not install_bin(
-            "OpenCode",
+            "Codex",
             [
-                "brew install opencode",
-                "bun add -g opencode-ai",
-                "curl -fsSL https://opencode.ai/install | bash",
-                "npm i -g opencode-ai",
-                "paru -S opencode"
+                "brew install codex",
+                "npm install -g @openai/codex"
             ]
         ):
-            print("Failed to find your installed OpenCode")
-            print("Please install from: https://opencode.ai")
+            print("Failed to find your installed Codex")
+            print("Please install from: https://developers.openai.com/codex/cli/")
             return
-    print(f"Using OpenCode at {bin_path}")
+    print(f"Using Codex at {bin_path}")
 
     if not verify_bin(bin_path):
-        print("Failed to verify OpenCode is runnable")
+        print("Failed to verify Codex is runnable")
         return
-
+    
     write_agents_md()
-
+    env = os.environ.copy()
+    override_args = []
+    
     # Load session config from TOML
     session_config = _load_session_config(config_path)
     session_limit_cost = session_config.get("limit_cost_usd")
@@ -139,7 +141,7 @@ def opencode_cmd(
     session_limit_gpu_hours = session_config.get("limit_gpu_hours")
     
     # Get API key and base URL for session creation
-    synth_api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+    api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
     if override_url:
         base_url = override_url.rstrip("/")
         if base_url.endswith("/api"):
@@ -157,7 +159,7 @@ def opencode_cmd(
             async def create_session():
                 from synth_ai.cli.local.session import AgentSessionClient
                 
-                client = AgentSessionClient(f"{base_url}/api", synth_api_key)
+                client = AgentSessionClient(f"{base_url}/api", api_key)
                 
                 limits = []
                 if session_limit_tokens:
@@ -184,12 +186,17 @@ def opencode_cmd(
                     org_id=None,  # Will be fetched from backend
                     limits=limits,
                     tracing_session_id=None,
-                    session_type="opencode_agent",
+                    session_type="codex_agent",
                 )
                 return session.session_id
             
             session_id = asyncio.run(create_session())
+            env["SYNTH_SESSION_ID"] = session_id
+            # Note: Codex CLI doesn't directly support custom headers
+            # Users may need to configure Codex to pass X-Session-ID header
+            # For now, session is created but not automatically passed to API calls
             click.echo(f"✓ Created agent session: {session_id}")
+            click.echo("  Note: Set X-Session-ID header in Codex config to use this session")
             if session_limit_tokens:
                 click.echo(f"  Token limit: {session_limit_tokens:,}")
             if session_limit_cost:
@@ -197,57 +204,61 @@ def opencode_cmd(
             if session_limit_gpu_hours:
                 click.echo(f"  GPU hours limit: {session_limit_gpu_hours:.2f}")
         except Exception as e:
-            click.echo(f"Warning: Failed to create agent session: {e}", err=True)
-            click.echo("Continuing without session limits...", err=True)
-
+            print(f"Warning: Failed to create agent session: {e}")
+            print("Continuing without session limits...")
+    
     if model_name is not None:
-        if model_name not in MODEL_NAMES:
-            raise ValueError(
-                f"model_name={model_name} is invalid. Valid values for model_name: {MODEL_NAMES}"
-            )
-        synth_api_key = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
-        data = load_json_to_dict(AUTH_PATH)
-        good_entry = {
-            "type": "api",
-            "key": synth_api_key,
-        }
-        if data.get(SYNTH_PROVIDER_ID) != good_entry:
-            data[SYNTH_PROVIDER_ID] = good_entry
-        create_and_write_json(AUTH_PATH, data)
-        config = load_json_to_dict(CONFIG_PATH)
-        config.setdefault("$schema", "https://opencode.ai/config.json")
+        if model_name not in SYNTH_MODEL_NAMES:
+            raise ValueError(f"model_name={model_name} is invalid. Valid values for model_name: {SYNTH_MODEL_NAMES}")
         if override_url:
             url = override_url
             print("Using override URL:", url)
         else:
-            url = BACKEND_URL_SYNTH_RESEARCH_BASE
-        provider_section = config.setdefault("provider", {})
-        synth_provider = provider_section.setdefault(SYNTH_PROVIDER_ID, {})
-        synth_provider["npm"] = "@ai-sdk/openai-compatible"
-        synth_provider.setdefault("name", "Synth")
-        models = synth_provider.setdefault("models", {})
-        models.setdefault(model_name, {})
-        options = synth_provider.setdefault("options", {})
-        options["baseURL"] = url
-        full_model_name = f"{SYNTH_PROVIDER_ID}/{model_name}"
-        config["model"] = full_model_name
-        create_and_write_json(CONFIG_PATH, config)
-
+            url = BACKEND_URL_SYNTH_RESEARCH_OPENAI
+        
+        # Determine wire_api based on URL or explicit option
+        # If URL contains "/responses", default to responses API
+        # Otherwise, use explicit wire_api option or default to chat
+        if wire_api is None:
+            wire_api = "responses" if "/responses" in url or url.endswith("/responses") else "chat"
+        
+        # Build provider config with wire_api
+        provider_config_parts = [
+            'name="Synth"',
+            f'base_url="{url}"',
+            'env_key="OPENAI_API_KEY"',
+            f'wire_api="{wire_api}"'
+        ]
+        provider_config = "{" + ",".join(provider_config_parts) + "}"
+        
+        config_overrides = [
+            f"model_providers.synth={provider_config}",
+            'model_provider="synth"',
+            f'default_model="{model_name}"'
+        ]
+        override_args = [arg for override in config_overrides for arg in ("-c", override)]
+        env["OPENAI_API_KEY"] = resolve_env_var("SYNTH_API_KEY", override_process_env=force)
+        env["SYNTH_API_KEY"] = env["OPENAI_API_KEY"]
+        print(f"Configured with wire_api={wire_api}")
+    
     try:
-        subprocess.run([str(bin_path)], check=True)
+        cmd = ["codex"]
+        if model_name is not None:
+            cmd.extend(["-m", model_name])
+        cmd.extend(override_args)
+        print(" ".join(cmd))
+        subprocess.run(cmd, check=True, env=env)
     except subprocess.CalledProcessError:
-        print("Failed to launch OpenCode")
+        print("Failed to run Codex")
     finally:
         # End session if created
         if session_id is not None:
             try:
                 # Assign to local variable to help type checker
                 final_session_id: str = session_id
-                import asyncio
-                
                 async def end_session():
                     from synth_ai.cli.local.session import AgentSessionClient
-                    client = AgentSessionClient(f"{base_url}/api", synth_api_key)
+                    client = AgentSessionClient(f"{base_url}/api", api_key)
                     await client.end(final_session_id)
                     click.echo(f"✓ Ended agent session: {final_session_id}")
                 

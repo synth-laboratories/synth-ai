@@ -1,6 +1,6 @@
 """CLI subcommands for Synth AI.
 
-This package hosts modular commands (watch, traces, recent, calc, status)
+This package hosts modular commands (watch, traces, recent, status)
 and exposes a top-level Click group named `cli` compatible with the
 pyproject entry point `synth_ai.cli:cli`.
 """
@@ -10,19 +10,17 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from synth_ai.cli.claude import claude_cmd
-from synth_ai.cli.codex import codex_cmd
+from synth_ai.cli.agents import claude_cmd, codex_cmd, opencode_cmd
 from synth_ai.cli.commands.baseline import command as baseline_cmd
 from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
-from synth_ai.cli.demo import demo_cmd
+from synth_ai.cli.demos.demo import demo_cmd
 from synth_ai.cli.deploy import deploy_cmd
-from synth_ai.cli.eval import command as eval_cmd
-from synth_ai.cli.mcp import mcp_cmd
-from synth_ai.cli.modal_app import modal_app_cmd
-from synth_ai.cli.opencode import opencode_cmd
-from synth_ai.cli.setup import setup_cmd
-from synth_ai.cli.task_app import task_app_cmd
-from synth_ai.cli.train_cfg import train_cfg_cmd
+from synth_ai.cli.commands.eval import command as eval_cmd
+from synth_ai.cli.infra.mcp import mcp_cmd
+from synth_ai.cli.infra.modal_app import modal_app_cmd
+from synth_ai.cli.infra.setup import setup_cmd
+from synth_ai.cli.task_apps import task_app_cmd
+from synth_ai.cli.training.train_cfg import train_cfg_cmd
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -56,7 +54,7 @@ def _maybe_call(module_path: str, attr: str, *args: Any, **kwargs: Any) -> None:
 
 
 # Apply Typer patch if available
-_maybe_call("synth_ai.cli._typer_patch", "patch_typer_make_metavar")
+_maybe_call("synth_ai.cli._internal.typer_patch", "patch_typer_make_metavar")
 
 
 _cli_module = _maybe_import("synth_ai.cli.root")
@@ -84,7 +82,7 @@ cli.add_command(train_cfg_cmd, name="train-cfg")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
-for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status", "synth_ai.cli.turso"):
+for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status", "synth_ai.cli.infra.turso"):
     module = _maybe_import(_module_path)
     if not module:
         continue
@@ -131,8 +129,8 @@ if register_task_apps:
 # Top-level 'info' alias removed; use `synth-ai task-app info` instead
 
 # Experiment queue commands
-_maybe_call("synth_ai.cli.experiments", "register", cli)
-_maybe_call("synth_ai.cli.queue", "register", cli)
+_maybe_call("synth_ai.cli.utils.experiments", "register", cli)
+_maybe_call("synth_ai.cli.utils.queue", "register", cli)
 
 # Artifacts commands
 _maybe_call("synth_ai.cli.commands.artifacts", "register", cli)

@@ -1,11 +1,13 @@
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
-from synth_ai.types import TrainType
 from synth_ai.utils.cli import ctx_print
 from synth_ai.utils.paths import is_hidden_path, validate_file_type
+
+# Train config types: prompt optimization, reinforcement learning, supervised fine-tuning
+TrainType = Literal["prompt", "rl", "sft"]
 
 
 def get_type(config: Dict[str, Any]) -> TrainType | None:

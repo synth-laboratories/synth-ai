@@ -564,19 +564,195 @@ uvx synth-ai agent run --help
 
 ---
 
-## Phase 7: Documentation and Deprecation (Ongoing)
+## Phase 7: CLI Reorganization (Days 18-20)
 
-### Step 7.1: Add deprecation warnings
+**Goal:** Flatten 33 loose files in cli/ into logical subdirectories.
+
+See `cli_reorg_proposal.md` for full details.
+
+### Step 7.1: Create cli/agents/
+
+Move agent integrations to shared directory with base class:
+```bash
+mkdir -p synth_ai/cli/agents
+mv synth_ai/cli/claude.py synth_ai/cli/agents/
+mv synth_ai/cli/codex.py synth_ai/cli/agents/
+mv synth_ai/cli/opencode.py synth_ai/cli/agents/
+# Create base.py with shared session logic
+```
+
+**Commit:** `refactor(cli): move agent integrations to cli/agents/`
+
+### Step 7.2: Create cli/task_apps/
+
+Consolidate 6 task app files:
+```bash
+mkdir -p synth_ai/cli/task_apps
+mv synth_ai/cli/task_app.py synth_ai/cli/task_apps/
+mv synth_ai/cli/task_app_serve.py synth_ai/cli/task_apps/serve.py
+mv synth_ai/cli/task_app_deploy.py synth_ai/cli/task_apps/deploy.py
+mv synth_ai/cli/task_app_list.py synth_ai/cli/task_apps/list.py
+mv synth_ai/cli/task_app_modal_serve.py synth_ai/cli/task_apps/modal_serve.py
+mv synth_ai/cli/task_apps.py synth_ai/cli/task_apps/commands.py
+```
+
+**Commit:** `refactor(cli): consolidate task app commands to cli/task_apps/`
+
+### Step 7.3: Create cli/training/
+
+Move training-related commands:
+```bash
+mkdir -p synth_ai/cli/training
+mv synth_ai/cli/train.py synth_ai/cli/training/
+mv synth_ai/cli/train_cfg.py synth_ai/cli/training/
+mv synth_ai/cli/watch.py synth_ai/cli/training/
+```
+
+**Commit:** `refactor(cli): move training commands to cli/training/`
+
+### Step 7.4: Create cli/infra/
+
+Move infrastructure commands:
+```bash
+mkdir -p synth_ai/cli/infra
+mv synth_ai/cli/balance.py synth_ai/cli/infra/
+mv synth_ai/cli/setup.py synth_ai/cli/infra/
+mv synth_ai/cli/status.py synth_ai/cli/infra/
+mv synth_ai/cli/turso.py synth_ai/cli/infra/
+mv synth_ai/cli/mcp.py synth_ai/cli/infra/
+mv synth_ai/cli/modal_app.py synth_ai/cli/infra/
+```
+
+**Commit:** `refactor(cli): move infra commands to cli/infra/`
+
+### Step 7.5: Create cli/demos/
+
+Move demo commands:
+```bash
+mkdir -p synth_ai/cli/demos
+mv synth_ai/cli/demo.py synth_ai/cli/demos/
+mv synth_ai/cli/rl_demo.py synth_ai/cli/demos/
+```
+
+**Commit:** `refactor(cli): move demo commands to cli/demos/`
+
+### Step 7.6: Create cli/_internal/
+
+Move internal utilities:
+```bash
+mkdir -p synth_ai/cli/_internal
+mv synth_ai/cli/_modal_wrapper.py synth_ai/cli/_internal/modal_wrapper.py
+mv synth_ai/cli/_storage.py synth_ai/cli/_internal/storage.py
+mv synth_ai/cli/_typer_patch.py synth_ai/cli/_internal/typer_patch.py
+mv synth_ai/cli/_validate_task_app.py synth_ai/cli/_internal/validate_task_app.py
+```
+
+**Commit:** `refactor(cli): move internal utilities to cli/_internal/`
+
+### Step 7.7: Create cli/utils/
+
+Move CLI utility commands:
+```bash
+mkdir -p synth_ai/cli/utils
+mv synth_ai/cli/recent.py synth_ai/cli/utils/
+mv synth_ai/cli/traces.py synth_ai/cli/utils/
+mv synth_ai/cli/queue.py synth_ai/cli/utils/
+mv synth_ai/cli/experiments.py synth_ai/cli/utils/
+```
+
+**Commit:** `refactor(cli): move utility commands to cli/utils/`
+
+### Step 7.8: Delete duplicate CLI directories
+
+Remove duplicates, keep `commands/` versions:
+```bash
+rm -rf synth_ai/cli/eval/      # Use cli/commands/eval/
+rm -rf synth_ai/cli/train/     # Use cli/commands/train/ (different from cli/training/)
+rm -rf synth_ai/cli/filter/    # Use cli/commands/filter/
+# Move serve/ and modal_serve/ into task_apps/
+```
+
+**Commit:** `refactor(cli): remove duplicate CLI directories`
+
+### Step 7.9: Update cli/__init__.py and root.py
+
+Update imports to use new locations. Add re-exports for backward compat.
+
+**Commit:** `refactor(cli): update CLI imports for new structure`
+
+### Step 7.10: Test CLI commands
+
+```bash
+uvx synth-ai --help
+uvx synth-ai train --help
+uvx synth-ai demo --help
+uvx synth-ai claude --help
+```
+
+**Commit:** `fix(cli): ensure CLI commands work after reorg`
+
+---
+
+## Phase 8: Utils and Deprecation Cleanup (Days 21-22)
+
+**Goal:** Clean up utils/ duplicates and add deprecation warnings.
+
+### Step 8.1: Add deprecation warnings to utils/ duplicates
+
+Files that duplicate core/:
+- `utils/env.py` → deprecate, re-export from core/env.py
+- `utils/http.py` → deprecate, re-export from core/http.py
+- `utils/errors.py` → deprecate, re-export from core/errors.py
+- `utils/logging.py` → deprecate, re-export from core/logging.py
+- `utils/base_url.py` → already deprecated
+
+**Commit:** `chore(utils): add deprecation warnings for utils duplicates`
+
+### Step 8.2: Move contracts
+
+Move contract definitions to contracts/:
+- `task/contracts.py` → `contracts/task_app.py`
+- `learning/rl/contracts.py` → `contracts/rl.py`
+
+**Commit:** `feat(contracts): consolidate contracts from task/ and learning/`
+
+### Step 8.3: Move jobs/client.py
+
+Move to sdk/:
+- `jobs/client.py` → `sdk/jobs/client.py`
+
+**Commit:** `feat(sdk): move jobs client to sdk/jobs/`
+
+### Step 8.4: Clean up dead code
+
+Remove any remaining dead code identified in potpourri.
+
+**Commit:** `chore: remove dead code`
+
+---
+
+## Phase 9: Documentation and Downstream Updates (Days 23-25)
+
+### Step 9.1: Add deprecation warnings
 
 Ensure all backward compat layers emit `DeprecationWarning`.
 
-### Step 7.2: Update cookbooks
+### Step 9.2: Update cookbooks
 
 Update `cookbooks` repo to use new import paths where beneficial.
+Fix broken imports tracked in `cookbooks/BROKEN_IMPORTS.md`.
 
-### Step 7.3: Update synth-research
+### Step 9.3: Update synth-research
 
-Update `synth-research` repo imports.
+Update `synth-research` repo imports if needed.
+
+### Step 9.4: Update README
+
+Document new architecture and import paths.
+
+### Step 9.5: Version bump
+
+Update version to 0.3.0 in pyproject.toml.
 
 ---
 
@@ -586,61 +762,103 @@ Update `synth-research` repo imports.
 synth_ai/
 ├── __init__.py              # Re-exports from sdk/
 ├── py.typed
-├── data/                    # Pure data models
+│
+├── data/                    # ✅ DONE - Pure data models
 │   ├── __init__.py
-│   ├── enums.py
-│   ├── jobs.py
-│   ├── traces.py
-│   ├── sft.py
-│   ├── judges.py
-│   └── specs.py
-├── contracts/               # Polyglot contracts
+│   ├── enums.py             # JobType, JobStatus, SynthModelName, etc.
+│   ├── traces.py            # Re-exports from tracing_v3/
+│   ├── rewards.py           # RewardRecord dataclasses
+│   └── specs.py             # Re-exports from spec/
+│
+├── contracts/               # ✅ DONE - Polyglot contracts
 │   ├── __init__.py
-│   ├── task_app.py
-│   ├── rl.py
-│   └── sft.py
-├── core/                    # Internal plumbing
+│   ├── README.md
+│   ├── task_app.py          # TODO: move from task/contracts.py
+│   ├── rl.py                # TODO: move from learning/rl/contracts.py
+│   └── sft.py               # TODO: add
+│
+├── core/                    # ✅ DONE - Internal plumbing
 │   ├── __init__.py
-│   ├── env.py
-│   ├── http.py
-│   ├── errors.py
-│   ├── logging.py
-│   ├── pricing.py
-│   ├── config/
-│   └── storage/
-├── sdk/                     # User-facing API
+│   ├── env.py               # Environment resolution + get_backend_from_env
+│   ├── http.py              # AsyncHttpClient
+│   ├── errors.py            # Error types
+│   ├── logging.py           # Logging setup
+│   ├── pricing.py           # Model pricing
+│   ├── config/base.py       # Config base classes
+│   ├── storage/             # Storage interfaces
+│   └── integrations/mcp/    # MCP placeholder
+│
+├── sdk/                     # ✅ DONE - User-facing API
 │   ├── __init__.py
-│   ├── task_apps/
-│   ├── training/
-│   ├── tracing/
-│   ├── judging/
-│   ├── specs/
-│   ├── research_agent/
-│   ├── streaming/
-│   └── inference/
-├── cli/                     # CLI (existing, updated)
+│   ├── task_apps/           # Re-exports from task/
+│   ├── training/            # Re-exports from api/train/
+│   ├── tracing/             # Re-exports from tracing_v3/
+│   ├── judging/             # Re-exports from evals/
+│   ├── specs/               # Re-exports from spec/
+│   ├── research_agent/      # Re-exports from research_agent/
+│   ├── streaming/           # Re-exports from streaming/
+│   └── inference/           # Re-exports from inference/
+│
+├── cli/                     # 🔄 Phase 7 - Reorganize
 │   ├── __init__.py
-│   ├── commands/
-│   ├── session/
-│   └── local/
-├── tracing_v3/              # UNCHANGED
+│   ├── root.py
+│   ├── agents/              # NEW: claude, codex, opencode + base.py
+│   ├── task_apps/           # NEW: serve, deploy, list, modal_serve
+│   ├── training/            # NEW: train, train_cfg, watch
+│   ├── demos/               # NEW: demo, rl_demo
+│   ├── infra/               # NEW: balance, setup, status, turso, mcp, modal_app
+│   ├── utils/               # NEW: recent, traces, queue, experiments
+│   ├── _internal/           # NEW: modal_wrapper, storage, typer_patch
+│   ├── commands/            # KEEP: artifacts/, baseline/, eval/, etc.
+│   ├── lib/                 # KEEP: task_app_discovery, task_app_env
+│   └── local/               # ✅ DONE: session/, experiment_queue/
+│
+├── tracing_v3/              # ✋ UNCHANGED - Don't touch!
 ├── task/                    # Compat layer → sdk/task_apps
 ├── learning/                # Compat layer → sdk/training
 ├── api/train/               # Compat layer → sdk/training
-└── demos/                   # CLI demos (unchanged)
+├── utils/                   # 📦 Deprecating duplicates
+├── demos/                   # ✋ KEEP - Demo templates
+├── baseline/                # ✋ KEEP - Baseline evaluation
+└── ...                      # Other legacy modules
 ```
 
 ---
 
 ## Success Criteria
 
-- [ ] All unit tests pass
-- [ ] CLI commands work (`synth-ai train`, `synth-ai agent`, etc.)
-- [ ] Old imports still work (with deprecation warnings)
-- [ ] New imports work: `from synth_ai.sdk.task_apps import InProcessTaskApp`
-- [ ] `tracing_v3/` is untouched
-- [ ] No circular imports
-- [ ] Linting passes
+- [x] All unit tests pass (Phase 1-6)
+- [x] CLI commands work (`synth-ai train`, `synth-ai agent`, etc.)
+- [x] Old imports still work (with deprecation warnings)
+- [x] New imports work: `from synth_ai.sdk.task_apps import InProcessTaskApp`
+- [x] `tracing_v3/` is untouched
+- [x] No circular imports
+- [ ] CLI reorganized (Phase 7)
+- [ ] Utils deprecated (Phase 8)
+- [ ] Documentation updated (Phase 9)
+- [ ] Version 0.3.0 released
+
+---
+
+## Progress Tracker
+
+### ✅ Completed
+- [x] Phase 1: data/ layer (enums, traces, rewards, specs)
+- [x] Phase 2: core/ layer (env, http, errors, logging, pricing, config, storage)
+- [x] Phase 3: sdk/ layer (training, task_apps, judging, inference, streaming, specs, research_agent, tracing)
+- [x] Phase 4: cli/local/ (session/, experiment_queue/)
+- [x] Phase 5: contracts/README.md
+- [x] Phase 6: Tests pass, backward compat verified
+- [x] Deleted types.py (replaced by data/enums.py)
+- [x] Deleted calc.py (random calculator - wtf)
+- [x] config/base_url.py → re-exports from core/env.py
+
+### 🔄 In Progress
+- [ ] Phase 7: CLI reorganization (agents/, task_apps/, training/, etc.)
+
+### 📋 Pending
+- [ ] Phase 8: Utils deprecation, contracts consolidation
+- [ ] Phase 9: Documentation, downstream updates, version bump
 
 ---
 

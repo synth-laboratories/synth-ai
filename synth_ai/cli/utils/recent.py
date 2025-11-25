@@ -12,7 +12,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from ._storage import load_storage
+from synth_ai.cli._internal.storage import load_storage
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     import pandas as pd

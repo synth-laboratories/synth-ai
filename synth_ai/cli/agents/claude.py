@@ -2,7 +2,6 @@ import os
 import subprocess
 
 import click
-from synth_ai.types import MODEL_NAMES, ModelName
 from synth_ai.urls import BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC
 from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bin, write_agents_md
 
@@ -12,7 +11,8 @@ from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bi
     "--model",
     "model_name",
     type=str,
-    default=None
+    default=None,
+    help="Model name to use (Claude Code uses Anthropic models directly)"
 )
 @click.option(
     "--force",
@@ -26,11 +26,15 @@ from synth_ai.utils import get_bin_path, install_bin, resolve_env_var, verify_bi
     default=None,
 )
 def claude_cmd(
-    model_name: ModelName | None = None,
+    model_name: str | None = None,
     force: bool = False,
     override_url: str | None = None
 ) -> None:
-
+    """Launch Claude Code with optional Synth backend routing.
+    
+    Note: Claude Code uses Anthropic models directly. The --model option
+    is for routing through Synth's Anthropic-compatible backend.
+    """
     while True:
         bin_path = get_bin_path("claude")
         if bin_path:
@@ -52,8 +56,7 @@ def claude_cmd(
     env = os.environ.copy()
 
     if model_name is not None:
-        if model_name not in MODEL_NAMES:
-            raise ValueError(f"model_name={model_name} is invalid. Valid values for model_name: {MODEL_NAMES}")
+        # Route through Synth's Anthropic-compatible backend
         if override_url:
             url = f"{override_url.rstrip('/')}/{model_name}"
             print(f"Using override URL with model: {url}")
