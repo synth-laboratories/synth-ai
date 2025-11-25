@@ -5,8 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
-from synth_ai.baseline.execution import (
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline.execution import (
     aggregate_results,
     default_aggregator,
     run_baseline_evaluation,

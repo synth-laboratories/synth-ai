@@ -1,4 +1,4 @@
-from synth_ai.learning.sft.data import (
+from synth_ai.sdk.learning.sft.data import (
     SFTMessage,
     extract_reasoning,
     strip_reasoning,

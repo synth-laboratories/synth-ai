@@ -11,7 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from synth_ai.cli.commands.status.subcommands.session import session_status_cmd
-from synth_ai.session.models import AgentSession, AgentSessionLimit, AgentSessionUsage
+from synth_ai.cli.local.session.models import AgentSession, AgentSessionLimit, AgentSessionUsage
 
 
 @pytest.fixture()
@@ -208,7 +208,7 @@ def test_session_status_no_active_session(runner: CliRunner):
 
 def test_session_status_session_not_found(runner: CliRunner):
     """Test session status command when session doesn't exist."""
-    from synth_ai.session.exceptions import SessionNotFoundError
+    from synth_ai.cli.local.session.exceptions import SessionNotFoundError
     
     with mock.patch("synth_ai.cli.commands.status.subcommands.session.resolve_backend_config") as mock_config, \
          mock.patch("synth_ai.cli.commands.status.subcommands.session.AgentSessionClient") as mock_client_class:

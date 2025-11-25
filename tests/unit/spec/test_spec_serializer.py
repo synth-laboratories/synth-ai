@@ -1,7 +1,7 @@
 """Unit tests for spec serializer."""
 
 import pytest
-from synth_ai.spec.dataclasses import (
+from synth_ai.sdk.specs.dataclasses import (
     Spec,
     Metadata,
     Principle,
@@ -10,7 +10,7 @@ from synth_ai.spec.dataclasses import (
     Example,
     GlossaryItem,
 )
-from synth_ai.spec.serializer import spec_to_prompt_context, spec_to_compact_context
+from synth_ai.sdk.specs.serializer import spec_to_prompt_context, spec_to_compact_context
 
 
 class TestSpecToPromptContext:

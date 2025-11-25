@@ -5,8 +5,8 @@ from pathlib import Path
 
 import tomllib
 
-from synth_ai.experiment_queue.config_utils import prepare_config_file
-from synth_ai.experiment_queue.results import collect_result_summary
+from synth_ai.cli.local.experiment_queue.config_utils import prepare_config_file
+from synth_ai.cli.local.experiment_queue.results import collect_result_summary
 
 
 def test_prepare_config_file_resolves_paths_and_overrides(tmp_path):

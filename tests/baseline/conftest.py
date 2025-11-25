@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from synth_ai.baseline import BaselineConfig, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, DataSplit, TaskResult
 
 
 @pytest.fixture

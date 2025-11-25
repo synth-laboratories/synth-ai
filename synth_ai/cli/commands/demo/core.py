@@ -11,7 +11,7 @@ from click.exceptions import Exit
 
 __all__ = ["command", "register"]
 
-_demo_cli = cast(Any, importlib.import_module("synth_ai.demos.core.cli"))
+_demo_cli = cast(Any, importlib.import_module("synth_ai.cli.demo_apps.core.cli"))
 
 
 def _find_demo_scripts(root: Path) -> list[Path]:

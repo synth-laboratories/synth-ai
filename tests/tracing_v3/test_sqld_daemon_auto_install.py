@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from synth_ai.tracing_v3.turso.daemon import SqldDaemon, start_sqld
+from synth_ai.core.tracing_v3.turso.daemon import SqldDaemon, start_sqld
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ class TestSqldDaemonBinaryDetection:
     def test_finds_sqld_in_path(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that daemon finds sqld when it's in PATH."""
         # Mock shutil.which to return our fake binary
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         def mock_which(cmd):
             if cmd == "sqld":
@@ -61,7 +61,7 @@ class TestSqldDaemonBinaryDetection:
 
     def test_finds_libsql_server_in_path(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that daemon finds libsql-server alternative name."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         def mock_which(cmd):
             if cmd == "sqld":
@@ -80,7 +80,7 @@ class TestSqldDaemonBinaryDetection:
 
     def test_finds_sqld_in_common_location(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that daemon finds sqld in common install locations."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock PATH lookup to fail
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
@@ -102,7 +102,7 @@ class TestSqldDaemonAutoInstall:
 
     def test_auto_install_in_interactive_mode(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that daemon auto-installs sqld in interactive mode."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock all detection to fail
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
@@ -137,7 +137,7 @@ class TestSqldDaemonAutoInstall:
 
     def test_auto_install_respects_user_decline(self, temp_db_path, monkeypatch):
         """Test that daemon respects when user declines auto-install."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock all detection to fail
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
@@ -159,7 +159,7 @@ class TestSqldDaemonAutoInstall:
 
     def test_auto_install_disabled_via_env_var(self, temp_db_path, monkeypatch):
         """Test that auto-install can be disabled via environment variable."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock all detection to fail
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
@@ -178,7 +178,7 @@ class TestSqldDaemonAutoInstall:
 
     def test_auto_install_skipped_in_non_interactive(self, temp_db_path, monkeypatch):
         """Test that auto-install is skipped in non-interactive environments (CI/CD)."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock all detection to fail
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
@@ -204,7 +204,7 @@ class TestSqldDaemonErrorMessages:
 
     def test_error_message_mentions_install_options(self, temp_db_path, monkeypatch):
         """Test that error message provides multiple install options."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
         monkeypatch.setenv("SYNTH_AI_AUTO_INSTALL_SQLD", "false")
@@ -228,7 +228,7 @@ class TestSqldDaemonErrorMessages:
 
     def test_error_message_is_multiline(self, temp_db_path, monkeypatch):
         """Test that error message is formatted with multiple lines for readability."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: None)
         monkeypatch.setenv("SYNTH_AI_AUTO_INSTALL_SQLD", "false")
@@ -254,7 +254,7 @@ class TestSqldDaemonIntegration:
 
     def test_start_sqld_helper_with_auto_install(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that start_sqld helper creates daemon correctly with auto-install."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         # Mock to return our fake binary
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: mock_sqld_binary if cmd == "sqld" else None)
@@ -295,7 +295,7 @@ class TestSqldDaemonIntegration:
 
     def test_daemon_port_configuration(self, temp_db_path, mock_sqld_binary, monkeypatch):
         """Test that daemon correctly configures hrana and http ports."""
-        import synth_ai.tracing_v3.turso.daemon as daemon_module
+        import synth_ai.core.tracing_v3.turso.daemon as daemon_module
         
         monkeypatch.setattr(daemon_module.shutil, "which", lambda cmd: mock_sqld_binary if cmd == "sqld" else None)
         

@@ -3,8 +3,8 @@
 import json
 import pytest
 from pathlib import Path
-from synth_ai.spec.loader import load_spec_from_dict, load_spec_from_file
-from synth_ai.spec.dataclasses import Spec
+from synth_ai.sdk.specs.loader import load_spec_from_dict, load_spec_from_file
+from synth_ai.sdk.specs.dataclasses import Spec
 
 
 class TestLoadSpecFromDict:

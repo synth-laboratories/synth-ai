@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import click
 from rich.table import Table
-from synth_ai.pricing.model_pricing import MODEL_PRICES
+
+from synth_ai.core.pricing.model_pricing import MODEL_PRICES  # type: ignore[import-untyped]
 
 from ..formatters import console
 

@@ -3,12 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.tracing_v3.config import (
+from synth_ai.core.tracing_v3.config import (
     resolve_trace_db_auth_token,
     resolve_trace_db_settings,
     resolve_trace_db_url,
 )
-from synth_ai.tracing_v3.storage.config import StorageBackend, StorageConfig
+from synth_ai.core.tracing_v3.storage.config import StorageBackend, StorageConfig
 
 
 def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:

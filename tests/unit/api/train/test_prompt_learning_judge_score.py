@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from typing import Any, Dict
 import pytest
 
-from synth_ai.api.train.prompt_learning import PromptLearningJob
+from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 
 
 @pytest.fixture

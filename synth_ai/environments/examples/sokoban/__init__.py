@@ -1,1 +1,0 @@
-"""Sokoban environment example."""

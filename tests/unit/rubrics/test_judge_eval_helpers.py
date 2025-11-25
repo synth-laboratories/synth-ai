@@ -5,7 +5,7 @@ from typing import Any, Iterable, Sequence
 
 import pytest
 
-from synth_ai.judge_schemas import JudgeScoreResponse
+from synth_ai.sdk.judging.schemas import JudgeScoreResponse
 
 
 def _merge_summaries(

@@ -11,12 +11,12 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.train.cli import (
+from synth_ai.sdk.api.train.cli import (
     _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS,
     _save_prompt_learning_results_locally,
     handle_prompt_learning,
 )
-from synth_ai.streaming import CLIHandler, StreamConfig, StreamEndpoints, StreamType
+from synth_ai.sdk.streaming import CLIHandler, StreamConfig, StreamEndpoints, StreamType
 
 
 class TestPromptLearningCLIConfiguration:

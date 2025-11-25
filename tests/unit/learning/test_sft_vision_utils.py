@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from synth_ai.learning.sft.data import (
+from synth_ai.sdk.learning.sft.data import (
     has_image_content,
     extract_image_urls,
     validate_vision_example,

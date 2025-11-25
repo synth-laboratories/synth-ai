@@ -9,7 +9,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.train.config_finder import _infer_config_type, discover_configs
+from synth_ai.sdk.api.train.config_finder import _infer_config_type, discover_configs
 
 
 class TestPromptLearningConfigTypeDetection:

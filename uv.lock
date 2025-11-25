@@ -3674,7 +3674,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.2.26.dev2"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -3683,6 +3683,7 @@ dependencies = [
     { name = "celery" },
     { name = "click" },
     { name = "datasets" },
+    { name = "docker" },
     { name = "dspy" },
     { name = "fastapi" },
     { name = "gepa" },
@@ -3779,6 +3780,7 @@ requires-dist = [
     { name = "datasets", specifier = ">=4.0.0" },
     { name = "datasets", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "datasets", marker = "extra == 'research'", specifier = ">=4.0.0" },
+    { name = "docker", specifier = ">=7.0.0" },
     { name = "dspy", specifier = ">=3.0.4" },
     { name = "fastapi", specifier = ">=0.115.12" },
     { name = "gepa", specifier = ">=0.0.17" },

@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from synth_ai.api.train.validators import (
+from synth_ai.sdk.api.train.validators import (
     ConfigValidationError,
     validate_prompt_learning_config,
     _validate_model_for_provider,

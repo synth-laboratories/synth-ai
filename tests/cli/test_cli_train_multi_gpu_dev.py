@@ -10,7 +10,7 @@ from typing import Any, Coroutine
 
 import pytest
 
-from synth_ai.jobs.client import JobsClient
+from synth_ai.sdk.jobs.client import JobsClient
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.slow]

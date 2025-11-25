@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from synth_ai.api.train.prompt_learning import (
+from synth_ai.sdk.api.train.prompt_learning import (
     PromptLearningJob,
     PromptLearningJobConfig,
     PromptLearningJobPoller,

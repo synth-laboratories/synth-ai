@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.experiment_queue import celery_app as queue_celery
-from synth_ai.experiment_queue import config as queue_config
-from synth_ai.experiment_queue import database as queue_db
-from synth_ai.experiment_queue import models as queue_models
-from synth_ai.experiment_queue import tasks as queue_tasks
-from synth_ai.experiment_queue.schemas import ExperimentSubmitRequest
+from synth_ai.cli.local.experiment_queue import celery_app as queue_celery
+from synth_ai.cli.local.experiment_queue import config as queue_config
+from synth_ai.cli.local.experiment_queue import database as queue_db
+from synth_ai.cli.local.experiment_queue import models as queue_models
+from synth_ai.cli.local.experiment_queue import tasks as queue_tasks
+from synth_ai.cli.local.experiment_queue.schemas import ExperimentSubmitRequest
 
 
 @pytest.fixture(autouse=True)
@@ -56,8 +56,8 @@ def test_process_experiment_queue_no_experiments():
 
 def test_process_experiment_queue_with_queued_jobs(tmp_path, monkeypatch):
     """Test periodic task dispatches queued jobs."""
-    from synth_ai.experiment_queue import dispatcher as queue_dispatcher
-    from synth_ai.experiment_queue import service as queue_service
+    from synth_ai.cli.local.experiment_queue import dispatcher as queue_dispatcher
+    from synth_ai.cli.local.experiment_queue import service as queue_service
 
     # Create a stub Celery app that records send_task calls
     sent_tasks = []

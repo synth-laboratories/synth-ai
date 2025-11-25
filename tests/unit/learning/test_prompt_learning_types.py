@@ -2,7 +2,7 @@
 
 
 import pytest
-from synth_ai.learning.prompt_learning_types import (
+from synth_ai.sdk.learning.prompt_learning_types import (
     BestPromptEventData,
     Candidate,
     CandidateScore,

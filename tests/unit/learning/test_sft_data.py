@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.learning.sft import (
+from synth_ai.sdk.learning.sft import (
     collect_sft_jsonl_errors,
     iter_sft_examples,
     load_jsonl,
     validate_jsonl_or_raise,
 )
-from synth_ai.learning.sft.data import (
+from synth_ai.sdk.learning.sft.data import (
     SFTMessage,
     SFTToolCall,
     coerce_example,

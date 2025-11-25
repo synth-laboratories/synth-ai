@@ -4,8 +4,8 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.models.supported import UnsupportedModelError
-from synth_ai.learning.sft.config import (
+from synth_ai.sdk.api.models.supported import UnsupportedModelError
+from synth_ai.sdk.learning.sft.config import (
     SFTTrainingHyperparameters,
     prepare_sft_job_payload,
 )

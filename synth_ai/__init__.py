@@ -6,15 +6,14 @@ from pathlib import Path
 
 # Install log filter as early as possible to suppress noisy codex_otel logs
 try:
-    from synth_ai.utils.log_filter import install_log_filter
+    from synth_ai.core.log_filter import install_log_filter
     install_log_filter()
 except Exception:
     # Silently fail if log filter can't be installed
     pass
 
-import synth_ai.environments as environments  # expose module name for __all__
-from synth_ai.environments import *  # noqa
-from synth_ai.judge_schemas import (
+# Judge schemas moved to sdk/judging/schemas.py
+from synth_ai.sdk.judging.schemas import (
     CriterionScorePayload,
     JudgeOptions,
     JudgeScoreRequest,
@@ -46,7 +45,6 @@ EventPartitionElement = RewardSignal = SystemTrace = TrainingQuestion = None  # 
 trace_event_async = trace_event_sync = upload = None  # type: ignore
 
 __all__ = [
-    "environments",
     # Judge API contracts
     "JudgeScoreRequest",
     "JudgeScoreResponse",

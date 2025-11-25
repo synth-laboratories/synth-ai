@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from synth_ai.inference.client import InferenceClient
+from synth_ai.sdk.inference.client import InferenceClient
 
 pytestmark = pytest.mark.unit
 
@@ -33,7 +33,7 @@ async def test_create_chat_completion_valid_model(monkeypatch: pytest.MonkeyPatc
         dummy_clients.append(client)
         return client
 
-    monkeypatch.setattr("synth_ai.inference.client.AsyncHttpClient", _factory)
+    monkeypatch.setattr("synth_ai.sdk.inference.client.AsyncHttpClient", _factory)
 
     client = InferenceClient(base_url="https://synth", api_key="sk-test")
     response = await client.create_chat_completion(
@@ -55,7 +55,7 @@ async def test_create_chat_completion_rejects_unknown_model(monkeypatch: pytest.
     def _factory(*args: Any, **kwargs: Any) -> DummyHTTPClient:  # pragma: no cover - should not run
         raise AssertionError("HTTP client should not be constructed for invalid model")
 
-    monkeypatch.setattr("synth_ai.inference.client.AsyncHttpClient", _factory)
+    monkeypatch.setattr("synth_ai.sdk.inference.client.AsyncHttpClient", _factory)
 
     client = InferenceClient(base_url="https://synth", api_key="sk-test")
     with pytest.raises(ValueError):

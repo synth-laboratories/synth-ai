@@ -25,7 +25,7 @@ class FakeResponse:
 
 
 def test_encrypt_for_backend_valid_base64_return() -> None:
-    from synth_ai.learning.rl import env_keys
+    from synth_ai.sdk.learning.rl import env_keys
 
     pub_bytes = b"\x01" * 32
     pub_b64 = base64.b64encode(pub_bytes).decode("ascii")
@@ -45,14 +45,14 @@ def test_encrypt_for_backend_valid_base64_return() -> None:
     ],
 )
 def test_encrypt_for_backend_rejects_bad_pubkey(bad: str) -> None:
-    from synth_ai.learning.rl import env_keys
+    from synth_ai.sdk.learning.rl import env_keys
 
     with pytest.raises(Exception):
         env_keys.encrypt_for_backend(bad, "x")
 
 
 def test_setup_environment_api_key_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    from synth_ai.learning.rl import env_keys
+    from synth_ai.sdk.learning.rl import env_keys
 
     # Prepare deterministic public key and ciphertext
     pub_b = b"\x03" * 32
@@ -93,7 +93,7 @@ def test_setup_environment_api_key_success(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_setup_environment_api_key_rejects_bad_alg(monkeypatch: pytest.MonkeyPatch) -> None:
-    from synth_ai.learning.rl import env_keys
+    from synth_ai.sdk.learning.rl import env_keys
 
     bad_alg_resp = FakeResponse(200, {"alg": "unknown", "public_key": base64.b64encode(b"\x04" * 32).decode("ascii")})
 
@@ -106,7 +106,7 @@ def test_setup_environment_api_key_rejects_bad_alg(monkeypatch: pytest.MonkeyPat
 
 
 def test_setup_environment_api_key_requires_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    from synth_ai.learning.rl import env_keys
+    from synth_ai.sdk.learning.rl import env_keys
 
     monkeypatch.delenv("ENVIRONMENT_API_KEY", raising=False)
     with pytest.raises(ValueError):

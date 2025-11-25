@@ -7,12 +7,11 @@ import numpy as np
 
 import pytest
 
-from synth_ai.http_client import HTTPError
+from synth_ai.core.http import HTTPError
 
-# Placeholder import path; the implementation will be added to synth_ai/evals/client.py
-# Tests focus on request/response contracts and error mapping, to be satisfied once implemented.
+# Import from new SDK location
 try:
-	from synth_ai.evals.client import JudgeClient  # type: ignore
+	from synth_ai.sdk.judging.client import JudgeClient  # type: ignore
 except Exception:  # pragma: no cover - allow import to fail before impl
 	JudgeClient = None  # type: ignore
 
@@ -51,7 +50,7 @@ async def test_score_happy_path(monkeypatch):
 		"details": {"used_rubric": "bundle@v1", "policy": "p"},
 	}
 	dummy = DummyHttp([(200, resp)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	out = await client.score(
@@ -76,7 +75,7 @@ async def test_score_validation_error_422(monkeypatch):
 
 	detail = {"error": "invalid_trace"}
 	dummy = DummyHttp([(422, detail)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(ValueError):
@@ -92,7 +91,7 @@ async def test_score_rate_limit_429(monkeypatch):
 
 	detail = {"error": "too_many_requests"}
 	dummy = DummyHttp([(429, detail)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(Exception):  # replace with RetryLater once implemented
@@ -108,7 +107,7 @@ async def test_score_server_error_5xx(monkeypatch):
 
 	detail = {"error": "upstream_failed"}
 	dummy = DummyHttp([(502, detail)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(Exception):  # replace with TransientError once implemented
@@ -125,7 +124,7 @@ async def test_trace_normalization(monkeypatch):
 	# includes a non-JSON type (bytes) to ensure normalization path is used
 	resp = {"status": "ok", "event_rewards": [], "outcome_reward": {"scores": {}, "aggregate": {"score": 0.0}}, "details": {}}
 	dummy = DummyHttp([(200, resp)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	out = await client.score(
@@ -146,7 +145,7 @@ async def test_score_auth_error_401(monkeypatch):
 
 	detail = {"error": "auth_failed"}
 	dummy = DummyHttp([(401, detail)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(PermissionError):
@@ -162,7 +161,7 @@ async def test_score_not_found_404(monkeypatch):
 
 	detail = {"error": "route_missing"}
 	dummy = DummyHttp([(404, detail)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(FileNotFoundError):
@@ -178,7 +177,7 @@ async def test_invalid_response_shape_raises(monkeypatch):
 
 	# Return a non-dict payload to trigger shape validation
 	dummy = DummyHttp([(200, "ok")])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	with pytest.raises(ValueError):
@@ -194,7 +193,7 @@ async def test_includes_task_app_base_url(monkeypatch):
 
 	resp = {"status": "ok", "event_rewards": [], "outcome_reward": {"scores": {}, "aggregate": {"score": 0.0}}, "details": {}}
 	dummy = DummyHttp([(200, resp)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	client = JudgeClient(base_url="https://backend/api", api_key="k")
 	await client.score(
@@ -211,7 +210,7 @@ async def test_trace_normalization_numpy_decimal_datetime(monkeypatch):
 
 	resp = {"status": "ok", "event_rewards": [], "outcome_reward": {"scores": {}, "aggregate": {"score": 0.0}}, "details": {}}
 	dummy = DummyHttp([(200, resp)])
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	now = datetime.now(UTC)
 	trace = {
@@ -260,7 +259,7 @@ async def test_score_rubric_combinations(monkeypatch, event: bool, outcome: bool
 		responses = [(200, base)]
 
 	dummy = DummyHttp(responses)
-	monkeypatch.setattr("synth_ai.evals.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
+	monkeypatch.setattr("synth_ai.sdk.judging.client.AsyncHttpClient", lambda base, key, timeout=60.0: dummy)
 
 	# Build options according to rubric_mode
 	options: dict[str, Any] = {"event": event, "outcome": outcome, "provider": provider}

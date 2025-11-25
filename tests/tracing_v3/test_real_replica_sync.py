@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.tracing_v3.replica_sync import ReplicaSync
-from synth_ai.tracing_v3.constants import TRACE_DB_BASENAME
+from synth_ai.core.tracing_v3.replica_sync import ReplicaSync
+from synth_ai.core.tracing_v3.constants import TRACE_DB_BASENAME
 
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "artifacts" / "traces"

@@ -3,8 +3,8 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from synth_ai.cfgs import CFDeployCfg
-from synth_ai.cloudflare import (
+from synth_ai.core.cfgs import CFDeployCfg
+from synth_ai.core.integrations.cloudflare import (
     ManagedTunnelRecord,
     _select_existing_tunnel,
     create_tunnel,
@@ -242,7 +242,7 @@ class TestURLRegex:
 
     def test_matches_valid_trycloudflare_urls(self):
         """Should match valid trycloudflare URLs."""
-        from synth_ai.cloudflare import _URL_RE
+        from synth_ai.core.integrations.cloudflare import _URL_RE
 
         valid_urls = [
             "https://abc123.trycloudflare.com",
@@ -255,13 +255,13 @@ class TestURLRegex:
 
     def test_case_insensitive(self):
         """Should match URLs case-insensitively."""
-        from synth_ai.cloudflare import _URL_RE
+        from synth_ai.core.integrations.cloudflare import _URL_RE
 
         assert _URL_RE.search("HTTPS://ABC123.TRYCLOUDFLARE.COM") is not None
 
     def test_does_not_match_invalid_urls(self):
         """Should not match invalid URLs."""
-        from synth_ai.cloudflare import _URL_RE
+        from synth_ai.core.integrations.cloudflare import _URL_RE
 
         invalid_urls = [
             "http://test.trycloudflare.com",  # http not https
@@ -311,7 +311,7 @@ class TestCreateTunnel:
         result = await create_tunnel("api-key", port=8123, subdomain="custom")
         assert result["hostname"] == "cust.test"
 
-        from synth_ai.cloudflare import BACKEND_URL_BASE
+        from synth_ai.core.integrations.cloudflare import BACKEND_URL_BASE
 
         request = captured["request"]
         assert request["url"] == f"{BACKEND_URL_BASE}/api/v1/tunnels/"
@@ -378,7 +378,7 @@ class TestFetchManagedTunnels:
         assert record.local_port == 7000
         assert record.credential("tunnel_token") == "token-1"
         assert record.credential("access_client_id") == "client-1"
-        from synth_ai.cloudflare import BACKEND_URL_BASE
+        from synth_ai.core.integrations.cloudflare import BACKEND_URL_BASE
 
         assert captured["url"] == f"{BACKEND_URL_BASE}/api/v1/tunnels/"
         assert captured["headers"] == {"Authorization": "Bearer api-key"}

@@ -6,13 +6,13 @@ import click
 import pytest
 import asyncio
 
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     SessionTrace,
     SessionEventMarkovBlanketMessage,
     SessionMessageContent,
     TimeRecord,
 )
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 from click.testing import CliRunner
 
 from synth_ai.cli.commands.filter import core as filter_core
@@ -26,7 +26,7 @@ from synth_ai.cli.commands.filter.errors import (
     NoTracesFoundError,
     TomlUnavailableError,
 )
-from synth_ai.task.config import FilterConfig
+from synth_ai.sdk.task.config import FilterConfig
 
 
 def test_filter_preserves_assistant_multimodal(tmp_path):

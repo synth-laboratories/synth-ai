@@ -25,7 +25,7 @@ if "RUST_LOG" not in os.environ:
 
 # Install log filter early to suppress noisy codex_otel logs
 try:
-    from synth_ai.utils.log_filter import install_log_filter
+    from synth_ai.core.log_filter import install_log_filter
     
     # Only install if not already filtered (to avoid double-wrapping)
     install_log_filter()

@@ -9,7 +9,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.train.configs.prompt_learning import (
+from synth_ai.sdk.api.train.configs.prompt_learning import (
     GEPAConfig,
     MIPROConfig,
     MessagePatternConfig,
@@ -17,7 +17,7 @@ from synth_ai.api.train.configs.prompt_learning import (
     PromptLearningPolicyConfig,
     PromptPatternConfig,
 )
-from synth_ai.api.train.builders import build_prompt_learning_payload
+from synth_ai.sdk.api.train.builders import build_prompt_learning_payload
 
 
 class TestPromptPatternConfig:

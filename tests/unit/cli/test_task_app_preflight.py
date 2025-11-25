@@ -6,8 +6,8 @@ from typing import Any
 import httpx
 import nacl.public  # type: ignore
 import pytest
-from synth_ai.cli.task_apps import _preflight_env_key as preflight_env_key
-from synth_ai.learning.rl.secrets import mint_environment_api_key
+from synth_ai.cli.task_apps.commands import _preflight_env_key as preflight_env_key
+from synth_ai.sdk.learning.rl.secrets import mint_environment_api_key
 
 
 def test_mint_environment_api_key_is_raw_hex(monkeypatch: pytest.MonkeyPatch) -> None:

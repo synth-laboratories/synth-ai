@@ -6,7 +6,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.streaming.streamer import StreamEndpoints
+from synth_ai.sdk.streaming.streamer import StreamEndpoints
 
 
 class TestPromptLearningStreamEndpoints:

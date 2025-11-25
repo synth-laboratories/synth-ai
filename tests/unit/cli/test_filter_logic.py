@@ -7,13 +7,13 @@ from pathlib import Path
 
 from click.testing import CliRunner
 from synth_ai.cli.commands.filter.core import filter_command
-from synth_ai.tracing_v3.abstractions import (
+from synth_ai.core.tracing_v3.abstractions import (
     SessionEventMarkovBlanketMessage,
     SessionMessageContent,
     SessionTrace,
     TimeRecord,
 )
-from synth_ai.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
+from synth_ai.core.tracing_v3.turso.native_manager import NativeLibsqlTraceManager
 
 
 def _build_trace(

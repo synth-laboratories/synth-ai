@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.api.train.configs.prompt_learning import (
+from synth_ai.sdk.api.train.configs.prompt_learning import (
     AdaptiveCurriculumLevel,
     AdaptivePoolConfig,
     GEPAConfig,

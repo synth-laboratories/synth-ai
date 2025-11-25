@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.utils.agents import (
+from synth_ai.cli.lib.agents import (
     SYNTH_DIV_END,
     SYNTH_DIV_START,
     AGENTS_TEXT,

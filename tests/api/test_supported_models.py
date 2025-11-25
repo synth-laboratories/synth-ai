@@ -1,6 +1,6 @@
 import pytest
 
-from synth_ai.api.models.supported import (
+from synth_ai.sdk.api.models.supported import (
     CORE_MODELS,
     EXPERIMENTAL_MODELS,
     THINKING_MODELS,

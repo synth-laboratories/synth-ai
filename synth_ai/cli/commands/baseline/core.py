@@ -10,14 +10,15 @@ from pathlib import Path
 from typing import Any, Optional, Sequence
 
 import click
-from synth_ai.baseline.config import BaselineResults
-from synth_ai.baseline.discovery import (
+
+from synth_ai.sdk.baseline.config import BaselineResults
+from synth_ai.sdk.baseline.discovery import (
     BASELINE_FILE_PATTERNS,
     BaselineChoice,
     discover_baseline_files,
     load_baseline_config_from_file,
 )
-from synth_ai.baseline.execution import aggregate_results, run_baseline_evaluation
+from synth_ai.sdk.baseline.execution import aggregate_results, run_baseline_evaluation
 
 
 class BaselineGroup(click.Group):
@@ -560,7 +561,7 @@ async def _baseline_command_impl(
     # 6. Setup trace storage (if requested)
     tracer = None
     if trace_db_url and trace_db_url.lower() not in {"none", "off"}:
-        from synth_ai.tracing_v3.session_tracer import SessionTracer
+        from synth_ai.core.tracing_v3.session_tracer import SessionTracer
         tracer = SessionTracer(db_url=trace_db_url, auto_save=True)
         await tracer.initialize()
     

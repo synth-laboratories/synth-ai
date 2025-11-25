@@ -8,7 +8,7 @@ import builtins
 
 def test_task_client_sends_all_env_keys(monkeypatch):
     # Arrange
-    from synth_ai.task.client import TaskAppClient
+    from synth_ai.sdk.task.client import TaskAppClient
 
     monkeypatch.setenv("ENVIRONMENT_API_KEY_ALIASES", "k2, k3 , k2")
 
@@ -32,7 +32,7 @@ def test_task_client_sends_all_env_keys(monkeypatch):
 
 def test_check_task_app_health_sends_all_env_keys(monkeypatch):
     # Arrange
-    from synth_ai.api.train.task_app import check_task_app_health
+    from synth_ai.sdk.api.train.task_app import check_task_app_health
 
     sent_headers: dict[str, str] = {}
 
@@ -47,7 +47,7 @@ def test_check_task_app_health_sends_all_env_keys(monkeypatch):
         return resp
 
     # Patch http_get used inside the module
-    import synth_ai.api.train.task_app as task_app_mod
+    import synth_ai.sdk.api.train.task_app as task_app_mod
     monkeypatch.setenv("ENVIRONMENT_API_KEY_ALIASES", "ak2, ak3")
     monkeypatch.setattr(task_app_mod, "http_get", fake_http_get)
 

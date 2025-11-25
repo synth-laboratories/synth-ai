@@ -15,8 +15,11 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import click
 import httpx
-from synth_ai.task.client import TaskAppClient
-from synth_ai.task.contracts import (
+
+from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
+from synth_ai.core.tracing_v3.turso.daemon import start_sqld
+from synth_ai.sdk.task.client import TaskAppClient
+from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutMode,
     RolloutPolicySpec,
@@ -24,13 +27,11 @@ from synth_ai.task.contracts import (
     RolloutRequest,
     RolloutSafetyConfig,
 )
-from synth_ai.task.validators import (
+from synth_ai.sdk.task.validators import (
     normalize_inference_url,
     validate_rollout_response_for_rl,
     validate_task_app_url,
 )
-from synth_ai.tracing_v3.config import resolve_trace_db_settings
-from synth_ai.tracing_v3.turso.daemon import start_sqld
 
 
 def _append_query_param(url: str, key: str, value: str) -> str:
@@ -107,8 +108,8 @@ def _ensure_local_libsql() -> None:
 def _refresh_tracing_config() -> None:
     """Rebuild global tracing configuration so new env vars take effect."""
 
-    from synth_ai.tracing_v3 import config as tracing_config_module
-    from synth_ai.tracing_v3.storage import config as storage_config_module
+    from synth_ai.core.tracing_v3 import config as tracing_config_module
+    from synth_ai.core.tracing_v3.storage import config as storage_config_module
 
     tracing_config_module.CONFIG = tracing_config_module.TursoConfig()  # type: ignore[assignment]
     storage_config_module.STORAGE_CONFIG = storage_config_module.StorageConfig(  # type: ignore[assignment]
@@ -443,7 +444,7 @@ class MockRLTrainer:
                         status_code=500,
                     )
                 try:
-                    from examples.task_apps.crafter.task_app.synth_envs_hosted.inference.openai_client import (
+                    from examples.task_apps.crafter.task_app.synth_envs_hosted.inference.openai_client import (  # type: ignore[import-untyped]
                         OpenAIClient as _HostedOpenAIClient,
                     )
 
@@ -727,7 +728,7 @@ async def _run_smoke_async(
     cfg: Any | None = None
     if config_path is not None:
         try:
-            from synth_ai.api.train.configs.rl import (
+            from synth_ai.sdk.api.train.configs.rl import (
                 RLConfig as _RLConfig,  # lazy import to avoid heavy deps when unused
             )
             cfg = _RLConfig.from_path(config_path)

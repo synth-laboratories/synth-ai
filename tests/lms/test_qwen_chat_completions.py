@@ -5,7 +5,7 @@ from typing import Dict, Any, cast
 import httpx
 import pytest
 
-from synth_ai._utils.base_url import get_backend_from_env
+from synth_ai.core.env import get_backend_from_env
 
 
 def _resolve_endpoint(base: str, path: str) -> str:

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 try:
-    from synth_ai.task.inference_api import InferenceAPIClient
+    from synth_ai.sdk.task.inference_api import InferenceAPIClient
 except ImportError:
     InferenceAPIClient = None  # type: ignore[assignment, misc]
     pytest.skip("synth_ai.task.inference_api not available", allow_module_level=True)
