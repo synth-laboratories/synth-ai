@@ -12,14 +12,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from synth_ai.cli.demo_apps.demo_task_apps import core as demo_core
-from synth_ai.cli.demo_apps.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
-from synth_ai.core.process import get_subprocess_env, should_filter_log_line
 from synth_ai.cli.demo_apps.demo_registry import (
     DemoTemplate,
     get_demo_template,
     list_demo_templates,
 )
+from synth_ai.cli.demo_apps.demo_task_apps import core as demo_core
+from synth_ai.cli.demo_apps.demo_task_apps.core import DEFAULT_TASK_APP_SECRET_NAME, DemoEnv
+from synth_ai.core.process import get_subprocess_env, should_filter_log_line
+
 try:
     from synth_ai.handshake import HandshakeError, run_handshake  # type: ignore[import-untyped]
 except ImportError:

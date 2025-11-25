@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from synth_ai.sdk.task.apps import ModalDeploymentConfig, TaskAppEntry, register_task_app
-from synth_ai.sdk.task.apps.math_single_step import build_config as base_build_config  # type: ignore[import-untyped]
+from synth_ai.sdk.task.apps.math_single_step import (
+    build_config as base_build_config,  # type: ignore[import-untyped]
+)
 
 DEMO_MODAL_CONFIG = ModalDeploymentConfig(
     app_name="hendrycks-math-task-app",
