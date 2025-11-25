@@ -1,11 +1,8 @@
 # Synth
 
-[![synth](https://img.shields.io/endpoint?url=PLACEHOLDER_BADGE_ENDPOINT_URL)](https://github.com/PLACEHOLDER_ORG/synth)
-[![image](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
-[![image](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
-[![image](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
-[![Actions status](https://github.com/PLACEHOLDER_ORG/synth/actions/workflows/ci.yml/badge.svg)](https://github.com/PLACEHOLDER_ORG/synth/actions)
-[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/PLACEHOLDER_DISCORD_LINK)
+[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
+[![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
+[![Python](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.python.org/pypi/synth-ai)
 
 Serverless Posttraining APIs for Developers
 
@@ -13,12 +10,12 @@ Serverless Posttraining APIs for Developers
   <picture align="center">
     <source media="(prefers-color-scheme: dark)" srcset="benchmark_performance_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="benchmark_performance_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across DSPy GEPA, GEPA-AI, and Synth-AI on four benchmarks." src="benchmark_performance_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="benchmark_performance_light.png">
   </picture>
 </p>
 
 <p align="center">
-  <i>Prompt optimization performance comparison across Banking77, HeartDisease, HotpotQA, and Pupa benchmarks.</i>
+  <i>Average accuracy on <a href="https://arxiv.org/abs/2502.20315">LangProBe</a> prompt optimization benchmarks.</i>
 </p>
 
 ## Highlights
