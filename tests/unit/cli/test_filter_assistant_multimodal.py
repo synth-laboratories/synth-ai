@@ -26,7 +26,7 @@ from synth_ai.cli.commands.filter.errors import (
     NoTracesFoundError,
     TomlUnavailableError,
 )
-from synth_ai.task.config import FilterConfig
+from synth_ai.sdk.task.config import FilterConfig
 
 
 def test_filter_preserves_assistant_multimodal(tmp_path):

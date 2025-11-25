@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from synth_ai.inference.client import InferenceClient
+from synth_ai.sdk.inference.client import InferenceClient
 
 pytestmark = pytest.mark.unit
 

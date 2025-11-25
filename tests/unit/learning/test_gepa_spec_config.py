@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 import pytest
 
-from synth_ai.api.train.validators import validate_prompt_learning_config
+from synth_ai.sdk.api.train.validators import validate_prompt_learning_config
 
 
 class TestGEPASpecConfigValidation:

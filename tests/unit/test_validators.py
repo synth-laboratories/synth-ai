@@ -2,7 +2,7 @@
 
 import pytest
 
-from synth_ai.task.validators import normalize_inference_url
+from synth_ai.sdk.task.validators import normalize_inference_url
 
 
 class TestNormalizeInferenceUrl:

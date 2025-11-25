@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import FastAPI
 
-from synth_ai.task.in_process import InProcessTaskApp
-from synth_ai.task.server import TaskAppConfig, TaskInfo
+from synth_ai.sdk.task.in_process import InProcessTaskApp
+from synth_ai.sdk.task.server import TaskAppConfig, TaskInfo
 
 
 @pytest.fixture

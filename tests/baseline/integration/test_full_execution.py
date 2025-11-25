@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from synth_ai.baseline.discovery import discover_baseline_files, load_baseline_config_from_file
-from synth_ai.baseline.execution import run_baseline_evaluation
+from synth_ai.sdk.baseline.discovery import discover_baseline_files, load_baseline_config_from_file
+from synth_ai.sdk.baseline.execution import run_baseline_evaluation
 
 
 class TestFullBaselineExecution:
@@ -16,7 +16,7 @@ class TestFullBaselineExecution:
         # Create a test baseline file
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 
 class SimpleTaskRunner(BaselineTaskRunner):
     async def run_task(self, seed: int) -> TaskResult:

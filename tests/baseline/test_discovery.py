@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 
 import pytest
-from synth_ai.baseline.discovery import (
+from synth_ai.sdk.baseline.discovery import (
     BaselineConfigVisitor,
     discover_baseline_files,
     load_baseline_config_from_file,
@@ -20,7 +20,7 @@ class TestBaselineConfigVisitor:
     def test_finds_simple_baseline_config(self):
         """Test visitor finds simple BaselineConfig assignment."""
         code = """
-from synth_ai.baseline import BaselineConfig, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, DataSplit, TaskResult
 
 async def run_task(seed, policy_config, env_config):
     return TaskResult(seed=seed, success=True, outcome_reward=1.0)
@@ -42,7 +42,7 @@ my_baseline = BaselineConfig(
     def test_finds_multiple_baselines(self):
         """Test visitor finds multiple BaselineConfig instances."""
         code = """
-from synth_ai.baseline import BaselineConfig
+from synth_ai.sdk.baseline import BaselineConfig
 
 baseline1 = BaselineConfig(baseline_id="first", name="First", task_runner=lambda: None, splits={})
 baseline2 = BaselineConfig(baseline_id="second", name="Second", task_runner=lambda: None, splits={})
@@ -79,10 +79,10 @@ class TestDiscoverBaselineFiles:
         # Create a baseline file
         baseline_file = baseline_dir / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, DataSplit
+from synth_ai.sdk.baseline import BaselineConfig, DataSplit
 
 async def task_runner(seed, policy_config, env_config):
-    from synth_ai.baseline import TaskResult
+    from synth_ai.sdk.baseline import TaskResult
     return TaskResult(seed=seed, success=True, outcome_reward=1.0)
 
 test_baseline = BaselineConfig(
@@ -103,10 +103,10 @@ test_baseline = BaselineConfig(
         """Test discovery finds *_baseline.py files."""
         baseline_file = tmp_path / "crafter_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig
+from synth_ai.sdk.baseline import BaselineConfig
 
 async def task_runner(seed, policy_config, env_config):
-    from synth_ai.baseline import TaskResult
+    from synth_ai.sdk.baseline import TaskResult
     return TaskResult(seed=seed, success=True, outcome_reward=1.0)
 
 crafter = BaselineConfig(
@@ -128,7 +128,7 @@ crafter = BaselineConfig(
         pycache.mkdir()
         
         (pycache / "baseline.py").write_text("""
-from synth_ai.baseline import BaselineConfig
+from synth_ai.sdk.baseline import BaselineConfig
 baseline = BaselineConfig(baseline_id="test", name="Test", task_runner=lambda: None, splits={})
 """)
         
@@ -142,7 +142,7 @@ baseline = BaselineConfig(baseline_id="test", name="Test", task_runner=lambda: N
         git_dir.mkdir()
         
         (git_dir / "baseline.py").write_text("""
-from synth_ai.baseline import BaselineConfig
+from synth_ai.sdk.baseline import BaselineConfig
 baseline = BaselineConfig(baseline_id="test", name="Test", task_runner=lambda: None, splits={})
 """)
         
@@ -164,10 +164,10 @@ baseline = BaselineConfig(baseline_id="test", name="Test", task_runner=lambda: N
         """Test discovery deduplicates same baseline in same file."""
         baseline_file = tmp_path / "duplicate_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig
+from synth_ai.sdk.baseline import BaselineConfig
 
 async def task_runner(seed, policy_config, env_config):
-    from synth_ai.baseline import TaskResult
+    from synth_ai.sdk.baseline import TaskResult
     return TaskResult(seed=seed, success=True, outcome_reward=1.0)
 
 baseline1 = BaselineConfig(baseline_id="dup", name="Dup", task_runner=task_runner, splits={})
@@ -204,7 +204,7 @@ class TestLoadBaselineConfigFromFile:
         """Test loading a valid baseline config."""
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, DataSplit, TaskResult
 
 async def task_runner(seed, policy_config, env_config):
     return TaskResult(seed=seed, success=True, outcome_reward=1.0)

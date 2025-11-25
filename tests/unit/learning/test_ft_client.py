@@ -8,7 +8,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.learning.sft.client import FtClient
+from synth_ai.sdk.learning.sft.client import FtClient
 
 
 class DummyHTTPClient:

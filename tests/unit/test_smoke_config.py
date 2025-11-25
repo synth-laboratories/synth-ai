@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from synth_ai.api.train.configs.rl import SmokeConfig
+from synth_ai.sdk.api.train.configs.rl import SmokeConfig
 
 
 class TestSmokeConfig:

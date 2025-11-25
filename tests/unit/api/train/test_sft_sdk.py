@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from synth_ai.api.train.sft import SFTJob, SFTJobConfig
+from synth_ai.sdk.api.train.sft import SFTJob, SFTJobConfig
 
 
 class TestSFTJobConfig:
@@ -113,7 +113,7 @@ class TestSFTJob:
             # OR because /dev/null isn't valid TOML (which raises TrainError/ValidationError from builder)
             import click
             from pydantic import ValidationError
-            from synth_ai.api.train.utils import TrainError
+            from synth_ai.sdk.api.train.utils import TrainError
             with pytest.raises(
                 (RuntimeError, click.ClickException, TrainError, ValidationError, ValueError),
                 match="Cannot build payload|Config|validation|not found|Failed to parse",

@@ -2,11 +2,11 @@ import importlib
 
 import pytest
 
-from synth_ai.task.contracts import RolloutMode
+from synth_ai.sdk.task.contracts import RolloutMode
 
 
 def _load_grpo_module():
-    from synth_ai.task.apps import registry
+    from synth_ai.sdk.task.apps import registry
 
     registry.clear()
     return importlib.import_module("examples.task_apps.crafter.task_app.grpo_crafter")

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.task.rubrics import ValidationError, load_rubric, validate_rubric_dict, validate_rubric_file
+from synth_ai.sdk.task.rubrics import ValidationError, load_rubric, validate_rubric_dict, validate_rubric_file
 
 RUBRICS_DIR = Path("examples/multi_step/rubrics")
 

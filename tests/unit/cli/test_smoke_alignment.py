@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from synth_ai.task.contracts import (
+from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,

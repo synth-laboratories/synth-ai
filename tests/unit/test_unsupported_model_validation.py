@@ -4,9 +4,9 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.models.supported import UnsupportedModelError
-from synth_ai.inference.client import InferenceClient
-from synth_ai.learning.client import LearningClient
+from synth_ai.sdk.api.models.supported import UnsupportedModelError
+from synth_ai.sdk.inference.client import InferenceClient
+from synth_ai.sdk.learning.client import LearningClient
 
 
 @pytest.mark.fast
@@ -173,7 +173,7 @@ def test_learning_client_accepts_supported_model_for_sft():
     client = LearningClient(base_url="https://api.example.com", api_key="sk-test")
     
     # Mock the HTTP client to avoid actual requests
-    import synth_ai.learning.client
+    import synth_ai.sdk.learning.client
     original_client = synth_ai.learning.client.AsyncHttpClient
     synth_ai.learning.client.AsyncHttpClient = MockHTTP
     
@@ -213,7 +213,7 @@ def test_inference_client_accepts_supported_model():
     client = InferenceClient(base_url="https://api.example.com", api_key="sk-test")
     
     # Mock the HTTP client to avoid actual requests
-    import synth_ai.inference.client
+    import synth_ai.sdk.inference.client
     original_client = synth_ai.inference.client.AsyncHttpClient
     synth_ai.inference.client.AsyncHttpClient = MockHTTP
     

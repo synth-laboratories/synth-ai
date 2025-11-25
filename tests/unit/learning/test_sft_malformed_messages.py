@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from synth_ai.learning.sft.data import parse_jsonl_line, SFTDataError
+from synth_ai.sdk.learning.sft.data import parse_jsonl_line, SFTDataError
 
 
 @pytest.mark.parametrize(

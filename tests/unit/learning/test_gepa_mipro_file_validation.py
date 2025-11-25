@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 import toml
 
-from synth_ai.api.train.validators import (
+from synth_ai.sdk.api.train.validators import (
     ConfigValidationError,
     validate_gepa_config_from_file,
     validate_mipro_config_from_file,

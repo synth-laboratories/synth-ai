@@ -6,7 +6,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.streaming import CLIHandler, StreamMessage, StreamType
+from synth_ai.sdk.streaming import CLIHandler, StreamMessage, StreamType
 
 
 class TestCLIHandlerMetricsDisplay:
@@ -219,7 +219,7 @@ class TestPromptLearningStreamConfig:
 
     def test_prompt_learning_stream_config_metrics_enabled(self) -> None:
         """Test that prompt learning stream config enables metrics."""
-        from synth_ai.streaming import StreamConfig, StreamType
+        from synth_ai.sdk.streaming import StreamConfig, StreamType
 
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
@@ -231,7 +231,7 @@ class TestPromptLearningStreamConfig:
 
     def test_prompt_learning_stream_config_event_types(self) -> None:
         """Test that prompt learning stream config includes correct event types."""
-        from synth_ai.streaming import StreamConfig, StreamType
+        from synth_ai.sdk.streaming import StreamConfig, StreamType
 
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
@@ -249,7 +249,7 @@ class TestPromptLearningStreamConfig:
 
     def test_prompt_learning_stream_config_filters_metrics(self) -> None:
         """Test that stream config correctly filters metrics."""
-        from synth_ai.streaming import StreamConfig, StreamType
+        from synth_ai.sdk.streaming import StreamConfig, StreamType
 
         config = StreamConfig(
             enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},

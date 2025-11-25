@@ -14,7 +14,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from synth_ai.task.contracts import (  # noqa: E402
+from synth_ai.sdk.task.contracts import (  # noqa: E402
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,

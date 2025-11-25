@@ -4,8 +4,8 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from synth_ai.api.models.supported import UnsupportedModelError
-from synth_ai.jobs.client import JobsClient
+from synth_ai.sdk.api.models.supported import UnsupportedModelError
+from synth_ai.sdk.jobs.client import JobsClient
 
 
 class FakeHttp:

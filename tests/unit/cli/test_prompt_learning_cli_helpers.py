@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from synth_ai.api.train.cli import _format_text_replacements
+from synth_ai.sdk.api.train.cli import _format_text_replacements
 
 pytestmark = pytest.mark.unit
 

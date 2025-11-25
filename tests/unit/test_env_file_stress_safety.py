@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from synth_ai.api.train.utils import write_env_value
+from synth_ai.sdk.api.train.utils import write_env_value
 from synth_ai.cli.lib.task_app_env import save_to_env_file
 from synth_ai.utils.env import write_env_var_to_dotenv
 

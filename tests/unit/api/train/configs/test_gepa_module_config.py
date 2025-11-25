@@ -1,6 +1,6 @@
 """Unit tests for GEPA multi-stage module configuration."""
 import pytest
-from synth_ai.api.train.configs.prompt_learning import (
+from synth_ai.sdk.api.train.configs.prompt_learning import (
     GEPAConfig,
     GEPAModuleConfig,
 )

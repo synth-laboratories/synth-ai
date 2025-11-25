@@ -6,8 +6,8 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.train.cli import _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS
-from synth_ai.streaming import CLIHandler, LossCurveHandler, StreamConfig, StreamEndpoints, StreamType
+from synth_ai.sdk.api.train.cli import _DEFAULT_PROMPT_LEARNING_HIDDEN_EVENTS
+from synth_ai.sdk.streaming import CLIHandler, LossCurveHandler, StreamConfig, StreamEndpoints, StreamType
 
 
 class TestPromptLearningStreamConfigCLI:

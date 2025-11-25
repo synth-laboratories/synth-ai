@@ -6,7 +6,7 @@ from typing import Any, cast
 
 import pytest
 from synth_ai.http import AsyncHttpClient
-from synth_ai.streaming import (
+from synth_ai.sdk.streaming import (
     BufferedHandler,
     CallbackHandler,
     CLIHandler,
@@ -306,7 +306,7 @@ async def test_job_streamer_rl_fallbacks_and_terminal_event() -> None:
 
 def test_rich_handler_optional_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("rich")
-    from synth_ai.streaming.handlers import RichHandler
+    from synth_ai.sdk.streaming.handlers import RichHandler
 
     handler = RichHandler()
     msg = StreamMessage.from_event("job", _make_event(seq=5))

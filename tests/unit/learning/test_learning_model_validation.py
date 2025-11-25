@@ -4,8 +4,8 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.learning.client import LearningClient
-from synth_ai.learning.rl import RlClient
+from synth_ai.sdk.learning.client import LearningClient
+from synth_ai.sdk.learning.rl import RlClient
 
 
 @pytest.mark.asyncio

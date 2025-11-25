@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
-from synth_ai.api.train.configs.prompt_learning import (
+from synth_ai.sdk.api.train.configs.prompt_learning import (
     GEPAConfig,
     GEPARolloutConfig,
     GEPAEvaluationConfig,

@@ -7,8 +7,8 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-from synth_ai.api.train.builders import build_sft_payload
-from synth_ai.api.train.utils import TrainError
+from synth_ai.sdk.api.train.builders import build_sft_payload
+from synth_ai.sdk.api.train.utils import TrainError
 
 
 @pytest.mark.fast

@@ -16,7 +16,7 @@ class TestBaselineCLI:
         
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 
 class TestTaskRunner(BaselineTaskRunner):
     async def run_task(self, seed: int) -> TaskResult:
@@ -54,7 +54,7 @@ explicit_baseline = BaselineConfig(
         
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 
 class TestTaskRunner(BaselineTaskRunner):
     async def run_task(self, seed: int) -> TaskResult:
@@ -103,7 +103,7 @@ output_baseline = BaselineConfig(
         # Create a baseline file so discovery works, but with different ID
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 
 class TestTaskRunner(BaselineTaskRunner):
     async def run_task(self, seed: int) -> TaskResult:
@@ -132,7 +132,7 @@ test_baseline = BaselineConfig(
         
         baseline_file = tmp_path / "test_baseline.py"
         baseline_file.write_text("""
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
+from synth_ai.sdk.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
 
 class TestTaskRunner(BaselineTaskRunner):
     async def run_task(self, seed: int) -> TaskResult:

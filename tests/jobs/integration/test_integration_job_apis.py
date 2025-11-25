@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 import aiohttp
 import pytest
 
-from synth_ai.jobs.client import JobsClient
+from synth_ai.sdk.jobs.client import JobsClient
 
 
 def _get_backend_urls() -> List[str]:

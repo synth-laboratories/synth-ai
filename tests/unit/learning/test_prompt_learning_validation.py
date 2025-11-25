@@ -13,14 +13,14 @@ try:
 except ImportError:
     tomllib = None  # type: ignore[assignment,unused-ignore]
 
-from synth_ai.api.train.configs.prompt_learning import (
+from synth_ai.sdk.api.train.configs.prompt_learning import (
     GEPAConfig,
     MIPROConfig,
     PromptLearningConfig,
     PromptLearningPolicyConfig,
 )
-from synth_ai.api.train.utils import TrainError
-from synth_ai.api.train.validators import validate_prompt_learning_config
+from synth_ai.sdk.api.train.utils import TrainError
+from synth_ai.sdk.api.train.validators import validate_prompt_learning_config
 
 pytestmark = pytest.mark.unit
 
