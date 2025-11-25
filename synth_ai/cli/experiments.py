@@ -13,25 +13,25 @@ from rich.console import Console
 
 # Clear config cache if env vars are set (must happen before other imports)
 if os.getenv("EXPERIMENT_QUEUE_DB_PATH") or os.getenv("EXPERIMENT_QUEUE_TRAIN_CMD"):
-    from synth_ai.experiment_queue import config as queue_config
+    from synth_ai.cli.local.experiment_queue import config as queue_config
 
     queue_config.reset_config_cache()
 
-from synth_ai.experiment_queue.models import ExperimentStatus
-from synth_ai.experiment_queue.schemas import (
+from synth_ai.cli.local.experiment_queue.models import ExperimentStatus
+from synth_ai.cli.local.experiment_queue.schemas import (
     ExperimentJobSummary,
     ExperimentSubmitRequest,
     ExperimentSummary,
     TrialSummary,
 )
-from synth_ai.experiment_queue.service import (
+from synth_ai.cli.local.experiment_queue.service import (
     cancel_experiment,
     collect_dashboard_data,
     create_experiment,
     fetch_experiment,
     list_experiments,
 )
-from synth_ai.experiment_queue.status import (
+from synth_ai.cli.local.experiment_queue.status import (
     experiment_jobs_table,  # type: ignore[attr-defined]
     experiment_trials_table,  # type: ignore[attr-defined]
     render_dashboard,  # type: ignore[attr-defined]

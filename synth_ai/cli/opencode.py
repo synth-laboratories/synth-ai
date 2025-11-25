@@ -155,7 +155,7 @@ def opencode_cmd(
             
             # Create session - org_id will be fetched from backend /me endpoint
             async def create_session():
-                from synth_ai.session import AgentSessionClient
+                from synth_ai.cli.local.session import AgentSessionClient
                 
                 client = AgentSessionClient(f"{base_url}/api", synth_api_key)
                 
@@ -246,7 +246,7 @@ def opencode_cmd(
                 import asyncio
                 
                 async def end_session():
-                    from synth_ai.session import AgentSessionClient
+                    from synth_ai.cli.local.session import AgentSessionClient
                     client = AgentSessionClient(f"{base_url}/api", synth_api_key)
                     await client.end(final_session_id)
                     click.echo(f"✓ Ended agent session: {final_session_id}")

@@ -632,7 +632,7 @@ def build_prompt_learning_payload(
     # This ensures early validation in backend sees merged values
     # Use the same _deep_update logic from experiment_queue/config_utils.py
     if config_overrides:
-        from synth_ai.experiment_queue.config_utils import _deep_update
+        from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
         _deep_update(config_dict, config_overrides)
         
         # ASSERT: Check MIPRO fields AFTER override merge

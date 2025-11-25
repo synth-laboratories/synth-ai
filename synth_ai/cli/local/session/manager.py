@@ -8,9 +8,9 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
-from synth_ai.session.client import AgentSessionClient
-from synth_ai.session.exceptions import LimitExceededError, SessionNotFoundError
-from synth_ai.session.models import AgentSession
+from .client import AgentSessionClient
+from .exceptions import LimitExceededError, SessionNotFoundError
+from .models import AgentSession
 
 
 class AgentSessionManager:

@@ -11,7 +11,7 @@ import click
 
 # Clear config cache if env vars are set (must happen before other imports)
 if os.getenv("EXPERIMENT_QUEUE_DB_PATH") or os.getenv("EXPERIMENT_QUEUE_TRAIN_CMD"):
-    from synth_ai.experiment_queue import config as queue_config
+    from synth_ai.cli.local.experiment_queue import config as queue_config
 
     queue_config.reset_config_cache()
 
@@ -373,7 +373,7 @@ def start_cmd(
         click.echo(f"Killed {killed} existing worker(s)", err=True)
     
     # CRITICAL: Clear config cache before starting worker to ensure fresh config
-    from synth_ai.experiment_queue import config as queue_config
+    from synth_ai.cli.local.experiment_queue import config as queue_config
     queue_config.reset_config_cache()
     
     # Load config to get database path (uses EXPERIMENT_QUEUE_DB_PATH if set, otherwise default)

@@ -8,12 +8,12 @@ from typing import Any, Optional
 from uuid import UUID
 
 from synth_ai.http_client import AsyncHttpClient, HTTPError
-from synth_ai.session.exceptions import (
+from .exceptions import (
     InvalidLimitError,
     SessionNotActiveError,
     SessionNotFoundError,
 )
-from synth_ai.session.models import (
+from .models import (
     AgentSession,
     AgentSessionLimit,
     AgentSessionUsage,

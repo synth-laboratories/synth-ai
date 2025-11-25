@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from synth_ai.session.client import AgentSessionClient
-from synth_ai.session.models import AgentSession
+from .client import AgentSessionClient
+from .models import AgentSession
 
 
 class AgentSessionQuery:
