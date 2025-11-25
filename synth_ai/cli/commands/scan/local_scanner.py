@@ -233,7 +233,7 @@ async def scan_service_records(
 
     try:
         from synth_ai.cli.commands.scan.health_checker import check_app_health, extract_app_info
-        from synth_ai.utils.tunnel_records import cleanup_stale_records, load_service_records
+        from synth_ai.cli.lib.tunnel_records import cleanup_stale_records, load_service_records
         
         # Clean up stale records first
         cleanup_stale_records()

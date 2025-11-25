@@ -15,10 +15,10 @@ from starlette.types import ASGIApp
 from synth_ai.sdk.task.contracts import TaskInfo
 from synth_ai.sdk.task.datasets import TaskDatasetRegistry
 from synth_ai.sdk.task.server import ProxyConfig, RubricBundle, TaskAppConfig
-from synth_ai.utils.cli import ctx_print
-from synth_ai.utils.paths import is_hidden_path, validate_file_type
+from synth_ai.cli.lib.prompts import ctx_print
+from synth_ai.core.paths import is_hidden_path, validate_file_type
 
-from .common import (
+from synth_ai.core.apps.common import (
     build_fastapi_route_index,
     extract_routes_from_app,
     get_asgi_app,

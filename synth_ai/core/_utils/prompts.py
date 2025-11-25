@@ -1,10 +1,13 @@
+"""Lazy re-export of prompt utilities to avoid circular imports."""
 from __future__ import annotations
 
-from synth_ai.utils.prompts import *  # noqa: F401,F403
+from typing import Any
 
-try:
-    from synth_ai.utils.prompts import __all__ as __wrapped_all__  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover - defensive
-    __wrapped_all__ = []
+__all__ = ["ensure_required_args", "get_arg_as_env_var", "optional_env_arg"]
 
-__all__ = list(__wrapped_all__)
+
+def __getattr__(name: str) -> Any:
+    if name in __all__:
+        from synth_ai.cli.lib import prompt_args
+        return getattr(prompt_args, name)
+    raise AttributeError(f"module 'synth_ai.core._utils.prompts' has no attribute '{name}'")

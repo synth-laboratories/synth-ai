@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from synth_ai.utils.user_config import CONFIG_DIR
+from synth_ai.core.user_config import CONFIG_DIR
 
 
 def _get_records_path() -> Path:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from synth_ai.utils.task_app_state import *  # noqa: F401,F403
+from synth_ai.core.task_app_state import *  # noqa: F401,F403
 
 try:
-    from synth_ai.utils.task_app_state import (
+    from synth_ai.core.task_app_state import (
         __all__ as __wrapped_all__,  # type: ignore[attr-defined]
     )
 except ImportError:  # pragma: no cover - defensive

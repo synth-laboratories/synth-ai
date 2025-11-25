@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import click
-from synth_ai.utils.env import get_synth_and_env_keys, mask_str
-from synth_ai.utils.paths import print_paths_formatted
-from synth_ai.utils.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
+from synth_ai.cli.lib.env import get_synth_and_env_keys, mask_str
+from synth_ai.core.paths import print_paths_formatted
+from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 
 try:
     _config_module = cast(
@@ -31,8 +31,8 @@ from synth_ai.sdk.streaming import (
     StreamEndpoints,
     StreamType,
 )
-from synth_ai.utils.env import load_env_file
-from synth_ai.utils.errors import format_error_message, get_required_value
+from synth_ai.cli.lib.env import load_env_file
+from synth_ai.cli.lib.errors import format_error_message, get_required_value
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .task_app import check_task_app_health

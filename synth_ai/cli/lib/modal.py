@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse, urlunparse
 
-from synth_ai.utils.env import mask_str
+from synth_ai.cli.lib.env import mask_str
 from synth_ai.core.http import http_request
-from synth_ai.utils.process import popen_capture
-from synth_ai.utils.user_config import load_user_config
+from synth_ai.core.process import popen_capture
+from synth_ai.core.user_config import load_user_config
 
 if TYPE_CHECKING:
     from synth_ai.cli.demo_apps.core import DemoEnv

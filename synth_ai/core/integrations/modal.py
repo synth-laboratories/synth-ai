@@ -10,9 +10,19 @@ import click
 from modal.config import config
 from synth_ai.core.cfgs import ModalDeployCfg
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps.modal_app import validate_modal_app
-from synth_ai.utils.env import write_env_var_to_dotenv
-from synth_ai.utils.paths import REPO_ROOT, cleanup_paths, configure_import_paths
+from synth_ai.core.paths import REPO_ROOT, cleanup_paths, configure_import_paths
+
+
+def __validate_modal_app(*args, **kwargs):
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.lib.apps.modal_app import _validate_modal_app
+    return _validate_modal_app(*args, **kwargs)
+
+
+def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.lib.env import _write_env_var_to_dotenv
+    _write_env_var_to_dotenv(key, value, **kwargs)
 
 MODAL_URL_REGEX = re.compile(r"https?://[^\s]+modal\.run[^\s]*")
 
@@ -169,7 +179,7 @@ def stream_modal_cmd_output(
             url = match.group(0).rstrip(".,")
             if not url:
                 continue
-            write_env_var_to_dotenv("TASK_APP_URL", url, print_msg=False)
+            _write_env_var_to_dotenv("TASK_APP_URL", url, print_msg=False)
             log_event("info", "modal deploy URL detected", ctx={"task_app_url": url})
     return process.wait(), url
         
@@ -207,7 +217,7 @@ def deploy_app_modal(cfg: ModalDeployCfg, wait: bool = False) -> str | None:
     }
     log_event("info", "deploy_app_modal invoked", ctx=ctx)
 
-    validate_modal_app(cfg.modal_app_path)
+    _validate_modal_app(cfg.modal_app_path)
 
     if is_modal_setup_needed():
         log_event("info", "modal setup required", ctx={"modal_cli": str(cfg.modal_bin_path)})

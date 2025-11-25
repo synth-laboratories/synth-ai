@@ -63,7 +63,7 @@ class SqldDaemon:
         
         # Check common install locations
         try:
-            from synth_ai.utils.sqld import find_sqld_binary
+            from synth_ai.cli.lib.sqld import find_sqld_binary
             binary = find_sqld_binary()
             if binary:
                 logger.debug(f"Found sqld binary in common location: {binary}")
@@ -76,7 +76,7 @@ class SqldDaemon:
         
         if auto_install_enabled and sys.stdin.isatty():
             try:
-                from synth_ai.utils.sqld import install_sqld
+                from synth_ai.cli.lib.sqld import install_sqld
                 logger.info("sqld binary not found. Attempting automatic installation...")
                 
                 # Use click if available for better UX, otherwise proceed automatically

@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 # Import log filter to avoid duplication
-from synth_ai.utils.log_filter import should_filter_log_line
+from synth_ai.core.log_filter import should_filter_log_line
 
 
 def get_subprocess_env(extra_env: dict[str, Any] | None = None) -> dict[str, str]:

@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Tuple
 
-from synth_ai.utils.cli import ctx_print
-from synth_ai.utils.paths import is_hidden_path, validate_file_type
+from synth_ai.cli.lib.prompts import ctx_print
+from synth_ai.core.paths import is_hidden_path, validate_file_type
 
 # Train config types: prompt optimization, reinforcement learning, supervised fine-tuning
 TrainType = Literal["prompt", "rl", "sft"]

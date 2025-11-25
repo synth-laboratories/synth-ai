@@ -2,7 +2,7 @@ import shlex
 import subprocess
 from pathlib import Path
 
-from .cli import prompt_choice
+from .prompts import prompt_choice
 
 
 def install_bin(name: str, install_options: list[str]) -> bool:

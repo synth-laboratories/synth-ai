@@ -32,7 +32,7 @@ class PromptedChoiceType(click.Choice):
     ```python
     import click
 
-    from synth_ai.utils.cli import PromptedChoiceType, PromptedChoiceOption
+    from synth_ai.cli.lib.prompts import PromptedChoiceType, PromptedChoiceOption
 
 
     @click.command()
@@ -122,7 +122,7 @@ class PromptedChoiceOption(click.Option):
     ```python
     import click
 
-    from synth_ai.utils.cli import PromptedChoiceType, PromptedChoiceOption
+    from synth_ai.cli.lib.prompts import PromptedChoiceType, PromptedChoiceOption
 
 
     @click.command()

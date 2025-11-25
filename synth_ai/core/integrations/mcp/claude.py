@@ -2,7 +2,7 @@ import platform
 from dataclasses import dataclass
 from pathlib import Path
 
-from .json import create_and_write_json, load_json_to_dict
+from synth_ai.core.json import create_and_write_json, load_json_to_dict
 
 
 @dataclass

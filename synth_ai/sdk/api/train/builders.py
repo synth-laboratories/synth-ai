@@ -34,7 +34,7 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
 
-from synth_ai.utils.config import ConfigResolver
+from synth_ai.core.config.resolver import ConfigResolver
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (

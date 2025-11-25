@@ -1,9 +1,9 @@
 from pathlib import Path
 
 import click
-from synth_ai.utils.apps.common import run_ruff_check
-from synth_ai.utils.apps.modal_app import find_modal_apps_in_cwd, validate_modal_app
-from synth_ai.utils.paths import print_paths_formatted
+from synth_ai.core.apps.common import run_ruff_check
+from synth_ai.cli.lib.apps.modal_app import find_modal_apps_in_cwd, validate_modal_app
+from synth_ai.core.paths import print_paths_formatted
 
 
 @click.command()

@@ -354,7 +354,7 @@ async def scan_cloudflare_apps(
 
     # Method 4: Check service records file (tunnels deployed via synth-ai)
     try:
-        from synth_ai.utils.tunnel_records import cleanup_stale_records, load_service_records
+        from synth_ai.cli.lib.tunnel_records import cleanup_stale_records, load_service_records
         
         # Clean up stale records first
         cleanup_stale_records()

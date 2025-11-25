@@ -7,8 +7,8 @@ from pathlib import Path
 from starlette.types import ASGIApp
 from synth_ai.core.cfgs import LocalDeployCfg
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps.common import get_asgi_app, load_module
-from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.apps.common import get_asgi_app, load_module
+from synth_ai.core.paths import REPO_ROOT, configure_import_paths
 
 import uvicorn
 
@@ -126,11 +126,11 @@ sys.path.insert(0, {repr(repo_root_str)})
 sys.path.insert(0, {repr(task_app_parent_str)})
 
 # Configure import paths
-from synth_ai.utils.paths import configure_import_paths
+from synth_ai.core.paths import configure_import_paths
 configure_import_paths(Path({repr(task_app_path_str)}), Path({repr(repo_root_str)}))
 
 # Load module and app
-from synth_ai.utils.apps.common import get_asgi_app, load_module
+from synth_ai.core.apps.common import get_asgi_app, load_module
 
 module = load_module(
     Path({repr(task_app_path_str)}),
@@ -183,7 +183,7 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
             
             # Record local service with correct PID
             try:
-                from synth_ai.utils.tunnel_records import record_service
+                from synth_ai.cli.lib.tunnel_records import record_service
                 local_url = f"http://{'127.0.0.1' if cfg.host in {'0.0.0.0', '::'} else cfg.host}:{cfg.port}"
                 record_service(
                     url=local_url,

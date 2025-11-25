@@ -19,8 +19,8 @@ from synth_ai.core.integrations.cloudflare import (
     wait_for_health_check,
 )
 from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
-from synth_ai.utils.apps.common import get_asgi_app, load_module
-from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.apps.common import get_asgi_app, load_module
+from synth_ai.core.paths import REPO_ROOT, configure_import_paths
 from uvicorn._types import ASGIApplication
 
 import uvicorn

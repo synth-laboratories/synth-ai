@@ -23,7 +23,7 @@ try:
 except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT JSONL helpers") from exc
 
-from synth_ai.utils.ssl import SSLConfig
+from synth_ai.core.ssl import SSLConfig
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 

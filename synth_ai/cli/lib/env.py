@@ -7,7 +7,7 @@ from typing import List, Optional, Sequence, Tuple
 import click
 from dotenv import find_dotenv, load_dotenv
 
-from .paths import REPO_ROOT, get_env_file_paths, get_home_config_file_paths
+from synth_ai.core.paths import REPO_ROOT, get_env_file_paths, get_home_config_file_paths
 
 _ENV_SAFE_CHARS = set(string.ascii_letters + string.digits + "_-./:@+=")
 

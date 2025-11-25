@@ -11,7 +11,7 @@ import click
 from synth_ai.cli.commands.scan.cloudflare_scanner import scan_cloudflare_apps
 from synth_ai.cli.commands.scan.local_scanner import scan_local_ports, scan_registry
 from synth_ai.cli.commands.scan.models import ScannedApp
-from synth_ai.utils.env import resolve_env_var
+from synth_ai.cli.lib.env import resolve_env_var
 
 
 def format_app_table(apps: list[ScannedApp]) -> str:

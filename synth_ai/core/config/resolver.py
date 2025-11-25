@@ -4,7 +4,11 @@ from typing import Optional, overload
 
 import click
 
-from .errors import get_required_value
+
+def _get_required_value(*args, **kwargs):
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.lib.errors import get_required_value
+    return get_required_value(*args, **kwargs)
 
 
 class ConfigResolver:
@@ -70,7 +74,7 @@ class ConfigResolver:
 
         resolved = cli_clean or env_clean or config_clean or default_clean
         if required:
-            return get_required_value(
+            return _get_required_value(
                 name,
                 cli_value=cli_clean,
                 env_value=env_clean,

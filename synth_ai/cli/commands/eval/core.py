@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, cast
 import click
 from synth_ai.sdk.task.config import EvalConfig
 from synth_ai.core.tracing_v3.session_tracer import SessionTracer
-from synth_ai.utils.task_app_discovery import discover_eval_config_paths
+from synth_ai.cli.lib.task_app_discovery import discover_eval_config_paths
 
 from .errors import (
     EvalCliError,

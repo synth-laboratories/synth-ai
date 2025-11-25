@@ -25,9 +25,20 @@ from starlette.types import ASGIApp
 from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.core.urls import BACKEND_URL_BASE
 from synth_ai.utils import log_error, log_event
-from synth_ai.utils.apps.common import get_asgi_app, load_module
-from synth_ai.utils.env import resolve_env_var, write_env_var_to_dotenv
-from synth_ai.utils.paths import REPO_ROOT, configure_import_paths
+from synth_ai.core.apps.common import get_asgi_app, load_module
+from synth_ai.core.paths import REPO_ROOT, configure_import_paths
+
+
+def __resolve_env_var(key: str) -> str:
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.lib.env import _resolve_env_var
+    return _resolve_env_var(key)
+
+
+def __write_env_var_to_dotenv(key: str, value: str, **kwargs) -> None:
+    """Lazy import to avoid circular dependency."""
+    from synth_ai.cli.lib.env import _write_env_var_to_dotenv
+    _write_env_var_to_dotenv(key, value, **kwargs)
 
 import uvicorn
 
@@ -1129,7 +1140,7 @@ def store_tunnel_credentials(
         access_client_secret: Cloudflare Access client secret (optional)
         env_file: Path to .env file (defaults to .env in current directory)
     """
-    write_env_var_to_dotenv(
+    _write_env_var_to_dotenv(
         "TASK_APP_URL",
         tunnel_url,
         output_file_path=env_file,
@@ -1138,7 +1149,7 @@ def store_tunnel_credentials(
     )
 
     if access_client_id:
-        write_env_var_to_dotenv(
+        _write_env_var_to_dotenv(
             "CF_ACCESS_CLIENT_ID",
             access_client_id,
             output_file_path=env_file,
@@ -1147,7 +1158,7 @@ def store_tunnel_credentials(
         )
 
     if access_client_secret:
-        write_env_var_to_dotenv(
+        _write_env_var_to_dotenv(
             "CF_ACCESS_CLIENT_SECRET",
             access_client_secret,
             output_file_path=env_file,
@@ -1341,7 +1352,7 @@ async def deploy_app_tunnel(
     synth_api_key: Optional[str] = None
 
     if cfg.mode == "managed":
-        synth_api_key = resolve_env_var("SYNTH_API_KEY")
+        synth_api_key = _resolve_env_var("SYNTH_API_KEY")
         tunnels = await fetch_managed_tunnels(synth_api_key)
         if tunnels:
             selected_managed = _select_existing_tunnel(tunnels, cfg.subdomain)
@@ -1418,7 +1429,7 @@ async def deploy_app_tunnel(
             store_tunnel_credentials(url, None, None, env_file)
             # Record tunnel for scan command
             try:
-                from synth_ai.utils.tunnel_records import record_tunnel
+                from synth_ai.cli.lib.tunnel_records import record_tunnel
                 record_tunnel(
                     url=url,
                     port=cfg.port,
@@ -1444,7 +1455,7 @@ async def deploy_app_tunnel(
                 access_client_secret = selected_managed.credential("access_client_secret")
             else:
                 if not synth_api_key:
-                    synth_api_key = resolve_env_var("SYNTH_API_KEY")
+                    synth_api_key = _resolve_env_var("SYNTH_API_KEY")
                 data = await create_tunnel(synth_api_key, cfg.port, cfg.subdomain)
                 tunnel_token = data["tunnel_token"]
                 hostname = data["hostname"]
@@ -1458,7 +1469,7 @@ async def deploy_app_tunnel(
             store_tunnel_credentials(url, access_client_id, access_client_secret, env_file)
             # Record tunnel for scan command
             try:
-                from synth_ai.utils.tunnel_records import record_tunnel
+                from synth_ai.cli.lib.tunnel_records import record_tunnel
                 record_tunnel(
                     url=url,
                     port=cfg.port,
@@ -1490,7 +1501,7 @@ async def deploy_app_tunnel(
             _TUNNEL_PROCESSES.pop(cfg.port, None)
         # Remove record if it was created
         try:
-            from synth_ai.utils.tunnel_records import remove_tunnel_record
+            from synth_ai.cli.lib.tunnel_records import remove_tunnel_record
             remove_tunnel_record(cfg.port)
         except Exception:
             pass
