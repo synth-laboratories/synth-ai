@@ -28,6 +28,19 @@ Serverless Posttraining APIs for Developers
 - 🏢 Scales gpu-based model training to 64 H100s seemlessly
 - 💾 Use GEPA-calibrated judges for fast, accurate rubric scoring
 - 🖥️ Supports HTTP-based training across all programming languages
+- 🤖 CLI utilities tuned for use with Claude Code, Codex, Opencode
+
+## Getting Started
+
+```bash
+# Use with OpenAI Codex
+uvx synth-ai codex
+```
+
+```bash
+# Use with Opencode
+uvx synth-ai opencode
+```
 
 Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
 
