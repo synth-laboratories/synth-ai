@@ -8,9 +8,9 @@ Serverless Posttraining APIs for Developers
 
 <p align="center">
   <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="benchmark_performance_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="benchmark_performance_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="benchmark_performance_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="langprobe_benchmark_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="langprobe_benchmark_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA-AI, and DSPy GEPA." src="langprobe_benchmark_light.png">
   </picture>
 </p>
 
