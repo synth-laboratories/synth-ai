@@ -80,7 +80,7 @@ def _build_inline_secret() -> Secret:
     print(f"[startup] inline secret prepared ({previews})")
 
     # Modal.Secret.from_dict expects dict[str, Optional[str]]
-    secrets_dict: dict[str, str | None] = {k: v for k, v in payload.items()}
+    secrets_dict: dict[str, str | None] = dict(payload.items())
     return Secret.from_dict(secrets_dict)
 
 
