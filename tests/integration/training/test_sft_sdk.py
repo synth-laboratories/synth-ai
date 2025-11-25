@@ -47,7 +47,7 @@ class TestSFTConfigValidation:
         with pytest.raises(MissingModelError):
             validate_sft_config({
                 "algorithm": {"variety": "fft"},
-                "job": {},
+                "job": {"data": "/path/to/train.jsonl"},  # non-empty but no model
             })
 
     def test_validate_sft_config_requires_dataset(self) -> None:
