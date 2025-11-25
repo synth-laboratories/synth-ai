@@ -1,7 +1,7 @@
 """Unit tests for spec validation."""
 
 import pytest
-from synth_ai.spec.dataclasses import (
+from synth_ai.sdk.specs.dataclasses import (
     Spec,
     Metadata,
     Principle,
@@ -10,7 +10,7 @@ from synth_ai.spec.dataclasses import (
     Example,
     GlossaryItem,
 )
-from synth_ai.spec.validation import SpecValidator, SpecValidationError, validate_spec_dict
+from synth_ai.sdk.specs.validation import SpecValidator, SpecValidationError, validate_spec_dict
 
 
 class TestSpecValidator:

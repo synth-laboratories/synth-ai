@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
-from synth_ai.http import AsyncHttpClient
+from synth_ai.core.http import AsyncHttpClient
 from synth_ai.sdk.streaming import (
     BufferedHandler,
     CallbackHandler,
