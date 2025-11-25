@@ -55,6 +55,15 @@ Easily scale GPU topologies, train multi-node, and integrate with existing agent
 
 ---
 
+## 🧭 Examples & Cookbooks
+
+The old `examples/` directory now lives in the Synth Cookbooks repo.
+- Docs: https://docs.usesynth.ai/cookbooks
+- Code: https://github.com/synth-laboratories/cookbooks (`dev/` holds the migrated examples for now, e.g., `dev/polyglot/`)
+- Commands that referenced `examples/...` should now use the matching paths under `cookbooks/dev/`
+
+---
+
 ## ⚙️ Getting Started
 
 Synth-AI ships with a built-in RL example: training **Qwen3-0.6B** on math reasoning.
@@ -166,7 +175,7 @@ my_baseline = BaselineConfig(
 )
 ```
 
-Place this file in `examples/baseline/` or name it `*_baseline.py` for auto-discovery.
+Place this file in your project (for example under `cookbooks/dev/baseline/`) or name it `*_baseline.py` for auto-discovery. Official baseline examples now live in the Synth Cookbooks repo.
 
 ---
 
@@ -199,13 +208,13 @@ When you run `uvx synth-ai setup` (or legacy `uvx synth-ai rl_demo setup`):
 
 ### Supported Languages
 
-We provide complete, tested examples in:
+We provide complete, tested examples in the Synth Cookbooks repo (`cookbooks/dev/polyglot/`):
 - **Rust** - Fast, type-safe implementation with Axum
 - **Go** - Zero dependencies, single static binary
 - **TypeScript** - Works with Node.js, Deno, Bun, and Cloudflare Workers
 - **Zig** - Minimal binaries, trivial cross-compilation
 
-**👉 See all examples:** [`examples/polyglot/`](examples/polyglot/)
+**👉 See all examples:** [Synth Cookbooks (polyglot)](https://github.com/synth-laboratories/cookbooks) — see `dev/polyglot/`
 
 ### How It Works
 

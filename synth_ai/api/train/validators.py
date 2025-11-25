@@ -1349,11 +1349,11 @@ def _raise_validation_errors(errors: list[str], config_path: Path) -> None:
         indented_error = "\n  ".join(error.split("\n"))
         error_msg += f"{i}. {indented_error}\n\n"
     
-    error_msg += (
-        "📖 See example configs:\n"
-        "  - examples/blog_posts/gepa/configs/banking77_gepa_local.toml\n"
-        "  - examples/blog_posts/mipro/configs/banking77_mipro_local.toml\n"
-    )
+        error_msg += (
+            "📖 See example configs:\n"
+            "  - cookbooks/dev/blog_posts/gepa/configs/banking77_gepa_local.toml\n"
+            "  - cookbooks/dev/blog_posts/mipro/configs/banking77_mipro_local.toml\n"
+        )
     
     raise click.ClickException(error_msg)
 

@@ -1183,8 +1183,16 @@ class TestMultiStageValidation:
                 },
                 "gepa": {
                     "modules": [
-                        {"module_id": "classifier", "max_instruction_slots": 2},
-                        {"module_id": "calibrator", "max_instruction_slots": 3},
+                        {
+                            "module_id": "classifier",
+                            "max_instruction_slots": 2,
+                            "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                        },
+                        {
+                            "module_id": "calibrator",
+                            "max_instruction_slots": 3,
+                            "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                        },
                     ],
                     "num_generations": 10,
                 },

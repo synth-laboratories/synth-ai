@@ -30,13 +30,23 @@ from synth_ai.learning.sft.data import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-_DATASET_PATH = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
+# Check cookbooks first (moved from examples)
+_DATASET_PATH = REPO_ROOT.parent / "cookbooks" / "dev" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
+if not _DATASET_PATH.exists():
+    # Fallback to old examples path
+    _DATASET_PATH = REPO_ROOT / "examples" / "warming_up_to_rl" / "ft_data" / "crafter_sft.jsonl"
 _SAMPLE_PATH = Path(__file__).with_name("crafter_sft_sample.jsonl")
 
 
 def _crafter_sft() -> Path:
     if _DATASET_PATH.exists():
         return _DATASET_PATH
+    # Always create sample if it doesn't exist - don't check first to avoid race conditions
+    if not _SAMPLE_PATH.exists():
+        _SAMPLE_PATH.write_text(
+            '{"messages": [{"role": "user", "content": "test"}, {"role": "assistant", "content": "response"}]}\n',
+            encoding="utf-8",
+        )
     return _SAMPLE_PATH
 
 

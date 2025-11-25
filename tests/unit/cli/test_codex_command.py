@@ -73,9 +73,14 @@ def test_codex_cmd_with_default_url(runner: CliRunner, mock_env):
     assert cmd[0] == "codex"
     assert "-m" not in cmd
 
-    # No overrides or env mutations should occur
+    # No overrides or env mutations should occur (except SYNTH_SESSION_ID which is always added)
     assert "-c" not in cmd
-    assert call_args[1]["env"] == mock_env
+    env = call_args[1]["env"]
+    # SYNTH_SESSION_ID is always added by codex_cmd
+    assert "SYNTH_SESSION_ID" in env
+    # All original env vars should be preserved
+    for key, value in mock_env.items():
+        assert env[key] == value
 
 
 def test_codex_cmd_with_override_url(runner: CliRunner, mock_env):

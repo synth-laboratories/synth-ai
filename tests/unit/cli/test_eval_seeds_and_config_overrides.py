@@ -1,9 +1,11 @@
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 from synth_ai.cli.task_apps import eval_command
 
 
+@pytest.mark.slow
 def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
     # Mock httpx client to avoid network
     class DummyResp:
@@ -18,7 +20,7 @@ def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
     cfg.write_text(
         """
 [eval]
-app_id = "grpo-crafter-task-app"
+app_id = "banking77"
 model = "gpt-4o-mini-2024-07-18"
 seeds = [1, 2]
 trace_db = "none"
@@ -34,7 +36,7 @@ trace_db = "none"
     result = runner.invoke(
         eval_command,
         [
-            "grpo-crafter-task-app",
+            "banking77",
             "--config",
             str(cfg),
             "--seeds",
@@ -51,7 +53,7 @@ trace_db = "none"
     result = runner.invoke(
         eval_command,
         [
-            "grpo-crafter-task-app",
+            "banking77",
             "--config",
             str(cfg),
             "--url",

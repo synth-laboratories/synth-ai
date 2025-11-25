@@ -2,6 +2,8 @@
 
 This module provides comprehensive TOML configuration validation for both SFT (Supervised Fine-Tuning) and RL (Reinforcement Learning) training jobs.
 
+> Example configs moved to the Synth Cookbooks repo (`cookbooks/dev/...`). Replace any `examples/...` paths with the matching paths under https://github.com/synth-laboratories/cookbooks.
+
 ## Overview
 
 The validation flow follows this pattern:
@@ -389,6 +391,8 @@ uv run pytest tests/unit/test_train_validation.py::TestRLValidation -v
 
 ## Example Configs
 
+> Full config examples now live in the Synth Cookbooks repo (`cookbooks/dev/...`).
+
 ### Minimal SFT Config
 
 ```toml
@@ -471,5 +475,4 @@ Potential improvements:
 - [SFT Config Schema](/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/api/train/configs/sft.py)
 - [RL Config Schema](/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/api/train/configs/rl.py)
 - [Train CLI](/Users/joshpurtell/Documents/GitHub/synth-ai/synth_ai/api/train/cli.py)
-- [Example Configs](/Users/joshpurtell/Documents/GitHub/synth-ai/examples/)
-
+- [Example Configs](https://github.com/synth-laboratories/cookbooks) — see `dev/`

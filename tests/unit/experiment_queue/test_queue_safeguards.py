@@ -20,30 +20,33 @@ from synth_ai.experiment_queue import celery_app, config
 
 
 def test_database_path_required():
-    """Test that EXPERIMENT_QUEUE_DB_PATH is required."""
-    # FAIL FAST: Verify test setup
+    """Test that EXPERIMENT_QUEUE_DB_PATH uses default path when not set."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test.db"
         
         # Clear cache
         config.reset_config_cache()
         
-        # Unset env var
+        # Unset env var - should use default path
         old_db = os.environ.pop("EXPERIMENT_QUEUE_DB_PATH", None)
         try:
             # Reset celery app to force recreation
             celery_app._celery_app_instance = None
             celery_app._celery_app_broker_url = None
             
-            # FAIL FAST: Should raise error immediately
-            with pytest.raises(RuntimeError, match="EXPERIMENT_QUEUE_DB_PATH"):
-                celery_app._create_celery_app()
+            # Should use default path (not raise error)
+            app = celery_app._create_celery_app()
+            assert app is not None
+            
+            # Config should use default path
+            cfg = config.load_config()
+            assert cfg.sqlite_path.is_absolute(), "Default path should be absolute"
         finally:
             # Restore env var
             if old_db:
                 os.environ["EXPERIMENT_QUEUE_DB_PATH"] = old_db
         
-        # FAIL FAST: Test that it works with env var set
+        # Test that it works with env var set
         os.environ["EXPERIMENT_QUEUE_DB_PATH"] = str(db_path)
         config.reset_config_cache()
         celery_app._celery_app_instance = None

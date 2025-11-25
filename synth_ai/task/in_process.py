@@ -244,6 +244,7 @@ class InProcessTaskApp:
         self.url: Optional[str] = None
         self._tunnel_proc: Optional[Any] = None
         self._app: Optional[ASGIApplication] = None
+        self._uvicorn_server: Optional[uvicorn.Server] = None
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
 
@@ -325,15 +326,18 @@ class InProcessTaskApp:
         # The thread will be killed when the process exits
         logger.debug(f"Starting uvicorn server on {self.host}:{self.port}")
 
+        config = uvicorn.Config(
+            self._app,  # type: ignore[arg-type]
+            host=self.host,
+            port=self.port,
+            reload=False,
+            log_level="info",
+        )
+        self._uvicorn_server = uvicorn.Server(config)
+
         def serve():
             try:
-                uvicorn.run(
-                    self._app,  # type: ignore[arg-type]
-                    host=self.host,
-                    port=self.port,
-                    reload=False,
-                    log_level="info",
-                )
+                self._uvicorn_server.run()
             except Exception as exc:
                 logger.debug(f"Uvicorn server stopped: {exc}")
         
@@ -413,17 +417,24 @@ class InProcessTaskApp:
             self._tunnel_proc = None
             logger.info("Tunnel stopped")
         
-        # Explicitly kill the server process on the port to ensure clean exit
-        # This prevents hanging when the daemon thread has active connections
+        # Stop the uvicorn server thread gracefully to avoid killing the host process
         if self._server_thread and self._server_thread.is_alive():
-            logger.debug(f"Killing server process on port {self.port} to ensure clean exit")
-            try:
-                _kill_process_on_port(self.host, self.port)
-                # Give it a moment to die
-                await asyncio.sleep(0.2)
-            except Exception as e:
-                logger.debug(f"Error killing process on port {self.port}: {e}")
+            logger.debug("Stopping uvicorn server thread...")
+            if self._uvicorn_server:
+                self._uvicorn_server.should_exit = True
+            self._server_thread.join(timeout=5.0)
+            if self._server_thread.is_alive():
+                if self._uvicorn_server:
+                    # Last resort if graceful shutdown hangs
+                    self._uvicorn_server.force_exit = True
+                self._server_thread.join(timeout=1.0)
+            if self._server_thread.is_alive():
+                logger.warning(
+                    "Uvicorn server thread did not stop cleanly; "
+                    "it will exit with the main process"
+                )
             self._server_thread = None
+            self._uvicorn_server = None
 
     def _get_api_key(self) -> str:
         """Get API key from environment or default."""

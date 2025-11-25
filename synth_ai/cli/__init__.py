@@ -136,3 +136,6 @@ _maybe_call("synth_ai.cli.queue", "register", cli)
 
 # Artifacts commands
 _maybe_call("synth_ai.cli.commands.artifacts", "register", cli)
+
+# Research Agent commands
+_maybe_call("synth_ai.api.research_agent", "register", cli)

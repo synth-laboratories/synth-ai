@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.2.26.dev1"
+version = "0.2.26.dev2"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -49,6 +49,8 @@ dependencies = [
     "setuptools>=80.9.0",
     "gymnasium>=0.26.2",
     "gepa>=0.0.17",
+    # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
+    "datasets>=4.0.0",
 ]
 
 [project.scripts]
@@ -101,13 +103,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*", "examples*"]
+include = ["synth_ai*"]
 exclude = [
     "docs*",
     "tests*",
     "scripts*",
     "private_tests*",
-    # Exclude heavy demo/test subpackages from distribution (keep examples package code)
+    # Exclude heavy demo/test subpackages from distribution
     "synth_ai.*agent_demos*",
     "synth_ai.*old*",
     "synth_ai.*tests*",
@@ -120,7 +122,7 @@ include-package-data = true
 
 [tool.setuptools.exclude-package-data]
 "synth_ai" = [
-    # Keep examples package code; exclude only heavy data inside agent_demos/old/tests
+    # Exclude heavy data inside agent_demos/old/tests
     "**/agent_demos/**",
     "**/old/**",
     "**/tests/**",
@@ -173,13 +175,12 @@ reportMissingTypeStubs = false
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["synth_ai", "examples"]
+src = ["synth_ai"]
 extend-exclude = [
     ".venv",
     ".tmp",
     "dev",
     "docs",
-    "examples",
     "scripts",
     "tests",
     "private_tests",

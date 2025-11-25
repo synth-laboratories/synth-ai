@@ -89,11 +89,9 @@ async def run_baseline_evaluation(
     # Instantiate runner if class-based
     runner_instance: Optional[BaselineTaskRunner] = None
     if is_class_based:
-        # task_runner can be a class (needs instantiation) or a function
-        if isinstance(config.task_runner, type):
-            runner_instance = config.task_runner()  # type: ignore[call-arg]
-        else:
-            runner_instance = config.task_runner(policy_config, env_config)  # type: ignore[call-arg]
+        # task_runner is a class - instantiate with policy_config and env_config
+        # as documented in BaselineConfig and BaselineTaskRunner
+        runner_instance = config.task_runner(policy_config, env_config)  # type: ignore[call-arg]
     
     # Create semaphore for concurrency control
     semaphore = asyncio.Semaphore(concurrency)
