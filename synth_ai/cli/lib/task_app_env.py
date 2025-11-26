@@ -1,4 +1,7 @@
 import os
+import re
+from pathlib import Path
+from typing import Dict
 
 import click
 
@@ -13,7 +16,11 @@ __all__ = [
     "ensure_env_credentials",
     "ensure_port_free",
     "preflight_env_key",
+    "interactive_fill_env",
+    "save_to_env_file",
 ]
+
+_ENV_LINE = re.compile(r"^\s*(?:export\s+)?(?P<key>[A-Za-z0-9_]+)\s*=\s*(?P<value>.*)$")
 
 
 def ensure_env_credentials(*, require_synth: bool = False, prompt: bool = True) -> None:
@@ -185,3 +192,104 @@ def preflight_env_key(*, crash_on_failure: bool = False) -> None:
         if crash_on_failure:
             raise click.ClickException(f"[CRITICAL] {message}") from exc
         click.echo(f"[WARN] {message}; proceeding anyway")
+
+
+def _parse_env_file(path: Path) -> dict[str, str]:
+    data: dict[str, str] = {}
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line or line.lstrip().startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            data[key.strip()] = value.strip()
+    except FileNotFoundError:
+        pass
+    return data
+
+
+def _merge_env_content(original: str, updates: Dict[str, str]) -> str:
+    """Merge env updates into existing content while preserving comments/spacing."""
+    lines = original.splitlines(keepends=True)
+    seen: set[str] = set()
+    newline_default = "\n"
+    if lines and lines[-1].endswith("\r\n"):
+        newline_default = "\r\n"
+
+    merged: list[str] = []
+    for line in lines:
+        stripped = line.rstrip("\r\n")
+        m = _ENV_LINE.match(stripped)
+        key = m.group("key") if m else None
+        if key and key in updates and key not in seen:
+            end = "\r\n" if line.endswith("\r\n") else "\n"
+            merged.append(f"{key}={updates[key]}{end}")
+            seen.add(key)
+        else:
+            merged.append(line)
+
+    for key, val in updates.items():
+        if key not in seen:
+            merged.append(f"{key}={val}{newline_default}")
+
+    if merged and not merged[-1].endswith(("\n", "\r\n")):
+        merged[-1] = merged[-1] + newline_default
+
+    return "".join(merged)
+
+
+def save_to_env_file(env_path: Path, key: str, value: str) -> Path:
+    """Update a single key in .env preserving comments/formatting."""
+    existing = env_path.read_text(encoding="utf-8", errors="ignore") if env_path.exists() else ""
+    merged = _merge_env_content(existing, {key: value})
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text(merged, encoding="utf-8")
+    return env_path
+
+
+def interactive_fill_env(env_path: Path) -> Path | None:
+    """Fill ENVIRONMENT_API_KEY/SYNTH_API_KEY/OPENAI_API_KEY while preserving file content."""
+    existing = _parse_env_file(env_path) if env_path.exists() else {}
+
+    def _prompt(label: str, *, default: str = "", required: bool) -> str | None:
+        while True:
+            try:
+                value = click.prompt(
+                    label, default=default, show_default=bool(default) or not required
+                ).strip()
+            except (click.Abort, EOFError, KeyboardInterrupt):  # pragma: no cover - interactive paths
+                click.echo("Aborted env creation.")
+                return None
+            if value or not required:
+                return value
+            click.echo("This field is required.")
+
+    # Allow non-interactive tests to run; skip TTY enforcement.
+    env_api_key = _prompt(
+        "ENVIRONMENT_API_KEY",
+        default=existing.get("ENVIRONMENT_API_KEY", ""),
+        required=True,
+    )
+    if env_api_key is None:
+        return None
+    synth_key = _prompt(
+        "SYNTH_API_KEY (optional)",
+        default=existing.get("SYNTH_API_KEY", ""),
+        required=False,
+    ) or ""
+    openai_key = _prompt(
+        "OPENAI_API_KEY (optional)",
+        default=existing.get("OPENAI_API_KEY", ""),
+        required=False,
+    ) or ""
+
+    updates = {
+        "ENVIRONMENT_API_KEY": env_api_key,
+        "SYNTH_API_KEY": synth_key,
+        "OPENAI_API_KEY": openai_key,
+    }
+
+    content = env_path.read_text(encoding="utf-8", errors="ignore") if env_path.exists() else ""
+    merged = _merge_env_content(content, updates)
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text(merged, encoding="utf-8")
+    return env_path

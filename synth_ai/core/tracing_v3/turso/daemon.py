@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -124,6 +125,15 @@ class SqldDaemon:
         if self.process and self.process.poll() is None:
             return self.process
 
+        # Avoid port conflicts by selecting free ports when needed
+        if not self._port_available(self.hrana_port):
+            self.hrana_port = self._find_free_port()
+        if not self._port_available(self.http_port) or self.http_port == self.hrana_port:
+            self.http_port = self._find_free_port()
+            # Ensure distinct ports
+            if self.http_port == self.hrana_port:
+                self.http_port = self._find_free_port()
+
         db_file = pathlib.Path(self.db_path).resolve()
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -173,6 +183,22 @@ class SqldDaemon:
             time.sleep(0.1)
 
         raise TimeoutError(f"sqld daemon did not become ready within {timeout} seconds")
+
+    @staticmethod
+    def _port_available(port: int) -> bool:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.bind(("127.0.0.1", port))
+                return True
+            except OSError:
+                return False
+
+    @staticmethod
+    def _find_free_port() -> int:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
 
     def stop(self, timeout: float = 5.0):
         """Stop the sqld daemon gracefully."""

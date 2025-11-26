@@ -7,6 +7,7 @@ validation, and discovery.
 from synth_ai.cli.task_apps.commands import (
     AppChoice,
     TaskAppEntryType,
+    _markov_message_from_dict,
     register,
     serve_command,
     task_app_group,
@@ -21,5 +22,5 @@ __all__ = [
     "task_app_group",
     "serve_command",
     "register",
+    "_markov_message_from_dict",
 ]
-

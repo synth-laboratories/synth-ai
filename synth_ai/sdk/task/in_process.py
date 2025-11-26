@@ -136,6 +136,7 @@ async def _verify_tunnel_ready(
     max_retries: int = 15,
     retry_delay: float = 2.0,
     timeout_per_request: float = 10.0,
+    verify_tls: bool = True,
 ) -> bool:
     """
     Verify that a Cloudflare tunnel is actually routing traffic (not just DNS-resolvable).
@@ -156,7 +157,7 @@ async def _verify_tunnel_ready(
 
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
+            async with httpx.AsyncClient(timeout=timeout_per_request, verify=verify_tls) as client:
                 health = await client.get(f"{base}/health", headers=headers)
                 task_info = await client.get(f"{base}/task_info", headers=headers)
 
@@ -443,7 +444,11 @@ class InProcessTaskApp:
             logger.info(f"Tunnel opened and verified: {self.url}")
 
             # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
-            ready = await _verify_tunnel_ready(self.url, api_key)
+            ready = await _verify_tunnel_ready(
+                self.url,
+                api_key,
+                verify_tls=_should_verify_tls(),
+            )
             if not ready:
                 raise RuntimeError(
                     f"Tunnel resolved but is not routing traffic after verification attempts: {self.url}. "
@@ -533,7 +538,13 @@ def _setup_signal_handlers() -> None:
                     instance._tunnel_proc = None
             except Exception as e:
                 logger.error(f"Error cleaning up instance: {e}")
-        _registered_instances.clear()
+    _registered_instances.clear()
+
+
+def _should_verify_tls() -> bool:
+    """Return True unless explicitly disabled via env."""
+    val = (os.getenv("SYNTH_TUNNEL_VERIFY_TLS") or "true").strip().lower()
+    return val not in ("0", "false", "no", "off")
 
     # Register handlers (only once)
     if not hasattr(_setup_signal_handlers, "_registered"):
