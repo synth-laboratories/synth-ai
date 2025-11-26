@@ -459,20 +459,26 @@ class InProcessTaskApp:
             logger.info(f"Using local mode: {self.url}")
         elif mode == "named":
             # Named tunnel mode: use a pre-configured Cloudflare named tunnel
-            # This is more reliable than quick tunnels as DNS is already configured
-            # Requires: SYNTH_TUNNEL_HOSTNAME to specify which hostname to use
+            # Fetches the customer's tunnel hostname from the backend using their API key
             # The named tunnel must be running separately (cloudflared tunnel run <name>)
-            named_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
+            api_key = self.api_key or self._get_api_key()
+            
+            # Fetch customer's tunnel config from backend
+            tunnel_config = await self._fetch_tunnel_config(api_key)
+            named_host = tunnel_config.get("hostname")
+            
             if not named_host:
-                raise ValueError(
-                    "SYNTH_TUNNEL_MODE=named requires SYNTH_TUNNEL_HOSTNAME to be set. "
-                    "Example: SYNTH_TUNNEL_HOSTNAME=local-api.usesynth.ai"
+                raise RuntimeError(
+                    "No tunnel configured for your account. "
+                    "Create one via the SDK: `synth tunnels create --subdomain myapp`, "
+                    "or in the dashboard at https://app.usesynth.ai/tunnels, "
+                    "or use tunnel_mode='quick' for automatic quick tunnels (less reliable)."
                 )
+            
             self.url = f"https://{named_host}"
             self._tunnel_proc = None  # Named tunnel runs separately
             
             # Verify the named tunnel is accessible
-            api_key = self.api_key or self._get_api_key()
             ready = await _verify_tunnel_ready(
                 self.url,
                 api_key,
@@ -481,9 +487,12 @@ class InProcessTaskApp:
                 verify_tls=_should_verify_tls(),
             )
             if not ready:
+                tunnel_token = tunnel_config.get("tunnel_token", "")
+                token_hint = f"\n  cloudflared tunnel run --token {tunnel_token[:20]}..." if tunnel_token else ""
                 raise RuntimeError(
-                    f"Named tunnel {self.url} is not accessible. "
-                    "Ensure cloudflared tunnel is running: `cloudflared tunnel run <tunnel-name>`"
+                    f"Your tunnel {self.url} is not accessible. "
+                    f"Ensure cloudflared is running:{token_hint}\n"
+                    "Or run: `synth tunnels run`"
                 )
             logger.info(f"Using named tunnel: {self.url}")
         elif mode == "quick":
@@ -614,6 +623,63 @@ class InProcessTaskApp:
             pass
 
         return os.getenv("ENVIRONMENT_API_KEY", "test")
+
+    async def _fetch_tunnel_config(self, api_key: str) -> dict:
+        """Fetch the customer's tunnel configuration from the backend.
+        
+        Uses the existing /api/v1/tunnels/tunnel endpoint to get the customer's
+        active tunnels. Returns the first active tunnel's config.
+        
+        Returns a dict with:
+            - hostname: The customer's configured tunnel hostname (e.g., "myapp.usesynth.ai")
+            - tunnel_token: The cloudflared tunnel token for running the tunnel
+            - local_port: The local port the tunnel routes to
+            - local_host: The local host the tunnel routes to
+        """
+        from synth_ai.core.env import get_backend_url
+        
+        backend_url = get_backend_url()
+        url = f"{backend_url}/api/v1/tunnels/tunnel"
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                resp = await client.get(
+                    url,
+                    headers={
+                        "X-Synth-Api-Key": api_key,
+                    },
+                )
+                
+                if resp.status_code == 404:
+                    logger.debug("No tunnels found for this API key")
+                    return {}
+                
+                if resp.status_code == 401:
+                    raise RuntimeError(
+                        "Invalid API key. Please check your SYNTH_API_KEY."
+                    )
+                
+                resp.raise_for_status()
+                tunnels = resp.json()
+                
+                # Return the first active tunnel
+                if tunnels and len(tunnels) > 0:
+                    tunnel = tunnels[0]
+                    return {
+                        "hostname": tunnel.get("hostname"),
+                        "tunnel_token": tunnel.get("tunnel_token"),
+                        "local_port": tunnel.get("local_port", 8000),
+                        "local_host": tunnel.get("local_host", "127.0.0.1"),
+                    }
+                
+                return {}
+                
+            except httpx.HTTPStatusError as e:
+                logger.warning(f"Failed to fetch tunnel config: {e}")
+                return {}
+            except Exception as e:
+                logger.debug(f"Tunnel config fetch failed: {e}")
+                return {}
 
 
 def _setup_signal_handlers() -> None:
