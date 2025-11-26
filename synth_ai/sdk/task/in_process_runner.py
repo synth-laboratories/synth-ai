@@ -13,7 +13,7 @@ import asyncio
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Optional
+from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
 from synth_ai.core.env import get_backend_from_env
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob

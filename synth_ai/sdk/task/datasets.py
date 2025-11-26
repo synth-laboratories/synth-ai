@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable
-from typing import List
-from typing import Any
+from typing import Any, List
 
 from pydantic import BaseModel, Field, field_validator
 

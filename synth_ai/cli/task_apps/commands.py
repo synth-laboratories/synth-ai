@@ -211,7 +211,7 @@ def _time_record_from_dict(payload: dict[str, Any] | None) -> TimeRecord:
     event_time = payload.get("event_time")
     if event_time is None:
         event_time = float(time.time())
-    elif not isinstance(event_time, (int, float)):
+    elif not isinstance(event_time, int | float):
         try:
             event_time = float(event_time)
         except Exception:

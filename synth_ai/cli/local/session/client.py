@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Optional, List
+from typing import Any, List, Optional
 from uuid import UUID
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError

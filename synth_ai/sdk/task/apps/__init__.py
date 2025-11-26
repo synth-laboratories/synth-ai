@@ -5,10 +5,9 @@ from __future__ import annotations
 import importlib
 import sys
 from collections.abc import Callable, Iterable, Sequence
-from typing import List
 from dataclasses import dataclass, field
 from pathlib import Path
-
+from typing import List
 from ..server import TaskAppConfig
 
 

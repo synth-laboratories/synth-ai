@@ -465,7 +465,7 @@ def resolve_adaptive_pool_config(
     
     # Handle heatup_reserve_pool (can be list, None, or single value)
     heatup_reserve = defaults.get("heatup_reserve_pool")
-    if heatup_reserve is not None and not isinstance(heatup_reserve, (list, tuple)):
+    if heatup_reserve is not None and not isinstance(heatup_reserve, list | tuple):
         # Convert single value or other types to list
         heatup_reserve = [heatup_reserve] if heatup_reserve else None
     

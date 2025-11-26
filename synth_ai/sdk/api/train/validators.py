@@ -1759,7 +1759,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                     errors.append(
                         "❌ gepa.adaptive_batch.val_evaluation_mode='subsample' requires val_subsample_size to be set"
                     )
-                elif isinstance(subsample_size, (int, float)) and subsample_size <= 0:
+    elif isinstance(subsample_size, int | float) and subsample_size <= 0:
                     errors.append(
                         f"❌ gepa.adaptive_batch.val_subsample_size must be > 0 when val_evaluation_mode='subsample', got {subsample_size}"
                     )

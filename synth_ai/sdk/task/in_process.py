@@ -538,19 +538,19 @@ def _setup_signal_handlers() -> None:
                     instance._tunnel_proc = None
             except Exception as e:
                 logger.error(f"Error cleaning up instance: {e}")
-    _registered_instances.clear()
-
-
-def _should_verify_tls() -> bool:
-    """Return True unless explicitly disabled via env."""
-    val = (os.getenv("SYNTH_TUNNEL_VERIFY_TLS") or "true").strip().lower()
-    return val not in ("0", "false", "no", "off")
+        _registered_instances.clear()
 
     # Register handlers (only once)
     if not hasattr(_setup_signal_handlers, "_registered"):
         signal.signal(signal.SIGINT, signal_handler)  # type: ignore[misc]
         signal.signal(signal.SIGTERM, signal_handler)  # type: ignore[misc]
         _setup_signal_handlers._registered = True  # type: ignore[attr-defined]
+
+
+def _should_verify_tls() -> bool:
+    """Return True unless explicitly disabled via env."""
+    val = (os.getenv("SYNTH_TUNNEL_VERIFY_TLS") or "true").strip().lower()
+    return val not in ("0", "false", "no", "off")
 
 
 # Set up signal handlers on module import
