@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
+import httpx
 import uvicorn
 from uvicorn._types import ASGIApplication
 
@@ -126,6 +127,65 @@ def _kill_process_on_port(host: str, port: int) -> None:
                         pass
     except Exception as e:
         logger.debug(f"Could not kill process on port {port}: {e}")
+
+
+async def _verify_tunnel_ready(
+    tunnel_url: str,
+    api_key: str,
+    *,
+    max_retries: int = 15,
+    retry_delay: float = 2.0,
+    timeout_per_request: float = 10.0,
+) -> bool:
+    """
+    Verify that a Cloudflare tunnel is actually routing traffic (not just DNS-resolvable).
+    
+    A tunnel can resolve via DNS before HTTP routing is ready. This helper polls both
+    /health and /task_info until they return 200 or retries are exhausted.
+    """
+    base = tunnel_url.rstrip("/")
+    headers = {
+        "X-API-Key": api_key,
+        "Authorization": f"Bearer {api_key}",
+    }
+    aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
+    if aliases:
+        headers["X-API-Keys"] = ",".join(
+            [api_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
+        )
+
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
+                health = await client.get(f"{base}/health", headers=headers)
+                task_info = await client.get(f"{base}/task_info", headers=headers)
+
+            if health.status_code == 200 and task_info.status_code == 200:
+                logger.info(
+                    f"Tunnel ready after {attempt + 1} attempt(s): "
+                    f"health={health.status_code}, task_info={task_info.status_code}"
+                )
+                return True
+
+            logger.debug(
+                "Tunnel not ready (attempt %s/%s): health=%s task_info=%s",
+                attempt + 1,
+                max_retries,
+                health.status_code,
+                task_info.status_code,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(
+                "Tunnel readiness check failed (attempt %s/%s): %s",
+                attempt + 1,
+                max_retries,
+                exc,
+            )
+
+        if attempt < max_retries - 1:
+            await asyncio.sleep(retry_delay)
+
+    return False
 
 
 class InProcessTaskApp:
@@ -381,6 +441,15 @@ class InProcessTaskApp:
                 logger.info(f"Overriding hostname: {self.url}")
             
             logger.info(f"Tunnel opened and verified: {self.url}")
+
+            # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
+            ready = await _verify_tunnel_ready(self.url, api_key)
+            if not ready:
+                raise RuntimeError(
+                    f"Tunnel resolved but is not routing traffic after verification attempts: {self.url}. "
+                    "Try setting SYNTH_TUNNEL_MODE=local if the backend can reach localhost, "
+                    "or rerun to re-establish the tunnel."
+                )
         else:
             raise ValueError(f"Unknown SYNTH_TUNNEL_MODE: {mode}")
 

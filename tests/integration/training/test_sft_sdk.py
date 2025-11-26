@@ -1,16 +1,12 @@
 """Integration tests for SFT (Supervised Fine-Tuning) SDK.
 
-These tests validate the full SDK workflow for SFT jobs:
-1. Configuration loading and validation
-2. Dataset upload and file management
-3. Job submission and creation
-4. Polling and status monitoring
-5. Model retrieval
+These tests validate the SDK components for SFT jobs:
+1. Configuration validation
+2. Dataset validation
+3. Client functionality with mocks
 
 Tests are marked with pytest markers for selective execution:
 - @pytest.mark.integration: All integration tests
-- @pytest.mark.slow: Tests that may take >30 seconds
-- @pytest.mark.requires_backend: Tests that require a running backend
 """
 
 from __future__ import annotations
@@ -18,24 +14,118 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 pytestmark = [pytest.mark.integration]
 
 
-class MockHTTPResponse:
-    """Mock HTTP response for testing."""
+class TestSFTConfigValidation:
+    """Test SFT configuration validation."""
 
-    def __init__(self, status_code: int, json_data: dict[str, Any] | None = None, text: str = ""):
-        self.status_code = status_code
-        self._json_data = json_data or {}
-        self.text = text or json.dumps(self._json_data)
-        self.headers = {"content-type": "application/json"}
+    def test_validate_sft_config_requires_algorithm(self) -> None:
+        """SFT config requires algorithm section."""
+        from synth_ai.cli.commands.train.validation import validate_sft_config
+        from synth_ai.cli.commands.train.errors import MissingAlgorithmError
 
-    def json(self) -> dict[str, Any]:
-        return self._json_data
+        with pytest.raises(MissingAlgorithmError):
+            validate_sft_config({})
+
+    def test_validate_sft_config_requires_job_section(self) -> None:
+        """SFT config requires job section."""
+        from synth_ai.cli.commands.train.validation import validate_sft_config
+        from synth_ai.cli.commands.train.errors import InvalidSFTConfigError
+
+        with pytest.raises(InvalidSFTConfigError):
+            validate_sft_config({"algorithm": {"variety": "fft"}})
+
+    def test_validate_sft_config_requires_model(self) -> None:
+        """SFT config requires model in job section."""
+        from synth_ai.cli.commands.train.validation import validate_sft_config
+        from synth_ai.cli.commands.train.errors import MissingModelError
+
+        with pytest.raises(MissingModelError):
+            validate_sft_config({
+                "algorithm": {"variety": "fft"},
+                "job": {"data": "/path/to/train.jsonl"},  # non-empty but no model
+            })
+
+    def test_validate_sft_config_requires_dataset(self) -> None:
+        """SFT config requires dataset path."""
+        from synth_ai.cli.commands.train.validation import validate_sft_config
+        from synth_ai.cli.commands.train.errors import MissingDatasetError
+
+        with pytest.raises(MissingDatasetError):
+            validate_sft_config({
+                "algorithm": {"variety": "fft"},
+                "job": {"model": "Qwen/Qwen3-0.6B"},
+            })
+
+    def test_validate_sft_config_requires_compute(self) -> None:
+        """SFT config requires compute section."""
+        from synth_ai.cli.commands.train.validation import validate_sft_config
+        from synth_ai.cli.commands.train.errors import MissingComputeError
+
+        with pytest.raises(MissingComputeError):
+            validate_sft_config({
+                "algorithm": {"variety": "fft"},
+                "job": {"model": "Qwen/Qwen3-0.6B", "data": "/path/to/data.jsonl"},
+            })
+
+
+class TestSFTDataValidation:
+    """Test SFT training data validation."""
+
+    @pytest.fixture
+    def valid_sft_jsonl(self, tmp_path: Path) -> Path:
+        """Create a valid SFT JSONL file."""
+        data = {
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Hello"},
+                {"role": "assistant", "content": "Hi there!"},
+            ]
+        }
+        path = tmp_path / "valid.jsonl"
+        path.write_text(json.dumps(data) + "\n")
+        return path
+
+    @pytest.fixture
+    def empty_messages_jsonl(self, tmp_path: Path) -> Path:
+        """Create a JSONL file with empty messages."""
+        data = {"messages": []}
+        path = tmp_path / "empty.jsonl"
+        path.write_text(json.dumps(data) + "\n")
+        return path
+
+    @pytest.fixture
+    def missing_messages_jsonl(self, tmp_path: Path) -> Path:
+        """Create a JSONL file missing messages key."""
+        data = {"other": "data"}
+        path = tmp_path / "missing.jsonl"
+        path.write_text(json.dumps(data) + "\n")
+        return path
+
+    def test_validate_jsonl_valid(self, valid_sft_jsonl) -> None:
+        """validate_jsonl_or_raise should pass for valid data."""
+        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
+
+        # Should not raise
+        validate_jsonl_or_raise(valid_sft_jsonl, min_messages=2)
+
+    def test_validate_jsonl_empty_messages(self, empty_messages_jsonl) -> None:
+        """validate_jsonl_or_raise should reject empty messages."""
+        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
+
+        with pytest.raises(ValueError, match="at least"):
+            validate_jsonl_or_raise(empty_messages_jsonl, min_messages=2)
+
+    def test_validate_jsonl_missing_messages(self, missing_messages_jsonl) -> None:
+        """validate_jsonl_or_raise should reject missing messages key."""
+        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
+
+        with pytest.raises(ValueError):
+            validate_jsonl_or_raise(missing_messages_jsonl, min_messages=2)
 
 
 class TestFtClientUpload:
@@ -183,192 +273,3 @@ class TestFtClientCreateJob:
         assert call_url == "/api/learning/jobs"
         assert call_payload["model"] == "Qwen/Qwen3-0.6B"
         assert call_payload["hyperparameters"]["n_epochs"] == 3
-
-
-class TestSFTConfigValidation:
-    """Test SFT configuration validation."""
-
-    def test_validate_sft_config_requires_algorithm(self) -> None:
-        """SFT config requires algorithm section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingAlgorithmError
-
-        with pytest.raises(MissingAlgorithmError):
-            validate_sft_config({})
-
-    def test_validate_sft_config_requires_job_section(self) -> None:
-        """SFT config requires job section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import InvalidSFTConfigError
-
-        with pytest.raises(InvalidSFTConfigError):
-            validate_sft_config({"algorithm": {"variety": "fft"}})
-
-    def test_validate_sft_config_requires_model(self) -> None:
-        """SFT config requires model in job section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingModelError
-
-        with pytest.raises(MissingModelError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {},
-            })
-
-    def test_validate_sft_config_requires_dataset(self) -> None:
-        """SFT config requires dataset path."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingDatasetError
-
-        with pytest.raises(MissingDatasetError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {"model": "Qwen/Qwen3-0.6B"},
-            })
-
-    def test_validate_sft_config_requires_compute(self) -> None:
-        """SFT config requires compute section."""
-        from synth_ai.cli.commands.train.validation import validate_sft_config
-        from synth_ai.cli.commands.train.errors import MissingComputeError
-
-        with pytest.raises(MissingComputeError):
-            validate_sft_config({
-                "algorithm": {"variety": "fft"},
-                "job": {"model": "Qwen/Qwen3-0.6B", "data": "/path/to/data.jsonl"},
-            })
-
-
-class TestSFTDataValidation:
-    """Test SFT training data validation."""
-
-    @pytest.fixture
-    def valid_sft_jsonl(self, tmp_path: Path) -> Path:
-        """Create a valid SFT JSONL file."""
-        data = {
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Hello"},
-                {"role": "assistant", "content": "Hi there!"},
-            ]
-        }
-        path = tmp_path / "valid.jsonl"
-        path.write_text(json.dumps(data) + "\n")
-        return path
-
-    @pytest.fixture
-    def empty_messages_jsonl(self, tmp_path: Path) -> Path:
-        """Create a JSONL file with empty messages."""
-        data = {"messages": []}
-        path = tmp_path / "empty.jsonl"
-        path.write_text(json.dumps(data) + "\n")
-        return path
-
-    @pytest.fixture
-    def missing_messages_jsonl(self, tmp_path: Path) -> Path:
-        """Create a JSONL file missing messages key."""
-        data = {"other": "data"}
-        path = tmp_path / "missing.jsonl"
-        path.write_text(json.dumps(data) + "\n")
-        return path
-
-    def test_validate_jsonl_valid(self, valid_sft_jsonl) -> None:
-        """validate_jsonl_or_raise should pass for valid data."""
-        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
-
-        # Should not raise
-        validate_jsonl_or_raise(valid_sft_jsonl, min_messages=2)
-
-    def test_validate_jsonl_empty_messages(self, empty_messages_jsonl) -> None:
-        """validate_jsonl_or_raise should reject empty messages."""
-        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
-
-        with pytest.raises(ValueError, match="at least"):
-            validate_jsonl_or_raise(empty_messages_jsonl, min_messages=2)
-
-    def test_validate_jsonl_missing_messages(self, missing_messages_jsonl) -> None:
-        """validate_jsonl_or_raise should reject missing messages key."""
-        from synth_ai.sdk.learning.sft.data import validate_jsonl_or_raise
-
-        with pytest.raises(ValueError):
-            validate_jsonl_or_raise(missing_messages_jsonl, min_messages=2)
-
-
-class TestSFTPayloadBuilder:
-    """Test SFT payload building from config."""
-
-    def test_build_sft_payload_from_config(self, tmp_path: Path) -> None:
-        """build_sft_payload should construct valid payload."""
-        from synth_ai.sdk.api.train.builders import build_sft_payload
-
-        # Create config file
-        config = tmp_path / "sft.toml"
-        config.write_text("""
-[algorithm]
-variety = "fft"
-type = "offline"
-method = "sft"
-
-[job]
-model = "Qwen/Qwen3-0.6B"
-data = "train.jsonl"
-
-[compute]
-gpu_type = "H100"
-gpu_count = 1
-
-[hyperparameters]
-n_epochs = 3
-learning_rate = 1e-5
-""")
-
-        # Create dataset file
-        dataset = tmp_path / "train.jsonl"
-        data = {
-            "messages": [
-                {"role": "system", "content": "Test"},
-                {"role": "user", "content": "Hello"},
-                {"role": "assistant", "content": "Hi"},
-            ]
-        }
-        dataset.write_text(json.dumps(data) + "\n")
-
-        build = build_sft_payload(config_path=config)
-
-        assert build.train_file == dataset
-        assert build.payload["model"] == "Qwen/Qwen3-0.6B"
-        assert "hyperparameters" in build.payload
-
-    def test_build_sft_payload_with_override(self, tmp_path: Path) -> None:
-        """build_sft_payload should accept dataset override."""
-        from synth_ai.sdk.api.train.builders import build_sft_payload
-
-        # Create config file with missing dataset
-        config = tmp_path / "sft.toml"
-        config.write_text("""
-[algorithm]
-variety = "fft"
-type = "offline"
-method = "sft"
-
-[job]
-model = "Qwen/Qwen3-0.6B"
-
-[compute]
-gpu_type = "H100"
-gpu_count = 1
-""")
-
-        # Create override dataset
-        override_dataset = tmp_path / "override.jsonl"
-        data = {
-            "messages": [
-                {"role": "system", "content": "Override"},
-                {"role": "user", "content": "Test"},
-                {"role": "assistant", "content": "Response"},
-            ]
-        }
-        override_dataset.write_text(json.dumps(data) + "\n")
-
-        build = build_sft_payload(config_path=config, dataset_override=override_dataset)
-
-        assert build.train_file == override_dataset

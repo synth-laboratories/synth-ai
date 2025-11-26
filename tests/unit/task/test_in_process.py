@@ -133,7 +133,8 @@ class TestInProcessTaskAppContextManager:
     """Tests for InProcessTaskApp context manager."""
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
-    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification_with_dns_verification")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
+    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
     @patch("synth_ai.sdk.task.in_process.threading.Thread")
@@ -143,6 +144,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_fastapi_app,
     ):
@@ -161,6 +163,7 @@ class TestInProcessTaskAppContextManager:
         mock_stop_tunnel.assert_called_once()
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
     @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
@@ -173,6 +176,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_task_app_config,
         mock_fastapi_app,
@@ -186,7 +190,8 @@ class TestInProcessTaskAppContextManager:
             mock_create_app.assert_called_once_with(mock_task_app_config)
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
-    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification_with_dns_verification")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
+    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
     @patch("synth_ai.sdk.task.in_process.threading.Thread")
@@ -198,6 +203,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_task_app_config,
         mock_fastapi_app,
@@ -214,7 +220,8 @@ class TestInProcessTaskAppContextManager:
             mock_create_app.assert_called_once()
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
-    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification_with_dns_verification")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
+    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
     @patch("synth_ai.sdk.task.in_process.threading.Thread")
@@ -230,6 +237,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_fastapi_app,
         tmp_path,
@@ -251,6 +259,7 @@ class TestInProcessTaskAppContextManager:
             mock_get_app.assert_called_once_with(mock_module)
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
     @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
@@ -261,6 +270,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_fastapi_app,
     ):
@@ -298,14 +308,15 @@ class TestInProcessTaskAppContextManager:
 
         mock_health_check.side_effect = slow_health_check
 
-        with pytest.raises(RuntimeError, match="health check"):
+        with pytest.raises(RuntimeError, match="Health check failed"):
             async with InProcessTaskApp(
                 app=mock_fastapi_app, port=9006, health_check_timeout=0.5
             ):
                 pass
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
-    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification_with_dns_verification")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
+    @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
     @patch("synth_ai.sdk.task.in_process.threading.Thread")
@@ -319,6 +330,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_fastapi_app,
     ):
@@ -334,6 +346,7 @@ class TestInProcessTaskAppContextManager:
             mock_find_port.assert_called_once()
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
+    @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
     @patch("synth_ai.sdk.task.in_process.open_quick_tunnel_with_dns_verification")
     @patch("synth_ai.sdk.task.in_process.ensure_cloudflared_installed")
     @patch("synth_ai.sdk.task.in_process.wait_for_health_check")
@@ -344,6 +357,7 @@ class TestInProcessTaskAppContextManager:
         mock_health_check,
         mock_ensure_cloudflared,
         mock_open_tunnel,
+        mock_verify_tunnel,
         mock_stop_tunnel,
         mock_fastapi_app,
     ):
@@ -380,4 +394,3 @@ class TestInProcessTaskAppHelpers:
             del os.environ["ENVIRONMENT_API_KEY"]
         task_app = InProcessTaskApp(app=mock_fastapi_app)
         assert task_app._get_api_key() == "test"
-

@@ -193,3 +193,8 @@ examples/blog_posts/**/task_specific/*/results/
 **/*_detailed_results.json
 **/*best_module.json
 **/*best_prompt.json
+# Junk files
+*.diff
+*.patch
+*.orig
+*~

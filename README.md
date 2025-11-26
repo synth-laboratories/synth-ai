@@ -1,324 +1,74 @@
-# Synth-AI SDK
+# Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
+[![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-0.2.25.dev1-orange)](https://pypi.org/project/synth-ai/)
 ![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
-![Blacksmith CI](https://img.shields.io/badge/CI-Blacksmith%20Worker-blue)
 
-> **Synth-AI** — Serverless Posttraining for Agents.  
-> **Docs:** [Get Started →](https://docs.usesynth.ai/sdk/get-started)
+Serverless Posttraining APIs for Developers
 
----
+<p align="center">
+  <picture align="center">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA (lib), DSPy MIPRO, and DSPy GEPA with baseline vs optimized." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_light.png">
+  </picture>
+</p>
 
-## 🚀 Install latest version (0.2.25.dev1)
+<p align="center">
+  <i>Average accuracy on <a href="https://arxiv.org/abs/2502.20315">LangProBe</a> prompt optimization benchmarks.</i>
+</p>
+
+## Highlights
+
+- 🚀 Train across sft, RL, and prompt opt by standing up a single cloudflared Fastapi wrapper around your code. No production code churn.
+- ⚡️ Parallelize training and achieve 80% GPU util. via PipelineRL
+- 🗂️ Train prompts and models across multiple experiments
+- 🛠️ Spin up experiment queues and datastores locally for dev work
+- 🔩 Run serverless training via cli or programmatically
+- 🏢 Scales gpu-based model training to 64 H100s seemlessly
+- 💾 Use GEPA-calibrated judges for fast, accurate rubric scoring
+- 🖥️ Supports HTTP-based training across all programming languages
+- 🤖 CLI utilities tuned for use with Claude Code, Codex, Opencode
+
+## Getting Started
 
 ```bash
-pip install synth-ai
-# or
-uv add synth-ai
+# Use with OpenAI Codex
+uvx synth-ai codex
 ```
 
-**Import:**
+```bash
+# Use with Opencode
+uvx synth-ai opencode
+```
+
+Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
+
+## Documentation
+
+Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
+
+## In-Process Runner (SDK)
+
+Run GEPA/MIPRO/RL jobs against a tunneled task app without the CLI:
 
 ```python
-import synth_ai
-```
+import asyncio
+import os
+from synth_ai.sdk.task import run_in_process_job
 
-**CLI (with uvx):**
-
-```bash
-uvx synth-ai setup
-uvx synth-ai demo
-uvx synth-ai deploy
-uvx synth-ai run
-uvx synth-ai baseline  # For coding agents: get baseline scores
-```
-
-> Full quickstart: [https://docs.usesynth.ai/sdk/get-started](https://docs.usesynth.ai/sdk/get-started)
-
----
-
-When you run `uvx synth-ai setup`, the SDK opens your browser to the Synth dashboard for a one‑time pairing (handshake) with your signed‑in session. The SDK will automatically:
-
-
-Fast and effective serverless posttraining for agents, via an API.  
-Easily scale GPU topologies, train multi-node, and integrate with existing agent software.
-
-### Highlights
-
-- Scale GPU topologies (A10Gs, H100s, multi-node available on request)
-- Thin FastAPI wrapper integration
-- Supports OSS models like **Qwen3** (GPT-OSS GA soon)
-- Own your trained models
-
----
-
-## 🧭 Examples & Cookbooks
-
-The old `examples/` directory now lives in the Synth Cookbooks repo.
-- Docs: https://docs.usesynth.ai/cookbooks
-- Code: https://github.com/synth-laboratories/cookbooks (`dev/` holds the migrated examples for now, e.g., `dev/polyglot/`)
-- Commands that referenced `examples/...` should now use the matching paths under `cookbooks/dev/`
-
----
-
-## ⚙️ Getting Started
-
-Synth-AI ships with a built-in RL example: training **Qwen3-0.6B** on math reasoning.
-
-1. Create accounts at [Synth](https://usesynth.ai) and [Modal](https://modal.com)
-2. Then run:
-
-   ```bash
-   uvx synth-ai demo
-   uvx synth-ai setup
-   uvx synth-ai deploy
-   uvx synth-ai run
-   ```
-
-3. To walk through your first RL run, see  
-   👉 [Synth-AI SDK Docs](https://docs.usesynth.ai/sdk/get-started)
-
----
-
-## 🤖 For Coding Agents: Get Started with Baselines
-
-**Baselines** are the fastest way for coding agents to evaluate changes and measure improvement on Synth tasks.
-
-### Why Use Baselines?
-
-Baselines provide a **self-contained evaluation system** that:
-- ✅ **No infrastructure required** — runs locally, no deployed task app needed
-- ✅ **Quick feedback loop** — get task-by-task results in seconds
-- ✅ **Compare changes** — establish a baseline score before making modifications
-- ✅ **Auto-discoverable** — finds baseline files automatically in your codebase
-
-### Quick Start for Coding Agents
-
-```bash
-# 1. List available baselines
-uvx synth-ai baseline list
-
-# 2. Run a quick 3-task baseline to get started
-uvx synth-ai baseline banking77 --split train --seeds 0,1,2
-
-# 3. Get your baseline score (full train split)
-uvx synth-ai baseline banking77 --split train
-
-# 4. Make your changes to the code...
-
-# 5. Re-run to compare performance
-uvx synth-ai baseline banking77 --split train --output results_after.json
-```
-
-### Available Baselines
-
-```bash
-# Filter by task type
-uvx synth-ai baseline list --tag rl          # RL tasks
-uvx synth-ai baseline list --tag nlp         # NLP tasks
-uvx synth-ai baseline list --tag vision      # Vision tasks
-
-# Run specific baselines
-uvx synth-ai baseline warming_up_to_rl       # Crafter survival game
-uvx synth-ai baseline pokemon_vl             # Pokemon Red (vision)
-uvx synth-ai baseline gepa                   # Banking77 classification
-```
-
-### Baseline Results
-
-Each baseline run provides:
-- **Task-by-task results** — see exactly which seeds succeed/fail
-- **Aggregate metrics** — success rate, mean/std rewards, total tasks
-- **Serializable output** — save to JSON with `--output results.json`
-- **Model comparison** — test different models with `--model`
-
-Example output:
-```
-============================================================
-Baseline Evaluation: Banking77 Intent Classification
-============================================================
-Split(s): train
-Tasks: 10
-Success: 8/10
-Execution time: 12.34s
-
-Aggregate Metrics:
-  mean_outcome_reward: 0.8000
-  success_rate: 0.8000
-  total_tasks: 10
-```
-
-### Creating Custom Baselines
-
-Coding agents can create new baseline files to test custom tasks:
-
-```python
-# my_task_baseline.py
-from synth_ai.baseline import BaselineConfig, BaselineTaskRunner, DataSplit, TaskResult
-
-class MyTaskRunner(BaselineTaskRunner):
-    async def run_task(self, seed: int) -> TaskResult:
-        # Your task logic here
-        return TaskResult(...)
-
-my_baseline = BaselineConfig(
-    baseline_id="my_task",
-    name="My Custom Task",
-    description="Evaluate my custom task",
-    task_runner=MyTaskRunner,
-    splits={
-        "train": DataSplit(name="train", seeds=list(range(10))),
-    },
+result = asyncio.run(
+    run_in_process_job(
+        job_type="prompt_learning",
+        config_path="configs/style_matching_gepa.toml",
+        task_app_path="task_apps/style_matching_task_app.py",
+        overrides={"prompt_learning.gepa.rollout.budget": 4},
+        backend_url=os.getenv("TARGET_BACKEND_BASE_URL"),  # resolves envs automatically
+    )
 )
+print(result.job_id, result.status.get("status"))
 ```
 
-Place this file in your project (for example under `cookbooks/dev/baseline/`) or name it `*_baseline.py` for auto-discovery. Official baseline examples now live in the Synth Cookbooks repo.
-
----
-
-## 🔐 SDK → Dashboard Pairing
-
-When you run `uvx synth-ai setup` (or legacy `uvx synth-ai rl_demo setup`):
-
-- The SDK opens your browser to the Synth dashboard to pair your SDK with your signed-in session.
-- Automatically detects your **user + organization**
-- Ensures both **API keys** exist
-- Writes them to your project’s `.env` as:
-
-  ```
-  SYNTH_API_KEY=
-  ENVIRONMENT_API_KEY=
-  ```
-
-✅ No keys printed or requested interactively — all handled via browser pairing.
-
-### Environment overrides
-
-- `SYNTH_CANONICAL_ORIGIN` → override dashboard base URL (default: https://www.usesynth.ai/dashboard)
-- `SYNTH_CANONICAL_DEV` → `1|true|on` to use local dashboard (http://localhost:3000)
-
----
-
-## 🌍 Language-Agnostic: Build Task Apps in Any Language
-
-**Synth works with any programming language.** You don't need Python to build Task Apps or run prompt optimization. Implement the OpenAPI contract in your preferred language and start optimizing.
-
-### Supported Languages
-
-We provide complete, tested examples in the Synth Cookbooks repo (`cookbooks/dev/polyglot/`):
-- **Rust** - Fast, type-safe implementation with Axum
-- **Go** - Zero dependencies, single static binary
-- **TypeScript** - Works with Node.js, Deno, Bun, and Cloudflare Workers
-- **Zig** - Minimal binaries, trivial cross-compilation
-
-**👉 See all examples:** [Synth Cookbooks (polyglot)](https://github.com/synth-laboratories/cookbooks) — see `dev/polyglot/`
-
-### How It Works
-
-Task Apps implement a simple HTTP contract:
-- `GET /health` - Health check
-- `POST /rollout` - Evaluate prompts and return rewards
-- `GET /task_info` - (Optional) Dataset metadata
-
-The optimizer calls your endpoints with candidate prompts, and you return rewards. That's it—no Python required!
-
-**📖 Full guide:** [Polyglot Task Apps Documentation](https://docs.usesynth.ai/prompt-optimization/polyglot-task-apps)  
-**📋 OpenAPI Contract:** [`synth_ai/contracts/task_app.yaml`](synth_ai/contracts/task_app.yaml)  
-**🔧 CLI Access:** `synth contracts show task-app` or `synth contracts path task-app`
-
----
-
-## 🎯 Prompt Optimization
-
-Automatically optimize prompts for classification, reasoning, and instruction-following tasks using evolutionary algorithms. Synth supports two state-of-the-art algorithms: **GEPA** (Genetic Evolution of Prompt Architectures) and **MIPRO** (Meta-Instruction PROposer).
-
-**References:**
-- **GEPA**: Agrawal et al. (2025). "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning." [arXiv:2507.19457](https://arxiv.org/abs/2507.19457)
-- **MIPRO**: Opsahl-Ong et al. (2024). "Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs." [arXiv:2406.11695](https://arxiv.org/abs/2406.11695)
-
-### How It Works
-
-Prompt optimization uses an **interceptor pattern** that ensures optimized prompts never reach task apps. All prompt modifications happen in the backend via an inference interceptor that substitutes prompts before they reach the LLM.
-
-```
-✅ CORRECT FLOW:
-Backend → register_prompt → Interceptor → substitutes → LLM
-
-❌ WRONG FLOW:
-Backend → prompt_template in payload → Task App (NEVER DO THIS)
-```
-
-### Algorithms
-
-**GEPA (Genetic Evolution of Prompt Architectures)**
-- Population-based evolutionary search
-- LLM-guided mutations for intelligent prompt modifications
-- Pareto optimization balancing performance and prompt length
-- **Best for:** Broad exploration, diverse prompt variants, classification tasks
-- **Results:** Improves accuracy from 60-75% (baseline) to 85-90%+ over 15 generations
-
-**MIPRO (Meta-Instruction PROposer)**
-- Meta-LLM (e.g., GPT-4o-mini) generates instruction variants
-- TPE (Tree-structured Parzen Estimator) guides Bayesian search
-- Bootstrap phase collects few-shot examples from high-scoring seeds
-- **Best for:** Efficient optimization, task-specific improvements, faster convergence
-- **Results:** Achieves similar accuracy gains with fewer evaluations (~96 rollouts vs ~1000 for GEPA)
-
-### Quick Start
-
-1. **Build a prompt evaluation task app**
-   ```bash
-   # Task app evaluates prompt performance (classification accuracy, QA correctness, etc.)
-   ```
-
-2. **Create a prompt learning config**
-   ```toml
-   [prompt_learning]
-   algorithm = "gepa"  # or "mipro"
-   task_app_url = "https://my-task-app.modal.run"
-   
-   [prompt_learning.initial_prompt]
-   messages = [
-     { role = "system", content = "You are a banking assistant..." },
-     { role = "user", pattern = "Customer Query: {query}..." }
-   ]
-   
-   [prompt_learning.gepa]
-   initial_population_size = 20
-   num_generations = 15
-   ```
-
-3. **Launch optimization**
-   ```bash
-   uvx synth-ai train --type prompt_learning --config config.toml
-   ```
-
-4. **Query results**
-   ```python
-   from synth_ai.learning import get_prompt_text
-   best_prompt = get_prompt_text(job_id="pl_abc123", rank=1)
-   ```
-
-**Full documentation:** [Prompt Learning Guide →](https://docs.usesynth.ai/prompt-learning/overview)
-
----
-
-## 📚 Documentation
-
-- **SDK Docs:** [https://docs.usesynth.ai/sdk/get-started](https://docs.usesynth.ai/sdk/get-started)
-- **Prompt Learning:** [https://docs.usesynth.ai/prompt-learning/overview](https://docs.usesynth.ai/prompt-learning/overview)
-- **CLI Reference:** [https://docs.usesynth.ai/cli](https://docs.usesynth.ai/cli)
-- **API Reference:** [https://docs.usesynth.ai/api](https://docs.usesynth.ai/api)
-- **Changelog:** [https://docs.usesynth.ai/changelog](https://docs.usesynth.ai/changelog)
-
----
-
-## 🧠 Meta
-
-- Package: [`synth-ai`](https://pypi.org/project/synth-ai)
-- Import: `synth_ai`
-- Source: [github.com/synth-laboratories/synth-ai](https://github.com/synth-laboratories/synth-ai)
-- License: MIT
+Env priority for the backend URL: `TARGET_BACKEND_BASE_URL` → `BACKEND_OVERRIDE` → `SYNTH_BACKEND_URL` → `BACKEND_BASE_URL` → `NEXT_PUBLIC_API_URL` → fallback to `get_backend_from_env()`. Required keys: `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, plus any model keys used by your task app.
