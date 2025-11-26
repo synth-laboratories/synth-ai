@@ -97,7 +97,7 @@ def _find_venv_python() -> str:
     try:
         import synth_ai
         
-        package_path = Path(synth_ai.__file__).parent.parent.parent
+        package_path = Path(synth_ai.__file__ or Path(__file__).resolve()).parent.parent.parent
         pkg_venv = package_path / ".venv" / "bin" / "python"
         if pkg_venv.exists() and os.access(pkg_venv, os.X_OK):
             return str(pkg_venv)

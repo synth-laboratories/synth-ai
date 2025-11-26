@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from typing import Any
 Row = sqlite3.Row
 
 
-def connect(db_path: str | bytes | int) -> sqlite3.Connection:
+def connect(db_path: str | bytes | os.PathLike[str] | os.PathLike[bytes]) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
@@ -313,5 +314,4 @@ __all__ = [
     "fetch_crafter_sessions",
     "load_session_trace",
 ]
-
 

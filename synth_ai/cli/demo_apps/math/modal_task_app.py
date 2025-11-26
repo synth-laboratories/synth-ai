@@ -487,11 +487,8 @@ def fastapi_app():
             seed_val = 0
         if seed_val == 0:
             try:
-                seed_val = (
-                    int(env_cfg.get("seed"))
-                    if isinstance(env_cfg, dict) and env_cfg.get("seed") is not None
-                    else 0
-                )
+                raw_seed = env_cfg.get("seed") if isinstance(env_cfg, dict) else None
+                seed_val = int(raw_seed) if raw_seed is not None else 0
             except Exception:
                 seed_val = 0
         subject = (env_cfg.get("subject") if isinstance(env_cfg, dict) else None) or os.getenv(

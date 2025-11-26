@@ -39,9 +39,9 @@ def _proxy_install_sqld():
 
 
 # Point infra at proxies so tests that monkeypatch this module influence the CLI command.
-_infra_turso._get_sqld_version = _proxy_get_sqld_version
-_infra_turso.find_sqld_binary = _proxy_find_sqld_binary
-_infra_turso.install_sqld = _proxy_install_sqld
+_infra_turso._get_sqld_version = _proxy_get_sqld_version  # type: ignore[assignment]
+_infra_turso.find_sqld_binary = _proxy_find_sqld_binary  # type: ignore[assignment]
+_infra_turso.install_sqld = _proxy_install_sqld  # type: ignore[assignment]
 
 __all__ = [
     "turso",

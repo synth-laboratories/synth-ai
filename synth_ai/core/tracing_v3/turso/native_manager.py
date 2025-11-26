@@ -962,7 +962,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     metadata_json,
                 ),
             )
-            timestep_id = int(cur.lastrowid)
+            timestep_id = int(cur.lastrowid or 0)
             conn.execute(
                 """
                 UPDATE session_traces
@@ -1103,7 +1103,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     _json_dumps(payload.get("event_metadata")),
                 ),
             )
-            event_id = int(cur.lastrowid)
+            event_id = int(cur.lastrowid or 0)
             conn.execute(
                 """
                 UPDATE session_traces
@@ -1181,7 +1181,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     _json_dumps(metadata_payload),
                 ),
             )
-            message_id = int(cur.lastrowid)
+            message_id = int(cur.lastrowid or 0)
             conn.execute(
                 """
                 UPDATE session_traces
@@ -1239,7 +1239,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 ),
             )
             conn.commit()
-            return int(cur.lastrowid)
+            return int(cur.lastrowid or 0)
 
     async def insert_event_reward(
         self,
@@ -1290,4 +1290,4 @@ class NativeLibsqlTraceManager(TraceStorage):
                 ),
             )
             conn.commit()
-            return int(cur.lastrowid)
+            return int(cur.lastrowid or 0)

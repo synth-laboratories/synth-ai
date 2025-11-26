@@ -33,7 +33,7 @@ def _load_build_config():
 
         import synth_ai
 
-        synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
+        synth_ai_path = Path(synth_ai.__file__ or Path(__file__).resolve()).resolve().parent.parent
         module_path = (
             synth_ai_path / "examples" / "task_apps" / "crafter" / "task_app" / "grpo_crafter.py"
         )
