@@ -57,6 +57,32 @@ class FtClient:
         async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(f"/api/learning/jobs/{job_id}/start", json={})
 
+    async def get_job_status(self, job_id: str) -> dict[str, Any]:
+        """Get the status and details of an SFT job.
+        
+        Args:
+            job_id: The job ID to check
+            
+        Returns:
+            Job details including status, progress, etc.
+        """
+        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            return await http.get(f"/api/learning/jobs/{job_id}")
+
+    async def list_jobs(self, *, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        """List SFT jobs.
+        
+        Args:
+            limit: Max number of jobs to return
+            offset: Pagination offset
+            
+        Returns:
+            List of job objects
+        """
+        async with AsyncHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            result = await http.get(f"/api/learning/jobs?limit={limit}&offset={offset}")
+            return result if isinstance(result, list) else result.get("jobs", [])
+
 
 def _infer_content_type(filename: str) -> str:
     name = filename.lower()
