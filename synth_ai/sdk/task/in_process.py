@@ -459,12 +459,18 @@ class InProcessTaskApp:
             logger.info(f"Using local mode: {self.url}")
         elif mode == "named":
             # Named tunnel mode: use a pre-configured Cloudflare named tunnel
-            # Fetches the customer's tunnel hostname from the backend using their API key
+            # Fetches the customer's tunnel hostname from the backend using their Synth API key
             # The named tunnel must be running separately (cloudflared tunnel run <name>)
-            api_key = self.api_key or self._get_api_key()
+            
+            # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
+            from synth_ai.core.env import get_api_key as get_synth_api_key
+            synth_api_key = get_synth_api_key()
             
             # Fetch customer's tunnel config from backend
-            tunnel_config = await self._fetch_tunnel_config(api_key)
+            tunnel_config = await self._fetch_tunnel_config(synth_api_key)
+            
+            # For task app auth, use the environment API key
+            api_key = self.api_key or self._get_api_key()
             named_host = tunnel_config.get("hostname")
             
             if not named_host:
@@ -639,14 +645,15 @@ class InProcessTaskApp:
         from synth_ai.core.env import get_backend_url
         
         backend_url = get_backend_url()
-        url = f"{backend_url}/api/v1/tunnels/tunnel"
+        url = f"{backend_url}/api/v1/tunnels/"
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 resp = await client.get(
                     url,
                     headers={
-                        "X-Synth-Api-Key": api_key,
+                        "Authorization": f"Bearer {api_key}",
+                        "X-API-Key": api_key,
                     },
                 )
                 
