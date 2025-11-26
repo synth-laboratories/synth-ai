@@ -28,6 +28,13 @@ from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
 from .health import task_app_health
 from .in_process import InProcessTaskApp
+from .in_process_runner import (
+    InProcessJobResult,
+    merge_dot_overrides,
+    resolve_backend_api_base,
+    run_in_process_job,
+    run_in_process_job_sync,
+)
 from .inference_api import InferenceAPIClient
 from .json import to_jsonable
 from .proxy import (
@@ -122,4 +129,9 @@ __all__ = [
     "TaskAppConfig",
     "InferenceAPIClient",
     "InProcessTaskApp",
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
 ]

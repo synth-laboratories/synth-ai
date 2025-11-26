@@ -48,6 +48,11 @@ from synth_ai.sdk.specs import (
 # Task Apps
 from synth_ai.sdk.task import (
     InProcessTaskApp,
+    InProcessJobResult,
+    merge_dot_overrides,
+    resolve_backend_api_base,
+    run_in_process_job,
+    run_in_process_job_sync,
     TaskAppConfig,
     create_task_app,
 )
@@ -66,6 +71,11 @@ __all__ = [
     "SFTJob",
     # Task Apps
     "InProcessTaskApp",
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
     "TaskAppConfig",
     "create_task_app",
     # Judging
@@ -86,4 +96,3 @@ __all__ = [
     # Jobs API Client
     "JobsClient",
 ]
-
