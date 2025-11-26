@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Optional, List
 from uuid import UUID
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
@@ -98,7 +98,7 @@ class AgentSessionClient:
     async def create(
         self,
         org_id: Optional[UUID] = None,
-        limits: Optional[list[dict[str, Any]]] = None,
+        limits: Optional[List[dict[str, Any]]] = None,
         tracing_session_id: Optional[str] = None,
         session_type: Optional[str] = None,
         expires_at: Optional[datetime] = None,
@@ -295,7 +295,7 @@ class AgentSessionClient:
                 raise InvalidLimitError(str(e)) from e
             raise
 
-    async def list_limits(self, session_id: str) -> list[AgentSessionLimit]:
+    async def list_limits(self, session_id: str) -> List[AgentSessionLimit]:
         """Get all limits for a session."""
         try:
             async with self._http:
@@ -334,7 +334,7 @@ class AgentSessionClient:
         status: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[AgentSession]:
+    ) -> List[AgentSession]:
         """List sessions for the authenticated organization."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if status:
@@ -353,7 +353,7 @@ class AgentSessionClient:
         metric_type: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[SessionUsageRecord]:
+    ) -> List[SessionUsageRecord]:
         """Get usage records for a session."""
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if metric_type:
@@ -381,4 +381,3 @@ class AgentSessionClient:
             if e.status == 404:
                 raise SessionNotFoundError(session_id) from e
             raise
-
