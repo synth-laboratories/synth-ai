@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable
-from typing import Any
+from typing import Any, List
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -51,7 +51,7 @@ class TaskDatasetRegistry:
         spec, _, _ = self._entries[dataset_id]
         return spec
 
-    def list(self) -> list[TaskDatasetSpec]:
+    def list(self) -> List[TaskDatasetSpec]:
         return [entry[0] for entry in self._entries.values()]
 
     def get(self, spec: TaskDatasetSpec | str) -> Any:

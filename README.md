@@ -49,3 +49,26 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 ## Documentation
 
 Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
+
+## In-Process Runner (SDK)
+
+Run GEPA/MIPRO/RL jobs against a tunneled task app without the CLI:
+
+```python
+import asyncio
+import os
+from synth_ai.sdk.task import run_in_process_job
+
+result = asyncio.run(
+    run_in_process_job(
+        job_type="prompt_learning",
+        config_path="configs/style_matching_gepa.toml",
+        task_app_path="task_apps/style_matching_task_app.py",
+        overrides={"prompt_learning.gepa.rollout.budget": 4},
+        backend_url=os.getenv("TARGET_BACKEND_BASE_URL"),  # resolves envs automatically
+    )
+)
+print(result.job_id, result.status.get("status"))
+```
+
+Env priority for the backend URL: `TARGET_BACKEND_BASE_URL` → `BACKEND_OVERRIDE` → `SYNTH_BACKEND_URL` → `BACKEND_BASE_URL` → `NEXT_PUBLIC_API_URL` → fallback to `get_backend_from_env()`. Required keys: `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, plus any model keys used by your task app.

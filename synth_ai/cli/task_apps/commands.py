@@ -209,7 +209,9 @@ def _parse_datetime_for_trace(value: Any) -> datetime | None:
 def _time_record_from_dict(payload: dict[str, Any] | None) -> TimeRecord:
     payload = payload or {}
     event_time = payload.get("event_time")
-    if not isinstance(event_time, int | float):
+    if event_time is None:
+        event_time = float(time.time())
+    elif not isinstance(event_time, int | float):
         try:
             event_time = float(event_time)
         except Exception:
@@ -924,7 +926,7 @@ def _build_modal_config_from_ast(modal_call: ast.Call) -> ModalDeploymentConfigT
                 if isinstance(value_node, ast.List | ast.Tuple):
                     for elt in value_node.elts:
                         if isinstance(elt, ast.Constant):
-                            packages.append(elt.value)
+                            packages.append(str(elt.value))
                 kwargs[kw.arg] = tuple(packages)
             elif kw.arg == "extra_local_dirs" and isinstance(kw.value, ast.List | ast.Tuple):
                 # Handle extra_local_dirs list/tuple of tuples

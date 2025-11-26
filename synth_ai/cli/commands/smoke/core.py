@@ -194,7 +194,7 @@ def _start_task_app_server(
     
     # Resolve the synth-ai root directory
     import synth_ai
-    synth_ai_root = Path(synth_ai.__file__).resolve().parent.parent
+    synth_ai_root = Path(synth_ai.__file__ or Path(__file__).resolve()).resolve().parent.parent
     
     click.echo(f"[smoke] Starting task app '{task_app_name}' on port {port}...", err=True)
     click.echo(f"[smoke] Command: {' '.join(cmd)}", err=True)

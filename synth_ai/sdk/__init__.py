@@ -47,17 +47,18 @@ from synth_ai.sdk.specs import (
 
 # Task Apps
 from synth_ai.sdk.task import (
+    InProcessJobResult,
     InProcessTaskApp,
     TaskAppConfig,
     create_task_app,
+    merge_dot_overrides,
+    resolve_backend_api_base,
+    run_in_process_job,
+    run_in_process_job_sync,
 )
 
 # Training
-from synth_ai.sdk.training import (
-    PromptLearningJob,
-    PromptLearningJobConfig,
-    SFTJob,
-)
+from synth_ai.sdk.training import PromptLearningJob, PromptLearningJobConfig, SFTJob
 
 __all__ = [
     # Training
@@ -66,6 +67,11 @@ __all__ = [
     "SFTJob",
     # Task Apps
     "InProcessTaskApp",
+    "InProcessJobResult",
+    "merge_dot_overrides",
+    "resolve_backend_api_base",
+    "run_in_process_job",
+    "run_in_process_job_sync",
     "TaskAppConfig",
     "create_task_app",
     # Judging
@@ -86,4 +92,3 @@ __all__ = [
     # Jobs API Client
     "JobsClient",
 ]
-

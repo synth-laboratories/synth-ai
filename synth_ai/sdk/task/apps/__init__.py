@@ -7,7 +7,7 @@ import sys
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-
+from typing import List
 from ..server import TaskAppConfig
 
 
@@ -66,7 +66,7 @@ class TaskAppRegistry:
             raise KeyError(f"Unknown task app id: {app_id}")
         return self._entries[resolved]
 
-    def list(self) -> list[TaskAppEntry]:
+    def list(self) -> List[TaskAppEntry]:
         return sorted(self._entries.values(), key=lambda entry: entry.app_id)
 
     def __iter__(self) -> Iterable[TaskAppEntry]:

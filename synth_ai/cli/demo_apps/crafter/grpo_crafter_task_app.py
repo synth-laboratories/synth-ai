@@ -25,7 +25,7 @@ from synth_ai.sdk.task.server import TaskAppConfig, create_task_app, run_task_ap
 def _load_build_config():
     import synth_ai
 
-    synth_ai_path = Path(synth_ai.__file__).resolve().parent.parent
+    synth_ai_path = Path(synth_ai.__file__ or Path(__file__).resolve()).resolve().parent.parent
     module_path = synth_ai_path / "examples" / "warming_up_to_rl" / "task_app" / "grpo_crafter.py"
 
     if not module_path.exists():
