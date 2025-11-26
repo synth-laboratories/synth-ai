@@ -133,8 +133,8 @@ async def _verify_tunnel_ready(
     tunnel_url: str,
     api_key: str,
     *,
-    max_retries: int = 15,
-    retry_delay: float = 2.0,
+    max_retries: int | None = None,
+    retry_delay: float | None = None,
     timeout_per_request: float = 10.0,
     verify_tls: bool = True,
 ) -> bool:
@@ -143,7 +143,25 @@ async def _verify_tunnel_ready(
     
     A tunnel can resolve via DNS before HTTP routing is ready. This helper polls both
     /health and /task_info until they return 200 or retries are exhausted.
+    
+    Environment variables for tuning:
+        SYNTH_TUNNEL_VERIFY_MAX_RETRIES: Number of retry attempts (default: 30)
+        SYNTH_TUNNEL_VERIFY_DELAY_SECS: Delay between retries in seconds (default: 2.0)
+    
+    With defaults, waits up to 60 seconds for tunnel to become ready.
     """
+    # Allow env var overrides for reliability tuning
+    if max_retries is None:
+        max_retries = int(os.getenv("SYNTH_TUNNEL_VERIFY_MAX_RETRIES", "30"))
+    if retry_delay is None:
+        retry_delay = float(os.getenv("SYNTH_TUNNEL_VERIFY_DELAY_SECS", "2.0"))
+    
+    # Initial delay before first check - tunnels often need a moment after DNS resolves
+    initial_delay = float(os.getenv("SYNTH_TUNNEL_VERIFY_INITIAL_DELAY_SECS", "3.0"))
+    if initial_delay > 0:
+        logger.debug(f"Waiting {initial_delay}s for tunnel to stabilize before verification...")
+        await asyncio.sleep(initial_delay)
+    
     base = tunnel_url.rstrip("/")
     headers = {
         "X-API-Key": api_key,
@@ -154,6 +172,8 @@ async def _verify_tunnel_ready(
         headers["X-API-Keys"] = ",".join(
             [api_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
         )
+    
+    logger.info(f"Verifying tunnel is routing traffic (max {max_retries} attempts, {retry_delay}s delay)...")
 
     for attempt in range(max_retries):
         try:
@@ -184,8 +204,16 @@ async def _verify_tunnel_ready(
             )
 
         if attempt < max_retries - 1:
+            # Log progress periodically (every 5 attempts)
+            if (attempt + 1) % 5 == 0:
+                elapsed = (attempt + 1) * retry_delay
+                remaining = (max_retries - attempt - 1) * retry_delay
+                logger.info(
+                    f"Still waiting for tunnel... ({elapsed:.0f}s elapsed, {remaining:.0f}s remaining)"
+                )
             await asyncio.sleep(retry_delay)
 
+    logger.warning(f"Tunnel verification exhausted after {max_retries} attempts")
     return False
 
 
@@ -275,8 +303,8 @@ class InProcessTaskApp:
             )
 
         # Validate tunnel_mode
-        if tunnel_mode not in ("quick",):
-            raise ValueError(f"tunnel_mode must be 'quick', got {tunnel_mode}")
+        if tunnel_mode not in ("local", "quick", "named"):
+            raise ValueError(f"tunnel_mode must be 'local', 'quick', or 'named', got {tunnel_mode}")
 
         # Validate task_app_path if provided
         if task_app_path:
@@ -429,32 +457,96 @@ class InProcessTaskApp:
             self.url = f"http://{self.host}:{self.port}"
             self._tunnel_proc = None
             logger.info(f"Using local mode: {self.url}")
-        elif mode == "quick":
-            # Quick tunnel mode: create tunnel with DNS verification and retry
-            logger.info("Opening Cloudflare quick tunnel...")
+        elif mode == "named":
+            # Named tunnel mode: use a pre-configured Cloudflare named tunnel
+            # This is more reliable than quick tunnels as DNS is already configured
+            # Requires: SYNTH_TUNNEL_HOSTNAME to specify which hostname to use
+            # The named tunnel must be running separately (cloudflared tunnel run <name>)
+            named_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
+            if not named_host:
+                raise ValueError(
+                    "SYNTH_TUNNEL_MODE=named requires SYNTH_TUNNEL_HOSTNAME to be set. "
+                    "Example: SYNTH_TUNNEL_HOSTNAME=local-api.usesynth.ai"
+                )
+            self.url = f"https://{named_host}"
+            self._tunnel_proc = None  # Named tunnel runs separately
+            
+            # Verify the named tunnel is accessible
             api_key = self.api_key or self._get_api_key()
-            self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(self.port, api_key=api_key)
-            
-            # Apply hostname override if provided
-            if override_host:
-                parsed = urlparse(self.url)
-                self.url = f"{parsed.scheme}://{override_host}"
-                logger.info(f"Overriding hostname: {self.url}")
-            
-            logger.info(f"Tunnel opened and verified: {self.url}")
-
-            # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
             ready = await _verify_tunnel_ready(
                 self.url,
                 api_key,
+                max_retries=5,  # Fewer retries - named tunnel should work immediately
+                retry_delay=2.0,
                 verify_tls=_should_verify_tls(),
             )
             if not ready:
                 raise RuntimeError(
-                    f"Tunnel resolved but is not routing traffic after verification attempts: {self.url}. "
-                    "Try setting SYNTH_TUNNEL_MODE=local if the backend can reach localhost, "
-                    "or rerun to re-establish the tunnel."
+                    f"Named tunnel {self.url} is not accessible. "
+                    "Ensure cloudflared tunnel is running: `cloudflared tunnel run <tunnel-name>`"
                 )
+            logger.info(f"Using named tunnel: {self.url}")
+        elif mode == "quick":
+            # Quick tunnel mode: create tunnel with DNS verification and retry
+            # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
+            api_key = self.api_key or self._get_api_key()
+            max_tunnel_attempts = int(os.getenv("SYNTH_TUNNEL_MAX_ATTEMPTS", "3"))
+            
+            for tunnel_attempt in range(max_tunnel_attempts):
+                if tunnel_attempt > 0:
+                    logger.warning(
+                        f"Tunnel attempt {tunnel_attempt + 1}/{max_tunnel_attempts} - "
+                        "requesting fresh tunnel..."
+                    )
+                    # Kill the previous tunnel process if it exists
+                    if self._tunnel_proc:
+                        try:
+                            self._tunnel_proc.terminate()
+                            await asyncio.sleep(1)
+                        except Exception:
+                            pass
+                
+                logger.info("Opening Cloudflare quick tunnel...")
+                try:
+                    self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(
+                        self.port, api_key=api_key
+                    )
+                except Exception as e:
+                    logger.warning(f"Tunnel creation failed: {e}")
+                    if tunnel_attempt == max_tunnel_attempts - 1:
+                        raise
+                    continue
+                
+                # Apply hostname override if provided
+                if override_host:
+                    parsed = urlparse(self.url)
+                    self.url = f"{parsed.scheme}://{override_host}"
+                    logger.info(f"Overriding hostname: {self.url}")
+                
+                logger.info(f"Tunnel opened: {self.url}")
+
+                # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
+                ready = await _verify_tunnel_ready(
+                    self.url,
+                    api_key,
+                    verify_tls=_should_verify_tls(),
+                )
+                if ready:
+                    logger.info(f"Tunnel verified and ready: {self.url}")
+                    break
+                else:
+                    logger.warning(
+                        f"Tunnel {self.url} not routing traffic after verification. "
+                        f"{'Retrying with fresh tunnel...' if tunnel_attempt < max_tunnel_attempts - 1 else 'Giving up.'}"
+                    )
+                    if tunnel_attempt == max_tunnel_attempts - 1:
+                        raise RuntimeError(
+                            f"Failed to establish working tunnel after {max_tunnel_attempts} attempts. "
+                            f"Last tunnel URL: {self.url}. "
+                            "This may indicate Cloudflare rate limiting or network issues. "
+                            "Try: SYNTH_TUNNEL_MODE=local if the backend can reach localhost, "
+                            "or use a named Cloudflare tunnel instead of quick tunnels."
+                        )
         else:
             raise ValueError(f"Unknown SYNTH_TUNNEL_MODE: {mode}")
 
