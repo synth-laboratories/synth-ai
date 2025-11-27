@@ -217,13 +217,86 @@ async def _verify_tunnel_ready(
     return False
 
 
+async def _verify_preconfigured_url_ready(
+    tunnel_url: str,
+    api_key: str,
+    *,
+    extra_headers: Optional[dict[str, str]] = None,
+    max_retries: int = 10,
+    retry_delay: float = 1.0,
+    timeout_per_request: float = 10.0,
+) -> bool:
+    """
+    Verify that a preconfigured tunnel URL is routing traffic.
+    
+    This is similar to _verify_tunnel_ready but designed for external tunnel
+    providers (ngrok, etc.) where we don't control the tunnel setup.
+    
+    Args:
+        tunnel_url: The external tunnel URL to verify
+        api_key: API key for task app authentication
+        extra_headers: Additional headers for the tunnel (e.g., auth tokens)
+        max_retries: Number of retry attempts
+        retry_delay: Delay between retries in seconds
+        timeout_per_request: Timeout for each HTTP request
+        
+    Returns:
+        True if tunnel is accessible, False otherwise
+    """
+    base = tunnel_url.rstrip("/")
+    headers = {
+        "X-API-Key": api_key,
+        "Authorization": f"Bearer {api_key}",
+    }
+    
+    # Add any extra headers (e.g., custom auth tokens)
+    if extra_headers:
+        headers.update(extra_headers)
+    
+    logger.info(f"Verifying preconfigured URL is accessible (max {max_retries} attempts)...")
+    
+    for attempt in range(max_retries):
+        try:
+            # Use verify=False since external tunnels may have different certs
+            async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
+                health = await client.get(f"{base}/health", headers=headers)
+            
+            # Accept various success codes - the tunnel is working if we get any response
+            if health.status_code in (200, 400, 401, 403, 404, 405):
+                logger.info(
+                    f"Preconfigured URL ready after {attempt + 1} attempt(s): "
+                    f"health={health.status_code}"
+                )
+                return True
+            
+            logger.debug(
+                "Preconfigured URL not ready (attempt %s/%s): health=%s",
+                attempt + 1,
+                max_retries,
+                health.status_code,
+            )
+        except Exception as exc:
+            logger.debug(
+                "Preconfigured URL check failed (attempt %s/%s): %s",
+                attempt + 1,
+                max_retries,
+                exc,
+            )
+        
+        if attempt < max_retries - 1:
+            await asyncio.sleep(retry_delay)
+    
+    logger.warning(f"Preconfigured URL verification exhausted after {max_retries} attempts")
+    return False
+
+
 class InProcessTaskApp:
     """
-    Context manager for running task apps in-process with automatic Cloudflare tunnels.
+    Context manager for running task apps in-process with automatic tunneling.
     
     This class simplifies local development and demos by:
     1. Starting a task app server in a background thread
-    2. Opening a Cloudflare tunnel automatically
+    2. Opening a tunnel automatically (Cloudflare by default, or use preconfigured URL)
     3. Providing the tunnel URL for GEPA/MIPRO jobs
     4. Cleaning up everything on exit
     
@@ -233,17 +306,33 @@ class InProcessTaskApp:
     - Config factory function (Callable[[], TaskAppConfig])
     - Task app file path (fallback for compatibility)
     
+    Tunnel modes:
+    - "quick": Cloudflare quick tunnel (default for local dev)
+    - "named": Cloudflare named/managed tunnel
+    - "local": No tunnel, use localhost URL directly
+    - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
+      SYNTH_TASK_APP_URL env var). Useful for ngrok or other external tunnel providers.
+    
     Example:
         ```python
         from synth_ai.sdk.task.in_process import InProcessTaskApp
         from heartdisease_task_app import build_config
         
+        # Default: use Cloudflare quick tunnel
         async with InProcessTaskApp(
             config_factory=build_config,
             port=8114,
         ) as task_app:
             print(f"Task app running at: {task_app.url}")
-            # Use task_app.url for GEPA jobs
+        
+        # Use preconfigured URL (e.g., from ngrok, localtunnel, etc.)
+        async with InProcessTaskApp(
+            config_factory=build_config,
+            port=8000,
+            tunnel_mode="preconfigured",
+            preconfigured_url="https://abc123.ngrok.io",
+        ) as task_app:
+            print(f"Task app running at: {task_app.url}")
         ```
     """
 
@@ -257,9 +346,13 @@ class InProcessTaskApp:
         port: int = 8114,
         host: str = "127.0.0.1",
         tunnel_mode: str = "quick",
+        preconfigured_url: Optional[str] = None,
+        preconfigured_auth_header: Optional[str] = None,
+        preconfigured_auth_token: Optional[str] = None,
         api_key: Optional[str] = None,
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
+        skip_tunnel_verification: bool = False,
         on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
         on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
     ):
@@ -272,11 +365,18 @@ class InProcessTaskApp:
             config_factory: Callable that returns TaskAppConfig
             task_app_path: Path to task app .py file (fallback)
             port: Local port to run server on
-            host: Host to bind to (default: 127.0.0.1, must be localhost)
-            tunnel_mode: Tunnel mode ("quick" for ephemeral tunnels)
+            host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
+            tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
+            preconfigured_url: External tunnel URL to use when tunnel_mode="preconfigured".
+                              Can also be set via SYNTH_TASK_APP_URL env var.
+            preconfigured_auth_header: Optional auth header name for preconfigured URL
+                                       (e.g., "x-custom-auth-token")
+            preconfigured_auth_token: Optional auth token value for preconfigured URL
             api_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
             health_check_timeout: Max time to wait for health check in seconds
             auto_find_port: If True, automatically find available port if requested port is busy
+            skip_tunnel_verification: If True, skip HTTP verification of tunnel connectivity.
+                                      Useful when the tunnel URL is known to be valid.
             on_start: Optional callback called when task app starts (receives self)
             on_stop: Optional callback called when task app stops (receives self)
             
@@ -295,7 +395,7 @@ class InProcessTaskApp:
         if not (1024 <= port <= 65535):
             raise ValueError(f"Port must be in range [1024, 65535], got {port}")
 
-        # Validate host (must be localhost for security)
+        # Validate host (allow 0.0.0.0 for container environments)
         allowed_hosts = ("127.0.0.1", "localhost", "0.0.0.0")
         if host not in allowed_hosts:
             raise ValueError(
@@ -303,8 +403,9 @@ class InProcessTaskApp:
             )
 
         # Validate tunnel_mode
-        if tunnel_mode not in ("local", "quick", "named"):
-            raise ValueError(f"tunnel_mode must be 'local', 'quick', or 'named', got {tunnel_mode}")
+        valid_modes = ("local", "quick", "named", "preconfigured")
+        if tunnel_mode not in valid_modes:
+            raise ValueError(f"tunnel_mode must be one of {valid_modes}, got {tunnel_mode}")
 
         # Validate task_app_path if provided
         if task_app_path:
@@ -324,9 +425,13 @@ class InProcessTaskApp:
         self.port = port
         self.host = host
         self.tunnel_mode = tunnel_mode
+        self.preconfigured_url = preconfigured_url
+        self.preconfigured_auth_header = preconfigured_auth_header
+        self.preconfigured_auth_token = preconfigured_auth_token
         self.api_key = api_key
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
+        self.skip_tunnel_verification = skip_tunnel_verification
         self.on_start = on_start
         self.on_stop = on_stop
 
@@ -336,6 +441,7 @@ class InProcessTaskApp:
         self._uvicorn_server: Optional[uvicorn.Server] = None
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
+        self._is_preconfigured = False  # Track if using preconfigured URL
 
     async def __aenter__(self) -> InProcessTaskApp:
         """Start task app and tunnel."""
@@ -445,14 +551,56 @@ class InProcessTaskApp:
         )
         logger.info(f"Health check passed for {self.host}:{self.port}")
 
-        # 4. Ensure cloudflared is installed
-        ensure_cloudflared_installed()
-
-        # 5. Open tunnel with DNS verification and retry logic
+        # 4. Determine tunnel mode (env var can override)
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
+        
+        # Check for preconfigured URL via env var
+        env_preconfigured_url = os.getenv("SYNTH_TASK_APP_URL")
+        if env_preconfigured_url:
+            mode = "preconfigured"
+            self.preconfigured_url = env_preconfigured_url
+            logger.info(f"Using preconfigured URL from SYNTH_TASK_APP_URL: {env_preconfigured_url}")
+        
         override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
         
-        if mode == "local":
+        if mode == "preconfigured":
+            # Preconfigured mode: use externally-provided URL (e.g., ngrok, localtunnel)
+            # This bypasses Cloudflare entirely - the caller is responsible for the tunnel
+            if not self.preconfigured_url:
+                raise ValueError(
+                    "tunnel_mode='preconfigured' requires preconfigured_url parameter "
+                    "or SYNTH_TASK_APP_URL environment variable"
+                )
+            
+            self.url = self.preconfigured_url.rstrip("/")
+            self._tunnel_proc = None
+            self._is_preconfigured = True
+            logger.info(f"Using preconfigured tunnel URL: {self.url}")
+            
+            # Optionally verify the preconfigured URL is accessible
+            if not self.skip_tunnel_verification:
+                api_key = self.api_key or self._get_api_key()
+                
+                # Build headers including any custom auth for the tunnel
+                extra_headers: dict[str, str] = {}
+                if self.preconfigured_auth_header and self.preconfigured_auth_token:
+                    extra_headers[self.preconfigured_auth_header] = self.preconfigured_auth_token
+                
+                ready = await _verify_preconfigured_url_ready(
+                    self.url,
+                    api_key,
+                    extra_headers=extra_headers,
+                    max_retries=10,  # Fewer retries - external URL should work quickly
+                    retry_delay=1.0,
+                )
+                if ready:
+                    logger.info(f"Preconfigured URL verified and ready: {self.url}")
+                else:
+                    logger.warning(
+                        f"Preconfigured URL {self.url} may not be accessible. "
+                        "Proceeding anyway - set skip_tunnel_verification=True to suppress this warning."
+                    )
+        elif mode == "local":
             # Local mode: skip tunnel, use localhost
             self.url = f"http://{self.host}:{self.port}"
             self._tunnel_proc = None
@@ -461,6 +609,7 @@ class InProcessTaskApp:
             # Named tunnel mode: use a pre-configured Cloudflare named tunnel
             # Fetches the customer's tunnel hostname from the backend using their Synth API key
             # The named tunnel must be running separately (cloudflared tunnel run <name>)
+            ensure_cloudflared_installed()
             
             # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
             from synth_ai.core.env import get_api_key as get_synth_api_key
@@ -504,6 +653,8 @@ class InProcessTaskApp:
         elif mode == "quick":
             # Quick tunnel mode: create tunnel with DNS verification and retry
             # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
+            ensure_cloudflared_installed()
+            
             api_key = self.api_key or self._get_api_key()
             max_tunnel_attempts = int(os.getenv("SYNTH_TUNNEL_MAX_ATTEMPTS", "3"))
             
