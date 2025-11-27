@@ -538,10 +538,10 @@ def resolve_adaptive_batch_config(
 
 class MIPROConfig(ExtraModel):
     """MIPRO-specific configuration.
-    
+
     MIPROv2 uses meta-learning with bootstrap phase, TPE optimization, and mini-batch evaluation
     to efficiently optimize prompts with fewer evaluations than genetic algorithms.
-    
+
     Attributes:
         proposer_effort: Effort level for proposer model selection. Controls which model
             is used for generating prompt proposals. Default: "LOW".
@@ -558,6 +558,13 @@ class MIPROConfig(ExtraModel):
                 and gpt-oss-120b model. Use for short, focused proposals.
             - "FAST": 10000 tokens max. Good balance. Works with any effort level.
             - "SLOW": 25000 tokens max. Allows longer proposals. Use for complex prompts.
+        min_bootstrap_demos: Minimum number of qualified bootstrap demonstrations required.
+            Default: None (no minimum). If set, bootstrap phase will fail early if fewer than
+            this many demos pass the few_shot_score_threshold. Use with strict_bootstrap=True
+            for fail-fast behavior.
+        strict_bootstrap: If True, fail immediately when bootstrap doesn't produce enough
+            qualified demos (< min_bootstrap_demos). Default: False. When False, optimization
+            continues but may produce suboptimal results with insufficient demos.
     """
     task_app_url: str | None = None
     task_app_api_key: str | None = None
@@ -621,15 +628,20 @@ class MIPROConfig(ExtraModel):
     
     # Bootstrap seeds (for few-shot examples)
     bootstrap_train_seeds: list[int] | None = None
-    
+
     # Online pool (for mini-batch evaluation)
     online_pool: list[int] | None = None
-    
+
     # Test pool (held-out seeds)
     test_pool: list[int] | None = None
-    
+
     # Reference pool (for dataset context in meta-prompt, must not overlap with train/test)
     reference_pool: list[int] | None = None
+
+    # Strict bootstrap mode: minimum qualified demos required
+    # If fewer demos qualify (score >= few_shot_score_threshold), job fails early with clear error
+    # Default: 0 (no minimum - current behavior for backwards compatibility)
+    min_bootstrap_demos: int = 0
 
     @classmethod
     def simple(

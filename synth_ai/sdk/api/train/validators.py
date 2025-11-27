@@ -1317,7 +1317,23 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                         errors.append("prompt_learning.mipro.few_shot_score_threshold must be between 0.0 and 1.0")
                 except Exception:
                     errors.append("prompt_learning.mipro.few_shot_score_threshold must be a number")
-            
+
+            # Validate min_bootstrap_demos (strict bootstrap mode)
+            min_bootstrap_demos = mipro_config.get("min_bootstrap_demos")
+            if min_bootstrap_demos is not None:
+                try:
+                    min_demos_int = int(min_bootstrap_demos)
+                    if min_demos_int < 0:
+                        errors.append("prompt_learning.mipro.min_bootstrap_demos must be >= 0")
+                    elif bootstrap_seeds and min_demos_int > len(bootstrap_seeds):
+                        errors.append(
+                            f"prompt_learning.mipro.min_bootstrap_demos ({min_demos_int}) exceeds "
+                            f"bootstrap_train_seeds count ({len(bootstrap_seeds)}). "
+                            f"You can never have more demos than bootstrap seeds."
+                        )
+                except (TypeError, ValueError):
+                    errors.append("prompt_learning.mipro.min_bootstrap_demos must be an integer")
+
             # Validate reference pool doesn't overlap with bootstrap/online/test pools
             reference_pool = mipro_config.get("reference_pool") or pl_section.get("reference_pool")
             if reference_pool:
