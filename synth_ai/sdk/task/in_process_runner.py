@@ -1,15 +1,22 @@
 """SDK helper for running prompt-learning and RL jobs against a tunneled task app.
 
 This module keeps everything in-process:
-1) Spins up a FastAPI task app via InProcessTaskApp (with tunnel - Cloudflare by default,
-   or preconfigured URL for environments like Daytona)
-2) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
-3) Submits jobs to the remote backend using SDK clients (no local optimizer imports)
-4) Optionally polls until completion and returns a structured result
+1) Spins up a FastAPI task app via InProcessTaskApp
+2) Opens a tunnel (Cloudflare by default, or uses preconfigured URL)
+3) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
+4) Submits jobs to the remote backend using SDK clients
+5) Optionally polls until completion and returns a structured result
 
-For environments where Cloudflare tunnels don't work (e.g., Daytona sandboxes),
-use tunnel_mode="preconfigured" with preconfigured_url parameter, or set
-SYNTH_TASK_APP_URL environment variable.
+Tunnel Modes:
+- "quick" (default): Creates Cloudflare quick tunnel - works for local development
+- "named": Uses Cloudflare managed tunnel (requires setup)
+- "local": No tunnel, uses localhost URL directly
+- "preconfigured": Uses externally-provided URL - for container environments
+  (Daytona, ngrok, etc.) where Cloudflare tunnels don't work
+
+Environment Variables:
+- SYNTH_TASK_APP_URL: If set, auto-enables preconfigured mode with this URL
+- SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
 """
 
 from __future__ import annotations
