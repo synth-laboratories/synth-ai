@@ -230,12 +230,12 @@ async def _verify_preconfigured_url_ready(
     Verify that a preconfigured tunnel URL is routing traffic.
     
     This is similar to _verify_tunnel_ready but designed for external tunnel
-    providers (Daytona, ngrok, etc.) where we don't control the tunnel setup.
+    providers (ngrok, etc.) where we don't control the tunnel setup.
     
     Args:
         tunnel_url: The external tunnel URL to verify
         api_key: API key for task app authentication
-        extra_headers: Additional headers for the tunnel (e.g., Daytona preview token)
+        extra_headers: Additional headers for the tunnel (e.g., auth tokens)
         max_retries: Number of retry attempts
         retry_delay: Delay between retries in seconds
         timeout_per_request: Timeout for each HTTP request
@@ -249,12 +249,9 @@ async def _verify_preconfigured_url_ready(
         "Authorization": f"Bearer {api_key}",
     }
     
-    # Add any extra headers (e.g., x-daytona-preview-token)
+    # Add any extra headers (e.g., custom auth tokens)
     if extra_headers:
         headers.update(extra_headers)
-    
-    # Also add Daytona skip warning header by default for convenience
-    headers["X-Daytona-Skip-Preview-Warning"] = "true"
     
     logger.info(f"Verifying preconfigured URL is accessible (max {max_retries} attempts)...")
     
@@ -314,7 +311,7 @@ class InProcessTaskApp:
     - "named": Cloudflare named/managed tunnel
     - "local": No tunnel, use localhost URL directly
     - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
-      SYNTH_TASK_APP_URL env var). Useful for Daytona, ngrok, or other tunnel providers.
+      SYNTH_TASK_APP_URL env var). Useful for ngrok or other external tunnel providers.
     
     Example:
         ```python
@@ -328,12 +325,12 @@ class InProcessTaskApp:
         ) as task_app:
             print(f"Task app running at: {task_app.url}")
         
-        # Use preconfigured URL (e.g., from Daytona preview, ngrok, etc.)
+        # Use preconfigured URL (e.g., from ngrok, localtunnel, etc.)
         async with InProcessTaskApp(
             config_factory=build_config,
             port=8000,
             tunnel_mode="preconfigured",
-            preconfigured_url="https://8000-sandbox123.proxy.daytona.work",
+            preconfigured_url="https://abc123.ngrok.io",
         ) as task_app:
             print(f"Task app running at: {task_app.url}")
         ```
@@ -373,7 +370,7 @@ class InProcessTaskApp:
             preconfigured_url: External tunnel URL to use when tunnel_mode="preconfigured".
                               Can also be set via SYNTH_TASK_APP_URL env var.
             preconfigured_auth_header: Optional auth header name for preconfigured URL
-                                       (e.g., "x-daytona-preview-token")
+                                       (e.g., "x-custom-auth-token")
             preconfigured_auth_token: Optional auth token value for preconfigured URL
             api_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
             health_check_timeout: Max time to wait for health check in seconds
@@ -398,7 +395,7 @@ class InProcessTaskApp:
         if not (1024 <= port <= 65535):
             raise ValueError(f"Port must be in range [1024, 65535], got {port}")
 
-        # Validate host (allow 0.0.0.0 for container environments like Daytona)
+        # Validate host (allow 0.0.0.0 for container environments)
         allowed_hosts = ("127.0.0.1", "localhost", "0.0.0.0")
         if host not in allowed_hosts:
             raise ValueError(
@@ -567,7 +564,7 @@ class InProcessTaskApp:
         override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
         
         if mode == "preconfigured":
-            # Preconfigured mode: use externally-provided URL (e.g., Daytona preview, ngrok)
+            # Preconfigured mode: use externally-provided URL (e.g., ngrok, localtunnel)
             # This bypasses Cloudflare entirely - the caller is responsible for the tunnel
             if not self.preconfigured_url:
                 raise ValueError(

@@ -12,7 +12,7 @@ Tunnel Modes:
 - "named": Uses Cloudflare managed tunnel (requires setup)
 - "local": No tunnel, uses localhost URL directly
 - "preconfigured": Uses externally-provided URL - for container environments
-  (Daytona, ngrok, etc.) where Cloudflare tunnels don't work
+  (ngrok, etc.) where Cloudflare tunnels don't work
 
 Environment Variables:
 - SYNTH_TASK_APP_URL: If set, auto-enables preconfigured mode with this URL
