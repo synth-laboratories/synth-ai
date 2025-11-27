@@ -2143,36 +2143,62 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
                                             f"❌ mipro.modules[{module_idx}].stages[{stage_idx}].max_demo_slots must be an integer"
                                         )
                                 
-                                # Validate per-stage policy config (REQUIRED)
+                                # Validate per-stage policy config
+                                # Policy is OPTIONAL if top-level [prompt_learning.policy] has model+provider
+                                # Policy is REQUIRED if no valid top-level policy exists
                                 stage_policy = stage_entry.get("policy")
+                                has_top_level_policy = (
+                                    isinstance(policy_section, dict) and 
+                                    policy_section.get("model") and 
+                                    policy_section.get("provider")
+                                )
+                                
                                 if stage_policy is None:
-                                    errors.append(
-                                        f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] table is REQUIRED. "
-                                        f"Each stage must have its own policy configuration with 'model' and 'provider' fields."
-                                    )
+                                    # No per-stage policy - only error if no top-level fallback
+                                    if not has_top_level_policy:
+                                        errors.append(
+                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] is required. "
+                                            f"Either add [prompt_learning.policy] with model+provider (applies to all stages), "
+                                            f"OR add [prompt_learning.mipro.modules.stages.policy] for this stage."
+                                        )
                                 elif not isinstance(stage_policy, dict):
                                     errors.append(
                                         f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy] must be a table/dict, got {type(stage_policy).__name__}"
                                     )
                                 else:
-                                    # Validate required fields in stage policy
-                                    if not stage_policy.get("model"):
-                                        errors.append(
-                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].model is required"
-                                        )
-                                    if not stage_policy.get("provider"):
-                                        errors.append(
-                                            f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].provider is required"
-                                        )
-                                    # Validate model/provider combination
+                                    # Per-stage policy exists - validate it (model/provider can inherit from top-level)
                                     stage_model = stage_policy.get("model")
                                     stage_provider = stage_policy.get("provider")
-                                    if stage_model and stage_provider:
+                                    
+                                    # If stage specifies model, it must also specify provider (and vice versa)
+                                    # Unless inheriting from top-level
+                                    if stage_model and not stage_provider:
+                                        if has_top_level_policy:
+                                            # Inherit provider from top-level
+                                            stage_provider = policy_section.get("provider")
+                                        else:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].provider is required when model is specified"
+                                            )
+                                    elif stage_provider and not stage_model:
+                                        if has_top_level_policy:
+                                            # Inherit model from top-level
+                                            stage_model = policy_section.get("model")
+                                        else:
+                                            errors.append(
+                                                f"❌ mipro.modules[{module_idx}].stages[{stage_idx}]: [policy].model is required when provider is specified"
+                                            )
+                                    
+                                    # Validate model/provider combination if both are available
+                                    effective_model = stage_model or (policy_section.get("model") if has_top_level_policy else None)
+                                    effective_provider = stage_provider or (policy_section.get("provider") if has_top_level_policy else None)
+                                    if effective_model and effective_provider:
                                         errors.extend(_validate_model_for_provider(
-                                            stage_model, stage_provider,
+                                            effective_model, effective_provider,
                                             f"prompt_learning.mipro.modules[{module_idx}].stages[{stage_idx}].policy.model",
                                             allow_nano=True,  # Policy models can be nano
                                         ))
+                                    
                                     # Reject inference_url in stage policy (trainer provides it)
                                     if "inference_url" in stage_policy:
                                         errors.append(
@@ -2243,14 +2269,48 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
         elif len(initial_prompt.get("messages", [])) == 0:
             errors.append("❌ [prompt_learning.initial_prompt].messages cannot be empty")
     
-    # Check policy section
-    if not isinstance(policy_section, dict):
-        errors.append("❌ [prompt_learning.policy] section is missing or invalid")
+    # Check policy section - EITHER top-level OR per-stage policies required
+    # First, check if all stages have their own policy
+    all_stages_have_policy = True
+    if isinstance(modules_config, list):
+        for module_entry in modules_config:
+            if isinstance(module_entry, dict):
+                stages = module_entry.get("stages")
+                if isinstance(stages, list):
+                    for stage_entry in stages:
+                        if isinstance(stage_entry, dict):
+                            stage_policy = stage_entry.get("policy")
+                            if not isinstance(stage_policy, dict) or not stage_policy.get("model") or not stage_policy.get("provider"):
+                                all_stages_have_policy = False
+                                break
+                    if not all_stages_have_policy:
+                        break
     else:
-        if not policy_section.get("model"):
-            errors.append("❌ [prompt_learning.policy].model is required")
-        if not policy_section.get("provider"):
-            errors.append("❌ [prompt_learning.policy].provider is required")
+        all_stages_have_policy = False  # No modules means we need top-level policy
+    
+    has_valid_top_level_policy = (
+        isinstance(policy_section, dict) and 
+        policy_section.get("model") and 
+        policy_section.get("provider")
+    )
+    
+    # Only require top-level policy if NOT all stages have their own
+    if not has_valid_top_level_policy and not all_stages_have_policy:
+        if not isinstance(policy_section, dict):
+            errors.append(
+                "❌ [prompt_learning.policy] section is missing. "
+                "Either add [prompt_learning.policy] with model+provider (applies to all stages), "
+                "OR add [policy] to each stage in [prompt_learning.mipro.modules.stages]."
+            )
+        else:
+            if not policy_section.get("model"):
+                errors.append(
+                    "❌ [prompt_learning.policy].model is required (unless all stages have their own [policy].model)"
+                )
+            if not policy_section.get("provider"):
+                errors.append(
+                    "❌ [prompt_learning.policy].provider is required (unless all stages have their own [policy].provider)"
+                )
     
     # Validate proxy_models section (can be at top-level or mipro-specific)
     proxy_models_section = pl_section.get("proxy_models") or mipro_section.get("proxy_models")
