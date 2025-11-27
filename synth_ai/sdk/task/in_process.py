@@ -257,12 +257,11 @@ async def _verify_preconfigured_url_ready(
     
     for attempt in range(max_retries):
         try:
-            # Use verify=False since external tunnels may have different certs
-            async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
+            async with httpx.AsyncClient(timeout=timeout_per_request) as client:
                 health = await client.get(f"{base}/health", headers=headers)
             
-            # Accept various success codes - the tunnel is working if we get any response
-            if health.status_code in (200, 400, 401, 403, 404, 405):
+            # Only accept 200 for health checks - other codes may indicate misrouting
+            if health.status_code == 200:
                 logger.info(
                     f"Preconfigured URL ready after {attempt + 1} attempt(s): "
                     f"health={health.status_code}"
