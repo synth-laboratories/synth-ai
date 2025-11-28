@@ -416,3 +416,35 @@ class TestResearchAgentJob:
         job = ResearchAgentJob(config=config)
         with pytest.raises(RuntimeError, match="not submitted yet"):
             job.get_status()
+
+    def test_submit_gepa_not_implemented(self) -> None:
+        """Test that GEPA raises NotImplementedError on submit."""
+        research = ResearchConfig(
+            task_description="Test",
+            tools=[OptimizationTool.GEPA],
+        )
+        config = ResearchAgentJobConfig(
+            research=research,
+            repo_url="https://github.com/test/repo",
+            backend_url="https://api.usesynth.ai",
+            api_key="test-key",
+        )
+        job = ResearchAgentJob(config=config)
+        with pytest.raises(NotImplementedError, match="GEPA optimization is not yet fully supported"):
+            job.submit()
+
+    def test_submit_gepa_with_mipro_not_implemented(self) -> None:
+        """Test that using both MIPRO and GEPA raises NotImplementedError."""
+        research = ResearchConfig(
+            task_description="Test",
+            tools=[OptimizationTool.MIPRO, OptimizationTool.GEPA],
+        )
+        config = ResearchAgentJobConfig(
+            research=research,
+            repo_url="https://github.com/test/repo",
+            backend_url="https://api.usesynth.ai",
+            api_key="test-key",
+        )
+        job = ResearchAgentJob(config=config)
+        with pytest.raises(NotImplementedError, match="GEPA optimization is not yet fully supported"):
+            job.submit()

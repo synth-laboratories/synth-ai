@@ -534,9 +534,17 @@ class ResearchAgentJob:
 
         Raises:
             RuntimeError: If submission fails
+            NotImplementedError: If GEPA is requested (not yet supported)
         """
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
+
+        # Check for GEPA - not yet fully supported
+        if OptimizationTool.GEPA in self.config.research.tools:
+            raise NotImplementedError(
+                "GEPA optimization is not yet fully supported in the Research Agent SDK. "
+                "Please use MIPRO for now. GEPA support is coming soon."
+            )
 
         url = f"{self.config.backend_url.rstrip('/')}/api/research-agent/jobs"
         headers = {
