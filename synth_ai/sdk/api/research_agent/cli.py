@@ -31,7 +31,11 @@ def _print_event(event: dict[str, Any]) -> None:
 
 @click.group()
 def agent_cmd() -> None:
-    """Research Agent commands for AI-assisted code analysis and optimization."""
+    """Research Agent commands for AI-assisted prompt optimization.
+
+    Research Agents run in sandboxed environments and apply MIPRO optimization
+    to improve prompt performance on your datasets.
+    """
     pass
 
 
@@ -41,19 +45,13 @@ def agent_cmd() -> None:
     "-c",
     "config_path",
     type=click.Path(exists=True, path_type=Path),
-    help="Path to TOML config file",
-)
-@click.option(
-    "--algorithm",
-    "-a",
-    type=click.Choice(["scaffold_tuning", "evaluation", "trace_analysis"]),
-    help="Algorithm to run (overrides config)",
+    help="Path to TOML config file (recommended)",
 )
 @click.option(
     "--repo",
     "-r",
     "repo_url",
-    help="Repository URL (overrides config)",
+    help="Repository URL (alternative to config file)",
 )
 @click.option(
     "--branch",
@@ -61,6 +59,24 @@ def agent_cmd() -> None:
     "repo_branch",
     default="main",
     help="Repository branch",
+)
+@click.option(
+    "--task",
+    "-t",
+    "task_description",
+    help="Task description for the agent",
+)
+@click.option(
+    "--dataset",
+    "-d",
+    "dataset",
+    help="HuggingFace dataset ID (e.g., PolyAI/banking77)",
+)
+@click.option(
+    "--tool",
+    type=click.Choice(["mipro"]),
+    default="mipro",
+    help="Optimization tool to use",
 )
 @click.option(
     "--backend",
@@ -71,8 +87,33 @@ def agent_cmd() -> None:
 @click.option(
     "--model",
     "-m",
-    default="gpt-4o",
+    default="gpt-5.1-codex-mini",
     help="Model for the agent to use",
+)
+@click.option(
+    "--reasoning-effort",
+    type=click.Choice(["low", "medium", "high"]),
+    default="medium",
+    help="Reasoning effort level",
+)
+@click.option(
+    "--max-agent-spend",
+    type=float,
+    default=25.0,
+    help="Max spend for agent LLM calls (USD)",
+)
+@click.option(
+    "--max-synth-spend",
+    type=float,
+    default=150.0,
+    help="Max spend for optimization (USD)",
+)
+@click.option(
+    "--iterations",
+    "-n",
+    type=int,
+    default=10,
+    help="Number of optimization iterations",
 )
 @click.option(
     "--poll/--no-poll",
@@ -81,7 +122,6 @@ def agent_cmd() -> None:
 )
 @click.option(
     "--timeout",
-    "-t",
     type=float,
     default=3600.0,
     help="Timeout in seconds (for --poll)",
@@ -99,112 +139,195 @@ def agent_cmd() -> None:
 )
 def run_cmd(
     config_path: Optional[Path],
-    algorithm: Optional[str],
     repo_url: Optional[str],
     repo_branch: str,
+    task_description: Optional[str],
+    dataset: Optional[str],
+    tool: str,
     backend: str,
     model: str,
+    reasoning_effort: str,
+    max_agent_spend: float,
+    max_synth_spend: float,
+    iterations: int,
     poll: bool,
     timeout: float,
     api_key: Optional[str],
     backend_url: str,
 ) -> None:
-    """Run a research agent job.
+    """Run a research agent job for prompt optimization.
 
-    You can provide configuration via a TOML file or command-line options.
+    Provide configuration via a TOML file (recommended) or command-line options.
 
+    \b
     Examples:
+        # From config file (recommended)
+        synth-ai agent run --config research.toml --poll
 
-        # From config file
-        synth-ai agent run --config my_config.toml --poll
-
-        # Quick scaffold tuning job
+        # Quick job with CLI options
         synth-ai agent run \\
-            --algorithm scaffold_tuning \\
             --repo https://github.com/your-org/repo \\
-            --backend daytona
+            --task "Optimize intent classification accuracy" \\
+            --dataset PolyAI/banking77 \\
+            --iterations 10
 
+    \b
+    TOML Config Format:
+        [research_agent]
+        repo_url = "https://github.com/your-org/repo"
+        model = "gpt-5.1-codex-mini"
+        max_agent_spend_usd = 25.0
+
+        [research_agent.research]
+        task_description = "Optimize classification accuracy"
+        tools = ["mipro"]
+        num_iterations = 10
+
+        [[research_agent.research.datasets]]
+        source_type = "huggingface"
+        hf_repo_id = "PolyAI/banking77"
     """
+    from .config import DatasetSource, OptimizationTool, ResearchConfig
     from .job import ResearchAgentJob, ResearchAgentJobConfig
 
     if not api_key:
         click.secho("Error: SYNTH_API_KEY is required", fg="red", err=True)
+        click.echo("Set via --api-key or SYNTH_API_KEY environment variable")
         sys.exit(1)
 
-    # Build config
+    # Build config from TOML or CLI options
     if config_path:
         click.echo(f"Loading config from {config_path}...")
         config = ResearchAgentJobConfig.from_toml(config_path)
-        # api_key is guaranteed to be str at this point (checked above)
-        assert api_key is not None, "api_key should be set by this point"
         config.api_key = api_key
         config.backend_url = backend_url
 
-        # Apply CLI overrides
-        if algorithm:
-            config.algorithm = algorithm  # type: ignore
+        # Apply CLI overrides if provided
         if repo_url:
             config.repo_url = repo_url
         if repo_branch != "main":
             config.repo_branch = repo_branch
         if backend != "daytona":
             config.backend = backend  # type: ignore
-        if model != "gpt-4o":
+        if model != "gpt-5.1-codex-mini":
             config.model = model
+        if reasoning_effort != "medium":
+            config.reasoning_effort = reasoning_effort  # type: ignore
+        if max_agent_spend != 25.0:
+            config.max_agent_spend_usd = max_agent_spend
+        if max_synth_spend != 150.0:
+            config.max_synth_spend_usd = max_synth_spend
     else:
         # Build from CLI options
-        if not algorithm:
-            click.secho("Error: --algorithm is required when not using --config", fg="red", err=True)
-            sys.exit(1)
-        if not repo_url:
-            click.secho("Error: --repo is required when not using --config", fg="red", err=True)
+        if not repo_url and not task_description:
+            click.secho(
+                "Error: Either --config or (--repo and --task) required",
+                fg="red",
+                err=True,
+            )
+            click.echo("\nUse --config to load from a TOML file, or provide:")
+            click.echo("  --repo URL      Repository URL")
+            click.echo("  --task TEXT     Task description")
+            click.echo("  --dataset ID    HuggingFace dataset (optional)")
             sys.exit(1)
 
+        # Build datasets list
+        datasets = []
+        if dataset:
+            datasets.append(
+                DatasetSource(
+                    source_type="huggingface",
+                    hf_repo_id=dataset,
+                    hf_split="train",
+                )
+            )
+
+        # Build research config
+        research = ResearchConfig(
+            task_description=task_description or "Optimize prompt performance",
+            tools=[OptimizationTool.MIPRO] if tool == "mipro" else [],
+            datasets=datasets,
+            num_iterations=iterations,
+        )
+
         config = ResearchAgentJobConfig(
-            algorithm=algorithm,  # type: ignore
-            repo_url=repo_url,  # type: ignore[arg-type]
+            research=research,
+            repo_url=repo_url or "",
             repo_branch=repo_branch,
             backend=backend,  # type: ignore
             model=model,
+            reasoning_effort=reasoning_effort,  # type: ignore
+            max_agent_spend_usd=max_agent_spend,
+            max_synth_spend_usd=max_synth_spend,
             backend_url=backend_url,
-            api_key=api_key,  # type: ignore[arg-type]
+            api_key=api_key,
         )
 
     # Create and submit job
     job = ResearchAgentJob(config=config)
 
-    click.echo(f"Submitting {config.algorithm} job...")
-    click.echo(f"  Repository: {config.repo_url}")
-    click.echo(f"  Branch: {config.repo_branch}")
-    click.echo(f"  Backend: {config.backend}")
-    click.echo(f"  Model: {config.model}")
+    click.echo("\n" + "=" * 50)
+    click.echo("Research Agent Job")
+    click.echo("=" * 50)
+    click.echo(f"Repository: {config.repo_url or '(inline files)'}")
+    if config.repo_url:
+        click.echo(f"Branch: {config.repo_branch}")
+    click.echo(f"Model: {config.model}")
+    click.echo(f"Backend: {config.backend}")
+    click.echo(f"Tool: {', '.join(t.value for t in config.research.tools)}")
+    click.echo(f"Iterations: {config.research.num_iterations}")
+    click.echo(f"Max Agent Spend: ${config.max_agent_spend_usd:.2f}")
+    click.echo(f"Max Synth Spend: ${config.max_synth_spend_usd:.2f}")
+    click.echo("=" * 50 + "\n")
 
+    click.echo("Submitting job...")
     try:
         job_id = job.submit()
         click.secho(f"Job submitted: {job_id}", fg="green")
+    except NotImplementedError as e:
+        click.secho(f"Error: {e}", fg="red", err=True)
+        sys.exit(1)
     except Exception as e:
         click.secho(f"Failed to submit job: {e}", fg="red", err=True)
         sys.exit(1)
 
     if not poll:
         click.echo(f"\nTo check status: synth-ai agent status {job_id}")
+        click.echo(f"To stream events: synth-ai agent events {job_id} --follow")
         return
 
     # Poll for completion
-    click.echo("\nPolling for completion...")
+    click.echo("\nPolling for completion (this may take 15-30 minutes)...")
     try:
         result = job.poll_until_complete(
             timeout=timeout,
-            poll_interval=5.0,
+            poll_interval=15.0,
             on_event=_print_event,
         )
-        click.secho(f"\nJob completed: {result.get('status', 'unknown')}", fg="green")
+
+        status = result.get("status", "unknown")
+        click.echo("\n" + "=" * 50)
+
+        if status == "succeeded":
+            click.secho(f"Job completed: {status}", fg="green")
+        else:
+            click.secho(f"Job completed: {status}", fg="yellow")
 
         # Print summary
         if result.get("best_metric_value") is not None:
-            click.echo(f"Best metric value: {result['best_metric_value']}")
+            click.echo(f"Best metric: {result['best_metric_value']}")
+        if result.get("baseline_metric_value") is not None:
+            improvement = (
+                (result["best_metric_value"] - result["baseline_metric_value"])
+                / result["baseline_metric_value"]
+                * 100
+            )
+            click.echo(f"Improvement: {improvement:+.1f}%")
         if result.get("current_iteration"):
             click.echo(f"Iterations: {result['current_iteration']}")
+
+        click.echo("=" * 50)
+        click.echo(f"\nTo get results: synth-ai agent results {job_id}")
 
     except TimeoutError:
         click.secho(f"\nJob timed out after {timeout}s", fg="yellow", err=True)
@@ -230,7 +353,11 @@ def run_cmd(
     help="Backend API URL",
 )
 def status_cmd(job_id: str, api_key: Optional[str], backend_url: str) -> None:
-    """Get status of a research agent job."""
+    """Get status of a research agent job.
+
+    Example:
+        synth-ai agent status ra_abc123def456
+    """
     from .job import ResearchAgentJob
 
     if not api_key:
@@ -241,10 +368,18 @@ def status_cmd(job_id: str, api_key: Optional[str], backend_url: str) -> None:
 
     try:
         status = job.get_status()
-        click.echo(f"Job ID: {job_id}")
-        click.echo(f"Status: {status.get('status', 'unknown')}")
-        click.echo(f"Algorithm: {status.get('algorithm', 'unknown')}")
-        click.echo(f"Backend: {status.get('backend', 'unknown')}")
+
+        click.echo(f"Job: {job_id}")
+
+        job_status = status.get("status", "unknown")
+        if job_status == "succeeded":
+            click.secho(f"Status: {job_status}", fg="green")
+        elif job_status == "failed":
+            click.secho(f"Status: {job_status}", fg="red")
+        elif job_status == "running":
+            click.secho(f"Status: {job_status}", fg="cyan")
+        else:
+            click.echo(f"Status: {job_status}")
 
         if status.get("current_iteration"):
             total = status.get("total_iterations", "?")
@@ -252,6 +387,9 @@ def status_cmd(job_id: str, api_key: Optional[str], backend_url: str) -> None:
 
         if status.get("best_metric_value") is not None:
             click.echo(f"Best metric: {status['best_metric_value']}")
+
+        if status.get("created_at"):
+            click.echo(f"Created: {status['created_at']}")
 
         if status.get("error"):
             click.secho(f"Error: {status['error']}", fg="red")
@@ -293,7 +431,15 @@ def events_cmd(
     api_key: Optional[str],
     backend_url: str,
 ) -> None:
-    """Get events from a research agent job."""
+    """Stream events from a research agent job.
+
+    Examples:
+        # Show all events
+        synth-ai agent events ra_abc123
+
+        # Follow events in real-time
+        synth-ai agent events ra_abc123 --follow
+    """
     import time
 
     from .job import ResearchAgentJob
@@ -343,7 +489,11 @@ def events_cmd(
     help="Backend API URL",
 )
 def cancel_cmd(job_id: str, api_key: Optional[str], backend_url: str) -> None:
-    """Cancel a running research agent job."""
+    """Cancel a running research agent job.
+
+    Example:
+        synth-ai agent cancel ra_abc123def456
+    """
     from .job import ResearchAgentJob
 
     if not api_key:
@@ -384,7 +534,15 @@ def results_cmd(
     api_key: Optional[str],
     backend_url: str,
 ) -> None:
-    """Get results from a completed research agent job."""
+    """Get results from a completed research agent job.
+
+    Examples:
+        # Print results to stdout
+        synth-ai agent results ra_abc123
+
+        # Save to file
+        synth-ai agent results ra_abc123 -o results.json
+    """
     import json
 
     from .job import ResearchAgentJob
@@ -407,6 +565,101 @@ def results_cmd(
 
     except Exception as e:
         click.secho(f"Failed to get results: {e}", fg="red", err=True)
+        sys.exit(1)
+
+
+@agent_cmd.command("list")
+@click.option(
+    "--limit",
+    "-n",
+    type=int,
+    default=10,
+    help="Number of jobs to show",
+)
+@click.option(
+    "--status",
+    "-s",
+    "status_filter",
+    type=click.Choice(["queued", "running", "succeeded", "failed"]),
+    help="Filter by status",
+)
+@click.option(
+    "--api-key",
+    envvar="SYNTH_API_KEY",
+    help="Synth API key",
+)
+@click.option(
+    "--backend-url",
+    envvar="SYNTH_BACKEND_URL",
+    default="https://api.usesynth.ai",
+    help="Backend API URL",
+)
+def list_cmd(
+    limit: int,
+    status_filter: Optional[str],
+    api_key: Optional[str],
+    backend_url: str,
+) -> None:
+    """List recent research agent jobs.
+
+    Examples:
+        # Show last 10 jobs
+        synth-ai agent list
+
+        # Show running jobs
+        synth-ai agent list --status running
+
+        # Show last 20 jobs
+        synth-ai agent list -n 20
+    """
+    import httpx
+
+    if not api_key:
+        click.secho("Error: SYNTH_API_KEY is required", fg="red", err=True)
+        sys.exit(1)
+
+    url = f"{backend_url.rstrip('/')}/api/research-agent/jobs"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    params: dict[str, Any] = {"limit": limit}
+    if status_filter:
+        params["status"] = status_filter
+
+    try:
+        response = httpx.get(url, headers=headers, params=params, timeout=30.0)
+        response.raise_for_status()
+        data = response.json()
+        jobs = data.get("jobs", [])
+
+        if not jobs:
+            click.echo("No jobs found")
+            return
+
+        click.echo(f"{'Job ID':<25} {'Status':<12} {'Created':<20} {'Model':<20}")
+        click.echo("-" * 80)
+
+        for job in jobs:
+            job_id = job.get("job_id", "?")[:24]
+            status = job.get("status", "?")
+            created = job.get("created_at", "?")[:19] if job.get("created_at") else "?"
+            model = job.get("model", "?")[:19]
+
+            # Color status
+            if status == "succeeded":
+                status_str = click.style(status, fg="green")
+            elif status == "failed":
+                status_str = click.style(status, fg="red")
+            elif status == "running":
+                status_str = click.style(status, fg="cyan")
+            else:
+                status_str = status
+
+            click.echo(f"{job_id:<25} {status_str:<21} {created:<20} {model:<20}")
+
+    except httpx.HTTPStatusError as e:
+        click.secho(f"Failed to list jobs: HTTP {e.response.status_code}", fg="red", err=True)
+        sys.exit(1)
+    except Exception as e:
+        click.secho(f"Failed to list jobs: {e}", fg="red", err=True)
         sys.exit(1)
 
 
