@@ -174,7 +174,14 @@ class RolloutTrajectory(BaseModel):
     # Required for trace correlation with inference mesh (optional initially for backward compat)
     # See: monorepo/INFERENCE_URL_REQUIREMENT_PLAN.md and trace_creation_and_judgement.txt
     inference_url: str
-    
+
+    # Required by monorepo trace_validation.py: trajectory-level trace with event_history
+    # The event_history contains LM call records for input/output extraction
+    trace: dict[str, Any] | None = Field(
+        default=None,
+        description="V3 trace with event_history for this trajectory (required for trace strict mode)"
+    )
+
     decision_samples: list[dict[str, Any]] | None = None
 
 
