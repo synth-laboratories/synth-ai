@@ -18,7 +18,9 @@ from uvicorn._types import ASGIApplication
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.integrations.cloudflare import (
+    create_tunnel,
     ensure_cloudflared_installed,
+    open_managed_tunnel,
     open_quick_tunnel_with_dns_verification,
     stop_tunnel,
     wait_for_health_check,
@@ -444,6 +446,30 @@ class InProcessTaskApp:
 
     async def __aenter__(self) -> InProcessTaskApp:
         """Start task app and tunnel."""
+        
+        # For named tunnels, pre-fetch tunnel config to get the correct port
+        # (existing tunnels are configured for a specific port)
+        mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
+        if mode == "named":
+            try:
+                from synth_ai.core.env import get_api_key as get_synth_api_key
+                synth_api_key = get_synth_api_key()
+                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
+                tunnel_port = tunnel_config.get("local_port")
+                if tunnel_config.get("hostname") and tunnel_port and tunnel_port != self.port:
+                    logger.info(
+                        f"Existing managed tunnel is configured for port {tunnel_port}, "
+                        f"adjusting from requested port {self.port}"
+                    )
+                    self.port = tunnel_port
+                # Store config for later use to avoid re-fetching
+                self._prefetched_tunnel_config = tunnel_config
+            except Exception as e:
+                logger.debug(f"Pre-fetch tunnel config failed: {e}")
+                self._prefetched_tunnel_config = None
+        else:
+            self._prefetched_tunnel_config = None
+        
         logger.info(f"Starting in-process task app on {self.host}:{self.port}")
 
         # Handle port conflicts
@@ -605,50 +631,109 @@ class InProcessTaskApp:
             self._tunnel_proc = None
             logger.info(f"Using local mode: {self.url}")
         elif mode == "named":
-            # Named tunnel mode: use a pre-configured Cloudflare named tunnel
-            # Fetches the customer's tunnel hostname from the backend using their Synth API key
-            # The named tunnel must be running separately (cloudflared tunnel run <name>)
+            # Named tunnel mode: fully automatic managed tunnel
+            # 1. Check for existing tunnel
+            # 2. Auto-create if none exists
+            # 3. Auto-start cloudflared if not accessible
+            # 4. Verify tunnel is working
             ensure_cloudflared_installed()
             
             # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
             from synth_ai.core.env import get_api_key as get_synth_api_key
             synth_api_key = get_synth_api_key()
             
-            # Fetch customer's tunnel config from backend
-            tunnel_config = await self._fetch_tunnel_config(synth_api_key)
-            
             # For task app auth, use the environment API key
             api_key = self.api_key or self._get_api_key()
-            named_host = tunnel_config.get("hostname")
             
+            # Use pre-fetched config (port was already adjusted before server started)
+            tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
+            if not tunnel_config:
+                # Fetch if not pre-fetched (shouldn't happen normally)
+                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
+            
+            named_host = tunnel_config.get("hostname")
+            tunnel_token = tunnel_config.get("tunnel_token")
+            
+            # Auto-create tunnel if none exists
             if not named_host:
+                logger.info("No managed tunnel found, creating one automatically...")
+                try:
+                    # Generate subdomain from port or use default
+                    subdomain = f"task-app-{self.port}"
+                    new_tunnel = await create_tunnel(
+                        synth_api_key=synth_api_key,
+                        port=self.port,
+                        subdomain=subdomain,
+                    )
+                    named_host = new_tunnel.get("hostname")
+                    tunnel_token = new_tunnel.get("tunnel_token")
+                    logger.info(f"Created managed tunnel: {named_host}")
+                except Exception as e:
+                    # If tunnel creation fails, suggest using quick tunnels
+                    raise RuntimeError(
+                        f"Failed to create managed tunnel: {e}\n"
+                        "This may be because the backend doesn't have Cloudflare configured.\n"
+                        "Options:\n"
+                        "  1. Use tunnel_mode='quick' for automatic quick tunnels\n"
+                        "  2. Ask your admin to configure Cloudflare credentials on the backend"
+                    ) from e
+            
+            if not named_host or not tunnel_token:
                 raise RuntimeError(
-                    "No tunnel configured for your account. "
-                    "Create one via the SDK: `synth tunnels create --subdomain myapp`, "
-                    "or in the dashboard at https://app.usesynth.ai/tunnels, "
-                    "or use tunnel_mode='quick' for automatic quick tunnels (less reliable)."
+                    "Tunnel configuration incomplete (missing hostname or token). "
+                    "Try deleting and recreating the tunnel, or use tunnel_mode='quick'."
                 )
             
             self.url = f"https://{named_host}"
-            self._tunnel_proc = None  # Named tunnel runs separately
             
-            # Verify the named tunnel is accessible
+            # First, check if tunnel is already accessible (cloudflared might be running)
             ready = await _verify_tunnel_ready(
                 self.url,
                 api_key,
-                max_retries=5,  # Fewer retries - named tunnel should work immediately
-                retry_delay=2.0,
+                max_retries=2,  # Quick check - don't wait long
+                retry_delay=1.0,
                 verify_tls=_should_verify_tls(),
             )
+            
             if not ready:
-                tunnel_token = tunnel_config.get("tunnel_token", "")
-                token_hint = f"\n  cloudflared tunnel run --token {tunnel_token[:20]}..." if tunnel_token else ""
-                raise RuntimeError(
-                    f"Your tunnel {self.url} is not accessible. "
-                    f"Ensure cloudflared is running:{token_hint}\n"
-                    "Or run: `synth tunnels run`"
-                )
-            logger.info(f"Using named tunnel: {self.url}")
+                # Tunnel not accessible - auto-start cloudflared
+                logger.info(f"Tunnel {self.url} not accessible, starting cloudflared...")
+                try:
+                    self._tunnel_proc = open_managed_tunnel(tunnel_token)
+                    logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
+                    
+                    # Wait for tunnel to become ready
+                    ready = await _verify_tunnel_ready(
+                        self.url,
+                        api_key,
+                        max_retries=10,  # Give it time to connect
+                        retry_delay=2.0,
+                        verify_tls=_should_verify_tls(),
+                    )
+                    
+                    if not ready:
+                        # Clean up failed tunnel process
+                        if self._tunnel_proc:
+                            stop_tunnel(self._tunnel_proc)
+                            self._tunnel_proc = None
+                        raise RuntimeError(
+                            f"Tunnel {self.url} failed to become accessible after starting cloudflared. "
+                            "The tunnel may be stale or misconfigured. "
+                            "Try using tunnel_mode='quick' instead."
+                        )
+                except Exception as e:
+                    if "Failed to become accessible" not in str(e):
+                        raise RuntimeError(
+                            f"Failed to start cloudflared: {e}\n"
+                            "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
+                        ) from e
+                    raise
+            else:
+                # Tunnel already accessible - cloudflared must be running elsewhere
+                self._tunnel_proc = None
+                logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
+            
+            logger.info(f"Using managed tunnel: {self.url}")
         elif mode == "quick":
             # Quick tunnel mode: create tunnel with DNS verification and retry
             # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
