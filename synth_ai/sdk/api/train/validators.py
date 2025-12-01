@@ -867,6 +867,64 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 except Exception:
                     errors.append("prompt_learning.gepa.archive.size (or archive_size) must be an integer")
             
+            # CRITICAL: Validate pareto_set_size vs seeds BEFORE submitting to backend
+            # This catches config errors immediately instead of after job submission
+            eval_config = gepa_config.get("evaluation")
+            if eval_config and isinstance(eval_config, dict):
+                train_seeds = eval_config.get("seeds") or eval_config.get("train_seeds")
+                if train_seeds and isinstance(train_seeds, list) and len(train_seeds) > 0:
+                    total_seeds = len(train_seeds)
+                    
+                    # Get pareto_set_size (can be in archive section or top-level)
+                    pareto_set_size = None
+                    if archive_config and isinstance(archive_config, dict):
+                        pareto_set_size = archive_config.get("pareto_set_size")
+                    if pareto_set_size is None:
+                        pareto_set_size = gepa_config.get("pareto_set_size", 64)  # Default from backend
+                    
+                    try:
+                        pareto_count = int(pareto_set_size)
+                        feedback_fraction = 0.5  # Default
+                        if archive_config and isinstance(archive_config, dict):
+                            feedback_fraction = archive_config.get("feedback_fraction", 0.5)
+                        if feedback_fraction is None:
+                            feedback_fraction = gepa_config.get("feedback_fraction", 0.5)
+                        feedback_fraction = float(feedback_fraction)
+                        
+                        # Calculate split
+                        feedback_count = total_seeds - pareto_count
+                        
+                        # Constants matching backend
+                        MIN_PARETO_SET_SIZE = 10
+                        MIN_FEEDBACK_SEEDS = 3
+                        
+                        # Validate pareto_set_size <= total_seeds
+                        if pareto_count > total_seeds:
+                            errors.append(
+                                f"CONFIG ERROR: pareto_set_size={pareto_count} > total_seeds={total_seeds}. "
+                                f"Increase [prompt_learning.gepa.evaluation].seeds or decrease "
+                                f"[prompt_learning.gepa.archive].pareto_set_size. "
+                                f"Seeds: {train_seeds[:10]}{'...' if len(train_seeds) > 10 else ''}"
+                            )
+                        
+                        # Validate pareto_set_size >= MIN_PARETO_SET_SIZE
+                        if pareto_count < MIN_PARETO_SET_SIZE:
+                            errors.append(
+                                f"CONFIG ERROR: pareto_set_size={pareto_count} < MIN_PARETO_SET_SIZE={MIN_PARETO_SET_SIZE}. "
+                                f"Increase [prompt_learning.gepa.archive].pareto_set_size to at least {MIN_PARETO_SET_SIZE}. "
+                                f"Below this threshold, accuracy estimates are too noisy for reliable optimization."
+                            )
+                        
+                        # Validate feedback_count >= MIN_FEEDBACK_SEEDS
+                        if feedback_count < MIN_FEEDBACK_SEEDS:
+                            errors.append(
+                                f"CONFIG ERROR: feedback_count={feedback_count} < MIN_FEEDBACK_SEEDS={MIN_FEEDBACK_SEEDS}. "
+                                f"Increase total seeds or decrease pareto_set_size to ensure at least {MIN_FEEDBACK_SEEDS} feedback seeds. "
+                                f"Below this threshold, reflection prompts lack sufficient diversity."
+                            )
+                    except (ValueError, TypeError):
+                        pass  # Type errors already caught by _pos_int_nested above
+            
             # Pareto eps validation
             pareto_eps = None
             if archive_config and isinstance(archive_config, dict):
