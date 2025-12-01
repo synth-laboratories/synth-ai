@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 
 import httpx
 import uvicorn
+
+from synth_ai.core.telemetry import log_error, log_info
 from uvicorn._types import ASGIApplication
 
 from synth_ai.core.apps.common import get_asgi_app, load_module

@@ -142,11 +142,4 @@ __all__ = [
     "resolve_backend_api_base",
     "run_in_process_job",
     "run_in_process_job_sync",
-    # Trace strict mode helpers (for monorepo trace_validation.py compliance)
-    "build_trajectory_trace",
-    "extract_trace_correlation_id",
-    "include_event_history_in_trajectories",
-    "include_trace_correlation_id_in_response",
-    "validate_trace_correlation_id",
-    "verify_trace_correlation_id_in_response",
 ]

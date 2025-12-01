@@ -7,6 +7,8 @@ from typing import Any
 
 import click
 
+from synth_ai.core.telemetry import flush_logger, log_error, log_info
+
 from .utils import ensure_api_base, fmt_duration, http_get, sleep
 
 
@@ -24,6 +26,12 @@ class JobPoller:
         self.api_key = api_key
         self.interval = interval
         self.timeout = timeout
+        ctx: dict[str, Any] = {
+            "base_url": self.base_url,
+            "interval": interval,
+            "timeout": timeout,
+        }
+        log_info("JobPoller initialized", ctx=ctx)
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -32,6 +40,8 @@ class JobPoller:
         }
 
     def poll(self, path: str) -> PollOutcome:
+        ctx: dict[str, Any] = {"path": path, "base_url": self.base_url, "timeout": self.timeout}
+        log_info("poll invoked", ctx=ctx)
         elapsed = 0.0
         status = "unknown"
         info: Mapping[str, Any] = {}
@@ -59,36 +69,50 @@ class JobPoller:
                 if status in {"succeeded", "failed", "cancelled", "canceled", "completed"}:
                     break
             except Exception as exc:  # pragma: no cover - network failures
+                ctx["error"] = type(exc).__name__
+                log_error("poll request failed", ctx=ctx)
                 click.echo(f"[poll] error: {exc}")
             sleep(self.interval)
             elapsed += self.interval
         else:
+            ctx["elapsed"] = elapsed
+            log_error("poll timeout", ctx=ctx)
             click.echo(f"[poll] timeout after {fmt_duration(self.timeout)}")
+        ctx["status"] = status
+        ctx["elapsed"] = elapsed
+        log_info("poll completed", ctx=ctx)
+        flush_logger()
         return PollOutcome(status=status, payload=info)
 
 
 class RLJobPoller(JobPoller):
     def poll_job(self, job_id: str) -> PollOutcome:
+        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "rl"}
+        log_info("RLJobPoller.poll_job invoked", ctx=ctx)
         return super().poll(f"/rl/jobs/{job_id}")
 
 
 class SFTJobPoller(JobPoller):
     def poll_job(self, job_id: str) -> PollOutcome:
+        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "sft"}
+        log_info("SFTJobPoller.poll_job invoked", ctx=ctx)
         return super().poll(f"/learning/jobs/{job_id}")
 
 
 class PromptLearningJobPoller(JobPoller):
     """Poller for prompt learning jobs (MIPRO and GEPA)."""
-    
+
     def poll_job(self, job_id: str) -> PollOutcome:
         """Poll a prompt learning job by ID.
-        
+
         Args:
             job_id: Job ID (e.g., "pl_9c58b711c2644083")
-            
+
         Returns:
             PollOutcome with status and payload
         """
+        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "prompt_learning"}
+        log_info("PromptLearningJobPoller.poll_job invoked", ctx=ctx)
         return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
 
 

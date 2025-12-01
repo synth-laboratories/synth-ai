@@ -15,6 +15,8 @@ from typing import Any, cast
 
 import requests
 
+from synth_ai.core.telemetry import log_error, log_info
+
 try:
     sft_module = cast(Any, importlib.import_module("synth_ai.sdk.learning.sft"))
     collect_sft_jsonl_errors = cast(
@@ -118,42 +120,75 @@ def http_post(
     json_body: Any | None = None,
     timeout: float = 60.0,
 ) -> requests.Response:
-    resp = requests.post(
-        url,
-        headers=dict(headers or {}),
-        json=json_body,
-        timeout=timeout,
-        verify=SSLConfig.get_verify_setting(),
-    )
-    return resp
+    ctx: dict[str, Any] = {"url": url, "timeout": timeout, "method": "POST"}
+    log_info("http_post", ctx=ctx)
+    try:
+        resp = requests.post(
+            url,
+            headers=dict(headers or {}),
+            json=json_body,
+            timeout=timeout,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        ctx["status_code"] = resp.status_code
+        log_info("http_post completed", ctx=ctx)
+        return resp
+    except Exception as exc:
+        ctx["error"] = type(exc).__name__
+        log_error("http_post failed", ctx=ctx)
+        raise
 
 
 def http_get(
     url: str, *, headers: Mapping[str, str] | None = None, timeout: float = 30.0
 ) -> requests.Response:
-    resp = requests.get(
-        url,
-        headers=dict(headers or {}),
-        timeout=timeout,
-        verify=SSLConfig.get_verify_setting(),
-    )
-    return resp
+    ctx: dict[str, Any] = {"url": url, "timeout": timeout, "method": "GET"}
+    log_info("http_get", ctx=ctx)
+    try:
+        resp = requests.get(
+            url,
+            headers=dict(headers or {}),
+            timeout=timeout,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        ctx["status_code"] = resp.status_code
+        log_info("http_get completed", ctx=ctx)
+        return resp
+    except Exception as exc:
+        ctx["error"] = type(exc).__name__
+        log_error("http_get failed", ctx=ctx)
+        raise
 
 
 def post_multipart(
     url: str, *, api_key: str, file_field: str, file_path: Path, purpose: str = "fine-tune"
 ) -> requests.Response:
+    ctx: dict[str, Any] = {
+        "url": url,
+        "file_path": str(file_path),
+        "file_field": file_field,
+        "purpose": purpose,
+    }
+    log_info("post_multipart", ctx=ctx)
     headers = {"Authorization": f"Bearer {api_key}"}
     files = {file_field: (file_path.name, file_path.read_bytes(), "application/jsonl")}
     data = {"purpose": purpose}
-    return requests.post(
-        url,
-        headers=headers,
-        files=files,
-        data=data,
-        timeout=300,
-        verify=SSLConfig.get_verify_setting(),
-    )
+    try:
+        resp = requests.post(
+            url,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=300,
+            verify=SSLConfig.get_verify_setting(),
+        )
+        ctx["status_code"] = resp.status_code
+        log_info("post_multipart completed", ctx=ctx)
+        return resp
+    except Exception as exc:
+        ctx["error"] = type(exc).__name__
+        log_error("post_multipart failed", ctx=ctx)
+        raise
 
 
 def fmt_duration(seconds: float) -> str:

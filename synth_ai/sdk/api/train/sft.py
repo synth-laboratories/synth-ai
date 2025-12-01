@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from synth_ai.core.telemetry import log_error, log_info
+
 from .builders import SFTBuildResult, build_sft_payload
 from .pollers import SFTJobPoller
 from .utils import http_post, post_multipart, validate_sft_jsonl
@@ -211,16 +213,18 @@ class SFTJob:
     
     def submit(self) -> str:
         """Submit the job to the backend.
-        
+
         Returns:
             Job ID
-            
+
         Raises:
             RuntimeError: If job submission fails
         """
+        ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
+        log_info("SFTJob.submit invoked", ctx=ctx)
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
-        
+
         build = self._build_payload()
         
         # Validate datasets
@@ -296,15 +300,17 @@ class SFTJob:
         job_id = js.get("job_id") or js.get("id")
         if not job_id:
             raise RuntimeError("Response missing job ID")
-        
+
         self._job_id = job_id
+        ctx["job_id"] = job_id
+        log_info("SFTJob.submit completed", ctx=ctx)
         return job_id
-    
+
     @property
     def job_id(self) -> Optional[str]:
         """Get the job ID (None if not yet submitted)."""
         return self._job_id
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get current job status.
         

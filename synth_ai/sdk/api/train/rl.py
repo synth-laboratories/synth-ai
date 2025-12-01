@@ -28,6 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from synth_ai.core.telemetry import log_info
+
 from .builders import RLBuildResult, build_rl_payload
 from .pollers import RLJobPoller
 from .task_app import check_task_app_health
@@ -258,17 +260,19 @@ class RLJob:
     
     def submit(self) -> str:
         """Submit the job to the backend.
-        
+
         Returns:
             Job ID
-            
+
         Raises:
             RuntimeError: If job submission fails
             ValueError: If task app health check fails
         """
+        ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
+        log_info("RLJob.submit invoked", ctx=ctx)
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
-        
+
         build = self._build_payload()
         
         # Health check
@@ -313,15 +317,17 @@ class RLJob:
         job_id = js.get("job_id") or js.get("id")
         if not job_id:
             raise RuntimeError("Response missing job ID")
-        
+
         self._job_id = job_id
+        ctx["job_id"] = job_id
+        log_info("RLJob.submit completed", ctx=ctx)
         return job_id
-    
+
     @property
     def job_id(self) -> Optional[str]:
         """Get the job ID (None if not yet submitted)."""
         return self._job_id
-    
+
     def get_status(self) -> Dict[str, Any]:
         """Get current job status.
         

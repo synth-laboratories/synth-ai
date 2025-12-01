@@ -30,6 +30,8 @@ from .proxy import (
 from .rubrics import Rubric
 from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendor_keys
 
+from synth_ai.core.telemetry import log_info
+
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
 InstanceProvider = Callable[[Sequence[int]], Iterable[TaskInfo] | Awaitable[Iterable[TaskInfo]]]
 RolloutExecutor = Callable[[RolloutRequest, Request], Any | Awaitable[Any]]
@@ -270,7 +272,7 @@ def _auth_dependency_factory(config: TaskAppConfig) -> Callable[[Request], None]
 
 def create_task_app(config: TaskAppConfig) -> FastAPI:
     """Create a FastAPI application from a TaskAppConfig.
-    
+
     This function builds a complete FastAPI application that implements the Synth AI
     task app contract. The resulting app includes:
     - Health check endpoints (/health, /)
@@ -280,18 +282,18 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     - Optional dataset registry endpoints
     - CORS middleware (if configured)
     - Authentication middleware (if require_api_key=True)
-    
+
     The app is ready to run with uvicorn or deploy to any ASGI-compatible server.
-    
+
     Args:
         config: TaskAppConfig describing the task app
-        
+
     Returns:
         FastAPI application instance ready to run
-        
+
     Example:
         >>> from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
-        >>> 
+        >>>
         >>> def build_config() -> TaskAppConfig:
         ...     return TaskAppConfig(
         ...         app_id="my_task",
@@ -302,10 +304,12 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
         ...         provide_task_instances=lambda seeds: [...],
         ...         rollout=lambda req, r: {...},
         ...     )
-        >>> 
+        >>>
         >>> app = create_task_app(build_config())
         >>> # Run with: uvicorn.run(app, host="0.0.0.0", port=8001)
     """
+    ctx: dict[str, Any] = {"app_id": config.app_id, "name": config.name}
+    log_info("create_task_app invoked", ctx=ctx)
     cfg = config.clone()
     cfg.rubrics = cfg.rubrics or RubricBundle()
     app = FastAPI(title=cfg.name, description=cfg.description)
@@ -495,22 +499,22 @@ def run_task_app(
     env_files: Sequence[str] = (),
 ) -> None:
     """Run a task app locally with uvicorn.
-    
+
     This is a convenience function that creates a task app from a config factory
     and runs it with uvicorn. It handles environment file loading and service
     registration for tunnel management.
-    
+
     Args:
         config_factory: Function that returns a TaskAppConfig
         host: Host to bind to (default: "0.0.0.0")
         port: Port to listen on (default: 8001)
         reload: Enable auto-reload on file changes (default: False)
         env_files: Paths to .env files to load (default: empty)
-        
+
     Example:
         >>> from synth_ai.sdk.task.server import run_task_app
         >>> from my_task_app import build_config
-        >>> 
+        >>>
         >>> run_task_app(
         ...     build_config,
         ...     host="127.0.0.1",
@@ -518,11 +522,13 @@ def run_task_app(
         ...     reload=True,
         ...     env_files=[".env.local"],
         ... )
-        
+
     Raises:
         RuntimeError: If uvicorn is not installed
         TypeError: If config_factory doesn't return TaskAppConfig
     """
+    ctx: dict[str, Any] = {"host": host, "port": port, "reload": reload}
+    log_info("run_task_app invoked", ctx=ctx)
 
     loaded_files = _load_env_files(env_files)
     if loaded_files:
