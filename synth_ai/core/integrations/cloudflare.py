@@ -423,8 +423,11 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         ) from e
     
     # Capture stderr separately for better error diagnostics
+    # Use --config /dev/null to prevent loading any user config file
+    # This fixes issues where ~/.cloudflared/config.yml has ingress rules
+    # for named tunnels that interfere with quick tunnels (returning 404)
     proc = subprocess.Popen(
-        [str(bin_path), "tunnel", "--url", f"http://127.0.0.1:{port}"],
+        [str(bin_path), "tunnel", "--config", "/dev/null", "--url", f"http://127.0.0.1:{port}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,  # Capture stderr separately
         text=True,
@@ -1021,9 +1024,9 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
         server_thread.start()
         await asyncio.sleep(0.5)
         
-        # Try to create a tunnel
+        # Try to create a tunnel (use --config /dev/null to ignore user config)
         proc = subprocess.Popen(
-            [str(bin_path), "tunnel", "--url", f"http://127.0.0.1:{test_port}"],
+            [str(bin_path), "tunnel", "--config", "/dev/null", "--url", f"http://127.0.0.1:{test_port}"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

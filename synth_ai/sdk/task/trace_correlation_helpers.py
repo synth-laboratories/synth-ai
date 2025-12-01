@@ -9,6 +9,7 @@ See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for require
 
 import importlib
 import logging
+from datetime import UTC
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -259,6 +260,183 @@ def include_trace_correlation_id_in_response(
         len(trajectories)
     )
     
+    return response_data
+
+
+def build_trajectory_trace(
+    messages: list[dict[str, Any]],
+    response: dict[str, Any] | None = None,
+    *,
+    correlation_id: str | None = None,
+    session_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Build a trajectory-level trace with event_history for trace strict mode.
+
+    This creates the trace structure required by monorepo's trace_validation.py:
+    - trajectory.trace.event_history must be non-empty
+    - event_history contains LM call records for input/output extraction
+
+    Args:
+        messages: The messages sent to the LLM (input)
+        response: The LLM response dict (output). Should include 'choices' or 'content'.
+        correlation_id: Trace correlation ID (from ?cid= param)
+        session_id: Optional session ID for the trace
+        metadata: Optional additional metadata
+
+    Returns:
+        A trace dict with event_history suitable for trajectory.trace
+
+    Example:
+        trace = build_trajectory_trace(
+            messages=[{"role": "user", "content": "Hello"}],
+            response={"choices": [{"message": {"content": "Hi!"}}]},
+            correlation_id="trace_abc123",
+        )
+        trajectory = RolloutTrajectory(..., trace=trace)
+    """
+    import uuid
+    from datetime import datetime
+
+    # Build event_history with LM call record
+    event_history: list[dict[str, Any]] = []
+
+    # Create an LM call event (the primary event type for input/output extraction)
+    lm_event: dict[str, Any] = {
+        "event_type": "lm_call",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "call_record": {
+            "messages": messages,
+            "response": response or {},
+        },
+    }
+
+    # Add correlation ID if provided
+    if correlation_id:
+        lm_event["correlation_id"] = correlation_id
+
+    event_history.append(lm_event)
+
+    trace: dict[str, Any] = {
+        "session_id": session_id or str(uuid.uuid4()),
+        "event_history": event_history,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+
+    if correlation_id:
+        trace["correlation_id"] = correlation_id
+
+    if metadata:
+        trace["metadata"] = metadata
+
+    logger.debug(
+        "build_trajectory_trace: created trace with %d events, session_id=%s, cid=%s",
+        len(event_history),
+        trace["session_id"],
+        correlation_id,
+    )
+
+    return trace
+
+
+def include_event_history_in_trajectories(
+    response_data: dict[str, Any],
+    messages_by_trajectory: list[list[dict[str, Any]]] | None = None,
+    responses_by_trajectory: list[dict[str, Any]] | None = None,
+    *,
+    run_id: str,
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Ensure all trajectories have trace.event_history for trace strict mode.
+
+    This satisfies monorepo's trace_validation.py requirement:
+    - validate_response_has_hydrated_trace() checks for event_history
+
+    Args:
+        response_data: RolloutResponse dict (from .model_dump())
+        messages_by_trajectory: List of messages for each trajectory (for building event_history)
+        responses_by_trajectory: List of LLM responses for each trajectory
+        run_id: Rollout run_id for logging
+        correlation_id: Trace correlation ID
+
+    Returns:
+        Modified response_data with event_history in each trajectory.trace
+    """
+    trajectories = response_data.get("trajectories", [])
+    if not isinstance(trajectories, list):
+        logger.warning(
+            "include_event_history_in_trajectories: trajectories is not a list for run_id=%s",
+            run_id,
+        )
+        return response_data
+
+    for idx, traj in enumerate(trajectories):
+        if not isinstance(traj, dict):
+            continue
+
+        # Get existing trace or create new one
+        trace = traj.get("trace")
+        if not isinstance(trace, dict):
+            trace = {}
+            traj["trace"] = trace
+
+        # Check if event_history already exists and is non-empty
+        event_history = trace.get("event_history")
+        if isinstance(event_history, list) and len(event_history) > 0:
+            logger.debug(
+                "include_event_history_in_trajectories: trajectory[%d] already has "
+                "%d events, skipping run_id=%s",
+                idx,
+                len(event_history),
+                run_id,
+            )
+            continue
+
+        # Build event_history from provided messages/responses
+        messages = (
+            messages_by_trajectory[idx]
+            if messages_by_trajectory and idx < len(messages_by_trajectory)
+            else []
+        )
+        response = (
+            responses_by_trajectory[idx]
+            if responses_by_trajectory and idx < len(responses_by_trajectory)
+            else None
+        )
+
+        # If no messages provided, try to extract from trajectory steps
+        if not messages:
+            steps = traj.get("steps", [])
+            for step in steps:
+                if isinstance(step, dict):
+                    obs = step.get("obs", {})
+                    if isinstance(obs, dict):
+                        step_messages = obs.get("messages")
+                        if isinstance(step_messages, list):
+                            messages = step_messages
+                            break
+
+        # Build the trace with event_history
+        new_trace = build_trajectory_trace(
+            messages=messages,
+            response=response,
+            correlation_id=correlation_id or traj.get("trace_correlation_id"),
+            metadata={"run_id": run_id, "trajectory_index": idx},
+        )
+
+        # Merge with existing trace (preserve existing fields)
+        trace.update(new_trace)
+
+        logger.info(
+            "include_event_history_in_trajectories: added event_history to "
+            "trajectory[%d] run_id=%s events=%d",
+            idx,
+            run_id,
+            len(trace.get("event_history", [])),
+        )
+
     return response_data
 
 

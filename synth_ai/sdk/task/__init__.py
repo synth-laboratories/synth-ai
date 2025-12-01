@@ -60,6 +60,14 @@ from .server import (
     create_task_app,
     run_task_app,
 )
+from .trace_correlation_helpers import (
+    build_trajectory_trace,
+    extract_trace_correlation_id,
+    include_event_history_in_trajectories,
+    include_trace_correlation_id_in_response,
+    validate_trace_correlation_id,
+    verify_trace_correlation_id_in_response,
+)
 from .validators import (
     normalize_inference_url,
     validate_rollout_response_for_rl,

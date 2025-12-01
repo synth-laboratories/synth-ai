@@ -4,33 +4,56 @@ This module provides both CLI and SDK interfaces for research agent jobs.
 
 CLI Usage:
     uvx synth-ai agent run --config my_config.toml --poll
-    uvx synth-ai agent run --config my_config.toml --algorithm scaffold_tuning
 
 SDK Usage:
-    from synth_ai.sdk.api.research_agent import ResearchAgentJob
-
-    # From config file
-    job = ResearchAgentJob.from_config("my_config.toml")
-    job.submit()
-    result = job.poll_until_complete()
-
-    # Programmatically
-    job = ResearchAgentJob(
-        algorithm="scaffold_tuning",
-        repo_url="https://github.com/your-org/your-repo",
-        backend="daytona",
-        config={
-            "objective": {"metric_name": "accuracy", "max_iterations": 5},
-            "target_files": ["prompts/*.txt"],
-        }
+    from synth_ai.sdk.api.research_agent import (
+        ResearchAgentJob,
+        ResearchAgentJobConfig,
+        ResearchConfig,
+        DatasetSource,
+        OptimizationTool,
+        MIPROConfig,
+        GEPAConfig,
     )
-    job.submit()
+
+    # Create typed config
+    research_config = ResearchConfig(
+        task_description="Optimize prompt for banking classification",
+        tools=[OptimizationTool.MIPRO],
+        datasets=[
+            DatasetSource(
+                source_type="huggingface",
+                hf_repo_id="PolyAI/banking77",
+            )
+        ],
+    )
+
+    job_config = ResearchAgentJobConfig(
+        research=research_config,
+        repo_url="https://github.com/my-org/my-pipeline",
+        model="gpt-5.1-codex-mini",
+        max_agent_spend_usd=25.0,
+    )
+
+    job = ResearchAgentJob(config=job_config)
+    job_id = job.submit()
+    result = job.poll_until_complete()
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from .config import (
+    DatasetSource,
+    GEPAConfig,
+    MIPROConfig,
+    ModelProvider,
+    OptimizationTool,
+    PermittedModel,
+    PermittedModelsConfig,
+    ResearchConfig,
+)
 from .job import (
     ResearchAgentJob,
     ResearchAgentJobConfig,
@@ -40,10 +63,19 @@ from .job import (
 __all__ = [
     # CLI
     "register",
-    # SDK
+    # SDK - Main classes
     "ResearchAgentJob",
     "ResearchAgentJobConfig",
     "ResearchAgentJobPoller",
+    # SDK - Config types
+    "ResearchConfig",
+    "DatasetSource",
+    "OptimizationTool",
+    "MIPROConfig",
+    "GEPAConfig",
+    "PermittedModelsConfig",
+    "PermittedModel",
+    "ModelProvider",
 ]
 
 

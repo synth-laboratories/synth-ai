@@ -52,6 +52,10 @@ def _resolve_url_to_ip(url: str) -> tuple[str, str]:
     """
     Resolve URL's hostname to IP using explicit resolvers, return (ip_url, hostname).
     
+    NOTE: For HTTPS URLs, we DON'T resolve to IP because SSL/TLS requires SNI
+    (Server Name Indication) with the hostname. Connecting via IP causes handshake
+    failures since the server (e.g., Cloudflare) doesn't know which cert to present.
+    
     Returns:
         Tuple of (url_with_ip, original_hostname)
     """
@@ -62,7 +66,13 @@ def _resolve_url_to_ip(url: str) -> tuple[str, str]:
     if not hostname or hostname in ("localhost", "127.0.0.1"):
         return url, hostname or ""
     
-    # Resolve using explicit resolvers
+    # Skip resolution for HTTPS URLs - SSL/TLS requires hostname for SNI
+    # Connecting to IP directly causes "SSLV3_ALERT_HANDSHAKE_FAILURE" because
+    # the server doesn't know which certificate to present
+    if parsed.scheme == "https":
+        return url, hostname
+    
+    # Only resolve HTTP URLs to IP
     try:
         resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
         # Replace hostname with IP in URL
