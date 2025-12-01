@@ -7,6 +7,8 @@ from typing import Any, List, Tuple
 import click
 import toml
 
+from synth_ai.core.telemetry import log_error, log_info
+
 
 class ConfigValidationError(Exception):
     """Raised when a training config is invalid."""
@@ -353,17 +355,19 @@ def _validate_model_for_provider(model: str, provider: str, field_name: str, *, 
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """
     Validate prompt learning config BEFORE sending to backend.
-    
+
     This catches common errors early with clear messages instead of cryptic backend errors.
-    
+
     Args:
         config_data: Parsed TOML/JSON config
         config_path: Path to config file (for error messages)
-    
+
     Raises:
         ConfigValidationError: If config is invalid
         click.ClickException: If validation fails (for CLI)
     """
+    ctx: dict[str, Any] = {"config_path": str(config_path)}
+    log_info("validate_prompt_learning_config invoked", ctx=ctx)
     errors: list[str] = []
     
     # Check for prompt_learning section
@@ -2309,14 +2313,16 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
 
 def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str) -> None:
     """Validate prompt learning config from TOML file and raise ConfigValidationError if invalid.
-    
+
     Args:
         config_path: Path to TOML config file
         algorithm: Either 'gepa' or 'mipro'
-    
+
     Raises:
         ConfigValidationError: If validation fails, with detailed error messages
     """
+    ctx: dict[str, Any] = {"config_path": str(config_path), "algorithm": algorithm}
+    log_info("validate_prompt_learning_config_from_file invoked", ctx=ctx)
     if algorithm == "gepa":
         is_valid, errors = validate_gepa_config_from_file(config_path)
     elif algorithm == "mipro":

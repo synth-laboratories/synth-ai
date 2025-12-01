@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from starlette.types import ASGIApp
@@ -10,7 +11,7 @@ from starlette.types import ASGIApp
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import LocalDeployCfg
 from synth_ai.core.paths import REPO_ROOT, configure_import_paths
-from synth_ai.core.telemetry import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_info
 
 _THREADS: dict[int, threading.Thread] = {}
 _PROCESSES: dict[int, subprocess.Popen[str]] = {}
@@ -21,8 +22,8 @@ def serve_app_uvicorn(
     host: str,
     port: int,
 ) -> None:
-    ctx = {"host": str(host), "port": int(port)}
-    log_event("info", "starting uvicorn server", ctx=ctx)
+    ctx: dict[str, Any] = {"host": host, "port": port}
+    log_info("starting uvicorn server", ctx=ctx)
     try:
         uvicorn.run(
             app,
@@ -31,9 +32,10 @@ def serve_app_uvicorn(
             reload=False,
             log_level="info"
         )
-        log_event("info", "uvicorn server exited cleanly", ctx=ctx)
+        log_info("uvicorn server exited cleanly", ctx=ctx)
     except Exception as exc:
-        log_error("uvicorn server failed", ctx={**ctx, "error": type(exc).__name__})
+        ctx["error"] = type(exc).__name__
+        log_error("uvicorn server failed", ctx=ctx)
         raise RuntimeError(f"Failed to serve app with Uvicorn: {exc}") from exc
     
 
@@ -53,13 +55,13 @@ def serve_app_uvicorn_background(
 
 
 def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
-    ctx = {
-        "task_app": str(cfg.task_app_path),
-        "host": str(cfg.host),
-        "port": int(cfg.port),
-        "trace": bool(cfg.trace),
+    ctx: dict[str, Any] = {
+        "task_app_path": str(cfg.task_app_path),
+        "host": cfg.host,
+        "port": cfg.port,
+        "trace": cfg.trace,
     }
-    log_event("info", "deploy_app_uvicorn invoked", ctx=ctx)
+    log_info("deploy_app_uvicorn invoked", ctx=ctx)
     try:
         os.environ["ENVIRONMENT_API_KEY"] = cfg.env_api_key
         if cfg.trace:
@@ -72,11 +74,11 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
             cfg.task_app_path,
             f"_synth_local_task_app_{cfg.task_app_path.stem}"
         )
-        log_event("info", "task app module loaded", ctx=ctx)
+        log_info("task app module loaded", ctx=ctx)
         app = get_asgi_app(module)
 
         msg = f"Serving task app at http://{'127.0.0.1' if cfg.host in {'0.0.0.0', '::'} else cfg.host}:{cfg.port}"
-        
+
         # Try to extract app_id from module or app
         app_id: str | None = None
         try:
@@ -91,9 +93,9 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
                     app_id = str(config.app_id) if config.app_id is not None else None  # type: ignore[assignment]
         except Exception:
             pass
-        
+
         # Record local service will happen after process starts (to get correct PID)
-        
+
         if os.environ.get("CTX") == "mcp":
             thread = threading.Thread(
                 target=serve_app_uvicorn,
@@ -103,20 +105,21 @@ def deploy_app_uvicorn(cfg: LocalDeployCfg) -> str | None:
             )
             thread.start()
             _THREADS[cfg.port] = thread
-            log_event("info", "uvicorn server running in background thread", ctx={**ctx, "mode": "mcp"})
+            ctx["mode"] = "mcp"
+            log_info("uvicorn server running in background thread", ctx=ctx)
             return f"[deploy_local] {msg}"
-        
+
         # Use nohup to run in background
         print(msg)
         print("[deploy_local] Starting server in background with nohup...")
-        
+
         # Create a wrapper script to run uvicorn
         import tempfile
         task_app_path_str = str(cfg.task_app_path)
         repo_root_str = str(REPO_ROOT)
         task_app_parent_str = str(cfg.task_app_path.parent)
         module_name = f"_synth_local_task_app_{cfg.task_app_path.stem}"
-        
+
         wrapper_content = f'''#!/usr/bin/env python3
 import sys
 from pathlib import Path
@@ -146,28 +149,28 @@ os.environ["ENVIRONMENT_API_KEY"] = {repr(cfg.env_api_key)}
             wrapper_content += 'os.environ["TASKAPP_TRACING_ENABLED"] = "1"\n'
         else:
             wrapper_content += 'os.environ.pop("TASKAPP_TRACING_ENABLED", None)\n'
-        
+
         wrapper_content += f'''
 # Run uvicorn
 import uvicorn
 uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level="info")
 '''
-        
+
         # Write wrapper script
         wrapper_file = Path(tempfile.gettempdir()) / f"synth_uvicorn_{cfg.port}.py"
         wrapper_file.write_text(wrapper_content)
         wrapper_file.chmod(0o755)
-        
+
         # Create log file
         log_file = Path(tempfile.gettempdir()) / f"synth_uvicorn_{cfg.port}.log"
-        
+
         # Build command with nohup
         cmd = [
             "nohup",
             sys.executable,
             str(wrapper_file),
         ]
-        
+
         # Start process with nohup
         try:
             with log_file.open("w") as log_f:
@@ -180,7 +183,7 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
                     env=os.environ.copy(),
                 )
             _PROCESSES[cfg.port] = proc
-            
+
             # Record local service with correct PID
             try:
                 from synth_ai.cli.lib.tunnel_records import record_service
@@ -196,14 +199,17 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
                 )
             except Exception:
                 pass  # Fail silently - records are optional
-            
+
             print(f"[deploy_local] Server started (PID: {proc.pid})")
             print(f"[deploy_local] Logs: {log_file}")
             print(f"[deploy_local] URL: {msg}")
-            log_event("info", "uvicorn server started with nohup", ctx={**ctx, "pid": proc.pid, "log_file": str(log_file)})
+            ctx["pid"] = proc.pid
+            ctx["log_file"] = str(log_file)
+            log_info("uvicorn server started with nohup", ctx=ctx)
             return f"[deploy_local] {msg} (PID: {proc.pid}, logs: {log_file})"
         except Exception as exc:
-            log_error("failed to start server with nohup", ctx={**ctx, "error": type(exc).__name__})
+            ctx["error"] = type(exc).__name__
+            log_error("failed to start server with nohup", ctx=ctx)
             # Don't fallback to blocking mode - raise error instead to prevent indefinite stalls
             raise RuntimeError(
                 f"Failed to start server in background: {exc}\n"
@@ -211,5 +217,6 @@ uvicorn.run(app, host={repr(cfg.host)}, port={cfg.port}, reload=False, log_level
                 "If you need blocking mode, use the task app's serve command directly."
             ) from exc
     except Exception as exc:
-        log_error("deploy_app_uvicorn failed", ctx={**ctx, "error": type(exc).__name__})
+        ctx["error"] = type(exc).__name__
+        log_error("deploy_app_uvicorn failed", ctx=ctx)
         raise

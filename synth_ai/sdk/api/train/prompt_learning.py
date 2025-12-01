@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
+from synth_ai.core.telemetry import log_error, log_info
+
 from .builders import PromptLearningBuildResult, build_prompt_learning_payload
 from .pollers import JobPoller, PollOutcome
 from .task_app import check_task_app_health
@@ -245,17 +247,19 @@ class PromptLearningJob:
     
     def submit(self) -> str:
         """Submit the job to the backend.
-        
+
         Returns:
             Job ID
-            
+
         Raises:
             RuntimeError: If job submission fails
             ValueError: If task app health check fails
         """
+        ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
+        log_info("PromptLearningJob.submit invoked", ctx=ctx)
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
-        
+
         build = self._build_payload()
         
         # Health check
@@ -297,10 +301,12 @@ class PromptLearningJob:
         job_id = js.get("job_id") or js.get("id")
         if not job_id:
             raise RuntimeError("Response missing job ID")
-        
+
         self._job_id = job_id
+        ctx["job_id"] = job_id
+        log_info("PromptLearningJob.submit completed", ctx=ctx)
         return job_id
-    
+
     @property
     def job_id(self) -> Optional[str]:
         """Get the job ID (None if not yet submitted)."""

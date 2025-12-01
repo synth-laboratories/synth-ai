@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
 from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.telemetry import log_error, log_info
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
 from synth_ai.sdk.api.train.task_app import TaskAppHealth, check_task_app_health
@@ -135,6 +136,13 @@ async def run_in_process_job(
     health_check_timeout: float = 30.0,
 ) -> InProcessJobResult:
     """Run a prompt-learning or RL job with a tunneled task app."""
+    ctx: Dict[str, Any] = {
+        "job_type": job_type,
+        "config_path": str(config_path),
+        "poll": poll,
+        "tunnel_mode": tunnel_mode,
+    }
+    log_info("run_in_process_job invoked", ctx=ctx)
 
     backend_api_base = resolve_backend_api_base(backend_url)
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")

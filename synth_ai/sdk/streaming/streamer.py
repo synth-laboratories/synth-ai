@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from synth_ai.core.http import AsyncHttpClient, sleep
+from synth_ai.core.telemetry import log_error, log_info
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -157,6 +158,8 @@ class JobStreamer:
 
     async def stream_until_terminal(self) -> dict[str, Any]:
         """Stream configured endpoints until the job reaches a terminal state."""
+        ctx: dict[str, Any] = {"job_id": self.job_id, "base_url": self.base_url}
+        log_info("JobStreamer.stream_until_terminal invoked", ctx=ctx)
         http_cm = self._http or AsyncHttpClient(self.base_url, self.api_key, timeout=self.http_timeout)
         async with http_cm as http:
             while True:

@@ -35,6 +35,7 @@ except Exception as exc:  # pragma: no cover - critical dependency
     raise RuntimeError("Unable to load SFT payload helpers") from exc
 
 from synth_ai.core.config.resolver import ConfigResolver
+from synth_ai.core.telemetry import log_error, log_info
 
 from .configs import PromptLearningConfig, RLConfig, SFTConfig
 from .supported_algos import (
@@ -83,6 +84,8 @@ def build_rl_payload(
     idempotency: str | None,
     allow_experimental: bool | None = None,
 ) -> RLBuildResult:
+    ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
+    log_info("build_rl_payload invoked", ctx=ctx)
     # Load and validate config with SDK-level checks
     from synth_ai.cli.commands.train.validation import validate_rl_config
     from synth_ai.sdk.api.train.utils import load_toml
@@ -220,6 +223,8 @@ def build_sft_payload(
     dataset_override: Path | None,
     allow_experimental: bool | None,
 ) -> SFTBuildResult:
+    ctx: dict[str, Any] = {"config_path": str(config_path), "dataset_override": str(dataset_override) if dataset_override else None}
+    log_info("build_sft_payload invoked", ctx=ctx)
     try:
         sft_cfg = SFTConfig.from_path(config_path)
     except ValidationError as exc:
@@ -372,6 +377,8 @@ def build_prompt_learning_payload(
     allow_experimental: bool | None = None,
 ) -> PromptLearningBuildResult:
     """Build payload for prompt learning job (MIPRO or GEPA)."""
+    ctx: dict[str, Any] = {"config_path": str(config_path), "task_url": task_url}
+    log_info("build_prompt_learning_payload invoked", ctx=ctx)
     from pydantic import ValidationError
 
     from .configs.prompt_learning import load_toml

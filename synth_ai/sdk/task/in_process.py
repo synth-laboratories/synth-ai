@@ -14,6 +14,8 @@ from urllib.parse import urlparse
 
 import httpx
 import uvicorn
+
+from synth_ai.core.telemetry import log_error, log_info
 from uvicorn._types import ASGIApplication
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
@@ -311,6 +313,8 @@ class InProcessTaskApp:
 
     async def __aenter__(self) -> InProcessTaskApp:
         """Start task app and tunnel."""
+        ctx: dict[str, Any] = {"host": self.host, "port": self.port, "tunnel_mode": self.tunnel_mode}
+        log_info("InProcessTaskApp.__aenter__ invoked", ctx=ctx)
         logger.info(f"Starting in-process task app on {self.host}:{self.port}")
 
         # Handle port conflicts

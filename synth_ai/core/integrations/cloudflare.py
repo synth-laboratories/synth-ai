@@ -27,7 +27,7 @@ from starlette.types import ASGIApp
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.core.paths import REPO_ROOT, configure_import_paths
-from synth_ai.core.telemetry import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_event, log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
 
 
@@ -1345,6 +1345,14 @@ async def deploy_app_tunnel(
         # Blocking (waits for health check and keeps tunnel alive)
         url = await deploy_app_tunnel(cfg, wait=True)
     """
+    ctx: dict[str, Any] = {
+        "mode": cfg.mode,
+        "host": cfg.host,
+        "port": cfg.port,
+        "task_app_path": str(cfg.task_app_path) if cfg.task_app_path else None,
+        "wait": wait,
+    }
+    log_info("deploy_app_tunnel invoked", ctx=ctx)
 
     ensure_cloudflared_installed()
 
