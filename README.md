@@ -48,7 +48,7 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 ## Documentation
 
-Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
+Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/intro).
 
 ## In-Process Runner (SDK)
 
