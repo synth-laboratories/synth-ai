@@ -10,9 +10,9 @@ Serverless Posttraining APIs for Developers
 
 <p align="center">
   <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA (lib), DSPy MIPRO, and DSPy GEPA with baseline vs optimized." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/langprobe_v2_light.png">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_light.png">
+    <img alt="Shows a bar chart comparing prompt optimization performance across Synth GEPA, Synth MIPRO, GEPA (lib), DSPy MIPRO, and DSPy GEPA with baseline vs optimized." src="https://raw.githubusercontent.com/synth-laboratories/synth-ai/main/assets/langprobe_v2_light.png">
   </picture>
 </p>
 
@@ -48,7 +48,7 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 ## Documentation
 
-Docs available at [docs.usesynth.ai](https://docs.usesynth.ai/overview).
+**[docs.usesynth.ai](https://docs.usesynth.ai)**
 
 ## In-Process Runner (SDK)
 
@@ -70,5 +70,3 @@ result = asyncio.run(
 )
 print(result.job_id, result.status.get("status"))
 ```
-
-Env priority for the backend URL: `TARGET_BACKEND_BASE_URL` → `BACKEND_OVERRIDE` → `SYNTH_BACKEND_URL` → `BACKEND_BASE_URL` → `NEXT_PUBLIC_API_URL` → fallback to `get_backend_from_env()`. Required keys: `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, plus any model keys used by your task app.
