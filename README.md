@@ -70,5 +70,3 @@ result = asyncio.run(
 )
 print(result.job_id, result.status.get("status"))
 ```
-
-Env priority for the backend URL: `TARGET_BACKEND_BASE_URL` → `BACKEND_OVERRIDE` → `SYNTH_BACKEND_URL` → `BACKEND_BASE_URL` → `NEXT_PUBLIC_API_URL` → fallback to `get_backend_from_env()`. Required keys: `SYNTH_API_KEY`, `ENVIRONMENT_API_KEY`, plus any model keys used by your task app.
