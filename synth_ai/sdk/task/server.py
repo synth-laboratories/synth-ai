@@ -16,6 +16,8 @@ from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware import Middleware
 
+from synth_ai.core.telemetry import log_info
+
 from .auth import normalize_environment_api_key, require_api_key_dependency
 from .contracts import RolloutRequest, RolloutResponse, TaskInfo
 from .datasets import TaskDatasetRegistry
@@ -29,8 +31,6 @@ from .proxy import (
 )
 from .rubrics import Rubric
 from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendor_keys
-
-from synth_ai.core.telemetry import log_info
 
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
 InstanceProvider = Callable[[Sequence[int]], Iterable[TaskInfo] | Awaitable[Iterable[TaskInfo]]]

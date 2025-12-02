@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
+
 from ..server import TaskAppConfig
 
 

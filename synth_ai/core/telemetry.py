@@ -1,3 +1,4 @@
+import contextlib
 import os
 import queue
 import threading
@@ -62,15 +63,11 @@ def _enqueue(entry: dict[str, Any]) -> None:
         _LOG_QUEUE.put_nowait(entry)
     except queue.Full:
         # Drop oldest entry and try again
-        try:
+        with contextlib.suppress(queue.Empty):
             _LOG_QUEUE.get_nowait()
-        except queue.Empty:
-            pass
-        try:
+        with contextlib.suppress(queue.Full):
             _LOG_QUEUE.put_nowait(entry)
-        except queue.Full:
             # Still full (race condition), just drop this entry
-            pass
 
 
 def _worker_loop() -> None:

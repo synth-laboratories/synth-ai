@@ -37,7 +37,7 @@ class BaselineGroup(click.Group):
         ctx.meta['_original_args'] = args.copy() if isinstance(args, list) else list(args)
         return ctx
     
-    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple[click.Command | None, str, list[str]]:
+    def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple[str | None, click.Command | None, list[str]]:
         """Resolve command, checking if first arg is a subcommand or baseline_id."""
         
         # Check if first arg is a known subcommand
@@ -46,8 +46,7 @@ class BaselineGroup(click.Group):
             if first_arg in self.commands:
                 # It's a known subcommand, let Click handle it normally
                 cmd_name, cmd, remaining = super().resolve_command(ctx, args)
-                # Click returns (name, cmd, args) but type checker expects (cmd, name, args)
-                return cmd, cmd_name or "", remaining
+                return cmd_name, cmd, remaining
         
         # Not a subcommand - this means baseline_id is a positional argument
         # Store baseline_id in ctx for the callback to access
@@ -75,13 +74,12 @@ class BaselineGroup(click.Group):
                 params=filtered_params,
                 context_settings=self.context_settings,
             )
-            return wrapper_cmd, "_baseline_wrapper", remaining_args
+            return "_baseline_wrapper", wrapper_cmd, remaining_args
         
         # No args or args start with --, so no baseline_id
         # Let Click handle it normally (will invoke main callback if invoke_without_command=True)
         cmd_name, cmd, remaining = super().resolve_command(ctx, args)
-        # Click returns (name, cmd, args) but type checker expects (cmd, name, args)
-        return cmd, cmd_name or "", remaining
+        return cmd_name, cmd, remaining
     
     def invoke(self, ctx: click.Context) -> Any:
         """Invoke command, handling baseline_id as positional arg."""
@@ -103,7 +101,7 @@ class BaselineGroup(click.Group):
                 raise click.ClickException("Command callback is None")
             return ctx.invoke(self.callback, **ctx.params)
         
-        cmd, cmd_name, resolved_args = self.resolve_command(ctx, full_args)
+        cmd_name, cmd, resolved_args = self.resolve_command(ctx, full_args)
         
         # Check if baseline_id was detected
         if 'baseline_id' in ctx.meta:

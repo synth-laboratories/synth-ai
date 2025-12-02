@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 
 import click
-
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
 
 from .utils import ensure_api_base, fmt_duration, http_get, sleep

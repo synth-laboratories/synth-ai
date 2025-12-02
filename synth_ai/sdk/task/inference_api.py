@@ -172,17 +172,16 @@ class InferenceAPIClient:
                 gemini_tools = [types.Tool(function_declarations=function_declarations)]
 
                 # Handle tool_choice - Gemini uses tool_config
-                if tool_choice and isinstance(tool_choice, dict):
-                    if tool_choice.get("type") == "function":
-                        func_name = tool_choice.get("function", {}).get("name")
-                        if func_name:
-                            mode_enum = types.FunctionCallingConfigMode.ANY
-                            tool_config = types.ToolConfig(
-                                function_calling_config=types.FunctionCallingConfig(
-                                    mode=mode_enum,
-                                    allowed_function_names=[func_name],
-                                )
+                if tool_choice and isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+                    func_name = tool_choice.get("function", {}).get("name")
+                    if func_name:
+                        mode_enum = types.FunctionCallingConfigMode.ANY
+                        tool_config = types.ToolConfig(
+                            function_calling_config=types.FunctionCallingConfig(
+                                mode=mode_enum,
+                                allowed_function_names=[func_name],
                             )
+                        )
 
         # Build generation config
         cfg_kwargs: Dict[str, Any] = {"temperature": temperature}

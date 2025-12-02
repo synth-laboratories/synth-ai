@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from synth_ai.core.telemetry import log_error, log_info
+from synth_ai.core.telemetry import log_info
 
 from .builders import SFTBuildResult, build_sft_payload
 from .pollers import SFTJobPoller

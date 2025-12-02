@@ -68,7 +68,9 @@ class BaselineConfigVisitor(ast.NodeVisitor):
         """Extract baseline_id from BaselineConfig constructor."""
         for keyword in call_node.keywords:
             if keyword.arg == "baseline_id" and isinstance(keyword.value, ast.Constant):
-                return keyword.value.value
+                val = keyword.value.value
+                if isinstance(val, str):
+                    return val
         return None
 
 

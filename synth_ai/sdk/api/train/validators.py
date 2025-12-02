@@ -6,8 +6,7 @@ from typing import Any, List, Tuple
 
 import click
 import toml
-
-from synth_ai.core.telemetry import log_error, log_info
+from synth_ai.core.telemetry import log_info
 
 
 class ConfigValidationError(Exception):
@@ -899,9 +898,9 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                         feedback_count = total_seeds - pareto_count
                         
                         # Constants matching backend
-                        MIN_PARETO_SET_SIZE = 10
-                        MIN_FEEDBACK_SEEDS = 3
-                        
+                        min_pareto_set_size = 10
+                        min_feedback_seeds = 3
+
                         # Validate pareto_set_size <= total_seeds
                         if pareto_count > total_seeds:
                             errors.append(
@@ -910,20 +909,20 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                                 f"[prompt_learning.gepa.archive].pareto_set_size. "
                                 f"Seeds: {train_seeds[:10]}{'...' if len(train_seeds) > 10 else ''}"
                             )
-                        
-                        # Validate pareto_set_size >= MIN_PARETO_SET_SIZE
-                        if pareto_count < MIN_PARETO_SET_SIZE:
+
+                        # Validate pareto_set_size >= min_pareto_set_size
+                        if pareto_count < min_pareto_set_size:
                             errors.append(
-                                f"CONFIG ERROR: pareto_set_size={pareto_count} < MIN_PARETO_SET_SIZE={MIN_PARETO_SET_SIZE}. "
-                                f"Increase [prompt_learning.gepa.archive].pareto_set_size to at least {MIN_PARETO_SET_SIZE}. "
+                                f"CONFIG ERROR: pareto_set_size={pareto_count} < MIN_PARETO_SET_SIZE={min_pareto_set_size}. "
+                                f"Increase [prompt_learning.gepa.archive].pareto_set_size to at least {min_pareto_set_size}. "
                                 f"Below this threshold, accuracy estimates are too noisy for reliable optimization."
                             )
-                        
-                        # Validate feedback_count >= MIN_FEEDBACK_SEEDS
-                        if feedback_count < MIN_FEEDBACK_SEEDS:
+
+                        # Validate feedback_count >= min_feedback_seeds
+                        if feedback_count < min_feedback_seeds:
                             errors.append(
-                                f"CONFIG ERROR: feedback_count={feedback_count} < MIN_FEEDBACK_SEEDS={MIN_FEEDBACK_SEEDS}. "
-                                f"Increase total seeds or decrease pareto_set_size to ensure at least {MIN_FEEDBACK_SEEDS} feedback seeds. "
+                                f"CONFIG ERROR: feedback_count={feedback_count} < MIN_FEEDBACK_SEEDS={min_feedback_seeds}. "
+                                f"Increase total seeds or decrease pareto_set_size to ensure at least {min_feedback_seeds} feedback seeds. "
                                 f"Below this threshold, reflection prompts lack sufficient diversity."
                             )
                     except (ValueError, TypeError):
@@ -1837,7 +1836,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                     errors.append(
                         "❌ gepa.adaptive_batch.val_evaluation_mode='subsample' requires val_subsample_size to be set"
                     )
-    elif isinstance(subsample_size, int | float) and subsample_size <= 0:
+                elif isinstance(subsample_size, int | float) and subsample_size <= 0:
                     errors.append(
                         f"❌ gepa.adaptive_batch.val_subsample_size must be > 0 when val_evaluation_mode='subsample', got {subsample_size}"
                     )

@@ -14,8 +14,6 @@ from urllib.parse import urlparse
 
 import httpx
 import uvicorn
-
-from synth_ai.core.telemetry import log_error, log_info
 from uvicorn._types import ASGIApplication
 
 from synth_ai.core.apps.common import get_asgi_app, load_module
@@ -456,6 +454,8 @@ class InProcessTaskApp:
             try:
                 from synth_ai.core.env import get_api_key as get_synth_api_key
                 synth_api_key = get_synth_api_key()
+                if synth_api_key is None:
+                    raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
                 tunnel_config = await self._fetch_tunnel_config(synth_api_key)
                 tunnel_port = tunnel_config.get("local_port")
                 if tunnel_config.get("hostname") and tunnel_port and tunnel_port != self.port:
@@ -643,10 +643,12 @@ class InProcessTaskApp:
             # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
             from synth_ai.core.env import get_api_key as get_synth_api_key
             synth_api_key = get_synth_api_key()
-            
+            if synth_api_key is None:
+                raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
+
             # For task app auth, use the environment API key
             api_key = self.api_key or self._get_api_key()
-            
+
             # Use pre-fetched config (port was already adjusted before server started)
             tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
             if not tunnel_config:

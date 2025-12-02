@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 from synth_ai.core.http import AsyncHttpClient, sleep
-from synth_ai.core.telemetry import log_error, log_info
+from synth_ai.core.telemetry import log_info
 
 from .config import StreamConfig
 from .handlers import StreamHandler

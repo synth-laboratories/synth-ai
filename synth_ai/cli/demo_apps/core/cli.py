@@ -326,7 +326,7 @@ def _find_asgi_apps(root: Path) -> list[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for name in filenames:
-            if not name.endswith(".py"):
+            if not str(name).endswith(".py"):
                 continue
             path = Path(dirpath) / name
             try:
@@ -384,7 +384,7 @@ def _find_vllm_tomls(root: Path) -> list[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in skip_dirs]
         for name in filenames:
-            if not name.endswith(".toml"):
+            if not str(name).endswith(".toml"):
                 continue
             path = Path(dirpath) / name
             try:

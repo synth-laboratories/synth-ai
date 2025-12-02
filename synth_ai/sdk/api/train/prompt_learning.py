@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from synth_ai.core.telemetry import log_error, log_info
+from synth_ai.core.telemetry import log_info
 
 from .builders import PromptLearningBuildResult, build_prompt_learning_payload
 from .pollers import JobPoller, PollOutcome
