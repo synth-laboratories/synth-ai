@@ -821,7 +821,22 @@ class PromptLearningHandler(StreamHandler):
             if event_type == "prompt.learning.rollouts.start":
                 self._handle_rollouts_start(message.data)
                 return
-            
+
+            # Handle GEPA new best event
+            if event_type == "prompt.learning.gepa.new_best":
+                self._handle_gepa_new_best(message.data)
+                return
+
+            # Handle phase changed event
+            if event_type == "prompt.learning.phase.changed":
+                self._handle_phase_changed(message.data)
+                return
+
+            # Handle stream connected event (connection lifecycle)
+            if event_type == "prompt.learning.stream.connected":
+                self._handle_stream_connected(message.data)
+                return
+
             # Handle proposal scored events (transformations) - only if enabled
             if event_type == "prompt.learning.proposal.scored" and self.show_transformations:
                 self._handle_proposal_scored(message.data)
@@ -1087,7 +1102,78 @@ class PromptLearningHandler(StreamHandler):
             self._write_log(f"[{timestamp}] Starting rollouts: {num_seeds} seeds")
         else:
             self._write_log(f"[{timestamp}] Starting rollouts")
-    
+
+    def _handle_gepa_new_best(self, event_data: dict[str, Any]) -> None:
+        """Handle GEPA new best candidate event.
+
+        Displays when a new best candidate is found during optimization,
+        showing the improvement over the previous best.
+
+        Args:
+            event_data: Event data dictionary containing:
+                - data.accuracy: New best accuracy score
+                - data.previous_best_score: Previous best score
+                - data.improvement: Absolute improvement
+                - data.version_id: ID of the new best candidate
+        """
+        data = event_data.get("data", {})
+        if not isinstance(data, dict):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        accuracy = data.get("accuracy")
+        previous = data.get("previous_best_score")
+        improvement = data.get("improvement")
+
+        if accuracy is not None:
+            msg = f"[{timestamp}] \u2728 New best: {accuracy:.4f}"
+            if previous is not None and improvement is not None:
+                msg += f" (+{improvement:.4f} from {previous:.4f})"
+            elif previous is not None:
+                msg += f" (was {previous:.4f})"
+            self._write_log(msg)
+
+    def _handle_phase_changed(self, event_data: dict[str, Any]) -> None:
+        """Handle phase transition event.
+
+        Displays when the optimization transitions between phases
+        (e.g., bootstrap -> optimization -> validation -> complete).
+
+        Args:
+            event_data: Event data dictionary containing:
+                - data.from_phase: Previous phase name
+                - data.to_phase: New phase name
+                - data.phase_summary: Optional summary of completed phase
+        """
+        data = event_data.get("data", {})
+        if not isinstance(data, dict):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        from_phase = data.get("from_phase") or "start"
+        to_phase = data.get("to_phase")
+
+        if to_phase:
+            self._write_log(f"[{timestamp}] Phase: {from_phase} \u2192 {to_phase}")
+
+    def _handle_stream_connected(self, event_data: dict[str, Any]) -> None:
+        """Handle SSE stream connection event.
+
+        Displays connection confirmation with cursor position for debugging.
+
+        Args:
+            event_data: Event data dictionary containing:
+                - data.cursor: Current sequence cursor position
+                - data.heartbeat_interval_seconds: Heartbeat interval
+        """
+        data = event_data.get("data", {})
+        if not isinstance(data, dict):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        cursor = data.get("cursor", 0)
+        self._write_log(f"[{timestamp}] Stream connected (cursor={cursor})")
+
     def _handle_mipro_job_started(self, event_data: dict[str, Any]) -> None:
         """Handle MIPRO job start event and extract configuration.
         
