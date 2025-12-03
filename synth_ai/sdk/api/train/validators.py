@@ -814,14 +814,8 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     f"  Got: '{proposer_output_tokens}'"
                 )
             
-            # Validate RAPID can only be used with LOW_CONTEXT
-            if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
-                errors.append(
-                    f"Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
-                    f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
-                    f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
-                )
-            
+            # Note: RAPID can now be used with any proposer_effort level (5000 tokens)
+
             # Spec validation when proposer_type is "spec"
             if proposer_type == "spec":
                 spec_path = gepa_config.get("spec_path")
@@ -2075,14 +2069,8 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             f"  Got: '{proposer_output_tokens}'"
         )
     
-    # Validate RAPID can only be used with LOW_CONTEXT
-    if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
-        errors.append(
-            f"❌ Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
-            f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
-            f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
-        )
-    
+    # Note: RAPID can now be used with any proposer_effort level (5000 tokens)
+
     # Validate meta_max_tokens if present
     meta_max_tokens = mipro_section.get("meta_model_max_tokens")
     if meta_max_tokens is not None:
