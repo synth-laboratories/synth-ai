@@ -56,6 +56,10 @@ _PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
 _PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
 _PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
 _PROMPT_LEARNING_EVENT_MIPRO_COMPLETE = "prompt.learning.mipro.complete"
+_PROMPT_LEARNING_EVENT_GEPA_NEW_BEST = "prompt.learning.gepa.new_best"
+_PROMPT_LEARNING_EVENT_PHASE_CHANGED = "prompt.learning.phase.changed"
+_PROMPT_LEARNING_EVENT_PROGRESS = "prompt.learning.progress"
+_PROMPT_LEARNING_EVENT_STREAM_CONNECTED = "prompt.learning.stream.connected"
 
 # Constants for formatting
 _MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in output
