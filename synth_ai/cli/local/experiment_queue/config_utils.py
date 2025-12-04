@@ -10,6 +10,8 @@ from typing import Any, Mapping, MutableMapping
 
 import tomli_w
 
+from synth_ai.core.telemetry import log_info
+
 from .validation import validate_path
 
 
@@ -176,14 +178,16 @@ def prepare_config_file(config_path: str | Path, overrides: Mapping[str, Any] | 
     Args:
         config_path: Path to source TOML config file
         overrides: Optional dictionary of config overrides to apply
-        
+
     Returns:
         PreparedConfig with the path to the merged TOML and resolved results_folder.
-        
+
     Raises:
         AssertionError: If inputs are invalid
         FileNotFoundError: If config file doesn't exist
     """
+    ctx: dict[str, Any] = {"config_path": str(config_path), "has_overrides": overrides is not None}
+    log_info("prepare_config_file invoked", ctx=ctx)
     # Validate inputs
     assert config_path is not None, "config_path cannot be None"
     source_path = validate_path(config_path, "config_path", must_exist=True)

@@ -13,16 +13,41 @@ from typing import Any, Callable, Dict, Iterator, List, Literal, Optional
 
 import httpx
 
-# Algorithm types
-AlgorithmType = Literal["scaffold_tuning", "evaluation", "trace_analysis"]
+from .config import (
+    DatasetSource,
+    GEPAConfig,
+    MIPROConfig,
+    ModelProvider,
+    OptimizationTool,
+    PermittedModel,
+    PermittedModelsConfig,
+    ReasoningEffort,
+    ResearchConfig,
+)
+
+# Backend type
 BackendType = Literal["daytona", "modal", "docker"]
 
 
 @dataclass
 class ResearchAgentJobConfig:
-    """Configuration for a research agent job."""
+    """Configuration for a research agent job.
 
-    algorithm: AlgorithmType
+    Example:
+        >>> config = ResearchAgentJobConfig(
+        ...     research=ResearchConfig(
+        ...         task_description="Optimize prompt for banking classification",
+        ...         tools=[OptimizationTool.MIPRO],
+        ...         datasets=[DatasetSource(source_type="huggingface", hf_repo_id="PolyAI/banking77")],
+        ...     ),
+        ...     repo_url="https://github.com/my-org/my-pipeline",
+        ...     model="gpt-5.1-codex-mini",
+        ...     max_agent_spend_usd=25.0,
+        ... )
+    """
+
+    # Research config (typed)
+    research: ResearchConfig
 
     # Repository (optional if inline_files provided)
     repo_url: str = ""
@@ -33,12 +58,21 @@ class ResearchAgentJobConfig:
     # Dict of filepath -> content (e.g., {"pipeline.py": "...", "eval.py": "..."})
     inline_files: Optional[Dict[str, str]] = None
 
+    # Execution
     backend: BackendType = "daytona"
     model: str = "gpt-4o"
     use_synth_proxy: bool = True
 
-    # Algorithm-specific config
-    algorithm_config: Dict[str, Any] = field(default_factory=dict)
+    # Spend limits
+    max_agent_spend_usd: float = 10.0
+    """Maximum spend in USD for agent inference and sandbox time. Default: $10."""
+
+    max_synth_spend_usd: float = 100.0
+    """Maximum spend in USD for Synth API calls (experiments, evals). Default: $100."""
+
+    # Reasoning effort (for models that support it)
+    reasoning_effort: Optional[ReasoningEffort] = None
+    """Reasoning effort level: low, medium, high. Only for supported models (o1, o3, gpt-5 family, synth-*)."""
 
     # API configuration
     backend_url: str = ""
@@ -60,9 +94,7 @@ class ResearchAgentJobConfig:
                 "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
             )
         if not self.repo_url and not self.inline_files:
-            raise ValueError(
-                "Either repo_url or inline_files must be provided"
-            )
+            raise ValueError("Either repo_url or inline_files must be provided")
 
     @classmethod
     def from_toml(cls, config_path: str | Path) -> ResearchAgentJobConfig:
@@ -70,17 +102,27 @@ class ResearchAgentJobConfig:
 
         Expected TOML structure:
             [research_agent]
-            algorithm = "scaffold_tuning"
             repo_url = "https://github.com/your-org/repo"
             repo_branch = "main"
             backend = "daytona"
-            model = "gpt-4o"
+            model = "gpt-5.1-codex-mini"
+            max_agent_spend_usd = 25.0
+            max_synth_spend_usd = 150.0
+            reasoning_effort = "medium"
 
-            [research_agent.scaffold_tuning]
-            objective.metric_name = "accuracy"
-            objective.max_iterations = 5
-            target_files = ["prompts/*.txt"]
-            ...
+            [research_agent.research]
+            task_description = "Optimize prompt for accuracy"
+            tools = ["mipro"]
+            primary_metric = "accuracy"
+            num_iterations = 10
+
+            [[research_agent.research.datasets]]
+            source_type = "huggingface"
+            hf_repo_id = "PolyAI/banking77"
+
+            [research_agent.research.mipro_config]
+            meta_model = "llama-3.3-70b-versatile"
+            num_trials = 15
         """
         import tomllib
 
@@ -95,15 +137,15 @@ class ResearchAgentJobConfig:
         if not ra_config:
             raise ValueError("Config must have [research_agent] section")
 
-        algorithm = ra_config.get("algorithm")
-        if not algorithm:
-            raise ValueError("research_agent.algorithm is required")
+        # Parse research config
+        research_data = ra_config.get("research", {})
+        if not research_data:
+            raise ValueError("research_agent.research config is required")
 
-        # Get algorithm-specific config
-        algorithm_config = ra_config.get(algorithm, {})
+        research = _parse_research_config(research_data)
 
         return cls(
-            algorithm=algorithm,
+            research=research,
             repo_url=ra_config.get("repo_url", ""),
             repo_branch=ra_config.get("repo_branch", "main"),
             repo_commit=ra_config.get("repo_commit"),
@@ -111,11 +153,134 @@ class ResearchAgentJobConfig:
             backend=ra_config.get("backend", "daytona"),
             model=ra_config.get("model", "gpt-4o"),
             use_synth_proxy=ra_config.get("use_synth_proxy", True),
-            algorithm_config=algorithm_config,
+            max_agent_spend_usd=ra_config.get("max_agent_spend_usd", 10.0),
+            max_synth_spend_usd=ra_config.get("max_synth_spend_usd", 100.0),
+            reasoning_effort=ra_config.get("reasoning_effort"),
             backend_url=ra_config.get("backend_url", ""),
             api_key=ra_config.get("api_key", ""),
             metadata=ra_config.get("metadata", {}),
         )
+
+
+def _parse_research_config(data: Dict[str, Any]) -> ResearchConfig:
+    """Parse ResearchConfig from dict (e.g., from TOML)."""
+    # Parse tools
+    tools_raw = data.get("tools", ["mipro"])
+    tools = [
+        OptimizationTool(t) if isinstance(t, str) else t
+        for t in tools_raw
+    ]
+
+    # Parse datasets
+    datasets_raw = data.get("datasets", [])
+    datasets = [_parse_dataset_source(d) for d in datasets_raw]
+
+    # Parse permitted_models
+    permitted_models = None
+    if "permitted_models" in data:
+        permitted_models = _parse_permitted_models(data["permitted_models"])
+
+    # Parse GEPA config
+    gepa_config = None
+    if "gepa_config" in data:
+        gepa_config = _parse_gepa_config(data["gepa_config"])
+
+    # Parse MIPRO config
+    mipro_config = None
+    if "mipro_config" in data:
+        mipro_config = _parse_mipro_config(data["mipro_config"])
+
+    return ResearchConfig(
+        task_description=data.get("task_description", ""),
+        tools=tools,
+        datasets=datasets,
+        primary_metric=data.get("primary_metric", "accuracy"),
+        secondary_metrics=data.get("secondary_metrics", []),
+        num_iterations=data.get("num_iterations", 10),
+        population_size=data.get("population_size", 20),
+        timeout_minutes=data.get("timeout_minutes", 60),
+        max_eval_samples=data.get("max_eval_samples"),
+        permitted_models=permitted_models,
+        gepa_config=gepa_config,
+        mipro_config=mipro_config,
+        initial_prompt=data.get("initial_prompt"),
+        pipeline_entrypoint=data.get("pipeline_entrypoint"),
+    )
+
+
+def _parse_dataset_source(data: Dict[str, Any]) -> DatasetSource:
+    """Parse DatasetSource from dict."""
+    return DatasetSource(
+        source_type=data["source_type"],
+        description=data.get("description"),
+        hf_repo_id=data.get("hf_repo_id"),
+        hf_split=data.get("hf_split", "train"),
+        hf_subset=data.get("hf_subset"),
+        file_ids=data.get("file_ids"),
+        inline_data=data.get("inline_data"),
+    )
+
+
+def _parse_permitted_models(data: Dict[str, Any]) -> PermittedModelsConfig:
+    """Parse PermittedModelsConfig from dict."""
+    models_raw = data.get("models", [])
+    models = [
+        PermittedModel(
+            model=m["model"],
+            provider=ModelProvider(m["provider"]) if isinstance(m["provider"], str) else m["provider"],
+        )
+        for m in models_raw
+    ]
+    return PermittedModelsConfig(
+        models=models,
+        default_temperature=data.get("default_temperature", 0.7),
+        default_max_tokens=data.get("default_max_tokens", 4096),
+    )
+
+
+def _parse_gepa_config(data: Dict[str, Any]) -> GEPAConfig:
+    """Parse GEPAConfig from dict."""
+    mutation_provider = data.get("mutation_provider", "groq")
+    if isinstance(mutation_provider, str):
+        mutation_provider = ModelProvider(mutation_provider)
+
+    return GEPAConfig(
+        mutation_model=data.get("mutation_model", "openai/gpt-oss-120b"),
+        mutation_provider=mutation_provider,
+        mutation_temperature=data.get("mutation_temperature", 0.7),
+        mutation_max_tokens=data.get("mutation_max_tokens", 8192),
+        population_size=data.get("population_size", 20),
+        num_generations=data.get("num_generations", 10),
+        elite_fraction=data.get("elite_fraction", 0.2),
+        proposer_type=data.get("proposer_type", "dspy"),
+        proposer_effort=data.get("proposer_effort", "MEDIUM"),
+        proposer_output_tokens=data.get("proposer_output_tokens", "FAST"),
+        spec_path=data.get("spec_path"),
+        train_size=data.get("train_size"),
+        val_size=data.get("val_size"),
+        reference_size=data.get("reference_size"),
+    )
+
+
+def _parse_mipro_config(data: Dict[str, Any]) -> MIPROConfig:
+    """Parse MIPROConfig from dict."""
+    meta_provider = data.get("meta_provider", "groq")
+    if isinstance(meta_provider, str):
+        meta_provider = ModelProvider(meta_provider)
+
+    return MIPROConfig(
+        meta_model=data.get("meta_model", "llama-3.3-70b-versatile"),
+        meta_provider=meta_provider,
+        meta_temperature=data.get("meta_temperature", 0.7),
+        meta_max_tokens=data.get("meta_max_tokens", 4096),
+        num_candidates=data.get("num_candidates", 20),
+        num_trials=data.get("num_trials", 10),
+        proposer_effort=data.get("proposer_effort", "MEDIUM"),
+        proposer_output_tokens=data.get("proposer_output_tokens", "FAST"),
+        train_size=data.get("train_size"),
+        val_size=data.get("val_size"),
+        reference_size=data.get("reference_size"),
+    )
 
 
 @dataclass
@@ -189,32 +354,39 @@ class ResearchAgentJobPoller:
 class ResearchAgentJob:
     """High-level SDK class for running research agent jobs.
 
-    Supports three algorithms:
-    - scaffold_tuning: Iteratively improve code/prompts to optimize a metric
-    - evaluation: Run evaluation suites across datasets
-    - trace_analysis: Analyze past execution traces for patterns
+    Research agent jobs use AI to optimize prompts/pipelines using MIPRO or GEPA algorithms.
 
     Example:
-        >>> from synth_ai.sdk.api.research_agent import ResearchAgentJob
-        >>>
-        >>> # From config file
-        >>> job = ResearchAgentJob.from_config("my_config.toml")
-        >>> job.submit()
-        >>> result = job.poll_until_complete()
-        >>>
-        >>> # Or programmatically
-        >>> job = ResearchAgentJob(
-        ...     algorithm="scaffold_tuning",
-        ...     repo_url="https://github.com/your-org/repo",
-        ...     config=ResearchAgentJobConfig(
-        ...         algorithm="scaffold_tuning",
-        ...         repo_url="https://github.com/your-org/repo",
-        ...         algorithm_config={
-        ...             "objective": {"metric_name": "accuracy", "max_iterations": 5},
-        ...         }
-        ...     )
+        >>> from synth_ai.sdk.api.research_agent import (
+        ...     ResearchAgentJob,
+        ...     ResearchAgentJobConfig,
+        ...     ResearchConfig,
+        ...     DatasetSource,
+        ...     OptimizationTool,
         ... )
-        >>> job.submit()
+        >>>
+        >>> # Create typed config
+        >>> research_config = ResearchConfig(
+        ...     task_description="Optimize prompt for banking classification",
+        ...     tools=[OptimizationTool.MIPRO],
+        ...     datasets=[
+        ...         DatasetSource(
+        ...             source_type="huggingface",
+        ...             hf_repo_id="PolyAI/banking77",
+        ...         )
+        ...     ],
+        ... )
+        >>>
+        >>> job_config = ResearchAgentJobConfig(
+        ...     research=research_config,
+        ...     repo_url="https://github.com/my-org/my-pipeline",
+        ...     model="gpt-5.1-codex-mini",
+        ...     max_agent_spend_usd=25.0,
+        ... )
+        >>>
+        >>> job = ResearchAgentJob(config=job_config)
+        >>> job_id = job.submit()
+        >>> result = job.poll_until_complete()
     """
 
     def __init__(
@@ -240,25 +412,18 @@ class ResearchAgentJob:
         api_key: Optional[str] = None,
     ) -> ResearchAgentJob:
         """Create a research agent job from a TOML config file.
-        
-        The config file should have a `[research_agent]` section with algorithm,
-        repo_url, backend, model, and algorithm-specific configuration.
-        
+
         Args:
             config_path: Path to TOML config file
             backend_url: Override backend URL (defaults to env or production)
             api_key: Override API key (defaults to SYNTH_API_KEY env var)
-            
+
         Returns:
             ResearchAgentJob instance configured from the file
-            
+
         Raises:
             FileNotFoundError: If config file doesn't exist
             ValueError: If config is invalid or missing required fields
-            
-        Example:
-            >>> job = ResearchAgentJob.from_config("research_agent_config.toml")
-            >>> job_id = job.submit()
         """
         config = ResearchAgentJobConfig.from_toml(config_path)
 
@@ -286,69 +451,73 @@ class ResearchAgentJob:
         Returns:
             ResearchAgentJob instance
         """
-        # Create minimal config for polling (use inline_files placeholder to pass validation)
+        # Create minimal config for polling
+        # Use a placeholder ResearchConfig since we're just polling
+        research = ResearchConfig(task_description="_placeholder")
         config = ResearchAgentJobConfig(
-            algorithm="scaffold_tuning",  # Placeholder
-            inline_files={"_placeholder": ""},  # Placeholder to pass validation
+            research=research,
+            inline_files={"_placeholder": ""},
             backend_url=backend_url or "",
             api_key=api_key or "",
         )
         return cls(config=config, job_id=job_id)
 
     @classmethod
-    def from_files(
+    def from_research_config(
         cls,
-        files: Dict[str, str],
-        algorithm: AlgorithmType = "scaffold_tuning",
-        algorithm_config: Optional[Dict[str, Any]] = None,
+        research: ResearchConfig,
+        repo_url: str = "",
+        repo_branch: str = "main",
+        repo_commit: Optional[str] = None,
+        inline_files: Optional[Dict[str, str]] = None,
         model: str = "gpt-4o",
         backend: BackendType = "daytona",
+        max_agent_spend_usd: float = 10.0,
+        max_synth_spend_usd: float = 100.0,
+        reasoning_effort: Optional[ReasoningEffort] = None,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         use_synth_proxy: bool = True,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ResearchAgentJob:
-        """Create a job from inline files (no repo required).
+        """Create a job from a ResearchConfig.
 
-        This is a convenience method for running research agent jobs on code
-        provided directly as strings, without needing a git repository.
+        This is a convenience method for creating jobs programmatically.
 
         Args:
-            files: Dict of filepath -> content (e.g., {"pipeline.py": "...", "eval.py": "..."})
-            algorithm: Algorithm to use (scaffold_tuning, evaluation, trace_analysis)
-            algorithm_config: Algorithm-specific configuration
+            research: Research configuration
+            repo_url: Git repository URL
+            repo_branch: Branch to clone
+            repo_commit: Specific commit to checkout
+            inline_files: Files to include in workspace
             model: Model for the agent to use
             backend: Container backend (daytona, modal, docker)
+            max_agent_spend_usd: Max spend for agent inference
+            max_synth_spend_usd: Max spend for Synth API calls
+            reasoning_effort: Reasoning effort level (low, medium, high)
             backend_url: Override backend URL
             api_key: Override API key
-            use_synth_proxy: Whether to route LLM calls through Synth proxy (default True)
+            use_synth_proxy: Route LLM calls through Synth proxy
+            metadata: Additional metadata
 
         Returns:
             ResearchAgentJob instance
-
-        Example:
-            >>> job = ResearchAgentJob.from_files(
-            ...     files={
-            ...         "pipeline.py": open("pipeline.py").read(),
-            ...         "eval.py": open("eval.py").read(),
-            ...     },
-            ...     algorithm="scaffold_tuning",
-            ...     algorithm_config={
-            ...         "objective": {"metric_name": "accuracy", "max_iterations": 5},
-            ...         "target_files": ["pipeline.py"],
-            ...         "metric": {"metric_type": "custom", "custom_script": "eval.py"},
-            ...     },
-            ... )
-            >>> job.submit()
         """
         config = ResearchAgentJobConfig(
-            algorithm=algorithm,
-            inline_files=files,
+            research=research,
+            repo_url=repo_url,
+            repo_branch=repo_branch,
+            repo_commit=repo_commit,
+            inline_files=inline_files,
             backend=backend,
             model=model,
             use_synth_proxy=use_synth_proxy,
-            algorithm_config=algorithm_config or {},
+            max_agent_spend_usd=max_agent_spend_usd,
+            max_synth_spend_usd=max_synth_spend_usd,
+            reasoning_effort=reasoning_effort,
             backend_url=backend_url or "",
             api_key=api_key or "",
+            metadata=metadata or {},
         )
         return cls(config=config)
 
@@ -365,9 +534,17 @@ class ResearchAgentJob:
 
         Raises:
             RuntimeError: If submission fails
+            NotImplementedError: If GEPA is requested (not yet supported)
         """
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
+
+        # Check for GEPA - not yet fully supported
+        if OptimizationTool.GEPA in self.config.research.tools:
+            raise NotImplementedError(
+                "GEPA optimization is not yet fully supported in the Research Agent SDK. "
+                "Please use MIPRO for now. GEPA support is coming soon."
+            )
 
         url = f"{self.config.backend_url.rstrip('/')}/api/research-agent/jobs"
         headers = {
@@ -377,12 +554,18 @@ class ResearchAgentJob:
 
         # Build request payload
         payload: Dict[str, Any] = {
-            "algorithm": self.config.algorithm,
+            "algorithm": "research",
             "backend": self.config.backend,
             "model": self.config.model,
             "use_synth_proxy": self.config.use_synth_proxy,
+            "max_agent_spend_usd": self.config.max_agent_spend_usd,
+            "max_synth_spend_usd": self.config.max_synth_spend_usd,
             "metadata": self.config.metadata,
         }
+
+        # Add reasoning_effort if set
+        if self.config.reasoning_effort:
+            payload["reasoning_effort"] = self.config.reasoning_effort
 
         # Add repo_url if provided
         if self.config.repo_url:
@@ -395,8 +578,8 @@ class ResearchAgentJob:
         if self.config.inline_files:
             payload["inline_files"] = self.config.inline_files
 
-        # Add algorithm-specific config
-        payload[self.config.algorithm] = self.config.algorithm_config
+        # Add research config
+        payload["research"] = self.config.research.to_dict()
 
         try:
             response = httpx.post(url, json=payload, headers=headers, timeout=60.0)

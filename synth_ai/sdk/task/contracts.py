@@ -13,6 +13,41 @@ class RolloutMode(str, Enum):
     EVAL = "eval"
 
 
+class OutputMode(str, Enum):
+    """Controls how the policy expects model outputs.
+
+    - TOOL_CALLS: Use function/tool calling (default, current behavior)
+    - TEXT: Plain text in message.content
+    - STRUCTURED: JSON via response_format (OpenAI json_schema, Groq json_object, Gemini responseSchema)
+    """
+    TOOL_CALLS = "tool_calls"
+    TEXT = "text"
+    STRUCTURED = "structured"
+
+
+class StructuredOutputConfig(BaseModel):
+    """Configuration for structured output mode (OutputMode.STRUCTURED).
+
+    Defines the JSON schema that the model must conform to when using structured outputs.
+    This is normalized across providers:
+    - OpenAI: response_format.json_schema
+    - Groq: response_format.json_schema or json_object
+    - Gemini: generationConfig.responseSchema
+    """
+    schema: dict[str, Any] = Field(
+        ...,
+        description="JSON Schema for the expected response structure"
+    )
+    schema_name: str = Field(
+        default="response",
+        description="Name for the schema (required by some providers)"
+    )
+    strict: bool = Field(
+        default=True,
+        description="Whether to enforce strict schema validation (OpenAI strict mode)"
+    )
+
+
 @dataclass(frozen=True)
 class TaskAppEndpoints:
     """Required Task App endpoints used by RL trainers and clients.
@@ -44,6 +79,16 @@ class RolloutPolicySpec(BaseModel):
     policy_name: str | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
+    # Output mode configuration (defaults to tool_calls for backward compatibility)
+    output_mode: OutputMode = Field(
+        default=OutputMode.TOOL_CALLS,
+        description="How the policy expects model outputs: tool_calls, text, or structured"
+    )
+    structured_config: StructuredOutputConfig | None = Field(
+        default=None,
+        description="Configuration for structured output mode (required if output_mode=STRUCTURED)"
+    )
+
 
 class RolloutRecordConfig(BaseModel):
     trajectories: bool = True
@@ -73,17 +118,27 @@ class RolloutRequest(BaseModel):
 
 class RolloutStep(BaseModel):
     """Single step in a rollout trajectory.
-    
+
     DEPRECATED: This is part of the legacy trajectory format. New code should
     consume v3 traces (RolloutResponse.trace) instead. See monorepo/trace_single_source.txt
     for migration plan.
     """
     obs: dict[str, Any]
-    tool_calls: list[dict[str, Any]]
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     reward: float | None = None
     done: bool = False
     truncated: bool | None = None
     info: dict[str, Any] | None = None
+
+    # Unified output fields (supports all output modes)
+    output: dict[str, Any] | str | None = Field(
+        default=None,
+        description="Unified output: parsed JSON for STRUCTURED, raw text for TEXT, tool args for TOOL_CALLS"
+    )
+    output_mode: OutputMode | None = Field(
+        default=None,
+        description="Which output mode produced this step's output"
+    )
 
 
 class RolloutTrajectory(BaseModel):
@@ -119,7 +174,14 @@ class RolloutTrajectory(BaseModel):
     # Required for trace correlation with inference mesh (optional initially for backward compat)
     # See: monorepo/INFERENCE_URL_REQUIREMENT_PLAN.md and trace_creation_and_judgement.txt
     inference_url: str
-    
+
+    # Required by monorepo trace_validation.py: trajectory-level trace with event_history
+    # The event_history contains LM call records for input/output extraction
+    trace: dict[str, Any] | None = Field(
+        default=None,
+        description="V3 trace with event_history for this trajectory (required for trace strict mode)"
+    )
+
     decision_samples: list[dict[str, Any]] | None = None
 
 

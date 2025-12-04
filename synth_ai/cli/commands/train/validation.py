@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.api.train.configs.rl import RLConfig
 from synth_ai.sdk.api.train.configs.sft import SFTConfig
 from synth_ai.sdk.api.train.utils import load_toml
@@ -34,13 +35,13 @@ __all__ = [
 
 def validate_sft_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
     """Validate SFT configuration from TOML.
-    
+
     Args:
         config: Raw configuration dictionary from TOML
-        
+
     Returns:
         Validated configuration dictionary
-        
+
     Raises:
         InvalidSFTConfigError: If validation fails
         MissingAlgorithmError: If algorithm section is missing or invalid
@@ -48,6 +49,8 @@ def validate_sft_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
         MissingDatasetError: If dataset path is not specified
         MissingComputeError: If compute section is missing required fields
     """
+    ctx: dict[str, Any] = {"config_keys": list(config.keys())[:10]}
+    log_info("validate_sft_config invoked", ctx=ctx)
     # Check for required top-level sections
     if "algorithm" not in config or not config["algorithm"]:
         raise MissingAlgorithmError(
@@ -130,19 +133,21 @@ def validate_sft_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
 
 def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
     """Validate RL configuration from TOML.
-    
+
     Args:
         config: Raw configuration dictionary from TOML
-        
+
     Returns:
         Validated configuration dictionary
-        
+
     Raises:
         InvalidRLConfigError: If validation fails
         MissingAlgorithmError: If algorithm section is missing or invalid
         MissingModelError: If model is not specified
         MissingComputeError: If compute section is missing required fields
     """
+    ctx: dict[str, Any] = {"config_keys": list(config.keys())[:10]}
+    log_info("validate_rl_config invoked", ctx=ctx)
     # Check for required top-level sections
     if "algorithm" not in config or not config["algorithm"]:
         raise MissingAlgorithmError(

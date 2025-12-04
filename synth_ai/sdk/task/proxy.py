@@ -69,7 +69,43 @@ def prepare_for_groq(model: str | None, payload: dict[str, Any]) -> dict[str, An
         and "max_tokens" not in payload
     ):
         sanitized["max_tokens"] = sanitized.pop("max_completion_tokens")
+
+    # Normalize response_format for Groq
+    # Groq supports json_schema on newer models (llama-3.3-70b, etc.)
+    # For older models, fall back to json_object
+    normalize_response_format_for_groq(model, sanitized)
+
     return sanitized
+
+
+# Models that support json_schema response_format
+_GROQ_JSON_SCHEMA_MODELS = {
+    "llama-3.3-70b",
+    "llama-3.1-70b-versatile",
+    "llama-70b",
+    "mixtral-8x7b",
+}
+
+
+def normalize_response_format_for_groq(model: str | None, payload: dict[str, Any]) -> None:
+    """Normalize response_format for Groq provider compatibility.
+
+    Groq supports json_schema on newer models (llama-3.3-70b, etc.)
+    For older models, fall back to json_object.
+    """
+    response_format = payload.get("response_format")
+    if not response_format or not isinstance(response_format, dict):
+        return
+
+    model_lower = (model or "").lower()
+    supports_json_schema = any(
+        supported in model_lower
+        for supported in _GROQ_JSON_SCHEMA_MODELS
+    )
+
+    # If model doesn't support json_schema and we're using it, convert to json_object
+    if not supports_json_schema and response_format.get("type") == "json_schema":
+        payload["response_format"] = {"type": "json_object"}
 
 
 def inject_system_hint(payload: dict[str, Any], hint: str) -> dict[str, Any]:

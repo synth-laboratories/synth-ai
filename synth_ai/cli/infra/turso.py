@@ -6,7 +6,11 @@ import subprocess
 
 import click
 
-from synth_ai.cli.root import SQLD_VERSION, find_sqld_binary, install_sqld  # type: ignore[import-untyped]
+from synth_ai.cli.root import (  # type: ignore[import-untyped]
+    SQLD_VERSION,
+    find_sqld_binary,
+    install_sqld,
+)
 
 
 def register(cli: click.Group) -> None:

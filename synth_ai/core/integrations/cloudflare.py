@@ -27,7 +27,7 @@ from starlette.types import ASGIApp
 from synth_ai.core.apps.common import get_asgi_app, load_module
 from synth_ai.core.cfgs import CFDeployCfg
 from synth_ai.core.paths import REPO_ROOT, configure_import_paths
-from synth_ai.core.telemetry import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_event, log_info
 from synth_ai.core.urls import BACKEND_URL_BASE
 
 
@@ -423,8 +423,11 @@ def open_quick_tunnel(port: int, wait_s: float = 10.0) -> Tuple[str, subprocess.
         ) from e
     
     # Capture stderr separately for better error diagnostics
+    # Use --config /dev/null to prevent loading any user config file
+    # This fixes issues where ~/.cloudflared/config.yml has ingress rules
+    # for named tunnels that interfere with quick tunnels (returning 404)
     proc = subprocess.Popen(
-        [str(bin_path), "tunnel", "--url", f"http://127.0.0.1:{port}"],
+        [str(bin_path), "tunnel", "--config", "/dev/null", "--url", f"http://127.0.0.1:{port}"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,  # Capture stderr separately
         text=True,
@@ -1021,9 +1024,9 @@ async def check_rate_limit_status(test_port: int = 19999) -> dict[str, Any]:
         server_thread.start()
         await asyncio.sleep(0.5)
         
-        # Try to create a tunnel
+        # Try to create a tunnel (use --config /dev/null to ignore user config)
         proc = subprocess.Popen(
-            [str(bin_path), "tunnel", "--url", f"http://127.0.0.1:{test_port}"],
+            [str(bin_path), "tunnel", "--config", "/dev/null", "--url", f"http://127.0.0.1:{test_port}"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1345,6 +1348,14 @@ async def deploy_app_tunnel(
         # Blocking (waits for health check and keeps tunnel alive)
         url = await deploy_app_tunnel(cfg, wait=True)
     """
+    ctx: dict[str, Any] = {
+        "mode": cfg.mode,
+        "host": cfg.host,
+        "port": cfg.port,
+        "task_app_path": str(cfg.task_app_path) if cfg.task_app_path else None,
+        "wait": wait,
+    }
+    log_info("deploy_app_tunnel invoked", ctx=ctx)
 
     ensure_cloudflared_installed()
 

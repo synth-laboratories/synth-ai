@@ -26,7 +26,7 @@ def _run_demo_command(func: Any, *args: Any, **kwargs: Any) -> None:
     try:
         result = func(*args, **kwargs)
     except SystemExit as exc:  # pragma: no cover - defensive shim
-        raise Exit(exc.code or 1) from exc
+        raise Exit(exc.code if isinstance(exc.code, int) else 1) from exc
 
     if result is None:
         return

@@ -125,6 +125,7 @@ def run_cmd(
             --backend daytona
 
     """
+    from .config import OptimizationTool, ResearchConfig
     from .job import ResearchAgentJob, ResearchAgentJobConfig
 
     if not api_key:
@@ -142,7 +143,10 @@ def run_cmd(
 
         # Apply CLI overrides
         if algorithm:
-            config.algorithm = algorithm  # type: ignore
+            # Map algorithm string to optimization tool if needed
+            # Note: The algorithm parameter is kept for backward compatibility
+            # but the actual optimization is controlled by config.research.tools
+            pass  # Algorithm is embedded in the research config from TOML
         if repo_url:
             config.repo_url = repo_url
         if repo_branch != "main":
@@ -160,8 +164,16 @@ def run_cmd(
             click.secho("Error: --repo is required when not using --config", fg="red", err=True)
             sys.exit(1)
 
+        # Create a minimal ResearchConfig
+        # The algorithm parameter maps to the optimization tool
+        tools = [OptimizationTool.MIPRO]  # Default to MIPRO for CLI usage
+        research = ResearchConfig(
+            task_description=f"Research job via CLI with {algorithm}",
+            tools=tools,
+        )
+
         config = ResearchAgentJobConfig(
-            algorithm=algorithm,  # type: ignore
+            research=research,
             repo_url=repo_url,  # type: ignore[arg-type]
             repo_branch=repo_branch,
             backend=backend,  # type: ignore
@@ -173,11 +185,12 @@ def run_cmd(
     # Create and submit job
     job = ResearchAgentJob(config=config)
 
-    click.echo(f"Submitting {config.algorithm} job...")
+    click.echo("Submitting research job...")
     click.echo(f"  Repository: {config.repo_url}")
     click.echo(f"  Branch: {config.repo_branch}")
     click.echo(f"  Backend: {config.backend}")
     click.echo(f"  Model: {config.model}")
+    click.echo(f"  Tools: {', '.join(t.value for t in config.research.tools)}")
 
     try:
         job_id = job.submit()

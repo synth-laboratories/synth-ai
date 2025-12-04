@@ -6,6 +6,7 @@ from typing import Any, List, Tuple
 
 import click
 import toml
+from synth_ai.core.telemetry import log_info
 
 
 class ConfigValidationError(Exception):
@@ -353,17 +354,19 @@ def _validate_model_for_provider(model: str, provider: str, field_name: str, *, 
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """
     Validate prompt learning config BEFORE sending to backend.
-    
+
     This catches common errors early with clear messages instead of cryptic backend errors.
-    
+
     Args:
         config_data: Parsed TOML/JSON config
         config_path: Path to config file (for error messages)
-    
+
     Raises:
         ConfigValidationError: If config is invalid
         click.ClickException: If validation fails (for CLI)
     """
+    ctx: dict[str, Any] = {"config_path": str(config_path)}
+    log_info("validate_prompt_learning_config invoked", ctx=ctx)
     errors: list[str] = []
     
     # Check for prompt_learning section
@@ -811,14 +814,8 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                     f"  Got: '{proposer_output_tokens}'"
                 )
             
-            # Validate RAPID can only be used with LOW_CONTEXT
-            if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
-                errors.append(
-                    f"Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
-                    f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
-                    f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
-                )
-            
+            # Note: RAPID can now be used with any proposer_effort level (5000 tokens)
+
             # Spec validation when proposer_type is "spec"
             if proposer_type == "spec":
                 spec_path = gepa_config.get("spec_path")
@@ -866,6 +863,64 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                         errors.append("prompt_learning.gepa.archive.size (or archive_size) must be > 0")
                 except Exception:
                     errors.append("prompt_learning.gepa.archive.size (or archive_size) must be an integer")
+            
+            # CRITICAL: Validate pareto_set_size vs seeds BEFORE submitting to backend
+            # This catches config errors immediately instead of after job submission
+            eval_config = gepa_config.get("evaluation")
+            if eval_config and isinstance(eval_config, dict):
+                train_seeds = eval_config.get("seeds") or eval_config.get("train_seeds")
+                if train_seeds and isinstance(train_seeds, list) and len(train_seeds) > 0:
+                    total_seeds = len(train_seeds)
+                    
+                    # Get pareto_set_size (can be in archive section or top-level)
+                    pareto_set_size = None
+                    if archive_config and isinstance(archive_config, dict):
+                        pareto_set_size = archive_config.get("pareto_set_size")
+                    if pareto_set_size is None:
+                        pareto_set_size = gepa_config.get("pareto_set_size", 64)  # Default from backend
+                    
+                    try:
+                        pareto_count = int(pareto_set_size)
+                        feedback_fraction = 0.5  # Default
+                        if archive_config and isinstance(archive_config, dict):
+                            feedback_fraction = archive_config.get("feedback_fraction", 0.5)
+                        if feedback_fraction is None:
+                            feedback_fraction = gepa_config.get("feedback_fraction", 0.5)
+                        feedback_fraction = float(feedback_fraction)
+                        
+                        # Calculate split
+                        feedback_count = total_seeds - pareto_count
+                        
+                        # Constants matching backend
+                        min_pareto_set_size = 10
+                        min_feedback_seeds = 3
+
+                        # Validate pareto_set_size <= total_seeds
+                        if pareto_count > total_seeds:
+                            errors.append(
+                                f"CONFIG ERROR: pareto_set_size={pareto_count} > total_seeds={total_seeds}. "
+                                f"Increase [prompt_learning.gepa.evaluation].seeds or decrease "
+                                f"[prompt_learning.gepa.archive].pareto_set_size. "
+                                f"Seeds: {train_seeds[:10]}{'...' if len(train_seeds) > 10 else ''}"
+                            )
+
+                        # Validate pareto_set_size >= min_pareto_set_size
+                        if pareto_count < min_pareto_set_size:
+                            errors.append(
+                                f"CONFIG ERROR: pareto_set_size={pareto_count} < MIN_PARETO_SET_SIZE={min_pareto_set_size}. "
+                                f"Increase [prompt_learning.gepa.archive].pareto_set_size to at least {min_pareto_set_size}. "
+                                f"Below this threshold, accuracy estimates are too noisy for reliable optimization."
+                            )
+
+                        # Validate feedback_count >= min_feedback_seeds
+                        if feedback_count < min_feedback_seeds:
+                            errors.append(
+                                f"CONFIG ERROR: feedback_count={feedback_count} < MIN_FEEDBACK_SEEDS={min_feedback_seeds}. "
+                                f"Increase total seeds or decrease pareto_set_size to ensure at least {min_feedback_seeds} feedback seeds. "
+                                f"Below this threshold, reflection prompts lack sufficient diversity."
+                            )
+                    except (ValueError, TypeError):
+                        pass  # Type errors already caught by _pos_int_nested above
             
             # Pareto eps validation
             pareto_eps = None
@@ -1317,7 +1372,23 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                         errors.append("prompt_learning.mipro.few_shot_score_threshold must be between 0.0 and 1.0")
                 except Exception:
                     errors.append("prompt_learning.mipro.few_shot_score_threshold must be a number")
-            
+
+            # Validate min_bootstrap_demos (strict bootstrap mode)
+            min_bootstrap_demos = mipro_config.get("min_bootstrap_demos")
+            if min_bootstrap_demos is not None:
+                try:
+                    min_demos_int = int(min_bootstrap_demos)
+                    if min_demos_int < 0:
+                        errors.append("prompt_learning.mipro.min_bootstrap_demos must be >= 0")
+                    elif bootstrap_seeds and min_demos_int > len(bootstrap_seeds):
+                        errors.append(
+                            f"prompt_learning.mipro.min_bootstrap_demos ({min_demos_int}) exceeds "
+                            f"bootstrap_train_seeds count ({len(bootstrap_seeds)}). "
+                            f"You can never have more demos than bootstrap seeds."
+                        )
+                except (TypeError, ValueError):
+                    errors.append("prompt_learning.mipro.min_bootstrap_demos must be an integer")
+
             # Validate reference pool doesn't overlap with bootstrap/online/test pools
             reference_pool = mipro_config.get("reference_pool") or pl_section.get("reference_pool")
             if reference_pool:
@@ -1759,7 +1830,7 @@ def validate_gepa_config_from_file(config_path: Path) -> Tuple[bool, List[str]]:
                     errors.append(
                         "❌ gepa.adaptive_batch.val_evaluation_mode='subsample' requires val_subsample_size to be set"
                     )
-    elif isinstance(subsample_size, int | float) and subsample_size <= 0:
+                elif isinstance(subsample_size, int | float) and subsample_size <= 0:
                     errors.append(
                         f"❌ gepa.adaptive_batch.val_subsample_size must be > 0 when val_evaluation_mode='subsample', got {subsample_size}"
                     )
@@ -1998,14 +2069,8 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
             f"  Got: '{proposer_output_tokens}'"
         )
     
-    # Validate RAPID can only be used with LOW_CONTEXT
-    if proposer_output_tokens == "RAPID" and proposer_effort != "LOW_CONTEXT":
-        errors.append(
-            f"❌ Invalid combination: proposer_output_tokens='RAPID' requires proposer_effort='LOW_CONTEXT'\n"
-            f"  RAPID token limit (3000 tokens) can only be used with LOW_CONTEXT effort level (gpt-oss-120b)\n"
-            f"  Got: proposer_effort='{proposer_effort}', proposer_output_tokens='{proposer_output_tokens}'"
-        )
-    
+    # Note: RAPID can now be used with any proposer_effort level (5000 tokens)
+
     # Validate meta_max_tokens if present
     meta_max_tokens = mipro_section.get("meta_model_max_tokens")
     if meta_max_tokens is not None:
@@ -2309,14 +2374,16 @@ def validate_mipro_config_from_file(config_path: Path) -> Tuple[bool, List[str]]
 
 def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str) -> None:
     """Validate prompt learning config from TOML file and raise ConfigValidationError if invalid.
-    
+
     Args:
         config_path: Path to TOML config file
         algorithm: Either 'gepa' or 'mipro'
-    
+
     Raises:
         ConfigValidationError: If validation fails, with detailed error messages
     """
+    ctx: dict[str, Any] = {"config_path": str(config_path), "algorithm": algorithm}
+    log_info("validate_prompt_learning_config_from_file invoked", ctx=ctx)
     if algorithm == "gepa":
         is_valid, errors = validate_gepa_config_from_file(config_path)
     elif algorithm == "mipro":

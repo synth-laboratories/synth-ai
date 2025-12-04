@@ -24,6 +24,7 @@ except Exception as exc:  # pragma: no cover - critical dependency
 
 from synth_ai.cli.lib.env import load_env_file
 from synth_ai.cli.lib.errors import format_error_message, get_required_value
+from synth_ai.core.telemetry import flush_logger, log_error, log_info
 from synth_ai.sdk.streaming import (
     CLIHandler,
     JobStreamer,
@@ -55,6 +56,10 @@ _PROMPT_LEARNING_EVENT_FINAL_RESULTS = "prompt.learning.final.results"
 _PROMPT_LEARNING_EVENT_VALIDATION_SCORED = "prompt.learning.validation.scored"
 _PROMPT_LEARNING_EVENT_GEPA_COMPLETE = "prompt.learning.gepa.complete"
 _PROMPT_LEARNING_EVENT_MIPRO_COMPLETE = "prompt.learning.mipro.complete"
+_PROMPT_LEARNING_EVENT_GEPA_NEW_BEST = "prompt.learning.gepa.new_best"
+_PROMPT_LEARNING_EVENT_PHASE_CHANGED = "prompt.learning.phase.changed"
+_PROMPT_LEARNING_EVENT_PROGRESS = "prompt.learning.progress"
+_PROMPT_LEARNING_EVENT_STREAM_CONNECTED = "prompt.learning.stream.connected"
 
 # Constants for formatting
 _MAX_TEXT_REPLACEMENTS_DISPLAY = 3  # Max number of text replacements to show in output
@@ -475,7 +480,17 @@ def train_command(
     
     """Interactive launcher for RL / SFT / Prompt Learning jobs."""
     import traceback
-    
+
+    ctx: dict[str, Any] = {
+        "cfg_path": str(cfg_path) if cfg_path else None,
+        "poll": poll,
+        "poll_timeout": poll_timeout,
+        "poll_interval": poll_interval,
+        "stream_format": stream_format,
+        "backend_override": backend_override,
+    }
+    log_info("train_command invoked", ctx=ctx)
+
     # Wrap entire function in try-except to catch ALL exceptions
     try:
         # Log entry point IMMEDIATELY - this should always appear
@@ -603,9 +618,13 @@ def train_command(
                     examples_limit=examples_limit,
                 )
     except Exception as e:
+        ctx["error"] = type(e).__name__
+        log_error("train_command failed", ctx=ctx)
         click.echo(f"[TRAIN_CMD] FATAL ERROR: {e}", err=True)
         traceback.print_exc(file=sys.stderr)
         raise
+    finally:
+        flush_logger()
 
 
 def _wait_for_training_file(
@@ -699,6 +718,13 @@ def handle_rl(
     poll_interval: float,
     stream_format: str,
 ) -> None:
+    ctx: dict[str, Any] = {
+        "cfg_path": str(cfg_path),
+        "backend_base": backend_base,
+        "task_url_override": task_url_override,
+        "poll": poll,
+    }
+    log_info("handle_rl invoked", ctx=ctx)
     overrides: dict[str, Any] = {
         "backend": backend_base,
         "task_url": task_url_override,
@@ -850,6 +876,13 @@ def handle_sft(
     stream_format: str,
     examples_limit: int | None,
 ) -> None:
+    ctx: dict[str, Any] = {
+        "cfg_path": str(cfg_path),
+        "backend_base": backend_base,
+        "dataset_override": str(dataset_override) if dataset_override else None,
+        "poll": poll,
+    }
+    log_info("handle_sft invoked", ctx=ctx)
     try:
         build = build_sft_payload(
             config_path=cfg_path,
@@ -1658,6 +1691,13 @@ def handle_prompt_learning(
     verbose_summary: bool = True,
 ) -> None:
     """Handle prompt learning job creation (MIPRO or GEPA)."""
+    ctx: dict[str, Any] = {
+        "cfg_path": str(cfg_path),
+        "backend_base": backend_base,
+        "task_url_override": task_url_override,
+        "poll": poll,
+    }
+    log_info("handle_prompt_learning invoked", ctx=ctx)
     env_key = get_required_value(
         "environment_api_key",
         env_value=os.environ.get("ENVIRONMENT_API_KEY"),

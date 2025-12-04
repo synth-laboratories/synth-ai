@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional, cast
 from pydantic import BaseModel
 
 from synth_ai.core.paths import get_bin_path
-from synth_ai.core.telemetry import log_error, log_event
+from synth_ai.core.telemetry import log_error, log_info
 
 
 class LocalDeployCfg(BaseModel):
@@ -25,13 +25,13 @@ class LocalDeployCfg(BaseModel):
         host: str = "127.0.0.1",
         port: int = 8000
     ) -> "LocalDeployCfg":
-        ctx = {
-            "task_app": str(task_app_path),
-            "trace": bool(trace),
-            "host": str(host),
-            "port": int(port),
+        ctx: dict[str, Any] = {
+            "task_app_path": str(task_app_path),
+            "trace": trace,
+            "host": host,
+            "port": port,
         }
-        log_event("info", "creating LocalDeployCfg", ctx=ctx)
+        log_info("creating LocalDeployCfg", ctx=ctx)
         try:
             cfg = cls(
                 task_app_path=task_app_path,
@@ -40,10 +40,10 @@ class LocalDeployCfg(BaseModel):
                 host=host,
                 port=port,
             )
-            log_event("info", "LocalDeployCfg created", ctx=ctx)
             return cfg
         except Exception as exc:
-            log_error("LocalDeployCfg creation failed", ctx={**ctx, "error": type(exc).__name__})
+            ctx["error"] = type(exc).__name__
+            log_error("LocalDeployCfg creation failed", ctx=ctx)
             raise
 
     @classmethod
@@ -52,13 +52,16 @@ class LocalDeployCfg(BaseModel):
         data: dict[str, Any]
     ) -> "LocalDeployCfg":
         path = Path(data["task_app_path"])
-        ctx = {
-            "task_app": str(path),
-            "trace": bool(data.get("trace", True)),
-            "host": str(data.get("host", "127.0.0.1")),
-            "port": int(data.get("port", 8000)),
+        trace = bool(data.get("trace", True))
+        host = str(data.get("host", "127.0.0.1"))
+        port = int(data.get("port", 8000))
+        ctx: dict[str, Any] = {
+            "task_app_path": str(path),
+            "trace": trace,
+            "host": host,
+            "port": port,
         }
-        log_event("info", "creating LocalDeployCfg from dict", ctx=ctx)
+        log_info("creating LocalDeployCfg from dict", ctx=ctx)
         env_api_key = data.get("env_api_key")
         if not env_api_key or not isinstance(env_api_key, str):
             raise ValueError("env_api_key is required in local deploy configuration")
@@ -67,14 +70,14 @@ class LocalDeployCfg(BaseModel):
             cfg = cls(
                 task_app_path=path,
                 env_api_key=env_api_key,
-                trace=bool(data.get("trace", True)),
-                host=str(data.get("host", "127.0.0.1")),
-                port=int(data.get("port", 8000)),
+                trace=trace,
+                host=host,
+                port=port,
             )
-            log_event("info", "LocalDeployCfg from dict created", ctx=ctx)
             return cfg
         except (KeyError, TypeError, ValueError) as err:
-            log_error("LocalDeployCfg from dict failed", ctx={**ctx, "error": type(err).__name__})
+            ctx["error"] = type(err).__name__
+            log_error("LocalDeployCfg from dict failed", ctx=ctx)
             raise ValueError(f"Invalid local deploy configuration: {err}") from err
         
 
@@ -101,19 +104,21 @@ class ModalDeployCfg(BaseModel):
         modal_app_name: Optional[str] = None,
         dry_run: bool = False,
     ) -> "ModalDeployCfg":
-        ctx = {
-            "task_app": str(task_app_path),
-            "modal_app": str(modal_app_path),
+        ctx: dict[str, Any] = {
+            "task_app_path": str(task_app_path),
+            "modal_app_path": str(modal_app_path),
             "cmd_arg": cmd_arg,
             "dry_run": dry_run,
             "modal_app_name": modal_app_name,
-            "modal_cli": str(modal_bin_path) if modal_bin_path else None,
+            "modal_bin_path": str(modal_bin_path) if modal_bin_path else None,
         }
-        log_event("info", "creating ModalDeployCfg", ctx=ctx)
+        log_info("creating ModalDeployCfg", ctx=ctx)
         modal_bin_path = modal_bin_path or get_bin_path("modal")
         if modal_bin_path is None:
-            log_error("ModalDeployCfg creation failed", ctx={**ctx, "error": "ModalCLINotFound"})
+            ctx["error"] = "ModalCLINotFound"
+            log_error("ModalDeployCfg creation failed", ctx=ctx)
             raise ValueError("Modal CLI not found; install `modal` or pass --modal-cli with its path.")
+        ctx["modal_bin_path"] = str(modal_bin_path)
         try:
             cfg = cls(
                 task_app_path=task_app_path,
@@ -125,14 +130,17 @@ class ModalDeployCfg(BaseModel):
                 modal_app_name=modal_app_name,
                 dry_run=dry_run,
             )
-            log_event("info", "ModalDeployCfg created", ctx=ctx)
             return cfg
         except Exception as exc:
-            log_error("ModalDeployCfg creation failed", ctx={**ctx, "error": type(exc).__name__})
+            ctx["error"] = type(exc).__name__
+            log_error("ModalDeployCfg creation failed", ctx=ctx)
             raise
-    
+
     @classmethod
     def create_from_kwargs(cls, **kwargs: Any) -> "ModalDeployCfg":
+        ctx: dict[str, Any] = {**kwargs}
+        log_info("creating ModalDeployCfg from kwargs", ctx=ctx)
+
         synth_api_key = kwargs.get("synth_api_key")
         if not synth_api_key or not isinstance(synth_api_key, str):
             raise ValueError("synth_api_key must be provided as a string")
@@ -146,19 +154,19 @@ class ModalDeployCfg(BaseModel):
 
         dry_run = bool(kwargs.get("dry_run", False))
         if dry_run and os.getenv("CTX") == "mcp":
-            log_error("ModalDeployCfg create_from_kwargs blocked", ctx={"reason": "dry_run_mcp"})
+            ctx["error"] = "dry_run_mcp"
+            log_error("ModalDeployCfg create_from_kwargs blocked", ctx=ctx)
             raise ValueError("`synth-ai deploy --runtime modal --dry-run` cannot be used by MCP")
         if dry_run and cmd_arg == "serve":
-            log_error("ModalDeployCfg create_from_kwargs blocked", ctx={"reason": "dry_run_serve"})
+            ctx["error"] = "dry_run_serve"
+            log_error("ModalDeployCfg create_from_kwargs blocked", ctx=ctx)
             raise ValueError("`synth-ai deploy --runtime modal --modal-mode serve` cannot be used with `--dry-run`")
 
         modal_bin_path_arg = kwargs.get("modal_cli")
         modal_bin_path = Path(str(modal_bin_path_arg)).expanduser() if modal_bin_path_arg else get_bin_path("modal")
         if modal_bin_path is None or not modal_bin_path.exists():
-            log_error(
-                "ModalDeployCfg create_from_kwargs failed",
-                ctx={"error": "ModalCLINotFound", "provided_modal_cli": str(modal_bin_path_arg or "")},
-            )
+            ctx["error"] = "ModalCLINotFound"
+            log_error("ModalDeployCfg create_from_kwargs failed", ctx=ctx)
             raise ValueError('Modal binary not found via shutil.which("modal"). Install `modal` or pass --modal-cli with its path.')
         modal_bin_path = modal_bin_path.resolve()
 
@@ -168,14 +176,6 @@ class ModalDeployCfg(BaseModel):
 
         literal_cmd = cast(Literal["deploy", "serve"], cmd_arg)
 
-        ctx = {
-            "task_app": str(kwargs.get("task_app_path")),
-            "modal_app": str(kwargs.get("modal_app_path")),
-            "cmd_arg": literal_cmd,
-            "dry_run": dry_run,
-            "modal_app_name": modal_app_name,
-            "modal_cli": str(modal_bin_path) if modal_bin_path else None,
-        }
         task_app_path = kwargs.get("task_app_path")
         modal_app_path = kwargs.get("modal_app")
 
@@ -189,7 +189,6 @@ class ModalDeployCfg(BaseModel):
         if not isinstance(modal_app_path, Path):
             modal_app_path = Path(modal_app_path)
 
-        log_event("info", "creating ModalDeployCfg from kwargs", ctx=ctx)
         try:
             cfg = cls(
                 task_app_path=task_app_path,
@@ -201,10 +200,10 @@ class ModalDeployCfg(BaseModel):
                 modal_app_name=modal_app_name,
                 dry_run=dry_run,
             )
-            log_event("info", "ModalDeployCfg from kwargs created", ctx=ctx)
             return cfg
         except Exception as exc:
-            log_error("ModalDeployCfg from kwargs failed", ctx={**ctx, "error": type(exc).__name__})
+            ctx["error"] = type(exc).__name__
+            log_error("ModalDeployCfg from kwargs failed", ctx=ctx)
             raise
 
 

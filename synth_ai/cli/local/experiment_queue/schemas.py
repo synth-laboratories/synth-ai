@@ -62,7 +62,7 @@ class ExperimentJobSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     @classmethod
-    def from_orm(cls, job: ExperimentJob) -> ExperimentJobSummary:
+    def from_job(cls, job: ExperimentJob) -> ExperimentJobSummary:
         return cls(
             job_id=job.job_id,
             job_type=ExperimentJobType(job.job_type),
@@ -88,7 +88,7 @@ class TrialSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     @classmethod
-    def from_orm(cls, trial: Trial) -> TrialSummary:
+    def from_trial(cls, trial: Trial) -> TrialSummary:
         return cls(
             trial_id=trial.trial_id,
             trial_number=trial.trial_number,
@@ -116,7 +116,7 @@ class ExperimentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     @classmethod
-    def from_orm(cls, experiment: Experiment) -> ExperimentSummary:
+    def from_experiment(cls, experiment: Experiment) -> ExperimentSummary:
         return cls(
             experiment_id=experiment.experiment_id,
             name=experiment.name,

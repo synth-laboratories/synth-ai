@@ -1,10 +1,22 @@
 """SDK helper for running prompt-learning and RL jobs against a tunneled task app.
 
 This module keeps everything in-process:
-1) Spins up a FastAPI task app via InProcessTaskApp (with Cloudflare tunnel by default)
-2) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
-3) Submits jobs to the remote backend using SDK clients (no local optimizer imports)
-4) Optionally polls until completion and returns a structured result
+1) Spins up a FastAPI task app via InProcessTaskApp
+2) Opens a tunnel (Cloudflare by default, or uses preconfigured URL)
+3) Applies dot-notation overrides (task_app_url, budgets, seeds, models)
+4) Submits jobs to the remote backend using SDK clients
+5) Optionally polls until completion and returns a structured result
+
+Tunnel Modes:
+- "quick" (default): Creates Cloudflare quick tunnel - works for local development
+- "named": Uses Cloudflare managed tunnel (requires setup)
+- "local": No tunnel, uses localhost URL directly
+- "preconfigured": Uses externally-provided URL - for container environments
+  (ngrok, etc.) where Cloudflare tunnels don't work
+
+Environment Variables:
+- SYNTH_TASK_APP_URL: If set, auto-enables preconfigured mode with this URL
+- SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
 """
 
 from __future__ import annotations
@@ -16,6 +28,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 
 from synth_ai.core.env import get_backend_from_env
+from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
 from synth_ai.sdk.api.train.task_app import TaskAppHealth, check_task_app_health
@@ -129,12 +142,54 @@ async def run_in_process_job(
     config_factory: Callable[[], Any] | None = None,
     task_app_path: str | Path | None = None,
     tunnel_mode: str = "quick",
+    preconfigured_url: str | None = None,
+    preconfigured_auth_header: str | None = None,
+    preconfigured_auth_token: str | None = None,
+    skip_tunnel_verification: bool = False,
     host: str = "127.0.0.1",
     port: int = 8114,
     auto_find_port: bool = True,
     health_check_timeout: float = 30.0,
 ) -> InProcessJobResult:
     """Run a prompt-learning or RL job with a tunneled task app."""
+    ctx: Dict[str, Any] = {
+        "job_type": job_type,
+        "config_path": str(config_path),
+        "poll": poll,
+        "tunnel_mode": tunnel_mode,
+    }
+    log_info("run_in_process_job invoked", ctx=ctx)
+    """Run a prompt-learning or RL job with a tunneled task app.
+    
+    Args:
+        job_type: Type of job - "prompt_learning" or "rl"
+        config_path: Path to the TOML config file
+        backend_url: Optional backend URL override
+        api_key: Synth API key for backend auth
+        task_app_api_key: API key for task app auth
+        allow_experimental: Allow experimental features
+        overrides: Config overrides (dot-notation supported)
+        poll: Whether to poll for completion
+        poll_interval: Polling interval in seconds
+        timeout: Maximum time to wait for job completion
+        on_status: Callback for status updates
+        app: FastAPI app instance
+        config: TaskAppConfig object
+        config_factory: Callable that returns TaskAppConfig
+        task_app_path: Path to task app .py file
+        tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
+        preconfigured_url: External tunnel URL when tunnel_mode="preconfigured"
+        preconfigured_auth_header: Auth header name for preconfigured URL
+        preconfigured_auth_token: Auth token for preconfigured URL
+        skip_tunnel_verification: Skip HTTP verification of tunnel
+        host: Local host to bind to
+        port: Local port to bind to
+        auto_find_port: Auto-find available port if busy
+        health_check_timeout: Max time to wait for health check
+        
+    Returns:
+        InProcessJobResult with job_id, status, and URLs
+    """
 
     backend_api_base = resolve_backend_api_base(backend_url)
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
@@ -146,7 +201,7 @@ async def run_in_process_job(
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    # Launch the task app with Cloudflare tunnel (or local if SYNTH_TUNNEL_MODE=local)
+    # Launch the task app with tunnel (Cloudflare by default, or preconfigured URL)
     async with InProcessTaskApp(
         app=app,
         config=config,
@@ -155,6 +210,10 @@ async def run_in_process_job(
         host=host,
         port=port,
         tunnel_mode=tunnel_mode,
+        preconfigured_url=preconfigured_url,
+        preconfigured_auth_header=preconfigured_auth_header,
+        preconfigured_auth_token=preconfigured_auth_token,
+        skip_tunnel_verification=skip_tunnel_verification,
         api_key=resolved_task_app_key,
         auto_find_port=auto_find_port,
         health_check_timeout=health_check_timeout,

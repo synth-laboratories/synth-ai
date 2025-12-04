@@ -69,25 +69,46 @@ class InferenceAPIClient:
         model: str,
         temperature: float,
         max_tokens: int,
+        tools: Sequence[Dict[str, Any]] | None = None,
+        tool_choice: str | Dict[str, Any] | None = None,
+        response_format: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         if self.provider == "openai":
-            response = await self._client.chat.completions.create(  # type: ignore[attr-defined]
-                model=model,
-                messages=self._normalize_messages(messages),
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=self.timeout,
-            )
+            kwargs: Dict[str, Any] = {
+                "model": model,
+                "messages": self._normalize_messages(messages),
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "timeout": self.timeout,
+            }
+            if tools:
+                kwargs["tools"] = list(tools)
+            if tool_choice is not None:
+                kwargs["tool_choice"] = tool_choice
+            if response_format:
+                kwargs["response_format"] = response_format
+            response = await self._client.chat.completions.create(**kwargs)  # type: ignore[attr-defined]
             return self._model_dump(response)
 
         if self.provider == "groq":
-            response = await self._client.chat.completions.create(  # type: ignore[attr-defined]
-                model=model,
-                messages=self._normalize_messages(messages),
-                temperature=temperature,
-                max_tokens=max_tokens,
-                timeout=self.timeout,
-            )
+            groq_kwargs: Dict[str, Any] = {
+                "model": model,
+                "messages": self._normalize_messages(messages),
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "timeout": self.timeout,
+            }
+            if tools:
+                groq_kwargs["tools"] = list(tools)
+            if tool_choice is not None:
+                groq_kwargs["tool_choice"] = tool_choice
+            if response_format:
+                # Groq response_format normalization (json_schema -> json_object for older models)
+                from .proxy import normalize_response_format_for_groq
+                normalized_format = dict(response_format)
+                normalize_response_format_for_groq(model, {"response_format": normalized_format})
+                groq_kwargs["response_format"] = normalized_format
+            response = await self._client.chat.completions.create(**groq_kwargs)  # type: ignore[attr-defined]
             return self._model_dump(response)
 
         if self.provider == "google":
@@ -96,6 +117,9 @@ class InferenceAPIClient:
                 model=model,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                tools=tools,
+                tool_choice=tool_choice,
+                response_format=response_format,
             )
 
         raise RuntimeError(f"Unsupported meta-model provider: {self.provider}")
@@ -107,6 +131,9 @@ class InferenceAPIClient:
         model: str,
         temperature: float,
         max_tokens: int,
+        tools: Sequence[Dict[str, Any]] | None = None,
+        tool_choice: str | Dict[str, Any] | None = None,
+        response_format: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Handle Google Gemini chat completion."""
         from google.genai import types
@@ -126,12 +153,63 @@ class InferenceAPIClient:
                 gemini_role = "user" if role == "user" else "model"
                 contents.append(types.Content(role=gemini_role, parts=[types.Part.from_text(text=str(content))]))
 
+        # Convert tools format (OpenAI -> Gemini)
+        gemini_tools = None
+        tool_config = None
+        if tools:
+            function_declarations = []
+            for tool in tools:
+                if isinstance(tool, dict) and tool.get("type") == "function":
+                    func = tool.get("function", {})
+                    func_decl = types.FunctionDeclaration(
+                        name=func.get("name", ""),
+                        description=func.get("description", ""),
+                        parameters=func.get("parameters", {}),
+                    )
+                    function_declarations.append(func_decl)
+
+            if function_declarations:
+                gemini_tools = [types.Tool(function_declarations=function_declarations)]
+
+                # Handle tool_choice - Gemini uses tool_config
+                if tool_choice and isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
+                    func_name = tool_choice.get("function", {}).get("name")
+                    if func_name:
+                        mode_enum = types.FunctionCallingConfigMode.ANY
+                        tool_config = types.ToolConfig(
+                            function_calling_config=types.FunctionCallingConfig(
+                                mode=mode_enum,
+                                allowed_function_names=[func_name],
+                            )
+                        )
+
         # Build generation config
         cfg_kwargs: Dict[str, Any] = {"temperature": temperature}
         if system_instruction:
             cfg_kwargs["system_instruction"] = system_instruction
         if max_tokens:
             cfg_kwargs["max_output_tokens"] = max_tokens
+
+        # Handle response_format -> Gemini responseSchema conversion
+        # OpenAI: {"type": "json_schema", "json_schema": {"name": "...", "schema": {...}}}
+        # Gemini: response_mime_type="application/json", response_schema={...}
+        if response_format and isinstance(response_format, dict):
+            format_type = response_format.get("type")
+            if format_type == "json_schema":
+                json_schema_obj = response_format.get("json_schema", {})
+                schema = json_schema_obj.get("schema", {})
+                if schema:
+                    cfg_kwargs["response_mime_type"] = "application/json"
+                    cfg_kwargs["response_schema"] = schema
+            elif format_type == "json_object":
+                # json_object mode - just request JSON without schema
+                cfg_kwargs["response_mime_type"] = "application/json"
+
+        # Add tool config if present
+        if tool_config:
+            cfg_kwargs["tool_config"] = tool_config
+        if gemini_tools:
+            cfg_kwargs["tools"] = gemini_tools
 
         generation_config = types.GenerateContentConfig(**cfg_kwargs)
 

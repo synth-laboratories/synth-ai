@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from typing import Literal, TypeAlias, cast, get_args
+from typing import Any, Literal, TypeAlias, cast, get_args
 
 import click
 
@@ -134,8 +134,13 @@ def deploy_cmd(
     task_app_path: Path | None,
     **kwargs
 ) -> None:
+    ctx: dict[str, Any] = {
+        "runtime": runtime,
+        "task_app_path": str(task_app_path),
+        **kwargs
+    }
     try:
-        log_info("deploy command invoked", ctx={"runtime": runtime})
+        log_info("deploy command hit", ctx=ctx)
 
         if not task_app_path:
             available_task_apps = find_task_apps_in_cwd()
@@ -160,7 +165,7 @@ def deploy_cmd(
 
         match runtime:
             case "local":
-                log_info("starting local deploy")
+                log_info("starting local deploy", ctx=ctx)
                 deploy_app_uvicorn(
                     LocalDeployCfg.create(  # type: ignore[call-arg, arg-type]
                     task_app_path=task_app_path,
@@ -171,7 +176,7 @@ def deploy_cmd(
                     )
                 )
             case "modal":
-                log_info("starting modal deploy")
+                log_info("starting modal deploy", ctx=ctx)
                 deploy_app_modal(ModalDeployCfg.create_from_kwargs(
                     task_app_path=task_app_path,
                     synth_api_key=synth_api_key,
@@ -179,6 +184,7 @@ def deploy_cmd(
                     **kwargs
                 ))
             case "tunnel":
+                log_info("starting tunnel deploy", ctx=ctx)
                 tunnel_mode = kwargs.get("tunnel_mode", "managed")
                 if tunnel_mode == "managed" and not synth_api_key:
                     raise RuntimeError(
@@ -200,14 +206,11 @@ def deploy_cmd(
                 ))
         
     except Exception as exc:
-        log_error("deploy command failed", ctx={
-            "runtime": runtime,
-            "task_app": str(task_app_path),
-            "error": type(exc).__name__,
-            "error_message": str(exc)
-        })
+        ctx["error"] = type(exc).__name__
+        ctx["error_message"] = str(exc)
+        log_error("deploy command failed", ctx=ctx)
         click.echo(f"{exc}", err=True)
     
     finally:
-        log_info("deploy command completed", ctx={"runtime": runtime})
+        log_info("deploy command completed", ctx=ctx)
         flush_logger(0.5)

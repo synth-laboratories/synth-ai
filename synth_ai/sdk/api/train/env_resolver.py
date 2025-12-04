@@ -9,6 +9,7 @@ from typing import Any, cast
 
 import click
 from synth_ai.cli.lib.env import resolve_env_var
+from synth_ai.core.telemetry import log_info
 
 from . import task_app
 from .utils import REPO_ROOT, mask_value, read_env_file, write_env_value
@@ -168,15 +169,21 @@ def resolve_env(
     toml_env_file_path: str | None = None,
 ) -> tuple[Path, dict[str, str]]:
     """Resolve environment file and values.
-    
+
     Priority order:
     1. Explicit CLI --env-file paths
     2. TOML config env_file_path
     3. Saved path from previous session
     4. Default candidates (CWD .env, config dir .env, repo .env)
-    
+
     Never prompts interactively - fails with informative error if credentials missing.
     """
+    ctx: dict[str, Any] = {
+        "config_path": str(config_path) if config_path else None,
+        "has_explicit_env_paths": bool(list(explicit_env_paths)),
+        "required_key_count": len(required_keys),
+    }
+    log_info("resolve_env invoked", ctx=ctx)
     provided = [Path(p).expanduser().resolve() for p in explicit_env_paths]
     if provided:
         for path in provided:

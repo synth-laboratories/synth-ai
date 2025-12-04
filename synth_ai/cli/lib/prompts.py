@@ -222,7 +222,7 @@ def prompt_for_path(
             click.echo(str(exc))
             continue
 
-        result = converted if isinstance(converted, Path) else Path(converted)
+        result = converted if isinstance(converted, Path) else Path(str(converted) if isinstance(converted, bytes) else converted)
         if expected_suffix and result.suffix.lower() != expected_suffix:
             click.echo(f"Expected a {expected_suffix} file. Received: {result}")
             continue

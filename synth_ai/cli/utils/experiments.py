@@ -90,8 +90,8 @@ def experiments_cmd(
         )
         if as_json:
             payload = {
-                "live": [ExperimentSummary.from_orm(exp).model_dump(mode="json") for exp in live],
-                "recent": [ExperimentSummary.from_orm(exp).model_dump(mode="json") for exp in recent_data],
+                "live": [ExperimentSummary.from_experiment(exp).model_dump(mode="json") for exp in live],
+                "recent": [ExperimentSummary.from_experiment(exp).model_dump(mode="json") for exp in recent_data],
             }
             click.echo(json.dumps(payload, indent=2, default=str))
         else:
@@ -119,7 +119,7 @@ def experiment_submit(request: str, inline: bool) -> None:
 
     payload = _load_request_payload(request, inline=inline)
     experiment = create_experiment(payload)
-    summary = ExperimentSummary.from_orm(experiment)
+    summary = ExperimentSummary.from_experiment(experiment)
     click.echo(f"Enqueued experiment {summary.experiment_id} ({summary.name}) with {summary.job_count} jobs.")
 
 
@@ -145,7 +145,7 @@ def experiment_list(
         include_live=True,
     )
     if as_json:
-        payload = [ExperimentSummary.from_orm(exp).model_dump(mode="json") for exp in experiments]
+        payload = [ExperimentSummary.from_experiment(exp).model_dump(mode="json") for exp in experiments]
         click.echo(json.dumps(payload, indent=2, default=str))
         return
 
@@ -157,9 +157,9 @@ def _experiment_detail_json(experiment_id: str) -> str:
     experiment = fetch_experiment(experiment_id)
     if not experiment:
         raise click.ClickException(f"Experiment {experiment_id} not found.")
-    payload = ExperimentSummary.from_orm(experiment).model_dump(mode="json")
-    payload["jobs"] = [ExperimentJobSummary.from_orm(job).model_dump(mode="json") for job in experiment.jobs]
-    payload["trials"] = [TrialSummary.from_orm(trial).model_dump(mode="json") for trial in experiment.trials]
+    payload = ExperimentSummary.from_experiment(experiment).model_dump(mode="json")
+    payload["jobs"] = [ExperimentJobSummary.from_job(job).model_dump(mode="json") for job in experiment.jobs]
+    payload["trials"] = [TrialSummary.from_trial(trial).model_dump(mode="json") for trial in experiment.trials]
     return json.dumps(payload, indent=2, default=str)
 
 
@@ -170,7 +170,7 @@ def _experiment_detail_console(experiment_id: str, *, console: Console | None = 
     console = console or Console()
     if clear:
         console.clear()
-    summary = ExperimentSummary.from_orm(experiment)
+    summary = ExperimentSummary.from_experiment(experiment)
     console.rule(f"[bold]Experiment {summary.experiment_id} — {summary.name}")
     console.print(f"Status: {summary.status.value}")
     console.print(f"Description: {summary.description or '-'}")

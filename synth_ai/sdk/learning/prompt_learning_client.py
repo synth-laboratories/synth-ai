@@ -376,8 +376,10 @@ class PromptLearningClient:
         ]
         
         # Extract val accuracies (only from validations that have accuracy field)
+        # IMPORTANT: Exclude baseline from "best" calculation - baseline is for comparison only
         val_accuracies = [
-            v["accuracy"] for v in validation if "accuracy" in v
+            v["accuracy"] for v in validation 
+            if "accuracy" in v and not v.get("is_baseline", False)
         ]
         
         # Score distribution (bins)
