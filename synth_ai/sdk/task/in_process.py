@@ -354,6 +354,7 @@ class InProcessTaskApp:
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
         skip_tunnel_verification: bool = False,
+        force_new_tunnel: bool = False,
         on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
         on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
     ):
@@ -378,6 +379,8 @@ class InProcessTaskApp:
             auto_find_port: If True, automatically find available port if requested port is busy
             skip_tunnel_verification: If True, skip HTTP verification of tunnel connectivity.
                                       Useful when the tunnel URL is known to be valid.
+            force_new_tunnel: If True, create a fresh tunnel instead of reusing existing one.
+                             Use this when an existing managed tunnel is stale/broken.
             on_start: Optional callback called when task app starts (receives self)
             on_stop: Optional callback called when task app stops (receives self)
             
@@ -433,6 +436,7 @@ class InProcessTaskApp:
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
         self.skip_tunnel_verification = skip_tunnel_verification
+        self.force_new_tunnel = force_new_tunnel
         self.on_start = on_start
         self.on_stop = on_stop
 
@@ -474,9 +478,30 @@ class InProcessTaskApp:
         
         logger.info(f"Starting in-process task app on {self.host}:{self.port}")
 
+        # For named tunnels, the port is baked into the tunnel config - we MUST use it
+        tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
+        tunnel_port = tunnel_config.get("local_port")
+        is_named_tunnel_port = mode == "named" and tunnel_port and tunnel_port == self.port
+        
         # Handle port conflicts
         if not _is_port_available(self.host, self.port):
-            if self.auto_find_port:
+            if is_named_tunnel_port:
+                # Named tunnel port is REQUIRED - kill whatever is using it
+                print(f"[CLOUDFLARE-FIX] Named tunnel requires port {self.port}, killing existing process...")
+                logger.warning(
+                    f"Named tunnel is configured for port {self.port}, killing existing process..."
+                )
+                _kill_process_on_port(self.host, self.port)
+                await asyncio.sleep(1.0)  # Wait for port to free
+                
+                if not _is_port_available(self.host, self.port):
+                    raise RuntimeError(
+                        f"Named tunnel requires port {self.port} but it's still in use after kill attempt. "
+                        "Manually kill the process using this port, or delete and recreate the tunnel."
+                    )
+                print(f"[CLOUDFLARE-FIX] Port {self.port} freed successfully")
+            elif self.auto_find_port:
+                print(f"Port {self.port} is in use, attempting to find available port...")
                 logger.warning(
                     f"Port {self.port} is in use, attempting to find available port..."
                 )
@@ -658,8 +683,42 @@ class InProcessTaskApp:
             named_host = tunnel_config.get("hostname")
             tunnel_token = tunnel_config.get("tunnel_token")
             
+            # Force create a NEW tunnel if requested (bypasses stale tunnels)
+            if self.force_new_tunnel:
+                import time
+                print(f"[CLOUDFLARE-FIX] force_new_tunnel=True, attempting fresh tunnel...")
+                logger.info("force_new_tunnel=True, attempting to create fresh tunnel")
+                try:
+                    # Generate unique subdomain with timestamp
+                    unique_subdomain = f"task-{self.port}-{int(time.time()) % 100000}"
+                    new_tunnel = await create_tunnel(
+                        synth_api_key=synth_api_key,
+                        port=self.port,
+                        subdomain=unique_subdomain,
+                    )
+                    named_host = new_tunnel.get("hostname")
+                    tunnel_token = new_tunnel.get("tunnel_token")
+                    print(f"[CLOUDFLARE-FIX] Created fresh tunnel: {named_host}")
+                    logger.info(f"Created fresh managed tunnel: {named_host}")
+                except Exception as e:
+                    # If we hit tunnel limit (429), fall back to existing tunnel
+                    if "429" in str(e) or "Maximum" in str(e):
+                        print(f"[CLOUDFLARE-FIX] Hit tunnel limit, using existing tunnel: {named_host}")
+                        logger.warning(f"Hit tunnel limit, falling back to existing tunnel: {named_host}")
+                        # named_host and tunnel_token are already set from pre-fetch
+                        if not named_host or not tunnel_token:
+                            raise RuntimeError(
+                                f"Cannot create new tunnel (limit reached) and no existing tunnel found.\n"
+                                "Contact support to delete the stale tunnel, or use tunnel_mode='quick'."
+                            ) from e
+                    else:
+                        print(f"[CLOUDFLARE-FIX] Failed to create fresh tunnel: {e}")
+                        raise RuntimeError(
+                            f"Failed to create fresh managed tunnel: {e}\n"
+                            "Try using tunnel_mode='quick' instead."
+                        ) from e
             # Auto-create tunnel if none exists
-            if not named_host:
+            elif not named_host:
                 logger.info("No managed tunnel found, creating one automatically...")
                 try:
                     # Generate subdomain from port or use default
@@ -689,53 +748,77 @@ class InProcessTaskApp:
                 )
             
             self.url = f"https://{named_host}"
+            print(f"[CLOUDFLARE-FIX] Named tunnel URL: {self.url}")
+            print(f"[CLOUDFLARE-FIX] skip_tunnel_verification={self.skip_tunnel_verification}")
             
-            # First, check if tunnel is already accessible (cloudflared might be running)
-            ready = await _verify_tunnel_ready(
-                self.url,
-                api_key,
-                max_retries=2,  # Quick check - don't wait long
-                retry_delay=1.0,
-                verify_tls=_should_verify_tls(),
-            )
-            
-            if not ready:
-                # Tunnel not accessible - auto-start cloudflared
-                logger.info(f"Tunnel {self.url} not accessible, starting cloudflared...")
+            # Skip all verification if requested (useful when local DNS can't resolve tunnel)
+            if self.skip_tunnel_verification:
+                print(f"[CLOUDFLARE-FIX] Skipping verification, starting cloudflared...")
+                logger.info(f"Skipping tunnel verification (skip_tunnel_verification=True)")
+                # Always start cloudflared when skipping verification
+                logger.info(f"Starting cloudflared for {self.url}...")
                 try:
                     self._tunnel_proc = open_managed_tunnel(tunnel_token)
+                    print(f"[CLOUDFLARE-FIX] cloudflared started, PID={self._tunnel_proc.pid}")
                     logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
-                    
-                    # Wait for tunnel to become ready
-                    ready = await _verify_tunnel_ready(
-                        self.url,
-                        api_key,
-                        max_retries=10,  # Give it time to connect
-                        retry_delay=2.0,
-                        verify_tls=_should_verify_tls(),
-                    )
-                    
-                    if not ready:
-                        # Clean up failed tunnel process
-                        if self._tunnel_proc:
-                            stop_tunnel(self._tunnel_proc)
-                            self._tunnel_proc = None
-                        raise RuntimeError(
-                            f"Tunnel {self.url} failed to become accessible after starting cloudflared. "
-                            "The tunnel may be stale or misconfigured. "
-                            "Try using tunnel_mode='quick' instead."
-                        )
+                    # Give cloudflared a moment to connect
+                    print(f"[CLOUDFLARE-FIX] Waiting 5s for tunnel to connect...")
+                    await asyncio.sleep(5.0)
+                    print(f"[CLOUDFLARE-FIX] Tunnel ready: {self.url}")
+                    logger.info(f"Cloudflared started, tunnel should be ready: {self.url}")
                 except Exception as e:
-                    if "Failed to become accessible" not in str(e):
-                        raise RuntimeError(
-                            f"Failed to start cloudflared: {e}\n"
-                            "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
-                        ) from e
-                    raise
+                    print(f"[CLOUDFLARE-FIX] ERROR starting cloudflared: {e}")
+                    raise RuntimeError(
+                        f"Failed to start cloudflared: {e}\n"
+                        "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
+                    ) from e
             else:
-                # Tunnel already accessible - cloudflared must be running elsewhere
-                self._tunnel_proc = None
-                logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
+                # First, check if tunnel is already accessible (cloudflared might be running)
+                ready = await _verify_tunnel_ready(
+                    self.url,
+                    api_key,
+                    max_retries=2,  # Quick check - don't wait long
+                    retry_delay=1.0,
+                    verify_tls=_should_verify_tls(),
+                )
+                
+                if not ready:
+                    # Tunnel not accessible - auto-start cloudflared
+                    logger.info(f"Tunnel {self.url} not accessible, starting cloudflared...")
+                    try:
+                        self._tunnel_proc = open_managed_tunnel(tunnel_token)
+                        logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
+                        
+                        # Wait for tunnel to become ready
+                        ready = await _verify_tunnel_ready(
+                            self.url,
+                            api_key,
+                            max_retries=10,  # Give it time to connect
+                            retry_delay=2.0,
+                            verify_tls=_should_verify_tls(),
+                        )
+                        
+                        if not ready:
+                            # Clean up failed tunnel process
+                            if self._tunnel_proc:
+                                stop_tunnel(self._tunnel_proc)
+                                self._tunnel_proc = None
+                            raise RuntimeError(
+                                f"Tunnel {self.url} failed to become accessible after starting cloudflared. "
+                                "The tunnel may be stale or misconfigured. "
+                                "Try using tunnel_mode='quick' instead."
+                            )
+                    except Exception as e:
+                        if "Failed to become accessible" not in str(e):
+                            raise RuntimeError(
+                                f"Failed to start cloudflared: {e}\n"
+                                "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
+                            ) from e
+                        raise
+                else:
+                    # Tunnel already accessible - cloudflared must be running elsewhere
+                    self._tunnel_proc = None
+                    logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
             
             logger.info(f"Using managed tunnel: {self.url}")
         elif mode == "quick":
