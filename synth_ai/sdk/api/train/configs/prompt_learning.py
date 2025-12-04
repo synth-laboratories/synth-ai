@@ -6,10 +6,52 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from ..utils import load_toml
 from .shared import ExtraModel
+
+
+class SeedRange(ExtraModel):
+    """Compact seed range notation for TOML configs.
+
+    Allows writing `seeds = {start = 0, end = 50}` instead of `seeds = [0, 1, 2, ..., 49]`.
+
+    Examples:
+        seeds = {start = 0, end = 10}  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        seeds = {start = 0, end = 100, step = 2}  # [0, 2, 4, ..., 98]
+    """
+    start: int
+    end: int
+    step: int = 1
+
+    def to_list(self) -> list[int]:
+        """Convert range to list of integers."""
+        return list(range(self.start, self.end, self.step))
+
+
+def _parse_seeds(value: Any) -> list[int] | None:
+    """Parse seed values that can be either a list or a range dict.
+
+    Args:
+        value: Either a list of ints or a dict with 'start', 'end', and optional 'step'.
+
+    Returns:
+        List of integers, or None if value is None.
+
+    Examples:
+        _parse_seeds([0, 1, 2, 3])  # [0, 1, 2, 3]
+        _parse_seeds({"start": 0, "end": 4})  # [0, 1, 2, 3]
+        _parse_seeds({"start": 0, "end": 10, "step": 2})  # [0, 2, 4, 6, 8]
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict) and "start" in value and "end" in value:
+        seed_range = SeedRange.model_validate(value)
+        return seed_range.to_list()
+    if isinstance(value, list):
+        return list(value)
+    raise ValueError(f"Seeds must be a list or a range dict with 'start' and 'end' keys, got {type(value).__name__}")
 
 
 class InferenceMode(str, Enum):
@@ -65,12 +107,16 @@ class PromptPatternConfig(ExtraModel):
 
 
 class MIPROMetaConfig(ExtraModel):
-    """Configuration for the meta-model that proposes prompt updates."""
-    model: str
-    provider: str
+    """DEPRECATED: Meta-model config is now controlled by proposer_effort and proposer_output_tokens.
+
+    This class is kept for backwards compatibility but should not be used.
+    Use proposer_effort (LOW_CONTEXT, LOW, MEDIUM, HIGH) and proposer_output_tokens (RAPID, FAST, SLOW) instead.
+    """
+    model: str | None = None
+    provider: str | None = None
     inference_url: str | None = None
-    temperature: float = 0.8
-    max_tokens: int = 1024
+    temperature: float | None = None
+    max_tokens: int | None = None
 
 
 class MIPROStageConfig(ExtraModel):
@@ -102,6 +148,12 @@ class MIPROSeedConfig(ExtraModel):
     online: list[int] = Field(default_factory=list)
     test: list[int] = Field(default_factory=list)
     reference: list[int] = Field(default_factory=list)
+
+    @field_validator("bootstrap", "online", "test", "reference", mode="before")
+    @classmethod
+    def _parse_seed_pools(cls, v: Any) -> list[int]:
+        """Parse seed pools that can be either a list or range dict."""
+        return _parse_seeds(v) or []
 
 
 class PromptLearningJudgeConfig(ExtraModel):
@@ -575,9 +627,6 @@ class MIPROConfig(ExtraModel):
     max_concurrent: int = 20
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
-    meta_model: str = "gpt-4o-mini"
-    meta_model_provider: str = "openai"
-    meta_model_inference_url: str | None = None
     few_shot_score_threshold: float = 0.8
     results_file: str | None = None
     max_wall_clock_seconds: float | None = None
@@ -642,6 +691,45 @@ class MIPROConfig(ExtraModel):
     # If fewer demos qualify (score >= few_shot_score_threshold), job fails early with clear error
     # Default: 0 (no minimum - current behavior for backwards compatibility)
     min_bootstrap_demos: int = 0
+
+    @model_validator(mode="before")
+    @classmethod
+    def _forbid_meta_model_config(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Forbid deprecated meta_model configuration fields.
+
+        Meta-model selection is now controlled by proposer_effort and proposer_output_tokens.
+        The backend automatically selects the model based on these settings.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        deprecated_meta_fields = {
+            "meta_model": "Meta-model selection is now controlled by 'proposer_effort' (LOW_CONTEXT, LOW, MEDIUM, HIGH). Remove 'meta_model' from your config.",
+            "meta_model_provider": "Meta-model provider is now controlled by 'proposer_effort'. Remove 'meta_model_provider' from your config.",
+            "meta_model_inference_url": "Meta-model inference URL is now controlled by 'proposer_effort'. Remove 'meta_model_inference_url' from your config.",
+            "meta_model_temperature": "Meta-model temperature is now controlled by 'proposer_effort'. Remove 'meta_model_temperature' from your config.",
+            "meta_model_max_tokens": "Meta-model max_tokens is now controlled by 'proposer_effort' and 'proposer_output_tokens'. Remove 'meta_model_max_tokens' from your config.",
+        }
+
+        for field, message in deprecated_meta_fields.items():
+            if field in data and data[field] is not None:
+                raise ValueError(f"Deprecated field '{field}': {message}")
+
+        # Also check in nested meta section
+        if "meta" in data and isinstance(data["meta"], dict):
+            meta_data = data["meta"]
+            if meta_data.get("model") is not None:
+                raise ValueError("Deprecated field 'meta.model': Meta-model selection is now controlled by 'proposer_effort'. Remove [prompt_learning.mipro.meta] section.")
+            if meta_data.get("provider") is not None:
+                raise ValueError("Deprecated field 'meta.provider': Meta-model provider is now controlled by 'proposer_effort'. Remove [prompt_learning.mipro.meta] section.")
+
+        return data
+
+    @field_validator("bootstrap_train_seeds", "online_pool", "test_pool", "reference_pool", mode="before")
+    @classmethod
+    def _parse_mipro_seed_lists(cls, v: Any) -> list[int] | None:
+        """Parse MIPRO seed lists that can be either a list or range dict."""
+        return _parse_seeds(v)
 
     @classmethod
     def simple(
@@ -877,14 +965,46 @@ class GEPAEvaluationConfig(ExtraModel):
     validation_pool: str | None = None  # Pool name for validation (e.g., "validation")
     validation_top_k: int | None = None  # Top-K prompts to validate
 
+    @field_validator("seeds", "validation_seeds", "test_pool", mode="before")
+    @classmethod
+    def _parse_seed_lists(cls, v: Any) -> list[int] | None:
+        """Parse seed lists that can be either a list or range dict."""
+        return _parse_seeds(v)
+
 
 class GEPAMutationConfig(ExtraModel):
-    """GEPA mutation configuration (LLM-guided mutation settings)."""
+    """GEPA mutation configuration.
+
+    NOTE: Mutation model selection is controlled by proposer_effort, NOT llm_model.
+    The llm_model/llm_provider fields are deprecated and should not be used.
+    """
     rate: float = 0.3  # Mutation rate
-    llm_model: str | None = None  # Model for generating mutations
-    llm_provider: str = "groq"  # Provider for mutation LLM
-    llm_inference_url: str | None = None  # Custom inference URL
+    llm_model: str | None = None  # DEPRECATED: Use proposer_effort instead
+    llm_provider: str | None = None  # DEPRECATED: Use proposer_effort instead
+    llm_inference_url: str | None = None  # DEPRECATED: Not used
     prompt: str | None = None  # Custom mutation prompt
+
+    @model_validator(mode="before")
+    @classmethod
+    def _forbid_mutation_llm_config(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Forbid deprecated mutation LLM configuration fields.
+
+        Mutation model selection is now controlled by proposer_effort at the gepa level.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        deprecated_mutation_fields = {
+            "llm_model": "Mutation model selection is now controlled by 'proposer_effort' (LOW_CONTEXT, LOW, MEDIUM, HIGH) at [prompt_learning.gepa] level. Remove 'llm_model' from [prompt_learning.gepa.mutation].",
+            "llm_provider": "Mutation provider is now controlled by 'proposer_effort'. Remove 'llm_provider' from [prompt_learning.gepa.mutation].",
+            "llm_inference_url": "Mutation inference URL is not used. Remove 'llm_inference_url' from [prompt_learning.gepa.mutation].",
+        }
+
+        for field, message in deprecated_mutation_fields.items():
+            if field in data and data[field] is not None:
+                raise ValueError(f"Deprecated field '{field}': {message}")
+
+        return data
 
 
 class GEPAPopulationConfig(ExtraModel):
@@ -1011,8 +1131,8 @@ class GEPAConfig(ExtraModel):
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
     adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = None  # Adaptive batch config (GEPA only)
     
-    # Backwards compatibility: flat fields (deprecated, prefer nested)
-    # These will be flattened from nested configs if provided
+    # Backwards compatibility: flat fields (DEPRECATED - DO NOT USE)
+    # These are kept for backwards compatibility with _get_* methods but should not be used directly
     rollout_budget: int | None = None
     max_concurrent_rollouts: int | None = None
     minibatch_size: int | None = None
@@ -1040,7 +1160,56 @@ class GEPAConfig(ExtraModel):
     token_counting_model: str | None = None
     enforce_pattern_token_limit: bool | None = None
     max_spend_usd: float | None = None
-    
+
+    @model_validator(mode="before")
+    @classmethod
+    def _check_flat_format_deprecated(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Forbid deprecated flat GEPA format fields.
+
+        Users must use nested format:
+        - gepa.rollout.budget instead of gepa.rollout_budget
+        - gepa.evaluation.seeds instead of gepa.evaluation_seeds
+        - etc.
+        """
+        if not isinstance(data, dict):
+            return data
+
+        flat_fields_map = {
+            "rollout_budget": "Use [prompt_learning.gepa.rollout] section with 'budget' field instead.",
+            "max_concurrent_rollouts": "Use [prompt_learning.gepa.rollout] section with 'max_concurrent' field instead.",
+            "minibatch_size": "Use [prompt_learning.gepa.rollout] section with 'minibatch_size' field instead.",
+            "evaluation_seeds": "Use [prompt_learning.gepa.evaluation] section with 'seeds' field instead.",
+            "validation_seeds": "Use [prompt_learning.gepa.evaluation] section with 'validation_seeds' field instead.",
+            "test_pool": "Use [prompt_learning.gepa.evaluation] section with 'test_pool' field instead.",
+            "validation_pool": "Use [prompt_learning.gepa.evaluation] section with 'validation_pool' field instead.",
+            "validation_top_k": "Use [prompt_learning.gepa.evaluation] section with 'validation_top_k' field instead.",
+            "mutation_rate": "Use [prompt_learning.gepa.mutation] section with 'rate' field instead.",
+            "mutation_llm_model": "Use [prompt_learning.gepa.mutation] section with 'llm_model' field instead.",
+            "mutation_llm_provider": "Use [prompt_learning.gepa.mutation] section with 'llm_provider' field instead.",
+            "mutation_llm_inference_url": "Use [prompt_learning.gepa.mutation] section with 'llm_inference_url' field instead.",
+            "mutation_prompt": "Use [prompt_learning.gepa.mutation] section with 'prompt' field instead.",
+            "initial_population_size": "Use [prompt_learning.gepa.population] section with 'initial_size' field instead.",
+            "num_generations": "Use [prompt_learning.gepa.population] section with 'num_generations' field instead.",
+            "children_per_generation": "Use [prompt_learning.gepa.population] section with 'children_per_generation' field instead.",
+            "crossover_rate": "Use [prompt_learning.gepa.population] section with 'crossover_rate' field instead.",
+            "selection_pressure": "Use [prompt_learning.gepa.population] section with 'selection_pressure' field instead.",
+            "patience_generations": "Use [prompt_learning.gepa.population] section with 'patience_generations' field instead.",
+            "archive_size": "Use [prompt_learning.gepa.archive] section with 'size' field instead.",
+            "pareto_set_size": "Use [prompt_learning.gepa.archive] section with 'pareto_set_size' field instead.",
+            "pareto_eps": "Use [prompt_learning.gepa.archive] section with 'pareto_eps' field instead.",
+            "feedback_fraction": "Use [prompt_learning.gepa.archive] section with 'feedback_fraction' field instead.",
+            "max_token_limit": "Use [prompt_learning.gepa.token] section with 'max_limit' field instead.",
+            "token_counting_model": "Use [prompt_learning.gepa.token] section with 'counting_model' field instead.",
+            "enforce_pattern_token_limit": "Use [prompt_learning.gepa.token] section with 'enforce_pattern_limit' field instead.",
+            "max_spend_usd": "Use [prompt_learning.gepa.token] section with 'max_spend_usd' field instead.",
+        }
+
+        for field, message in flat_fields_map.items():
+            if field in data and data[field] is not None:
+                raise ValueError(f"Deprecated flat GEPA format field '{field}': {message}")
+
+        return data
+
     def _get_rollout_budget(self) -> int | None:
         """Get rollout budget from nested or flat structure."""
         if self.rollout and self.rollout.budget is not None:
@@ -1288,6 +1457,26 @@ class PromptLearningConfig(ExtraModel):
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or algorithm-specific)
     env_config: dict[str, Any] | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _check_deprecated_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Check for deprecated fields and raise errors with informative messages."""
+        if not isinstance(data, dict):
+            return data
+
+        # Check for deprecated top-level fields
+        deprecated_fields = {
+            "display": "The [display] section is deprecated and no longer supported. Remove this section from your config.",
+            "results_folder": "The 'results_folder' field is deprecated and no longer supported. Remove this field from your config.",
+            "env_file_path": "The 'env_file_path' field is deprecated. Use environment variables instead.",
+        }
+
+        for field, message in deprecated_fields.items():
+            if field in data:
+                raise ValueError(f"Deprecated field '{field}': {message}")
+
+        return data
+
     def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary for API payload."""
         result = self.model_dump(mode="python", exclude_none=True)
@@ -1300,6 +1489,17 @@ class PromptLearningConfig(ExtraModel):
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> PromptLearningConfig:
         """Load prompt learning config from dict/TOML mapping."""
+        # Check for deprecated fields at top level first
+        deprecated_top_level = ["display", "results_folder", "env_file_path"]
+        for field in deprecated_top_level:
+            if field in data:
+                if field == "display":
+                    raise ValueError(f"Deprecated field '{field}': The [display] section is deprecated and no longer supported. Remove this section from your config.")
+                elif field == "results_folder":
+                    raise ValueError(f"Deprecated field '{field}': The 'results_folder' field is deprecated and no longer supported. Remove this field from your config.")
+                elif field == "env_file_path":
+                    raise ValueError(f"Deprecated field '{field}': The 'env_file_path' field is deprecated. Use environment variables instead.")
+
         # Handle both [prompt_learning] section and flat structure
         pl_data = data.get("prompt_learning", {})
         if not pl_data:
