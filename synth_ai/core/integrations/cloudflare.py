@@ -1200,11 +1200,22 @@ async def create_tunnel(
     """
     url = f"{BACKEND_URL_BASE}/api/v1/tunnels/"
 
+    # Mask API key for error messages
+    def mask_key(key: str) -> str:
+        if len(key) > 14:
+            return f"{key[:10]}...{key[-4:]}"
+        return f"{key[:6]}..."
+
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        # Use X-API-Key header (backend expects this format)
+        # Also support Authorization header as fallback
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
             response = await client.post(
                 url,
-                headers={"Authorization": f"Bearer {synth_api_key}"},
+                headers={
+                    "X-API-Key": synth_api_key,
+                    "Authorization": f"Bearer {synth_api_key}",  # Fallback
+                },
                 json={
                     "subdomain": subdomain or f"tunnel-{port}",
                     "local_port": port,
@@ -1214,12 +1225,56 @@ async def create_tunnel(
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as exc:
+        error_detail = exc.response.text
+        try:
+            import json
+            error_json = json.loads(error_detail)
+            error_detail = str(error_json.get("detail", error_detail))
+        except Exception:
+            pass
+        
+        # Provide helpful error message
+        if exc.response.status_code == 401:
+            raise RuntimeError(
+                f"Authentication failed when creating tunnel:\n"
+                f"  Status: {exc.response.status_code}\n"
+                f"  Error: {error_detail}\n"
+                f"  API Key used: {mask_key(synth_api_key)}\n"
+                f"  URL: {url}\n"
+                f"  This usually means:\n"
+                f"    - The API key is invalid or expired\n"
+                f"    - The backend is experiencing high load (PostgREST timeout)\n"
+                f"    - Network connectivity issues\n"
+                f"  Try:\n"
+                f"    - Verify SYNTH_API_KEY is set correctly\n"
+                f"    - Wait a moment and retry (backend may be under load)\n"
+                f"    - Use tunnel_mode='quick' as a workaround"
+            ) from exc
+        else:
+            raise RuntimeError(
+                f"Backend API returned {exc.response.status_code} when creating tunnel:\n"
+                f"  Error: {error_detail}\n"
+                f"  URL: {url}\n"
+                f"  API Key: {mask_key(synth_api_key)}"
+            ) from exc
+    except httpx.ReadTimeout as exc:
         raise RuntimeError(
-            f"Backend API returned {exc.response.status_code}: {exc.response.text}"
+            f"Request timed out when creating tunnel (backend may be under load):\n"
+            f"  URL: {url}\n"
+            f"  API Key: {mask_key(synth_api_key)}\n"
+            f"  Timeout: 60s\n"
+            f"  This usually means the backend PostgREST service is slow or unavailable.\n"
+            f"  Try:\n"
+            f"    - Wait a moment and retry\n"
+            f"    - Use tunnel_mode='quick' as a workaround"
         ) from exc
     except httpx.RequestError as exc:
         raise RuntimeError(
-            f"Failed to connect to backend at {url}: {exc}"
+            f"Failed to connect to backend when creating tunnel:\n"
+            f"  URL: {url}\n"
+            f"  API Key: {mask_key(synth_api_key)}\n"
+            f"  Error: {exc}\n"
+            f"  Check network connectivity and backend availability"
         ) from exc
 
 

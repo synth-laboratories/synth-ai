@@ -1,12 +1,18 @@
 """SDK-side validation for training configs - catch errors BEFORE sending to backend."""
 
 import re
+import warnings
 from pathlib import Path
 from typing import Any, List, Tuple
 
 import click
 import toml
 from synth_ai.core.telemetry import log_info
+
+# Import unknown field validation from CLI module
+from synth_ai.cli.commands.train.prompt_learning_validation import (
+    validate_prompt_learning_config as _validate_unknown_fields,
+)
 
 
 class ConfigValidationError(Exception):
@@ -368,7 +374,17 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     ctx: dict[str, Any] = {"config_path": str(config_path)}
     log_info("validate_prompt_learning_config invoked", ctx=ctx)
     errors: list[str] = []
-    
+
+    # Run unknown field validation (warnings only, doesn't raise)
+    try:
+        validation_result = _validate_unknown_fields(config_data, config_path=config_path)
+        # Print warnings about unknown fields and deprecated sections
+        for warning_msg in validation_result.warnings:
+            warnings.warn(warning_msg, UserWarning, stacklevel=3)
+    except Exception:
+        # Don't fail validation if unknown field check fails
+        pass
+
     # Check for prompt_learning section
     pl_section = config_data.get("prompt_learning")
     if not pl_section:
