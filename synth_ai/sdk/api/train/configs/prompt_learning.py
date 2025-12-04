@@ -1457,6 +1457,58 @@ class PromptLearningConfig(ExtraModel):
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or algorithm-specific)
     env_config: dict[str, Any] | None = None
 
+    # Free tier configuration
+    free_tier: bool = Field(
+        default=False,
+        description=(
+            "Enable free tier mode. Uses free OSS models (gpt-oss-20b, gpt-oss-120b, llama-3-8b for policy; "
+            "gpt-5-mini for proposer) and counts against org's free tier limits. "
+            "When limits are exceeded, remove this flag to run as paid job."
+        ),
+    )
+
+    # Free tier allowed models (for validation)
+    _FREE_TIER_POLICY_MODELS: set[str] = {
+        "openai/gpt-oss-20b",
+        "gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "gpt-oss-120b",
+        "llama-3.1-8b-instant",
+        "llama-3-8b",
+        "meta/llama-3.1-8b-instant",
+    }
+    _FREE_TIER_PROPOSER_MODELS: set[str] = {
+        "gpt-5-mini",
+    }
+
+    @model_validator(mode="before")
+    @classmethod
+    def _validate_free_tier_models(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate that free tier jobs use allowed models."""
+        if not isinstance(data, dict):
+            return data
+
+        # Check if free tier is enabled
+        free_tier = data.get("free_tier", False)
+        if isinstance(free_tier, str):
+            free_tier = free_tier.lower() in ("true", "1", "yes", "on")
+        if not free_tier:
+            return data
+
+        # Validate policy model if specified
+        policy = data.get("policy", {})
+        if isinstance(policy, dict) and policy.get("model"):
+            model = policy["model"].lower().strip()
+            allowed = {m.lower() for m in cls._FREE_TIER_POLICY_MODELS}
+            if model not in allowed:
+                raise ValueError(
+                    f"Free tier policy model validation failed: '{policy['model']}' is not available in free tier. "
+                    f"Allowed models: {', '.join(sorted(cls._FREE_TIER_POLICY_MODELS))}. "
+                    f"Either use a free tier model or remove 'free_tier = true' from your config."
+                )
+
+        return data
+
     @model_validator(mode="before")
     @classmethod
     def _check_deprecated_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
