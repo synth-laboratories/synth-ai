@@ -2,6 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![PyPI Dev](https://img.shields.io/badge/dev-0.3.2.dev3-orange)](https://pypi.org/project/synth-ai/0.3.2.dev3/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
