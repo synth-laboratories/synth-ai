@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import importlib
 import os
 import subprocess
@@ -150,14 +148,6 @@ def demo_run(
     )
 
 
-@click.command("setup")
-def setup_alias() -> None:
-    """Perform SDK handshake and write keys to .env."""
-    _run_demo_command(_demo_cli.setup)
-
-
 def register(cli: click.Group) -> None:
     """Attach the demo command group and related aliases to the CLI."""
     cli.add_command(command)
-    cli.add_command(setup_alias)
-

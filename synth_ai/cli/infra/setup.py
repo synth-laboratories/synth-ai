@@ -5,6 +5,7 @@ from typing import Literal
 import click
 
 from synth_ai.cli.lib.env import (
+    mask_str,
     resolve_env_var,
     write_env_var_to_dotenv,
     write_env_var_to_json,
@@ -65,3 +66,4 @@ def setup_cmd(
         write_env_var_to_json(k, v, "~/.synth-ai/config.json")
         write_env_var_to_dotenv(k, v)
         os.environ[k] = v
+        print(f"Loaded {k}={mask_str(v)} to process environment")
