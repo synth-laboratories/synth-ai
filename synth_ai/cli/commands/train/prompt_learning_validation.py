@@ -35,6 +35,7 @@ KNOWN_PROMPT_LEARNING_FIELDS = {
     "env_config",
     "env_name",
     "termination_config",  # Supported - backend uses TerminationManager
+    "free_tier",  # Enable free tier mode with OSS models
     # Deprecated fields (still recognized for warnings)
     "results_folder",
     "env_file_path",
