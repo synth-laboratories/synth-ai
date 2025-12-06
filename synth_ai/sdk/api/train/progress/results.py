@@ -1,6 +1,16 @@
 """Modular result saving for GEPA progress tracking.
 
 Provides functions to save various result files from a GEPAProgressTracker.
+
+## Output Files
+
+- `candidates.json` - All candidates with stages, seed_info, token_usage, etc.
+- `pareto_history.json` - Frontier evolution with frontier_scores, timestamps
+- `summary.json` - Full analysis dict with all tracking data
+- `seeds.json` - Aggregated seed manifest with query text and expected output
+- `seed_analysis.json` - Baseline vs best comparison per seed
+- `summary.txt` - Human-readable summary (optional)
+- `raw_events.json` - Raw SSE events (optional, can be large)
 """
 
 from __future__ import annotations
@@ -37,7 +47,7 @@ def save_results(
 
     files: dict[str, Path] = {}
 
-    # 1. Candidates JSON
+    # 1. Candidates JSON (with stages, seed_info, token_usage, etc.)
     files["candidates"] = save_candidates(tracker, output_dir)
 
     # 2. Pareto history JSON
@@ -46,14 +56,17 @@ def save_results(
     # 3. Summary JSON (analysis dict)
     files["summary"] = save_summary_json(tracker, output_dir)
 
-    # 4. Seed analysis (disagreement between baseline and best)
+    # 4. Seeds JSON (aggregated seed manifest)
+    files["seeds"] = save_seeds(tracker, output_dir)
+
+    # 5. Seed analysis (disagreement between baseline and best)
     files["seed_analysis"] = save_seed_analysis(tracker, output_dir)
 
-    # 5. Human-readable summary
+    # 6. Human-readable summary
     if include_summary_txt:
         files["summary_txt"] = save_summary_txt(tracker, output_dir)
 
-    # 6. Raw events (optional, can be large)
+    # 7. Raw events (optional, can be large)
     if include_raw_events:
         files["raw_events"] = save_raw_events(tracker, output_dir)
 
@@ -61,7 +74,10 @@ def save_results(
 
 
 def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
-    """Save all candidates with their details."""
+    """Save all candidates with their details.
+
+    Includes first-class program structure (stages), seed_info, token_usage, etc.
+    """
     filepath = output_dir / "candidates.json"
 
     # Get frontier IDs for marking pareto status
@@ -69,7 +85,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
 
     candidates_data = []
     for c in tracker.candidates:
-        candidates_data.append({
+        candidate_dict: dict[str, Any] = {
             "candidate_id": c.candidate_id,
             "accuracy": c.accuracy,
             "val_accuracy": c.val_accuracy,
@@ -79,11 +95,53 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             "is_pareto": c.candidate_id in frontier_ids,
             "accepted": c.accepted,
             "mutation_type": c.mutation_type,
+            "mutation_params": c.mutation_params,
             "instance_scores": c.instance_scores,
             "seeds_evaluated": c.seeds_evaluated,
-            "prompt_summary": c.prompt_summary,
+            "prompt_summary": c.prompt_summary or c.get_prompt_summary(),
             "transformation": c.transformation,
-            "rollout_sample": [
+            "timestamp": c.timestamp,
+            "timestamp_ms": c.timestamp_ms,
+        }
+
+        # Add stages (first-class program structure)
+        if c.stages:
+            candidate_dict["stages"] = {
+                stage_id: stage.to_dict()
+                for stage_id, stage in c.stages.items()
+            }
+
+        # Add seed_scores [{seed, score}, ...]
+        if c.seed_scores:
+            candidate_dict["seed_scores"] = c.seed_scores
+
+        # Add seed_info [{seed, query, expected}, ...]
+        if c.seed_info:
+            candidate_dict["seed_info"] = [s.to_dict() for s in c.seed_info]
+
+        # Add token_usage
+        if c.token_usage:
+            candidate_dict["token_usage"] = c.token_usage.to_dict()
+
+        # Add cost
+        if c.cost_usd is not None:
+            candidate_dict["cost_usd"] = c.cost_usd
+
+        # Add evaluation duration
+        if c.evaluation_duration_ms is not None:
+            candidate_dict["evaluation_duration_ms"] = c.evaluation_duration_ms
+
+        # Add minibatch scores
+        if c.minibatch_scores:
+            candidate_dict["minibatch_scores"] = c.minibatch_scores
+
+        # Add skip reason
+        if c.skip_reason:
+            candidate_dict["skip_reason"] = c.skip_reason
+
+        # Add rollout samples
+        if c.rollout_sample:
+            candidate_dict["rollout_sample"] = [
                 {
                     "seed": r.seed,
                     "query": r.query,
@@ -92,9 +150,9 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                     "correct": r.correct,
                 }
                 for r in c.rollout_sample
-            ],
-            "timestamp": c.timestamp,
-        })
+            ]
+
+        candidates_data.append(candidate_dict)
 
     # Sort by accuracy descending
     candidates_data.sort(key=lambda x: x.get("accuracy") or 0, reverse=True)
@@ -112,12 +170,14 @@ def save_pareto_history(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     history = [
         {
             "timestamp": u.timestamp,
+            "timestamp_ms": u.timestamp_ms,
             "added": u.added,
             "removed": u.removed,
             "frontier": u.frontier,
             "frontier_size": u.frontier_size,
             "frontier_scores": u.frontier_scores,
             "optimistic_score": u.optimistic_score,
+            "baseline_score": u.baseline_score,
             "generation": u.generation,
         }
         for u in tracker.pareto_history
@@ -138,6 +198,80 @@ def save_summary_json(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
 
     with open(filepath, "w") as f:
         json.dump(analysis, f, indent=2)
+
+    return filepath
+
+
+def save_seeds(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
+    """Save aggregated seed manifest with query text and expected output.
+
+    Aggregates seed_info from all candidates to build a complete seed dataset.
+    Each seed appears once with its query text, expected output, and which
+    candidates were evaluated on it.
+    """
+    filepath = output_dir / "seeds.json"
+
+    # Aggregate seed_info from all candidates
+    seeds_map: dict[int, dict[str, Any]] = {}
+
+    for c in tracker.candidates:
+        # From seed_info (preferred - has query text)
+        for si in c.seed_info:
+            seed = si.seed
+            if seed not in seeds_map:
+                seeds_map[seed] = {
+                    "seed": seed,
+                    "query": si.query,
+                    "expected": si.expected,
+                    "evaluated_by": [],
+                }
+            # Add this candidate to the list of evaluators
+            seeds_map[seed]["evaluated_by"].append({
+                "candidate_id": c.candidate_id,
+                "score": si.score,
+                "correct": si.correct,
+            })
+
+        # From rollout_sample (has query text)
+        for rs in c.rollout_sample:
+            seed = rs.seed
+            if seed not in seeds_map:
+                seeds_map[seed] = {
+                    "seed": seed,
+                    "query": rs.query,
+                    "expected": rs.expected,
+                    "evaluated_by": [],
+                }
+            elif not seeds_map[seed].get("query") and rs.query:
+                # Fill in query if we have it
+                seeds_map[seed]["query"] = rs.query
+                seeds_map[seed]["expected"] = rs.expected
+
+        # From seed_scores (has score but not query)
+        for ss in c.seed_scores:
+            seed = ss.get("seed", -1)
+            if seed < 0:
+                continue
+            if seed not in seeds_map:
+                seeds_map[seed] = {
+                    "seed": seed,
+                    "query": "",
+                    "expected": "",
+                    "evaluated_by": [],
+                }
+
+    # Convert to sorted list
+    seeds_list = sorted(seeds_map.values(), key=lambda x: x["seed"])
+
+    # Add summary stats
+    output = {
+        "total_seeds": len(seeds_list),
+        "seeds_with_query": sum(1 for s in seeds_list if s.get("query")),
+        "seeds": seeds_list,
+    }
+
+    with open(filepath, "w") as f:
+        json.dump(output, f, indent=2)
 
     return filepath
 

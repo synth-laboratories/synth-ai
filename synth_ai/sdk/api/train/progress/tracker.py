@@ -278,6 +278,14 @@ GEPA Optimization Progress - {self.env_name}
             self._handle_usage(parsed)
         elif parsed.category == EventCategory.VALIDATION:
             self._handle_validation(parsed)
+        # ✅ ADD: Also handle job.event type events that contain validation data
+        # (postgrest_emitter wraps events as job.event, so we need to check data for validation indicators)
+        elif parsed.category == EventCategory.UNKNOWN and (
+            parsed.data.get("baseline_val_accuracy") is not None or
+            parsed.data.get("is_baseline") is True or
+            "validation" in parsed.event_type.lower()
+        ):
+            self._handle_validation(parsed)
 
     def _handle_baseline(self, event: BaselineEvent) -> None:
         """Handle baseline evaluation event."""
@@ -294,6 +302,28 @@ GEPA Optimization Progress - {self.env_name}
 
     def _handle_candidate(self, event: CandidateEvent) -> None:
         """Handle candidate evaluation event."""
+        # Check if this is a baseline candidate
+        is_baseline = event.data.get("is_baseline", False) or event.data.get("parent_id") is None
+        
+        # Extract baseline info from baseline candidate events
+        if is_baseline and not self.baseline:
+            instance_scores = event.data.get("instance_scores", [])
+            seeds_evaluated = event.data.get("seeds_evaluated", [])
+            prompt = event.data.get("prompt") or event.data.get("prompt_text") or event.data.get("transformation")
+            
+            self.baseline = BaselineInfo(
+                accuracy=event.accuracy,
+                instance_scores=instance_scores if isinstance(instance_scores, list) else [],
+                seeds_evaluated=seeds_evaluated if isinstance(seeds_evaluated, list) else [],
+                prompt=prompt if isinstance(prompt, dict) else None,
+            )
+            if event.accuracy is not None:
+                self.progress.baseline_score = event.accuracy
+            
+            if self.display_mode != DisplayMode.SILENT:
+                acc_str = f"{event.accuracy:.2%}" if event.accuracy else "N/A"
+                self._print(f"Baseline: {acc_str}")
+        
         # Avoid duplicates
         if event.candidate_id in self._candidate_ids:
             return
@@ -312,6 +342,9 @@ GEPA Optimization Progress - {self.env_name}
 
     def _handle_frontier(self, event: FrontierEvent) -> None:
         """Handle pareto frontier update."""
+        # Get timestamp_ms from event data if available
+        timestamp_ms = event.data.get("timestamp_ms") if event.data else None
+
         update = FrontierUpdate(
             timestamp=time.time() - self._start_time,
             added=event.added or [],
@@ -320,6 +353,9 @@ GEPA Optimization Progress - {self.env_name}
             frontier_scores=event.frontier_scores or {},
             frontier_size=event.frontier_size,
             optimistic_score=event.best_score,
+            generation=event.data.get("generation") if event.data else None,
+            baseline_score=event.data.get("baseline_score") if event.data else None,
+            timestamp_ms=timestamp_ms,
         )
         self.pareto_history.append(update)
 
@@ -400,11 +436,17 @@ GEPA Optimization Progress - {self.env_name}
     def _handle_validation(self, event: ParsedEvent) -> None:
         """Handle validation scored event."""
         data = event.data
-        if data.get("is_baseline", False):
+        if data.get("is_baseline", False) or data.get("baseline_val_accuracy") is not None:
             # Baseline validation result
-            accuracy = data.get("accuracy")
-            if accuracy is not None and self.progress.baseline_score is None:
-                self.progress.baseline_score = accuracy
+            # Try to get baseline_val_accuracy from top level first, then accuracy
+            val_accuracy = data.get("baseline_val_accuracy") or data.get("accuracy")
+            if val_accuracy is not None:
+                # Store in baseline info if available
+                if self.baseline:
+                    self.baseline.val_accuracy = val_accuracy
+                # Also store in progress for backwards compatibility
+                if self.progress.baseline_score is None:
+                    self.progress.baseline_score = val_accuracy
 
     # === Public API ===
 
@@ -471,7 +513,49 @@ GEPA Optimization Progress - {self.env_name}
         print("=" * 60)
 
     def to_analysis_dict(self) -> dict[str, Any]:
-        """Export all tracking data for analysis."""
+        """Export all tracking data for analysis.
+
+        Includes first-class program structure (stages), seed_info, token_usage, etc.
+        """
+        candidates_list = []
+        for c in self.candidates:
+            candidate_dict: dict[str, Any] = {
+                "candidate_id": c.candidate_id,
+                "accuracy": c.accuracy,
+                "val_accuracy": c.val_accuracy,
+                "train_accuracy": c.train_accuracy,
+                "generation": c.generation,
+                "parent_id": c.parent_id,
+                "is_pareto": c.candidate_id in self.current_frontier,
+                "accepted": c.accepted,
+                "instance_scores": c.instance_scores,
+                "mutation_type": c.mutation_type,
+                "mutation_params": c.mutation_params,
+                "prompt_summary": c.prompt_summary or c.get_prompt_summary(),
+                "timestamp_ms": c.timestamp_ms,
+            }
+
+            # Add stages (first-class program structure)
+            if c.stages:
+                candidate_dict["stages"] = {
+                    stage_id: stage.to_dict()
+                    for stage_id, stage in c.stages.items()
+                }
+
+            # Add seed_scores
+            if c.seed_scores:
+                candidate_dict["seed_scores"] = c.seed_scores
+
+            # Add token_usage
+            if c.token_usage:
+                candidate_dict["token_usage"] = c.token_usage.to_dict()
+
+            # Add cost
+            if c.cost_usd is not None:
+                candidate_dict["cost_usd"] = c.cost_usd
+
+            candidates_list.append(candidate_dict)
+
         return {
             "env_name": self.env_name,
             "progress": {
@@ -487,32 +571,22 @@ GEPA Optimization Progress - {self.env_name}
             },
             "baseline": {
                 "accuracy": self.baseline.accuracy if self.baseline else None,
+                "val_accuracy": self.baseline.val_accuracy if self.baseline else None,
                 "instance_scores": self.baseline.instance_scores if self.baseline else [],
             },
-            "candidates": [
-                {
-                    "candidate_id": c.candidate_id,
-                    "accuracy": c.accuracy,
-                    "val_accuracy": c.val_accuracy,
-                    "train_accuracy": c.train_accuracy,
-                    "generation": c.generation,
-                    "parent_id": c.parent_id,
-                    "is_pareto": c.candidate_id in self.current_frontier,
-                    "accepted": c.accepted,
-                    "instance_scores": c.instance_scores,
-                    "mutation_type": c.mutation_type,
-                    "prompt_summary": c.prompt_summary,
-                }
-                for c in self.candidates
-            ],
+            "candidates": candidates_list,
             "pareto_history": [
                 {
                     "timestamp": u.timestamp,
+                    "timestamp_ms": u.timestamp_ms,
                     "added": u.added,
                     "removed": u.removed,
                     "frontier": u.frontier,
                     "frontier_size": u.frontier_size,
+                    "frontier_scores": u.frontier_scores,
                     "optimistic_score": u.optimistic_score,
+                    "baseline_score": u.baseline_score,
+                    "generation": u.generation,
                 }
                 for u in self.pareto_history
             ],
