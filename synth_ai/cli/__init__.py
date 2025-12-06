@@ -21,6 +21,7 @@ from synth_ai.cli.infra.modal_app import modal_app_cmd
 from synth_ai.cli.infra.setup import setup_cmd
 from synth_ai.cli.task_apps import task_app_cmd
 from synth_ai.cli.training.train_cfg import train_cfg_cmd
+from synth_ai.cli.usage import usage_cmd
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -79,6 +80,7 @@ cli.add_command(opencode_cmd, name="opencode")
 cli.add_command(setup_cmd, name="setup")
 cli.add_command(task_app_cmd, name="task-app")
 cli.add_command(train_cfg_cmd, name="train-cfg")
+cli.add_command(usage_cmd, name="usage")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*

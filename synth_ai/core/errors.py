@@ -81,6 +81,36 @@ class ModelNotSupportedError(SynthError):
         super().__init__(msg)
 
 
+@dataclass
+class UsageLimitError(SynthError):
+    """Raised when an org rate limit is exceeded.
+
+    Attributes:
+        limit_type: The type of limit exceeded (e.g., "inference_tokens_per_day")
+        api: The API that hit the limit (e.g., "inference", "judges", "prompt_opt")
+        current: Current usage value
+        limit: The limit value
+        tier: The org's tier (e.g., "free", "starter", "growth")
+        retry_after_seconds: Seconds until the limit resets (if available)
+        upgrade_url: URL to upgrade tier
+    """
+
+    limit_type: str
+    api: str
+    current: int | float
+    limit: int | float
+    tier: str = "free"
+    retry_after_seconds: int | None = None
+    upgrade_url: str = "https://usesynth.ai/pricing"
+
+    def __str__(self) -> str:
+        return (
+            f"Rate limit exceeded: {self.limit_type} "
+            f"({self.current}/{self.limit}) for tier '{self.tier}'. "
+            f"Upgrade at {self.upgrade_url}"
+        )
+
+
 __all__ = [
     "SynthError",
     "ConfigError",
@@ -91,5 +121,6 @@ __all__ = [
     "TimeoutError",
     "StorageError",
     "ModelNotSupportedError",
+    "UsageLimitError",
 ]
 

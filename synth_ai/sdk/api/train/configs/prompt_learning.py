@@ -1511,20 +1511,20 @@ class PromptLearningConfig(ExtraModel):
     @model_validator(mode="before")
     @classmethod
     def _check_deprecated_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """Check for deprecated fields and raise errors with informative messages."""
+        """Remove deprecated fields that are no longer used.
+
+        These fields are silently removed to maintain backwards compatibility
+        with older configs while the CLI validation module warns about them.
+        """
         if not isinstance(data, dict):
             return data
 
-        # Check for deprecated top-level fields
-        deprecated_fields = {
-            "display": "The [display] section is deprecated and no longer supported. Remove this section from your config.",
-            "results_folder": "The 'results_folder' field is deprecated and no longer supported. Remove this field from your config.",
-            "env_file_path": "The 'env_file_path' field is deprecated. Use environment variables instead.",
-        }
+        # Silently remove deprecated fields (don't raise errors)
+        deprecated_fields = {"display", "results_folder", "env_file_path"}
 
-        for field, message in deprecated_fields.items():
+        for field in deprecated_fields:
             if field in data:
-                raise ValueError(f"Deprecated field '{field}': {message}")
+                data.pop(field, None)
 
         return data
 
@@ -1540,16 +1540,19 @@ class PromptLearningConfig(ExtraModel):
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> PromptLearningConfig:
         """Load prompt learning config from dict/TOML mapping."""
-        # Check for deprecated fields at top level first
-        deprecated_top_level = ["display", "results_folder", "env_file_path"]
+        # Remove deprecated fields at top level (silently for backwards compatibility)
+        # The CLI validation module will warn about these
+        deprecated_top_level = {"display", "results_folder", "env_file_path"}
+
+        # Convert to mutable dict if needed
+        if not isinstance(data, dict):
+            data = dict(data)
+        else:
+            data = dict(data)  # Create a copy to avoid modifying the original
+
         for field in deprecated_top_level:
             if field in data:
-                if field == "display":
-                    raise ValueError(f"Deprecated field '{field}': The [display] section is deprecated and no longer supported. Remove this section from your config.")
-                elif field == "results_folder":
-                    raise ValueError(f"Deprecated field '{field}': The 'results_folder' field is deprecated and no longer supported. Remove this field from your config.")
-                elif field == "env_file_path":
-                    raise ValueError(f"Deprecated field '{field}': The 'env_file_path' field is deprecated. Use environment variables instead.")
+                data.pop(field, None)
 
         # Handle both [prompt_learning] section and flat structure
         pl_data = data.get("prompt_learning", {})
