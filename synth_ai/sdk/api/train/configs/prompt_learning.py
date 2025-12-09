@@ -1,7 +1,10 @@
 """Prompt Learning configuration models for MIPRO and GEPA."""
 from __future__ import annotations
 
+import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field as dataclass_field
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
@@ -10,6 +13,235 @@ from pydantic import Field, field_validator, model_validator
 
 from ..utils import load_toml
 from .shared import ExtraModel
+
+
+# =============================================================================
+# GEPA Command Types and Models
+# =============================================================================
+
+
+class GEPACommandType(str, Enum):
+    """Types of commands that can be sent to a running GEPA job.
+
+    These commands allow runtime control of GEPA optimization jobs:
+    - PAUSE: Checkpoint and stop at the next safe boundary
+    - CANCEL: Stop the job (with optional checkpoint)
+    - UPDATE_CONFIG: Update runtime-mutable config at next boundary
+    - EXTEND_BUDGET: Add more rollout budget
+    - EXTEND_GENERATIONS: Add more generations to run
+    - MESSAGE_PROPOSER: Send guidance to the prompt proposer
+    - CHECKPOINT_NOW: Force a checkpoint at the next boundary
+    - PING: Health check, returns current job status
+    """
+
+    PAUSE = "pause"
+    CANCEL = "cancel"
+    RESUME = "resume"  # Handled externally (not sent to running job)
+    UPDATE_CONFIG = "update_config"
+    EXTEND_BUDGET = "extend_budget"
+    EXTEND_GENERATIONS = "extend_generations"
+    INJECT_CANDIDATE = "inject_candidate"
+    MESSAGE_PROPOSER = "message_proposer"
+    CHECKPOINT_NOW = "checkpoint_now"
+    PING = "ping"
+
+
+@dataclass
+class GEPACommand:
+    """A command to be sent to a running GEPA job.
+
+    Commands are queued and processed at safe boundaries during optimization.
+
+    Attributes:
+        command_type: The type of command to execute
+        payload: Optional command-specific data
+        command_id: Unique identifier for this command (auto-generated)
+        created_at: ISO timestamp when command was created
+        created_at_ms: Unix timestamp in milliseconds
+        priority: Higher priority commands are processed first (default: 0)
+
+    Example:
+        >>> cmd = GEPACommand.pause()
+        >>> cmd = GEPACommand.message_proposer("Focus on shorter prompts")
+        >>> cmd = GEPACommand.extend_budget(additional=100)
+    """
+
+    command_type: GEPACommandType
+    payload: dict[str, Any] | None = None
+    command_id: str = dataclass_field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: str = dataclass_field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at_ms: int = dataclass_field(default_factory=lambda: int(datetime.utcnow().timestamp() * 1000))
+    priority: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for API/queue transmission."""
+        return {
+            "command_type": self.command_type.value,
+            "payload": self.payload,
+            "command_id": self.command_id,
+            "created_at": self.created_at,
+            "created_at_ms": self.created_at_ms,
+            "priority": self.priority,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> GEPACommand:
+        """Deserialize from dictionary."""
+        return cls(
+            command_type=GEPACommandType(data["command_type"]),
+            payload=data.get("payload"),
+            command_id=data.get("command_id", str(uuid.uuid4())),
+            created_at=data.get("created_at", datetime.utcnow().isoformat()),
+            created_at_ms=data.get("created_at_ms", int(datetime.utcnow().timestamp() * 1000)),
+            priority=data.get("priority", 0),
+        )
+
+    @classmethod
+    def pause(cls, checkpoint: bool = True) -> GEPACommand:
+        """Create a pause command.
+
+        Args:
+            checkpoint: Whether to save a checkpoint before pausing (default: True)
+        """
+        return cls(
+            command_type=GEPACommandType.PAUSE,
+            payload={"checkpoint": checkpoint},
+            priority=100,
+        )
+
+    @classmethod
+    def cancel(cls, checkpoint: bool = False, reason: str | None = None) -> GEPACommand:
+        """Create a cancel command.
+
+        Args:
+            checkpoint: Whether to save a checkpoint before canceling (default: False)
+            reason: Optional reason for cancellation
+        """
+        return cls(
+            command_type=GEPACommandType.CANCEL,
+            payload={"checkpoint": checkpoint, "reason": reason},
+            priority=100,
+        )
+
+    @classmethod
+    def extend_generations(cls, additional: int) -> GEPACommand:
+        """Create an extend generations command.
+
+        Args:
+            additional: Number of additional generations to run
+        """
+        return cls(
+            command_type=GEPACommandType.EXTEND_GENERATIONS,
+            payload={"additional_generations": additional},
+            priority=50,
+        )
+
+    @classmethod
+    def extend_budget(cls, additional: int) -> GEPACommand:
+        """Create an extend budget command.
+
+        Args:
+            additional: Number of additional rollouts to add to budget
+        """
+        return cls(
+            command_type=GEPACommandType.EXTEND_BUDGET,
+            payload={"additional_rollouts": additional},
+            priority=50,
+        )
+
+    @classmethod
+    def update_config(cls, updates: dict[str, Any]) -> GEPACommand:
+        """Create a config update command.
+
+        Args:
+            updates: Dictionary of config field -> new value
+                     Only mutable fields can be updated at runtime:
+                     - max_concurrent_rollouts
+                     - children_per_generation
+                     - minibatch_size
+        """
+        return cls(
+            command_type=GEPACommandType.UPDATE_CONFIG,
+            payload=updates,
+            priority=50,
+        )
+
+    @classmethod
+    def checkpoint_now(cls) -> GEPACommand:
+        """Create a force checkpoint command."""
+        return cls(
+            command_type=GEPACommandType.CHECKPOINT_NOW,
+            payload={},
+            priority=75,
+        )
+
+    @classmethod
+    def ping(cls) -> GEPACommand:
+        """Create a ping/health check command."""
+        return cls(
+            command_type=GEPACommandType.PING,
+            payload={},
+            priority=0,
+        )
+
+    @classmethod
+    def message_proposer(cls, message: str, clear_previous: bool = False) -> GEPACommand:
+        """Create a message proposer command.
+
+        This allows sending runtime guidance to the prompt proposer,
+        influencing the direction of optimization.
+
+        Args:
+            message: The message/guidance to send to the proposer
+            clear_previous: If True, clear any previous messages before adding this one
+
+        Example:
+            >>> cmd = GEPACommand.message_proposer(
+            ...     "Focus on generating shorter, more concise prompts",
+            ...     clear_previous=True
+            ... )
+        """
+        return cls(
+            command_type=GEPACommandType.MESSAGE_PROPOSER,
+            payload={"message": message, "clear_previous": clear_previous},
+            priority=50,
+        )
+
+
+@dataclass
+class GEPACommandResult:
+    """Result from processing a GEPA command.
+
+    Attributes:
+        should_stop: Whether the optimizer should stop after this command
+        termination_reason: If stopping, the reason (e.g., "pause_requested", "cancelled")
+        checkpoint_requested: Whether a checkpoint was requested
+        response: Command-specific response data
+    """
+
+    should_stop: bool = False
+    termination_reason: str | None = None
+    checkpoint_requested: bool = False
+    response: dict[str, Any] | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        return {
+            "should_stop": self.should_stop,
+            "termination_reason": self.termination_reason,
+            "checkpoint_requested": self.checkpoint_requested,
+            "response": self.response,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> GEPACommandResult:
+        """Deserialize from dictionary."""
+        return cls(
+            should_stop=data.get("should_stop", False),
+            termination_reason=data.get("termination_reason"),
+            checkpoint_requested=data.get("checkpoint_requested", False),
+            response=data.get("response"),
+        )
 
 
 class SeedRange(ExtraModel):
@@ -1639,6 +1871,11 @@ class PromptLearningConfig(ExtraModel):
 
 
 __all__ = [
+    # GEPA command types and models
+    "GEPACommandType",
+    "GEPACommand",
+    "GEPACommandResult",
+    # GEPA config classes
     "GEPAConfig",
     "GEPAModuleConfig",
     "GEPARolloutConfig",
@@ -1648,11 +1885,13 @@ __all__ = [
     "GEPAArchiveConfig",
     "GEPATokenConfig",
     "GEPAAdaptiveBatchConfig",
+    # MIPRO config classes
     "MIPROConfig",
     "MIPROMetaConfig",
     "MIPROModuleConfig",
     "MIPROStageConfig",
     "MIPROSeedConfig",
+    # Shared config classes
     "MessagePatternConfig",
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",

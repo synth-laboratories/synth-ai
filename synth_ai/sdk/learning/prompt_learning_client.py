@@ -1,10 +1,15 @@
-"""Client utilities for querying prompt learning job results."""
+"""Client utilities for querying prompt learning job results and sending commands."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
 from synth_ai.core._utils.http import AsyncHttpClient
+from synth_ai.sdk.api.train.configs.prompt_learning import (
+    GEPACommand,
+    GEPACommandResult,
+    GEPACommandType,
+)
 
 from .prompt_learning_types import PromptResults
 
@@ -400,6 +405,186 @@ class PromptLearningClient:
             "mean_train_accuracy": sum(train_accuracies) / len(train_accuracies) if train_accuracies else None,
         }
 
+    # =========================================================================
+    # GEPA Command Methods
+    # =========================================================================
+
+    async def send_command(
+        self,
+        job_id: str,
+        command: GEPACommand,
+        *,
+        wait_for_response: bool = True,
+        timeout: float = 30.0,
+    ) -> GEPACommandResult:
+        """Send a command to a running GEPA job.
+
+        Args:
+            job_id: Job ID (e.g., "pl_9c58b711c2644083")
+            command: The GEPACommand to send
+            wait_for_response: If True, wait for the command to be processed
+            timeout: Timeout in seconds when waiting for response
+
+        Returns:
+            GEPACommandResult with the command processing result
+
+        Raises:
+            ValueError: If job_id format is invalid
+        """
+        _validate_job_id(job_id)
+        async with AsyncHttpClient(self._base_url, self._api_key, timeout=timeout) as http:
+            response = await http.post(
+                f"/api/prompt-learning/online/jobs/{job_id}/commands",
+                json={
+                    "command": command.to_dict(),
+                    "wait_for_response": wait_for_response,
+                },
+            )
+        return GEPACommandResult.from_dict(response)
+
+    async def pause(
+        self, job_id: str, *, checkpoint: bool = True
+    ) -> GEPACommandResult:
+        """Pause a running GEPA job.
+
+        The job will stop at the next safe boundary and optionally save a checkpoint.
+
+        Args:
+            job_id: Job ID
+            checkpoint: Whether to save a checkpoint before pausing (default: True)
+
+        Returns:
+            GEPACommandResult indicating the pause was acknowledged
+        """
+        command = GEPACommand.pause(checkpoint=checkpoint)
+        return await self.send_command(job_id, command)
+
+    async def cancel(
+        self,
+        job_id: str,
+        *,
+        checkpoint: bool = False,
+        reason: Optional[str] = None,
+    ) -> GEPACommandResult:
+        """Cancel a running GEPA job.
+
+        Args:
+            job_id: Job ID
+            checkpoint: Whether to save a checkpoint before canceling (default: False)
+            reason: Optional reason for cancellation
+
+        Returns:
+            GEPACommandResult indicating the cancellation was acknowledged
+        """
+        command = GEPACommand.cancel(checkpoint=checkpoint, reason=reason)
+        return await self.send_command(job_id, command)
+
+    async def message_proposer(
+        self,
+        job_id: str,
+        message: str,
+        *,
+        clear_previous: bool = False,
+    ) -> GEPACommandResult:
+        """Send guidance to the prompt proposer.
+
+        This allows influencing the direction of optimization by providing
+        runtime guidance to the proposer (e.g., "focus on shorter prompts").
+
+        Args:
+            job_id: Job ID
+            message: The guidance message to send to the proposer
+            clear_previous: If True, clear any previous messages before adding this one
+
+        Returns:
+            GEPACommandResult indicating the message was accepted
+
+        Example:
+            >>> result = await client.message_proposer(
+            ...     job_id,
+            ...     "Focus on generating shorter, more concise prompts",
+            ...     clear_previous=True
+            ... )
+        """
+        command = GEPACommand.message_proposer(message, clear_previous=clear_previous)
+        return await self.send_command(job_id, command)
+
+    async def extend_budget(
+        self, job_id: str, additional_rollouts: int
+    ) -> GEPACommandResult:
+        """Extend the rollout budget for a running GEPA job.
+
+        Args:
+            job_id: Job ID
+            additional_rollouts: Number of additional rollouts to add
+
+        Returns:
+            GEPACommandResult with the new budget info
+        """
+        command = GEPACommand.extend_budget(additional=additional_rollouts)
+        return await self.send_command(job_id, command)
+
+    async def extend_generations(
+        self, job_id: str, additional_generations: int
+    ) -> GEPACommandResult:
+        """Extend the number of generations for a running GEPA job.
+
+        Args:
+            job_id: Job ID
+            additional_generations: Number of additional generations to run
+
+        Returns:
+            GEPACommandResult with the new generation count
+        """
+        command = GEPACommand.extend_generations(additional=additional_generations)
+        return await self.send_command(job_id, command)
+
+    async def checkpoint_now(self, job_id: str) -> GEPACommandResult:
+        """Force an immediate checkpoint of a running GEPA job.
+
+        The checkpoint will be taken at the next safe boundary.
+
+        Args:
+            job_id: Job ID
+
+        Returns:
+            GEPACommandResult indicating the checkpoint was queued
+        """
+        command = GEPACommand.checkpoint_now()
+        return await self.send_command(job_id, command)
+
+    async def ping(self, job_id: str) -> GEPACommandResult:
+        """Ping a running GEPA job to check its status.
+
+        Args:
+            job_id: Job ID
+
+        Returns:
+            GEPACommandResult with current job status in the response field
+        """
+        command = GEPACommand.ping()
+        return await self.send_command(job_id, command)
+
+    async def update_config(
+        self, job_id: str, updates: Dict[str, Any]
+    ) -> GEPACommandResult:
+        """Update runtime-mutable configuration of a running GEPA job.
+
+        Only certain fields can be updated at runtime:
+        - max_concurrent_rollouts
+        - children_per_generation
+        - minibatch_size
+
+        Args:
+            job_id: Job ID
+            updates: Dictionary of config field -> new value
+
+        Returns:
+            GEPACommandResult with applied and rejected updates
+        """
+        command = GEPACommand.update_config(updates)
+        return await self.send_command(job_id, command)
+
 
 # Synchronous wrapper for convenience
 def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
@@ -439,17 +624,217 @@ def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> 
 
 def get_scoring_summary(job_id: str, base_url: str, api_key: str) -> Dict[str, Any]:
     """Synchronous wrapper to get scoring summary.
-    
+
     Args:
         job_id: Job ID
         base_url: Backend API base URL
         api_key: API key for authentication
-        
+
     Returns:
         Dictionary with scoring statistics
     """
     import asyncio
-    
+
     client = PromptLearningClient(base_url, api_key)
     return asyncio.run(client.get_scoring_summary(job_id))
+
+
+# =========================================================================
+# Synchronous Command Wrappers
+# =========================================================================
+
+def send_command(
+    job_id: str,
+    command: GEPACommand,
+    base_url: str,
+    api_key: str,
+    *,
+    wait_for_response: bool = True,
+    timeout: float = 30.0,
+) -> GEPACommandResult:
+    """Synchronous wrapper to send a command to a running GEPA job.
+
+    Args:
+        job_id: Job ID
+        command: The GEPACommand to send
+        base_url: Backend API base URL
+        api_key: API key for authentication
+        wait_for_response: If True, wait for command processing
+        timeout: Timeout in seconds
+
+    Returns:
+        GEPACommandResult with the command processing result
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(
+        client.send_command(job_id, command, wait_for_response=wait_for_response, timeout=timeout)
+    )
+
+
+def pause_job(
+    job_id: str, base_url: str, api_key: str, *, checkpoint: bool = True
+) -> GEPACommandResult:
+    """Synchronous wrapper to pause a running GEPA job.
+
+    Args:
+        job_id: Job ID
+        base_url: Backend API base URL
+        api_key: API key for authentication
+        checkpoint: Whether to save checkpoint before pausing
+
+    Returns:
+        GEPACommandResult indicating the pause was acknowledged
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.pause(job_id, checkpoint=checkpoint))
+
+
+def cancel_job(
+    job_id: str,
+    base_url: str,
+    api_key: str,
+    *,
+    checkpoint: bool = False,
+    reason: Optional[str] = None,
+) -> GEPACommandResult:
+    """Synchronous wrapper to cancel a running GEPA job.
+
+    Args:
+        job_id: Job ID
+        base_url: Backend API base URL
+        api_key: API key for authentication
+        checkpoint: Whether to save checkpoint before canceling
+        reason: Optional cancellation reason
+
+    Returns:
+        GEPACommandResult indicating the cancellation was acknowledged
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.cancel(job_id, checkpoint=checkpoint, reason=reason))
+
+
+def message_proposer(
+    job_id: str,
+    message: str,
+    base_url: str,
+    api_key: str,
+    *,
+    clear_previous: bool = False,
+) -> GEPACommandResult:
+    """Synchronous wrapper to send guidance to the prompt proposer.
+
+    Args:
+        job_id: Job ID
+        message: The guidance message to send
+        base_url: Backend API base URL
+        api_key: API key for authentication
+        clear_previous: If True, clear previous messages first
+
+    Returns:
+        GEPACommandResult indicating the message was accepted
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.message_proposer(job_id, message, clear_previous=clear_previous))
+
+
+def extend_budget(
+    job_id: str, additional_rollouts: int, base_url: str, api_key: str
+) -> GEPACommandResult:
+    """Synchronous wrapper to extend the rollout budget.
+
+    Args:
+        job_id: Job ID
+        additional_rollouts: Number of additional rollouts to add
+        base_url: Backend API base URL
+        api_key: API key for authentication
+
+    Returns:
+        GEPACommandResult with the new budget info
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.extend_budget(job_id, additional_rollouts))
+
+
+def extend_generations(
+    job_id: str, additional_generations: int, base_url: str, api_key: str
+) -> GEPACommandResult:
+    """Synchronous wrapper to extend the number of generations.
+
+    Args:
+        job_id: Job ID
+        additional_generations: Number of additional generations
+        base_url: Backend API base URL
+        api_key: API key for authentication
+
+    Returns:
+        GEPACommandResult with the new generation count
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.extend_generations(job_id, additional_generations))
+
+
+def checkpoint_now(job_id: str, base_url: str, api_key: str) -> GEPACommandResult:
+    """Synchronous wrapper to force an immediate checkpoint.
+
+    Args:
+        job_id: Job ID
+        base_url: Backend API base URL
+        api_key: API key for authentication
+
+    Returns:
+        GEPACommandResult indicating the checkpoint was queued
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.checkpoint_now(job_id))
+
+
+def ping_job(job_id: str, base_url: str, api_key: str) -> GEPACommandResult:
+    """Synchronous wrapper to ping a running GEPA job.
+
+    Args:
+        job_id: Job ID
+        base_url: Backend API base URL
+        api_key: API key for authentication
+
+    Returns:
+        GEPACommandResult with current job status
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.ping(job_id))
+
+
+def update_config(
+    job_id: str, updates: Dict[str, Any], base_url: str, api_key: str
+) -> GEPACommandResult:
+    """Synchronous wrapper to update runtime config.
+
+    Args:
+        job_id: Job ID
+        updates: Dictionary of config field -> new value
+        base_url: Backend API base URL
+        api_key: API key for authentication
+
+    Returns:
+        GEPACommandResult with applied and rejected updates
+    """
+    import asyncio
+
+    client = PromptLearningClient(base_url, api_key)
+    return asyncio.run(client.update_config(job_id, updates))
 

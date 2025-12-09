@@ -50,12 +50,16 @@ __all__ = [
 
 
 def register(cli: Any) -> None:
-    """Register the train command with the CLI."""
+    """Register the train command and job control commands with the CLI."""
     from synth_ai.sdk.api.train.cli import (
         register as _register,  # local import avoids circular dependency
     )
+    from synth_ai.sdk.api.train.job_control import (
+        register as _register_job_control,
+    )
 
     _register(cli)
+    _register_job_control(cli)
 
 
 def train_command(*args: Any, **kwargs: Any) -> Any:
