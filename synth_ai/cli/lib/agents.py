@@ -2,6 +2,8 @@ from pathlib import Path
 
 AGENTS_TEXT = """
 sinf
+
+NEVER USE timeout. Do not add timeout parameters, timeout arguments, or timeout configurations to any code, API calls, or operations.
 """
 SYNTH_DIV_START = "### --- SYNTH SECTION START ---"
 SYNTH_DIV_END = "### ---- SYNTH SECTION END ----"

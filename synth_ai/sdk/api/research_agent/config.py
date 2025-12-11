@@ -155,7 +155,7 @@ class GEPAConfig:
     """Fraction of population to keep as elite"""
 
     # Proposer settings
-    proposer_type: Literal["dspy", "spec"] = "dspy"
+    proposer_type: Literal["dspy", "spec", "synth", "gepa-ai"] = "dspy"
     """Type of proposer to use"""
 
     proposer_effort: ProposerEffort = "MEDIUM"

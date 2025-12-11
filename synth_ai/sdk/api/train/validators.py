@@ -803,10 +803,10 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             
             # Proposer type validation
             proposer_type = gepa_config.get("proposer_type", "dspy")
-            if proposer_type not in ("dspy", "spec"):
+            if proposer_type not in ("dspy", "spec", "synth", "gepa-ai"):
                 errors.append(
                     f"Invalid proposer_type: '{proposer_type}'\n"
-                    f"  Must be one of: 'dspy', 'spec'\n"
+                    f"  Must be one of: 'dspy', 'spec', 'synth', 'gepa-ai'\n"
                     f"  Got: '{proposer_type}'"
                 )
             
