@@ -27,6 +27,7 @@ from synth_ai.cli.lib.env import load_env_file
 from synth_ai.cli.lib.errors import format_error_message, get_required_value
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
 from synth_ai.sdk.streaming import (
+    ADASHandler,
     CLIHandler,
     JobStreamer,
     LossCurveHandler,
@@ -38,6 +39,8 @@ from synth_ai.sdk.streaming import (
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .task_app import check_task_app_health
+from .adas import ADASJob
+from .adas_models import load_adas_taskset
 from .utils import (
     TrainError,
     ensure_api_base,
@@ -458,6 +461,27 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.sdk.api.train.cli imported")
     default=None,
     help="Show detailed final summary. Overrides TOML [display].verbose_summary",
 )
+@click.option(
+    "--type",
+    "train_type_override",
+    type=click.Choice(["prompt", "rl", "sft", "adas"]),
+    default=None,
+    help="Explicitly set training type. Required for ADAS (uses JSON datasets).",
+)
+@click.option(
+    "--rollout-budget",
+    "rollout_budget",
+    type=int,
+    default=None,
+    help="Rollout budget for ADAS optimization (default: 100)",
+)
+@click.option(
+    "--proposer-effort",
+    "proposer_effort",
+    type=click.Choice(["low", "medium", "high"]),
+    default=None,
+    help="Proposer effort level for ADAS (default: medium)",
+)
 def train_command(
     cfg_path: Path | None,
     env_file: Path | None,
@@ -477,9 +501,12 @@ def train_command(
     tui: bool | None,
     show_curve: bool | None,
     verbose_summary: bool | None,
+    train_type_override: str | None,
+    rollout_budget: int | None,
+    proposer_effort: str | None,
 ) -> None:
-    
-    """Interactive launcher for RL / SFT / Prompt Learning jobs."""
+
+    """Interactive launcher for RL / SFT / Prompt Learning / ADAS jobs."""
     import traceback
 
     ctx: dict[str, Any] = {
@@ -516,23 +543,35 @@ def train_command(
             load_dotenv(Path(env_file), override=True)
             click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
 
-        if not cfg_path:
-            available_cfgs = find_train_cfgs_in_cwd()
-            if len(available_cfgs) == 1:
-                train_type, cfg_path_str, _ = available_cfgs[0]
-                cfg_path = Path(cfg_path_str)
-                print(f"Automatically selected {train_type} training config at", cfg_path)
-            else:
-                if len(available_cfgs) == 0:
-                    print("No training config found in cwd.")
-                    print("Validate your training config: synth-ai train-cfg check [CFG_PATH]")
+        # Handle ADAS specially - it uses JSON datasets, not TOML configs
+        if train_type_override == "adas":
+            # For ADAS, dataset_path is required and cfg_path is ignored
+            if not dataset_path:
+                raise click.ClickException(
+                    "ADAS requires --dataset flag with path to JSON dataset file.\n"
+                    "Usage: synth-ai train --type adas --dataset my_tasks.json"
+                )
+            train_type = "adas"
+            click.echo(f"[TRAIN_CMD] ADAS mode: using dataset {dataset_path}", err=True)
+        else:
+            # Non-ADAS: use TOML config
+            if not cfg_path:
+                available_cfgs = find_train_cfgs_in_cwd()
+                if len(available_cfgs) == 1:
+                    train_type, cfg_path_str, _ = available_cfgs[0]
+                    cfg_path = Path(cfg_path_str)
+                    print(f"Automatically selected {train_type} training config at", cfg_path)
                 else:
-                    print("Multiple training configs found. Please specify which one to use:")
-                    print_paths_formatted(available_cfgs)
-                print("Usage: synth-ai train --config [CFG_PATH]")
-                return None
+                    if len(available_cfgs) == 0:
+                        print("No training config found in cwd.")
+                        print("Validate your training config: synth-ai train-cfg check [CFG_PATH]")
+                    else:
+                        print("Multiple training configs found. Please specify which one to use:")
+                        print_paths_formatted(available_cfgs)
+                    print("Usage: synth-ai train --config [CFG_PATH]")
+                    return None
 
-        train_type = validate_train_cfg(cfg_path)
+            train_type = train_type_override or validate_train_cfg(cfg_path)
         
         synth_api_key, _ = get_synth_and_env_keys(env_file)
         
@@ -573,7 +612,11 @@ def train_command(
             click.echo(f"Backend base: {backend_base} (key {mask_str(synth_api_key)})")
             if backend_base_url_env:
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
-        _validate_openai_key_if_provider_is_openai(cfg_path)
+
+        # Skip TOML-based validation for ADAS (uses JSON datasets)
+        if train_type != "adas" and cfg_path:
+            _validate_openai_key_if_provider_is_openai(cfg_path)
+
         match train_type:
             case "prompt":
                 handle_prompt_learning(
@@ -617,6 +660,20 @@ def train_command(
                     poll_interval=poll_interval,
                     stream_format=stream_format,
                     examples_limit=examples_limit,
+                )
+            case "adas":
+                adas_dataset_path = Path(dataset_path).expanduser().resolve()
+                handle_adas(
+                    dataset_path=adas_dataset_path,
+                    backend_base=backend_base,
+                    synth_key=synth_api_key,
+                    policy_model=model,
+                    rollout_budget=rollout_budget,
+                    proposer_effort=proposer_effort,
+                    poll=poll,
+                    poll_timeout=poll_timeout,
+                    poll_interval=poll_interval,
+                    stream_format=stream_format,
                 )
     except Exception as e:
         ctx["error"] = type(e).__name__
@@ -1031,6 +1088,118 @@ def handle_sft(
             # Clean up empty parent directory if possible
             with contextlib.suppress(OSError):
                 limited_path.parent.rmdir()
+
+
+def handle_adas(
+    *,
+    dataset_path: Path,
+    backend_base: str,
+    synth_key: str,
+    policy_model: str | None,
+    rollout_budget: int | None,
+    proposer_effort: str | None,
+    poll: bool,
+    poll_timeout: float,
+    poll_interval: float,
+    stream_format: str,
+) -> None:
+    """Handle ADAS workflow optimization job creation and streaming.
+
+    ADAS uses JSON dataset files and auto-generates task apps.
+    """
+    ctx: dict[str, Any] = {
+        "dataset_path": str(dataset_path),
+        "backend_base": backend_base,
+        "poll": poll,
+    }
+    log_info("handle_adas invoked", ctx=ctx)
+
+    # Load dataset
+    click.echo(f"Loading ADAS dataset from: {dataset_path}")
+    try:
+        dataset = load_adas_taskset(dataset_path)
+    except FileNotFoundError:
+        raise click.ClickException(f"Dataset file not found: {dataset_path}")
+    except ValueError as e:
+        raise click.ClickException(f"Invalid ADAS dataset format: {e}")
+
+    click.echo(f"Dataset loaded: {dataset.metadata.name}")
+    click.echo(f"  Tasks: {len(dataset.tasks)}")
+    click.echo(f"  Gold outputs: {len(dataset.gold_outputs)}")
+    click.echo(f"  Judge mode: {dataset.judge_config.mode}")
+
+    # Create ADAS job
+    job = ADASJob.from_dataset(
+        dataset=dataset,
+        policy_model=policy_model or "gpt-4o-mini",
+        rollout_budget=rollout_budget or 100,
+        proposer_effort=proposer_effort or "medium",  # type: ignore
+        backend_url=backend_base,
+        api_key=synth_key,
+        auto_start=True,
+    )
+
+    click.echo("\n=== Submitting ADAS Job ===")
+    click.echo(f"Policy model: {job.config.policy_model}")
+    click.echo(f"Rollout budget: {job.config.rollout_budget}")
+    click.echo(f"Proposer effort: {job.config.proposer_effort}")
+
+    try:
+        result = job.submit()
+    except RuntimeError as e:
+        raise click.ClickException(str(e))
+
+    click.echo(f"\n✓ Job created:")
+    click.echo(f"  ADAS Job ID: {result.adas_job_id}")
+    click.echo(f"  Status: {result.status}")
+
+    if not poll:
+        click.echo(f"\nCreated job {result.adas_job_id} (polling disabled)")
+        return
+
+    click.echo("\n=== Streaming Job Progress ===")
+
+    # Build stream handlers
+    if stream_format == "chart":
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            metric_names={"gepa.transformation.mean_score"},
+        )
+        handlers = [LossCurveHandler()]
+        click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
+    else:
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            max_events_per_poll=500,
+            deduplicate=True,
+        )
+        handlers = [ADASHandler()]
+
+    # Stream until complete
+    try:
+        final_status = job.stream_until_complete(
+            timeout=poll_timeout,
+            interval=poll_interval,
+            handlers=handlers,
+        )
+    except TimeoutError as e:
+        raise click.ClickException(str(e))
+
+    status = final_status.get('status') if isinstance(final_status, dict) else 'unknown'
+    click.echo(f"\nFinal status: {status}")
+    click.echo(preview_json(final_status, limit=600))
+
+    # Download and display best prompt if succeeded
+    if status == "succeeded" or status == "completed":
+        click.echo("\n=== Best Optimized Prompt ===")
+        try:
+            prompt = job.download_prompt()
+            if prompt:
+                click.echo(prompt[:2000])
+                if len(prompt) > 2000:
+                    click.echo(f"\n... (truncated, {len(prompt)} chars total)")
+        except Exception as e:
+            click.echo(f"⚠️  Could not download prompt: {e}")
 
 
 def _raise_sft_usage_error(exc: TrainError) -> NoReturn:
@@ -1834,8 +2003,14 @@ def handle_prompt_learning(
             click.echo("Using live loss chart (metric=gepa.transformation.mean_score)")
         else:
             config = StreamConfig(
-                enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+                enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS, StreamType.TIMELINE},
                 metric_names=metric_names,
+                max_events_per_poll=500,  # Capture more events per poll
+                deduplicate=True,  # Still deduplicate but capture more
+                # Don't filter events - show all of them
+                event_types=None,  # No whitelist - show all event types
+                event_types_exclude=None,  # No blacklist - show all events
+                event_levels=None,  # Show all levels
             )
             # Use PromptLearningHandler for enhanced event handling
             handler = PromptLearningHandler(
@@ -1851,8 +2026,14 @@ def handle_prompt_learning(
     else:
         # Use PromptLearningHandler for MIPRO (same as GEPA)
         config = StreamConfig(
-            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS, StreamType.TIMELINE},
             metric_names=metric_names,
+            max_events_per_poll=500,  # Capture more events per poll
+            deduplicate=True,  # Still deduplicate but capture more
+            # Don't filter events - show all of them
+            event_types=None,  # No whitelist - show all event types
+            event_types_exclude=None,  # No blacklist - show all events
+            event_levels=None,  # Show all levels
         )
         handler = PromptLearningHandler(
             show_trial_results=display_config.get("show_trial_results", True) if display_config else True,

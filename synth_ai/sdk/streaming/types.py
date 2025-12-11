@@ -61,7 +61,9 @@ class StreamMessage:
             return f"metric:{name}:{fingerprint}"
         if self.stream_type is StreamType.TIMELINE:
             return f"timeline:{self.phase}:{self.timestamp}"
-        return f"status:{self.timestamp}"
+        # Include status value in key so status changes are always shown
+        status = str(self.data.get("status") or self.data.get("state") or "")
+        return f"status:{status}:{self.timestamp}"
 
     @classmethod
     def from_status(cls, job_id: str, status_data: dict[str, Any]) -> StreamMessage:

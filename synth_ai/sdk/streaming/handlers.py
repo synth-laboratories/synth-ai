@@ -334,6 +334,177 @@ class IntegrationTestHandler(StreamHandler):
         self.messages.clear()
 
 
+class ADASHandler(StreamHandler):
+    """Handler for ADAS jobs that delegate child job streams to an underlying handler.
+    
+    ADAS jobs emit events from child jobs (GEPA, MIPRO, RL, SFT, etc.). This handler
+    provides light ADAS-aware filtering and routing while keeping child job output
+    intact via a delegate handler. The delegate can be supplied directly or created
+    via a factory; by default we choose a prompt-learning handler for GEPA/MIPRO and
+    a basic CLI handler for other job types.
+    """
+
+    def __init__(
+        self,
+        *,
+        child_handler: StreamHandler | None = None,
+        child_handler_factory: Callable[[str | None], StreamHandler | None] | None = None,
+        show_trial_results: bool = True,
+        show_transformations: bool = False,
+        show_validation: bool = True,
+        filter_verbose_events: bool = True,
+        wrap_child_events: bool = True,
+    ) -> None:
+        # User-supplied delegate or factory; both are optional.
+        self.child_handler = child_handler
+        self._child_handler_factory = child_handler_factory
+
+        # Options for the default prompt-learning delegate
+        self._pl_show_trial_results = show_trial_results
+        self._pl_show_transformations = show_transformations
+        self._pl_show_validation = show_validation
+
+        self.filter_verbose_events = filter_verbose_events
+        # If False, skip ADAS-specific filtering/transformations and just pass through.
+        self.wrap_child_events = wrap_child_events
+
+        # Detected child job type (gepa/mipro/rl/sft/etc.)
+        self.child_job_type: str | None = None
+        # Track whether we created the delegate automatically (so we can swap if needed)
+        self._delegate_auto_created = False
+
+    def handle(self, message: StreamMessage) -> None:
+        if not self.should_handle(message):
+            return
+
+        if message.stream_type is StreamType.EVENTS:
+            self._detect_child_job_type(message)
+            self._maybe_reset_delegate_for_child_type()
+
+            if self.wrap_child_events and self.filter_verbose_events:
+                if self._should_filter_event(message):
+                    return
+
+            if self.wrap_child_events:
+                message = self._transform_event_message(message)
+
+        delegate = self._get_child_handler()
+        if delegate:
+            delegate.handle(message)
+
+    def _get_child_handler(self) -> StreamHandler:
+        """Return or create the delegate handler used for child job events."""
+        if self.child_handler:
+            return self.child_handler
+
+        handler: StreamHandler | None = None
+        if self._child_handler_factory:
+            handler = self._child_handler_factory(self.child_job_type)
+
+        if handler is None:
+            # Choose a sensible default based on detected child job type
+            if self._is_prompt_learning_type(self.child_job_type):
+                handler = PromptLearningHandler(
+                    show_trial_results=self._pl_show_trial_results,
+                    show_transformations=self._pl_show_transformations,
+                    show_validation=self._pl_show_validation,
+                )
+            else:
+                handler = CLIHandler()
+
+        self.child_handler = handler
+        self._delegate_auto_created = self._child_handler_factory is None and self.child_handler is not None
+        return handler
+
+    def _detect_child_job_type(self, message: StreamMessage) -> None:
+        """Infer the child job type from event types."""
+        if self.child_job_type:
+            return
+
+        event_type = str(message.data.get("type") or "").lower()
+        if not event_type:
+            return
+
+        if "mipro" in event_type:
+            self.child_job_type = "mipro"
+        elif "gepa" in event_type or event_type.startswith("prompt.learning"):
+            self.child_job_type = "prompt_learning"
+        elif event_type.startswith("rl.") or ".rl." in event_type:
+            self.child_job_type = "rl"
+        elif event_type.startswith("sft.") or ".sft." in event_type:
+            self.child_job_type = "sft"
+        else:
+            # Fall back to the first segment as a hint (e.g., "adas.child_type")
+            parts = event_type.split(".")
+            if parts:
+                self.child_job_type = parts[0]
+
+    def _maybe_reset_delegate_for_child_type(self) -> None:
+        """Swap out auto-created delegates when we later detect a different child type."""
+        if not self.child_handler or not self._delegate_auto_created:
+            return
+
+        # If the detected type does not match the current delegate choice, rebuild.
+        wants_prompt_learning = self._is_prompt_learning_type(self.child_job_type)
+        has_prompt_learning_handler = isinstance(self.child_handler, PromptLearningHandler)
+
+        if wants_prompt_learning and not has_prompt_learning_handler:
+            self.child_handler = None
+            self._delegate_auto_created = False
+        elif not wants_prompt_learning and has_prompt_learning_handler:
+            self.child_handler = None
+            self._delegate_auto_created = False
+
+    def _should_filter_event(self, message: StreamMessage) -> bool:
+        """Determine if an event should be hidden from output."""
+        event_type = message.data.get("type", "") or ""
+        event_type_lower = event_type.lower()
+
+        # Only filter prompt-learning style events; leave other job types untouched.
+        if not any(key in event_type_lower for key in ("prompt.learning", "gepa", "mipro")):
+            return False
+
+        important_events = {
+            "prompt.learning.created",
+            "prompt.learning.gepa.start",
+            "prompt.learning.gepa.complete",
+            "prompt.learning.mipro.job.started",
+            "prompt.learning.mipro.optimization.exhausted",
+            "prompt.learning.trial.results",
+            "prompt.learning.progress",
+            "prompt.learning.gepa.new_best",
+            "prompt.learning.validation.summary",
+            "prompt.learning.candidate.evaluated",
+            "prompt.learning.candidate.evaluation.started",
+        }
+        if event_type in important_events:
+            return False
+
+        verbose_patterns = [
+            "gepa.transformation.proposed",
+            "gepa.proposal.scored",
+            "prompt.learning.proposal.scored",
+            "mipro.tpe.update",
+            "prompt.learning.stream.connected",
+        ]
+        return any(pattern in event_type_lower for pattern in verbose_patterns)
+
+    def _transform_event_message(self, message: StreamMessage) -> StreamMessage:
+        """Transform event messages for ADAS context (currently passthrough)."""
+        return message
+
+    def flush(self) -> None:
+        # Ensure delegate flushes buffered output if needed.
+        if self.child_handler and hasattr(self.child_handler, "flush"):
+            with contextlib.suppress(Exception):
+                self.child_handler.flush()
+
+    @staticmethod
+    def _is_prompt_learning_type(job_type: str | None) -> bool:
+        """Return True if the child job type should use prompt-learning formatting."""
+        return job_type in {"gepa", "mipro", "prompt_learning", "prompt-learning", None}
+
+
 class LossCurveHandler(StreamHandler):
     """Render a live-updating loss chart inside a fixed Rich panel."""
 
@@ -750,115 +921,125 @@ class PromptLearningHandler(StreamHandler):
             # Handle MIPRO-specific events for progress tracking (before skipping hidden events)
             if event_type == "mipro.job.started":
                 self._handle_mipro_job_started(message.data)
-                return
+                # Continue to default display
             
             if event_type == "mipro.budget.update":
                 self._handle_mipro_budget_update(message.data)
-                return
+                # Continue to default display
             
             if event_type == "mipro.trial.complete":
                 self._handle_mipro_trial_complete(message.data)
-                return
+                # Continue to default display
             
-            # Skip hidden MIPRO events (too verbose) - after handling needed ones
+            # Show more MIPRO events - only hide the most verbose ones
             _hidden_mipro_events = {
-                "mipro.tpe.update",
-                "mipro.tpe.rankings",
-                "mipro.tpe.selected",
-                "mipro.trial.started",
-                "mipro.trial.minibatch",
-                "mipro.bootstrap.progress",
-                "mipro.iteration.skip_generation",
-                "mipro.trial.duplicate",
-                "mipro.instruction.proposed",  # Hide proposed instructions (shown in results/logs only)
+                # Keep only the most verbose TPE updates hidden
+                "mipro.tpe.update",  # Very frequent, low value
             }
             if event_type in _hidden_mipro_events:
                 return
             
-            # Skip hidden GEPA events (shown in results/logs only)
-            if event_type == "gepa.transformation.proposed":
-                return
+            # Show GEPA transformation proposals - they're useful for debugging
+            # if event_type == "gepa.transformation.proposed":
+            #     return
             
             # Handle trial results for optimization curve tracking
             if event_type == "prompt.learning.trial.results":
                 self._handle_trial_results(message.data)
-                return
+                # Continue to default display
             
             # Handle validation summary
             if event_type == "prompt.learning.validation.summary":
                 if self.show_validation:
                     self._handle_validation_summary(message.data)
-                return
+                # Continue to default display
             
             # Handle progress events
             if event_type == "prompt.learning.progress":
                 self._handle_progress(message.data)
-                return
+                # Continue to default display
             
             # Handle MIPRO-specific events for progress tracking
             if event_type == "mipro.iteration.start":
                 self._handle_mipro_iteration_start(message.data)
-                return
+                # Continue to default display
             
             if event_type == "mipro.iteration.complete":
                 self._handle_mipro_iteration_complete(message.data)
-                return
+                # Continue to default display
             
             if event_type == "mipro.fulleval.complete":
                 self._handle_mipro_fulleval_complete(message.data)
-                return
+                # Continue to default display
             
             if event_type == "mipro.optimization.exhausted":
                 # Graceful conclusion - show final progress
                 self._emit_mipro_progress()
-                return
+                # Continue to default display
             
             if event_type == "mipro.new_incumbent":
                 self._handle_mipro_new_incumbent(message.data)
-                return
+                # Continue to default display
             
             # Handle rollouts start event
             if event_type == "prompt.learning.rollouts.start":
                 self._handle_rollouts_start(message.data)
-                return
+                # Continue to default display
 
             # Handle GEPA new best event
             if event_type == "prompt.learning.gepa.new_best":
                 self._handle_gepa_new_best(message.data)
-                return
+                # Continue to default display
 
             # Handle phase changed event
             if event_type == "prompt.learning.phase.changed":
                 self._handle_phase_changed(message.data)
-                return
+                # Continue to default display
 
             # Handle stream connected event (connection lifecycle)
             if event_type == "prompt.learning.stream.connected":
                 self._handle_stream_connected(message.data)
-                return
+                # Continue to default display
 
-            # Handle proposal scored events (transformations) - only if enabled
-            if event_type == "prompt.learning.proposal.scored" and self.show_transformations:
+            # Handle proposal scored events (transformations) - show by default
+            if event_type == "prompt.learning.proposal.scored":
                 self._handle_proposal_scored(message.data)
-                return
+                # Continue to default display
             
-            # Skip verbose transformation dumps unless explicitly enabled
-            verbose_event_types = [
-                "prompt.learning.proposal.scored",
-                "prompt.learning.eval.summary",
-                "prompt.learning.validation.scored",
-                "prompt.learning.final.results",
-            ]
-            if event_type in verbose_event_types and not self.show_transformations:
-                return
+            # Show verbose transformation events by default - they're useful
+            # Only skip if explicitly disabled via show_transformations=False
+            # verbose_event_types = [
+            #     "prompt.learning.proposal.scored",
+            #     "prompt.learning.eval.summary",
+            #     "prompt.learning.validation.scored",
+            #     "prompt.learning.final.results",
+            # ]
+            # if event_type in verbose_event_types and not self.show_transformations:
+            #     return
             
-            # Default event display
+            # Default event display - show more details
             prefix = f"[{timestamp}] {event_type}"
             if level:
                 prefix += f" ({level})"
             sanitized_msg = _mask_sensitive_urls(msg)
+            
+            # Include key data fields if message is empty or short
+            if not sanitized_msg or len(sanitized_msg) < 50:
+                data = message.data.get("data", {})
+                if isinstance(data, dict):
+                    # Show useful fields
+                    useful_fields = []
+                    for key in ["score", "accuracy", "mean", "step", "iteration", "trial", "completed", "total", "version_id"]:
+                        if key in data:
+                            value = data[key]
+                            if isinstance(value, (int, float)):
+                                useful_fields.append(f"{key}={value:.4f}" if isinstance(value, float) else f"{key}={value}")
+                            else:
+                                useful_fields.append(f"{key}={value}")
+                    if useful_fields:
+                        sanitized_msg = sanitized_msg + (" " if sanitized_msg else "") + " ".join(useful_fields[:5])  # Limit to 5 fields
+            
             self._write_log(f"{prefix}: {sanitized_msg}".rstrip(": "))
-            # Don't print JSON data - too verbose
             return
         
         if message.stream_type is StreamType.METRICS:
@@ -1723,6 +1904,7 @@ class PromptLearningHandler(StreamHandler):
 
 
 __all__ = [
+    "ADASHandler",
     "BufferedHandler",
     "CallbackHandler",
     "CLIHandler",

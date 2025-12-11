@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
+import logging
 import random
+import sys
+import time
 from dataclasses import dataclass
-from typing import Any, Iterable, Sequence
+from typing import Any, AsyncIterator, Iterable, Sequence
+
+import aiohttp
 
 from synth_ai.core.http import AsyncHttpClient, sleep
 from synth_ai.core.telemetry import log_info
@@ -71,6 +77,15 @@ class StreamEndpoints:
                 f"/orchestration/jobs/{job_id}/events",
             ),
         )
+    
+    @property
+    def events_stream_url(self) -> str | None:
+        """Get the SSE streaming URL for events if available."""
+        if self.events:
+            # For prompt learning, use the /stream endpoint
+            if "/prompt-learning/online/jobs/" in self.events:
+                return self.events.replace("/events", "/events/stream")
+        return None
 
     @classmethod
     def rl(cls, job_id: str) -> StreamEndpoints:
@@ -94,6 +109,23 @@ class StreamEndpoints:
             timeline_fallbacks=(
                 f"/learning/jobs/{job_id}/timeline",
             ),
+        )
+
+    @classmethod
+    def adas(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for ADAS workflow optimization jobs.
+
+        ADAS jobs use /api/adas/jobs/{job_id} endpoints.
+        The backend handles ADAS → GEPA job ID resolution internally using the job_relationships table.
+        No fallbacks needed - ADAS endpoints resolve everything.
+        """
+        base = f"/adas/jobs/{job_id}"
+        return cls(
+            status=base,
+            events=f"{base}/events",
+            metrics=f"{base}/metrics",
+            timeline=None,
+            # No fallbacks - ADAS endpoints handle resolution internally
         )
 
 
@@ -162,19 +194,110 @@ class JobStreamer:
         log_info("JobStreamer.stream_until_terminal invoked", ctx=ctx)
         http_cm = self._http or AsyncHttpClient(self.base_url, self.api_key, timeout=self.http_timeout)
         async with http_cm as http:
-            while True:
-                status = await self._refresh_status(http)
+            # Use SSE streaming exclusively for events (prompt learning jobs)
+            # SSE provides real-time event delivery from Redis, avoiding empty polling responses
+            sse_url = self.endpoints.events_stream_url
+            if sse_url and StreamType.EVENTS in self.config.enabled_streams:
+                # SSE streaming - real-time event delivery, with concurrent status polling
+                
+                # Create a queue to receive events from SSE stream
+                event_queue: asyncio.Queue = asyncio.Queue()
+                sse_done = asyncio.Event()
+                
+                async def sse_reader():
+                    """Read SSE events and put them in the queue."""
+                    try:
+                        async for event_msg in self._stream_events_sse(sse_url):
+                            await event_queue.put(event_msg)
+                            if self._terminal_seen:
+                                break
+                    except Exception as e:
+                        await event_queue.put(e)  # Put exception in queue
+                    finally:
+                        sse_done.set()
+                
+                async def status_poller():
+                    """Periodically poll status while SSE stream is active."""
+                    while not sse_done.is_set() and not self._terminal_seen:
+                        await asyncio.sleep(2.0)  # Check every 2 seconds
+                        if self._terminal_seen or sse_done.is_set():
+                            break
+                        
+                        status = await self._refresh_status(http)
+                        metric_messages = await self._poll_metrics(http)
+                        timeline_messages = await self._poll_timeline(http)
+                        self._dispatch(metric_messages + timeline_messages)
+                        
+                        # Check for terminal status
+                        if status and status.lower() in TERMINAL_STATUSES:
+                            self._terminal_seen = True
+                            break
+                
+                # Start both tasks concurrently
+                sse_task = asyncio.create_task(sse_reader())
+                status_task = asyncio.create_task(status_poller())
+                
+                try:
+                    # Process events from queue
+                    while not self._terminal_seen:
+                        # Wait for event or timeout
+                        try:
+                            item = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                        except asyncio.TimeoutError:
+                            # No event received, check if SSE is done
+                            if sse_done.is_set():
+                                break
+                            continue
+                        
+                        # Handle exception from SSE reader
+                        if isinstance(item, Exception):
+                            raise item
+                        
+                        # Process event
+                        self._dispatch([item])
+                        
+                        # Poll metrics/timeline after each event
+                        metric_messages = await self._poll_metrics(http)
+                        timeline_messages = await self._poll_timeline(http)
+                        self._dispatch(metric_messages + timeline_messages)
+                        
+                        # Check for terminal status
+                        if self._terminal_seen:
+                            break
+                finally:
+                    # Cancel tasks
+                    sse_task.cancel()
+                    status_task.cancel()
+                    try:
+                        await asyncio.gather(sse_task, status_task, return_exceptions=True)
+                    except Exception:
+                        pass
+            else:
+                # No SSE endpoint available - use polling for events
+                while True:
+                    status = await self._refresh_status(http)
+                    
+                    # Check status FIRST before polling events/metrics
+                    if status and status.lower() in TERMINAL_STATUSES:
+                        self._terminal_seen = True
+                        break
+                    if self._terminal_seen:
+                        break
 
-                event_messages = await self._poll_events(http)
-                metric_messages = await self._poll_metrics(http)
-                timeline_messages = await self._poll_timeline(http)
+                    event_messages = await self._poll_events(http)
+                    metric_messages = await self._poll_metrics(http)
+                    timeline_messages = await self._poll_timeline(http)
 
-                self._dispatch(event_messages + metric_messages + timeline_messages)
+                    self._dispatch(event_messages + metric_messages + timeline_messages)
 
-                if self._terminal_seen or (status and status in TERMINAL_STATUSES):
-                    break
+                    # Check again after polling (terminal events might have been received)
+                    if self._terminal_seen:
+                        break
+                    if status and status.lower() in TERMINAL_STATUSES:
+                        self._terminal_seen = True
+                        break
 
-                await self._sleep(self.interval_seconds)
+                    await self._sleep(self.interval_seconds)
 
         for handler in self.handlers:
             with contextlib.suppress(Exception):
@@ -185,6 +308,100 @@ class JobStreamer:
             self._last_status_payload["status"] = final_status
             return self._last_status_payload
         return {"job_id": self.job_id, "status": final_status}
+    
+    async def _stream_events_sse(self, sse_url: str) -> AsyncIterator[StreamMessage]:
+        """Stream events via Server-Sent Events (SSE)."""
+        url = f"{self.base_url.rstrip('/')}/{sse_url.lstrip('/')}"
+        headers = {
+            "Accept": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "authorization": f"Bearer {self.api_key}",
+        }
+        
+        # Create a separate session for SSE (long-lived connection)
+        timeout = aiohttp.ClientTimeout(total=None)  # No timeout for SSE
+        async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    raise Exception(f"SSE endpoint returned {resp.status}: {await resp.text()}")
+                
+                print(f"[DEBUG] SSE stream connected to {url}, status={resp.status}", file=sys.stderr)
+                buffer = ""
+                event_count = 0
+                last_event_time = time.time()
+                no_events_warning_printed = False
+                
+                # Read SSE stream in chunks and parse events
+                async for chunk in resp.content.iter_chunked(8192):
+                    current_time = time.time()
+                    
+                    # Warn if no events received for 10 seconds (events should be streaming)
+                    if event_count == 1 and current_time - last_event_time > 10 and not no_events_warning_printed:
+                        print(f"[DEBUG] WARNING: No events received via SSE for 10s after connection. Backend may not be publishing to Redis (check SSE_USE_REDIS env var).", file=sys.stderr)
+                        no_events_warning_printed = True
+                    
+                    buffer += chunk.decode("utf-8", errors="ignore")
+                    
+                    # SSE events are separated by double newlines
+                    while "\n\n" in buffer:
+                        event_block, buffer = buffer.split("\n\n", 1)
+                        event_block = event_block.strip()
+                        
+                        if not event_block:
+                            continue
+                        
+                        event_data = {}
+                        event_id = None
+                        event_type_line = None
+                        
+                        # Parse SSE event block line by line
+                        for event_line in event_block.split("\n"):
+                            event_line = event_line.strip()
+                            if not event_line or event_line.startswith(":"):
+                                continue  # Skip comments/empty lines
+                            if event_line.startswith("id:"):
+                                event_id = event_line[3:].strip()
+                            elif event_line.startswith("event:"):
+                                event_type_line = event_line[6:].strip()
+                            elif event_line.startswith("data:"):
+                                data_str = event_line[5:].strip()
+                                try:
+                                    event_data = json.loads(data_str)
+                                except json.JSONDecodeError as e:
+                                    print(f"[DEBUG] Failed to parse SSE data: {e}, data={data_str[:200]}", file=sys.stderr)
+                                    continue
+                        
+                        # Debug: log what we parsed
+                        if event_data:
+                            event_count += 1
+                            last_event_time = time.time()
+                            print(f"[DEBUG] Parsed SSE event #{event_count}: type={event_data.get('type')}, seq={event_data.get('seq')}", file=sys.stderr)
+                        
+                        if event_data and "type" in event_data:
+                            # Convert SSE event to StreamMessage
+                            event_job_id = event_data.get("job_id") or self.job_id
+                            msg = StreamMessage.from_event(event_job_id, event_data)
+                            
+                            # Update sequence tracking
+                            seq = event_data.get("seq")
+                            if seq is not None:
+                                try:
+                                    seq_int = int(seq)
+                                    if sse_url not in self._last_seq_by_stream or seq_int > self._last_seq_by_stream[sse_url]:
+                                        self._last_seq_by_stream[sse_url] = seq_int
+                                except (TypeError, ValueError):
+                                    pass
+                            
+                            # Check for terminal events
+                            event_type = str(event_data.get("type", "")).lower()
+                            if event_type in TERMINAL_EVENT_SUCCESS:
+                                self._terminal_seen = True
+                                self._terminal_event_status = "succeeded"
+                            elif event_type in TERMINAL_EVENT_FAILURE:
+                                self._terminal_seen = True
+                                self._terminal_event_status = "failed"
+                            
+                            yield msg
 
     async def _refresh_status(self, http: AsyncHttpClient) -> str:
         status_payload = await self._poll_status(http)
@@ -202,15 +419,26 @@ class JobStreamer:
         if StreamType.STATUS not in self.config.enabled_streams or not self._status_paths:
             return None
 
+        last_error: Exception | None = None
         for path in self._status_paths:
             try:
-                data = await http.get(path)
-            except Exception:
+                # Add cache-busting query param to ensure fresh status
+                # Use a timestamp to prevent any caching
+                params = {"_t": int(time.time() * 1000)}
+                data = await http.get(path, params=params)
+            except Exception as exc:
+                last_error = exc
+                # Try next fallback path
                 continue
             if isinstance(data, dict):
                 message = StreamMessage.from_status(self.job_id, data)
                 self._dispatch([message])
                 return data
+        
+        # If all paths failed, log the error for debugging
+        if last_error is not None:
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Status polling failed for all paths: {last_error}")
         return None
 
     async def _poll_events(self, http: AsyncHttpClient) -> list[StreamMessage]:
@@ -220,12 +448,59 @@ class JobStreamer:
         total = 0
         for path in self._event_paths:
             since = self._last_seq_by_stream.get(path, 0)
-            params = {"since_seq": since, "limit": 200}
+            # Increase limit to capture more events per poll
+            limit = 1000 if self.config.max_events_per_poll and self.config.max_events_per_poll > 200 else 200
+            params = {"since_seq": since, "limit": limit}
             try:
                 data = await http.get(path, params=params)
-            except Exception:
+                # Debug: Always log what we got from API
+                print(f"[DEBUG] Polling {path} with since_seq={since}, limit={limit}", file=sys.stderr)
+                print(f"[DEBUG] Got response from {path}, type={type(data).__name__}, keys={list(data.keys()) if isinstance(data, dict) else 'not dict'}", file=sys.stderr)
+                if isinstance(data, dict):
+                    # Check for next_seq to see if we should update our tracking
+                    if "next_seq" in data:
+                        print(f"[DEBUG] Response has next_seq={data.get('next_seq')}, current since={since}", file=sys.stderr)
+                    # Show what keys are in the response
+                    for key in data.keys():
+                        val = data[key]
+                        if isinstance(val, list):
+                            print(f"[DEBUG] Response[{key}] is list with {len(val)} items", file=sys.stderr)
+                            if len(val) > 0:
+                                print(f"[DEBUG] First item in {key}: {list(val[0].keys()) if isinstance(val[0], dict) else type(val[0])}", file=sys.stderr)
+                        elif isinstance(val, dict):
+                            print(f"[DEBUG] Response[{key}] is dict with keys: {list(val.keys())[:5]}", file=sys.stderr)
+            except Exception as e:
+                error_str = str(e)
+                print(f"[DEBUG] Error polling {path}: {e}", file=sys.stderr)
+                # Fail fast if we get 404 on both ADAS and fallback endpoints (indicates job ID mapping issue)
+                if "404" in error_str and ("adas" in path.lower() or "prompt-learning" in path.lower()):
+                    # Check if this is the last fallback path - if so, raise to fail fast
+                    if path == self._event_paths[-1]:  # Last fallback path
+                        raise RuntimeError(
+                            f"Failed to poll events: All endpoints returned 404. "
+                            f"This likely indicates a job ID mapping issue. "
+                            f"ADAS endpoints need ADAS job ID, GEPA fallback endpoints need GEPA job ID. "
+                            f"Last error: {error_str}"
+                        )
                 continue
             raw_events = _extract_list(data, "events")
+            # Debug: Always log what we extracted
+            print(f"[DEBUG] Extracted {len(raw_events)} events from {path} using _extract_list", file=sys.stderr)
+            # Update last_seq using next_seq if available
+            if isinstance(data, dict) and "next_seq" in data:
+                next_seq = data.get("next_seq")
+                if next_seq is not None:
+                    try:
+                        next_seq_int = int(next_seq)
+                        if next_seq_int > since:
+                            self._last_seq_by_stream[path] = next_seq_int
+                            print(f"[DEBUG] Updated last_seq for {path} to {next_seq_int}", file=sys.stderr)
+                    except (TypeError, ValueError):
+                        pass
+            if raw_events and len(raw_events) > 0:
+                # Log first event type for debugging
+                first_event_type = raw_events[0].get("type", "unknown")
+                print(f"[DEBUG] First event type: {first_event_type}", file=sys.stderr)
             for event in raw_events:
                 seq_raw = event.get("seq")
                 try:
@@ -239,8 +514,9 @@ class JobStreamer:
                 if seq_value is None:
                     event["seq"] = seq
                 self._last_seq_by_stream[path] = seq
-                if not self.config.should_include_event(event):
-                    continue
+                # Bypass filtering - show ALL events
+                # if not self.config.should_include_event(event):
+                #     continue
                 event_job_id = event.get("job_id") or self.job_id
                 event_message = StreamMessage.from_event(event_job_id, event)
                 event_type = str(event.get("type") or "").lower()
@@ -311,10 +587,15 @@ class JobStreamer:
         return messages
 
     def _dispatch(self, messages: Iterable[StreamMessage]) -> None:
-        for message in messages:
+        message_list = list(messages)
+        if message_list:
+            print(f"[DEBUG] Dispatching {len(message_list)} messages", file=sys.stderr)
+        for message in message_list:
             if self.config.deduplicate and message.key in self._seen_messages:
+                print(f"[DEBUG] Skipping duplicate message: {message.key}", file=sys.stderr)
                 continue
             if self.config.sample_rate < 1.0 and random.random() > self.config.sample_rate:
+                print(f"[DEBUG] Skipping message due to sample rate", file=sys.stderr)
                 continue
             if self.config.deduplicate:
                 self._seen_messages.add(message.key)
@@ -322,8 +603,12 @@ class JobStreamer:
             for handler in self.handlers:
                 try:
                     if handler.should_handle(message):
+                        print(f"[DEBUG] Handler {type(handler).__name__} handling message type={message.stream_type}", file=sys.stderr)
                         handler.handle(message)
-                except Exception:
+                    else:
+                        print(f"[DEBUG] Handler {type(handler).__name__} skipping message (should_handle=False)", file=sys.stderr)
+                except Exception as e:
+                    print(f"[DEBUG] Handler error: {e}", file=sys.stderr)
                     pass
 
 

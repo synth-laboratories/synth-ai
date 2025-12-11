@@ -58,13 +58,34 @@ from synth_ai.sdk.task import (
 )
 
 # Training
-from synth_ai.sdk.training import PromptLearningJob, PromptLearningJobConfig, SFTJob
+from synth_ai.sdk.training import (
+    PromptLearningJob,
+    PromptLearningJobConfig,
+    SFTJob,
+    ADASJob,
+    ADASJobConfig,
+    ADASTaskSet,
+    ADASTask,
+    ADASGoldOutput,
+    ADASRubric,
+    ADASJudgeConfig,
+    load_adas_taskset,
+)
 
 __all__ = [
     # Training
     "PromptLearningJob",
     "PromptLearningJobConfig",
     "SFTJob",
+    # ADAS
+    "ADASJob",
+    "ADASJobConfig",
+    "ADASTaskSet",
+    "ADASTask",
+    "ADASGoldOutput",
+    "ADASRubric",
+    "ADASJudgeConfig",
+    "load_adas_taskset",
     # Task Apps
     "InProcessTaskApp",
     "InProcessJobResult",

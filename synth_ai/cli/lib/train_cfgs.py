@@ -6,13 +6,17 @@ from typing import Any, Dict, List, Literal, Tuple
 from synth_ai.cli.lib.prompts import ctx_print
 from synth_ai.core.paths import is_hidden_path, validate_file_type
 
-# Train config types: prompt optimization, reinforcement learning, supervised fine-tuning
-TrainType = Literal["prompt", "rl", "sft"]
+# Train config types: prompt optimization, reinforcement learning, supervised fine-tuning, ADAS
+TrainType = Literal["prompt", "rl", "sft", "adas"]
 
 
 def get_type(config: Dict[str, Any]) -> TrainType | None:
     if "prompt_learning" in config:
         return "prompt"
+
+    # Graph / ADAS jobs use a dedicated [graph] (or [adas]) section.
+    if isinstance(config.get("graph"), dict) or isinstance(config.get("adas"), dict):
+        return "adas"
 
     algorithm = config.get("algorithm")
     algo_type = None
@@ -186,6 +190,17 @@ def validate_rl_cfg(cfg: Dict[str, Any]) -> None:
     return None
 
 
+def validate_adas_cfg(cfg: Dict[str, Any], *, path: Path) -> None:
+    """Validate a graph/ADAS TOML config.
+
+    Uses the SDK validator so backend and CLI stay in sync.
+    """
+    from synth_ai.sdk.api.train.graph_validators import validate_graph_job_section
+
+    section = cfg.get("graph") or cfg.get("adas") or {}
+    validate_graph_job_section(section, base_dir=path.parent.resolve())
+
+
 def validate_train_cfg(path: Path, discovery: bool = False) -> TrainType:
     def print_pass():
         ctx_print("Check passed", not discovery)
@@ -214,6 +229,8 @@ def validate_train_cfg(path: Path, discovery: bool = False) -> TrainType:
             validate_rl_cfg(cfg)
         case "sft":
             validate_sft_cfg(cfg)
+        case "adas":
+            validate_adas_cfg(cfg, path=path)
     print_pass()
 
     return train_type
