@@ -35,8 +35,8 @@ from .dataclasses import (
     BaselineInfo,
     CandidateInfo,
     FrontierUpdate,
-    GEPAProgress,
     GenerationSummary,
+    GEPAProgress,
     RolloutSample,
 )
 from .events import (

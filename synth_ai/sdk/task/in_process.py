@@ -686,7 +686,7 @@ class InProcessTaskApp:
             # Force create a NEW tunnel if requested (bypasses stale tunnels)
             if self.force_new_tunnel:
                 import time
-                print(f"[CLOUDFLARE-FIX] force_new_tunnel=True, attempting fresh tunnel...")
+                print("[CLOUDFLARE-FIX] force_new_tunnel=True, attempting fresh tunnel...")
                 logger.info("force_new_tunnel=True, attempting to create fresh tunnel")
                 try:
                     # Generate unique subdomain with timestamp
@@ -708,7 +708,7 @@ class InProcessTaskApp:
                         # named_host and tunnel_token are already set from pre-fetch
                         if not named_host or not tunnel_token:
                             raise RuntimeError(
-                                f"Cannot create new tunnel (limit reached) and no existing tunnel found.\n"
+                                "Cannot create new tunnel (limit reached) and no existing tunnel found.\n"
                                 "Contact support to delete the stale tunnel, or use tunnel_mode='quick'."
                             ) from e
                     else:
@@ -753,8 +753,8 @@ class InProcessTaskApp:
             
             # Skip all verification if requested (useful when local DNS can't resolve tunnel)
             if self.skip_tunnel_verification:
-                print(f"[CLOUDFLARE-FIX] Skipping verification, starting cloudflared...")
-                logger.info(f"Skipping tunnel verification (skip_tunnel_verification=True)")
+                print("[CLOUDFLARE-FIX] Skipping verification, starting cloudflared...")
+                logger.info("Skipping tunnel verification (skip_tunnel_verification=True)")
                 # Always start cloudflared when skipping verification
                 logger.info(f"Starting cloudflared for {self.url}...")
                 try:
@@ -762,7 +762,7 @@ class InProcessTaskApp:
                     print(f"[CLOUDFLARE-FIX] cloudflared started, PID={self._tunnel_proc.pid}")
                     logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
                     # Give cloudflared a moment to connect
-                    print(f"[CLOUDFLARE-FIX] Waiting 5s for tunnel to connect...")
+                    print("[CLOUDFLARE-FIX] Waiting 5s for tunnel to connect...")
                     await asyncio.sleep(5.0)
                     print(f"[CLOUDFLARE-FIX] Tunnel ready: {self.url}")
                     logger.info(f"Cloudflared started, tunnel should be ready: {self.url}")

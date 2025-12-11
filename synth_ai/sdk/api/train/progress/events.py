@@ -159,10 +159,7 @@ class EventParser:
     def is_event(cls, event_type: str, *patterns: str) -> bool:
         """Check if event matches any pattern."""
         normalized = cls.normalize_type(event_type)
-        for pattern in patterns:
-            if pattern in normalized or normalized.endswith(pattern):
-                return True
-        return False
+        return any(pattern in normalized or normalized.endswith(pattern) for pattern in patterns)
 
     @classmethod
     def get_category(cls, event_type: str) -> EventCategory:
