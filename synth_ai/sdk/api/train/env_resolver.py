@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import click
+
 from synth_ai.cli.lib.env import resolve_env_var
 from synth_ai.core.telemetry import log_info
 

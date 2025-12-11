@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import requests
+
 from synth_ai.core.telemetry import log_error, log_info
 
 try:

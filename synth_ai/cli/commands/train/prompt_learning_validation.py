@@ -12,7 +12,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-
 # Known top-level TOML sections
 KNOWN_TOP_LEVEL_SECTIONS = {
     "prompt_learning",

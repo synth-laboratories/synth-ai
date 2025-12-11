@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 import click
+
 from synth_ai.cli.lib.env import get_synth_and_env_keys, mask_str
 from synth_ai.cli.lib.train_cfgs import find_train_cfgs_in_cwd, validate_train_cfg
 from synth_ai.core.paths import print_paths_formatted

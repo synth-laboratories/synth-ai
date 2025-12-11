@@ -1544,11 +1544,8 @@ class PromptLearningConfig(ExtraModel):
         # The CLI validation module will warn about these
         deprecated_top_level = {"display", "results_folder", "env_file_path"}
 
-        # Convert to mutable dict if needed
-        if not isinstance(data, dict):
-            data = dict(data)
-        else:
-            data = dict(data)  # Create a copy to avoid modifying the original
+        # Convert to mutable dict (also creates a copy to avoid modifying the original)
+        data = dict(data)
 
         for field in deprecated_top_level:
             if field in data:

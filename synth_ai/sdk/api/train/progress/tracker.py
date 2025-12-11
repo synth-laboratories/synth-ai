@@ -16,8 +16,8 @@ from .dataclasses import (
     BaselineInfo,
     CandidateInfo,
     FrontierUpdate,
-    GEPAProgress,
     GenerationSummary,
+    GEPAProgress,
 )
 from .events import (
     BaselineEvent,
@@ -129,7 +129,8 @@ class GEPAProgressTracker:
         self._log_path = log_dir / filename
 
         try:
-            self._log_file = open(self._log_path, "w")
+            # Long-lived log file; closed explicitly in close()
+            self._log_file = open(self._log_path, "w")  # noqa: SIM115
             # Write header
             header = {
                 "type": "log_header",
@@ -276,11 +277,7 @@ GEPA Optimization Progress - {self.env_name}
             self._handle_termination(parsed)
         elif isinstance(parsed, UsageEvent):
             self._handle_usage(parsed)
-        elif parsed.category == EventCategory.VALIDATION:
-            self._handle_validation(parsed)
-        # ✅ ADD: Also handle job.event type events that contain validation data
-        # (postgrest_emitter wraps events as job.event, so we need to check data for validation indicators)
-        elif parsed.category == EventCategory.UNKNOWN and (
+        elif parsed.category == EventCategory.VALIDATION or parsed.category == EventCategory.UNKNOWN and (
             parsed.data.get("baseline_val_accuracy") is not None or
             parsed.data.get("is_baseline") is True or
             "validation" in parsed.event_type.lower()
