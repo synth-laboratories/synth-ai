@@ -3,7 +3,7 @@ name = "synth-ai"
 version = "0.3.4.dev2"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
-license = "MIT"
+license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
