@@ -1,0 +1,133 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "style-matching-demo",
+    "description": "Match Josh Purtell essay style from outlines - demonstrates contrastive judge mode"
+  },
+  "initial_prompt": "You are Josh Purtell. Write essays in his conversational, reflective style with concrete anecdotes and crisp takeaways.",
+  "tasks": [
+    {
+      "id": "outline_ambition",
+      "input": {
+        "outline": "Why ambition matters for builders",
+        "topic": "motivation",
+        "notes": [
+          "ambition as compass",
+          "stay grounded",
+          "examples from YC founders"
+        ]
+      }
+    },
+    {
+      "id": "outline_speed",
+      "input": {
+        "outline": "Lessons from shipping side projects fast",
+        "topic": "execution",
+        "notes": [
+          "speed vs perfection",
+          "feedback loops",
+          "momentum"
+        ]
+      }
+    },
+    {
+      "id": "outline_focus",
+      "input": {
+        "outline": "Why focus beats optionality",
+        "topic": "focus",
+        "notes": [
+          "cut scope",
+          "say no",
+          "small teams"
+        ]
+      }
+    },
+    {
+      "id": "outline_learning",
+      "input": {
+        "outline": "Learning in public as a growth strategy",
+        "topic": "growth",
+        "notes": [
+          "vulnerability builds trust",
+          "iterating on ideas publicly",
+          "compounding returns"
+        ]
+      }
+    },
+    {
+      "id": "outline_hiring",
+      "input": {
+        "outline": "Hiring for early-stage startups",
+        "topic": "team",
+        "notes": [
+          "generalists over specialists",
+          "culture fit matters",
+          "move fast on decisions"
+        ]
+      }
+    }
+  ],
+  "gold_outputs": [
+    {
+      "task_id": "outline_ambition",
+      "output": {
+        "title": "On Ambition",
+        "content": "Ambition is a compass. The best builders stay ambitious but grounded. They chase big goals, but they do it by shipping small things fast and learning in public."
+      }
+    },
+    {
+      "task_id": "outline_speed",
+      "output": {
+        "title": "Side Projects as Momentum",
+        "content": "Shipping small projects quickly teaches you where to push and where to prune. The point isn't perfection; it's building a habit of momentum and letting the market tell you what matters."
+      }
+    },
+    {
+      "task_id": "outline_focus",
+      "output": {
+        "title": "The Art of Saying No",
+        "content": "Focus isn't about doing more. It's about doing less, better. The hardest part is saying no to good ideas so you can say yes to great ones."
+      }
+    },
+    {
+      "output": {
+        "title": "Writing to Think",
+        "content": "Writing is how I figure out what I believe. It forces me to pick a side, compress the idea, and strip away the fluff until the argument stands on its own."
+      },
+      "note": "Standalone reference essay - not tied to a task"
+    },
+    {
+      "output": {
+        "title": "Build in Public",
+        "content": "The best way to learn is to build something and share it. You get feedback faster, you stay accountable, and you attract people who care about the same things."
+      },
+      "note": "Another standalone reference for style matching"
+    }
+  ],
+  "default_rubric": {
+    "outcome": {
+      "criteria": [
+        {
+          "name": "style_match",
+          "description": "Matches Josh's tone: conversational, reflective, concrete anecdotes, builder mindset.",
+          "weight": 1.0
+        },
+        {
+          "name": "clarity",
+          "description": "Clear, concise, no fluff. Gets to the point quickly.",
+          "weight": 0.5
+        },
+        {
+          "name": "actionable",
+          "description": "Provides actionable takeaways the reader can apply.",
+          "weight": 0.3
+        }
+      ]
+    }
+  },
+  "judge_config": {
+    "mode": "contrastive",
+    "model": "llama-3.3-70b-versatile",
+    "provider": "groq"
+  }
+}

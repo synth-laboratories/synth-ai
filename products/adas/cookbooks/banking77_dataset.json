@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "name": "banking77-intent-classification",
+    "description": "Banking customer query intent classification - demonstrates rubric-based judge mode"
+  },
+  "initial_prompt": "You are an expert banking assistant. Classify customer queries into exactly one banking intent category. Respond with just the intent label.",
+  "tasks": [
+    {
+      "id": "activate_card_1",
+      "input": {
+        "query": "How do I activate my new debit card?",
+        "context": "Customer received a new card in the mail"
+      }
+    },
+    {
+      "id": "lost_card_1",
+      "input": {
+        "query": "I think I lost my credit card somewhere. What should I do?",
+        "context": "Customer is worried about unauthorized use"
+      }
+    },
+    {
+      "id": "transfer_fee_1",
+      "input": {
+        "query": "How much does it cost to send money to another country?",
+        "context": "Customer wants to make international transfer"
+      }
+    },
+    {
+      "id": "balance_1",
+      "input": {
+        "query": "What's my current account balance?",
+        "context": "Customer checking their balance"
+      }
+    },
+    {
+      "id": "pin_change_1",
+      "input": {
+        "query": "I need to change my PIN number",
+        "context": "Customer wants to update security"
+      }
+    },
+    {
+      "id": "dispute_1",
+      "input": {
+        "query": "There's a charge on my statement I don't recognize",
+        "context": "Customer found suspicious transaction"
+      }
+    },
+    {
+      "id": "atm_support_1",
+      "input": {
+        "query": "The ATM ate my card and didn't give it back",
+        "context": "Customer had ATM malfunction"
+      }
+    },
+    {
+      "id": "direct_deposit_1",
+      "input": {
+        "query": "How do I set up direct deposit for my paycheck?",
+        "context": "Customer starting new job"
+      }
+    },
+    {
+      "id": "interest_rate_1",
+      "input": {
+        "query": "What's the interest rate on savings accounts?",
+        "context": "Customer comparing savings options"
+      }
+    },
+    {
+      "id": "overdraft_1",
+      "input": {
+        "query": "I went over my balance and got charged a fee. Can you waive it?",
+        "context": "Customer requesting fee reversal"
+      }
+    }
+  ],
+  "gold_outputs": [
+    {
+      "task_id": "activate_card_1",
+      "output": {
+        "intent": "activate_my_card"
+      }
+    },
+    {
+      "task_id": "lost_card_1",
+      "output": {
+        "intent": "lost_or_stolen_card"
+      }
+    },
+    {
+      "task_id": "transfer_fee_1",
+      "output": {
+        "intent": "transfer_fee_charged"
+      }
+    },
+    {
+      "task_id": "balance_1",
+      "output": {
+        "intent": "balance_not_updated_after_bank_transfer"
+      }
+    },
+    {
+      "task_id": "pin_change_1",
+      "output": {
+        "intent": "change_pin"
+      }
+    },
+    {
+      "task_id": "dispute_1",
+      "output": {
+        "intent": "card_not_working"
+      }
+    },
+    {
+      "task_id": "atm_support_1",
+      "output": {
+        "intent": "atm_support"
+      }
+    },
+    {
+      "task_id": "direct_deposit_1",
+      "output": {
+        "intent": "direct_debit_payment_not_recognised"
+      }
+    },
+    {
+      "task_id": "interest_rate_1",
+      "output": {
+        "intent": "interest_rate"
+      }
+    },
+    {
+      "task_id": "overdraft_1",
+      "output": {
+        "intent": "request_refund"
+      }
+    }
+  ],
+  "default_rubric": {
+    "outcome": {
+      "criteria": [
+        {
+          "name": "intent_accuracy",
+          "description": "The predicted intent exactly matches the expected banking intent category.",
+          "weight": 1.0
+        },
+        {
+          "name": "format_compliance",
+          "description": "Response contains only the intent label without extra text or explanation.",
+          "weight": 0.3
+        }
+      ]
+    }
+  },
+  "judge_config": {
+    "mode": "rubric",
+    "model": "llama-3.3-70b-versatile",
+    "provider": "groq"
+  }
+}
