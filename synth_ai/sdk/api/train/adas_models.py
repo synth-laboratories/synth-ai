@@ -45,6 +45,20 @@ class ADASTaskSetMetadata(BaseModel):
     description: Optional[str] = None
     created_at: Optional[str] = None
     version: Optional[str] = "1.0"
+    # Optional schemas (graph-first).
+    input_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="JSON Schema for task inputs / initial_state"
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="JSON Schema for expected graph output / final_state"
+    )
+    select_output: Optional[Any] = Field(
+        default=None,
+        description=(
+            "Optional selector for the public output model. "
+            "Can be a string (single key) or list of keys to extract from final_state."
+        ),
+    )
 
 
 class ADASRubricCriterion(BaseModel):
@@ -170,6 +184,20 @@ class ADASTaskSet(BaseModel):
     judge_config: ADASJudgeConfig = Field(
         default_factory=ADASJudgeConfig,
         description="Configuration for the judge",
+    )
+    # Optional schemas (also accepted at top-level for backward/forward compatibility).
+    input_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="JSON Schema for task inputs / initial_state"
+    )
+    output_schema: Optional[Dict[str, Any]] = Field(
+        default=None, description="JSON Schema for expected graph output / final_state"
+    )
+    select_output: Optional[Any] = Field(
+        default=None,
+        description=(
+            "Optional selector for the public output model. "
+            "Can be a string (single key) or list of keys to extract from final_state."
+        ),
     )
 
     @field_validator("tasks")

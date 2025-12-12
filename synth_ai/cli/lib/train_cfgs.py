@@ -6,11 +6,14 @@ from typing import Any, Dict, List, Literal, Tuple
 from synth_ai.cli.lib.prompts import ctx_print
 from synth_ai.core.paths import is_hidden_path, validate_file_type
 
-# Train config types: prompt optimization, reinforcement learning, supervised fine-tuning, ADAS
-TrainType = Literal["prompt", "rl", "sft", "adas"]
+# Train config types: prompt optimization, reinforcement learning, supervised fine-tuning, ADAS, context learning
+TrainType = Literal["prompt", "rl", "sft", "adas", "context_learning"]
 
 
 def get_type(config: Dict[str, Any]) -> TrainType | None:
+    if "context_learning" in config:
+        return "context_learning"
+
     if "prompt_learning" in config:
         return "prompt"
 
@@ -40,6 +43,34 @@ def get_type(config: Dict[str, Any]) -> TrainType | None:
         return "sft"
     if job and compute:
         return "sft"
+
+    return None
+
+
+def validate_context_learning_cfg(cfg: Dict[str, Any]) -> None:
+    section = cfg.get("context_learning")
+    if not isinstance(section, dict):
+        raise ValueError("[context_learning] section must be a dict")
+
+    task_app_url = section.get("task_app_url") or section.get("task_url")
+    if not task_app_url:
+        raise ValueError("[context_learning].task_app_url is required")
+
+    evaluation_seeds = section.get("evaluation_seeds")
+    if evaluation_seeds is not None and not isinstance(evaluation_seeds, list):
+        raise ValueError("[context_learning].evaluation_seeds must be a list when provided")
+
+    env_section = section.get("environment")
+    if env_section is not None and not isinstance(env_section, dict):
+        raise ValueError("[context_learning].environment must be a dict when provided")
+
+    algorithm_section = section.get("algorithm")
+    if algorithm_section is not None and not isinstance(algorithm_section, dict):
+        raise ValueError("[context_learning].algorithm must be a dict when provided")
+
+    metadata = section.get("metadata")
+    if metadata is not None and not isinstance(metadata, dict):
+        raise ValueError("[context_learning].metadata must be a dict when provided")
 
     return None
 
@@ -223,6 +254,8 @@ def validate_train_cfg(path: Path, discovery: bool = False) -> TrainType:
 
     ctx_print(f"\nChecking if {train_type} config is valid", not discovery)
     match train_type:
+        case "context_learning":
+            validate_context_learning_cfg(cfg)
         case "prompt":
             validate_po_cfg(cfg)
         case "rl":

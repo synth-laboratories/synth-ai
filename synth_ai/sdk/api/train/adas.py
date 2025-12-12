@@ -82,12 +82,14 @@ class ADASJob:
     """High-level SDK class for running ADAS workflow optimization jobs.
 
     ADAS (Automated Design of Agentic Systems) provides a simplified API for
-    prompt optimization that doesn't require users to manage task apps.
+    graph/workflow optimization that doesn't require users to manage task apps.
 
     Key differences from PromptLearningJob:
     - Uses JSON dataset format (ADASTaskSet) instead of TOML configs
     - No task app management required - ADAS builds it internally
     - Built-in judge modes (rubric, contrastive, gold_examples)
+    - Graph-first: trains multi-node workflows by default (Graph-GEPA)
+    - Public graph downloads are redacted `.txt` exports only
     - Simpler configuration with sensible defaults
 
     Example:
@@ -104,10 +106,10 @@ class ADASJob:
         >>> job.submit()
         >>> result = job.stream_until_complete(timeout=3600.0)
         >>> print(f"Best score: {result.get('best_score')}")
-        >>>
-        >>> # Download optimized prompt
-        >>> prompt = job.download_prompt()
-        >>> print(prompt)
+        >>> 
+        >>> # Download public graph export
+        >>> export_txt = job.download_graph_txt()
+        >>> print(export_txt)
         >>>
         >>> # Run inference with optimized prompt
         >>> output = job.run_inference({"question": "What is 2+2?"})
@@ -614,6 +616,9 @@ class ADASJob:
     def download_prompt(self) -> str:
         """Download the optimized prompt from a completed job.
 
+        For graph-first jobs, prefer `download_graph_txt()`; this method is
+        mainly useful for legacy single-node prompt workflows.
+
         Returns:
             Optimized prompt text
 
@@ -638,19 +643,44 @@ class ADASJob:
         data = resp.json()
         return data.get("prompt", "")
 
+    def download_graph_txt(self) -> str:
+        """Download a PUBLIC (redacted) graph export for a completed job.
+
+        Graph-first ADAS jobs produce multi-node graphs. The internal graph
+        YAML/spec is proprietary and never exposed. This helper downloads the
+        `.txt` export from:
+            GET /api/adas/jobs/{job_id}/graph.txt
+        """
+        if not self.job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        url = f"{self.backend_url}/adas/jobs/{self.job_id}/graph.txt"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+
+        resp = http_get(url, headers=headers, timeout=30.0)
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Failed to download graph export: {resp.status_code} - {resp.text[:500]}"
+            )
+        return resp.text
+
     def run_inference(
         self,
         input_data: Dict[str, Any],
         *,
         model: Optional[str] = None,
         prompt_snapshot_id: Optional[str] = None,
+        graph_snapshot_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Run inference with the optimized prompt.
+        """Run inference with the optimized graph/workflow.
 
         Args:
             input_data: Input data matching the task format
             model: Override model (default: use job's policy model)
-            prompt_snapshot_id: Specific snapshot to use (default: best)
+            prompt_snapshot_id: Legacy alias for selecting a specific snapshot.
+            graph_snapshot_id: Specific GraphSnapshot to use (default: best).
+                Preferred for graph-first jobs. If provided, it is sent as
+                `prompt_snapshot_id` for backward-compatible backend routing.
 
         Returns:
             Output dictionary
@@ -660,6 +690,9 @@ class ADASJob:
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if prompt_snapshot_id and graph_snapshot_id:
+            raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
         url = f"{self.backend_url}/adas/graph/completions"
         headers = {
@@ -673,8 +706,9 @@ class ADASJob:
         }
         if model:
             payload["model"] = model
-        if prompt_snapshot_id:
-            payload["prompt_snapshot_id"] = prompt_snapshot_id
+        snapshot_id = graph_snapshot_id or prompt_snapshot_id
+        if snapshot_id:
+            payload["prompt_snapshot_id"] = snapshot_id
 
         resp = http_post(url, headers=headers, json_body=payload, timeout=60.0)
 
@@ -691,12 +725,14 @@ class ADASJob:
         *,
         model: Optional[str] = None,
         prompt_snapshot_id: Optional[str] = None,
+        graph_snapshot_id: Optional[str] = None,
     ) -> Any:
         """Convenience wrapper returning only the model output."""
         result = self.run_inference(
             input_data,
             model=model,
             prompt_snapshot_id=prompt_snapshot_id,
+            graph_snapshot_id=graph_snapshot_id,
         )
         if isinstance(result, dict):
             return result.get("output")
@@ -706,18 +742,24 @@ class ADASJob:
         self,
         *,
         prompt_snapshot_id: Optional[str] = None,
+        graph_snapshot_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get the optimized graph record (snapshot) for a completed job.
 
+        Note: for graph-first jobs, this record is **redacted** and never
+        includes proprietary YAML/spec. Use `download_graph_txt()` for the
+        public export.
+
         Args:
-            prompt_snapshot_id: Specific snapshot to use (default: best)
+            prompt_snapshot_id: Legacy alias for selecting a specific snapshot.
+            graph_snapshot_id: Specific GraphSnapshot to use (default: best).
 
         Returns:
             Graph record dictionary containing:
             - job_id: The job ID
             - snapshot_id: The snapshot ID used
-            - prompt: Extracted prompt text from the graph
-            - graph: Full graph record/snapshot payload
+            - prompt: Extracted prompt text (legacy single-node only; may be empty)
+            - graph: Public graph record payload (e.g., export metadata)
             - model: Model used for this graph (optional)
 
         Raises:
@@ -725,6 +767,9 @@ class ADASJob:
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        if prompt_snapshot_id and graph_snapshot_id:
+            raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
         url = f"{self.backend_url}/adas/graph/record"
         headers = {
@@ -735,8 +780,9 @@ class ADASJob:
         payload = {
             "job_id": self.job_id,
         }
-        if prompt_snapshot_id:
-            payload["prompt_snapshot_id"] = prompt_snapshot_id
+        snapshot_id = graph_snapshot_id or prompt_snapshot_id
+        if snapshot_id:
+            payload["prompt_snapshot_id"] = snapshot_id
 
         resp = http_post(url, headers=headers, json_body=payload, timeout=30.0)
 

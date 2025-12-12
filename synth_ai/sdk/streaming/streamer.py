@@ -24,6 +24,7 @@ TERMINAL_EVENT_SUCCESS = {
     "sft.job.completed",
     "rl.train.completed",
     "rl.job.completed",
+    "context.learning.job.completed",
     "workflow.completed",
     "training.completed",
 }
@@ -31,6 +32,7 @@ TERMINAL_EVENT_FAILURE = {
     "sft.job.failed",
     "rl.train.failed",
     "rl.job.failed",
+    "context.learning.job.failed",
     "workflow.failed",
     "training.failed",
 }
@@ -78,13 +80,23 @@ class StreamEndpoints:
             ),
         )
     
+    @classmethod
+    def context_learning(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for context learning jobs."""
+        base = f"/context-learning/jobs/{job_id}"
+        return cls(
+            status=base,
+            events=f"{base}/events",
+            metrics=f"{base}/metrics",
+            timeline=None,
+        )
+
     @property
     def events_stream_url(self) -> str | None:
         """Get the SSE streaming URL for events if available."""
         if self.events:
-            # For prompt learning, use the /stream endpoint
-            if "/prompt-learning/online/jobs/" in self.events:
-                return self.events.replace("/events", "/events/stream")
+            if self.events.endswith("/events"):
+                return f"{self.events}/stream"
         return None
 
     @classmethod

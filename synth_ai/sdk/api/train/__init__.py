@@ -34,6 +34,10 @@ from .sft import (
     SFTJob,
     SFTJobConfig,
 )
+from .context_learning import (
+    ContextLearningJob,
+    ContextLearningJobConfig,
+)
 
 __all__ = [
     # CLI
@@ -46,6 +50,9 @@ __all__ = [
     # SDK - SFT
     "SFTJob",
     "SFTJobConfig",
+    # SDK - Context Learning
+    "ContextLearningJob",
+    "ContextLearningJobConfig",
 ]
 
 

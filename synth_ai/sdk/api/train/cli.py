@@ -41,6 +41,7 @@ from .builders import build_prompt_learning_payload, build_rl_payload, build_sft
 from .task_app import check_task_app_health
 from .adas import ADASJob
 from .adas_models import load_adas_taskset
+from .context_learning import ContextLearningJob
 from .utils import (
     TrainError,
     ensure_api_base,
@@ -464,7 +465,7 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.sdk.api.train.cli imported")
 @click.option(
     "--type",
     "train_type_override",
-    type=click.Choice(["prompt", "rl", "sft", "adas"]),
+    type=click.Choice(["prompt", "rl", "sft", "adas", "context_learning"]),
     default=None,
     help="Explicitly set training type. Required for ADAS (uses JSON datasets).",
 )
@@ -506,7 +507,7 @@ def train_command(
     proposer_effort: str | None,
 ) -> None:
 
-    """Interactive launcher for RL / SFT / Prompt Learning / ADAS jobs."""
+    """Interactive launcher for RL / SFT / Prompt Learning / ADAS / Context Learning jobs."""
     import traceback
 
     ctx: dict[str, Any] = {
@@ -631,6 +632,19 @@ def train_command(
                     poll_interval=poll_interval,
                     stream_format=stream_format,
                 )
+            case "context_learning":
+                if not cfg_path:
+                    raise click.ClickException(
+                        "Context Learning requires a TOML config file.\n"
+                        "Usage: synth-ai train --type context_learning --config my_context.toml"
+                    )
+                handle_context_learning(
+                    cfg_path=cfg_path,
+                    backend_base=backend_base,
+                    synth_key=synth_api_key,
+                    poll=poll,
+                    stream_format=stream_format,
+                )
             case "rl":
                 handle_rl(
                     cfg_path=cfg_path,
@@ -683,6 +697,63 @@ def train_command(
         raise
     finally:
         flush_logger()
+
+
+def handle_context_learning(
+    *,
+    cfg_path: Path,
+    backend_base: str,
+    synth_key: str,
+    poll: bool,
+    stream_format: str,
+) -> None:
+    """Submit and stream a Context Learning job.
+
+    Context Learning is SSE-first; polling flags are ignored.
+    """
+    if not poll:
+        click.echo("Note: --no-poll is ignored for context learning (SSE streaming only).")
+
+    click.echo("\n=== Submitting Context Learning Job ===")
+    try:
+        job = ContextLearningJob.from_config(
+            cfg_path,
+            backend_url=backend_base,
+            api_key=synth_key,
+        )
+        result = job.submit()
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+    click.echo("\n✓ Job created:")
+    click.echo(f"  Context Learning Job ID: {result.job_id}")
+    click.echo(f"  Status: {result.status}")
+
+    click.echo("\n=== Streaming Job Progress ===")
+    if stream_format == "chart":
+        click.echo("Chart stream format is not supported for context learning; using CLI output.")
+
+    try:
+        final_status = job.stream_until_complete()
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+    status = final_status.get("status") if isinstance(final_status, dict) else "unknown"
+    click.echo(f"\nFinal status: {status}")
+    click.echo(preview_json(final_status, limit=600))
+
+    if status in {"succeeded", "completed"}:
+        click.echo("\n=== Best Preflight Script ===")
+        try:
+            best = job.download_best_script()
+            if best.preflight_script:
+                click.echo(best.preflight_script[:2000])
+                if len(best.preflight_script) > 2000:
+                    click.echo(
+                        f"\n... (truncated, {len(best.preflight_script)} chars total)"
+                    )
+        except Exception as e:
+            click.echo(f"⚠️  Could not download best script: {e}")
 
 
 def _wait_for_training_file(

@@ -767,6 +767,72 @@ class RichHandler(StreamHandler):
             for entry in list(self._event_log):
                 self._console.print(f"  • {entry}")
 
+class ContextLearningHandler(StreamHandler):
+    """CLI-friendly handler for Context Learning jobs.
+
+    Emits high-signal progress similar to other infra job handlers,
+    specialized for generation-based bash context optimization.
+    """
+
+    def __init__(self) -> None:
+        self.best_score_so_far = 0.0
+        self.current_generation = 0
+
+    def handle(self, message: StreamMessage) -> None:
+        if not self.should_handle(message):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        if message.stream_type is StreamType.STATUS:
+            status = str(message.data.get("status") or message.data.get("state") or "unknown")
+            click.echo(f"[{timestamp}] status={status}")
+            return
+
+        if message.stream_type is StreamType.METRICS:
+            name = message.data.get("name")
+            value = message.data.get("value")
+            step = message.data.get("step")
+            if isinstance(value, int | float):
+                try:
+                    val_f = float(value)
+                    if val_f > self.best_score_so_far:
+                        self.best_score_so_far = val_f
+                    if isinstance(step, int):
+                        self.current_generation = max(self.current_generation, step)
+                    click.echo(f"[{timestamp}] gen={step} best={val_f:.3f}")
+                    return
+                except Exception:
+                    pass
+            click.echo(f"[{timestamp}] metric {name}={value}")
+            return
+
+        if message.stream_type is StreamType.EVENTS:
+            event_type = str(message.data.get("type") or "")
+            msg = message.data.get("message") or ""
+            data = message.data.get("data") or {}
+
+            if event_type == "context.learning.generation.completed":
+                gen = data.get("generation") or data.get("gen") or self.current_generation
+                score = data.get("best_score") or data.get("score") or self.best_score_so_far
+                try:
+                    score_f = float(score)
+                    if score_f > self.best_score_so_far:
+                        self.best_score_so_far = score_f
+                    click.echo(f"[{timestamp}] generation {gen} best={score_f:.3f}")
+                except Exception:
+                    click.echo(f"[{timestamp}] generation {gen} completed")
+                return
+
+            if event_type.endswith(".failed"):
+                click.echo(f"[{timestamp}] {event_type}: {msg}")
+                return
+
+            if msg:
+                click.echo(f"[{timestamp}] {event_type}: {msg}")
+            else:
+                click.echo(f"[{timestamp}] {event_type}")
+
 
 class PromptLearningHandler(StreamHandler):
     """Enhanced handler for GEPA/MIPRO prompt optimization jobs with rich formatting and metrics tracking.
