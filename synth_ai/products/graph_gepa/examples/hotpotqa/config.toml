@@ -1,0 +1,97 @@
+# Graph Optimization for HotpotQA
+# This config defines a policy graph optimization job for multi-hop QA.
+
+[graph_optimization]
+# Algorithm selection (currently: graph_gepa)
+algorithm = "graph_gepa"
+
+# What we're optimizing
+dataset_name = "hotpotqa"
+graph_type = "policy"         # "policy" (solves tasks) or "verifier" (judges results)
+graph_structure = "dag"       # "single_prompt", "dag", or "conditional"
+
+# Custom topology guidance (optional - adds detail to graph_structure)
+# Describes what KIND of dag/conditional/etc you want
+topology_guidance = "Use a single-step graph with one LLM call that reasons and answers in one shot"
+
+# Which models the generated graph can use in its nodes
+allowed_policy_models = ["gpt-4o-mini", "gpt-4o"]
+
+# Evolution parameters
+[graph_optimization.evolution]
+num_generations = 5
+children_per_generation = 3
+
+# Proposer LLM configuration
+[graph_optimization.proposer]
+model = "gpt-4.1"
+temperature = 0.7
+max_tokens = 4096
+
+# Training/evaluation seeds
+# With feedback_fraction=0.5, half go to proposer feedback, half to Pareto evaluation
+# To get 10 pareto seeds, we need 20 train seeds total
+[graph_optimization.seeds]
+train = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+validation = [100, 101, 102, 103, 104]
+
+# Resource limits
+[graph_optimization.limits]
+max_spend_usd = 10.0
+timeout_seconds = 3600
+
+# Multi-objective Pareto configuration (epsilon-Pareto dominance)
+# Defines when candidates are "indifferent" on each objective
+
+# Multi-objective Pareto configuration
+[graph_optimization.pareto_floors]
+
+# Focus ONLY on reward for Pareto comparison (ignore latency/cost in dominance)
+use_latency = false
+use_cost = false
+
+# Soft floors: below these, differences are ignored (noise reduction)
+# (These only matter if use_latency/use_cost are true)
+latency_s = 2.0     # Don't discriminate on latency below 2 seconds
+cost_usd = 0.10     # Don't discriminate on cost below $0.10/seed
+
+# Hard ceilings: disqualify candidates exceeding budget limits
+# These reject candidates entirely (even though cost/latency are disabled for Pareto)
+max_latency_s = 30.0    # Disqualify if mean latency > 30s
+max_cost_usd = 1.00     # Disqualify if mean cost/seed > $1.00
+
+# Indifference points: define trade-off equivalences at anchor points
+# Example: At 80% accuracy, 2s latency, $0.50 cost:
+#   - +2% accuracy ≈ -0.4s latency ≈ -$0.10 cost (equivalent improvements)
+#   - Differences below 0.5% accuracy are considered noise
+
+[[graph_optimization.indifference_points]]
+# Anchor point (where we define trade-offs)
+reward = 0.80       # 80% accuracy
+latency_s = 2.0     # 2 seconds
+cost_usd = 0.50     # $0.50 per seed
+
+# Trade-off equivalences at this anchor (these amounts are equivalent improvements)
+reward_delta = 0.02     # +2% accuracy is equivalent to...
+latency_delta = 0.4     # -0.4 seconds latency, or...
+cost_delta = 0.10       # -$0.10 cost
+
+# Noise floors for each objective (differences smaller than these are ignored)
+reward_noise = 0.005    # 0.5% accuracy differences are noise
+latency_noise = 0.1     # 100ms latency differences are noise
+cost_noise = 0.01       # $0.01 cost differences are noise
+
+# You can add multiple anchor points for different regions of the search space
+# [[graph_optimization.indifference_points]]
+# reward = 0.90
+# latency_s = 1.5
+# cost_usd = 0.30
+# reward_delta = 0.01   # Tighter at higher accuracy (harder to improve)
+# latency_delta = 0.2
+# cost_delta = 0.05
+# reward_noise = 0.003
+
+# Optional dataset-specific config (passed to task app)
+[graph_optimization.dataset_config]
+# Add any dataset-specific parameters here
+# e.g., max_context_length = 4096
