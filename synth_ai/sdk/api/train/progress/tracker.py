@@ -283,6 +283,14 @@ GEPA Optimization Progress - {self.env_name}
             "validation" in parsed.event_type.lower()
         ):
             self._handle_validation(parsed)
+        # ✅ ADD: Also handle job.event type events that contain validation data
+        # (postgrest_emitter wraps events as job.event, so we need to check data for validation indicators)
+        elif parsed.category == EventCategory.UNKNOWN and (
+            parsed.data.get("baseline_val_accuracy") is not None or
+            parsed.data.get("is_baseline") is True or
+            "validation" in parsed.event_type.lower()
+        ):
+            self._handle_validation(parsed)
 
     def _handle_baseline(self, event: BaselineEvent) -> None:
         """Handle baseline evaluation event."""
