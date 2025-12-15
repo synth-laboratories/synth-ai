@@ -426,12 +426,13 @@ class OutcomeReward(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String, ForeignKey("session_traces.session_id"), nullable=False)
-    total_reward = Column(Integer, nullable=False)
+    total_reward = Column(Float, nullable=False)
     achievements_count = Column(Integer, nullable=False, default=0)
     total_steps = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=func.current_timestamp(), nullable=False)
     # Store additional structured metadata about the outcome (e.g., achievements list)
     reward_metadata = Column(JSONText)
+    annotation = Column(JSONText)
 
     __table_args__ = (
         Index("idx_outcome_rewards_session", "session_id"),

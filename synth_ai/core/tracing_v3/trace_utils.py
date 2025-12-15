@@ -29,6 +29,13 @@ def _json_load(value: Any) -> Any:
         return value
 
 
+def _row_get(row: Row, key: str) -> Any:
+    try:
+        return row[key]
+    except Exception:
+        return None
+
+
 def fetch_crafter_sessions(
     conn: sqlite3.Connection,
     *,
@@ -234,7 +241,10 @@ def load_session_trace(conn: sqlite3.Connection, session_id: str) -> dict[str, A
             {
                 "id": row["id"],
                 "total_reward": row["total_reward"],
+                "achievements_count": row["achievements_count"],
+                "total_steps": row["total_steps"],
                 "reward_metadata": _json_load(row["reward_metadata"]) or {},
+                "annotation": _json_load(_row_get(row, "annotation")) or {},
                 "created_at": row["created_at"],
             }
             for row in outcome_rewards
@@ -314,4 +324,3 @@ __all__ = [
     "fetch_crafter_sessions",
     "load_session_trace",
 ]
-

@@ -148,10 +148,11 @@ class TraceStorage(ABC):
         self,
         session_id: str,
         *,
-        total_reward: int,
+        total_reward: float,
         achievements_count: int,
         total_steps: int,
         reward_metadata: dict | None = None,
+        annotation: dict[str, Any] | None = None,
     ) -> int:
         """Record an outcome reward for a session."""
         pass

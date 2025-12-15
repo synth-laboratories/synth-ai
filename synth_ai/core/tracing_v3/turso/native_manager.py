@@ -293,11 +293,12 @@ _TABLE_DEFINITIONS: tuple[str, ...] = (
     CREATE TABLE IF NOT EXISTS outcome_rewards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         session_id VARCHAR NOT NULL,
-        total_reward INTEGER NOT NULL,
+        total_reward FLOAT NOT NULL,
         achievements_count INTEGER NOT NULL,
         total_steps INTEGER NOT NULL,
         created_at DATETIME NOT NULL,
         reward_metadata TEXT,
+        annotation TEXT,
         FOREIGN KEY(session_id) REFERENCES session_traces(session_id)
     )
     """,
@@ -697,11 +698,99 @@ class NativeLibsqlTraceManager(TraceStorage):
 
         for ddl in _TABLE_DEFINITIONS:
             self._conn.execute(ddl)
+        self._apply_schema_migrations()
         for ddl in _INDEX_DEFINITIONS:
             self._conn.execute(ddl)
         for view_sql in analytics_views.values():
             self._conn.execute(view_sql)
         self._conn.commit()
+
+    def _apply_schema_migrations(self) -> None:
+        """Apply forward-compatible schema changes for existing databases."""
+        self._migrate_outcome_rewards()
+
+    @staticmethod
+    def _col_value(row: Any, *, index: int, key: str) -> Any:
+        try:
+            return row[key]  # type: ignore[index]
+        except Exception:
+            return row[index]
+
+    def _migrate_outcome_rewards(self) -> None:
+        conn = self._conn
+        if conn is None:  # pragma: no cover - defensive guard
+            raise RuntimeError("Connection not initialised")
+
+        cursor = conn.execute("PRAGMA table_info(outcome_rewards)")
+        rows = cursor.fetchall()
+        cursor.close()
+        if not rows:
+            return
+
+        columns: dict[str, str] = {}
+        for row in rows:
+            name = str(self._col_value(row, index=1, key="name"))
+            col_type = self._col_value(row, index=2, key="type")
+            columns[name] = (str(col_type) if col_type is not None else "").strip().upper()
+
+        total_reward_type = columns.get("total_reward", "")
+        has_annotation = "annotation" in columns
+
+        # If the DB was created with total_reward INTEGER, rebuild the table to
+        # update the declared type and add the annotation column in one step.
+        if total_reward_type == "INTEGER":
+            conn.execute("BEGIN")
+            try:
+                conn.execute("ALTER TABLE outcome_rewards RENAME TO outcome_rewards_old")
+                conn.execute(
+                    """
+                    CREATE TABLE outcome_rewards (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        session_id VARCHAR NOT NULL,
+                        total_reward FLOAT NOT NULL,
+                        achievements_count INTEGER NOT NULL,
+                        total_steps INTEGER NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        reward_metadata TEXT,
+                        annotation TEXT,
+                        FOREIGN KEY(session_id) REFERENCES session_traces(session_id)
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO outcome_rewards (
+                        id,
+                        session_id,
+                        total_reward,
+                        achievements_count,
+                        total_steps,
+                        created_at,
+                        reward_metadata,
+                        annotation
+                    )
+                    SELECT
+                        id,
+                        session_id,
+                        CAST(total_reward AS FLOAT),
+                        achievements_count,
+                        total_steps,
+                        created_at,
+                        reward_metadata,
+                        NULL
+                    FROM outcome_rewards_old
+                    """
+                )
+                conn.execute("DROP TABLE outcome_rewards_old")
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+            return
+
+        # Otherwise, add annotation column if missing.
+        if not has_annotation:
+            conn.execute("ALTER TABLE outcome_rewards ADD COLUMN annotation TEXT")
 
     async def query_traces(self, query: str, params: dict[str, Any] | None = None) -> Any:
         await self.initialize()
@@ -1206,10 +1295,11 @@ class NativeLibsqlTraceManager(TraceStorage):
         self,
         session_id: str,
         *,
-        total_reward: int,
+        total_reward: float,
         achievements_count: int,
         total_steps: int,
         reward_metadata: dict | None = None,
+        annotation: dict[str, Any] | None = None,
     ) -> int:
         await self.initialize()
 
@@ -1225,9 +1315,10 @@ class NativeLibsqlTraceManager(TraceStorage):
                     achievements_count,
                     total_steps,
                     created_at,
-                    reward_metadata
+                    reward_metadata,
+                    annotation
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -1236,6 +1327,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     total_steps,
                     datetime.now(UTC).isoformat(),
                     _json_dumps(reward_metadata),
+                    _json_dumps(annotation),
                 ),
             )
             conn.commit()

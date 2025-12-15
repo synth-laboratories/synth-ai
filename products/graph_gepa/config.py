@@ -304,7 +304,7 @@ class GraphOptimizationConfig(BaseModel):
         default=None,
         description="Optional graph_id from the graphs registry to warm-start evolution.",
     )
-
+    
     # Allowed policy models - which models the generated graph can use
     allowed_policy_models: List[str] = Field(
         default_factory=lambda: ["gpt-4o-mini", "gpt-4o"],
@@ -329,14 +329,6 @@ class GraphOptimizationConfig(BaseModel):
     
     # Optional dataset-specific config
     dataset_config: Dict[str, Any] = Field(default_factory=dict)
-
-    # Constraint: max LLM calls per execution
-    max_llm_calls_per_run: Optional[int] = Field(
-        default=None,
-        ge=1,
-        description="Maximum LLM calls allowed per graph execution (e.g., 1, 2, 5).",
-    )
-
     
     # Inline dataset upload (for verifier calibration, custom datasets)
     # Format: {"name": str, "task_description": str, "examples": [...]}
@@ -419,9 +411,6 @@ class GraphOptimizationConfig(BaseModel):
             "scoring_strategy": self.scoring_strategy,
             "judge_model": self.judge_model,
         }
-
-        if self.max_llm_calls_per_run is not None:
-            request["max_llm_calls_per_run"] = int(self.max_llm_calls_per_run)
         
         # Only include topology_guidance if set
         if self.topology_guidance:

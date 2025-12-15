@@ -42,6 +42,7 @@ class OutcomeRewardRecord:
     achievements_count: int = 0
     total_steps: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+    annotation: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
 
 
@@ -82,5 +83,4 @@ __all__ = [
     "EventRewardRecord",
     "RewardAggregates",
 ]
-
 
