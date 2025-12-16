@@ -41,9 +41,9 @@ from synth_ai.sdk.api.train.prompt_learning import (
 from synth_ai.sdk.api.train.rl import RLJob, RLJobConfig
 from synth_ai.sdk.api.train.sft import SFTJob
 
-# ADAS
-from synth_ai.sdk.api.train.adas import ADASJob, ADASJobResult, ADASSubmitResult
-from synth_ai.sdk.api.train.adas_models import (
+# GraphGen (formerly ADAS)
+from synth_ai.sdk.api.train.graphgen import ADASJob, ADASJobResult, ADASSubmitResult
+from synth_ai.sdk.api.train.graphgen_models import (
     ADASJobConfig,
     ADASTaskSet,
     ADASTask,
@@ -52,6 +52,15 @@ from synth_ai.sdk.api.train.adas_models import (
     ADASJudgeConfig,
     load_adas_taskset,
     parse_adas_taskset,
+    # GraphGen aliases
+    GraphGenJobConfig,
+    GraphGenTaskSet,
+    GraphGenTask,
+    GraphGenGoldOutput,
+    GraphGenRubric,
+    GraphGenJudgeConfig,
+    load_graphgen_taskset,
+    parse_graphgen_taskset,
 )
 
 __all__ = [
@@ -65,7 +74,16 @@ __all__ = [
     "RLJobPoller",
     # SFT
     "SFTJob",
-    # ADAS
+    # GraphGen (preferred names)
+    "GraphGenJobConfig",
+    "GraphGenTaskSet",
+    "GraphGenTask",
+    "GraphGenGoldOutput",
+    "GraphGenRubric",
+    "GraphGenJudgeConfig",
+    "load_graphgen_taskset",
+    "parse_graphgen_taskset",
+    # ADAS (legacy aliases)
     "ADASJob",
     "ADASJobConfig",
     "ADASJobResult",

@@ -39,8 +39,8 @@ from synth_ai.sdk.streaming import (
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .task_app import check_task_app_health
-from .adas import ADASJob
-from .adas_models import load_adas_taskset
+from .graphgen import ADASJob
+from .graphgen_models import load_adas_taskset
 from .context_learning import ContextLearningJob
 from .utils import (
     TrainError,

@@ -10,8 +10,8 @@ Example CLI usage:
     uvx synth-ai train --type adas --dataset my_tasks.json --poll
 
 Example SDK usage:
-    from synth_ai.sdk.api.train.adas import ADASJob
-    from synth_ai.sdk.api.train.adas_models import ADASTaskSet, ADASTask
+    from synth_ai.sdk.api.train.graphgen import ADASJob
+    from synth_ai.sdk.api.train.graphgen_models import ADASTaskSet, ADASTask
 
     # From a dataset file
     job = ADASJob.from_dataset("my_tasks.json")
@@ -41,11 +41,16 @@ from typing import Any, Callable, Dict, Literal, Optional, Sequence
 
 from synth_ai.core.telemetry import log_info
 
-from .adas_models import (
+from .graphgen_models import (
     ADASJobConfig,
     ADASTaskSet,
     load_adas_taskset,
     parse_adas_taskset,
+    # Aliases for new names
+    GraphGenJobConfig,
+    GraphGenTaskSet,
+    load_graphgen_taskset,
+    parse_graphgen_taskset,
 )
 from .utils import ensure_api_base, http_get, http_post
 
@@ -281,7 +286,7 @@ class ADASJob:
 
         # Create minimal instance - dataset will be fetched from backend if needed
         # For now, create a placeholder dataset
-        from .adas_models import ADASTaskSetMetadata, ADASTask
+        from .graphgen_models import ADASTaskSetMetadata, ADASTask
         placeholder_dataset = ADASTaskSet(
             metadata=ADASTaskSetMetadata(name="(resumed job)"),
             initial_prompt="(resumed job)",
@@ -296,11 +301,12 @@ class ADASJob:
             auto_start=False,
         )
 
-        # Accept ADAS or GEPA job IDs - backend handles resolution internally
-        if not (job_id.startswith("adas_") or job_id.startswith("pl_")):
+        # Accept GraphGen/ADAS or graph_evolve/GEPA job IDs - backend handles resolution internally
+        valid_prefixes = ("graphgen_", "adas_", "graph_evolve_", "graph_gepa_", "pl_")
+        if not any(job_id.startswith(p) for p in valid_prefixes):
             raise ValueError(
                 f"Unsupported job ID format: {job_id!r}. "
-                f"Expected 'adas_<id>' or 'pl_<id>'."
+                f"Expected one of: {valid_prefixes}"
             )
         job._adas_job_id = job_id
         if job_id.startswith("pl_"):
@@ -376,7 +382,7 @@ class ADASJob:
         Raises:
             RuntimeError: If job submission fails
         """
-        from .adas_validators import validate_adas_job_config
+        from .graphgen_validators import validate_adas_job_config
 
         ctx: Dict[str, Any] = {"dataset_name": self.dataset.metadata.name}
         log_info("ADASJob.submit invoked", ctx=ctx)
@@ -389,8 +395,8 @@ class ADASJob:
 
         payload = self._build_payload()
 
-        # Submit job
-        create_url = f"{self.backend_url}/adas/jobs"
+        # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
+        create_url = f"{self.backend_url}/graphgen/jobs"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -398,7 +404,7 @@ class ADASJob:
 
         import logging
         logger = logging.getLogger(__name__)
-        logger.debug(f"Submitting ADAS job to: {create_url}")
+        logger.debug(f"Submitting GraphGen job to: {create_url}")
 
         resp = http_post(create_url, headers=headers, json_body=payload, timeout=180.0)
 
@@ -407,8 +413,8 @@ class ADASJob:
             if resp.status_code == 404:
                 error_msg += (
                     f"\n\nPossible causes:"
-                    f"\n1. Backend route /api/adas/jobs not registered"
-                    f"\n2. ADAS feature may not be enabled on this backend"
+                    f"\n1. Backend route /api/graphgen/jobs not registered"
+                    f"\n2. GraphGen feature may not be enabled on this backend"
                     f"\n3. Verify backend is running at: {self.backend_url}"
                 )
             raise RuntimeError(error_msg)
@@ -453,7 +459,7 @@ class ADASJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/adas/jobs/{self.job_id}"
+        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
         }
@@ -479,7 +485,7 @@ class ADASJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/adas/jobs/{self.job_id}/start"
+        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/start"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -503,7 +509,7 @@ class ADASJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        base = f"{self.backend_url}/adas/jobs/{self.job_id}/events"
+        base = f"{self.backend_url}/graphgen/jobs/{self.job_id}/events"
         url = f"{base}?since_seq={since_seq}&limit={limit}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
@@ -524,7 +530,7 @@ class ADASJob:
     ) -> Dict[str, Any]:
         """Fetch metrics for this ADAS job.
 
-        Mirrors GET /api/adas/jobs/{job_id}/metrics.
+        Mirrors GET /api/graphgen/jobs/{job_id}/metrics.
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -540,7 +546,7 @@ class ADASJob:
             params["run_id"] = run_id
 
         qs = urlencode(params)
-        url = f"{self.backend_url}/adas/jobs/{self.job_id}/metrics?{qs}"
+        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/metrics?{qs}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -628,7 +634,7 @@ class ADASJob:
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/adas/jobs/{self.job_id}/download"
+        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/download"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
         }
@@ -649,12 +655,12 @@ class ADASJob:
         Graph-first ADAS jobs produce multi-node graphs. The internal graph
         YAML/spec is proprietary and never exposed. This helper downloads the
         `.txt` export from:
-            GET /api/adas/jobs/{job_id}/graph.txt
+            GET /api/graphgen/jobs/{job_id}/graph.txt
         """
         if not self.job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        url = f"{self.backend_url}/adas/jobs/{self.job_id}/graph.txt"
+        url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/graph.txt"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -694,7 +700,7 @@ class ADASJob:
         if prompt_snapshot_id and graph_snapshot_id:
             raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
-        url = f"{self.backend_url}/adas/graph/completions"
+        url = f"{self.backend_url}/graphgen/graph/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -771,7 +777,7 @@ class ADASJob:
         if prompt_snapshot_id and graph_snapshot_id:
             raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
-        url = f"{self.backend_url}/adas/graph/record"
+        url = f"{self.backend_url}/graphgen/graph/record"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

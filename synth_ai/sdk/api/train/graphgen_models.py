@@ -5,7 +5,7 @@ ADAS is a simplified "Workflows API" for prompt optimization that wraps GEPA wit
 auto-generated task apps and built-in judge configurations.
 
 Example:
-    from synth_ai.sdk.api.train.adas_models import (
+    from synth_ai.sdk.api.train.graphgen_models import (
         ADASTaskSet,
         ADASTask,
         ADASGoldOutput,
@@ -420,8 +420,35 @@ def load_adas_taskset(path: str | Path) -> ADASTaskSet:
     return parse_adas_taskset(data)
 
 
+# GraphGen aliases (preferred names)
+GraphGenTaskSet = ADASTaskSet
+GraphGenTaskSetMetadata = ADASTaskSetMetadata
+GraphGenTask = ADASTask
+GraphGenGoldOutput = ADASGoldOutput
+GraphGenRubric = ADASRubric
+GraphGenRubricCriterion = ADASRubricCriterion
+GraphGenRubricOutcome = ADASRubricOutcome
+GraphGenRubricEvents = ADASRubricEvents
+GraphGenJudgeConfig = ADASJudgeConfig
+GraphGenJobConfig = ADASJobConfig
+parse_graphgen_taskset = parse_adas_taskset
+load_graphgen_taskset = load_adas_taskset
+
 __all__ = [
-    # Data models
+    # GraphGen names (preferred)
+    "GraphGenTaskSet",
+    "GraphGenTaskSetMetadata",
+    "GraphGenTask",
+    "GraphGenGoldOutput",
+    "GraphGenRubric",
+    "GraphGenRubricCriterion",
+    "GraphGenRubricOutcome",
+    "GraphGenRubricEvents",
+    "GraphGenJudgeConfig",
+    "GraphGenJobConfig",
+    "parse_graphgen_taskset",
+    "load_graphgen_taskset",
+    # Legacy ADAS names (backwards compatibility)
     "ADASTaskSet",
     "ADASTaskSetMetadata",
     "ADASTask",
@@ -431,15 +458,13 @@ __all__ = [
     "ADASRubricOutcome",
     "ADASRubricEvents",
     "ADASJudgeConfig",
-    # Config
     "ADASJobConfig",
+    "parse_adas_taskset",
+    "load_adas_taskset",
     # Constants
     "SUPPORTED_POLICY_MODELS",
     "SUPPORTED_JUDGE_MODELS",
     "DEFAULT_POLICY_MODEL",
     "DEFAULT_JUDGE_MODEL",
     "DEFAULT_JUDGE_PROVIDER",
-    # Utilities
-    "parse_adas_taskset",
-    "load_adas_taskset",
 ]

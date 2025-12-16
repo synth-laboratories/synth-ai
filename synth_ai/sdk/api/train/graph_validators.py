@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .adas_models import ADASJobConfig, ADASTaskSet, load_adas_taskset
-from .adas_validators import ADASValidationError, validate_adas_job_config
+from .graphgen_models import ADASJobConfig, ADASTaskSet, load_adas_taskset
+from .graphgen_validators import ADASValidationError, validate_adas_job_config
 
 
 @dataclass(slots=True)

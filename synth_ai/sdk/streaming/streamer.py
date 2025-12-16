@@ -125,19 +125,19 @@ class StreamEndpoints:
 
     @classmethod
     def adas(cls, job_id: str) -> StreamEndpoints:
-        """Endpoints for ADAS workflow optimization jobs.
+        """Endpoints for GraphGen (formerly ADAS) workflow optimization jobs.
 
-        ADAS jobs use /api/adas/jobs/{job_id} endpoints.
-        The backend handles ADAS → GEPA job ID resolution internally using the job_relationships table.
-        No fallbacks needed - ADAS endpoints resolve everything.
+        GraphGen jobs use /api/graphgen/jobs/{job_id} endpoints.
+        The backend handles GraphGen → graph_evolve job ID resolution internally using the job_relationships table.
+        No fallbacks needed - GraphGen endpoints resolve everything.
         """
-        base = f"/adas/jobs/{job_id}"
+        base = f"/graphgen/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
-            # No fallbacks - ADAS endpoints handle resolution internally
+            # No fallbacks - GraphGen endpoints handle resolution internally
         )
 
 

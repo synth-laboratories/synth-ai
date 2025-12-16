@@ -9,7 +9,7 @@ import difflib
 import warnings
 from typing import Any, Dict, List, Set
 
-from .adas_models import ADASJobConfig, ADASTaskSet, SUPPORTED_POLICY_MODELS
+from .graphgen_models import ADASJobConfig, ADASTaskSet, SUPPORTED_POLICY_MODELS
 
 
 class ADASValidationError(Exception):
