@@ -1,4 +1,4 @@
-"""Client for Graph Optimization jobs.
+"""Client for GraphEvolve Optimization jobs.
 
 This module provides a client for interacting with the graph
 optimization job API on the backend.
@@ -75,16 +75,17 @@ class GraphOptimizationClient:
     
     def _get_api_prefix(self, algorithm: str) -> str:
         """Get the API prefix for an algorithm.
-        
+
         Args:
-            algorithm: Algorithm name (e.g., "graph_gepa")
-            
+            algorithm: Algorithm name (e.g., "graph_evolve")
+
         Returns:
-            API prefix (e.g., "/graph-gepa")
+            API prefix (e.g., "/graph-evolve")
         """
         # Map algorithm names to API prefixes
         prefixes = {
-            "graph_gepa": "/graph-gepa",
+            "graph_evolve": "/graph-evolve",
+            "graph_gepa": "/graph-evolve",  # Backwards compat: map old name to new endpoint
             # Future algorithms can be added here
         }
         return prefixes.get(algorithm, f"/{algorithm.replace('_', '-')}")
@@ -99,7 +100,7 @@ class GraphOptimizationClient:
             config: Job configuration (includes algorithm selection)
             
         Returns:
-            Job ID (e.g., "graph_gepa_abc123")
+            Job ID (e.g., "graph_evolve_abc123")
             
         Raises:
             httpx.HTTPStatusError: If request fails
@@ -116,65 +117,65 @@ class GraphOptimizationClient:
     
     async def get_status(self, job_id: str) -> Dict[str, Any]:
         """Get job status.
-        
+
         Args:
             job_id: Job ID
-            
+
         Returns:
             Status dictionary with status, progress, current_generation, etc.
         """
         client = self._ensure_client()
-        response = await client.get(f"/graph-gepa/jobs/{job_id}/status")
+        response = await client.get(f"/graph-evolve/jobs/{job_id}/status")
         response.raise_for_status()
         return response.json()
-    
+
     async def get_result(self, job_id: str) -> Dict[str, Any]:
         """Get job result.
-        
+
         Args:
             job_id: Job ID
-            
+
         Returns:
             Result dictionary with best_yaml, best_score, etc.
         """
         client = self._ensure_client()
-        response = await client.get(f"/graph-gepa/jobs/{job_id}/result")
+        response = await client.get(f"/graph-evolve/jobs/{job_id}/result")
         response.raise_for_status()
         return response.json()
-    
+
     async def cancel_job(self, job_id: str) -> Dict[str, Any]:
         """Cancel a running job.
-        
+
         Args:
             job_id: Job ID
-            
+
         Returns:
             Cancellation confirmation
         """
         client = self._ensure_client()
-        response = await client.delete(f"/graph-gepa/jobs/{job_id}")
+        response = await client.delete(f"/graph-evolve/jobs/{job_id}")
         response.raise_for_status()
         return response.json()
-    
+
     async def stream_events(
         self,
         job_id: str,
         timeout: float = 600.0,
     ) -> AsyncIterator[Dict[str, Any]]:
         """Stream events from a running job via SSE.
-        
+
         Args:
             job_id: Job ID
             timeout: Stream timeout in seconds
-            
+
         Yields:
             Event dictionaries with type, data, etc.
         """
         client = self._ensure_client()
-        
+
         async with client.stream(
             "GET",
-            f"/graph-gepa/jobs/{job_id}/events",
+            f"/graph-evolve/jobs/{job_id}/events",
             timeout=timeout,
         ) as response:
             response.raise_for_status()
