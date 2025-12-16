@@ -1,7 +1,7 @@
-"""First-class SDK API for ADAS (Automated Design of Agentic Systems).
+"""First-class SDK API for GraphGen (Automated Design of Agentic Systems).
 
-ADAS is a simplified "Workflows API" for prompt optimization that:
-- Uses a simple JSON dataset format (ADASTaskSet) instead of TOML configs
+GraphGen is a simplified "Workflows API" for prompt optimization that:
+- Uses a simple JSON dataset format (GraphGenTaskSet) instead of TOML configs
 - Auto-generates task apps from the dataset (no user-managed task apps)
 - Has built-in judge configurations (rubric, contrastive, gold_examples)
 - Wraps GEPA internally for the actual optimization
@@ -10,23 +10,23 @@ Example CLI usage:
     uvx synth-ai train --type adas --dataset my_tasks.json --poll
 
 Example SDK usage:
-    from synth_ai.sdk.api.train.graphgen import ADASJob
-    from synth_ai.sdk.api.train.graphgen_models import ADASTaskSet, ADASTask
+    from synth_ai.sdk.api.train.graphgen import GraphGenJob
+    from synth_ai.sdk.api.train.graphgen_models import GraphGenTaskSet, GraphGenTask
 
     # From a dataset file
-    job = ADASJob.from_dataset("my_tasks.json")
+    job = GraphGenJob.from_dataset("my_tasks.json")
     job.submit()
     result = job.stream_until_complete()
     print(f"Best score: {result.get('best_score')}")
 
     # Or programmatically
-    dataset = ADASTaskSet(
-        metadata=ADASTaskSetMetadata(name="My Tasks"),
+    dataset = GraphGenTaskSet(
+        metadata=GraphGenTaskSetMetadata(name="My Tasks"),
         initial_prompt="You are a helpful assistant...",
-        tasks=[ADASTask(id="t1", input={"question": "What is 2+2?"})],
-        gold_outputs=[ADASGoldOutput(output={"answer": "4"}, task_id="t1")],
+        tasks=[GraphGenTask(id="t1", input={"question": "What is 2+2?"})],
+        gold_outputs=[GraphGenGoldOutput(output={"answer": "4"}, task_id="t1")],
     )
-    job = ADASJob.from_dataset(dataset, policy_model="gpt-4o-mini")
+    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini")
     job.submit()
 """
 
@@ -42,10 +42,10 @@ from typing import Any, Callable, Dict, Literal, Optional, Sequence
 from synth_ai.core.telemetry import log_info
 
 from .graphgen_models import (
-    ADASJobConfig,
-    ADASTaskSet,
-    load_adas_taskset,
-    parse_adas_taskset,
+    GraphGenJobConfig,
+    GraphGenTaskSet,
+    load_graphgen_taskset,
+    parse_graphgen_taskset,
     # Aliases for new names
     GraphGenJobConfig,
     GraphGenTaskSet,
@@ -56,10 +56,10 @@ from .utils import ensure_api_base, http_get, http_post
 
 
 @dataclass
-class ADASJobResult:
-    """Result from an ADAS job."""
+class GraphGenJobResult:
+    """Result from an GraphGen job."""
 
-    adas_job_id: str
+    graphgen_job_id: str
     status: str
     best_score: Optional[float] = None
     best_snapshot_id: Optional[str] = None
@@ -70,10 +70,10 @@ class ADASJobResult:
 
 
 @dataclass
-class ADASSubmitResult:
-    """Result from submitting an ADAS job."""
+class GraphGenSubmitResult:
+    """Result from submitting an GraphGen job."""
 
-    adas_job_id: str
+    graphgen_job_id: str
     status: str
     dataset_name: str
     task_count: int
@@ -83,25 +83,25 @@ class ADASSubmitResult:
     gepa_job_id: Optional[str] = None
 
 
-class ADASJob:
-    """High-level SDK class for running ADAS workflow optimization jobs.
+class GraphGenJob:
+    """High-level SDK class for running GraphGen workflow optimization jobs.
 
-    ADAS (Automated Design of Agentic Systems) provides a simplified API for
+    GraphGen (Automated Design of Agentic Systems) provides a simplified API for
     graph/workflow optimization that doesn't require users to manage task apps.
 
     Key differences from PromptLearningJob:
-    - Uses JSON dataset format (ADASTaskSet) instead of TOML configs
-    - No task app management required - ADAS builds it internally
+    - Uses JSON dataset format (GraphGenTaskSet) instead of TOML configs
+    - No task app management required - GraphGen builds it internally
     - Built-in judge modes (rubric, contrastive, gold_examples)
     - Graph-first: trains multi-node workflows by default (Graph-GEPA)
     - Public graph downloads are redacted `.txt` exports only
     - Simpler configuration with sensible defaults
 
     Example:
-        >>> from synth_ai.sdk.api.train.adas import ADASJob
+        >>> from synth_ai.sdk.api.train.adas import GraphGenJob
         >>>
         >>> # Create job from dataset file
-        >>> job = ADASJob.from_dataset(
+        >>> job = GraphGenJob.from_dataset(
         ...     dataset="my_tasks.json",
         ...     policy_model="gpt-4o-mini",
         ...     rollout_budget=100,
@@ -123,17 +123,17 @@ class ADASJob:
     def __init__(
         self,
         *,
-        dataset: ADASTaskSet,
-        config: ADASJobConfig,
+        dataset: GraphGenTaskSet,
+        config: GraphGenJobConfig,
         backend_url: str,
         api_key: str,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize an ADAS job.
+        """Initialize an GraphGen job.
 
         Args:
-            dataset: The ADASTaskSet containing tasks and evaluation config
+            dataset: The GraphGenTaskSet containing tasks and evaluation config
             config: Job configuration (policy model, budget, etc.)
             backend_url: Backend API URL
             api_key: Synth API key
@@ -147,14 +147,14 @@ class ADASJob:
         self.auto_start = auto_start
         self.metadata = metadata or {}
 
-        self._adas_job_id: Optional[str] = None
+        self._graphgen_job_id: Optional[str] = None
         self._gepa_job_id: Optional[str] = None
-        self._submit_result: Optional[ADASSubmitResult] = None
+        self._submit_result: Optional[GraphGenSubmitResult] = None
 
     @classmethod
     def from_dataset(
         cls,
-        dataset: str | Path | Dict[str, Any] | ADASTaskSet,
+        dataset: str | Path | Dict[str, Any] | GraphGenTaskSet,
         *,
         policy_model: str = "gpt-4o-mini",
         rollout_budget: int = 100,
@@ -167,11 +167,11 @@ class ADASJob:
         api_key: Optional[str] = None,
         auto_start: bool = True,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> ADASJob:
-        """Create an ADAS job from a dataset.
+    ) -> GraphGenJob:
+        """Create an GraphGen job from a dataset.
 
         Args:
-            dataset: Dataset as file path, dict, or ADASTaskSet object
+            dataset: Dataset as file path, dict, or GraphGenTaskSet object
             policy_model: Model to use for policy inference
             rollout_budget: Total number of rollouts for optimization
             proposer_effort: Proposer effort level (low, medium, high)
@@ -185,34 +185,34 @@ class ADASJob:
             metadata: Additional metadata for the job
 
         Returns:
-            ADASJob instance
+            GraphGenJob instance
 
         Example:
             >>> # From file
-            >>> job = ADASJob.from_dataset("tasks.json")
+            >>> job = GraphGenJob.from_dataset("tasks.json")
             >>>
             >>> # From dict
-            >>> job = ADASJob.from_dataset({
+            >>> job = GraphGenJob.from_dataset({
             ...     "metadata": {"name": "My Tasks"},
             ...     "initial_prompt": "You are helpful.",
             ...     "tasks": [{"id": "t1", "input": {"q": "Hi"}}],
             ... })
             >>>
-            >>> # From ADASTaskSet object
-            >>> job = ADASJob.from_dataset(my_taskset, policy_model="gpt-4o")
+            >>> # From GraphGenTaskSet object
+            >>> job = GraphGenJob.from_dataset(my_taskset, policy_model="gpt-4o")
         """
         from synth_ai.core.env import get_backend_from_env
 
         # Parse dataset
         if isinstance(dataset, (str, Path)):
-            parsed_dataset = load_adas_taskset(dataset)
+            parsed_dataset = load_graphgen_taskset(dataset)
         elif isinstance(dataset, dict):
-            parsed_dataset = parse_adas_taskset(dataset)
-        elif isinstance(dataset, ADASTaskSet):
+            parsed_dataset = parse_graphgen_taskset(dataset)
+        elif isinstance(dataset, GraphGenTaskSet):
             parsed_dataset = dataset
         else:
             raise TypeError(
-                f"dataset must be a file path, dict, or ADASTaskSet, got {type(dataset)}"
+                f"dataset must be a file path, dict, or GraphGenTaskSet, got {type(dataset)}"
             )
 
         # Resolve backend URL
@@ -231,7 +231,7 @@ class ADASJob:
                 )
 
         # Build config
-        config = ADASJobConfig(
+        config = GraphGenJobConfig(
             policy_model=policy_model,
             rollout_budget=rollout_budget,
             proposer_effort=proposer_effort,
@@ -256,16 +256,16 @@ class ADASJob:
         job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> ADASJob:
-        """Resume an existing ADAS job by ID.
+    ) -> GraphGenJob:
+        """Resume an existing GraphGen job by ID.
 
         Args:
-            job_id: ADAS job ID ("adas_*") or underlying GEPA job ID ("pl_*")
+            job_id: GraphGen job ID ("graphgen_*") or underlying GEPA job ID ("pl_*")
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
 
         Returns:
-            ADASJob instance for the existing job
+            GraphGenJob instance for the existing job
         """
         from synth_ai.core.env import get_backend_from_env
 
@@ -286,29 +286,29 @@ class ADASJob:
 
         # Create minimal instance - dataset will be fetched from backend if needed
         # For now, create a placeholder dataset
-        from .graphgen_models import ADASTaskSetMetadata, ADASTask
-        placeholder_dataset = ADASTaskSet(
-            metadata=ADASTaskSetMetadata(name="(resumed job)"),
+        from .graphgen_models import GraphGenTaskSetMetadata, GraphGenTask
+        placeholder_dataset = GraphGenTaskSet(
+            metadata=GraphGenTaskSetMetadata(name="(resumed job)"),
             initial_prompt="(resumed job)",
-            tasks=[ADASTask(id="placeholder", input={})],
+            tasks=[GraphGenTask(id="placeholder", input={})],
         )
 
         job = cls(
             dataset=placeholder_dataset,
-            config=ADASJobConfig(),
+            config=GraphGenJobConfig(),
             backend_url=backend_url,
             api_key=api_key,
             auto_start=False,
         )
 
-        # Accept GraphGen/ADAS or graph_evolve/GEPA job IDs - backend handles resolution internally
-        valid_prefixes = ("graphgen_", "adas_", "graph_evolve_", "graph_gepa_", "pl_")
+        # Accept GraphGen/GraphGen or graph_evolve/GEPA job IDs - backend handles resolution internally
+        valid_prefixes = ("graphgen_", "graphgen_", "graph_evolve_", "graph_evolve_", "pl_")
         if not any(job_id.startswith(p) for p in valid_prefixes):
             raise ValueError(
                 f"Unsupported job ID format: {job_id!r}. "
                 f"Expected one of: {valid_prefixes}"
             )
-        job._adas_job_id = job_id
+        job._graphgen_job_id = job_id
         if job_id.startswith("pl_"):
             job._gepa_job_id = job_id
         return job
@@ -319,14 +319,14 @@ class ADASJob:
         gepa_job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-    ) -> ADASJob:
-        """Alias for resuming an ADAS job from a GEPA job ID."""
+    ) -> GraphGenJob:
+        """Alias for resuming an GraphGen job from a GEPA job ID."""
         return cls.from_job_id(gepa_job_id, backend_url=backend_url, api_key=api_key)
 
     @property
     def job_id(self) -> Optional[str]:
-        """Get the ADAS job ID (None if not yet submitted)."""
-        return self._adas_job_id
+        """Get the GraphGen job ID (None if not yet submitted)."""
+        return self._graphgen_job_id
 
     @property
     def gepa_job_id(self) -> Optional[str]:
@@ -373,25 +373,25 @@ class ADASJob:
 
         return payload
 
-    def submit(self) -> ADASSubmitResult:
+    def submit(self) -> GraphGenSubmitResult:
         """Submit the job to the backend.
 
         Returns:
-            ADASSubmitResult with job IDs and initial status
+            GraphGenSubmitResult with job IDs and initial status
 
         Raises:
             RuntimeError: If job submission fails
         """
-        from .graphgen_validators import validate_adas_job_config
+        from .graphgen_validators import validate_graphgen_job_config
 
         ctx: Dict[str, Any] = {"dataset_name": self.dataset.metadata.name}
-        log_info("ADASJob.submit invoked", ctx=ctx)
+        log_info("GraphGenJob.submit invoked", ctx=ctx)
 
-        if self._adas_job_id:
-            raise RuntimeError(f"Job already submitted: {self._adas_job_id}")
+        if self._graphgen_job_id:
+            raise RuntimeError(f"Job already submitted: {self._graphgen_job_id}")
 
         # Validate config + dataset before expensive API call.
-        validate_adas_job_config(self.config, self.dataset)
+        validate_graphgen_job_config(self.config, self.dataset)
 
         payload = self._build_payload()
 
@@ -424,15 +424,15 @@ class ADASJob:
         except Exception as e:
             raise RuntimeError(f"Failed to parse response: {e}") from e
 
-        self._adas_job_id = js.get("adas_job_id")
+        self._graphgen_job_id = js.get("graphgen_job_id")
 
-        if not self._adas_job_id:
-            raise RuntimeError("Response missing adas_job_id")
+        if not self._graphgen_job_id:
+            raise RuntimeError("Response missing graphgen_job_id")
 
         self._gepa_job_id = js.get("gepa_job_id")
 
-        self._submit_result = ADASSubmitResult(
-            adas_job_id=self._adas_job_id,
+        self._submit_result = GraphGenSubmitResult(
+            graphgen_job_id=self._graphgen_job_id,
             status=js.get("status", "queued"),
             dataset_name=js.get("dataset_name", self.dataset.metadata.name),
             task_count=js.get("task_count", len(self.dataset.tasks)),
@@ -442,8 +442,8 @@ class ADASJob:
             gepa_job_id=self._gepa_job_id,
         )
 
-        ctx["adas_job_id"] = self._adas_job_id
-        log_info("ADASJob.submit completed", ctx=ctx)
+        ctx["graphgen_job_id"] = self._graphgen_job_id
+        log_info("GraphGenJob.submit completed", ctx=ctx)
 
         return self._submit_result
 
@@ -478,7 +478,7 @@ class ADASJob:
         return data
 
     def start(self) -> Dict[str, Any]:
-        """Start a queued ADAS job.
+        """Start a queued GraphGen job.
 
         This is only needed if the job was created with auto_start=False or ended up queued.
         """
@@ -502,7 +502,7 @@ class ADASJob:
         return data
 
     def get_events(self, *, since_seq: int = 0, limit: int = 1000) -> Dict[str, Any]:
-        """Fetch events for this ADAS job.
+        """Fetch events for this GraphGen job.
 
         Returns backend envelope: {"events": [...], "has_more": bool, "next_seq": int}.
         """
@@ -528,7 +528,7 @@ class ADASJob:
         limit: int = 500,
         run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Fetch metrics for this ADAS job.
+        """Fetch metrics for this GraphGen job.
 
         Mirrors GET /api/graphgen/jobs/{job_id}/metrics.
         """
@@ -583,7 +583,7 @@ class ADASJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         from synth_ai.sdk.streaming import (
-            ADASHandler,
+            GraphGenHandler,
             JobStreamer,
             StreamConfig,
             StreamEndpoints,
@@ -599,14 +599,14 @@ class ADASJob:
 
         # Use provided handlers or default CLI handler
         if handlers is None:
-            handlers = [ADASHandler()]
+            handlers = [GraphGenHandler()]
 
-        # Create streamer with ADAS endpoints
-        # Backend handles ADAS → GEPA resolution internally via job_relationships table
+        # Create streamer with GraphGen endpoints
+        # Backend handles GraphGen → GEPA resolution internally via job_relationships table
         streamer = JobStreamer(
             base_url=self.backend_url,
             api_key=self.api_key,
-            job_id=self.job_id,  # Only ADAS job ID - backend resolves to GEPA internally
+            job_id=self.job_id,  # Only GraphGen job ID - backend resolves to GEPA internally
             endpoints=StreamEndpoints.adas(self.job_id),
             config=config,
             handlers=list(handlers),
@@ -652,7 +652,7 @@ class ADASJob:
     def download_graph_txt(self) -> str:
         """Download a PUBLIC (redacted) graph export for a completed job.
 
-        Graph-first ADAS jobs produce multi-node graphs. The internal graph
+        Graph-first GraphGen jobs produce multi-node graphs. The internal graph
         YAML/spec is proprietary and never exposed. This helper downloads the
         `.txt` export from:
             GET /api/graphgen/jobs/{job_id}/graph.txt
@@ -801,7 +801,7 @@ class ADASJob:
 
 
 __all__ = [
-    "ADASJob",
-    "ADASJobResult",
-    "ADASSubmitResult",
+    "GraphGenJob",
+    "GraphGenJobResult",
+    "GraphGenSubmitResult",
 ]

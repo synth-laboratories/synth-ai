@@ -1,31 +1,31 @@
-"""ADAS (Automated Design of Agentic Systems) data models.
+"""GraphGen (Automated Design of Agentic Systems) data models.
 
-This module provides Pydantic models for defining ADAS datasets and job configurations.
-ADAS is a simplified "Workflows API" for prompt optimization that wraps GEPA with
+This module provides Pydantic models for defining GraphGen datasets and job configurations.
+GraphGen is a simplified "Workflows API" for prompt optimization that wraps GEPA with
 auto-generated task apps and built-in judge configurations.
 
 Example:
     from synth_ai.sdk.api.train.graphgen_models import (
-        ADASTaskSet,
-        ADASTask,
-        ADASGoldOutput,
-        ADASRubric,
-        ADASJobConfig,
+        GraphGenTaskSet,
+        GraphGenTask,
+        GraphGenGoldOutput,
+        GraphGenRubric,
+        GraphGenJobConfig,
     )
 
     # Create a dataset
-    dataset = ADASTaskSet(
-        metadata=ADASTaskSetMetadata(name="My Dataset"),
+    dataset = GraphGenTaskSet(
+        metadata=GraphGenTaskSetMetadata(name="My Dataset"),
         initial_prompt="You are a helpful assistant...",
         tasks=[
-            ADASTask(id="task1", input={"question": "What is 2+2?"}),
-            ADASTask(id="task2", input={"question": "What is the capital of France?"}),
+            GraphGenTask(id="task1", input={"question": "What is 2+2?"}),
+            GraphGenTask(id="task2", input={"question": "What is the capital of France?"}),
         ],
         gold_outputs=[
-            ADASGoldOutput(output={"answer": "4"}, task_id="task1"),
-            ADASGoldOutput(output={"answer": "Paris"}, task_id="task2"),
+            GraphGenGoldOutput(output={"answer": "4"}, task_id="task1"),
+            GraphGenGoldOutput(output={"answer": "Paris"}, task_id="task2"),
         ],
-        judge_config=ADASJudgeConfig(mode="rubric"),
+        judge_config=GraphGenJudgeConfig(mode="rubric"),
     )
 """
 
@@ -38,7 +38,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-class ADASTaskSetMetadata(BaseModel):
+class GraphGenTaskSetMetadata(BaseModel):
     """Metadata about the dataset."""
 
     name: str
@@ -61,7 +61,7 @@ class ADASTaskSetMetadata(BaseModel):
     )
 
 
-class ADASRubricCriterion(BaseModel):
+class GraphGenRubricCriterion(BaseModel):
     """A single rubric criterion for evaluation."""
 
     name: str
@@ -70,26 +70,26 @@ class ADASRubricCriterion(BaseModel):
     weight: float = 1.0
 
 
-class ADASRubricOutcome(BaseModel):
+class GraphGenRubricOutcome(BaseModel):
     """Outcome-level rubric (evaluates final output)."""
 
-    criteria: List[ADASRubricCriterion] = Field(default_factory=list)
+    criteria: List[GraphGenRubricCriterion] = Field(default_factory=list)
 
 
-class ADASRubricEvents(BaseModel):
+class GraphGenRubricEvents(BaseModel):
     """Event-level rubric (evaluates intermediate steps)."""
 
-    criteria: List[ADASRubricCriterion] = Field(default_factory=list)
+    criteria: List[GraphGenRubricCriterion] = Field(default_factory=list)
 
 
-class ADASRubric(BaseModel):
+class GraphGenRubric(BaseModel):
     """Rubric for evaluating task outputs."""
 
-    outcome: Optional[ADASRubricOutcome] = None
-    events: Optional[ADASRubricEvents] = None
+    outcome: Optional[GraphGenRubricOutcome] = None
+    events: Optional[GraphGenRubricEvents] = None
 
 
-class ADASTask(BaseModel):
+class GraphGenTask(BaseModel):
     """A single task in the dataset.
 
     Tasks have arbitrary JSON inputs and optional task-specific rubrics.
@@ -100,12 +100,12 @@ class ADASTask(BaseModel):
     input: Dict[str, Any] = Field(
         ..., description="Arbitrary JSON input for the task"
     )
-    rubric: Optional[ADASRubric] = Field(
+    rubric: Optional[GraphGenRubric] = Field(
         default=None, description="Task-specific rubric (merged with default_rubric)"
     )
 
 
-class ADASGoldOutput(BaseModel):
+class GraphGenGoldOutput(BaseModel):
     """A gold/reference output.
 
     Can be linked to a specific task via task_id, or standalone (for reference examples).
@@ -124,7 +124,7 @@ class ADASGoldOutput(BaseModel):
     )
 
 
-class ADASJudgeConfig(BaseModel):
+class GraphGenJudgeConfig(BaseModel):
     """Configuration for the judge used during optimization."""
 
     mode: Literal["rubric", "contrastive", "gold_examples"] = Field(
@@ -146,43 +146,43 @@ class ADASJudgeConfig(BaseModel):
     )
 
 
-class ADASTaskSet(BaseModel):
-    """The complete ADAS dataset format.
+class GraphGenTaskSet(BaseModel):
+    """The complete GraphGen dataset format.
 
     Contains tasks with arbitrary JSON inputs, gold outputs (optionally linked to tasks),
     rubrics (task-specific and/or default), and judge configuration.
 
     Example:
-        dataset = ADASTaskSet(
-            metadata=ADASTaskSetMetadata(name="QA Dataset"),
+        dataset = GraphGenTaskSet(
+            metadata=GraphGenTaskSetMetadata(name="QA Dataset"),
             initial_prompt="Answer the question concisely.",
             tasks=[
-                ADASTask(id="q1", input={"question": "What is 2+2?"}),
+                GraphGenTask(id="q1", input={"question": "What is 2+2?"}),
             ],
             gold_outputs=[
-                ADASGoldOutput(output={"answer": "4"}, task_id="q1"),
+                GraphGenGoldOutput(output={"answer": "4"}, task_id="q1"),
             ],
         )
     """
 
     version: str = "1.0"
-    metadata: ADASTaskSetMetadata
+    metadata: GraphGenTaskSetMetadata
     initial_prompt: str = Field(
         ..., description="The initial system prompt to optimize"
     )
-    tasks: List[ADASTask] = Field(
+    tasks: List[GraphGenTask] = Field(
         ..., min_length=1, description="List of tasks to evaluate"
     )
-    gold_outputs: List[ADASGoldOutput] = Field(
+    gold_outputs: List[GraphGenGoldOutput] = Field(
         default_factory=list,
         description="Gold/reference outputs (linked to tasks or standalone)",
     )
-    default_rubric: Optional[ADASRubric] = Field(
+    default_rubric: Optional[GraphGenRubric] = Field(
         default=None,
         description="Default rubric applied to all tasks (merged with task-specific rubrics)",
     )
-    judge_config: ADASJudgeConfig = Field(
-        default_factory=ADASJudgeConfig,
+    judge_config: GraphGenJudgeConfig = Field(
+        default_factory=GraphGenJudgeConfig,
         description="Configuration for the judge",
     )
     # Optional schemas (also accepted at top-level for backward/forward compatibility).
@@ -202,7 +202,7 @@ class ADASTaskSet(BaseModel):
 
     @field_validator("tasks")
     @classmethod
-    def validate_unique_task_ids(cls, v: List[ADASTask]) -> List[ADASTask]:
+    def validate_unique_task_ids(cls, v: List[GraphGenTask]) -> List[GraphGenTask]:
         """Ensure all task IDs are unique."""
         ids = [task.id for task in v]
         if len(ids) != len(set(ids)):
@@ -213,8 +213,8 @@ class ADASTaskSet(BaseModel):
     @field_validator("gold_outputs")
     @classmethod
     def validate_gold_output_task_ids(
-        cls, v: List[ADASGoldOutput], info
-    ) -> List[ADASGoldOutput]:
+        cls, v: List[GraphGenGoldOutput], info
+    ) -> List[GraphGenGoldOutput]:
         """Ensure gold output task_ids reference valid tasks."""
         tasks = info.data.get("tasks", [])
         if tasks:
@@ -226,27 +226,27 @@ class ADASTaskSet(BaseModel):
                     )
         return v
 
-    def get_task_by_id(self, task_id: str) -> Optional[ADASTask]:
+    def get_task_by_id(self, task_id: str) -> Optional[GraphGenTask]:
         """Get a task by its ID."""
         for task in self.tasks:
             if task.id == task_id:
                 return task
         return None
 
-    def get_task_by_index(self, index: int) -> Optional[ADASTask]:
+    def get_task_by_index(self, index: int) -> Optional[GraphGenTask]:
         """Get a task by index (for seed-based lookup)."""
         if 0 <= index < len(self.tasks):
             return self.tasks[index]
         return None
 
-    def get_gold_output_for_task(self, task_id: str) -> Optional[ADASGoldOutput]:
+    def get_gold_output_for_task(self, task_id: str) -> Optional[GraphGenGoldOutput]:
         """Get the gold output linked to a specific task."""
         for gold in self.gold_outputs:
             if gold.task_id == task_id:
                 return gold
         return None
 
-    def get_standalone_gold_outputs(self) -> List[ADASGoldOutput]:
+    def get_standalone_gold_outputs(self) -> List[GraphGenGoldOutput]:
         """Get gold outputs not linked to any task (reference pool for contrastive judge)."""
         return [gold for gold in self.gold_outputs if gold.task_id is None]
 
@@ -287,11 +287,11 @@ DEFAULT_JUDGE_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_JUDGE_PROVIDER = "groq"
 
 
-class ADASJobConfig(BaseModel):
-    """Configuration for an ADAS optimization job.
+class GraphGenJobConfig(BaseModel):
+    """Configuration for an GraphGen optimization job.
 
     Example:
-        config = ADASJobConfig(
+        config = GraphGenJobConfig(
             policy_model="gpt-4o-mini",
             rollout_budget=100,
             proposer_effort="medium",
@@ -379,32 +379,32 @@ def _detect_provider(model: str) -> str:
         return "openai"
 
 
-def parse_adas_taskset(data: Dict[str, Any]) -> ADASTaskSet:
-    """Parse a dictionary into an ADASTaskSet.
+def parse_graphgen_taskset(data: Dict[str, Any]) -> GraphGenTaskSet:
+    """Parse a dictionary into an GraphGenTaskSet.
 
     Args:
         data: Dictionary containing the taskset data (from JSON)
 
     Returns:
-        Validated ADASTaskSet
+        Validated GraphGenTaskSet
 
     Raises:
         ValueError: If validation fails
     """
     try:
-        return ADASTaskSet.model_validate(data)
+        return GraphGenTaskSet.model_validate(data)
     except Exception as e:
-        raise ValueError(f"Invalid ADASTaskSet format: {e}") from e
+        raise ValueError(f"Invalid GraphGenTaskSet format: {e}") from e
 
 
-def load_adas_taskset(path: str | Path) -> ADASTaskSet:
-    """Load an ADASTaskSet from a JSON file.
+def load_graphgen_taskset(path: str | Path) -> GraphGenTaskSet:
+    """Load an GraphGenTaskSet from a JSON file.
 
     Args:
         path: Path to JSON file
 
     Returns:
-        Validated ADASTaskSet
+        Validated GraphGenTaskSet
 
     Raises:
         FileNotFoundError: If file doesn't exist
@@ -417,22 +417,22 @@ def load_adas_taskset(path: str | Path) -> ADASTaskSet:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    return parse_adas_taskset(data)
+    return parse_graphgen_taskset(data)
 
 
 # GraphGen aliases (preferred names)
-GraphGenTaskSet = ADASTaskSet
-GraphGenTaskSetMetadata = ADASTaskSetMetadata
-GraphGenTask = ADASTask
-GraphGenGoldOutput = ADASGoldOutput
-GraphGenRubric = ADASRubric
-GraphGenRubricCriterion = ADASRubricCriterion
-GraphGenRubricOutcome = ADASRubricOutcome
-GraphGenRubricEvents = ADASRubricEvents
-GraphGenJudgeConfig = ADASJudgeConfig
-GraphGenJobConfig = ADASJobConfig
-parse_graphgen_taskset = parse_adas_taskset
-load_graphgen_taskset = load_adas_taskset
+GraphGenTaskSet = GraphGenTaskSet
+GraphGenTaskSetMetadata = GraphGenTaskSetMetadata
+GraphGenTask = GraphGenTask
+GraphGenGoldOutput = GraphGenGoldOutput
+GraphGenRubric = GraphGenRubric
+GraphGenRubricCriterion = GraphGenRubricCriterion
+GraphGenRubricOutcome = GraphGenRubricOutcome
+GraphGenRubricEvents = GraphGenRubricEvents
+GraphGenJudgeConfig = GraphGenJudgeConfig
+GraphGenJobConfig = GraphGenJobConfig
+parse_graphgen_taskset = parse_graphgen_taskset
+load_graphgen_taskset = load_graphgen_taskset
 
 __all__ = [
     # GraphGen names (preferred)
@@ -448,19 +448,19 @@ __all__ = [
     "GraphGenJobConfig",
     "parse_graphgen_taskset",
     "load_graphgen_taskset",
-    # Legacy ADAS names (backwards compatibility)
-    "ADASTaskSet",
-    "ADASTaskSetMetadata",
-    "ADASTask",
-    "ADASGoldOutput",
-    "ADASRubric",
-    "ADASRubricCriterion",
-    "ADASRubricOutcome",
-    "ADASRubricEvents",
-    "ADASJudgeConfig",
-    "ADASJobConfig",
-    "parse_adas_taskset",
-    "load_adas_taskset",
+    # Legacy GraphGen names (backwards compatibility)
+    "GraphGenTaskSet",
+    "GraphGenTaskSetMetadata",
+    "GraphGenTask",
+    "GraphGenGoldOutput",
+    "GraphGenRubric",
+    "GraphGenRubricCriterion",
+    "GraphGenRubricOutcome",
+    "GraphGenRubricEvents",
+    "GraphGenJudgeConfig",
+    "GraphGenJobConfig",
+    "parse_graphgen_taskset",
+    "load_graphgen_taskset",
     # Constants
     "SUPPORTED_POLICY_MODELS",
     "SUPPORTED_JUDGE_MODELS",

@@ -39,8 +39,8 @@ from synth_ai.sdk.streaming import (
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
 from .task_app import check_task_app_health
-from .graphgen import ADASJob
-from .graphgen_models import load_adas_taskset
+from .graphgen import GraphGenJob
+from .graphgen_models import load_graphgen_taskset
 from .context_learning import ContextLearningJob
 from .utils import (
     TrainError,
@@ -1188,7 +1188,7 @@ def handle_adas(
     # Load dataset
     click.echo(f"Loading ADAS dataset from: {dataset_path}")
     try:
-        dataset = load_adas_taskset(dataset_path)
+        dataset = load_graphgen_taskset(dataset_path)
     except FileNotFoundError:
         raise click.ClickException(f"Dataset file not found: {dataset_path}")
     except ValueError as e:
@@ -1200,7 +1200,7 @@ def handle_adas(
     click.echo(f"  Judge mode: {dataset.judge_config.mode}")
 
     # Create ADAS job
-    job = ADASJob.from_dataset(
+    job = GraphGenJob.from_dataset(
         dataset=dataset,
         policy_model=policy_model or "gpt-4o-mini",
         rollout_budget=rollout_budget or 100,
