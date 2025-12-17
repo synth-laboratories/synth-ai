@@ -1175,6 +1175,86 @@ def store_tunnel_credentials(
 # ---------------------------------------------------------------------------
 
 
+async def rotate_tunnel(
+    synth_api_key: str,
+    port: int,
+    reason: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    Rotate (delete + recreate) the org's managed tunnel via Synth backend API.
+
+    This is useful when a tunnel becomes stale or inaccessible. It will:
+    1. Delete any existing active tunnels for the org
+    2. Create a fresh tunnel with a new auto-generated subdomain
+
+    Args:
+        synth_api_key: Synth API key for authentication
+        port: Local port the new tunnel will forward to
+        reason: Optional reason for rotation (for logging)
+
+    Returns:
+        Dict containing:
+        - tunnel_token: Token for cloudflared
+        - hostname: Public hostname (e.g., "task-8114-12345.usesynth.ai")
+        - access_client_id: Cloudflare Access client ID (if Access enabled)
+        - access_client_secret: Cloudflare Access client secret (if Access enabled)
+
+    Raises:
+        RuntimeError: If API request fails
+    """
+    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/rotate"
+
+    def mask_key(key: str) -> str:
+        if len(key) > 14:
+            return f"{key[:10]}...{key[-4:]}"
+        return f"{key[:6]}..."
+
+    try:
+        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as client:
+            response = await client.post(
+                url,
+                headers={
+                    "X-API-Key": synth_api_key,
+                    "Authorization": f"Bearer {synth_api_key}",
+                },
+                json={
+                    "local_port": port,
+                    "local_host": "127.0.0.1",
+                    "reason": reason,
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as exc:
+        error_detail = exc.response.text
+        try:
+            import json
+            error_json = json.loads(error_detail)
+            error_detail = str(error_json.get("detail", error_detail))
+        except Exception:
+            pass
+
+        raise RuntimeError(
+            f"Backend API returned {exc.response.status_code} when rotating tunnel:\n"
+            f"  Error: {error_detail}\n"
+            f"  URL: {url}\n"
+            f"  API Key: {mask_key(synth_api_key)}"
+        ) from exc
+    except httpx.ReadTimeout as exc:
+        raise RuntimeError(
+            f"Request timed out when rotating tunnel (backend may be under load):\n"
+            f"  URL: {url}\n"
+            f"  Timeout: 90s\n"
+            f"  Try again in a moment or use tunnel_mode='quick'"
+        ) from exc
+    except httpx.RequestError as exc:
+        raise RuntimeError(
+            f"Failed to connect to backend when rotating tunnel:\n"
+            f"  URL: {url}\n"
+            f"  Error: {exc}"
+        ) from exc
+
+
 async def create_tunnel(
     synth_api_key: str,
     port: int,

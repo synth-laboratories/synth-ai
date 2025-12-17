@@ -22,6 +22,7 @@ from synth_ai.core.integrations.cloudflare import (
     ensure_cloudflared_installed,
     open_managed_tunnel,
     open_quick_tunnel_with_dns_verification,
+    rotate_tunnel,
     stop_tunnel,
     wait_for_health_check,
 )
@@ -746,11 +747,11 @@ class InProcessTaskApp:
                     "Tunnel configuration incomplete (missing hostname or token). "
                     "Try deleting and recreating the tunnel, or use tunnel_mode='quick'."
                 )
-            
+
             self.url = f"https://{named_host}"
             print(f"[CLOUDFLARE-FIX] Named tunnel URL: {self.url}")
             print(f"[CLOUDFLARE-FIX] skip_tunnel_verification={self.skip_tunnel_verification}")
-            
+
             # Skip all verification if requested (useful when local DNS can't resolve tunnel)
             if self.skip_tunnel_verification:
                 print("[CLOUDFLARE-FIX] Skipping verification, starting cloudflared...")
@@ -781,14 +782,14 @@ class InProcessTaskApp:
                     retry_delay=1.0,
                     verify_tls=_should_verify_tls(),
                 )
-                
+
                 if not ready:
                     # Tunnel not accessible - auto-start cloudflared
                     logger.info(f"Tunnel {self.url} not accessible, starting cloudflared...")
                     try:
                         self._tunnel_proc = open_managed_tunnel(tunnel_token)
                         logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
-                        
+
                         # Wait for tunnel to become ready
                         ready = await _verify_tunnel_ready(
                             self.url,
@@ -797,19 +798,70 @@ class InProcessTaskApp:
                             retry_delay=2.0,
                             verify_tls=_should_verify_tls(),
                         )
-                        
+
                         if not ready:
                             # Clean up failed tunnel process
                             if self._tunnel_proc:
                                 stop_tunnel(self._tunnel_proc)
                                 self._tunnel_proc = None
-                            raise RuntimeError(
-                                f"Tunnel {self.url} failed to become accessible after starting cloudflared. "
-                                "The tunnel may be stale or misconfigured. "
-                                "Try using tunnel_mode='quick' instead."
+
+                            # AUTO-ROTATE: Tunnel is stale, request rotation from backend
+                            print(f"[CLOUDFLARE-FIX] Tunnel {self.url} is stale, auto-rotating...")
+                            logger.warning(
+                                f"Tunnel {self.url} failed to become accessible. "
+                                "Attempting automatic rotation..."
                             )
+
+                            try:
+                                rotated = await rotate_tunnel(
+                                    synth_api_key=synth_api_key,
+                                    port=self.port,
+                                    reason=f"Stale tunnel {named_host} failed verification",
+                                )
+                                named_host = rotated.get("hostname")
+                                tunnel_token = rotated.get("tunnel_token")
+
+                                if not named_host or not tunnel_token:
+                                    raise RuntimeError("Rotation returned incomplete tunnel config")
+
+                                self.url = f"https://{named_host}"
+                                print(f"[CLOUDFLARE-FIX] Rotated to new tunnel: {self.url}")
+                                logger.info(f"Successfully rotated to new tunnel: {self.url}")
+
+                                # Start cloudflared with the new token
+                                self._tunnel_proc = open_managed_tunnel(tunnel_token)
+                                logger.info(f"Started cloudflared for rotated tunnel (PID: {self._tunnel_proc.pid})")
+
+                                # Verify the new tunnel
+                                ready = await _verify_tunnel_ready(
+                                    self.url,
+                                    api_key,
+                                    max_retries=15,  # Give new tunnel more time
+                                    retry_delay=2.0,
+                                    verify_tls=_should_verify_tls(),
+                                )
+
+                                if not ready:
+                                    if self._tunnel_proc:
+                                        stop_tunnel(self._tunnel_proc)
+                                        self._tunnel_proc = None
+                                    raise RuntimeError(
+                                        f"Rotated tunnel {self.url} also failed verification. "
+                                        "This may indicate a Cloudflare configuration issue. "
+                                        "Try using tunnel_mode='quick' instead."
+                                    )
+
+                                print(f"[CLOUDFLARE-FIX] Rotated tunnel verified and ready: {self.url}")
+                                logger.info(f"Rotated tunnel verified: {self.url}")
+
+                            except Exception as rotate_err:
+                                logger.error(f"Tunnel rotation failed: {rotate_err}")
+                                raise RuntimeError(
+                                    f"Tunnel {self.url} failed to become accessible and auto-rotation failed: {rotate_err}\n"
+                                    "Try using tunnel_mode='quick' instead."
+                                ) from rotate_err
                     except Exception as e:
-                        if "Failed to become accessible" not in str(e):
+                        if "Failed to become accessible" not in str(e) and "auto-rotation failed" not in str(e):
                             raise RuntimeError(
                                 f"Failed to start cloudflared: {e}\n"
                                 "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
@@ -969,7 +1021,7 @@ class InProcessTaskApp:
         backend_url = get_backend_url()
         url = f"{backend_url}/api/v1/tunnels/"
         
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
                 resp = await client.get(
                     url,
