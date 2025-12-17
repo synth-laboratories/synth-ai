@@ -1179,6 +1179,7 @@ async def rotate_tunnel(
     synth_api_key: str,
     port: int,
     reason: Optional[str] = None,
+    backend_url: Optional[str] = None,
 ) -> dict[str, Any]:
     """
     Rotate (delete + recreate) the org's managed tunnel via Synth backend API.
@@ -1191,6 +1192,7 @@ async def rotate_tunnel(
         synth_api_key: Synth API key for authentication
         port: Local port the new tunnel will forward to
         reason: Optional reason for rotation (for logging)
+        backend_url: Optional backend URL (defaults to get_backend_url())
 
     Returns:
         Dict containing:
@@ -1202,7 +1204,10 @@ async def rotate_tunnel(
     Raises:
         RuntimeError: If API request fails
     """
-    url = f"{BACKEND_URL_BASE}/api/v1/tunnels/rotate"
+    from synth_ai.core.env import get_backend_url
+    
+    base_url = backend_url or get_backend_url()
+    url = f"{base_url}/api/v1/tunnels/rotate"
 
     def mask_key(key: str) -> str:
         if len(key) > 14:
