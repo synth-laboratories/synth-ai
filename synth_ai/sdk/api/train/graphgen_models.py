@@ -16,7 +16,6 @@ Example:
     # Create a dataset
     dataset = GraphGenTaskSet(
         metadata=GraphGenTaskSetMetadata(name="My Dataset"),
-        initial_prompt="You are a helpful assistant...",
         tasks=[
             GraphGenTask(id="task1", input={"question": "What is 2+2?"}),
             GraphGenTask(id="task2", input={"question": "What is the capital of France?"}),

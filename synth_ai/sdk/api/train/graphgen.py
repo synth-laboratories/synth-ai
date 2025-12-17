@@ -22,11 +22,10 @@ Example SDK usage:
     # Or programmatically
     dataset = GraphGenTaskSet(
         metadata=GraphGenTaskSetMetadata(name="My Tasks"),
-        initial_prompt="You are a helpful assistant...",
         tasks=[GraphGenTask(id="t1", input={"question": "What is 2+2?"})],
         gold_outputs=[GraphGenGoldOutput(output={"answer": "4"}, task_id="t1")],
     )
-    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini")
+    job = GraphGenJob.from_dataset(dataset, policy_model="gpt-4o-mini", problem_spec="You are a helpful assistant.")
     job.submit()
 """
 
@@ -200,9 +199,8 @@ class GraphGenJob:
             >>> # From dict
             >>> job = GraphGenJob.from_dataset({
             ...     "metadata": {"name": "My Tasks"},
-            ...     "initial_prompt": "You are helpful.",
             ...     "tasks": [{"id": "t1", "input": {"q": "Hi"}}],
-            ... })
+            ... }, problem_spec="You are helpful.")
             >>>
             >>> # From GraphGenTaskSet object
             >>> job = GraphGenJob.from_dataset(my_taskset, policy_model="gpt-4o")
@@ -362,9 +360,15 @@ class GraphGenJob:
         eval_sample_size = metadata.pop("eval_sample_size", None)
         feedback_sample_size = metadata.pop("feedback_sample_size", None)
 
+        # Build dataset dict and ensure it has an initial_prompt to satisfy legacy backend validation
+        # GraphGen is graph-first and doesn't really use this, so we use a placeholder or problem_spec
+        dataset_dict = self.dataset.model_dump()
+        if "initial_prompt" not in dataset_dict:
+            dataset_dict["initial_prompt"] = self.config.problem_spec or "Optimizing prompt graph..."
+
         payload: Dict[str, Any] = {
-            "dataset": self.dataset.model_dump(),
-            "initial_prompt": None,  # Use prompt from dataset
+            "dataset": dataset_dict,
+            "initial_prompt": None,  # Top-level initial_prompt is ignored in favor of dataset.initial_prompt
             "policy_model": self.config.policy_model,
             "policy_provider": self.config.policy_provider,
             "rollout_budget": self.config.rollout_budget,

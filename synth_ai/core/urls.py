@@ -1,7 +1,7 @@
 import os
 
 # Base URL for all backends
-BACKEND_URL_BASE = os.getenv("SYNTH_BACKEND_OVERRIDE") or "https://api.usesynth.ai"
+BACKEND_URL_BASE = os.getenv("SYNTH_BACKEND_OVERRIDE") or "https://www.api.usesynth.ai"
 
 # Synth Research API base (supports OpenAI, Anthropic, and custom formats)
 # Real routes: /api/synth-research/chat/completions, /api/synth-research/messages
