@@ -422,7 +422,7 @@ class GraphGenJob:
         # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
         create_url = f"{self.backend_url}/graphgen/jobs"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
@@ -485,7 +485,7 @@ class GraphGenJob:
 
         url = f"{self.backend_url}/graphgen/jobs/{self.job_id}"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -511,7 +511,7 @@ class GraphGenJob:
 
         url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/start"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
@@ -535,7 +535,7 @@ class GraphGenJob:
 
         base = f"{self.backend_url}/graphgen/jobs/{self.job_id}/events"
         url = f"{base}?since_seq={since_seq}&limit={limit}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -571,7 +571,7 @@ class GraphGenJob:
 
         qs = urlencode(params)
         url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/metrics?{qs}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -660,7 +660,7 @@ class GraphGenJob:
 
         url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/download"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
         }
 
         resp = http_get(url, headers=headers, timeout=30.0)
@@ -685,7 +685,7 @@ class GraphGenJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         url = f"{self.backend_url}/graphgen/jobs/{self.job_id}/graph.txt"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {"X-API-Key": self.api_key}
 
         resp = http_get(url, headers=headers, timeout=30.0)
         if resp.status_code != 200:
@@ -726,7 +726,7 @@ class GraphGenJob:
 
         url = f"{self.backend_url}/graphgen/graph/completions"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
@@ -803,7 +803,7 @@ class GraphGenJob:
 
         url = f"{self.backend_url}/graphgen/graph/record"
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "Content-Type": "application/json",
         }
 
