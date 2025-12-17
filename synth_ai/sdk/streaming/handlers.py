@@ -334,7 +334,7 @@ class IntegrationTestHandler(StreamHandler):
         self.messages.clear()
 
 
-class ADASHandler(StreamHandler):
+class GraphGenHandler(StreamHandler):
     """Handler for ADAS jobs that delegate child job streams to an underlying handler.
     
     ADAS jobs emit events from child jobs (GEPA, MIPRO, RL, SFT, etc.). This handler
@@ -1970,7 +1970,7 @@ class PromptLearningHandler(StreamHandler):
 
 
 __all__ = [
-    "ADASHandler",
+    "GraphGenHandler",
     "BufferedHandler",
     "CallbackHandler",
     "CLIHandler",

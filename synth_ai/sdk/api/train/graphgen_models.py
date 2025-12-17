@@ -261,6 +261,10 @@ SUPPORTED_POLICY_MODELS = {
     "gpt-4o-mini",
     "gpt-4o",
     "gpt-4-turbo",
+    # OpenAI - GPT-4.1 series
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
     # Gemini
     "gemini-1.5-flash",
     "gemini-1.5-pro",
@@ -354,6 +358,25 @@ class GraphGenJobConfig(BaseModel):
     evaluation_seeds: Optional[List[int]] = Field(
         default=None,
         description="Specific seeds to use for evaluation (auto-generated if not specified)",
+    )
+    problem_spec: Optional[str] = Field(
+        default=None,
+        description=(
+            "Detailed problem specification for the graph proposer. "
+            "Include domain-specific information like valid output labels for classification, "
+            "constraints, format requirements, or any other info needed to generate correct graphs. "
+            "This is combined with the dataset's task_description to form the full proposer context."
+        ),
+    )
+    target_llm_calls: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=10,
+        description=(
+            "Target number of LLM calls for the graph (1-10). "
+            "Controls max_llm_calls_per_run in the graph_evolve proposer. "
+            "If not specified, defaults to 5."
+        ),
     )
 
     def get_policy_provider(self) -> str:

@@ -1,4 +1,4 @@
-"""SDK-side validation for ADAS jobs.
+"""SDK-side validation for GraphGen jobs.
 
 Catch common configuration and dataset issues before calling the backend.
 """
@@ -9,11 +9,11 @@ import difflib
 import warnings
 from typing import Any, Dict, List, Set
 
-from .graphgen_models import ADASJobConfig, ADASTaskSet, SUPPORTED_POLICY_MODELS
+from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, SUPPORTED_POLICY_MODELS
 
 
-class ADASValidationError(Exception):
-    """Raised when an ADAS job configuration is invalid."""
+class GraphGenValidationError(Exception):
+    """Raised when an GraphGen job configuration is invalid."""
 
     def __init__(self, message: str, errors: List[Dict[str, Any]]) -> None:
         self.message = message
@@ -37,8 +37,8 @@ def _find_similar_models(
         return []
 
 
-def validate_adas_job_config(config: ADASJobConfig, dataset: ADASTaskSet) -> None:
-    """Validate an ADAS job config + dataset before submission."""
+def validate_graphgen_job_config(config: GraphGenJobConfig, dataset: GraphGenTaskSet) -> None:
+    """Validate an GraphGen job config + dataset before submission."""
     errors: List[Dict[str, Any]] = []
 
     # Policy model
@@ -97,13 +97,13 @@ def validate_adas_job_config(config: ADASJobConfig, dataset: ADASTaskSet) -> Non
         )
     elif len(dataset.tasks) < 2:
         warnings.warn(
-            "ADAS datasets with <2 tasks are unlikely to optimize meaningfully.",
+            "GraphGen datasets with <2 tasks are unlikely to optimize meaningfully.",
             stacklevel=2,
         )
 
     if errors:
-        raise ADASValidationError("ADAS job configuration validation failed", errors)
+        raise GraphGenValidationError("GraphGen job configuration validation failed", errors)
 
 
-__all__ = ["ADASValidationError", "validate_adas_job_config"]
+__all__ = ["GraphGenValidationError", "validate_graphgen_job_config"]
 

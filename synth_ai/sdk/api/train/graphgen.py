@@ -66,7 +66,7 @@ class GraphGenJobResult:
     error: Optional[str] = None
     dataset_name: Optional[str] = None
     task_count: Optional[int] = None
-    gepa_job_id: Optional[str] = None
+    graph_evolve_job_id: Optional[str] = None
 
 
 @dataclass
@@ -80,7 +80,7 @@ class GraphGenSubmitResult:
     rollout_budget: int
     policy_model: str
     judge_mode: str
-    gepa_job_id: Optional[str] = None
+    graph_evolve_job_id: Optional[str] = None
 
 
 class GraphGenJob:
@@ -148,7 +148,7 @@ class GraphGenJob:
         self.metadata = metadata or {}
 
         self._graphgen_job_id: Optional[str] = None
-        self._gepa_job_id: Optional[str] = None
+        self._graph_evolve_job_id: Optional[str] = None
         self._submit_result: Optional[GraphGenSubmitResult] = None
 
     @classmethod
@@ -163,6 +163,8 @@ class GraphGenJob:
         judge_provider: Optional[str] = None,
         population_size: int = 4,
         num_generations: Optional[int] = None,
+        problem_spec: Optional[str] = None,
+        target_llm_calls: Optional[int] = None,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         auto_start: bool = True,
@@ -179,6 +181,10 @@ class GraphGenJob:
             judge_provider: Override judge provider from dataset
             population_size: Population size for GEPA
             num_generations: Number of generations (auto-calculated if not specified)
+            problem_spec: Detailed problem specification for the graph proposer.
+                Include domain-specific info like valid output labels for classification.
+            target_llm_calls: Target number of LLM calls for the graph (1-10).
+                Controls how many LLM nodes the graph should use. Defaults to 5.
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
             auto_start: Whether to start the job immediately
@@ -239,6 +245,8 @@ class GraphGenJob:
             judge_provider=judge_provider,
             population_size=population_size,
             num_generations=num_generations,
+            problem_spec=problem_spec,
+            target_llm_calls=target_llm_calls,
         )
 
         return cls(
@@ -310,18 +318,18 @@ class GraphGenJob:
             )
         job._graphgen_job_id = job_id
         if job_id.startswith("pl_"):
-            job._gepa_job_id = job_id
+            job._graph_evolve_job_id = job_id
         return job
 
     @classmethod
-    def from_gepa_job_id(
+    def from_graph_evolve_job_id(
         cls,
-        gepa_job_id: str,
+        graph_evolve_job_id: str,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> GraphGenJob:
         """Alias for resuming an GraphGen job from a GEPA job ID."""
-        return cls.from_job_id(gepa_job_id, backend_url=backend_url, api_key=api_key)
+        return cls.from_job_id(graph_evolve_job_id, backend_url=backend_url, api_key=api_key)
 
     @property
     def job_id(self) -> Optional[str]:
@@ -329,12 +337,12 @@ class GraphGenJob:
         return self._graphgen_job_id
 
     @property
-    def gepa_job_id(self) -> Optional[str]:
+    def graph_evolve_job_id(self) -> Optional[str]:
         """Get the underlying GEPA job ID if known."""
-        if self._gepa_job_id:
-            return self._gepa_job_id
-        if self._submit_result and self._submit_result.gepa_job_id:
-            return self._submit_result.gepa_job_id
+        if self._graph_evolve_job_id:
+            return self._graph_evolve_job_id
+        if self._submit_result and self._submit_result.graph_evolve_job_id:
+            return self._submit_result.graph_evolve_job_id
         return None
 
     def _build_payload(self) -> Dict[str, Any]:
@@ -349,7 +357,11 @@ class GraphGenJob:
             metadata["num_parents"] = self.config.num_parents
         if self.config.evaluation_seeds is not None:
             metadata["evaluation_seeds"] = self.config.evaluation_seeds
-        
+
+        # Extract eval/feedback sample sizes from metadata as direct fields
+        eval_sample_size = metadata.pop("eval_sample_size", None)
+        feedback_sample_size = metadata.pop("feedback_sample_size", None)
+
         payload: Dict[str, Any] = {
             "dataset": self.dataset.model_dump(),
             "initial_prompt": None,  # Use prompt from dataset
@@ -359,17 +371,29 @@ class GraphGenJob:
             "proposer_effort": self.config.proposer_effort,
             "judge_model": self.config.judge_model,
             "judge_provider": self.config.judge_provider,
+            "problem_spec": self.config.problem_spec,
+            "target_llm_calls": self.config.target_llm_calls,
+            "eval_sample_size": eval_sample_size,
+            "feedback_sample_size": feedback_sample_size,
             "metadata": metadata,
             "auto_start": self.auto_start,
         }
 
         # Strip unset optional fields so we don't send nulls to strict backends.
+        if payload.get("eval_sample_size") is None:
+            payload.pop("eval_sample_size", None)
+        if payload.get("feedback_sample_size") is None:
+            payload.pop("feedback_sample_size", None)
         if payload.get("policy_provider") is None:
             payload.pop("policy_provider", None)
         if payload.get("judge_model") is None:
             payload.pop("judge_model", None)
         if payload.get("judge_provider") is None:
             payload.pop("judge_provider", None)
+        if payload.get("problem_spec") is None:
+            payload.pop("problem_spec", None)
+        if payload.get("target_llm_calls") is None:
+            payload.pop("target_llm_calls", None)
 
         return payload
 
@@ -429,7 +453,7 @@ class GraphGenJob:
         if not self._graphgen_job_id:
             raise RuntimeError("Response missing graphgen_job_id")
 
-        self._gepa_job_id = js.get("gepa_job_id")
+        self._graph_evolve_job_id = js.get("graph_evolve_job_id")
 
         self._submit_result = GraphGenSubmitResult(
             graphgen_job_id=self._graphgen_job_id,
@@ -439,7 +463,7 @@ class GraphGenJob:
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
             policy_model=js.get("policy_model", self.config.policy_model),
             judge_mode=js.get("judge_mode", self.dataset.judge_config.mode),
-            gepa_job_id=self._gepa_job_id,
+            graph_evolve_job_id=self._graph_evolve_job_id,
         )
 
         ctx["graphgen_job_id"] = self._graphgen_job_id
@@ -472,9 +496,9 @@ class GraphGenJob:
             )
 
         data = resp.json()
-        gepa_id = data.get("gepa_job_id")
+        gepa_id = data.get("graph_evolve_job_id")
         if gepa_id:
-            self._gepa_job_id = gepa_id
+            self._graph_evolve_job_id = gepa_id
         return data
 
     def start(self) -> Dict[str, Any]:

@@ -349,6 +349,18 @@ class GraphOptimizationConfig(BaseModel):
     task_description: Optional[str] = Field(default=None, description="Description of the task")
     input_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected input format")
     output_schema: Optional[Dict[str, Any]] = Field(default=None, description="Expected output format")
+
+    # Problem specification - detailed task info for the graph proposer
+    # This should include domain-specific constraints (e.g., valid labels for classification tasks)
+    problem_spec: Optional[str] = Field(
+        default=None,
+        description=(
+            "Detailed problem specification for the graph proposer. "
+            "Include domain-specific information like valid output labels, constraints, "
+            "and any other information needed to generate correct graphs. "
+            "If provided, this is combined with task_description for the proposer context."
+        )
+    )
     
     # Scoring configuration
     scoring_strategy: str = Field(default="rubric", description="Scoring strategy: 'default', 'rubric', 'mae'")
@@ -458,7 +470,9 @@ class GraphOptimizationConfig(BaseModel):
             request["input_schema"] = self.input_schema
         if self.output_schema:
             request["output_schema"] = self.output_schema
-        
+        if self.problem_spec:
+            request["problem_spec"] = self.problem_spec
+
         # Include indifference points for epsilon-Pareto dominance
         if self.indifference_points:
             request["indifference_points"] = [

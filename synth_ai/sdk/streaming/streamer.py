@@ -27,6 +27,15 @@ TERMINAL_EVENT_SUCCESS = {
     "context.learning.job.completed",
     "workflow.completed",
     "training.completed",
+    # GraphGen / Graph Evolve events
+    "optimization_completed",
+    "graphgen.completed",
+    "graph_evolve.completed",
+    # GEPA / Prompt Learning events
+    "prompt.learning.gepa.complete",
+    "prompt.learning.mipro.complete",
+    "gepa.complete",
+    "mipro.complete",
 }
 TERMINAL_EVENT_FAILURE = {
     "sft.job.failed",
@@ -35,6 +44,15 @@ TERMINAL_EVENT_FAILURE = {
     "context.learning.job.failed",
     "workflow.failed",
     "training.failed",
+    # GraphGen / Graph Evolve events
+    "optimization_failed",
+    "graphgen.failed",
+    "graph_evolve.failed",
+    # GEPA / Prompt Learning events
+    "prompt.learning.gepa.failed",
+    "prompt.learning.mipro.failed",
+    "gepa.failed",
+    "mipro.failed",
 }
 
 
@@ -137,7 +155,6 @@ class StreamEndpoints:
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
-            # No fallbacks - GraphGen endpoints handle resolution internally
         )
 
 
@@ -234,12 +251,13 @@ class JobStreamer:
                         await asyncio.sleep(2.0)  # Check every 2 seconds
                         if self._terminal_seen or sse_done.is_set():
                             break
-                        
+
                         status = await self._refresh_status(http)
+
                         metric_messages = await self._poll_metrics(http)
                         timeline_messages = await self._poll_timeline(http)
                         self._dispatch(metric_messages + timeline_messages)
-                        
+
                         # Check for terminal status
                         if status and status.lower() in TERMINAL_STATUSES:
                             self._terminal_seen = True
@@ -256,23 +274,23 @@ class JobStreamer:
                         try:
                             item = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         except asyncio.TimeoutError:
-                            # No event received, check if SSE is done
-                            if sse_done.is_set():
+                            # No event received, check if SSE is done or terminal
+                            if sse_done.is_set() or self._terminal_seen:
                                 break
                             continue
-                        
+
                         # Handle exception from SSE reader
                         if isinstance(item, Exception):
                             raise item
-                        
+
                         # Process event
                         self._dispatch([item])
-                        
+
                         # Poll metrics/timeline after each event
                         metric_messages = await self._poll_metrics(http)
                         timeline_messages = await self._poll_timeline(http)
                         self._dispatch(metric_messages + timeline_messages)
-                        
+
                         # Check for terminal status
                         if self._terminal_seen:
                             break
@@ -424,6 +442,7 @@ class JobStreamer:
                 self._last_status_value = status
                 if status in TERMINAL_STATUSES:
                     self._terminal_seen = True
+                    print(f"[SDK] Terminal status detected: {status}", flush=True)
             return status
         return self._last_status_value or ""
 
@@ -600,27 +619,29 @@ class JobStreamer:
 
     def _dispatch(self, messages: Iterable[StreamMessage]) -> None:
         message_list = list(messages)
-        if message_list:
-            print(f"[DEBUG] Dispatching {len(message_list)} messages", file=sys.stderr)
         for message in message_list:
             if self.config.deduplicate and message.key in self._seen_messages:
-                print(f"[DEBUG] Skipping duplicate message: {message.key}", file=sys.stderr)
                 continue
             if self.config.sample_rate < 1.0 and random.random() > self.config.sample_rate:
-                print(f"[DEBUG] Skipping message due to sample rate", file=sys.stderr)
                 continue
             if self.config.deduplicate:
                 self._seen_messages.add(message.key)
 
+            # Check for terminal events in dispatch (belt-and-suspenders)
+            if message.stream_type == StreamType.EVENTS and message.data:
+                event_type = str(message.data.get("type", "")).lower()
+                if event_type in TERMINAL_EVENT_SUCCESS:
+                    self._terminal_seen = True
+                    self._terminal_event_status = "succeeded"
+                elif event_type in TERMINAL_EVENT_FAILURE:
+                    self._terminal_seen = True
+                    self._terminal_event_status = "failed"
+
             for handler in self.handlers:
                 try:
                     if handler.should_handle(message):
-                        print(f"[DEBUG] Handler {type(handler).__name__} handling message type={message.stream_type}", file=sys.stderr)
                         handler.handle(message)
-                    else:
-                        print(f"[DEBUG] Handler {type(handler).__name__} skipping message (should_handle=False)", file=sys.stderr)
-                except Exception as e:
-                    print(f"[DEBUG] Handler error: {e}", file=sys.stderr)
+                except Exception:
                     pass
 
 

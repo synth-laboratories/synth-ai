@@ -1,6 +1,6 @@
 from .config import StreamConfig
 from .handlers import (
-    ADASHandler,
+    GraphGenHandler,
     BufferedHandler,
     CallbackHandler,
     CLIHandler,
@@ -16,7 +16,7 @@ from .streamer import JobStreamer, StreamEndpoints
 from .types import StreamMessage, StreamType
 
 __all__ = [
-    "ADASHandler",
+    "GraphGenHandler",
     "BufferedHandler",
     "CallbackHandler",
     "CLIHandler",

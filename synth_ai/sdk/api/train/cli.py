@@ -27,7 +27,7 @@ from synth_ai.cli.lib.env import load_env_file
 from synth_ai.cli.lib.errors import format_error_message, get_required_value
 from synth_ai.core.telemetry import flush_logger, log_error, log_info
 from synth_ai.sdk.streaming import (
-    ADASHandler,
+    GraphGenHandler,
     CLIHandler,
     JobStreamer,
     LossCurveHandler,
@@ -1244,7 +1244,7 @@ def handle_adas(
             max_events_per_poll=500,
             deduplicate=True,
         )
-        handlers = [ADASHandler()]
+        handlers = [GraphGenHandler()]
 
     # Stream until complete
     try:
