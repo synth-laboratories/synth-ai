@@ -700,13 +700,16 @@ def describe_taskset(dataset: Banking77Dataset) -> Mapping[str, Any]:
 
 def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> Iterable[TaskInfo]:
     base_info = _base_task_info()
+    # Convert pydantic models to dicts for spreading
+    base_dataset = base_info.dataset.model_dump() if hasattr(base_info.dataset, 'model_dump') else dict(base_info.dataset)
+    base_metadata = base_info.task_metadata.model_dump() if hasattr(base_info.task_metadata, 'model_dump') else dict(base_info.task_metadata)
     for seed in seeds:
         sample = dataset.sample(split=DEFAULT_SPLIT, index=seed)
         yield TaskInfo(  # type: ignore[call-overload]
             task=base_info.task,
             environment=base_info.environment,
             dataset={  # type: ignore[arg-type]
-                **base_info.dataset,
+                **base_dataset,
                 "split": sample["split"],
                 "index": sample["index"],
             },
@@ -714,7 +717,7 @@ def provide_task_instances(dataset: Banking77Dataset, seeds: Sequence[int]) -> I
             inference=base_info.inference,
             limits=base_info.limits,
             task_metadata={
-                **base_info.task_metadata,
+                **base_metadata,
                 "query": sample["text"],
             },
         )

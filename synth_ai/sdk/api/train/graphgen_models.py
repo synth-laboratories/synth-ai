@@ -252,7 +252,6 @@ class GraphGenTaskSet(BaseModel):
     Example:
         dataset = GraphGenTaskSet(
             metadata=GraphGenTaskSetMetadata(name="QA Dataset"),
-            initial_prompt="Answer the question concisely.",
             tasks=[
                 GraphGenTask(id="q1", input={"question": "What is 2+2?"}),
             ],
@@ -264,9 +263,6 @@ class GraphGenTaskSet(BaseModel):
 
     version: str = "1.0"
     metadata: GraphGenTaskSetMetadata
-    initial_prompt: str = Field(
-        ..., description="The initial system prompt to optimize"
-    )
     tasks: List[GraphGenTask] = Field(
         ..., min_length=1, description="List of tasks to evaluate"
     )
