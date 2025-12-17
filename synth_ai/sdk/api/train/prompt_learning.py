@@ -270,7 +270,7 @@ class PromptLearningJob:
         # Submit job
         create_url = f"{ensure_api_base(self.config.backend_url)}/prompt-learning/online/jobs"
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "X-API-Key": self.config.api_key,
             "Content-Type": "application/json",
         }
         
