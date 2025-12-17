@@ -33,9 +33,60 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+
+
+# =============================================================================
+# Output Configuration (Improvement 1)
+# =============================================================================
+
+
+class OutputConfig(BaseModel):
+    """Configuration for graph output extraction + validation.
+
+    This model defines how graph outputs should be extracted and validated.
+    It supports JSON Schema validation, multiple output formats, and
+    configurable extraction paths.
+
+    Example:
+        config = OutputConfig(
+            schema={"type": "object", "properties": {"answer": {"type": "string"}}},
+            format="json",
+            strict=True,
+            extract_from=["response", "output"],
+        )
+
+    Attributes:
+        schema_: JSON Schema (draft-07) for output validation. Use alias "schema" in JSON.
+        format: Expected output format - "json", "text", "tool_calls", or "image".
+        strict: If True, validation failures fail the run; if False, log warnings and continue.
+        extract_from: Ordered list of dot-paths/keys to try when extracting output from final_state.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_: Optional[Dict[str, Any]] = Field(
+        default=None,
+        alias="schema",
+        description="JSON Schema (draft-07) for output validation",
+    )
+    format: Literal["json", "text", "tool_calls", "image"] = Field(
+        default="json",
+        description="Expected output format.",
+    )
+    strict: bool = Field(
+        default=True,
+        description="If true, validation failures fail the run; if false, log warnings and continue.",
+    )
+    extract_from: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Ordered list of dot-paths/keys to try when extracting output from a final_state dict. "
+            "If omitted/empty, uses the entire provided value."
+        ),
+    )
 
 
 class GraphGenTaskSetMetadata(BaseModel):
@@ -52,13 +103,54 @@ class GraphGenTaskSetMetadata(BaseModel):
     output_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="JSON Schema for expected graph output / final_state"
     )
-    select_output: Optional[Any] = Field(
+    # Improvement 3: Changed from Optional[Any] to Optional[Union[str, List[str]]]
+    select_output: Optional[Union[str, List[str]]] = Field(
         default=None,
         description=(
             "Optional selector for the public output model. "
             "Can be a string (single key) or list of keys to extract from final_state."
         ),
     )
+    # Improvement 1: Added typed OutputConfig instead of Dict[str, Any]
+    output_config: Optional[OutputConfig] = Field(
+        default=None,
+        description=(
+            "Configuration for graph output extraction and validation. "
+            "Defines JSON Schema, output format, and extraction paths."
+        ),
+    )
+
+    @field_validator("select_output", mode="before")
+    @classmethod
+    def validate_select_output(
+        cls, v: Any
+    ) -> Optional[Union[str, List[str]]]:
+        """Validate select_output is a string or list of strings."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        if isinstance(v, list):
+            if all(isinstance(item, str) for item in v):
+                return v
+            raise ValueError("select_output list must contain only strings")
+        raise ValueError(
+            f"select_output must be a string or list of strings, got {type(v).__name__}"
+        )
+
+    @field_validator("output_config", mode="before")
+    @classmethod
+    def validate_output_config(cls, v: Any) -> Optional[OutputConfig]:
+        """Convert dict to OutputConfig for backward compatibility."""
+        if v is None:
+            return None
+        if isinstance(v, OutputConfig):
+            return v
+        if isinstance(v, dict):
+            return OutputConfig.model_validate(v)
+        raise ValueError(
+            f"output_config must be a dict or OutputConfig, got {type(v).__name__}"
+        )
 
 
 class GraphGenRubricCriterion(BaseModel):
@@ -124,6 +216,10 @@ class GraphGenGoldOutput(BaseModel):
     )
 
 
+# Improvement 4: Define supported providers as a Literal type
+JudgeProviderType = Literal["groq", "openai", "google", "anthropic"]
+
+
 class GraphGenJudgeConfig(BaseModel):
     """Configuration for the judge used during optimization."""
 
@@ -140,9 +236,10 @@ class GraphGenJudgeConfig(BaseModel):
         default="llama-3.3-70b-versatile",
         description="Model to use for judging",
     )
-    provider: str = Field(
+    # Improvement 4: Changed from str to Literal type for better type safety
+    provider: JudgeProviderType = Field(
         default="groq",
-        description="Provider for judge model (groq, openai)",
+        description="Provider for judge model (groq, openai, google, anthropic)",
     )
 
 
@@ -192,11 +289,20 @@ class GraphGenTaskSet(BaseModel):
     output_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="JSON Schema for expected graph output / final_state"
     )
-    select_output: Optional[Any] = Field(
+    # Improvement 3: Changed from Optional[Any] to Optional[Union[str, List[str]]]
+    select_output: Optional[Union[str, List[str]]] = Field(
         default=None,
         description=(
             "Optional selector for the public output model. "
             "Can be a string (single key) or list of keys to extract from final_state."
+        ),
+    )
+    # Improvement 1: Added typed OutputConfig instead of Dict[str, Any]
+    output_config: Optional[OutputConfig] = Field(
+        default=None,
+        description=(
+            "Configuration for graph output extraction and validation. "
+            "Defines JSON Schema, output format, and extraction paths."
         ),
     )
 
@@ -210,21 +316,77 @@ class GraphGenTaskSet(BaseModel):
             raise ValueError(f"Duplicate task IDs found: {set(duplicates)}")
         return v
 
+    # Improvement 2: Added ValidationInfo type hint
     @field_validator("gold_outputs")
     @classmethod
     def validate_gold_output_task_ids(
-        cls, v: List[GraphGenGoldOutput], info
+        cls, v: List[GraphGenGoldOutput], info: ValidationInfo
     ) -> List[GraphGenGoldOutput]:
-        """Ensure gold output task_ids reference valid tasks."""
+        """Ensure gold output task_ids reference valid tasks.
+
+        Args:
+            v: The list of gold outputs being validated.
+            info: Pydantic ValidationInfo providing access to other fields via info.data.
+
+        Returns:
+            The validated list of gold outputs.
+
+        Raises:
+            ValueError: If a gold output references a non-existent task ID.
+        """
         tasks = info.data.get("tasks", [])
         if tasks:
-            valid_task_ids = {task.id for task in tasks}
+            # Improvement 8: Handle both GraphGenTask objects and raw dicts during validation
+            valid_task_ids: set[str] = set()
+            for task in tasks:
+                if isinstance(task, GraphGenTask):
+                    valid_task_ids.add(task.id)
+                elif isinstance(task, dict):
+                    # During validation, tasks might still be raw dicts
+                    task_id = task.get("id")
+                    if task_id:
+                        valid_task_ids.add(task_id)
+
             for gold in v:
                 if gold.task_id and gold.task_id not in valid_task_ids:
                     raise ValueError(
                         f"Gold output references invalid task_id: {gold.task_id}"
                     )
         return v
+
+    # Improvement 3: Validator for select_output type
+    @field_validator("select_output", mode="before")
+    @classmethod
+    def validate_select_output(
+        cls, v: Any
+    ) -> Optional[Union[str, List[str]]]:
+        """Validate select_output is a string or list of strings."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        if isinstance(v, list):
+            if all(isinstance(item, str) for item in v):
+                return v
+            raise ValueError("select_output list must contain only strings")
+        raise ValueError(
+            f"select_output must be a string or list of strings, got {type(v).__name__}"
+        )
+
+    # Improvement 1: Validator for backward-compatible OutputConfig
+    @field_validator("output_config", mode="before")
+    @classmethod
+    def validate_output_config(cls, v: Any) -> Optional[OutputConfig]:
+        """Convert dict to OutputConfig for backward compatibility."""
+        if v is None:
+            return None
+        if isinstance(v, OutputConfig):
+            return v
+        if isinstance(v, dict):
+            return OutputConfig.model_validate(v)
+        raise ValueError(
+            f"output_config must be a dict or OutputConfig, got {type(v).__name__}"
+        )
 
     def get_task_by_id(self, task_id: str) -> Optional[GraphGenTask]:
         """Get a task by its ID."""
@@ -233,8 +395,20 @@ class GraphGenTaskSet(BaseModel):
                 return task
         return None
 
+    # Improvement 9: Clarified docstring for get_task_by_index
     def get_task_by_index(self, index: int) -> Optional[GraphGenTask]:
-        """Get a task by index (for seed-based lookup)."""
+        """Get a task by zero-based index.
+
+        Args:
+            index: Zero-based index into tasks list (0 to len(tasks)-1).
+
+        Returns:
+            Task at the specified index, or None if index is out of range.
+
+        Note:
+            This method does NOT wrap around. For seed-based lookup that wraps
+            around, use get_task_by_seed() in GraphGenTaskAppState instead.
+        """
         if 0 <= index < len(self.tasks):
             return self.tasks[index]
         return None
@@ -458,20 +632,10 @@ parse_graphgen_taskset = parse_graphgen_taskset
 load_graphgen_taskset = load_graphgen_taskset
 
 __all__ = [
+    # Core types (new)
+    "OutputConfig",
+    "JudgeProviderType",
     # GraphGen names (preferred)
-    "GraphGenTaskSet",
-    "GraphGenTaskSetMetadata",
-    "GraphGenTask",
-    "GraphGenGoldOutput",
-    "GraphGenRubric",
-    "GraphGenRubricCriterion",
-    "GraphGenRubricOutcome",
-    "GraphGenRubricEvents",
-    "GraphGenJudgeConfig",
-    "GraphGenJobConfig",
-    "parse_graphgen_taskset",
-    "load_graphgen_taskset",
-    # Legacy GraphGen names (backwards compatibility)
     "GraphGenTaskSet",
     "GraphGenTaskSetMetadata",
     "GraphGenTask",
