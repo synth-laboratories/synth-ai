@@ -7,6 +7,6 @@ Run:
 - uv run pytest -q tests/api
 
 Notes:
-- Tests hit https://agent-learning.onrender.com/api/v1
+- Tests hit https://api.usesynth.ai/api/v1
 - Tests allow 401/429 to avoid flakiness without valid credentials or under rate limits.
 

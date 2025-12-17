@@ -19,9 +19,9 @@ def _load_backend_helpers() -> tuple[str, Callable[[], tuple[str, str]] | None]:
     try:
         module = importlib.import_module("synth_ai.core.env")
     except Exception:
-        return "https://agent-learning.onrender.com", None
+        return "https://api.usesynth.ai", None
 
-    default = getattr(module, "PROD_BASE_URL_DEFAULT", "https://agent-learning.onrender.com")
+    default = getattr(module, "PROD_BASE_URL_DEFAULT", "https://api.usesynth.ai")
     getter = getattr(module, "get_backend_from_env", None)
     return str(default), getter if callable(getter) else None
 

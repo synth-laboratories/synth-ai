@@ -334,7 +334,7 @@ def start_cmd(
     Use --beat to run Beat scheduler in the same process (default: enabled).
     
     Backend URL Configuration:
-    - Default: Production backend (https://agent-learning.onrender.com/api)
+    - Default: Production backend (https://api.usesynth.ai/api)
     - Use --local flag to connect to local backend (http://localhost:8000/api)
     - Override with EXPERIMENT_QUEUE_BACKEND_URL env var for custom URL
     
@@ -458,11 +458,11 @@ def start_cmd(
     elif local is False:
         # Explicitly unset if --no-local is used
         env.pop("EXPERIMENT_QUEUE_LOCAL", None)
-        click.echo("Using production backend (agent-learning.onrender.com)", err=True)
+        click.echo("Using production backend (api.usesynth.ai)", err=True)
     else:
         # Use existing env var or default (production)
         if "EXPERIMENT_QUEUE_LOCAL" not in env:
-            click.echo("Using production backend (agent-learning.onrender.com)", err=True)
+            click.echo("Using production backend (api.usesynth.ai)", err=True)
 
     # Create lock file with current PID before starting worker
     lock_file = _worker_lock_file()

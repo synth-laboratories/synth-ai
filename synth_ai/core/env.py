@@ -14,7 +14,7 @@ from typing import Literal
 from .errors import AuthenticationError, ConfigError
 
 # Default production URL
-PROD_BASE_URL = "https://agent-learning.onrender.com"
+PROD_BASE_URL = "https://api.usesynth.ai"
 PROD_BASE_URL_DEFAULT = PROD_BASE_URL  # Alias for backward compatibility
 
 
@@ -172,7 +172,7 @@ def get_backend_from_env() -> tuple[str, str]:
     - PROD_BACKEND_URL, TESTING_PROD_SYNTH_API_KEY (fallback to SYNTH_API_KEY)
 
     Base URL is normalized (no trailing /api).
-    Defaults: prod base URL → https://agent-learning.onrender.com
+    Defaults: prod base URL → https://api.usesynth.ai
 
     Returns:
         Tuple of (base_url, api_key)

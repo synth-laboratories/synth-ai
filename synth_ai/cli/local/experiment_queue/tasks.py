@@ -177,7 +177,7 @@ def _poll_backend_progress(
     ETA, and best score information. Updates the experiment status_json in real-time.
     
     Backend URL Configuration:
-    - Default: Production (https://agent-learning.onrender.com/api)
+    - Default: Production (https://api.usesynth.ai/api)
     - Local: Set EXPERIMENT_QUEUE_LOCAL=true or use --local flag (http://localhost:8000/api)
     - Custom: Set EXPERIMENT_QUEUE_BACKEND_URL env var
     

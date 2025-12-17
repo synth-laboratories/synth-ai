@@ -7,7 +7,7 @@ import httpx
 @pytest.mark.skipif(not os.getenv("SYNTH_API_KEY"), reason="requires SYNTH_API_KEY in env")
 @pytest.mark.slow
 def test_infer_prod_proxy_base_model():
-    base_url = os.getenv("BACKEND_BASE_URL", "https://agent-learning.onrender.com/api").rstrip("/")
+    base_url = os.getenv("BACKEND_BASE_URL", "https://api.usesynth.ai/api").rstrip("/")
     if not base_url.endswith("/api"):
         base_url = base_url + "/api"
     url = base_url + "/inference/v1/chat/completions"
@@ -41,7 +41,7 @@ def test_infer_prod_proxy_base_model():
 
 @pytest.mark.skipif(not (os.getenv("SYNTH_API_KEY") and os.getenv("FT_MODEL_ID")), reason="requires SYNTH_API_KEY and FT_MODEL_ID")
 def test_infer_prod_proxy_ft_model():
-    base_url = os.getenv("BACKEND_BASE_URL", "https://agent-learning.onrender.com/api").rstrip("/")
+    base_url = os.getenv("BACKEND_BASE_URL", "https://api.usesynth.ai/api").rstrip("/")
     if not base_url.endswith("/api"):
         base_url = base_url + "/api"
     url = base_url + "/inference/v1/chat/completions"

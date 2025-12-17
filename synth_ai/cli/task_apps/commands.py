@@ -71,7 +71,7 @@ try:  # Resolve base URL defaults lazily
     )
     PROD_BASE_URL_DEFAULT = cast(str, _config_module.PROD_BASE_URL_DEFAULT)
 except Exception:  # pragma: no cover - fallback
-    PROD_BASE_URL_DEFAULT = "https://agent-learning.onrender.com"
+    PROD_BASE_URL_DEFAULT = "https://api.usesynth.ai"
 
 try:
     _task_apps_module = cast(Any, importlib.import_module("synth_ai.sdk.task.apps"))

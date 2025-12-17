@@ -67,14 +67,14 @@ def load_config() -> ExperimentQueueConfig:
     """Resolve configuration once per process.
     
     Backend URL Resolution:
-    - Default: Production backend (https://agent-learning.onrender.com/api)
+    - Default: Production backend (https://api.usesynth.ai/api)
     - Set EXPERIMENT_QUEUE_LOCAL=true to use local backend (http://localhost:8000/api)
     - Override with EXPERIMENT_QUEUE_BACKEND_URL env var for custom URL
     - Falls back to DEV_BACKEND_URL if set (for compatibility)
-    
+
     Examples:
         # Use production (default)
-        load_config()  # Uses https://agent-learning.onrender.com/api
+        load_config()  # Uses https://api.usesynth.ai/api
         
         # Use local backend
         os.environ["EXPERIMENT_QUEUE_LOCAL"] = "true"
@@ -98,17 +98,17 @@ def load_config() -> ExperimentQueueConfig:
     result_backend_url = os.getenv("EXPERIMENT_QUEUE_RESULT_BACKEND_URL", "redis://localhost:6379/1")
     
     # Backend API URL for progress polling
-    # Defaults to production: https://agent-learning.onrender.com/api
+    # Defaults to production: https://api.usesynth.ai/api
     # Override with EXPERIMENT_QUEUE_BACKEND_URL or EXPERIMENT_QUEUE_LOCAL=true for localhost:8000
     if os.getenv("EXPERIMENT_QUEUE_LOCAL", "").lower() in ("true", "1", "yes"):
         # Local mode: use localhost:8000
         backend_url = os.getenv("EXPERIMENT_QUEUE_BACKEND_URL", "http://localhost:8000/api")
     else:
-        # Production mode (default): use agent-learning.onrender.com
+        # Production mode (default): use api.usesynth.ai
         backend_url = (
             os.getenv("EXPERIMENT_QUEUE_BACKEND_URL")
             or os.getenv("DEV_BACKEND_URL")
-            or "https://agent-learning.onrender.com/api"
+            or "https://api.usesynth.ai/api"
         )
 
     return ExperimentQueueConfig(

@@ -25,7 +25,7 @@ def _load_base_url_module() -> tuple[str, Callable[[], tuple[str, str]]]:
         getter = cast(Callable[[], tuple[str, str]], module.get_backend_from_env)
         return str(default), getter
     except Exception:
-        return "https://agent-learning.onrender.com", lambda: ("https://agent-learning.onrender.com", "")
+        return "https://api.usesynth.ai", lambda: ("https://api.usesynth.ai", "")
 
 
 PROD_BASE_URL_DEFAULT, _get_backend_from_env = _load_base_url_module()
