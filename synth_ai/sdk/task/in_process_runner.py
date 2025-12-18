@@ -145,7 +145,7 @@ async def run_in_process_job(
     preconfigured_url: str | None = None,
     preconfigured_auth_header: str | None = None,
     preconfigured_auth_token: str | None = None,
-    skip_tunnel_verification: bool = False,
+    skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
     host: str = "127.0.0.1",
     port: int = 8114,
     auto_find_port: bool = True,

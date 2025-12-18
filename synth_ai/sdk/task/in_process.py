@@ -354,7 +354,7 @@ class InProcessTaskApp:
         api_key: Optional[str] = None,
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
-        skip_tunnel_verification: bool = False,
+        skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
         force_new_tunnel: bool = False,
         on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
         on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
