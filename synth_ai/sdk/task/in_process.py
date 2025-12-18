@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import socket
+import subprocess
 import threading
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -132,6 +133,54 @@ def _kill_process_on_port(host: str, port: int) -> None:
         logger.debug(f"Could not kill process on port {port}: {e}")
 
 
+async def _resolve_via_public_dns(hostname: str, timeout: float = 5.0) -> Optional[str]:
+    """
+    Resolve hostname using public DNS servers (1.1.1.1, 8.8.8.8).
+
+    This bypasses local DNS caching issues that can cause NXDOMAIN errors
+    when the local resolver has stale cached responses.
+
+    Returns the first resolved IP address, or None if resolution fails.
+    """
+    loop = asyncio.get_event_loop()
+
+    for dns_server in ("1.1.1.1", "8.8.8.8"):
+        try:
+            result = await loop.run_in_executor(
+                None,
+                lambda server=dns_server: subprocess.run(
+                    ["dig", f"@{server}", "+short", hostname],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                ),
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Return first IP (dig may return multiple)
+                first_ip = result.stdout.strip().splitlines()[0].strip()
+                if first_ip and not first_ip.endswith("."):  # Skip CNAME responses
+                    logger.debug(f"Resolved {hostname} via {dns_server}: {first_ip}")
+                    return first_ip
+        except FileNotFoundError:
+            # dig not available, try socket resolution instead
+            try:
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: socket.gethostbyname(hostname),
+                )
+                if result:
+                    logger.debug(f"Resolved {hostname} via system DNS: {result}")
+                    return result
+            except socket.gaierror:
+                pass
+        except subprocess.TimeoutExpired:
+            logger.debug(f"DNS timeout resolving {hostname} via {dns_server}")
+        except Exception as e:
+            logger.debug(f"DNS resolution error for {hostname} via {dns_server}: {e}")
+
+    return None
+
+
 async def _verify_tunnel_ready(
     tunnel_url: str,
     api_key: str,
@@ -143,14 +192,17 @@ async def _verify_tunnel_ready(
 ) -> bool:
     """
     Verify that a Cloudflare tunnel is actually routing traffic (not just DNS-resolvable).
-    
+
     A tunnel can resolve via DNS before HTTP routing is ready. This helper polls both
     /health and /task_info until they return 200 or retries are exhausted.
-    
+
+    IMPORTANT: Uses public DNS (1.1.1.1) to bypass local DNS cache issues.
+    Local DNS may have stale NXDOMAIN cached even after tunnel DNS is created.
+
     Environment variables for tuning:
         SYNTH_TUNNEL_VERIFY_MAX_RETRIES: Number of retry attempts (default: 30)
         SYNTH_TUNNEL_VERIFY_DELAY_SECS: Delay between retries in seconds (default: 2.0)
-    
+
     With defaults, waits up to 60 seconds for tunnel to become ready.
     """
     # Allow env var overrides for reliability tuning
@@ -158,31 +210,55 @@ async def _verify_tunnel_ready(
         max_retries = int(os.getenv("SYNTH_TUNNEL_VERIFY_MAX_RETRIES", "30"))
     if retry_delay is None:
         retry_delay = float(os.getenv("SYNTH_TUNNEL_VERIFY_DELAY_SECS", "2.0"))
-    
+
     # Initial delay before first check - tunnels often need a moment after DNS resolves
     initial_delay = float(os.getenv("SYNTH_TUNNEL_VERIFY_INITIAL_DELAY_SECS", "3.0"))
     if initial_delay > 0:
         logger.debug(f"Waiting {initial_delay}s for tunnel to stabilize before verification...")
         await asyncio.sleep(initial_delay)
-    
-    base = tunnel_url.rstrip("/")
+
+    # Parse hostname from URL
+    parsed = urlparse(tunnel_url)
+    hostname = parsed.netloc
+    scheme = parsed.scheme or "https"
+
     headers = {
         "X-API-Key": api_key,
         "Authorization": f"Bearer {api_key}",
+        "Host": hostname,  # Always set Host header for IP-based requests
     }
     aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
     if aliases:
         headers["X-API-Keys"] = ",".join(
             [api_key, *[p.strip() for p in aliases.split(",") if p.strip()]]
         )
-    
+
     logger.info(f"Verifying tunnel is routing traffic (max {max_retries} attempts, {retry_delay}s delay)...")
+
+    # Track resolved IP to avoid re-resolving every attempt
+    resolved_ip: Optional[str] = None
 
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=timeout_per_request, verify=verify_tls) as client:
-                health = await client.get(f"{base}/health", headers=headers)
-                task_info = await client.get(f"{base}/task_info", headers=headers)
+            # Try to resolve IP via public DNS if we don't have it yet
+            if resolved_ip is None:
+                resolved_ip = await _resolve_via_public_dns(hostname)
+                if resolved_ip:
+                    logger.info(f"Resolved tunnel hostname via public DNS: {hostname} -> {resolved_ip}")
+
+            # If we have a resolved IP, connect directly to bypass local DNS
+            if resolved_ip:
+                # Connect to IP directly with Host header
+                base = f"{scheme}://{resolved_ip}"
+                async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
+                    health = await client.get(f"{base}/health", headers=headers)
+                    task_info = await client.get(f"{base}/task_info", headers=headers)
+            else:
+                # Fall back to hostname-based request (local DNS)
+                base = tunnel_url.rstrip("/")
+                async with httpx.AsyncClient(timeout=timeout_per_request, verify=verify_tls) as client:
+                    health = await client.get(f"{base}/health", headers=headers)
+                    task_info = await client.get(f"{base}/task_info", headers=headers)
 
             if health.status_code == 200 and task_info.status_code == 200:
                 logger.info(
@@ -205,6 +281,9 @@ async def _verify_tunnel_ready(
                 max_retries,
                 exc,
             )
+            # Clear resolved IP on connection errors - might need to re-resolve
+            if "connect" in str(exc).lower() or "resolve" in str(exc).lower():
+                resolved_ip = None
 
         if attempt < max_retries - 1:
             # Log progress periodically (every 5 attempts)
