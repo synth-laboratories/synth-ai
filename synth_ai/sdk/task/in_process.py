@@ -246,13 +246,50 @@ async def _verify_tunnel_ready(
                 if resolved_ip:
                     logger.info(f"Resolved tunnel hostname via public DNS: {hostname} -> {resolved_ip}")
 
-            # If we have a resolved IP, connect directly to bypass local DNS
+            # If we have a resolved IP, use curl with --resolve for proper SNI handling
+            # httpx connecting to an IP directly fails SSL handshake due to SNI issues
             if resolved_ip:
-                # Connect to IP directly with Host header
-                base = f"{scheme}://{resolved_ip}"
-                async with httpx.AsyncClient(timeout=timeout_per_request, verify=False) as client:
-                    health = await client.get(f"{base}/health", headers=headers)
-                    task_info = await client.get(f"{base}/task_info", headers=headers)
+                loop = asyncio.get_event_loop()
+
+                # Use curl with --resolve to bypass local DNS while maintaining proper SNI
+                async def curl_check(path: str) -> int:
+                    try:
+                        result = await loop.run_in_executor(
+                            None,
+                            lambda: subprocess.run(
+                                [
+                                    "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+                                    "--resolve", f"{hostname}:443:{resolved_ip}",
+                                    "-H", f"X-API-Key: {api_key}",
+                                    "-H", f"Authorization: Bearer {api_key}",
+                                    f"https://{hostname}{path}",
+                                ],
+                                capture_output=True,
+                                text=True,
+                                timeout=timeout_per_request,
+                            ),
+                        )
+                        return int(result.stdout.strip()) if result.returncode == 0 else 0
+                    except Exception:
+                        return 0
+
+                health_status = await curl_check("/health")
+                task_info_status = await curl_check("/task_info")
+
+                if health_status == 200 and task_info_status == 200:
+                    logger.info(
+                        f"Tunnel ready after {attempt + 1} attempt(s): "
+                        f"health={health_status}, task_info={task_info_status}"
+                    )
+                    return True
+
+                logger.debug(
+                    "Tunnel not ready (attempt %s/%s): health=%s task_info=%s",
+                    attempt + 1,
+                    max_retries,
+                    health_status,
+                    task_info_status,
+                )
             else:
                 # Fall back to hostname-based request (local DNS)
                 base = tunnel_url.rstrip("/")
@@ -260,20 +297,20 @@ async def _verify_tunnel_ready(
                     health = await client.get(f"{base}/health", headers=headers)
                     task_info = await client.get(f"{base}/task_info", headers=headers)
 
-            if health.status_code == 200 and task_info.status_code == 200:
-                logger.info(
-                    f"Tunnel ready after {attempt + 1} attempt(s): "
-                    f"health={health.status_code}, task_info={task_info.status_code}"
-                )
-                return True
+                if health.status_code == 200 and task_info.status_code == 200:
+                    logger.info(
+                        f"Tunnel ready after {attempt + 1} attempt(s): "
+                        f"health={health.status_code}, task_info={task_info.status_code}"
+                    )
+                    return True
 
-            logger.debug(
-                "Tunnel not ready (attempt %s/%s): health=%s task_info=%s",
-                attempt + 1,
-                max_retries,
-                health.status_code,
-                task_info.status_code,
-            )
+                logger.debug(
+                    "Tunnel not ready (attempt %s/%s): health=%s task_info=%s",
+                    attempt + 1,
+                    max_retries,
+                    health.status_code,
+                    task_info.status_code,
+                )
         except Exception as exc:  # pragma: no cover - defensive
             logger.debug(
                 "Tunnel readiness check failed (attempt %s/%s): %s",
