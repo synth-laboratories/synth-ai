@@ -38,7 +38,7 @@ _worker_thread: threading.Thread | None = None
 _worker_lock = threading.Lock()
 _shutdown_event = threading.Event()
 
-DISABLE_LOGGING = os.getenv("SYNTH_DISABLE_LOGGING", None)
+DISABLE_LOGGING = os.getenv("SYNTH_ENABLE_SDK_LOGGING", None) is None  # Disabled by default
 
 
 def _start_worker() -> None:
