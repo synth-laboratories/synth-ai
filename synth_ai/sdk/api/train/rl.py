@@ -99,16 +99,20 @@ class RLJob:
         self,
         config: RLJobConfig,
         job_id: Optional[str] = None,
+        skip_health_check: bool = False,
     ) -> None:
         """Initialize an RL training job.
-        
+
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
+            skip_health_check: If True, skip task app health check before submission.
+                              Useful when using tunnels where DNS may not have propagated yet.
         """
         self.config = config
         self._job_id = job_id
         self._build_result: Optional[RLBuildResult] = None
+        self._skip_health_check = skip_health_check
     
     @classmethod
     def from_config(
@@ -274,12 +278,13 @@ class RLJob:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
 
         build = self._build_payload()
-        
-        # Health check
-        task_app_key = self.config.task_app_api_key or ""
-        health = check_task_app_health(build.task_url, task_app_key)
-        if not health.ok:
-            raise ValueError(f"Task app health check failed: {health.detail}")
+
+        # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
+        if not self._skip_health_check:
+            task_app_key = self.config.task_app_api_key or ""
+            health = check_task_app_health(build.task_url, task_app_key)
+            if not health.ok:
+                raise ValueError(f"Task app health check failed: {health.detail}")
         
         # Submit job
         create_url = f"{ensure_api_base(self.config.backend_url)}/rl/jobs"

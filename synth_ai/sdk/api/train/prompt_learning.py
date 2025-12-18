@@ -110,16 +110,20 @@ class PromptLearningJob:
         self,
         config: PromptLearningJobConfig,
         job_id: Optional[str] = None,
+        skip_health_check: bool = False,
     ) -> None:
         """Initialize a prompt learning job.
-        
+
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
+            skip_health_check: If True, skip task app health check before submission.
+                              Useful when using tunnels where DNS may not have propagated yet.
         """
         self.config = config
         self._job_id = job_id
         self._build_result: Optional[PromptLearningBuildResult] = None
+        self._skip_health_check = skip_health_check
     
     @classmethod
     def from_config(
@@ -261,11 +265,12 @@ class PromptLearningJob:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
 
         build = self._build_payload()
-        
-        # Health check
-        health = check_task_app_health(build.task_url, self.config.task_app_api_key or "")
-        if not health.ok:
-            raise ValueError(f"Task app health check failed: {health.detail}")
+
+        # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
+        if not self._skip_health_check:
+            health = check_task_app_health(build.task_url, self.config.task_app_api_key or "")
+            if not health.ok:
+                raise ValueError(f"Task app health check failed: {health.detail}")
         
         # Submit job
         create_url = f"{ensure_api_base(self.config.backend_url)}/prompt-learning/online/jobs"

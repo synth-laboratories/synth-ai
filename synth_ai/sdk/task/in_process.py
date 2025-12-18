@@ -448,6 +448,7 @@ class InProcessTaskApp:
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
         self._is_preconfigured = False  # Track if using preconfigured URL
+        self._dns_verified_by_backend = False  # Track if backend verified DNS propagation
 
     async def __aenter__(self) -> InProcessTaskApp:
         """Start task app and tunnel."""
@@ -684,38 +685,31 @@ class InProcessTaskApp:
             named_host = tunnel_config.get("hostname")
             tunnel_token = tunnel_config.get("tunnel_token")
             
-            # Force create a NEW tunnel if requested (bypasses stale tunnels)
+            # Track if backend verified DNS (so we can skip local verification)
+            dns_verified_by_backend = False
+
+            # Force ROTATE tunnel if requested (deletes old + creates new, stays within limits)
             if self.force_new_tunnel:
-                import time
-                print("[CLOUDFLARE-FIX] force_new_tunnel=True, attempting fresh tunnel...")
-                logger.info("force_new_tunnel=True, attempting to create fresh tunnel")
+                print("[CLOUDFLARE-FIX] force_new_tunnel=True, rotating tunnel...")
+                logger.info("force_new_tunnel=True, rotating tunnel (delete+create)")
                 try:
-                    # Generate unique subdomain with timestamp
-                    unique_subdomain = f"task-{self.port}-{int(time.time()) % 100000}"
-                    new_tunnel = await create_tunnel(
+                    rotated = await rotate_tunnel(
                         synth_api_key=synth_api_key,
                         port=self.port,
-                        subdomain=unique_subdomain,
+                        reason="force_new_tunnel=True",
                     )
-                    named_host = new_tunnel.get("hostname")
-                    tunnel_token = new_tunnel.get("tunnel_token")
-                    print(f"[CLOUDFLARE-FIX] Created fresh tunnel: {named_host}")
-                    logger.info(f"Created fresh managed tunnel: {named_host}")
+                    named_host = rotated.get("hostname")
+                    tunnel_token = rotated.get("tunnel_token")
+                    dns_verified_by_backend = rotated.get("dns_verified", False)
+                    print(f"[CLOUDFLARE-FIX] Rotated to fresh tunnel: {named_host}")
+                    print(f"[CLOUDFLARE-FIX] DNS verified by backend: {dns_verified_by_backend}")
+                    logger.info(f"Rotated to fresh managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}")
                 except Exception as e:
-                    # If we hit tunnel limit (429), fall back to existing tunnel
-                    if "429" in str(e) or "Maximum" in str(e):
-                        print(f"[CLOUDFLARE-FIX] Hit tunnel limit, using existing tunnel: {named_host}")
-                        logger.warning(f"Hit tunnel limit, falling back to existing tunnel: {named_host}")
-                        # named_host and tunnel_token are already set from pre-fetch
-                        if not named_host or not tunnel_token:
-                            raise RuntimeError(
-                                "Cannot create new tunnel (limit reached) and no existing tunnel found.\n"
-                                "Contact support to delete the stale tunnel, or use tunnel_mode='quick'."
-                            ) from e
-                    else:
-                        print(f"[CLOUDFLARE-FIX] Failed to create fresh tunnel: {e}")
+                    print(f"[CLOUDFLARE-FIX] Rotation failed: {e}, using existing tunnel: {named_host}")
+                    logger.warning(f"Rotation failed: {e}, falling back to existing tunnel: {named_host}")
+                    if not named_host or not tunnel_token:
                         raise RuntimeError(
-                            f"Failed to create fresh managed tunnel: {e}\n"
+                            f"Tunnel rotation failed and no existing tunnel found: {e}\n"
                             "Try using tunnel_mode='quick' instead."
                         ) from e
             # Auto-create tunnel if none exists
@@ -731,7 +725,8 @@ class InProcessTaskApp:
                     )
                     named_host = new_tunnel.get("hostname")
                     tunnel_token = new_tunnel.get("tunnel_token")
-                    logger.info(f"Created managed tunnel: {named_host}")
+                    dns_verified_by_backend = new_tunnel.get("dns_verified", False)
+                    logger.info(f"Created managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}")
                 except Exception as e:
                     # If tunnel creation fails, suggest using quick tunnels
                     raise RuntimeError(
@@ -749,129 +744,112 @@ class InProcessTaskApp:
                 )
 
             self.url = f"https://{named_host}"
-            print(f"[CLOUDFLARE-FIX] Named tunnel URL: {self.url}")
-            print(f"[CLOUDFLARE-FIX] skip_tunnel_verification={self.skip_tunnel_verification}")
+            # Store dns_verified for use by job (to skip health check)
+            self._dns_verified_by_backend = dns_verified_by_backend
 
-            # Skip all verification if requested (useful when local DNS can't resolve tunnel)
-            if self.skip_tunnel_verification:
-                print("[CLOUDFLARE-FIX] Skipping verification, starting cloudflared...")
-                logger.info("Skipping tunnel verification (skip_tunnel_verification=True)")
-                # Always start cloudflared when skipping verification
+            print(f"[CLOUDFLARE] Named tunnel URL: {self.url}")
+
+            # CRITICAL: For Cloudflare managed tunnels, DNS will NOT resolve until cloudflared connects.
+            # The DNS record exists in Cloudflare, but proxied CNAMEs to .cfargotunnel.com only
+            # resolve when the tunnel has an active cloudflared connection.
+            # Therefore, we MUST start cloudflared FIRST, then verify the tunnel works.
+
+            # First, check if cloudflared is already running (tunnel might be accessible)
+            ready = await _verify_tunnel_ready(
+                self.url,
+                api_key,
+                max_retries=1,  # Single quick check
+                retry_delay=0.5,
+                verify_tls=_should_verify_tls(),
+            )
+
+            if ready:
+                # Tunnel already accessible - cloudflared must be running elsewhere
+                self._tunnel_proc = None
+                print(f"[CLOUDFLARE] Tunnel already accessible (cloudflared running externally)")
+                logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
+            else:
+                # Tunnel not accessible - start cloudflared FIRST, then verify
+                print(f"[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)...")
                 logger.info(f"Starting cloudflared for {self.url}...")
                 try:
                     self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                    print(f"[CLOUDFLARE-FIX] cloudflared started, PID={self._tunnel_proc.pid}")
+                    print(f"[CLOUDFLARE] cloudflared started, PID={self._tunnel_proc.pid}")
                     logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
-                    # Give cloudflared a moment to connect
-                    print("[CLOUDFLARE-FIX] Waiting 5s for tunnel to connect...")
-                    await asyncio.sleep(5.0)
-                    print(f"[CLOUDFLARE-FIX] Tunnel ready: {self.url}")
-                    logger.info(f"Cloudflared started, tunnel should be ready: {self.url}")
                 except Exception as e:
-                    print(f"[CLOUDFLARE-FIX] ERROR starting cloudflared: {e}")
+                    print(f"[CLOUDFLARE] ERROR starting cloudflared: {e}")
                     raise RuntimeError(
                         f"Failed to start cloudflared: {e}\n"
                         "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
                     ) from e
-            else:
-                # First, check if tunnel is already accessible (cloudflared might be running)
+
+                # Wait for cloudflared to connect and tunnel to become accessible
+                print(f"[CLOUDFLARE] Waiting for tunnel to become accessible...")
                 ready = await _verify_tunnel_ready(
                     self.url,
                     api_key,
-                    max_retries=2,  # Quick check - don't wait long
-                    retry_delay=1.0,
+                    max_retries=15,  # Up to ~30 seconds for tunnel to connect
+                    retry_delay=2.0,
                     verify_tls=_should_verify_tls(),
                 )
 
                 if not ready:
-                    # Tunnel not accessible - auto-start cloudflared
-                    logger.info(f"Tunnel {self.url} not accessible, starting cloudflared...")
-                    try:
-                        self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                        logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
+                    # Tunnel still not accessible after starting cloudflared
+                    # Clean up and try auto-rotation
+                    if self._tunnel_proc:
+                        stop_tunnel(self._tunnel_proc)
+                        self._tunnel_proc = None
 
-                        # Wait for tunnel to become ready
+                    print(f"[CLOUDFLARE] Tunnel {self.url} not accessible, attempting rotation...")
+                    logger.warning(f"Tunnel {self.url} failed to connect. Attempting rotation...")
+
+                    try:
+                        rotated = await rotate_tunnel(
+                            synth_api_key=synth_api_key,
+                            port=self.port,
+                            reason=f"Tunnel {named_host} failed to connect",
+                        )
+                        named_host = rotated.get("hostname")
+                        tunnel_token = rotated.get("tunnel_token")
+
+                        if not named_host or not tunnel_token:
+                            raise RuntimeError("Rotation returned incomplete tunnel config")
+
+                        self.url = f"https://{named_host}"
+                        print(f"[CLOUDFLARE] Rotated to new tunnel: {self.url}")
+
+                        # Start cloudflared with the new token
+                        self._tunnel_proc = open_managed_tunnel(tunnel_token)
+                        print(f"[CLOUDFLARE] Started cloudflared for rotated tunnel, PID={self._tunnel_proc.pid}")
+
+                        # Verify the new tunnel
                         ready = await _verify_tunnel_ready(
                             self.url,
                             api_key,
-                            max_retries=10,  # Give it time to connect
+                            max_retries=15,
                             retry_delay=2.0,
                             verify_tls=_should_verify_tls(),
                         )
 
                         if not ready:
-                            # Clean up failed tunnel process
                             if self._tunnel_proc:
                                 stop_tunnel(self._tunnel_proc)
                                 self._tunnel_proc = None
-
-                            # AUTO-ROTATE: Tunnel is stale, request rotation from backend
-                            print(f"[CLOUDFLARE-FIX] Tunnel {self.url} is stale, auto-rotating...")
-                            logger.warning(
-                                f"Tunnel {self.url} failed to become accessible. "
-                                "Attempting automatic rotation..."
+                            raise RuntimeError(
+                                f"Rotated tunnel {self.url} also failed. "
+                                "Try using tunnel_mode='quick' instead."
                             )
 
-                            try:
-                                rotated = await rotate_tunnel(
-                                    synth_api_key=synth_api_key,
-                                    port=self.port,
-                                    reason=f"Stale tunnel {named_host} failed verification",
-                                )
-                                named_host = rotated.get("hostname")
-                                tunnel_token = rotated.get("tunnel_token")
+                        print(f"[CLOUDFLARE] Rotated tunnel ready: {self.url}")
 
-                                if not named_host or not tunnel_token:
-                                    raise RuntimeError("Rotation returned incomplete tunnel config")
-
-                                self.url = f"https://{named_host}"
-                                print(f"[CLOUDFLARE-FIX] Rotated to new tunnel: {self.url}")
-                                logger.info(f"Successfully rotated to new tunnel: {self.url}")
-
-                                # Start cloudflared with the new token
-                                self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                                logger.info(f"Started cloudflared for rotated tunnel (PID: {self._tunnel_proc.pid})")
-
-                                # Verify the new tunnel
-                                ready = await _verify_tunnel_ready(
-                                    self.url,
-                                    api_key,
-                                    max_retries=15,  # Give new tunnel more time
-                                    retry_delay=2.0,
-                                    verify_tls=_should_verify_tls(),
-                                )
-
-                                if not ready:
-                                    if self._tunnel_proc:
-                                        stop_tunnel(self._tunnel_proc)
-                                        self._tunnel_proc = None
-                                    raise RuntimeError(
-                                        f"Rotated tunnel {self.url} also failed verification. "
-                                        "This may indicate a Cloudflare configuration issue. "
-                                        "Try using tunnel_mode='quick' instead."
-                                    )
-
-                                print(f"[CLOUDFLARE-FIX] Rotated tunnel verified and ready: {self.url}")
-                                logger.info(f"Rotated tunnel verified: {self.url}")
-
-                            except Exception as rotate_err:
-                                logger.error(f"Tunnel rotation failed: {rotate_err}")
-                                raise RuntimeError(
-                                    f"Tunnel {self.url} failed to become accessible and auto-rotation failed: {rotate_err}\n"
-                                    "Try using tunnel_mode='quick' instead."
-                                ) from rotate_err
-                    except Exception as e:
-                        if "Failed to become accessible" not in str(e) and "auto-rotation failed" not in str(e):
-                            raise RuntimeError(
-                                f"Failed to start cloudflared: {e}\n"
-                                "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
-                            ) from e
-                        raise
+                    except Exception as rotate_err:
+                        raise RuntimeError(
+                            f"Tunnel failed and rotation failed: {rotate_err}\n"
+                            "Try using tunnel_mode='quick' instead."
+                        ) from rotate_err
                 else:
-                    # Tunnel already accessible - cloudflared must be running elsewhere
-                    self._tunnel_proc = None
-                    logger.info(f"Tunnel {self.url} is already accessible (cloudflared running externally)")
-            
+                    print(f"[CLOUDFLARE] Tunnel connected and ready: {self.url}")
+
             logger.info(f"Using managed tunnel: {self.url}")
         elif mode == "quick":
             # Quick tunnel mode: create tunnel with DNS verification and retry

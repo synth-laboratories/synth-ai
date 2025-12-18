@@ -146,6 +146,7 @@ async def run_in_process_job(
     preconfigured_auth_header: str | None = None,
     preconfigured_auth_token: str | None = None,
     skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
+    force_new_tunnel: bool = True,  # Default True - always get fresh tunnel
     host: str = "127.0.0.1",
     port: int = 8114,
     auto_find_port: bool = True,
@@ -217,16 +218,27 @@ async def run_in_process_job(
         preconfigured_auth_header=preconfigured_auth_header,
         preconfigured_auth_token=preconfigured_auth_token,
         skip_tunnel_verification=skip_tunnel_verification,
+        force_new_tunnel=force_new_tunnel,
         api_key=resolved_task_app_key,
         auto_find_port=auto_find_port,
         health_check_timeout=health_check_timeout,
     ) as task_app:
         task_url = task_app.url or f"http://{host}:{task_app.port}"
 
-        # Verify health on the tunneled URL
-        health = check_task_app_health(task_url, resolved_task_app_key)
-        if not health.ok:
-            raise RuntimeError(f"Task app health check failed for {task_url}: {health.detail}")
+        # Check if backend verified DNS propagation (so we can skip local health checks)
+        dns_verified_by_backend = getattr(task_app, "_dns_verified_by_backend", False)
+
+        # Skip health check when:
+        # 1. tunnel verification is skipped (DNS may not have propagated locally)
+        # 2. OR backend verified DNS propagation (safe to skip redundant local check)
+        should_skip_health_check = skip_tunnel_verification or dns_verified_by_backend
+        if should_skip_health_check:
+            reason = "tunnel verification disabled" if skip_tunnel_verification else "backend verified DNS"
+            health = TaskAppHealth(ok=True, health_status=200, task_info_status=200, detail=f"Skipped ({reason})")
+        else:
+            health = check_task_app_health(task_url, resolved_task_app_key)
+            if not health.ok:
+                raise RuntimeError(f"Task app health check failed for {task_url}: {health.detail}")
 
         # Common overrides: task URL + API key injected in both dot and flat forms
         task_overrides = {
@@ -258,6 +270,10 @@ async def run_in_process_job(
             )
         else:
             raise ValueError(f"Unknown job_type: {job_type}")
+
+        # Skip job's health check if we already skipped above (DNS verified by backend or tunnel verification disabled)
+        if should_skip_health_check:
+            job._skip_health_check = True
 
         job_id = job.submit()
         if not poll:

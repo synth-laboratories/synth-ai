@@ -1187,6 +1187,7 @@ async def rotate_tunnel(
     This is useful when a tunnel becomes stale or inaccessible. It will:
     1. Delete any existing active tunnels for the org
     2. Create a fresh tunnel with a new auto-generated subdomain
+    3. Wait for DNS propagation (up to 90s) before returning
 
     Args:
         synth_api_key: Synth API key for authentication
@@ -1200,12 +1201,14 @@ async def rotate_tunnel(
         - hostname: Public hostname (e.g., "task-8114-12345.usesynth.ai")
         - access_client_id: Cloudflare Access client ID (if Access enabled)
         - access_client_secret: Cloudflare Access client secret (if Access enabled)
+        - dns_verified: True if backend verified DNS propagation (SDK can skip DNS verification)
+        - metadata: Dict with dns_verified and dns_verified_at timestamp
 
     Raises:
         RuntimeError: If API request fails
     """
     from synth_ai.core.env import get_backend_url
-    
+
     base_url = backend_url or get_backend_url()
     url = f"{base_url}/api/v1/tunnels/rotate"
 
@@ -1215,7 +1218,8 @@ async def rotate_tunnel(
         return f"{key[:6]}..."
 
     try:
-        async with httpx.AsyncClient(timeout=90.0, follow_redirects=True) as client:
+        # Backend now waits up to 90s for DNS propagation, so we need a longer timeout
+        async with httpx.AsyncClient(timeout=180.0, follow_redirects=True) as client:
             response = await client.post(
                 url,
                 headers={
@@ -1247,10 +1251,10 @@ async def rotate_tunnel(
         ) from exc
     except httpx.ReadTimeout as exc:
         raise RuntimeError(
-            f"Request timed out when rotating tunnel (backend may be under load):\n"
+            f"Request timed out when rotating tunnel (backend waits for DNS propagation):\n"
             f"  URL: {url}\n"
-            f"  Timeout: 90s\n"
-            f"  Try again in a moment or use tunnel_mode='quick'"
+            f"  Timeout: 180s\n"
+            f"  This is usually temporary - try again in a moment"
         ) from exc
     except httpx.RequestError as exc:
         raise RuntimeError(
@@ -1268,6 +1272,8 @@ async def create_tunnel(
     """
     Create a managed Cloudflare tunnel via Synth backend API.
 
+    The backend waits for DNS propagation (up to 90s) before returning.
+
     Args:
         synth_api_key: Synth API key for authentication
         port: Local port the tunnel will forward to
@@ -1279,6 +1285,8 @@ async def create_tunnel(
         - hostname: Public hostname (e.g., "cust-abc123.usesynth.ai")
         - access_client_id: Cloudflare Access client ID (if Access enabled)
         - access_client_secret: Cloudflare Access client secret (if Access enabled)
+        - dns_verified: True if backend verified DNS propagation (SDK can skip DNS verification)
+        - metadata: Dict with dns_verified and dns_verified_at timestamp
 
     Raises:
         RuntimeError: If API request fails
@@ -1294,7 +1302,8 @@ async def create_tunnel(
     try:
         # Use X-API-Key header (backend expects this format)
         # Also support Authorization header as fallback
-        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        # Backend now waits up to 90s for DNS propagation, so we need a longer timeout
+        async with httpx.AsyncClient(timeout=180.0, follow_redirects=True) as client:
             response = await client.post(
                 url,
                 headers={
@@ -1344,14 +1353,11 @@ async def create_tunnel(
             ) from exc
     except httpx.ReadTimeout as exc:
         raise RuntimeError(
-            f"Request timed out when creating tunnel (backend may be under load):\n"
+            f"Request timed out when creating tunnel (backend waits for DNS propagation):\n"
             f"  URL: {url}\n"
             f"  API Key: {mask_key(synth_api_key)}\n"
-            f"  Timeout: 60s\n"
-            f"  This usually means the backend PostgREST service is slow or unavailable.\n"
-            f"  Try:\n"
-            f"    - Wait a moment and retry\n"
-            f"    - Use tunnel_mode='quick' as a workaround"
+            f"  Timeout: 180s\n"
+            f"  This is usually temporary - try again in a moment"
         ) from exc
     except httpx.RequestError as exc:
         raise RuntimeError(
