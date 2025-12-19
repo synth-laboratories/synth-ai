@@ -2,7 +2,8 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![PyPI Dev](https://img.shields.io/badge/dev-0.3.2.dev3-orange)](https://pypi.org/project/synth-ai/0.3.2.dev3/)
+[![PyPI Main](https://img.shields.io/badge/main-0.4.1-blue)](https://pypi.org/project/synth-ai/0.4.1/)
+[![PyPI Nightly](https://img.shields.io/badge/nightly-0.4.0-orange)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Coverage](https://img.shields.io/badge/coverage-28.65%25-yellow)
 ![Tests](https://img.shields.io/badge/tests-847%20passing-brightgreen)
@@ -113,3 +114,67 @@ resp = await client.run(
     input_data={"session_trace": {"session_id": "s", "event_history": []}, "rubric": {"event": [], "outcome": []}},
 )
 ```
+
+## GraphGen: Train Custom Verifier and RLM Graphs
+
+Train custom verifier and RLM graphs using GraphGen:
+
+```python
+from synth_ai.sdk.api.train.graphgen import GraphGenJob
+
+# Train a verifier graph (judge/scorer)
+verifier_job = GraphGenJob.from_dataset(
+    dataset="verifier_dataset.json",
+    graph_type="verifier",
+    policy_models=["gpt-4.1"],
+    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
+    rollout_budget=200,
+)
+verifier_job.submit()
+result = verifier_job.stream_until_complete(timeout=3600.0)
+
+# Run inference with trained verifier
+judgment = verifier_job.run_verifier(
+    session_trace=my_trace,
+    context={"rubric": my_rubric},
+)
+print(f"Score: {judgment.score}, Reasoning: {judgment.reasoning}")
+```
+
+```python
+# Train an RLM graph (massive context via tools)
+rlm_job = GraphGenJob.from_dataset(
+    dataset="rlm_dataset.json",
+    graph_type="rlm",
+    configured_tools=[
+        {"name": "materialize_context", "kind": "rlm_materialize", "stateful": True},
+        {"name": "local_grep", "kind": "rlm_local_grep", "stateful": False},
+        {"name": "codex_exec", "kind": "daytona_exec", "stateful": True},
+    ],
+    policy_models=["gpt-4.1"],
+    proposer_effort="medium",
+    rollout_budget=100,
+)
+rlm_job.submit()
+result = rlm_job.stream_until_complete(timeout=3600.0)
+
+# Run inference with trained RLM graph
+output = rlm_job.run_inference({"query": "Find relevant sections", "context": large_document})
+```
+
+**Graph Types:**
+- **`verifier`**: Trains a judge/scorer that evaluates traces and returns structured rewards
+- **`rlm`**: Trains a graph optimized for massive contexts (1M+ tokens) using tool-based search
+- **`policy`**: Trains a standard input→output graph (default)
+
+**RLM Tools:**
+- `materialize_context` - Store input fields for fast searching (~1ms local)
+- `local_grep` - Regex search on materialized content (~1ms)
+- `local_search` - Substring search (~1ms)
+- `query_lm` - Sub-LM calls for processing chunks
+- `codex_exec` - Shell execution for complex operations
+
+**When to use RLM:**
+- Context exceeds ~100K tokens (too large for prompt)
+- You need to search/filter large datasets
+- RAG-style workflows over massive corpora
