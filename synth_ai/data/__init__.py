@@ -30,7 +30,9 @@ from synth_ai.data.enums import (
 
 # Reward data types
 from synth_ai.data.rewards import (
+    CalibrationExample,
     EventRewardRecord,
+    GoldExample,
     OutcomeRewardRecord,
     RewardAggregates,
     RewardRecord,
@@ -81,6 +83,8 @@ __all__ = [
     "OutcomeRewardRecord",
     "EventRewardRecord",
     "RewardAggregates",
+    "CalibrationExample",
+    "GoldExample",
     # Spec data
     "Spec",
     "Metadata",

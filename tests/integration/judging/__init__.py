@@ -1,1 +1,1 @@
-"""Integration tests for judge client."""
+"""Integration tests for verifier client."""

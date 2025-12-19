@@ -31,10 +31,11 @@ Example:
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 
 # =============================================================================
@@ -460,6 +461,151 @@ DEFAULT_JUDGE_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_JUDGE_PROVIDER = "groq"
 
 
+class EventInput(BaseModel):
+    """V3-compatible event input for verifier evaluation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    event_id: int = Field(..., description="Unique integer event ID")
+    event_type: str = Field(..., description="Type of event (e.g., 'runtime', 'environment', 'llm')")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary event metadata")
+
+
+class SessionTimeStepInput(BaseModel):
+    """V3-compatible session time step input."""
+
+    model_config = ConfigDict(extra="allow")
+
+    step_id: str = Field(..., description="Unique step identifier")
+    step_index: int = Field(..., description="Zero-based index of the step")
+    turn_number: Optional[int] = Field(default=None, description="Optional turn/round number")
+    events: List[EventInput] = Field(..., description="List of events in this timestep")
+    step_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional step-level metadata")
+
+
+class SessionTraceInput(BaseModel):
+    """V3-compatible session trace input for judge evaluation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    session_id: str = Field(..., description="Unique session/trace ID")
+    session_time_steps: List[SessionTimeStepInput] = Field(..., description="List of steps in the trajectory")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Global trace metadata")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_demo_trace_format(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "timesteps" in data and "session_time_steps" not in data:
+            raise ValueError(
+                "Invalid trace format. Expected V3 SessionTrace with 'session_time_steps', "
+                "got demo format with 'timesteps'. Please convert to V3 format."
+            )
+        return data
+
+
+class GraphGenGraphJudgeRequest(BaseModel):
+    """Request for verifier graph inference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str = Field(..., description="GraphGen or GEPA job ID (must be a verifier graph)")
+    session_trace: SessionTraceInput = Field(
+        ..., description="V3 session trace to evaluate (must include event_ids for reward linking)"
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        default=None, description="Additional context for evaluation (rubric, task description, etc.)"
+    )
+    prompt_snapshot_id: Optional[str] = Field(
+        default=None, description="Specific snapshot to use (default: best)"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_legacy_trace_key(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "session_trace" not in data and "trace" in data:
+            data = dict(data)
+            data["session_trace"] = data.pop("trace")
+        return data
+
+
+class GraphGenGraphCompletionsModelUsage(BaseModel):
+    """Token usage and cost for a single model in a graph completion."""
+
+    model: str = Field(..., description="Model identifier")
+    provider: Optional[str] = Field(default=None, description="Provider (openai, anthropic, etc.)")
+    elapsed_ms: int = Field(default=0, description="LLM request time in milliseconds")
+    prompt_tokens: int = Field(default=0, description="Input tokens used")
+    completion_tokens: int = Field(default=0, description="Output tokens used")
+    total_tokens: int = Field(default=0, description="Total tokens used")
+    estimated_cost_usd: Optional[float] = Field(default=None, description="Estimated cost in USD")
+
+
+class EventRewardResponse(BaseModel):
+    """Event-level reward from verifier evaluation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: int = Field(..., description="Integer event id (FK to synth-ai events table)")
+    session_id: str = Field(..., description="Session/trace ID this event belongs to")
+    reward_value: float = Field(..., description="Reward value for this event")
+    reward_type: Optional[
+        Literal["shaped", "sparse", "achievement", "penalty", "evaluator", "human"]
+    ] = Field(default="evaluator", description="Type of reward")
+    key: Optional[str] = Field(default=None, description="Optional key/label for the reward")
+    turn_number: Optional[int] = Field(default=None, description="Turn/timestep number in the trace")
+    source: Optional[Literal["environment", "runner", "evaluator", "human"]] = Field(
+        default="evaluator", description="Reward source"
+    )
+    annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (feedback, etc.)")
+
+
+class OutcomeRewardResponse(BaseModel):
+    """Outcome-level reward from verifier evaluation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: str = Field(..., description="Session/trace ID")
+    total_reward: float = Field(..., description="Overall reward/score for the episode (0-1)")
+    achievements_count: int = Field(default=0, description="Number of achievements unlocked")
+    total_steps: int = Field(default=0, description="Total timesteps in the trace")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata (feedback, etc.)")
+    annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (free-form)")
+
+
+class GraphGenGraphJudgeResponse(BaseModel):
+    """Response from verifier graph inference."""
+
+    started_at: datetime = Field(..., description="When inference request started (UTC)")
+    ended_at: datetime = Field(..., description="When inference request completed (UTC)")
+    elapsed_ms: int = Field(..., description="Total elapsed time in milliseconds")
+    job_id: str = Field(..., description="GEPA job ID")
+    snapshot_id: str = Field(..., description="Snapshot ID used for inference")
+
+    # Structured reward outputs (synth-ai compatible)
+    event_rewards: List[EventRewardResponse] = Field(default_factory=list, description="Per-event rewards")
+    outcome_reward: Optional[OutcomeRewardResponse] = Field(default=None, description="Episode-level outcome reward")
+
+    # Legacy fields (kept for backward compatibility)
+    score: float = Field(..., ge=0.0, le=1.0, description="Evaluation score (0-1)")
+    reasoning: Optional[str] = Field(default=None, description="Explanation for the score")
+    sub_scores: Optional[Dict[str, float]] = Field(default=None, description="Breakdown scores by criteria")
+    raw_output: Optional[Dict[str, Any]] = Field(default=None, description="Full raw output from the verifier graph")
+
+    usage: List[GraphGenGraphCompletionsModelUsage] = Field(default_factory=list, description="Token usage per model")
+
+
+class GraphGenGraphVerifierRequest(GraphGenGraphJudgeRequest):
+    """Alias for GraphGenGraphJudgeRequest with verifier terminology."""
+
+
+class GraphGenGraphVerifierResponse(GraphGenGraphJudgeResponse):
+    """Alias for GraphGenGraphJudgeResponse with verifier terminology."""
+
+
 class GraphGenJobConfig(BaseModel):
     """Configuration for an GraphGen optimization job.
 
@@ -470,6 +616,17 @@ class GraphGenJobConfig(BaseModel):
             proposer_effort="medium",
         )
     """
+
+    # Graph type
+    graph_type: Literal["policy", "verifier", "rlm"] = Field(
+        default="policy",
+        description=(
+            "Type of graph to train: "
+            "'policy' (input->output), "
+            "'verifier' (trace->score), "
+            "'rlm' (massive context via tool-using RLM-style execution)"
+        ),
+    )
 
     # Policy model (what the prompt runs on)
     policy_model: str = Field(
@@ -492,7 +649,11 @@ class GraphGenJobConfig(BaseModel):
     # Proposer settings (controls prompt mutation quality/cost)
     proposer_effort: Literal["low", "medium", "high"] = Field(
         default="medium",
-        description="Proposer effort level (affects mutation quality and cost)",
+        description=(
+            "Proposer effort level (affects mutation quality and cost). "
+            "Note: 'low' is not allowed by the backend as gpt-4.1-mini is too weak for graph generation. "
+            "Use 'medium' (gpt-4.1) or 'high' (gpt-5.2)."
+        ),
     )
 
     # Judge settings (if not specified in dataset)
@@ -545,6 +706,16 @@ class GraphGenJobConfig(BaseModel):
             "Target number of LLM calls for the graph (1-10). "
             "Controls max_llm_calls_per_run in the graph_evolve proposer. "
             "If not specified, defaults to 5."
+        ),
+    )
+    configured_tools: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description=(
+            "Optional job-bound tool allowlist for graph optimization (required for RLM graphs). "
+            "Each tool binding should look like: "
+            "{'name': 'materialize_context', 'kind': 'rlm_materialize', 'stateful': True} or "
+            "{'name': 'local_grep', 'kind': 'rlm_local_grep', 'stateful': False}. "
+            "See backend/graphs/tooling/catalog.py for available tool kinds."
         ),
     )
 

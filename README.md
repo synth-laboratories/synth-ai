@@ -29,7 +29,7 @@ Serverless Posttraining APIs for Developers
 - 🛠️ Spin up experiment queues and datastores locally for dev work
 - 🔩 Run serverless training via cli or programmatically
 - 🏢 Scales gpu-based model training to 64 H100s seemlessly
-- 💾 Use GEPA-calibrated judges for fast, accurate rubric scoring
+- 💾 Use GEPA-calibrated verifiers for fast, accurate rubric scoring
 - 🖥️ Supports HTTP-based training across all programming languages
 - 🤖 CLI utilities tuned for use with Claude Code, Codex, Opencode
 
@@ -70,4 +70,46 @@ result = asyncio.run(
     )
 )
 print(result.job_id, result.status.get("status"))
+```
+
+## Zero-Shot Verifiers (SDK)
+
+Run a built-in verifier graph with rubric criteria passed at runtime:
+
+```python
+import asyncio
+import os
+from synth_ai.sdk.graphs import VerifierClient
+
+async def run_verifier():
+    client = VerifierClient(
+        base_url=os.environ["SYNTH_BACKEND_BASE"],
+        api_key=os.environ["SYNTH_API_KEY"],
+    )
+    result = await client.evaluate(
+        job_id="zero_shot_verifier_single",
+        session_trace={"session_id": "s", "event_history": []},
+        rubric={
+            "event": [{"id": "accuracy", "weight": 1.0, "description": "Correctness"}],
+            "outcome": [{"id": "task_completion", "weight": 1.0, "description": "Completed task"}],
+        },
+        options={"event": True, "outcome": True, "model": "gpt-5-nano"},
+        policy_name="my_policy",
+        task_app_id="my_task",
+    )
+    return result
+
+asyncio.run(run_verifier())
+```
+
+You can also call arbitrary graphs directly:
+
+```python
+from synth_ai.sdk.graphs import GraphCompletionsClient
+
+client = GraphCompletionsClient(base_url="https://api.usesynth.ai", api_key="...")
+resp = await client.run(
+    graph={"kind": "zero_shot", "verifier_type": "zero_shot_verifier_mapreduce"},
+    input_data={"session_trace": {"session_id": "s", "event_history": []}, "rubric": {"event": [], "outcome": []}},
+)
 ```

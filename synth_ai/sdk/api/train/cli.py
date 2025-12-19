@@ -620,6 +620,8 @@ def train_command(
 
         match train_type:
             case "prompt":
+                if not cfg_path:
+                    raise click.ClickException("Prompt Learning requires a TOML config file.")
                 handle_prompt_learning(
                     cfg_path=cfg_path,
                     backend_base=backend_base,
@@ -646,6 +648,8 @@ def train_command(
                     stream_format=stream_format,
                 )
             case "rl":
+                if not cfg_path:
+                    raise click.ClickException("RL requires a TOML config file.")
                 handle_rl(
                     cfg_path=cfg_path,
                     backend_base=backend_base,
@@ -661,6 +665,8 @@ def train_command(
                     stream_format=stream_format,
                 )
             case "sft":
+                if not cfg_path:
+                    raise click.ClickException("SFT requires a TOML config file.")
                 dataset_override_path = Path(dataset_path).expanduser().resolve() if dataset_path else None
                 handle_sft(
                     cfg_path=cfg_path,
@@ -676,6 +682,8 @@ def train_command(
                     examples_limit=examples_limit,
                 )
             case "adas":
+                if not dataset_path:
+                    raise click.ClickException("ADAS requires a dataset path.")
                 adas_dataset_path = Path(dataset_path).expanduser().resolve()
                 handle_adas(
                     dataset_path=adas_dataset_path,
@@ -1221,11 +1229,11 @@ def handle_adas(
         raise click.ClickException(str(e))
 
     click.echo(f"\n✓ Job created:")
-    click.echo(f"  ADAS Job ID: {result.adas_job_id}")
+    click.echo(f"  ADAS Job ID: {result.graphgen_job_id}")
     click.echo(f"  Status: {result.status}")
 
     if not poll:
-        click.echo(f"\nCreated job {result.adas_job_id} (polling disabled)")
+        click.echo(f"\nCreated job {result.graphgen_job_id} (polling disabled)")
         return
 
     click.echo("\n=== Streaming Job Progress ===")

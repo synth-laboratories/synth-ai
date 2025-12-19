@@ -227,6 +227,7 @@ KNOWN_JUDGE_FIELDS = {
     "backend_api_key_env",
     "backend_provider",
     "backend_model",
+    "synth_verifier_id",
     "backend_rubric_id",
     "backend_event_enabled",
     "backend_outcome_enabled",
@@ -299,6 +300,7 @@ DEPRECATED_FIELDS = {
     "max_concurrent_rollouts": "Use [prompt_learning.gepa.rollout].max_concurrent instead.",
     "evaluation_seeds": "Use [prompt_learning.gepa.evaluation].seeds instead of flat evaluation_seeds.",
     "validation_seeds": "Use [prompt_learning.gepa.evaluation].validation_seeds instead.",
+    "backend_rubric_id": "Use 'synth_verifier_id' instead of 'backend_rubric_id' in [prompt_learning.judge].",
 }
 
 

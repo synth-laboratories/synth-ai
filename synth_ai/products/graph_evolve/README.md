@@ -108,6 +108,51 @@ config = GraphOptimizationConfig(
 )
 ```
 
+### RLM Graphs (Recursive Language Model)
+Handle massive context (1M+ tokens) by keeping it out of prompts and searching via tools.
+```python
+config = GraphOptimizationConfig(
+    graph_type="rlm",  # Input with large context -> Output
+    task_description="Answer questions about a large document corpus",
+)
+```
+
+**RLM graphs automatically get these tools:**
+- `materialize_context` - Store input fields for fast searching (~1ms local)
+- `local_grep` - Regex search on materialized content (~1ms)
+- `local_search` - Substring search (~1ms)
+- `query_lm` - Sub-LM calls for processing chunks
+- `codex_exec` - Shell execution for complex operations
+
+**When to use RLM:**
+- Context exceeds ~100K tokens (too large for prompt)
+- You need to search/filter large datasets
+- RAG-style workflows over massive corpora
+
+**Example RLM Dataset:**
+```json
+{
+  "tasks": [
+    {
+      "task_id": "q1",
+      "input": {
+        "question": "What was the quarterly revenue?",
+        "documents": "<4MB of financial reports>"
+      }
+    }
+  ],
+  "gold_outputs": [
+    {"task_id": "q1", "output": {"answer": "$4.2B"}, "score": 1.0}
+  ],
+  "metadata": {
+    "name": "financial_qa",
+    "task_description": "Answer questions by searching financial documents"
+  }
+}
+```
+
+The system automatically detects large fields (>4M chars / ~1M tokens) and uses RLM patterns.
+
 ## Graph Structures
 
 | Structure | Description | Use Case |
@@ -172,9 +217,9 @@ config = GraphOptimizationConfig(
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `dataset_name` | str | required | Dataset identifier |
-| `graph_type` | str | "policy" | "policy" or "verifier" |
+| `graph_type` | str | "policy" | "policy", "verifier", or "rlm" (see Graph Types) |
 | `graph_structure` | str | "dag" | "single_prompt", "dag", "conditional" |
-| `topology_guidance` | str | None | Custom guidance for graph structure |
+| `topology_guidance` | str | None | Custom guidance for graph structure (auto-set for RLM) |
 | `allowed_policy_models` | list | ["gpt-4o-mini", "gpt-4o"] | Models allowed in graph nodes |
 
 ### Evolution Settings

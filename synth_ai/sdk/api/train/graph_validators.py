@@ -27,7 +27,7 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast, Literal
 
 from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
 from .graphgen_validators import GraphGenValidationError, validate_graphgen_job_config
@@ -111,7 +111,7 @@ def validate_graph_job_section(
             policy_model=str(policy_model) if policy_model is not None else "gpt-4o-mini",
             policy_provider=section.get("policy_provider"),
             rollout_budget=int(rollout_budget) if rollout_budget is not None else 100,
-            proposer_effort=str(proposer_effort) if proposer_effort is not None else "medium",
+            proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort)) if proposer_effort is not None else "medium",
             judge_model=section.get("judge_model"),
             judge_provider=section.get("judge_provider"),
             population_size=section.get("population_size", 4),
@@ -122,7 +122,7 @@ def validate_graph_job_section(
         config = GraphGenJobConfig()
 
     auto_start = bool(section.get("auto_start", True))
-    metadata = section.get("metadata") if isinstance(section.get("metadata"), dict) else {}
+    metadata = cast(Dict[str, Any], section.get("metadata") if isinstance(section.get("metadata"), dict) else {})
     initial_prompt = section.get("initial_prompt")
 
     if dataset is not None:
@@ -180,14 +180,14 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
         errors.append({"field": "dataset", "error": "dataset must be a dict"})
         dataset = None
 
-    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    metadata = cast(Dict[str, Any], payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {})
 
     try:
         config = GraphGenJobConfig(
             policy_model=str(payload.get("policy_model") or "gpt-4o-mini"),
             policy_provider=payload.get("policy_provider"),
             rollout_budget=int(payload.get("rollout_budget") or 100),
-            proposer_effort=str(payload.get("proposer_effort") or "medium"),
+            proposer_effort=cast(Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")),
             judge_model=payload.get("judge_model"),
             judge_provider=payload.get("judge_provider"),
             population_size=metadata.get("population_size", 4),

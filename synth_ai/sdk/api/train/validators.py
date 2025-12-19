@@ -561,12 +561,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             backend_provider = str(judge_section.get("backend_provider", "") or "").strip()
             backend_model = str(judge_section.get("backend_model", "") or "").strip()
             if enabled:
-                if not backend_base:
-                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_base")
-                if not backend_provider:
-                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_provider")
-                if not backend_model:
-                    errors.append("prompt_learning.judge.enabled=true requires prompt_learning.judge.backend_model")
+                pass
             if reward_source == "fused":
                 weight_event = judge_section.get("weight_event", 0.0)
                 weight_outcome = judge_section.get("weight_outcome", 0.0)

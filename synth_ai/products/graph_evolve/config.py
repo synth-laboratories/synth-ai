@@ -22,9 +22,100 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class GraphType(str, Enum):
-    """What the graph does."""
+    """What the graph does.
+
+    - POLICY: Maps inputs to outputs (standard LLM pipeline)
+    - VERIFIER: Judges/scores existing results
+    - RLM: Recursive Language Model - handles massive context (1M+ tokens) by keeping
+           it out of prompts and searching via tools. Auto-adds materialize_context,
+           local_grep, local_search, query_lm, and codex_exec tools.
+    """
     POLICY = "policy"      # Maps inputs to outputs, solves tasks
     VERIFIER = "verifier"  # Judges/scores existing results
+    RLM = "rlm"            # Recursive LM - massive context via tool search
+
+
+class GraphPattern(str, Enum):
+    """Architectural patterns for graph structure.
+
+    These patterns can be applied to ANY graph type (policy, verifier, rlm).
+    They describe HOW the graph processes data, not WHAT it does.
+
+    Use patterns to guide the proposer toward specific architectures:
+    - patterns.required=["rlm"] → MUST use RLM pattern (auto-adds tools)
+    - patterns.optional=["rlm", "map_reduce"] → May try either pattern
+    - patterns.prefer=["map_reduce"] → Prefer this pattern when viable
+
+    Patterns:
+    - RLM: Tool-based search for massive context (1M+ tokens).
+           Materializes context to files, uses grep/search tools.
+           Good for: RAG, codebase search, document QA.
+
+    - MAP_REDUCE: Parallel processing for variable-length inputs.
+           Maps over items in parallel, then reduces/aggregates.
+           Good for: scoring events, processing lists, chunking.
+
+    - SINGLE_SHOT: Single LLM call, minimal structure.
+           Good for: classification, simple QA.
+
+    - CHAIN_OF_THOUGHT: Multi-step reasoning, sequential nodes.
+           Good for: complex reasoning, multi-hop QA.
+
+    - DIGEST_COMBINE: Two-stage: digest in parallel, then combine.
+           Good for: verifiers analyzing multiple aspects.
+    """
+    RLM = "rlm"
+    MAP_REDUCE = "map_reduce"
+    SINGLE_SHOT = "single_shot"
+    CHAIN_OF_THOUGHT = "chain_of_thought"
+    DIGEST_COMBINE = "digest_combine"
+
+
+class PatternConfig(BaseModel):
+    """Configuration for which architectural patterns the proposer should use.
+
+    Patterns are orthogonal to graph_type - you can have an RLM-pattern verifier
+    or a map-reduce-pattern policy. This lets you guide the proposer toward
+    specific architectures without changing the fundamental graph type.
+
+    Examples:
+        # RLM verifier (MUST use RLM pattern - auto-adds tools & guidance)
+        patterns = PatternConfig(required=["rlm"])
+
+        # Let proposer try different patterns
+        patterns = PatternConfig(optional=["rlm", "map_reduce", "digest_combine"])
+
+        # Prefer map-reduce but allow alternatives
+        patterns = PatternConfig(
+            required=[],
+            optional=["map_reduce", "digest_combine"],
+            prefer=["map_reduce"]
+        )
+
+    When RLM pattern is in required/prefer:
+        - Tools are auto-added: materialize_context, local_grep, local_search, etc.
+        - Proposer receives RLM-specific guidance for tool-based search patterns
+    """
+    required: List[str] = Field(
+        default_factory=list,
+        description="Patterns the graph MUST use. Proposer will incorporate all required patterns."
+    )
+    optional: List[str] = Field(
+        default_factory=list,
+        description="Patterns the proposer MAY consider. These are suggestions, not requirements."
+    )
+    prefer: List[str] = Field(
+        default_factory=list,
+        description="Patterns to prefer when multiple options are viable."
+    )
+
+    def to_api_dict(self) -> Dict[str, Any]:
+        """Convert to API request format."""
+        return {
+            "required": [GraphPattern(p).value for p in self.required],
+            "optional": [GraphPattern(p).value for p in self.optional],
+            "prefer": [GraphPattern(p).value for p in self.prefer],
+        }
 
 
 class GraphStructure(str, Enum):
@@ -299,6 +390,16 @@ class GraphOptimizationConfig(BaseModel):
         description="Additional guidance on what kind of graph to build within the chosen structure (e.g., 'Use a single LLM call that reasons and answers in one shot')"
     )
 
+    # Pattern configuration - architectural patterns orthogonal to graph_type
+    patterns: Optional[PatternConfig] = Field(
+        default=None,
+        description=(
+            "Configure which architectural patterns the proposer should use/consider. "
+            "Patterns are orthogonal to graph_type - you can have an RLM-pattern verifier. "
+            "Example: patterns=PatternConfig(required=['rlm']) for RLM-style verifier."
+        )
+    )
+
     # Optional warm start from a saved graph in the registry
     initial_graph_id: Optional[str] = Field(
         default=None,
@@ -438,6 +539,10 @@ class GraphOptimizationConfig(BaseModel):
         # Only include topology_guidance if set
         if self.topology_guidance:
             request["topology_guidance"] = self.topology_guidance
+
+        # Include pattern configuration if set
+        if self.patterns:
+            request["patterns"] = self.patterns.to_api_dict()
 
         if self.initial_graph_id:
             request["initial_graph_id"] = self.initial_graph_id

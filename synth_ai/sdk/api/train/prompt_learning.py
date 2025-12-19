@@ -13,6 +13,9 @@ Example SDK usage:
     job.submit()
     result = job.poll_until_complete()
     print(f"Best score: {result['best_score']}")
+
+For domain-specific judging, you can use **Verifier Graphs**. See `PromptLearningJudgeConfig` 
+in `synth_ai.sdk.api.train.configs.prompt_learning` for configuration details.
 """
 
 from __future__ import annotations

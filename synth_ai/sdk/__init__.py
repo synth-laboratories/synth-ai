@@ -35,6 +35,7 @@ from synth_ai.sdk.jobs import JobsClient
 
 # Judging
 from synth_ai.sdk.judging import JudgeClient, JudgeOptions, JudgeScoreResponse
+from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
 
 # Specs
 from synth_ai.sdk.specs import (
@@ -97,8 +98,11 @@ __all__ = [
     "create_task_app",
     # Judging
     "JudgeClient",
+    "VerifierClient",
     "JudgeOptions",
     "JudgeScoreResponse",
+    "GraphCompletionsClient",
+    "GraphTarget",
     # Inference
     "InferenceClient",
     # Specs

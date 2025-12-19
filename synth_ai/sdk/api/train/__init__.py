@@ -38,6 +38,13 @@ from .context_learning import (
     ContextLearningJob,
     ContextLearningJobConfig,
 )
+from .graphgen import (
+    GraphGenJob,
+)
+from .graphgen_models import (
+    GraphGenJobConfig,
+    GraphGenTaskSet,
+)
 
 __all__ = [
     # CLI
@@ -53,6 +60,10 @@ __all__ = [
     # SDK - Context Learning
     "ContextLearningJob",
     "ContextLearningJobConfig",
+    # SDK - GraphGen
+    "GraphGenJob",
+    "GraphGenJobConfig",
+    "GraphGenTaskSet",
 ]
 
 

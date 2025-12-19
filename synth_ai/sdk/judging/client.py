@@ -12,6 +12,7 @@ from typing import Any, Literal, TypedDict
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
+from synth_ai.sdk.graphs import VerifierClient as GraphVerifierClient
 
 Provider = Literal["groq", "gemini"]
 
@@ -24,6 +25,7 @@ class JudgeOptions(TypedDict, total=False):
     provider: Provider
     model: str
     max_concurrency: int
+    verifier_type: str
 
 
 class JudgeScoreResponse(TypedDict, total=False):
@@ -34,7 +36,7 @@ class JudgeScoreResponse(TypedDict, total=False):
 
 
 class JudgeClient:
-    """Client for LLM-based evaluation of task app traces.
+    """Legacy client for LLM-based evaluation of task app traces.
     
     This client provides programmatic access to Synth AI's judge API, which uses
     LLMs to evaluate task execution traces and generate rewards. The judge can
@@ -79,7 +81,8 @@ class JudgeClient:
         _silence = (os.getenv("SYNTH_SILENCE_EXPERIMENTAL") or "").strip().lower()
         if _silence not in {"1", "true", "t", "yes", "y", "on"}:
             warnings.warn(
-                "Experimental API: synth_ai.sdk.judging.JudgeClient is experimental and may change without notice.",
+                "Legacy API: synth_ai.sdk.judging.JudgeClient is legacy. "
+                "Use synth_ai.sdk.graphs.VerifierClient or GraphCompletionsClient instead.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -94,6 +97,8 @@ class JudgeClient:
         policy_name: str,
         task_app_id: str,
         options: JudgeOptions,
+        rubric: dict[str, Any] | None = None,
+        verifier_type: str | None = None,
         task_app_base_url: str | None = None,
     ) -> JudgeScoreResponse:
         """Score a task execution trace using LLM-based evaluation.
@@ -113,6 +118,8 @@ class JudgeClient:
                 - provider: LLM provider ("groq" or "gemini")
                 - model: Model identifier (e.g., "llama-3.1-8b-instant")
                 - max_concurrency: Max concurrent judge calls (default: 1)
+            rubric: Optional explicit rubric criteria (event/outcome lists)
+            verifier_type: Optional zero-shot verifier graph ID (e.g., "zero_shot_verifier_single")
             task_app_base_url: Optional base URL for task app (for rubric fetching)
             
         Returns:
@@ -128,15 +135,40 @@ class JudgeClient:
             FileNotFoundError: If task app or rubric not found
             Exception: For rate limiting or transient errors
         """
-        body = {
-            "policy_name": policy_name,
-            "task_app": {"id": task_app_id, **({"base_url": task_app_base_url} if task_app_base_url else {})},
-            "trace": normalize_for_json(trace),
-            "options": options or {},
-        }
+        trace_payload = normalize_for_json(trace)
+        task_app_payload = {"id": task_app_id}
+        if task_app_base_url:
+            task_app_payload["base_url"] = task_app_base_url
+
+        selected_verifier = verifier_type or (options or {}).get("verifier_type")
+        if selected_verifier:
+            graph_input = {
+                "policy_name": policy_name,
+                "task_app": task_app_payload,
+                "session_trace": trace_payload,
+                "trace": trace_payload,
+                "options": options or {},
+            }
+            if rubric is not None:
+                graph_input["rubric"] = normalize_for_json(rubric)
+            body = {"job_id": selected_verifier, "input": graph_input}
+        else:
+            body = {
+                "policy_name": policy_name,
+                "task_app": task_app_payload,
+                "trace": trace_payload,
+                "options": options or {},
+            }
+            if rubric is not None:
+                body["rubric"] = normalize_for_json(rubric)
         try:
             async with AsyncHttpClient(self._base, self._key, timeout=self._timeout) as http:
-                js = await http.post_json("/api/judge/v1/score", json=body)
+                if selected_verifier:
+                    js = await http.post_json("/api/graphs/completions", json=body)
+                    if isinstance(js, dict) and "output" in js:
+                        js = js["output"]
+                else:
+                    js = await http.post_json("/api/judge/v1/score", json=body)
                 if not isinstance(js, dict):
                     raise ValueError("invalid_judge_response_shape")
                 return js  # type: ignore[return-value]
@@ -153,3 +185,7 @@ class JudgeClient:
             if status >= 500:
                 raise Exception("judge_transient_error") from err  # replace with TransientError in future
             raise
+
+
+class VerifierClient(GraphVerifierClient):
+    """Deprecated alias for graph-based VerifierClient."""

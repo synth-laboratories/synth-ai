@@ -425,7 +425,9 @@ class GraphGenHandler(StreamHandler):
         if not event_type:
             return
 
-        if "mipro" in event_type:
+        if event_type.startswith("graph_evolve."):
+            self.child_job_type = "graph_evolve"
+        elif "mipro" in event_type:
             self.child_job_type = "mipro"
         elif "gepa" in event_type or event_type.startswith("prompt.learning"):
             self.child_job_type = "prompt_learning"
@@ -460,6 +462,10 @@ class GraphGenHandler(StreamHandler):
         event_type = message.data.get("type", "") or ""
         event_type_lower = event_type.lower()
 
+        # Never filter graph_evolve events - they're important for GraphGen jobs
+        if event_type.startswith("graph_evolve."):
+            return False
+
         # Only filter prompt-learning style events; leave other job types untouched.
         if not any(key in event_type_lower for key in ("prompt.learning", "gepa", "mipro")):
             return False
@@ -476,6 +482,14 @@ class GraphGenHandler(StreamHandler):
             "prompt.learning.validation.summary",
             "prompt.learning.candidate.evaluated",
             "prompt.learning.candidate.evaluation.started",
+            # GraphGen/graph_evolve important events
+            "graph_evolve.job_started",
+            "graph_evolve.generation_started",
+            "graph_evolve.generation_completed",
+            "graph_evolve.candidate_evaluated",
+            "graph_evolve.archive_updated",
+            "graph_evolve.job_completed",
+            "graph_evolve.job_failed",
         }
         if event_type in important_events:
             return False

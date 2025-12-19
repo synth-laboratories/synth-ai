@@ -1,8 +1,9 @@
 """
-Judge API Contract Schemas
+Verifier API Contract Schemas
 
 These schemas define the expected structure for requests and responses
-to the judge scoring endpoint at POST /api/judge/v1/score.
+to the verifier scoring endpoint at POST /api/judge/v1/score. Zero-shot
+verifier graphs use the same response format via POST /api/graphs/completions.
 
 This is the canonical contract that the backend MUST conform to.
 """
@@ -11,7 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CriterionScorePayload(BaseModel):
@@ -37,8 +38,9 @@ class ReviewPayload(BaseModel):
 class JudgeScoreResponse(BaseModel):
     """
     Response body for POST /api/judge/v1/score.
-    
-    This is the canonical contract that judge backends MUST return.
+
+    This is the canonical contract that judge backends MUST return and is
+    also used as the zero-shot verifier graph output.
     """
 
     status: Literal["ok", "failed"] = Field(default="ok", description="Request status")
@@ -125,3 +127,96 @@ class JudgeScoreRequest(BaseModel):
     options: JudgeOptions = Field(default_factory=lambda: JudgeOptions(), description="Judge options")
     rubric: Optional[dict[str, Any]] = Field(None, description="Optional explicit rubric criteria")
 
+
+# Verifier input validation schemas
+
+class CalibrationExampleInput(BaseModel):
+    """Input schema for a calibration example (few-shot verifier).
+    
+    Validates that the example has a valid trace and matching rewards.
+    Uses synth_ai.data.rewards.CalibrationExample dataclass for structure.
+    """
+    
+    session_trace: dict[str, Any] = Field(..., description="V3 SessionTrace format (validated separately)")
+    event_rewards: list[Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        ..., 
+        description="List of rewards per event (0.0-1.0), must match number of events in trace"
+    )
+    outcome_reward: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
+        ..., 
+        description="Overall outcome reward (0.0-1.0)"
+    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
+    
+    @model_validator(mode="after")
+    def validate_rewards_match_trace(self) -> "CalibrationExampleInput":
+        """Validate that event_rewards length matches trace events."""
+        # Count events in trace
+        trace_events = self._count_trace_events()
+        if len(self.event_rewards) != trace_events:
+            raise ValueError(
+                f"event_rewards length ({len(self.event_rewards)}) doesn't match trace events ({trace_events}). "
+                f"Each event in the trace must have a corresponding reward."
+            )
+        return self
+    
+    def _count_trace_events(self) -> int:
+        """Count total events in session_trace."""
+        count = 0
+        # Try event_history first (V3 format)
+        if isinstance(self.session_trace, dict):
+            event_history = self.session_trace.get("event_history", [])
+            if isinstance(event_history, list):
+                return len(event_history)
+            
+            # Try session_time_steps format
+            time_steps = self.session_trace.get("session_time_steps", [])
+            if isinstance(time_steps, list):
+                for step in time_steps:
+                    if isinstance(step, dict):
+                        events = step.get("events", [])
+                        if isinstance(events, list):
+                            count += len(events)
+                return count
+        return 0
+    
+    def to_dataclass(self) -> "CalibrationExample":
+        """Convert to synth_ai.data.rewards.CalibrationExample dataclass."""
+        from synth_ai.data.rewards import CalibrationExample
+        return CalibrationExample(
+            session_trace=self.session_trace,
+            event_rewards=self.event_rewards,
+            outcome_reward=self.outcome_reward,
+            metadata=self.metadata,
+        )
+
+
+class GoldExampleInput(BaseModel):
+    """Input schema for a gold example (contrastive verifier).
+    
+    Validates that the example has required fields with correct types.
+    Uses synth_ai.data.rewards.GoldExample dataclass for structure.
+    """
+    
+    summary: str = Field(..., min_length=1, description="Summary of the trace being evaluated")
+    gold_score: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
+        ..., 
+        description="Gold-standard score (0.0-1.0)"
+    )
+    gold_reasoning: str = Field(..., min_length=1, description="Gold-standard reasoning/explanation")
+    session_trace: Optional[dict[str, Any]] = Field(
+        None, 
+        description="Optional full trace (for richer evaluation)"
+    )
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
+    
+    def to_dataclass(self) -> "GoldExample":
+        """Convert to synth_ai.data.rewards.GoldExample dataclass."""
+        from synth_ai.data.rewards import GoldExample
+        return GoldExample(
+            summary=self.summary,
+            gold_score=self.gold_score,
+            gold_reasoning=self.gold_reasoning,
+            session_trace=self.session_trace,
+            metadata=self.metadata,
+        )

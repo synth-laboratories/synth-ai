@@ -77,10 +77,76 @@ class RewardAggregates:
     max_value: float | None = None
 
 
+@dataclass
+class CalibrationExample:
+    """A calibration example for few-shot verifier evaluation.
+    
+    Contains a full execution trace with its ground truth rewards.
+    Used to teach the verifier evaluation patterns through labeled examples.
+    """
+    
+    session_trace: dict[str, Any]  # V3 SessionTrace format (validated separately)
+    event_rewards: list[float]  # List of rewards per event (0.0-1.0), one per event in trace
+    outcome_reward: float  # Overall outcome reward (0.0-1.0)
+    metadata: dict[str, Any] = field(default_factory=dict)  # Optional metadata
+    
+    def __post_init__(self) -> None:
+        """Validate reward values."""
+        # Validate event_rewards are in range
+        for idx, reward in enumerate(self.event_rewards):
+            if not isinstance(reward, (int, float)) or reward < 0.0 or reward > 1.0:
+                raise ValueError(
+                    f"event_rewards[{idx}] must be float 0.0-1.0, got {reward} (type: {type(reward).__name__})"
+                )
+        
+        # Validate outcome_reward is in range
+        if not isinstance(self.outcome_reward, (int, float)) or self.outcome_reward < 0.0 or self.outcome_reward > 1.0:
+            raise ValueError(
+                f"outcome_reward must be float 0.0-1.0, got {self.outcome_reward} (type: {type(self.outcome_reward).__name__})"
+            )
+        
+        # Convert to float for consistency
+        self.event_rewards = [float(r) for r in self.event_rewards]
+        self.outcome_reward = float(self.outcome_reward)
+
+
+@dataclass
+class GoldExample:
+    """A gold-standard example for contrastive verifier evaluation.
+    
+    Contains a correctly scored trace example that the verifier's judgment
+    will be compared against. Used to evaluate verifier consistency.
+    """
+    
+    summary: str  # Summary of the trace being evaluated
+    gold_score: float  # Gold-standard score (0.0-1.0)
+    gold_reasoning: str  # Gold-standard reasoning/explanation
+    session_trace: dict[str, Any] | None = None  # Optional full trace (for richer evaluation)
+    metadata: dict[str, Any] = field(default_factory=dict)  # Optional metadata
+    
+    def __post_init__(self) -> None:
+        """Validate score and fields."""
+        if not self.summary or not isinstance(self.summary, str) or not self.summary.strip():
+            raise ValueError("summary must be a non-empty string")
+        
+        if not isinstance(self.gold_score, (int, float)) or self.gold_score < 0.0 or self.gold_score > 1.0:
+            raise ValueError(
+                f"gold_score must be float 0.0-1.0, got {self.gold_score} (type: {type(self.gold_score).__name__})"
+            )
+        
+        if not self.gold_reasoning or not isinstance(self.gold_reasoning, str) or not self.gold_reasoning.strip():
+            raise ValueError("gold_reasoning must be a non-empty string")
+        
+        # Convert to float for consistency
+        self.gold_score = float(self.gold_score)
+
+
 __all__ = [
     "RewardRecord",
     "OutcomeRewardRecord",
     "EventRewardRecord",
     "RewardAggregates",
+    "CalibrationExample",
+    "GoldExample",
 ]
 

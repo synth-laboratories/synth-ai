@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -157,25 +157,64 @@ class MIPROSeedConfig(ExtraModel):
 
 
 class PromptLearningJudgeConfig(ExtraModel):
-    """Judge configuration shared by GEPA and MIPRO."""
+    """Verifier configuration shared by GEPA and MIPRO.
+    
+    This configures LLM-based evaluation of agent trajectories during prompt optimization.
+    You can use standard rubrics or registered Verifier Graphs.
+    
+    Attributes:
+        enabled: Whether to enable verifier-based scoring.
+        reward_source: Source of the final reward for optimization.
+            - "task_app": Use only environment rewards from task app (default).
+            - "judge": Use only verifier quality scores.
+            - "fused": Weighted combination of environment and verifier rewards.
+        backend_base: Base URL for the verifier service (e.g. "https://api.usesynth.ai").
+        backend_api_key_env: Env var containing the Synth API key (default: "SYNTH_API_KEY").
+        backend_provider: Provider for the verifier model (e.g. "openai", "groq").
+        backend_model: Model used to execute the verifier rubric or graph (e.g. "gpt-4o-mini").
+        synth_verifier_id: ID or Name of a registered Verifier Graph or Rubric on the backend.
+            Use this to point to a specific, versioned verifier artifact.
+        backend_rubric_id: Legacy alias for synth_verifier_id.
+        backend_event_enabled: Whether to enable fine-grained event-level scoring.
+        backend_outcome_enabled: Whether to enable episode-level outcome scoring.
+        weight_env: Weight for environment rewards in "fused" mode (default: 1.0).
+        weight_event: Weight for verifier event rewards in "fused" mode (default: 0.0).
+        weight_outcome: Weight for verifier outcome rewards in "fused" mode (default: 0.0).
+    """
     enabled: bool = False
     reward_source: Literal["task_app", "judge", "fused"] = "task_app"
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
     backend_model: str = ""
-    backend_rubric_id: str = ""
+    synth_verifier_id: str = ""  # Preferred field for Registered VerifierGraph or Rubric ID
+    backend_rubric_id: str = ""  # Legacy alias for synth_verifier_id
     backend_event_enabled: bool = True
     backend_outcome_enabled: bool = True
-    backend_options: dict[str, Any] = Field(default_factory=dict)
+    backend_options: Dict[str, Any] = Field(default_factory=dict)
     concurrency: int = 8
     timeout: float = 60.0
     weight_env: float = 1.0
     weight_event: float = 0.0
     weight_outcome: float = 0.0
-    spec_path: str | None = None
+    spec_path: Optional[str] = None
     spec_max_tokens: int = 5000
-    spec_context: str | None = None
+    spec_context: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_verifier_ids(cls, data: Any) -> Any:
+        """Sync synth_verifier_id and backend_rubric_id."""
+        if isinstance(data, dict):
+            if not data.get("synth_verifier_id") and data.get("backend_rubric_id"):
+                data["synth_verifier_id"] = data["backend_rubric_id"]
+            elif not data.get("backend_rubric_id") and data.get("synth_verifier_id"):
+                data["backend_rubric_id"] = data["synth_verifier_id"]
+        return data
+
+
+class PromptLearningVerifierConfig(PromptLearningJudgeConfig):
+    """Alias for PromptLearningJudgeConfig with verifier terminology."""
 
 
 class ProxyModelsConfig(ExtraModel):

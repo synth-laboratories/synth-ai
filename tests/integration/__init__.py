@@ -1,1 +1,1 @@
-"""Integration tests for SDK/CLI training, inference, and judging."""
+"""Integration tests for SDK/CLI training, inference, and verification."""

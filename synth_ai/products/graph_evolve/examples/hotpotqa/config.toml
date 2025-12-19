@@ -7,12 +7,24 @@ algorithm = "graph_gepa"
 
 # What we're optimizing
 dataset_name = "hotpotqa"
-graph_type = "policy"         # "policy" (solves tasks) or "verifier" (judges results)
+graph_type = "policy"         # "policy" (solves tasks), "verifier" (judges results), or "rlm" (massive context via tools)
 graph_structure = "dag"       # "single_prompt", "dag", or "conditional"
 
 # Custom topology guidance (optional - adds detail to graph_structure)
 # Describes what KIND of dag/conditional/etc you want
 topology_guidance = "Use a single-step graph with one LLM call that reasons and answers in one shot"
+
+# Architectural patterns (optional - orthogonal to graph_type)
+# Patterns let you require/prefer specific architectures regardless of graph_type.
+# Example: RLM-pattern verifier, map-reduce policy, etc.
+#
+# [graph_optimization.patterns]
+# required = []              # MUST use these patterns (e.g., ["rlm"] for RLM verifier)
+# optional = []              # May try these patterns
+# prefer = []                # Prefer these if viable
+#
+# Pattern values: "rlm", "map_reduce", "single_shot", "chain_of_thought", "digest_combine"
+# When RLM is required: auto-adds tools (materialize_context, local_grep, etc.)
 
 # Which models the generated graph can use in its nodes
 allowed_policy_models = ["gpt-4o-mini", "gpt-4o"]
