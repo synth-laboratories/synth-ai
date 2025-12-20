@@ -1,9 +1,9 @@
 """Synth AI SDK Layer.
 
 This module provides the user-facing programmatic API for:
-- Training (prompt learning, SFT, RL)
+- Training (prompt learning, SFT, RL, graph generation)
 - Task apps (in-process, deployed, Modal)
-- Judging (LLM-based evaluation)
+- Graphs (verifiers, completions)
 - Inference (model inference via Synth)
 - Tracing (session traces)
 - Specs (system specifications)
@@ -13,7 +13,7 @@ Usage:
     from synth_ai.sdk import (
         PromptLearningJob,
         InProcessTaskApp,
-        JudgeClient,
+        VerifierClient,
         InferenceClient,
     )
 
@@ -33,8 +33,8 @@ from synth_ai.sdk.inference import InferenceClient
 # Jobs API Client
 from synth_ai.sdk.jobs import JobsClient
 
-# Judging
-from synth_ai.sdk.judging import JudgeClient, JudgeOptions, JudgeScoreResponse
+# Judging types and graph clients
+from synth_ai.sdk.judging import JudgeOptions, JudgeScoreResponse
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
 
 # Specs
@@ -96,8 +96,7 @@ __all__ = [
     "run_in_process_job_sync",
     "TaskAppConfig",
     "create_task_app",
-    # Judging
-    "JudgeClient",
+    # Graphs / Judging
     "VerifierClient",
     "JudgeOptions",
     "JudgeScoreResponse",
