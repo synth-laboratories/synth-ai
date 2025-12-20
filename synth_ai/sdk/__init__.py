@@ -5,7 +5,6 @@ This module provides the user-facing programmatic API for:
 - Task apps (in-process, deployed, Modal)
 - Graphs (verifiers, completions)
 - Inference (model inference via Synth)
-- Research agents (scaffold tuning, evaluation)
 
 Usage:
     from synth_ai.sdk import (
@@ -21,9 +20,6 @@ Dependency rules:
 """
 
 from __future__ import annotations
-
-# Research Agent
-from synth_ai.sdk.api.research_agent import ResearchAgentJob, ResearchAgentJobConfig
 
 # Inference
 from synth_ai.sdk.inference import InferenceClient
@@ -93,9 +89,6 @@ __all__ = [
     "GraphTarget",
     # Inference
     "InferenceClient",
-    # Research Agent
-    "ResearchAgentJob",
-    "ResearchAgentJobConfig",
     # Jobs API Client
     "JobsClient",
 ]
