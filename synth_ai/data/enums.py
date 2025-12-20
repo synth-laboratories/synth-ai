@@ -54,22 +54,6 @@ class SFTMethod(str, Enum):
     QLORA = "qlora"
 
 
-class ResearchAgentAlgorithm(str, Enum):
-    """Research agent algorithms."""
-
-    SCAFFOLD_TUNING = "scaffold_tuning"
-    EVALUATION = "evaluation"
-    TRACE_ANALYSIS = "trace_analysis"
-
-
-class ContainerBackend(str, Enum):
-    """Container backends for research agent."""
-
-    DAYTONA = "daytona"
-    MODAL = "modal"
-    DOCKER = "docker"
-
-
 class InferenceMode(str, Enum):
     """Inference modes for policy evaluation."""
 
@@ -128,8 +112,6 @@ __all__ = [
     "PromptLearningMethod",
     "RLMethod",
     "SFTMethod",
-    "ResearchAgentAlgorithm",
-    "ContainerBackend",
     "InferenceMode",
     "ProviderName",
     "RewardSource",

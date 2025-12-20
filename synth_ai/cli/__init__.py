@@ -1,8 +1,7 @@
 """CLI subcommands for Synth AI.
 
-This package hosts modular commands (watch, traces, recent, status)
-and exposes a top-level Click group named `cli` compatible with the
-pyproject entry point `synth_ai.cli:cli`.
+This package hosts modular commands and exposes a top-level Click group
+named `cli` compatible with the pyproject entry point `synth_ai.cli:cli`.
 """
 
 import importlib
@@ -76,7 +75,7 @@ cli.add_command(train_cfg_cmd, name="train-cfg")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*
-for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.commands.status", "synth_ai.cli.infra.turso"):
+for _module_path in ("synth_ai.cli.commands.demo", "synth_ai.cli.infra.turso"):
     module = _maybe_import(_module_path)
     if not module:
         continue
@@ -128,6 +127,3 @@ _maybe_call("synth_ai.cli.utils.queue", "register", cli)
 
 # Artifacts commands
 _maybe_call("synth_ai.cli.commands.artifacts", "register", cli)
-
-# Research Agent commands
-_maybe_call("synth_ai.sdk.api.research_agent", "register", cli)
