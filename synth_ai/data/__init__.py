@@ -1,11 +1,11 @@
 """Synth AI Data Layer.
 
 This module provides pure data types with no IO dependencies.
-Contains actual data schemas for traces, rewards, and specs.
+Contains actual data schemas for traces and rewards.
 
 Data vs SDK distinction:
-- data/: Pure data records (traces, rewards, specs) - actual data
-- sdk/: API abstractions (jobs, training, judging) - SDK interfaces
+- data/: Pure data records (traces, rewards) - actual data
+- sdk/: API abstractions (jobs, training, graphs) - SDK interfaces
 
 Dependency rule: data/ imports nothing from synth_ai except typing helpers.
 """
@@ -36,19 +36,6 @@ from synth_ai.data.rewards import (
     OutcomeRewardRecord,
     RewardAggregates,
     RewardRecord,
-)
-
-# Spec data types (re-exports)
-from synth_ai.data.specs import (
-    Constraints,
-    Example,
-    GlossaryItem,
-    Interfaces,
-    Metadata,
-    Principle,
-    Rule,
-    Spec,
-    TestCase,
 )
 
 # Trace data types (re-exports from tracing_v3)
@@ -85,16 +72,6 @@ __all__ = [
     "RewardAggregates",
     "CalibrationExample",
     "GoldExample",
-    # Spec data
-    "Spec",
-    "Metadata",
-    "Principle",
-    "Rule",
-    "Constraints",
-    "Example",
-    "TestCase",
-    "Interfaces",
-    "GlossaryItem",
     # Trace data
     "SessionTrace",
     "SessionTimeStep",

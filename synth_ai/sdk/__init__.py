@@ -1,19 +1,17 @@
 """Synth AI SDK Layer.
 
 This module provides the user-facing programmatic API for:
-- Training (prompt learning, SFT, RL)
+- Training (prompt learning, SFT, RL, graph generation)
 - Task apps (in-process, deployed, Modal)
-- Judging (LLM-based evaluation)
+- Graphs (verifiers, completions)
 - Inference (model inference via Synth)
-- Tracing (session traces)
-- Specs (system specifications)
 - Research agents (scaffold tuning, evaluation)
 
 Usage:
     from synth_ai.sdk import (
         PromptLearningJob,
         InProcessTaskApp,
-        JudgeClient,
+        VerifierClient,
         InferenceClient,
     )
 
@@ -33,18 +31,9 @@ from synth_ai.sdk.inference import InferenceClient
 # Jobs API Client
 from synth_ai.sdk.jobs import JobsClient
 
-# Judging
-from synth_ai.sdk.judging import JudgeClient, JudgeOptions, JudgeScoreResponse
+# Judging types and graph clients
+from synth_ai.sdk.judging import JudgeOptions, JudgeScoreResponse
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
-
-# Specs
-from synth_ai.sdk.specs import (
-    load_spec_from_dict,
-    load_spec_from_file,
-    spec_to_prompt_context,
-    validate_spec_dict,
-    validate_spec_file,
-)
 
 # Task Apps
 from synth_ai.sdk.task import (
@@ -96,8 +85,7 @@ __all__ = [
     "run_in_process_job_sync",
     "TaskAppConfig",
     "create_task_app",
-    # Judging
-    "JudgeClient",
+    # Graphs / Judging
     "VerifierClient",
     "JudgeOptions",
     "JudgeScoreResponse",
@@ -105,12 +93,6 @@ __all__ = [
     "GraphTarget",
     # Inference
     "InferenceClient",
-    # Specs
-    "load_spec_from_dict",
-    "load_spec_from_file",
-    "spec_to_prompt_context",
-    "validate_spec_dict",
-    "validate_spec_file",
     # Research Agent
     "ResearchAgentJob",
     "ResearchAgentJobConfig",
