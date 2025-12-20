@@ -33,7 +33,6 @@ except Exception:  # pragma: no cover - fallback
 import click
 from click.exceptions import Abort
 
-from synth_ai.cli.commands.eval import core as eval_core
 from synth_ai.cli.commands.filter import core as filter_core
 
 # Tracing imports - make conditional for optional dependencies
@@ -3140,14 +3139,7 @@ def fastapi_app():
 def register(cli: click.Group) -> None:
     cli.add_command(serve_command)
     cli.add_command(task_app_group)
-    cli.add_command(eval_command)
     cli.add_command(filter_command)
 
 
-eval_command = eval_core.command
-
 filter_command = filter_core.command
-
-
-def register_eval(cli: click.Group) -> None:
-    cli.add_command(eval_command)
