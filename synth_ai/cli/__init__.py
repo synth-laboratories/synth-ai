@@ -11,9 +11,6 @@ from collections.abc import Callable
 from typing import Any
 
 from synth_ai.cli.agents import claude_cmd, codex_cmd, opencode_cmd
-from synth_ai.cli.commands.baseline import command as baseline_cmd
-from synth_ai.cli.commands.baseline.list import list_command as baseline_list_cmd
-from synth_ai.cli.commands.eval import command as eval_cmd
 from synth_ai.cli.demos.demo import demo_cmd
 from synth_ai.cli.deploy import deploy_cmd
 from synth_ai.cli.infra.mcp import mcp_cmd
@@ -21,7 +18,6 @@ from synth_ai.cli.infra.modal_app import modal_app_cmd
 from synth_ai.cli.infra.setup import setup_cmd
 from synth_ai.cli.task_apps import task_app_cmd
 from synth_ai.cli.training.train_cfg import train_cfg_cmd
-from synth_ai.cli.usage import usage_cmd
 
 # Load environment variables from a local .env if present (repo root)
 try:
@@ -67,20 +63,16 @@ cli = _cli_module.cli  # type: ignore[attr-defined]
 
 # Register core commands implemented as standalone modules
 
-cli.add_command(baseline_cmd, name="baseline")
-baseline_cmd.add_command(baseline_list_cmd, name="list")
 cli.add_command(claude_cmd, name="claude")
 cli.add_command(codex_cmd, name="codex")
 cli.add_command(demo_cmd, name="demo")
 cli.add_command(deploy_cmd, name="deploy")
-cli.add_command(eval_cmd, name="eval")
 cli.add_command(mcp_cmd, name="mcp")
 cli.add_command(modal_app_cmd, name="modal-app")
 cli.add_command(opencode_cmd, name="opencode")
 cli.add_command(setup_cmd, name="setup")
 cli.add_command(task_app_cmd, name="task-app")
 cli.add_command(train_cfg_cmd, name="train-cfg")
-cli.add_command(usage_cmd, name="usage")
 
 
 # Register optional subcommands packaged under synth_ai.cli.*

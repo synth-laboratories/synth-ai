@@ -5,8 +5,6 @@ This module provides the user-facing programmatic API for:
 - Task apps (in-process, deployed, Modal)
 - Graphs (verifiers, completions)
 - Inference (model inference via Synth)
-- Tracing (session traces)
-- Specs (system specifications)
 - Research agents (scaffold tuning, evaluation)
 
 Usage:
@@ -36,15 +34,6 @@ from synth_ai.sdk.jobs import JobsClient
 # Judging types and graph clients
 from synth_ai.sdk.judging import JudgeOptions, JudgeScoreResponse
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
-
-# Specs
-from synth_ai.sdk.specs import (
-    load_spec_from_dict,
-    load_spec_from_file,
-    spec_to_prompt_context,
-    validate_spec_dict,
-    validate_spec_file,
-)
 
 # Task Apps
 from synth_ai.sdk.task import (
@@ -104,12 +93,6 @@ __all__ = [
     "GraphTarget",
     # Inference
     "InferenceClient",
-    # Specs
-    "load_spec_from_dict",
-    "load_spec_from_file",
-    "spec_to_prompt_context",
-    "validate_spec_dict",
-    "validate_spec_file",
     # Research Agent
     "ResearchAgentJob",
     "ResearchAgentJobConfig",
