@@ -7,7 +7,7 @@ GraphGen is a simplified "Workflows API" for prompt optimization that:
 - Wraps GEPA internally for the actual optimization
 
 Example CLI usage:
-    uvx synth-ai train --type adas --dataset my_tasks.json --poll
+    uvx synth-ai train --type graphgen --dataset my_tasks.json --poll
 
 Example SDK usage:
     from synth_ai.sdk.api.train.graphgen import GraphGenJob
@@ -703,7 +703,7 @@ class GraphGenJob:
             base_url=self.backend_url,
             api_key=self.api_key,
             job_id=self.job_id,  # Only GraphGen job ID - backend resolves to GEPA internally
-            endpoints=StreamEndpoints.adas(self.job_id),
+            endpoints=StreamEndpoints.graphgen(self.job_id),
             config=config,
             handlers=list(handlers),
             interval_seconds=interval,

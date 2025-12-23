@@ -465,23 +465,26 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.sdk.api.train.cli imported")
 @click.option(
     "--type",
     "train_type_override",
-    type=click.Choice(["prompt", "rl", "sft", "adas", "context_learning"]),
+    type=click.Choice(["prompt", "rl", "sft", "graphgen", "adas", "context_learning"]),
     default=None,
-    help="Explicitly set training type. Required for ADAS (uses JSON datasets).",
+    help=(
+        "Explicitly set training type. Required for GraphGen (uses JSON datasets). "
+        "'adas' is a legacy alias."
+    ),
 )
 @click.option(
     "--rollout-budget",
     "rollout_budget",
     type=int,
     default=None,
-    help="Rollout budget for ADAS optimization (default: 100)",
+    help="Rollout budget for GraphGen optimization (default: 100)",
 )
 @click.option(
     "--proposer-effort",
     "proposer_effort",
     type=click.Choice(["low", "medium", "high"]),
     default=None,
-    help="Proposer effort level for ADAS (default: medium)",
+    help="Proposer effort level for GraphGen (default: medium)",
 )
 def train_command(
     cfg_path: Path | None,
@@ -507,7 +510,7 @@ def train_command(
     proposer_effort: str | None,
 ) -> None:
 
-    """Interactive launcher for RL / SFT / Prompt Learning / ADAS / Context Learning jobs."""
+    """Interactive launcher for RL / SFT / Prompt Learning / GraphGen / Context Learning jobs."""
     import traceback
 
     ctx: dict[str, Any] = {
@@ -544,18 +547,18 @@ def train_command(
             load_dotenv(Path(env_file), override=True)
             click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
 
-        # Handle ADAS specially - it uses JSON datasets, not TOML configs
-        if train_type_override == "adas":
-            # For ADAS, dataset_path is required and cfg_path is ignored
+        # Handle GraphGen specially - it uses JSON datasets, not TOML configs
+        if train_type_override in ("graphgen", "adas"):
+            # For GraphGen, dataset_path is required and cfg_path is ignored
             if not dataset_path:
                 raise click.ClickException(
-                    "ADAS requires --dataset flag with path to JSON dataset file.\n"
-                    "Usage: synth-ai train --type adas --dataset my_tasks.json"
+                    "GraphGen requires --dataset flag with path to JSON dataset file.\n"
+                    "Usage: synth-ai train --type graphgen --dataset my_tasks.json"
                 )
-            train_type = "adas"
-            click.echo(f"[TRAIN_CMD] ADAS mode: using dataset {dataset_path}", err=True)
+            train_type = train_type_override
+            click.echo(f"[TRAIN_CMD] GraphGen mode: using dataset {dataset_path}", err=True)
         else:
-            # Non-ADAS: use TOML config
+            # Non-GraphGen: use TOML config
             if not cfg_path:
                 available_cfgs = find_train_cfgs_in_cwd()
                 if len(available_cfgs) == 1:
@@ -614,8 +617,8 @@ def train_command(
             if backend_base_url_env:
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
 
-        # Skip TOML-based validation for ADAS (uses JSON datasets)
-        if train_type != "adas" and cfg_path:
+        # Skip TOML-based validation for GraphGen (uses JSON datasets)
+        if train_type not in ("adas", "graphgen") and cfg_path:
             _validate_openai_key_if_provider_is_openai(cfg_path)
 
         match train_type:
@@ -681,12 +684,12 @@ def train_command(
                     stream_format=stream_format,
                     examples_limit=examples_limit,
                 )
-            case "adas":
+            case "adas" | "graphgen":
                 if not dataset_path:
-                    raise click.ClickException("ADAS requires a dataset path.")
-                adas_dataset_path = Path(dataset_path).expanduser().resolve()
-                handle_adas(
-                    dataset_path=adas_dataset_path,
+                    raise click.ClickException("GraphGen requires a dataset path.")
+                graphgen_dataset_path = Path(dataset_path).expanduser().resolve()
+                handle_graphgen(
+                    dataset_path=graphgen_dataset_path,
                     backend_base=backend_base,
                     synth_key=synth_api_key,
                     policy_model=model,
@@ -1169,7 +1172,7 @@ def handle_sft(
                 limited_path.parent.rmdir()
 
 
-def handle_adas(
+def handle_graphgen(
     *,
     dataset_path: Path,
     backend_base: str,
@@ -1182,43 +1185,51 @@ def handle_adas(
     poll_interval: float,
     stream_format: str,
 ) -> None:
-    """Handle ADAS workflow optimization job creation and streaming.
+    """Handle GraphGen workflow optimization job creation and streaming.
 
-    ADAS uses JSON dataset files and auto-generates task apps.
+    GraphGen uses JSON dataset files and auto-generates task apps.
     """
     ctx: dict[str, Any] = {
         "dataset_path": str(dataset_path),
         "backend_base": backend_base,
         "poll": poll,
     }
-    log_info("handle_adas invoked", ctx=ctx)
+    log_info("handle_graphgen invoked", ctx=ctx)
 
     # Load dataset
-    click.echo(f"Loading ADAS dataset from: {dataset_path}")
+    click.echo(f"Loading GraphGen dataset from: {dataset_path}")
     try:
         dataset = load_graphgen_taskset(dataset_path)
     except FileNotFoundError:
         raise click.ClickException(f"Dataset file not found: {dataset_path}")
     except ValueError as e:
-        raise click.ClickException(f"Invalid ADAS dataset format: {e}")
+        raise click.ClickException(f"Invalid GraphGen dataset format: {e}")
+
+    problem_spec = None
+    try:
+        raw_dataset = json.loads(dataset_path.read_text())
+        problem_spec = raw_dataset.get("problem_spec") or raw_dataset.get("initial_prompt")
+    except Exception:
+        problem_spec = None
 
     click.echo(f"Dataset loaded: {dataset.metadata.name}")
     click.echo(f"  Tasks: {len(dataset.tasks)}")
     click.echo(f"  Gold outputs: {len(dataset.gold_outputs)}")
     click.echo(f"  Judge mode: {dataset.judge_config.mode}")
 
-    # Create ADAS job
+    # Create GraphGen job
     job = GraphGenJob.from_dataset(
         dataset=dataset,
         policy_model=policy_model or "gpt-4o-mini",
         rollout_budget=rollout_budget or 100,
         proposer_effort=proposer_effort or "medium",  # type: ignore
+        problem_spec=problem_spec,
         backend_url=backend_base,
         api_key=synth_key,
         auto_start=True,
     )
 
-    click.echo("\n=== Submitting ADAS Job ===")
+    click.echo("\n=== Submitting GraphGen Job ===")
     click.echo(f"Policy model: {job.config.policy_model}")
     click.echo(f"Rollout budget: {job.config.rollout_budget}")
     click.echo(f"Proposer effort: {job.config.proposer_effort}")
@@ -1229,7 +1240,7 @@ def handle_adas(
         raise click.ClickException(str(e))
 
     click.echo(f"\n✓ Job created:")
-    click.echo(f"  ADAS Job ID: {result.graphgen_job_id}")
+    click.echo(f"  GraphGen Job ID: {result.graphgen_job_id}")
     click.echo(f"  Status: {result.status}")
 
     if not poll:

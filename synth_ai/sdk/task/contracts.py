@@ -107,13 +107,13 @@ class RolloutRequest(BaseModel):
     run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    ops: list[dict[str, Any]] | list[str]
+    ops: list[dict[str, Any]] | list[str] = Field(default_factory=list)
     record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
-    mode: RolloutMode  # Required: explicit RL vs EVAL mode
+    mode: RolloutMode = RolloutMode.RL  # Default to RL mode for training/optimization
 
 
 class RolloutStep(BaseModel):

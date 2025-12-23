@@ -214,6 +214,7 @@ class PromptLearningClient:
             elif event_type == "prompt.learning.final.results":
                 result.optimized_candidates = event_data.get("optimized_candidates", [])
                 result.attempted_candidates = event_data.get("attempted_candidates", [])
+                result.version_tree = event_data.get("version_tree")
                 # Also extract best_prompt from final.results if not already set
                 if result.best_prompt is None:
                     result.best_prompt = event_data.get("best_prompt")
@@ -452,4 +453,3 @@ def get_scoring_summary(job_id: str, base_url: str, api_key: str) -> Dict[str, A
     
     client = PromptLearningClient(base_url, api_key)
     return asyncio.run(client.get_scoring_summary(job_id))
-

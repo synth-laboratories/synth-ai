@@ -142,11 +142,11 @@ class StreamEndpoints:
         )
 
     @classmethod
-    def adas(cls, job_id: str) -> StreamEndpoints:
-        """Endpoints for GraphGen (formerly ADAS) workflow optimization jobs.
+    def graphgen(cls, job_id: str) -> StreamEndpoints:
+        """Endpoints for GraphGen workflow optimization jobs.
 
         GraphGen jobs use /api/graphgen/jobs/{job_id} endpoints.
-        The backend handles GraphGen → graph_evolve job ID resolution internally using the job_relationships table.
+        The backend handles GraphGen -> graph_evolve job ID resolution internally using job_relationships.
         No fallbacks needed - GraphGen endpoints resolve everything.
         """
         base = f"/graphgen/jobs/{job_id}"
@@ -156,6 +156,11 @@ class StreamEndpoints:
             metrics=f"{base}/metrics",
             timeline=None,
         )
+
+    @classmethod
+    def adas(cls, job_id: str) -> StreamEndpoints:
+        """Legacy alias for GraphGen workflow optimization jobs."""
+        return cls.graphgen(job_id)
 
 
 class JobStreamer:
@@ -504,13 +509,17 @@ class JobStreamer:
                 error_str = str(e)
                 print(f"[DEBUG] Error polling {path}: {e}", file=sys.stderr)
                 # Fail fast if we get 404 on both ADAS and fallback endpoints (indicates job ID mapping issue)
-                if "404" in error_str and ("adas" in path.lower() or "prompt-learning" in path.lower()):
+                if "404" in error_str and (
+                    "graphgen" in path.lower()
+                    or "adas" in path.lower()
+                    or "prompt-learning" in path.lower()
+                ):
                     # Check if this is the last fallback path - if so, raise to fail fast
                     if path == self._event_paths[-1]:  # Last fallback path
                         raise RuntimeError(
                             f"Failed to poll events: All endpoints returned 404. "
                             f"This likely indicates a job ID mapping issue. "
-                            f"ADAS endpoints need ADAS job ID, GEPA fallback endpoints need GEPA job ID. "
+                            f"GraphGen endpoints need the GraphGen job ID; GEPA fallback endpoints need the GEPA job ID. "
                             f"Last error: {error_str}"
                         )
                 continue

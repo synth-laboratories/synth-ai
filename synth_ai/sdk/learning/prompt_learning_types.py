@@ -165,6 +165,7 @@ class PromptResults:
     
     best_prompt: Optional[Dict[str, Any]] = None
     best_score: Optional[float] = None
+    version_tree: Optional[Dict[str, Any]] = None
     top_prompts: List[Dict[str, Any]] = field(default_factory=list)
     optimized_candidates: List[Dict[str, Any]] = field(default_factory=list)
     attempted_candidates: List[Dict[str, Any]] = field(default_factory=list)
@@ -176,10 +177,10 @@ class PromptResults:
         return cls(
             best_prompt=data.get("best_prompt"),
             best_score=data.get("best_score"),
+            version_tree=data.get("version_tree"),
             top_prompts=data.get("top_prompts", []),
             optimized_candidates=data.get("optimized_candidates", []),
             attempted_candidates=data.get("attempted_candidates", []),
             validation_results=data.get("validation_results", []),
         )
-
 

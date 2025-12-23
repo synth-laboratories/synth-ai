@@ -594,7 +594,7 @@ class InProcessTaskApp:
         else:
             self._prefetched_tunnel_config = None
         
-        logger.info(f"Starting in-process task app on {self.host}:{self.port}")
+        logger.debug(f"Starting in-process task app on {self.host}:{self.port}")
 
         # For named tunnels, the port is baked into the tunnel config - we MUST use it
         tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
@@ -624,7 +624,7 @@ class InProcessTaskApp:
                     f"Port {self.port} is in use, attempting to find available port..."
                 )
                 self.port = _find_available_port(self.host, self.port)
-                logger.info(f"Using port {self.port} instead")
+                logger.debug(f"Using port {self.port} instead")
             else:
                 # Try to kill process on port
                 logger.warning(
@@ -719,7 +719,7 @@ class InProcessTaskApp:
         await wait_for_health_check(
             self.host, self.port, api_key, timeout=self.health_check_timeout
         )
-        logger.info(f"Health check passed for {self.host}:{self.port}")
+        logger.debug(f"Health check passed for {self.host}:{self.port}")
 
         # 4. Determine tunnel mode (env var can override)
         mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
@@ -774,7 +774,7 @@ class InProcessTaskApp:
             # Local mode: skip tunnel, use localhost
             self.url = f"http://{self.host}:{self.port}"
             self._tunnel_proc = None
-            logger.info(f"Using local mode: {self.url}")
+            logger.debug(f"Using local mode: {self.url}")
         elif mode == "named":
             # Named tunnel mode: fully automatic managed tunnel
             # 1. Check for existing tunnel
