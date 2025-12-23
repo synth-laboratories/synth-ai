@@ -469,9 +469,6 @@ def fastapi_app():
         data = request if isinstance(request, dict) else {}
         env = data.get("env") if isinstance(data, dict) else {}
         policy = data.get("policy") if isinstance(data, dict) else {}
-        ops = data.get("ops") if isinstance(data, dict) else []
-        if not isinstance(ops, list):
-            ops = []
         env_name = (env or {}).get("env_name") or "math"  # type: ignore[misc]
         policy_cfg = (policy or {}).get("config") or {}  # type: ignore[misc]
         model = policy_cfg.get("model")  # type: ignore[misc]
@@ -696,7 +693,6 @@ def fastapi_app():
                 "num_episodes": 1,
             },
             "aborted": False,
-            "ops_executed": len(steps),
         }
 
     return api

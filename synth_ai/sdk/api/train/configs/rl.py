@@ -37,7 +37,6 @@ class RolloutConfig(ExtraModel):
     episodes_per_batch: int
     max_concurrent_rollouts: int
     batches_per_step: int | None = None
-    ops: list[str] | None = None
 
 
 class WeightSyncConfig(ExtraModel):

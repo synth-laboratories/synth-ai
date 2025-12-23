@@ -15,13 +15,41 @@ def test_eval_multimodal_paths_are_built(monkeypatch, tmp_path, use_remote):
         def __init__(self):
             self.status_code = 200
         def json(self):
-            # Minimal structured response expected by eval: include trace payload
-            return {"status": "ok", "reward": 0, "trace": {"session_trace": {"session_id": "sess", "created_at": "2025-01-01T00:00:00Z", "num_timesteps": 0, "num_events": 0, "num_messages": 0, "metadata": {}}}}
+            return {
+                "run_id": "test",
+                "trajectories": [
+                    {
+                        "env_id": "env",
+                        "policy_id": "policy",
+                        "steps": [
+                            {
+                                "obs": {},
+                                "tool_calls": [],
+                                "reward": 0.0,
+                                "done": True,
+                                "info": {"messages": [{"role": "user", "content": "hi"}]},
+                            }
+                        ],
+                        "final": {},
+                        "length": 1,
+                        "inference_url": "http://localhost",
+                    }
+                ],
+                "branches": {},
+                "metrics": {
+                    "episode_returns": [0.0],
+                    "mean_return": 0.0,
+                    "num_steps": 1,
+                    "num_episodes": 1,
+                },
+                "aborted": False,
+                "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
+            }
 
     async def fake_post(*args, **kwargs):
         return DummyResp()
 
-    monkeypatch.setattr("httpx.AsyncClient.post", mock.AsyncMock(side_effect=fake_post))
+    monkeypatch.setattr("httpx.AsyncClient.request", mock.AsyncMock(side_effect=fake_post))
 
     # Provide a minimal config via temp file
     # Use "banking77" which is available in synth-ai demos
@@ -35,6 +63,7 @@ seeds = [0]
 trace_db = "none"
 image_only_mode = true
 use_vision = true
+task_app_url = "http://localhost:9999"
 """,
         encoding="utf-8",
     )
@@ -62,4 +91,3 @@ use_vision = true
         args += ["--url", url]
     result = runner.invoke(eval_command, args)
     assert result.exit_code == 0, result.output
-

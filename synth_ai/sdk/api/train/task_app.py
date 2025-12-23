@@ -21,6 +21,11 @@ class TaskAppHealth:
     detail: str | None = None
 
 
+@dataclass(slots=True)
+class LocalAPIHealth(TaskAppHealth):
+    """Alias for TaskAppHealth with LocalAPI naming."""
+
+
 def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
     """
     Resolve hostname using explicit resolvers (1.1.1.1, 8.8.8.8) first,
@@ -245,6 +250,19 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
     )
 
 
+def check_local_api_health(
+    base_url: str, api_key: str, *, timeout: float = 10.0, max_retries: int = 5
+) -> LocalAPIHealth:
+    """Alias for check_task_app_health with LocalAPI naming."""
+    health = check_task_app_health(base_url, api_key, timeout=timeout, max_retries=max_retries)
+    return LocalAPIHealth(
+        ok=health.ok,
+        health_status=health.health_status,
+        task_info_status=health.task_info_status,
+        detail=health.detail,
+    )
+
+
 @dataclass(slots=True)
 class ModalSecret:
     name: str
@@ -323,9 +341,11 @@ __all__ = [
     "ModalApp",
     "ModalSecret",
     "check_task_app_health",
+    "check_local_api_health",
     "format_modal_apps",
     "format_modal_secrets",
     "get_modal_secret_value",
     "list_modal_apps",
     "list_modal_secrets",
+    "LocalAPIHealth",
 ]

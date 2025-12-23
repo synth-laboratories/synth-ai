@@ -22,7 +22,6 @@ def test_validate_eval_options_coerces_numbers() -> None:
         "max_llm_calls": "5",
         "concurrency": "2",
         "return_trace": "true",
-        "ops": "agent",
     }
 
     normalized = validate_eval_options(options)
@@ -30,4 +29,3 @@ def test_validate_eval_options_coerces_numbers() -> None:
     assert normalized["max_llm_calls"] == 5
     assert normalized["concurrency"] == 2
     assert normalized["return_trace"] is True
-    assert normalized["ops"] == ["agent"]

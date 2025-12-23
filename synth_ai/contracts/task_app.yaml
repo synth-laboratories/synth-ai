@@ -131,12 +131,6 @@ components:
         policy:
           $ref: '#/components/schemas/RolloutPolicySpec'
 
-        ops:
-          type: array
-          items: {}
-          default: []
-          description: Task-specific operations (can be ignored for most tasks)
-
         record:
           $ref: '#/components/schemas/RolloutRecordConfig'
 
@@ -532,11 +526,6 @@ components:
       type: object
       description: Safety limits for rollout execution
       properties:
-        max_ops:
-          type: integer
-          default: 100000
-          description: Maximum operations allowed
-
         max_time_s:
           type: number
           default: 3600.0
@@ -587,11 +576,6 @@ components:
           default: false
           description: Whether the rollout was aborted early
 
-        ops_executed:
-          type: integer
-          default: 0
-          description: Number of operations executed
-
         trace_correlation_id:
           type: string
           nullable: true
@@ -639,7 +623,6 @@ components:
           num_episodes: 1
           outcome_score: 1.0
         aborted: false
-        ops_executed: 1
 
     RolloutTrajectory:
       type: object

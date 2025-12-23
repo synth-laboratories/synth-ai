@@ -6,13 +6,13 @@ import os
 import builtins
 
 
-def test_task_client_sends_all_env_keys(monkeypatch):
+def test_local_api_client_sends_all_env_keys(monkeypatch):
     # Arrange
-    from synth_ai.sdk.task.client import TaskAppClient
+    from synth_ai.sdk.localapi import LocalAPIClient
 
     monkeypatch.setenv("ENVIRONMENT_API_KEY_ALIASES", "k2, k3 , k2")
 
-    client = TaskAppClient(base_url="http://example", api_key="k1")
+    client = LocalAPIClient(base_url="http://example", api_key="k1")
 
     # Act
     headers = client._headers()  # type: ignore[attr-defined]
@@ -30,9 +30,9 @@ def test_task_client_sends_all_env_keys(monkeypatch):
     assert parts == ["k1", "k2", "k3"]
 
 
-def test_check_task_app_health_sends_all_env_keys(monkeypatch):
+def test_check_local_api_health_sends_all_env_keys(monkeypatch):
     # Arrange
-    from synth_ai.sdk.api.train.task_app import check_task_app_health
+    from synth_ai.sdk.api.train.local_api import check_local_api_health
 
     sent_headers: dict[str, str] = {}
 
@@ -52,7 +52,7 @@ def test_check_task_app_health_sends_all_env_keys(monkeypatch):
     monkeypatch.setattr(task_app_mod, "http_get", fake_http_get)
 
     # Act
-    result = check_task_app_health("http://task.app", api_key="ak1")
+    result = check_local_api_health("http://task.app", api_key="ak1")
 
     # Assert function completes and headers include all keys
     assert result.ok is True
@@ -64,5 +64,4 @@ def test_check_task_app_health_sends_all_env_keys(monkeypatch):
     assert isinstance(csv, str)
     parts = [p.strip() for p in csv.split(",") if p.strip()]
     assert parts == ["ak1", "ak2", "ak3"]
-
 

@@ -1,4 +1,8 @@
-"""FastAPI scaffolding for Task Apps (local dev + deployment)."""
+"""FastAPI scaffolding for Task Apps (local dev + deployment).
+
+Prefer synth_ai.sdk.localapi.server moving forward. This module remains for
+backward compatibility during the naming transition.
+"""
 
 from __future__ import annotations
 
@@ -155,6 +159,10 @@ class TaskAppConfig:
             startup_hooks=tuple(self.startup_hooks),
             shutdown_hooks=tuple(self.shutdown_hooks),
         )
+
+
+class LocalAPIConfig(TaskAppConfig):
+    """Alias for TaskAppConfig with LocalAPI naming."""
 
 
 def _maybe_await(result: Any) -> Awaitable[Any]:

@@ -228,7 +228,7 @@ num_generations = 5
 
         try:
             with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_task_app_health") as mock_health, \
+                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
                  patch("synth_ai.api.train.cli.http_post") as mock_post, \
                  patch("synth_ai.api.train.cli.JobStreamer") as mock_streamer, \
                  patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
@@ -295,7 +295,7 @@ num_generations = 5
 
         try:
             with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_task_app_health") as mock_health, \
+                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
                  patch("synth_ai.api.train.cli.http_post") as mock_post, \
                  patch("synth_ai.api.train.cli.JobStreamer") as mock_streamer, \
                  patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
@@ -344,7 +344,7 @@ num_generations = 5
 
         try:
             with patch("synth_ai.api.train.cli.build_prompt_learning_payload") as mock_build, \
-                 patch("synth_ai.api.train.cli.check_task_app_health") as mock_health, \
+                 patch("synth_ai.api.train.cli.check_local_api_health") as mock_health, \
                  patch.dict("os.environ", {"ENVIRONMENT_API_KEY": "env-key"}):
                 
                 mock_build.return_value.task_url = "http://localhost:8001"
@@ -373,4 +373,3 @@ num_generations = 5
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

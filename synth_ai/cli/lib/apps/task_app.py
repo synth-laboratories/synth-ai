@@ -388,7 +388,6 @@ def test_route_contracts(app: ASGIApp) -> None:
                             "assert_proxy": True,   # Backend always sets this for prompt learning
                             "proxy_only": True,     # Backend always sets this for prompt learning
                         },
-                        "ops": ["agent", "env"],  # Critical: training sends this
                         "record": {"trajectories": True},
                         "mode": "eval",
                     }

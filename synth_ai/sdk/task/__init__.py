@@ -1,14 +1,21 @@
+"""Task namespace (legacy).
+
+Prefer synth_ai.sdk.localapi.* moving forward. This module remains for backward
+compatibility during the naming transition.
+"""
+
 from .auth import (
     is_api_key_header_authorized,
     normalize_environment_api_key,
     require_api_key_dependency,
 )
-from .client import TaskAppClient
+from .client import LocalAPIClient, TaskAppClient
 from .config import EvalConfig, FilterConfig
 from .contracts import (
     DatasetInfo,
     InferenceInfo,
     LimitsInfo,
+    LocalAPIEndpoints,
     RolloutEnvSpec,
     RolloutMetrics,
     RolloutPolicySpec,
@@ -54,6 +61,7 @@ from .rubrics import (
     score_outcome_against_rubric,
 )
 from .server import (
+    LocalAPIConfig,
     ProxyConfig,
     RubricBundle,
     TaskAppConfig,
@@ -89,6 +97,7 @@ __all__ = [
     "EvalConfig",
     "FilterConfig",
     "TaskAppEndpoints",
+    "LocalAPIEndpoints",
     "RolloutEnvSpec",
     "RolloutPolicySpec",
     "RolloutRecordConfig",
@@ -127,6 +136,7 @@ __all__ = [
     "score_events_against_rubric",
     "score_outcome_against_rubric",
     "TaskAppClient",
+    "LocalAPIClient",
     "error_payload",
     "http_exception",
     "json_error_response",
@@ -135,6 +145,7 @@ __all__ = [
     "RubricBundle",
     "ProxyConfig",
     "TaskAppConfig",
+    "LocalAPIConfig",
     "InferenceAPIClient",
     "InProcessTaskApp",
     "InProcessJobResult",

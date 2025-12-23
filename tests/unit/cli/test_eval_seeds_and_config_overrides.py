@@ -11,9 +11,38 @@ def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
     class DummyResp:
         status_code = 200
         def json(self):
-            return {"status": "ok", "trace": {"session_trace": {"session_id": "sess", "created_at": "2025-01-01T00:00:00Z", "num_timesteps": 0, "num_events": 0, "num_messages": 0, "metadata": {}}}}
+            return {
+                "run_id": "test",
+                "trajectories": [
+                    {
+                        "env_id": "env",
+                        "policy_id": "policy",
+                        "steps": [
+                            {
+                                "obs": {},
+                                "tool_calls": [],
+                                "reward": 0.0,
+                                "done": True,
+                                "info": {"messages": [{"role": "user", "content": "hi"}]},
+                            }
+                        ],
+                        "final": {},
+                        "length": 1,
+                        "inference_url": "http://localhost",
+                    }
+                ],
+                "branches": {},
+                "metrics": {
+                    "episode_returns": [0.0],
+                    "mean_return": 0.0,
+                    "num_steps": 1,
+                    "num_episodes": 1,
+                },
+                "aborted": False,
+                "trace": {"session_id": "sess", "event_history": [], "metadata": {}},
+            }
 
-    monkeypatch.setattr("httpx.AsyncClient.post", mock.AsyncMock(return_value=DummyResp()))
+    monkeypatch.setattr("httpx.AsyncClient.request", mock.AsyncMock(return_value=DummyResp()))
 
     # Config file with two seeds
     cfg = tmp_path / "eval.toml"
@@ -24,6 +53,7 @@ app_id = "banking77"
 model = "gpt-4o-mini-2024-07-18"
 seeds = [1, 2]
 trace_db = "none"
+task_app_url = "http://localhost:9999"
 """,
         encoding="utf-8",
     )
@@ -31,7 +61,7 @@ trace_db = "none"
     env_file = tmp_path / ".env"
     env_file.write_text("SYNTH_API_KEY=test-synth\nENVIRONMENT_API_KEY=test-env\n", encoding="utf-8")
 
-    # Run in-process (url None)
+    # Run with task_app_url from config
     runner = CliRunner()
     result = runner.invoke(
         eval_command,
@@ -67,4 +97,3 @@ trace_db = "none"
         ],
     )
     assert result.exit_code == 0, result.output
-

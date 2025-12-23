@@ -1,4 +1,8 @@
-"""Registry for Task Apps exposed via the shared FastAPI harness."""
+"""Registry for Task Apps exposed via the shared FastAPI harness.
+
+Prefer synth_ai.sdk.localapi.apps moving forward. This module remains for
+backward compatibility during the naming transition.
+"""
 
 from __future__ import annotations
 

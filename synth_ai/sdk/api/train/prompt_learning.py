@@ -30,7 +30,7 @@ from synth_ai.core.telemetry import log_info
 
 from .builders import PromptLearningBuildResult, build_prompt_learning_payload
 from .pollers import JobPoller, PollOutcome
-from .task_app import check_task_app_health
+from .local_api import check_local_api_health
 from .utils import ensure_api_base, http_post
 
 
@@ -271,7 +271,7 @@ class PromptLearningJob:
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
-            health = check_task_app_health(build.task_url, self.config.task_app_api_key or "")
+            health = check_local_api_health(build.task_url, self.config.task_app_api_key or "")
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
         
@@ -467,4 +467,3 @@ __all__ = [
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
 ]
-

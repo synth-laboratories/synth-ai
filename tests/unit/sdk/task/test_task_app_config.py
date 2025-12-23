@@ -1,4 +1,4 @@
-"""Unit tests for TaskAppConfig and create_task_app."""
+"""Unit tests for LocalAPIConfig and create_task_app."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi import APIRouter, FastAPI
 
+from synth_ai.sdk.localapi.server import LocalAPIConfig, create_task_app
 from synth_ai.sdk.task.contracts import TaskInfo
-from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
 
 
 @pytest.fixture
@@ -25,9 +25,9 @@ def base_task_info() -> TaskInfo:
 
 
 @pytest.fixture
-def minimal_config(base_task_info: TaskInfo) -> TaskAppConfig:
-    """Create a minimal TaskAppConfig for testing."""
-    return TaskAppConfig(
+def minimal_config(base_task_info: TaskInfo) -> LocalAPIConfig:
+    """Create a minimal LocalAPIConfig for testing."""
+    return LocalAPIConfig(
         app_id="test_app",
         name="Test App",
         description="A test task app",
@@ -38,10 +38,10 @@ def minimal_config(base_task_info: TaskInfo) -> TaskAppConfig:
     )
 
 
-class TestTaskAppConfig:
-    """Tests for TaskAppConfig."""
+class TestLocalAPIConfig:
+    """Tests for LocalAPIConfig."""
     
-    def test_config_creation(self, minimal_config: TaskAppConfig) -> None:
+    def test_config_creation(self, minimal_config: LocalAPIConfig) -> None:
         """Test basic config creation."""
         assert minimal_config.app_id == "test_app"
         assert minimal_config.name == "Test App"
@@ -49,7 +49,7 @@ class TestTaskAppConfig:
         assert minimal_config.require_api_key is True
         assert minimal_config.expose_debug_env is True
     
-    def test_config_clone(self, minimal_config: TaskAppConfig) -> None:
+    def test_config_clone(self, minimal_config: LocalAPIConfig) -> None:
         """Test that clone() creates a shallow copy."""
         cloned = minimal_config.clone()
         assert cloned.app_id == minimal_config.app_id
@@ -62,7 +62,7 @@ class TestTaskAppConfig:
     
     def test_config_defaults(self, base_task_info: TaskInfo) -> None:
         """Test that config has sensible defaults."""
-        config = TaskAppConfig(
+        config = LocalAPIConfig(
             app_id="test",
             name="Test",
             description="Test",
@@ -88,7 +88,7 @@ class TestTaskAppConfig:
 class TestCreateTaskApp:
     """Tests for create_task_app function."""
     
-    def test_create_app_basic(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_basic(self, minimal_config: LocalAPIConfig) -> None:
         """Test creating a basic FastAPI app from config."""
         app = create_task_app(minimal_config)
         
@@ -96,7 +96,7 @@ class TestCreateTaskApp:
         assert app.title == "Test App"
         assert app.description == "A test task app"
     
-    def test_create_app_with_routers(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_with_routers(self, minimal_config: LocalAPIConfig) -> None:
         """Test creating app with additional routers."""
         router = APIRouter()
         
@@ -111,7 +111,7 @@ class TestCreateTaskApp:
         routes = [route.path for route in app.routes]
         assert "/custom" in routes
     
-    def test_create_app_with_cors(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_with_cors(self, minimal_config: LocalAPIConfig) -> None:
         """Test creating app with CORS middleware."""
         minimal_config.cors_origins = ["https://example.com"]
         app = create_task_app(minimal_config)
@@ -119,7 +119,7 @@ class TestCreateTaskApp:
         # CORS middleware should be added
         assert len(app.middleware_stack.__self__.middleware) > 0
     
-    def test_create_app_app_state(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_app_state(self, minimal_config: LocalAPIConfig) -> None:
         """Test that app_state is accessible on app."""
         minimal_config.app_state["test_key"] = "test_value"
         app = create_task_app(minimal_config)
@@ -127,7 +127,7 @@ class TestCreateTaskApp:
         assert hasattr(app.state, "test_key")
         assert app.state.test_key == "test_value"
     
-    def test_create_app_health_endpoint(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_health_endpoint(self, minimal_config: LocalAPIConfig) -> None:
         """Test that health endpoint is created."""
         app = create_task_app(minimal_config)
         
@@ -135,7 +135,7 @@ class TestCreateTaskApp:
         assert "/health" in routes
         assert "/" in routes  # Root endpoint
     
-    def test_create_app_info_endpoint(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_info_endpoint(self, minimal_config: LocalAPIConfig) -> None:
         """Test that info endpoint is created."""
         app = create_task_app(minimal_config)
         
@@ -143,11 +143,10 @@ class TestCreateTaskApp:
         assert "/info" in routes
         assert "/task_info" in routes
     
-    def test_create_app_rollout_endpoint(self, minimal_config: TaskAppConfig) -> None:
+    def test_create_app_rollout_endpoint(self, minimal_config: LocalAPIConfig) -> None:
         """Test that rollout endpoint is created."""
         app = create_task_app(minimal_config)
         
         routes = [route.path for route in app.routes]
         assert "/rollout" in routes
-
 

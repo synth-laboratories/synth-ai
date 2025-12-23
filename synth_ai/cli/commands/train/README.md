@@ -175,7 +175,6 @@ max_turns = 1                 # Required: max turns per episode
 episodes_per_batch = 2        # Required: episodes per batch
 max_concurrent_rollouts = 2   # Required: max concurrent rollouts
 batches_per_step = 1          # Optional: batches per step
-ops = ["agent", "env"]        # Optional: operation sequence
 
 [rollout.policy_config]
 max_llm_calls = 10

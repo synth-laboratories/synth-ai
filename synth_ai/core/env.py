@@ -180,6 +180,8 @@ def get_backend_from_env() -> tuple[str, str]:
     direct_override = (os.environ.get("BACKEND_OVERRIDE") or "").strip()
     if direct_override:
         base = _normalize_url(direct_override)
+        if not base:
+            raise ConfigError("BACKEND_OVERRIDE is set but empty or invalid")
         api_key = os.environ.get("SYNTH_API_KEY", "").strip()
         return base, api_key
 
@@ -189,16 +191,25 @@ def get_backend_from_env() -> tuple[str, str]:
 
     if mode == "local":
         base = os.environ.get("LOCAL_BACKEND_URL", "http://localhost:8000")
+        # If explicitly set to empty string, use default
+        if not base or not base.strip():
+            base = "http://localhost:8000"
         key = os.environ.get("TESTING_LOCAL_SYNTH_API_KEY", "")
         return _normalize_url(base), key
 
     if mode == "dev":
         base = os.environ.get("DEV_BACKEND_URL", "") or "http://localhost:8000"
+        # If explicitly set to empty string, use default
+        if not base or not base.strip():
+            base = "http://localhost:8000"
         key = os.environ.get("DEV_SYNTH_API_KEY", "")
         return _normalize_url(base), key
 
     # prod
     base = os.environ.get("PROD_BACKEND_URL", PROD_BASE_URL)
+    # If explicitly set to empty string, use default
+    if not base or not base.strip():
+        base = PROD_BASE_URL
     key = (
         os.environ.get("PROD_SYNTH_API_KEY", "")
         or os.environ.get("TESTING_PROD_SYNTH_API_KEY", "")

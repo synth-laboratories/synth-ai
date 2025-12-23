@@ -1,3 +1,9 @@
+"""Contracts for Task Apps.
+
+Prefer synth_ai.sdk.localapi.contracts moving forward. This module remains for
+backward compatibility during the naming transition.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -64,6 +70,11 @@ class TaskAppEndpoints:
     rollout: str = "/rollout"
 
 
+@dataclass(frozen=True)
+class LocalAPIEndpoints(TaskAppEndpoints):
+    """Alias for TaskAppEndpoints with LocalAPI naming."""
+
+
 # --- Unified rollout schema used by Task App services and SDK utilities ---
 
 
@@ -99,7 +110,6 @@ class RolloutRecordConfig(BaseModel):
 
 
 class RolloutSafetyConfig(BaseModel):
-    max_ops: int = 100000
     max_time_s: float = 3600.0
 
 
@@ -107,7 +117,6 @@ class RolloutRequest(BaseModel):
     run_id: str
     env: RolloutEnvSpec
     policy: RolloutPolicySpec
-    ops: list[dict[str, Any]] | list[str] = Field(default_factory=list)
     record: RolloutRecordConfig = RolloutRecordConfig()
     on_done: str = "reset"
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
@@ -211,7 +220,6 @@ class RolloutResponse(BaseModel):
     branches: dict[str, list[str]] = Field(default_factory=dict)
     metrics: RolloutMetrics
     aborted: bool = False
-    ops_executed: int = 0
     
     # OPTIONAL: correlation ID for linking rollout to inference traces
     # If not provided, trainer will infer it from trajectory.inference_url ?cid=... parameter

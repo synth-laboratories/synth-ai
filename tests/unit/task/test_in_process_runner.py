@@ -91,7 +91,7 @@ async def test_run_in_process_job_prompt_learning(monkeypatch: pytest.MonkeyPatc
         task_info_status = 200
 
     monkeypatch.setattr(
-        "synth_ai.sdk.task.in_process_runner.check_task_app_health",
+        "synth_ai.sdk.task.in_process_runner.check_local_api_health",
         lambda url, key: DummyHealth(),
     )
 
@@ -160,7 +160,7 @@ async def test_run_in_process_job_rl(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         task_info_status = 200
 
     monkeypatch.setattr(
-        "synth_ai.sdk.task.in_process_runner.check_task_app_health",
+        "synth_ai.sdk.task.in_process_runner.check_local_api_health",
         lambda url, key: DummyHealth(),
     )
 

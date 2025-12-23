@@ -32,7 +32,7 @@ Requirements:
   credentials through Modal directly.
 
 The CLI generates a Modal entrypoint on the fly using the shared
-`TaskAppConfig`, ensuring the container matches the local FastAPI behavior.
+`LocalAPIConfig`, ensuring the container matches the local FastAPI behavior.
 
 ## Compatibility note
 `examples/warming_up_to_rl/task_app/grpo_crafter_task_app.py` remains as a

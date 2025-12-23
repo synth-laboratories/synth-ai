@@ -18,14 +18,13 @@ import httpx
 
 from synth_ai.core.tracing_v3.config import resolve_trace_db_settings
 from synth_ai.core.tracing_v3.turso.daemon import start_sqld
-from synth_ai.sdk.task.client import TaskAppClient
+from synth_ai.sdk.localapi.client import LocalAPIClient
 from synth_ai.sdk.task.contracts import (
     RolloutEnvSpec,
     RolloutMode,
     RolloutPolicySpec,
     RolloutRecordConfig,
     RolloutRequest,
-    RolloutSafetyConfig,
 )
 from synth_ai.sdk.task.validators import (
     normalize_inference_url,
@@ -773,7 +772,7 @@ async def _run_smoke_async(
     mock_backend = (mock_backend or "synthetic").strip().lower()
 
     # Discover environment if not provided
-    async with TaskAppClient(base_url=base, api_key=api_key) as client:
+    async with LocalAPIClient(base_url=base, api_key=api_key) as client:
         # Probe basic info quickly
         try:
             _ = await client.health()
@@ -794,12 +793,6 @@ async def _run_smoke_async(
         if not env_name:
             click.echo("Could not infer environment name; pass --env-name.", err=True)
             return 2
-
-        # Build ops: alternating agent/env for max_steps
-        ops: list[str] = []
-        for _ in range(max_steps):
-            ops.append("agent")
-            ops.append("env")
 
         # Inference URL: user override > preset > local mock > Synth API default
         synth_base = (os.getenv("SYNTH_API_BASE") or os.getenv("SYNTH_BASE_URL") or "https://api.synth.run").rstrip("/")
@@ -852,7 +845,6 @@ async def _run_smoke_async(
                         run_id=run_id,
                         env=RolloutEnvSpec(env_name=env_name, config={}, seed=i),
                         policy=RolloutPolicySpec(policy_name=policy_name, config=policy_cfg),
-                        ops=ops,
                         record=RolloutRecordConfig(
                             trajectories=True,
                             logprobs=False,
@@ -861,7 +853,6 @@ async def _run_smoke_async(
                             trace_format=("structured" if return_trace else "compact"),
                         ),
                         on_done="reset",
-                        safety=RolloutSafetyConfig(max_ops=max_steps * 4, max_time_s=900.0),
                         training_session_id=None,
                         synth_base_url=synth_base,
                         mode=RolloutMode.RL,
@@ -869,7 +860,6 @@ async def _run_smoke_async(
 
                     try:
                         click.echo(f">> POST /rollout run_id={run_id} env={env_name} policy={policy_name} url={inference_url_with_cid}")
-                        click.echo(f"   ops={ops[:10]}{'...' if len(ops) > 10 else ''}")
                         response = await client.rollout(request)
                     except Exception as exc:
                         click.echo(f"Rollout[{i}:{g}] failed: {type(exc).__name__}: {exc}", err=True)
@@ -1016,7 +1006,7 @@ async def _run_smoke_async(
             if v3_traces < successes:
                 click.echo("  ⚠ Some rollouts missing v3 traces (trace field)", err=True)
             if total_steps == 0:
-                click.echo("  ⚠ No steps executed; check ops/policy config", err=True)
+                click.echo("  ⚠ No steps executed; check policy config", err=True)
 
             return 0
 

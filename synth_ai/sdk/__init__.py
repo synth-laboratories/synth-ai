@@ -35,6 +35,8 @@ from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierCli
 from synth_ai.sdk.task import (
     InProcessJobResult,
     InProcessTaskApp,
+    LocalAPIClient,
+    LocalAPIConfig,
     TaskAppConfig,
     create_task_app,
     merge_dot_overrides,
@@ -79,6 +81,8 @@ __all__ = [
     "resolve_backend_api_base",
     "run_in_process_job",
     "run_in_process_job_sync",
+    "LocalAPIClient",
+    "LocalAPIConfig",
     "TaskAppConfig",
     "create_task_app",
     # Graphs / Judging

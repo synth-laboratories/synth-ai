@@ -645,7 +645,6 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         branches={},
         metrics=metrics,
         aborted=False,
-        ops_executed=2,
         trace=trace_payload,
     )
 

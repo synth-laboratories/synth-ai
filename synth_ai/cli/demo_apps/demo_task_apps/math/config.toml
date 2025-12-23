@@ -24,7 +24,6 @@ evaluation_episodes = 50
 
 [training]
 max_turns = 1
-ops = ["agent", "env"]
 batch_size = 2
 group_size = 16
 reward_positive = 1.0

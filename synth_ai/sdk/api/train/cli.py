@@ -38,7 +38,7 @@ from synth_ai.sdk.streaming import (
 )
 
 from .builders import build_prompt_learning_payload, build_rl_payload, build_sft_payload
-from .task_app import check_task_app_health
+from .local_api import check_local_api_health
 from .graphgen import GraphGenJob
 from .graphgen_models import load_graphgen_taskset
 from .context_learning import ContextLearningJob
@@ -933,7 +933,7 @@ def handle_rl(
     os.environ["ENVIRONMENT_API_KEY"] = env_key
 
     click.echo("Performing task app health check…")
-    health = check_task_app_health(build.task_url, env_key)
+    health = check_local_api_health(build.task_url, env_key)
     if not health.ok:
         click.echo(f"Task app health check failed: {health.detail}")
         raise click.ClickException("Aborting due to failing health check")
@@ -1990,7 +1990,7 @@ def handle_prompt_learning(
     click.echo("Performing task app health check…")
     click.echo(f"Task app URL: {build.task_url}")
     click.echo("⏳ Checking /health endpoint (timeout: 10s)...")
-    health = check_task_app_health(build.task_url, env_key, timeout=10.0)
+    health = check_local_api_health(build.task_url, env_key, timeout=10.0)
     if not health.ok:
         click.echo(f"❌ Task app health check failed: {health.detail}")
         click.echo(f"   Health status: {health.health_status}")

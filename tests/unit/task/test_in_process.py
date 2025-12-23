@@ -8,8 +8,9 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import FastAPI
 
+from synth_ai.sdk.localapi.server import LocalAPIConfig
+from synth_ai.sdk.task.contracts import TaskInfo
 from synth_ai.sdk.task.in_process import InProcessTaskApp
-from synth_ai.sdk.task.server import TaskAppConfig, TaskInfo
 
 
 @pytest.fixture
@@ -20,9 +21,9 @@ def mock_fastapi_app():
 
 
 @pytest.fixture
-def mock_task_app_config():
-    """Create a mock TaskAppConfig."""
-    return TaskAppConfig(
+def mock_local_api_config():
+    """Create a mock LocalAPIConfig."""
+    return LocalAPIConfig(
         app_id="test",
         name="Test Task App",
         description="Test",
@@ -43,7 +44,7 @@ def mock_task_app_config():
 class TestInProcessTaskAppInit:
     """Tests for InProcessTaskApp initialization."""
 
-    def test_init_validates_exactly_one_input(self, mock_task_app_config):
+    def test_init_validates_exactly_one_input(self, mock_local_api_config):
         """Should raise ValueError if multiple or no inputs provided."""
         # No inputs
         with pytest.raises(ValueError, match="exactly one"):
@@ -51,7 +52,7 @@ class TestInProcessTaskAppInit:
 
         # Multiple inputs
         app = FastAPI()
-        config = mock_task_app_config
+        config = mock_local_api_config
         with pytest.raises(ValueError, match="exactly one"):
             InProcessTaskApp(app=app, config=config)
 
@@ -178,16 +179,16 @@ class TestInProcessTaskAppContextManager:
         mock_open_tunnel,
         mock_verify_tunnel,
         mock_stop_tunnel,
-        mock_task_app_config,
+        mock_local_api_config,
         mock_fastapi_app,
     ):
-        """Should accept TaskAppConfig."""
+        """Should accept LocalAPIConfig."""
         mock_create_app.return_value = mock_fastapi_app
         mock_open_tunnel.return_value = ("https://test.trycloudflare.com", Mock())
 
-        async with InProcessTaskApp(config=mock_task_app_config, port=9002) as task_app:
+        async with InProcessTaskApp(config=mock_local_api_config, port=9002) as task_app:
             assert task_app.url == "https://test.trycloudflare.com"
-            mock_create_app.assert_called_once_with(mock_task_app_config)
+            mock_create_app.assert_called_once_with(mock_local_api_config)
 
     @patch("synth_ai.sdk.task.in_process.stop_tunnel")
     @patch("synth_ai.sdk.task.in_process._verify_tunnel_ready", new_callable=AsyncMock, return_value=True)
@@ -205,7 +206,7 @@ class TestInProcessTaskAppContextManager:
         mock_open_tunnel,
         mock_verify_tunnel,
         mock_stop_tunnel,
-        mock_task_app_config,
+        mock_local_api_config,
         mock_fastapi_app,
     ):
         """Should accept config factory function."""
@@ -213,7 +214,7 @@ class TestInProcessTaskAppContextManager:
         mock_open_tunnel.return_value = ("https://test.trycloudflare.com", Mock())
 
         def build_config():
-            return mock_task_app_config
+            return mock_local_api_config
 
         async with InProcessTaskApp(config_factory=build_config, port=9003) as task_app:
             assert task_app.url == "https://test.trycloudflare.com"

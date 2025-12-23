@@ -50,9 +50,6 @@ class EvalConfig:
     # Optional: Whether to return traces in response
     return_trace: bool = False
     
-    # Optional: Operations sequence (if not provided, generates default)
-    ops: list[str] | None = None
-    
     # Optional: Environment config overrides
     env_config: dict[str, Any] = field(default_factory=dict)
     
@@ -115,7 +112,6 @@ class EvalConfig:
             "policy_name": data.get("policy_name"),
             "trace_format": data.get("trace_format", "compact"),
             "return_trace": data.get("return_trace", False),
-            "ops": data.get("ops"),
             "env_config": data.get("env_config", {}),
             "policy_config": data.get("policy_config", {}),
             "metadata": data.get("metadata", {}),

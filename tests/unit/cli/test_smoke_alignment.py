@@ -20,7 +20,7 @@ from synth_ai.sdk.task.contracts import (
 )
 
 
-class _FakeTaskAppClient:
+class _FakeLocalAPIClient:
     def __init__(self, base_url: str, api_key: str | None = None, *, timeout: float = 600.0, retries: int = 3) -> None:
         self.base_url = base_url
         self.api_key = api_key
@@ -32,7 +32,7 @@ class _FakeTaskAppClient:
         self.rollout_calls = 0
         self.last_rollout_request: RolloutRequest | None = None
 
-    async def __aenter__(self) -> "_FakeTaskAppClient":
+    async def __aenter__(self) -> "_FakeLocalAPIClient":
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:  # noqa: D401
@@ -87,7 +87,6 @@ class _FakeTaskAppClient:
             branches={},
             metrics=metrics,
             aborted=False,
-            ops_executed=1,
             trace={"id": request.run_id},
             pipeline_metadata={"inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123"},
         )
@@ -111,15 +110,15 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
     _sys.modules[spec.name] = smoke_core
     spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
 
-    created_instances: list[_FakeTaskAppClient] = []
+    created_instances: list[_FakeLocalAPIClient] = []
 
-    def _factory(*args: Any, **kwargs: Any) -> _FakeTaskAppClient:
-        inst = _FakeTaskAppClient(*args, **kwargs)
+    def _factory(*args: Any, **kwargs: Any) -> _FakeLocalAPIClient:
+        inst = _FakeLocalAPIClient(*args, **kwargs)
         created_instances.append(inst)
         return inst
 
-    # Patch the TaskAppClient used by the smoke tool
-    monkeypatch.setattr(smoke_core, "TaskAppClient", _factory)
+    # Patch the LocalAPIClient used by the smoke tool
+    monkeypatch.setattr(smoke_core, "LocalAPIClient", _factory)
 
     exit_code = await smoke_core._run_smoke_async(
         task_app_url="http://task.local:8000",
@@ -142,7 +141,7 @@ async def test_smoke_rollout_request_alignment_structured_trace(monkeypatch: pyt
 
     assert exit_code == 0
 
-    assert created_instances, "Expected TaskAppClient to be instantiated"
+    assert created_instances, "Expected LocalAPIClient to be instantiated"
     inst = created_instances[-1]
     sent = inst.last_rollout_request
     assert sent is not None
@@ -164,14 +163,14 @@ async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: py
     _sys.modules[spec.name] = smoke_core
     spec.loader.exec_module(smoke_core)  # type: ignore[arg-type]
 
-    created_instances: list[_FakeTaskAppClient] = []
+    created_instances: list[_FakeLocalAPIClient] = []
 
-    def _factory(*args: Any, **kwargs: Any) -> _FakeTaskAppClient:  # type: ignore[no-redef]
-        inst = _FakeTaskAppClient(*args, **kwargs)
+    def _factory(*args: Any, **kwargs: Any) -> _FakeLocalAPIClient:  # type: ignore[no-redef]
+        inst = _FakeLocalAPIClient(*args, **kwargs)
         created_instances.append(inst)
         return inst
 
-    monkeypatch.setattr(smoke_core, "TaskAppClient", _factory)
+    monkeypatch.setattr(smoke_core, "LocalAPIClient", _factory)
 
     exit_code = await smoke_core._run_smoke_async(
         task_app_url="http://task.local:8000",
@@ -193,7 +192,7 @@ async def test_smoke_calls_health_and_task_info_when_env_missing(monkeypatch: py
     )
 
     assert exit_code == 0
-    assert created_instances, "Expected TaskAppClient to be instantiated"
+    assert created_instances, "Expected LocalAPIClient to be instantiated"
     inst = created_instances[-1]
     assert inst.health_calls >= 1
     assert inst.task_info_calls >= 1

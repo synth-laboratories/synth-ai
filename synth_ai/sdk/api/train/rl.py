@@ -32,7 +32,7 @@ from synth_ai.core.telemetry import log_info
 
 from .builders import RLBuildResult, build_rl_payload
 from .pollers import RLJobPoller
-from .task_app import check_task_app_health
+from .local_api import check_local_api_health
 from .utils import ensure_api_base, http_post
 
 
@@ -282,7 +282,7 @@ class RLJob:
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
             task_app_key = self.config.task_app_api_key or ""
-            health = check_task_app_health(build.task_url, task_app_key)
+            health = check_local_api_health(build.task_url, task_app_key)
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
         
@@ -439,4 +439,3 @@ __all__ = [
     "RLJob",
     "RLJobConfig",
 ]
-

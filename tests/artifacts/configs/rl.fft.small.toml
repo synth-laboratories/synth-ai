@@ -41,7 +41,6 @@ num_epochs = 1
 gradient_accumulation_steps = 1
 max_accumulated_minibatch = 1
 max_turns = 1
-ops = ["agent", "env"]
 batch_size = 1
 group_size = 2
 learning_rate = 5e-6

@@ -99,6 +99,9 @@ _maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 # Register scan command
 _maybe_call("synth_ai.cli.commands.scan", "register", cli)
 
+# Register eval command
+_maybe_call("synth_ai.cli.commands.eval", "register", cli)
+
 # Train CLI lives under synth_ai.sdk.api.train
 _maybe_call("synth_ai.sdk.api.train", "register", cli)
 

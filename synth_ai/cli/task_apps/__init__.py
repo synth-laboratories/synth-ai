@@ -4,10 +4,17 @@ Commands for managing Synth task apps - local serving, Modal deployment,
 validation, and discovery.
 """
 
+from __future__ import annotations
+
+import importlib
+
 from synth_ai.cli.task_apps.commands import (
     AppChoice,
     TaskAppEntryType,
+    _find_modal_executable,
+    _is_modal_shim,
     _markov_message_from_dict,
+    _modal_command_prefix,
     register,
     serve_command,
     task_app_group,
@@ -22,5 +29,9 @@ __all__ = [
     "task_app_group",
     "serve_command",
     "register",
+    "_find_modal_executable",
+    "_is_modal_shim",
+    "_modal_command_prefix",
     "_markov_message_from_dict",
+    "importlib",
 ]

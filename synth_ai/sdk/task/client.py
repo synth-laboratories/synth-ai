@@ -1,4 +1,8 @@
-"""Async HTTP client for interacting with Task Apps."""
+"""Async HTTP client for interacting with Task Apps.
+
+Prefer synth_ai.sdk.localapi.client moving forward. This module remains for
+backward compatibility during the naming transition.
+"""
 
 from __future__ import annotations
 
@@ -140,6 +144,10 @@ class TaskAppClient:
         response = await self._request("POST", "/rollout", json_payload=request)
         data = response.json()
         return RolloutResponse.model_validate(data)
+
+
+class LocalAPIClient(TaskAppClient):
+    """Alias for TaskAppClient with LocalAPI naming."""
 
 
 class _TaskAppEnvironmentClient:

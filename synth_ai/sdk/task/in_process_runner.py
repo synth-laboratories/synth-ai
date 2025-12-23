@@ -31,7 +31,7 @@ from synth_ai.core.env import get_backend_from_env
 from synth_ai.core.telemetry import log_info
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
 from synth_ai.sdk.api.train.rl import RLJob
-from synth_ai.sdk.api.train.task_app import TaskAppHealth, check_task_app_health
+from synth_ai.sdk.api.train.local_api import LocalAPIHealth, check_local_api_health
 from synth_ai.sdk.api.train.utils import ensure_api_base
 from synth_ai.sdk.task.in_process import InProcessTaskApp
 
@@ -52,7 +52,7 @@ class InProcessJobResult:
     status: Dict[str, Any]
     task_app_url: str
     backend_url: str
-    task_app_health: TaskAppHealth | None = None
+    task_app_health: LocalAPIHealth | None = None
 
 
 def _normalize_base_url(url: str) -> str:
@@ -234,9 +234,14 @@ async def run_in_process_job(
         should_skip_health_check = skip_tunnel_verification or dns_verified_by_backend
         if should_skip_health_check:
             reason = "tunnel verification disabled" if skip_tunnel_verification else "backend verified DNS"
-            health = TaskAppHealth(ok=True, health_status=200, task_info_status=200, detail=f"Skipped ({reason})")
+            health = LocalAPIHealth(
+                ok=True,
+                health_status=200,
+                task_info_status=200,
+                detail=f"Skipped ({reason})",
+            )
         else:
-            health = check_task_app_health(task_url, resolved_task_app_key)
+            health = check_local_api_health(task_url, resolved_task_app_key)
             if not health.ok:
                 raise RuntimeError(f"Task app health check failed for {task_url}: {health.detail}")
 

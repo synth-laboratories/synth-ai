@@ -40,18 +40,6 @@ max_turns = 10
 episodes_per_batch = 16
 max_concurrent_rollouts = 4
 batches_per_step = 2
-ops = [
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-  "agent", "env",
-]
 task_app_origin_rewards_only = true
 
 [rollout.policy_config]
