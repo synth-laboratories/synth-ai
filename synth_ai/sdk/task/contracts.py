@@ -102,7 +102,6 @@ class RolloutPolicySpec(BaseModel):
 
 
 class RolloutRecordConfig(BaseModel):
-    trajectories: bool = True
     logprobs: bool = False
     value: bool = False
     return_trace: bool = False
@@ -125,75 +124,6 @@ class RolloutRequest(BaseModel):
     mode: RolloutMode = RolloutMode.RL  # Default to RL mode for training/optimization
 
 
-class RolloutStep(BaseModel):
-    """Single step in a rollout trajectory.
-
-    DEPRECATED: This is part of the legacy trajectory format. New code should
-    consume v3 traces (RolloutResponse.trace) instead. See monorepo/trace_single_source.txt
-    for migration plan.
-    """
-    obs: dict[str, Any]
-    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
-    reward: float | None = None
-    done: bool = False
-    truncated: bool | None = None
-    info: dict[str, Any] | None = None
-
-    # Unified output fields (supports all output modes)
-    output: dict[str, Any] | str | None = Field(
-        default=None,
-        description="Unified output: parsed JSON for STRUCTURED, raw text for TEXT, tool args for TOOL_CALLS"
-    )
-    output_mode: OutputMode | None = Field(
-        default=None,
-        description="Which output mode produced this step's output"
-    )
-
-
-class RolloutTrajectory(BaseModel):
-    """Legacy trajectory format for rollout results.
-    
-    DEPRECATED: This format duplicates data already present in v3 traces and will
-    be removed once training code migrates to consuming RolloutResponse.trace.
-    
-    Current state:
-    - Task apps emit BOTH this format AND v3 traces (dual serialization)
-    - Training code (GSPO) reads from this format
-    - Eval/filter tools read from v3 traces
-    
-    Migration plan:
-    - Phase 1: Training code learns to read from v3 traces (with fallback to this)
-    - Phase 2: Make this field optional once training is migrated
-    - Phase 3: Remove this field entirely and delete this class
-    
-    See: monorepo/trace_single_source.txt for full migration plan and timeline.
-    
-    Why v3 traces are better:
-    - Single source of truth (no duplication/drift)
-    - Richer data: token IDs, logprobs, reasoning, timing, images
-    - Built-in audit trail and replay capability
-    - Standard schema across all Synth AI tooling
-    """
-    env_id: str
-    policy_id: str
-    steps: list[RolloutStep]
-    final: dict[str, Any] | None = None
-    length: int
-    
-    # Required for trace correlation with inference mesh (optional initially for backward compat)
-    # See: monorepo/INFERENCE_URL_REQUIREMENT_PLAN.md and trace_creation_and_judgement.txt
-    inference_url: str
-
-    # Required by monorepo trace_validation.py: trajectory-level trace with event_history
-    # The event_history contains LM call records for input/output extraction
-    trace: dict[str, Any] | None = Field(
-        default=None,
-        description="V3 trace with event_history for this trajectory (required for trace strict mode)"
-    )
-
-    decision_samples: list[dict[str, Any]] | None = None
-
-
 class RolloutMetrics(BaseModel):
     episode_returns: list[float]
     mean_return: float
@@ -205,29 +135,12 @@ class RolloutMetrics(BaseModel):
 
 
 class RolloutResponse(BaseModel):
-    """Response from a rollout execution.
-    
-    Contains both legacy trajectory format (for backward compatibility) and
-    modern v3 trace format (preferred going forward).
-    """
+    """Response from a rollout execution (trace-only)."""
     run_id: str
-    
-    # DEPRECATED: Legacy format maintained for training code compatibility.
-    # Will be removed once training migrates to reading from `trace` field.
-    # See: monorepo/trace_single_source.txt for migration plan.
-    trajectories: list[RolloutTrajectory]
-    
     branches: dict[str, list[str]] = Field(default_factory=dict)
     metrics: RolloutMetrics
     aborted: bool = False
-    
-    # OPTIONAL: correlation ID for linking rollout to inference traces
-    # If not provided, trainer will infer it from trajectory.inference_url ?cid=... parameter
     trace_correlation_id: str | None = None
-    
-    # PREFERRED: v3 trace format (SessionTrace). This is the single source of truth
-    # for rollout data and should be used by all new code. Contains richer data than
-    # trajectories including token IDs, logprobs, timing, and multimodal content.
     trace: dict[str, Any] | None = None
     pipeline_metadata: dict[str, Any] = Field(default_factory=dict)
 

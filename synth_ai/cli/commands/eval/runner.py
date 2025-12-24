@@ -244,8 +244,10 @@ async def _eval_seed(
             if tokens is None:
                 if trace:
                     tokens = _count_tokens_from_trace(trace)
-                elif response.trajectories:
-                    tokens = _count_tokens_from_trajectories(response.trajectories)
+                else:
+                    trajectories = getattr(response, "trajectories", None)
+                    if trajectories:
+                        tokens = _count_tokens_from_trajectories(trajectories)
                 if tokens == 0:
                     tokens = None
 

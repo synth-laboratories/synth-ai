@@ -47,6 +47,22 @@ class TaskAppEntry:
     modal: ModalDeploymentConfig | None = None
 
 
+@dataclass(slots=True)
+class LocalAPIEntry:
+    """Metadata describing a registered local API."""
+
+    api_id: str
+    description: str
+    config_factory: Callable[[], TaskAppConfig]
+    aliases: Sequence[str] = field(default_factory=tuple)
+    env_files: Sequence[str] = field(default_factory=tuple)
+    modal: ModalDeploymentConfig | None = None
+
+    @property
+    def app_id(self) -> str:
+        return self.api_id
+
+
 class TaskAppRegistry:
     """In-memory registry of known task apps."""
 
@@ -87,6 +103,22 @@ registry = TaskAppRegistry()
 
 
 def register_task_app(*, entry: TaskAppEntry) -> None:
+    registry.register(entry)
+
+
+def register_local_api(*, entry: LocalAPIEntry | TaskAppEntry) -> None:
+    if isinstance(entry, LocalAPIEntry):
+        registry.register(
+            TaskAppEntry(
+                app_id=entry.api_id,
+                description=entry.description,
+                config_factory=entry.config_factory,
+                aliases=entry.aliases,
+                env_files=entry.env_files,
+                modal=entry.modal,
+            )
+        )
+        return
     registry.register(entry)
 
 

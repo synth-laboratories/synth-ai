@@ -18,8 +18,6 @@ from synth_ai.sdk.task.contracts import (  # noqa: E402
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RolloutStep,
-    RolloutTrajectory,
     TaskInfo,
 )
 
@@ -54,8 +52,6 @@ class TestOpenAPIPydanticValidation:
         required_schemas = [
             "RolloutRequest",
             "RolloutResponse",
-            "RolloutTrajectory",
-            "RolloutStep",
             "RolloutMetrics",
             "TaskInfo",
         ]
@@ -68,8 +64,6 @@ class TestOpenAPIPydanticValidation:
         models = [
             RolloutRequest,
             RolloutResponse,
-            RolloutTrajectory,
-            RolloutStep,
             RolloutMetrics,
             TaskInfo,
         ]
@@ -82,8 +76,6 @@ class TestOpenAPIPydanticValidation:
         models = [
             RolloutRequest,
             RolloutResponse,
-            RolloutTrajectory,
-            RolloutStep,
             RolloutMetrics,
             TaskInfo,
         ]
@@ -116,7 +108,7 @@ class TestOpenAPIPydanticValidation:
         
         # RolloutResponse should have these fields
         assert "run_id" in props
-        assert "trajectories" in props
+        assert "trace" in props
         assert "metrics" in props
 
     def test_rollout_metrics_has_mean_return(self):
@@ -155,8 +147,6 @@ class TestOpenAPIPydanticValidation:
     @pytest.mark.parametrize("model_name", [
         "RolloutRequest",
         "RolloutResponse",
-        "RolloutTrajectory",
-        "RolloutStep",
         "RolloutMetrics",
         "TaskInfo",
     ])
@@ -204,5 +194,4 @@ class TestOpenAPIPydanticValidation:
         
         assert callable(get_task_app_contract)
         assert TASK_APP_CONTRACT_PATH.exists()
-
 

@@ -683,7 +683,7 @@ class InProcessTaskApp:
                             f"Task app at {self._task_app_path} must expose either:\n"
                             f"  - An ASGI app via `app = FastAPI(...)` or factory function\n"
                             f"  - A `build_config()` function that returns TaskAppConfig\n"
-                            f"  - Be registered with register_task_app()"
+                            f"  - Be registered with register_local_api() or register_task_app()"
                         ) from None
 
         # 2. Start uvicorn in background thread

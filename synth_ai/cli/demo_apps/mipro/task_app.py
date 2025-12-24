@@ -5,7 +5,6 @@ import inspect
 import json
 import os
 import socket
-import uuid
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, Mapping, cast
@@ -21,8 +20,6 @@ from synth_ai.sdk.task.contracts import (
     RolloutMetrics,
     RolloutRequest,
     RolloutResponse,
-    RolloutStep,
-    RolloutTrajectory,
     TaskInfo,
 )
 from synth_ai.sdk.task.datasets import TaskDatasetRegistry, TaskDatasetSpec
@@ -33,6 +30,10 @@ from synth_ai.sdk.task.server import (
     TaskAppConfig,
     create_task_app,
     run_task_app,
+)
+from synth_ai.sdk.task.trace_correlation_helpers import (
+    build_trace_payload,
+    extract_trace_correlation_id,
 )
 from synth_ai.sdk.task.vendors import normalize_vendor_keys
 
@@ -593,23 +594,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             flush=True,
         )
 
-    step = RolloutStep(
-        obs=observation,
-        tool_calls=tool_calls,
-        reward=reward,
-        done=True,
-        info=info_payload,
-    )
-
     inference_url = (request.policy.config or {}).get("inference_url")
-    trajectory = RolloutTrajectory(  # type: ignore[call-overload]
-        env_id=f"banking77::{sample['split']}::{sample['index']}",
-        policy_id=request.policy.policy_id or request.policy.policy_name or "policy",
-        steps=[step],
-        final={"observation": observation, "reward": reward},  # type: ignore[arg-type]
-        length=1,
-        inference_url=str(inference_url or ""),
-    )
 
     metrics = RolloutMetrics(
         episode_returns=[reward],
@@ -620,32 +605,37 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         events_score=reward,
         details={"correct": is_correct},
     )
-
-    trace_payload = None
-    include_trace = bool(
-        (request.record and getattr(request.record, "return_trace", False))
-        or os.getenv("TASKAPP_TRACING_ENABLED")
+    policy_config = request.policy.config or {}
+    trace_correlation_id = extract_trace_correlation_id(
+        policy_config=policy_config,
+        inference_url=str(inference_url or ""),
+        mode=request.mode,
     )
-    if include_trace:
-        trace_payload = {
-            "session_id": str(uuid.uuid4()),
-            "events_count": 1,
-            "decision_rewards": [reward],
-            "metadata": {
-                "env": "banking77",
-                "split": sample["split"],
-                "index": sample["index"],
-                "correct": is_correct,
-            },
-        }
+    trace_metadata = {
+        "env": "banking77",
+        "split": sample["split"],
+        "index": sample["index"],
+        "correct": is_correct,
+    }
+    trace_payload = build_trace_payload(
+        messages=rendered_messages,
+        response=response_json if isinstance(response_json, dict) else None,
+        correlation_id=trace_correlation_id,
+        metadata=trace_metadata,
+    )
+
+    pipeline_metadata = {"inference_url": str(inference_url or "")}
+    if trace_correlation_id:
+        pipeline_metadata["trace_correlation_id"] = trace_correlation_id
 
     return RolloutResponse(
         run_id=request.run_id,
-        trajectories=[trajectory],
         branches={},
         metrics=metrics,
         aborted=False,
+        trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
+        pipeline_metadata=pipeline_metadata,
     )
 
 

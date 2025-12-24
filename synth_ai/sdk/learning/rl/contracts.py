@@ -10,8 +10,6 @@ from synth_ai.sdk.task.contracts import (
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
-    RolloutStep,
-    RolloutTrajectory,
 )
 
 __all__ = [
@@ -20,8 +18,6 @@ __all__ = [
     "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
-    "RolloutStep",
-    "RolloutTrajectory",
     "RolloutMetrics",
     "RolloutResponse",
 ]

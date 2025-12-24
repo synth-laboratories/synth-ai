@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -13,11 +12,10 @@ from synth_ai.sdk.task.contracts import (
     RolloutRecordConfig,
     RolloutRequest,
     RolloutResponse,
-    RolloutStep,
-    RolloutTrajectory,
     TaskDescriptor,
     TaskInfo,
 )
+from synth_ai.sdk.task.trace_correlation_helpers import build_trace_payload
 
 
 class _FakeLocalAPIClient:
@@ -59,36 +57,25 @@ class _FakeLocalAPIClient:
         self.rollout_calls += 1
         self.last_rollout_request = request
 
-        # Construct a minimal valid RolloutResponse that passes RL validation
-        step = RolloutStep(
-            obs={"image": [0]},
-            tool_calls=[{"type": "function", "function": {"name": "act", "arguments": "{}"}}],
-            reward=0.0,
-            done=True,
-            info={
-                "meta": {
-                    "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
-                }
-            },
-        )
-        traj = RolloutTrajectory(
-            env_id="env-1",
-            policy_id="policy-1",
-            steps=[step],
-            final=None,
-            length=1,
-            inference_url="https://mock.local/v1/chat/completions?cid=test-cid-123",
-            decision_samples=[],
+        trace_correlation_id = "test-cid-123"
+        trace_payload = build_trace_payload(
+            messages=[{"role": "user", "content": "ping"}],
+            response={"message": {"role": "assistant", "content": "pong"}},
+            correlation_id=trace_correlation_id,
+            metadata={"run_id": request.run_id},
         )
         metrics = RolloutMetrics(episode_returns=[0.0], mean_return=0.0, num_steps=1, num_episodes=1)
         return RolloutResponse(
             run_id=request.run_id,
-            trajectories=[traj],
             branches={},
             metrics=metrics,
             aborted=False,
-            trace={"id": request.run_id},
-            pipeline_metadata={"inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123"},
+            trace_correlation_id=trace_correlation_id,
+            trace=trace_payload,
+            pipeline_metadata={
+                "inference_url": "https://mock.local/v1/chat/completions?cid=test-cid-123",
+                "trace_correlation_id": trace_correlation_id,
+            },
         )
 
 

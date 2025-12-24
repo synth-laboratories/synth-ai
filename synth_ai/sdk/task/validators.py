@@ -16,8 +16,8 @@ def validate_rollout_response_for_rl(response_data: dict[str, Any], *, warn_only
     """Validate that a task app rollout response has required fields for RL training.
     
     The backend RL trainer requires:
-    1. pipeline_metadata["inference_url"] at top level (with ?cid= for trace correlation)
-    2. Each step's info.meta["inference_url"] must be present (nested structure!)
+    1. A v3 trace with event_history (preferred), OR
+    2. pipeline_metadata["inference_url"] with ?cid= for trace hydration fallback
     
     Args:
         response_data: The rollout response dict from task app
@@ -31,16 +31,43 @@ def validate_rollout_response_for_rl(response_data: dict[str, Any], *, warn_only
     """
     issues = []
     
-    # Check pipeline_metadata
+    trace_block = response_data.get("trace")
+    event_history = None
+    if isinstance(trace_block, dict):
+        event_history = trace_block.get("event_history")
+        if not event_history and isinstance(trace_block.get("session_trace"), dict):
+            event_history = trace_block["session_trace"].get("event_history")
+
+    has_event_history = isinstance(event_history, list) and len(event_history) > 0
+
+    trace_correlation_id = response_data.get("trace_correlation_id")
+    if not trace_correlation_id and isinstance(trace_block, dict):
+        trace_meta = trace_block.get("metadata")
+        if isinstance(trace_meta, dict):
+            trace_correlation_id = trace_meta.get("trace_correlation_id")
+
+    if not trace_correlation_id:
+        issues.append(
+            "Missing trace_correlation_id (top-level or trace.metadata). "
+            "RL trainer requires this to link traces."
+        )
+
+    if not has_event_history:
+        issues.append(
+            "trace.event_history is missing or empty. "
+            "Return a v3 trace or provide inference_url for hydration."
+        )
+
+    # Check pipeline_metadata inference_url only when trace is missing/empty
     pipeline_metadata = response_data.get("pipeline_metadata")
-    if not isinstance(pipeline_metadata, dict):
-        issues.append("Missing or invalid 'pipeline_metadata' (required for RL training)")
-    else:
+    inference_url = None
+    if isinstance(pipeline_metadata, dict):
         inference_url = pipeline_metadata.get("inference_url")
+    if not has_event_history:
         if not inference_url:
             issues.append(
                 "pipeline_metadata['inference_url'] is missing. "
-                "RL trainer requires this field to extract traces."
+                "RL trainer needs this to hydrate traces when event_history is absent."
             )
         elif not isinstance(inference_url, str):
             issues.append(
@@ -51,48 +78,6 @@ def validate_rollout_response_for_rl(response_data: dict[str, Any], *, warn_only
                 f"pipeline_metadata['inference_url'] should contain '?cid=' for trace correlation. "
                 f"Got: {inference_url[:80]}..."
             )
-    
-    # Check trajectories and steps
-    trajectories = response_data.get("trajectories", [])
-    if not trajectories:
-        issues.append("No trajectories found in response")
-    
-    for traj_idx, trajectory in enumerate(trajectories):
-        if not isinstance(trajectory, dict):
-            continue
-        
-        steps = trajectory.get("steps", [])
-        for step_idx, step in enumerate(steps):
-            if not isinstance(step, dict):
-                continue
-            
-            step_info = step.get("info", {})
-            if not isinstance(step_info, dict):
-                issues.append(
-                    f"trajectory[{traj_idx}].steps[{step_idx}].info is not a dict"
-                )
-                continue
-            
-            # Check for nested meta.inference_url (backend expects this structure!)
-            step_meta = step_info.get("meta", {})
-            if not isinstance(step_meta, dict):
-                issues.append(
-                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta is missing or not a dict. "
-                    f"RL trainer expects nested structure: info.meta.inference_url"
-                )
-                continue
-            
-            step_inference_url = step_meta.get("inference_url")
-            if not step_inference_url:
-                issues.append(
-                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta['inference_url'] is missing. "
-                    f"RL trainer needs this for trace extraction (nested structure required!)"
-                )
-            elif not isinstance(step_inference_url, str):
-                issues.append(
-                    f"trajectory[{traj_idx}].steps[{step_idx}].info.meta['inference_url'] must be a string, "
-                    f"got: {type(step_inference_url).__name__}"
-                )
     
     if issues and not warn_only:
         error_msg = "Task app response validation failed for RL training:\n" + "\n".join(

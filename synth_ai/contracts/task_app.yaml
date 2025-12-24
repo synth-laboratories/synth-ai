@@ -491,13 +491,8 @@ components:
 
     RolloutRecordConfig:
       type: object
-      description: Recording configuration for trajectories
+      description: Recording configuration for trace payloads
       properties:
-        trajectories:
-          type: boolean
-          default: true
-          description: Whether to record full trajectories
-
         logprobs:
           type: boolean
           default: false
@@ -543,21 +538,12 @@ components:
         that guides optimization. Higher = better prompt.
       required:
         - run_id
-        - trajectories
         - metrics
+        - trace
       properties:
         run_id:
           type: string
           description: Echo the run_id from the request
-
-        trajectories:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/RolloutTrajectory'
-          description: |
-            Execution trace. Must contain at least one trajectory
-            with at least one step that includes a reward.
 
         branches:
           type: object
@@ -585,7 +571,7 @@ components:
           type: object
           nullable: true
           additionalProperties: true
-          description: Optional detailed trace for debugging
+          description: v3 trace payload for training and evaluation
 
         pipeline_metadata:
           type: object
@@ -594,27 +580,6 @@ components:
           description: Pipeline-specific metadata
       example:
         run_id: "run_abc123"
-        trajectories:
-          - env_id: "banking77::train::42"
-            policy_id: "policy_1"
-            steps:
-              - obs:
-                  query: "How do I reset my PIN?"
-                  index: 42
-                tool_calls:
-                  - id: "call_1"
-                    type: "function"
-                    function:
-                      name: "classify"
-                      arguments: '{"intent": "change_pin"}'
-                reward: 1.0
-                done: true
-                info:
-                  expected: "change_pin"
-                  predicted: "change_pin"
-                  correct: true
-            length: 1
-            inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         metrics:
           episode_returns:
             - 1.0
@@ -623,111 +588,23 @@ components:
           num_episodes: 1
           outcome_score: 1.0
         aborted: false
-
-    RolloutTrajectory:
-      type: object
-      description: A single trajectory (episode) of execution
-      required:
-        - env_id
-        - policy_id
-        - steps
-        - length
-        - inference_url
-      properties:
-        env_id:
-          type: string
-          description: |
-            Identifier for this task instance.
-            Recommend format: `{task_name}::{split}::{seed}`
-          example: "banking77::train::42"
-
-        policy_id:
-          type: string
-          description: Echo policy_id or policy_name from request
-
-        steps:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/RolloutStep'
-          description: |
-            Execution steps. Must contain at least one step with a reward.
-
-        final:
-          type: object
-          additionalProperties: true
-          nullable: true
-          description: Final state information (optional)
-
-        length:
-          type: integer
-          minimum: 1
-          description: Number of steps in this trajectory
-
-        inference_url:
-          type: string
-          description: The inference URL used for LLM calls
-
-        decision_samples:
-          type: array
-          items: {}
-          nullable: true
-          description: Sampled decisions for analysis (optional)
-
-    RolloutStep:
-      type: object
-      description: A single step in the trajectory
-      required:
-        - obs
-        - tool_calls
-        - done
-      properties:
-        obs:
-          type: object
-          additionalProperties: true
-          description: |
-            The input data for this step. Include your sample data
-            here for debugging/logging purposes.
-
-        tool_calls:
-          type: array
-          items:
-            $ref: '#/components/schemas/ToolCall'
-          description: |
-            Tool calls from LLM response.
-            Can be empty array if using content-based responses.
-
-        reward:
-          type: number
-          nullable: true
-          description: |
-            THE REWARD FOR THIS STEP.
-
-            For classification tasks:
-            - 1.0 = prediction matches ground truth
-            - 0.0 = prediction does not match
-
-            For other tasks, use appropriate continuous scores.
-            Can be null for intermediate steps in multi-step tasks.
-
-        done:
-          type: boolean
-          description: Whether the episode is complete (usually true for single-step tasks)
-
-        truncated:
-          type: boolean
-          nullable: true
-          description: Whether the episode was truncated early
-
-        info:
-          type: object
-          additionalProperties: true
-          nullable: true
-          description: |
-            Debug info. Recommend including:
-            - expected: ground truth value
-            - predicted: model's prediction
-            - correct: boolean
+        trace:
+          schema_version: "3.0"
+          event_history:
+            - type: "lm_call"
+              event_type: "lm_call"
+              llm_request:
+                messages:
+                  - role: "user"
+                    content: "How do I reset my PIN?"
+              llm_response:
+                message:
+                  role: "assistant"
+                  content: "I can help with that."
+          markov_blanket_message_history: []
+          metadata:
+            trace_correlation_id: "trace_abc123"
+            env: "banking77"
 
     ToolCall:
       type: object
@@ -780,7 +657,7 @@ components:
 
         num_steps:
           type: integer
-          description: Total number of steps across all trajectories
+          description: Total number of steps in the rollout
 
         num_episodes:
           type: integer

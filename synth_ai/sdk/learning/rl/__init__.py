@@ -10,8 +10,6 @@ from .contracts import (
     RolloutRequest,
     RolloutResponse,
     RolloutSafetyConfig,
-    RolloutStep,
-    RolloutTrajectory,
 )
 from .env_keys import (
     MAX_ENVIRONMENT_API_KEY_BYTES,
@@ -28,8 +26,6 @@ __all__ = [
     "RolloutRecordConfig",
     "RolloutSafetyConfig",
     "RolloutRequest",
-    "RolloutStep",
-    "RolloutTrajectory",
     "RolloutMetrics",
     "RolloutResponse",
     "encrypt_for_backend",

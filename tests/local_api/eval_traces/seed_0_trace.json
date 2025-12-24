@@ -1,0 +1,13 @@
+{
+  "session_id": "09eea16f-5ae9-43dd-a1d1-cec046e36b90",
+  "events_count": 1,
+  "decision_rewards": [
+    1.0
+  ],
+  "metadata": {
+    "env": "banking77",
+    "split": "train",
+    "index": 0,
+    "correct": true
+  }
+}

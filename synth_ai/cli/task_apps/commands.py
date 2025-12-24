@@ -568,20 +568,20 @@ def _extract_app_id(node: ast.Call) -> str | None:
 
 def _is_register_task_app_call(node: ast.Call) -> bool:
     func = node.func
-    return (isinstance(func, ast.Name) and func.id == "register_task_app") or (
-        isinstance(func, ast.Attribute) and func.attr == "register_task_app"
+    return (isinstance(func, ast.Name) and func.id in {"register_task_app", "register_local_api"}) or (
+        isinstance(func, ast.Attribute) and func.attr in {"register_task_app", "register_local_api"}
     )
 
 
 def _extract_register_app_id(node: ast.Call) -> str | None:
-    # Look for entry=TaskAppEntry(app_id="...", ...)
+    # Look for entry=TaskAppEntry(app_id="...") or entry=LocalAPIEntry(api_id="...")
     for kw in node.keywords:
         if kw.arg == "entry" and isinstance(kw.value, ast.Call):
             entry_call = kw.value
-            if isinstance(entry_call.func, ast.Name) and entry_call.func.id == "TaskAppEntry":
+            if isinstance(entry_call.func, ast.Name) and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}:
                 for entry_kw in entry_call.keywords:
                     if (
-                        entry_kw.arg == "app_id"
+                        entry_kw.arg in {"app_id", "api_id"}
                         and isinstance(entry_kw.value, ast.Constant)
                         and isinstance(entry_kw.value.value, str)
                     ):
@@ -864,7 +864,7 @@ def _has_modal_support_in_file(path: Path) -> bool:
                         entry_call = kw.value
                         if (
                             isinstance(entry_call.func, ast.Name)
-                            and entry_call.func.id == "TaskAppEntry"
+                            and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
                         ):
                             for entry_kw in entry_call.keywords:
                                 if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):
@@ -894,7 +894,7 @@ def _extract_modal_config_from_file(path: Path) -> ModalDeploymentConfigType | N
                         entry_call = kw.value
                         if (
                             isinstance(entry_call.func, ast.Name)
-                            and entry_call.func.id == "TaskAppEntry"
+                            and entry_call.func.id in {"TaskAppEntry", "LocalAPIEntry"}
                         ):
                             for entry_kw in entry_call.keywords:
                                 if entry_kw.arg == "modal" and isinstance(entry_kw.value, ast.Call):

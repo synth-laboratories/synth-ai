@@ -2,7 +2,7 @@
 
 This module provides utilities for task apps to:
 1. Extract trace_correlation_id from rollout requests
-2. Include trace_correlation_id in rollout responses (3 required locations)
+2. Include trace_correlation_id in rollout responses (top-level, metadata, trace)
 
 See monorepo/trace_creation_and_judgement.txt "Fatal Guards" section for requirements.
 """
@@ -193,11 +193,11 @@ def include_trace_correlation_id_in_response(
 ) -> dict[str, Any]:
     """
     Include trace_correlation_id in all required locations of rollout response.
-    
-    Required locations (per Fatal Guards section):
+
+    Required locations (trace-only):
     1. Top-level response["trace_correlation_id"]
     2. response["pipeline_metadata"]["trace_correlation_id"]
-    3. Each trajectory["trace_correlation_id"]
+    3. response["trace"]["metadata"]["trace_correlation_id"] (and session_trace metadata if present)
     
     Args:
         response_data: RolloutResponse dict (from .model_dump())
@@ -238,29 +238,122 @@ def include_trace_correlation_id_in_response(
             trace_correlation_id
         )
     
-    # 3. Add to each trajectory (REQUIRED)
-    trajectories = response_data.get("trajectories", [])
-    if isinstance(trajectories, list):
-        for idx, traj in enumerate(trajectories):
-            if isinstance(traj, dict) and "trace_correlation_id" not in traj:
-                traj["trace_correlation_id"] = trace_correlation_id
-                logger.debug(
-                    "include_trace_correlation_id: added to trajectory[%d] run_id=%s cid=%s",
-                    idx,
-                    run_id,
-                    trace_correlation_id
-                )
-    
+    # 3. Add to trace metadata (REQUIRED)
+    trace_block = response_data.get("trace")
+    if isinstance(trace_block, dict):
+        trace_meta = trace_block.get("metadata")
+        if not isinstance(trace_meta, dict):
+            trace_meta = {}
+            trace_block["metadata"] = trace_meta
+        if "trace_correlation_id" not in trace_meta:
+            trace_meta["trace_correlation_id"] = trace_correlation_id
+        corr_ids = trace_meta.get("correlation_ids")
+        if isinstance(corr_ids, dict):
+            corr_map = dict(corr_ids)
+        else:
+            corr_map = {}
+        corr_map.setdefault("trace_correlation_id", trace_correlation_id)
+        trace_meta["correlation_ids"] = corr_map
+
+        session_trace = trace_block.get("session_trace")
+        if isinstance(session_trace, dict):
+            session_meta = session_trace.get("metadata")
+            if not isinstance(session_meta, dict):
+                session_meta = {}
+                session_trace["metadata"] = session_meta
+            session_meta.setdefault("trace_correlation_id", trace_correlation_id)
+
     logger.info(
         "include_trace_correlation_id: completed run_id=%s cid=%s "
-        "added to %d locations (top-level, metadata, %d trajectories)",
+        "added to top-level, metadata, and trace",
         run_id,
         trace_correlation_id,
-        2 + len(trajectories),
-        len(trajectories)
     )
     
     return response_data
+
+
+def build_trace_payload(
+    messages: list[dict[str, Any]],
+    response: dict[str, Any] | None = None,
+    *,
+    correlation_id: str | None = None,
+    session_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Build a v3 trace payload with event_history for trace-only responses.
+
+    Args:
+        messages: The messages sent to the LLM (input)
+        response: The LLM response dict (output). Should include 'choices' or 'content'.
+        correlation_id: Trace correlation ID (from ?cid= param)
+        session_id: Optional session ID for the trace
+        metadata: Optional additional metadata
+
+    Returns:
+        A trace dict with event_history suitable for RolloutResponse.trace
+    """
+    import uuid
+    from datetime import datetime
+
+    event_history: list[dict[str, Any]] = []
+
+    llm_response: dict[str, Any] = {}
+    if isinstance(response, dict):
+        if "message" in response:
+            llm_response = dict(response)
+        elif "choices" in response and isinstance(response.get("choices"), list) and response["choices"]:
+            first_choice = response["choices"][0] if isinstance(response["choices"][0], dict) else {}
+            llm_response = {
+                "message": first_choice.get("message") if isinstance(first_choice, dict) else {},
+                "usage": response.get("usage", {}),
+                "finish_reason": first_choice.get("finish_reason") if isinstance(first_choice, dict) else None,
+            }
+        else:
+            llm_response = dict(response)
+
+    llm_event: dict[str, Any] = {
+        "type": "lm_call",
+        "event_type": "lm_call",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "llm_request": {"messages": messages},
+        "llm_response": llm_response,
+    }
+
+    # Add correlation ID if provided
+    if correlation_id:
+        llm_event["correlation_id"] = correlation_id
+
+    event_history.append(llm_event)
+
+    trace_metadata: dict[str, Any] = dict(metadata or {})
+    trace_metadata.setdefault("session_id", session_id or str(uuid.uuid4()))
+    if correlation_id:
+        trace_metadata.setdefault("trace_correlation_id", correlation_id)
+        corr_ids = trace_metadata.get("correlation_ids")
+        if isinstance(corr_ids, dict):
+            corr_map = dict(corr_ids)
+        else:
+            corr_map = {}
+        corr_map.setdefault("trace_correlation_id", correlation_id)
+        trace_metadata["correlation_ids"] = corr_map
+
+    trace: dict[str, Any] = {
+        "schema_version": "3.0",
+        "event_history": event_history,
+        "markov_blanket_message_history": [],
+        "metadata": trace_metadata,
+    }
+
+    logger.debug(
+        "build_trace_payload: created trace with %d events, session_id=%s, cid=%s",
+        len(event_history),
+        trace_metadata.get("session_id"),
+        correlation_id,
+    )
+
+    return trace
 
 
 def build_trajectory_trace(
@@ -271,73 +364,83 @@ def build_trajectory_trace(
     session_id: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    Build a trajectory-level trace with event_history for trace strict mode.
+    """Backward-compatible alias for build_trace_payload."""
 
-    This creates the trace structure required by monorepo's trace_validation.py:
-    - trajectory.trace.event_history must be non-empty
-    - event_history contains LM call records for input/output extraction
-
-    Args:
-        messages: The messages sent to the LLM (input)
-        response: The LLM response dict (output). Should include 'choices' or 'content'.
-        correlation_id: Trace correlation ID (from ?cid= param)
-        session_id: Optional session ID for the trace
-        metadata: Optional additional metadata
-
-    Returns:
-        A trace dict with event_history suitable for trajectory.trace
-
-    Example:
-        trace = build_trajectory_trace(
-            messages=[{"role": "user", "content": "Hello"}],
-            response={"choices": [{"message": {"content": "Hi!"}}]},
-            correlation_id="trace_abc123",
-        )
-        trajectory = RolloutTrajectory(..., trace=trace)
-    """
-    import uuid
-    from datetime import datetime
-
-    # Build event_history with LM call record
-    event_history: list[dict[str, Any]] = []
-
-    # Create an LM call event (the primary event type for input/output extraction)
-    lm_event: dict[str, Any] = {
-        "event_type": "lm_call",
-        "timestamp": datetime.now(UTC).isoformat(),
-        "call_record": {
-            "messages": messages,
-            "response": response or {},
-        },
-    }
-
-    # Add correlation ID if provided
-    if correlation_id:
-        lm_event["correlation_id"] = correlation_id
-
-    event_history.append(lm_event)
-
-    trace: dict[str, Any] = {
-        "session_id": session_id or str(uuid.uuid4()),
-        "event_history": event_history,
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-
-    if correlation_id:
-        trace["correlation_id"] = correlation_id
-
-    if metadata:
-        trace["metadata"] = metadata
-
-    logger.debug(
-        "build_trajectory_trace: created trace with %d events, session_id=%s, cid=%s",
-        len(event_history),
-        trace["session_id"],
-        correlation_id,
+    return build_trace_payload(
+        messages=messages,
+        response=response,
+        correlation_id=correlation_id,
+        session_id=session_id,
+        metadata=metadata,
     )
 
-    return trace
+
+def include_event_history_in_response(
+    response_data: dict[str, Any],
+    messages: list[dict[str, Any]] | None = None,
+    response: dict[str, Any] | None = None,
+    *,
+    run_id: str,
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    """
+    Ensure response.trace includes a v3 event_history payload.
+
+    Args:
+        response_data: RolloutResponse dict (from .model_dump())
+        messages: Messages for the LLM call (for building event_history)
+        response: LLM response payload
+        run_id: Rollout run_id for logging
+        correlation_id: Trace correlation ID
+
+    Returns:
+        Modified response_data with event_history in response.trace
+    """
+    trace_block = response_data.get("trace")
+    if not isinstance(trace_block, dict):
+        trace_block = {}
+        response_data["trace"] = trace_block
+
+    event_history = trace_block.get("event_history")
+    session_trace = trace_block.get("session_trace")
+    if not event_history and isinstance(session_trace, dict):
+        event_history = session_trace.get("event_history")
+
+    if isinstance(event_history, list) and event_history:
+        return response_data
+
+    new_trace = build_trace_payload(
+        messages=messages or [],
+        response=response,
+        correlation_id=correlation_id,
+        metadata={"run_id": run_id},
+    )
+
+    # Merge new trace payload into the existing trace block.
+    trace_meta = trace_block.get("metadata")
+    if isinstance(trace_meta, dict):
+        merged_meta = dict(new_trace.get("metadata", {}))
+        merged_meta.update(trace_meta)
+        trace_block["metadata"] = merged_meta
+    else:
+        trace_block["metadata"] = new_trace.get("metadata", {})
+
+    trace_block.setdefault("schema_version", new_trace.get("schema_version"))
+    trace_block["event_history"] = new_trace.get("event_history", [])
+    trace_block.setdefault(
+        "markov_blanket_message_history",
+        new_trace.get("markov_blanket_message_history", []),
+    )
+
+    if isinstance(session_trace, dict) and "event_history" not in session_trace:
+        session_trace["event_history"] = trace_block["event_history"]
+
+    logger.info(
+        "include_event_history_in_response: added event_history run_id=%s events=%d",
+        run_id,
+        len(trace_block.get("event_history", [])),
+    )
+    return response_data
 
 
 def include_event_history_in_trajectories(
@@ -348,96 +451,17 @@ def include_event_history_in_trajectories(
     run_id: str,
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
-    """
-    Ensure all trajectories have trace.event_history for trace strict mode.
+    """Backward-compatible alias for include_event_history_in_response."""
 
-    This satisfies monorepo's trace_validation.py requirement:
-    - validate_response_has_hydrated_trace() checks for event_history
-
-    Args:
-        response_data: RolloutResponse dict (from .model_dump())
-        messages_by_trajectory: List of messages for each trajectory (for building event_history)
-        responses_by_trajectory: List of LLM responses for each trajectory
-        run_id: Rollout run_id for logging
-        correlation_id: Trace correlation ID
-
-    Returns:
-        Modified response_data with event_history in each trajectory.trace
-    """
-    trajectories = response_data.get("trajectories", [])
-    if not isinstance(trajectories, list):
-        logger.warning(
-            "include_event_history_in_trajectories: trajectories is not a list for run_id=%s",
-            run_id,
-        )
-        return response_data
-
-    for idx, traj in enumerate(trajectories):
-        if not isinstance(traj, dict):
-            continue
-
-        # Get existing trace or create new one
-        trace = traj.get("trace")
-        if not isinstance(trace, dict):
-            trace = {}
-            traj["trace"] = trace
-
-        # Check if event_history already exists and is non-empty
-        event_history = trace.get("event_history")
-        if isinstance(event_history, list) and len(event_history) > 0:
-            logger.debug(
-                "include_event_history_in_trajectories: trajectory[%d] already has "
-                "%d events, skipping run_id=%s",
-                idx,
-                len(event_history),
-                run_id,
-            )
-            continue
-
-        # Build event_history from provided messages/responses
-        messages = (
-            messages_by_trajectory[idx]
-            if messages_by_trajectory and idx < len(messages_by_trajectory)
-            else []
-        )
-        response = (
-            responses_by_trajectory[idx]
-            if responses_by_trajectory and idx < len(responses_by_trajectory)
-            else None
-        )
-
-        # If no messages provided, try to extract from trajectory steps
-        if not messages:
-            steps = traj.get("steps", [])
-            for step in steps:
-                if isinstance(step, dict):
-                    obs = step.get("obs", {})
-                    if isinstance(obs, dict):
-                        step_messages = obs.get("messages")
-                        if isinstance(step_messages, list):
-                            messages = step_messages
-                            break
-
-        # Build the trace with event_history
-        new_trace = build_trajectory_trace(
-            messages=messages,
-            response=response,
-            correlation_id=correlation_id or traj.get("trace_correlation_id"),
-            metadata={"run_id": run_id, "trajectory_index": idx},
-        )
-
-        # Merge with existing trace (preserve existing fields)
-        trace.update(new_trace)
-
-        logger.info(
-            "include_event_history_in_trajectories: added event_history to "
-            "trajectory[%d] run_id=%s events=%d",
-            idx,
-            run_id,
-            len(trace.get("event_history", [])),
-        )
-
-    return response_data
+    messages = messages_by_trajectory[0] if messages_by_trajectory else None
+    response = responses_by_trajectory[0] if responses_by_trajectory else None
+    return include_event_history_in_response(
+        response_data,
+        messages=messages,
+        response=response,
+        run_id=run_id,
+        correlation_id=correlation_id,
+    )
 
 
 def verify_trace_correlation_id_in_response(
@@ -480,15 +504,24 @@ def verify_trace_correlation_id_in_response(
             f"expected={expected_correlation_id} actual={pipeline_meta.get('trace_correlation_id') if isinstance(pipeline_meta, dict) else 'NOT_A_DICT'}"
         )
     
-    # Check trajectories
-    trajectories = response_data.get("trajectories", [])
-    if isinstance(trajectories, list):
-        for idx, traj in enumerate(trajectories):
-            if isinstance(traj, dict) and traj.get("trace_correlation_id") != expected_correlation_id:
-                errors.append(
-                    f"trajectory[{idx}] missing or mismatch: "
-                    f"expected={expected_correlation_id} actual={traj.get('trace_correlation_id')}"
-                )
+    # Check trace metadata
+    trace_block = response_data.get("trace")
+    trace_meta_id = None
+    if isinstance(trace_block, dict):
+        trace_meta = trace_block.get("metadata")
+        if isinstance(trace_meta, dict):
+            trace_meta_id = trace_meta.get("trace_correlation_id")
+        if trace_meta_id != expected_correlation_id:
+            session_trace = trace_block.get("session_trace")
+            if isinstance(session_trace, dict):
+                session_meta = session_trace.get("metadata")
+                if isinstance(session_meta, dict):
+                    trace_meta_id = session_meta.get("trace_correlation_id")
+        if trace_meta_id != expected_correlation_id:
+            errors.append(
+                "trace.metadata missing or mismatch: "
+                f"expected={expected_correlation_id} actual={trace_meta_id}"
+            )
     
     if errors:
         logger.error(
