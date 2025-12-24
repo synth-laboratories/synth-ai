@@ -1,0 +1,11 @@
+[eval]
+app_id = "style_matching"
+task_app_url = "http://localhost:8120"
+env_name = "style_matching"
+seeds = [0, 1, 2]
+
+[eval.policy_config]
+model = "gpt-4.1-mini"
+provider = "openai"
+inference_url = "https://api.openai.com/v1/chat/completions"
+max_completion_tokens = 1200
