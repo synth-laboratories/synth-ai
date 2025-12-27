@@ -60,6 +60,20 @@ from synth_ai.sdk.training import (
     load_graphgen_taskset,
 )
 
+# Tunnels - commonly used functions for notebook/script usage
+from synth_ai.sdk.tunnels import (
+    rotate_tunnel,
+    open_managed_tunnel,
+    stop_tunnel,
+    track_process,
+    cleanup_all,
+    verify_tunnel_dns_resolution,
+    wait_for_health_check,
+    kill_port,
+    is_port_available,
+    find_available_port,
+)
+
 __all__ = [
     # Training
     "PromptLearningJob",
@@ -95,4 +109,15 @@ __all__ = [
     "InferenceClient",
     # Jobs API Client
     "JobsClient",
+    # Tunnels
+    "rotate_tunnel",
+    "open_managed_tunnel",
+    "stop_tunnel",
+    "track_process",
+    "cleanup_all",
+    "verify_tunnel_dns_resolution",
+    "wait_for_health_check",
+    "kill_port",
+    "is_port_available",
+    "find_available_port",
 ]

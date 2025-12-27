@@ -64,6 +64,7 @@ from .server import (
     RubricBundle,
     TaskAppConfig,
     create_task_app,
+    run_server_background,
     run_task_app,
 )
 from .trace_correlation_helpers import (
@@ -139,6 +140,7 @@ __all__ = [
     "http_exception",
     "json_error_response",
     "run_task_app",
+    "run_server_background",
     "create_task_app",
     "RubricBundle",
     "ProxyConfig",

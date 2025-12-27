@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
+import threading
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -586,3 +587,45 @@ def run_task_app(
             remove_service_record(port)
         except Exception:
             pass
+
+
+def run_server_background(
+    app: Any,
+    port: int,
+    host: str = "0.0.0.0",
+) -> threading.Thread:
+    """Start uvicorn server in a background daemon thread.
+
+    For manual control over task app lifecycle. If you want automatic
+    tunnel management, use InProcessTaskApp instead.
+
+    Args:
+        app: ASGI/FastAPI application
+        port: Port to bind
+        host: Host to bind (default 0.0.0.0 for tunnel access)
+
+    Returns:
+        Daemon thread running the server (stops when main process exits)
+
+    Example:
+        from synth_ai.sdk.task import run_server_background
+        from synth_ai.sdk.tunnels import wait_for_health_check
+
+        thread = run_server_background(my_app, port=8001)
+        await wait_for_health_check("localhost", 8001, api_key)
+    """
+    import asyncio
+    import threading
+
+    import uvicorn
+
+    def serve() -> None:
+        config = uvicorn.Config(app, host=host, port=port, log_level="warning")
+        server = uvicorn.Server(config)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(server.serve())
+
+    thread = threading.Thread(target=serve, daemon=True, name=f"uvicorn-{port}")
+    thread.start()
+    return thread
