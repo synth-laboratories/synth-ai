@@ -112,7 +112,7 @@ def run_notebook(
     for cell in notebook["cells"]:
         if cell.get("cell_type") == "code":
             source = "".join(cell.get("source", []))
-            if "SYNTH_API_BASE" in source and "Production backend" in source:
+            if "SYNTH_API_BASE = '" in source:
                 # Replace the backend URL
                 new_source = re.sub(
                     r"SYNTH_API_BASE = '[^']+'",
