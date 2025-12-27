@@ -69,6 +69,8 @@ dev = [
     "pyright>=1.1.350",
     "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
+    "papermill>=2.6.0",
+    "nest_asyncio>=1.6.0",
 ]
 research = [
     # Heavy game environment dependencies
@@ -225,4 +227,6 @@ dev = [
     "responses>=0.25.7",
     "httpx>=0.28.1",
     "crafter>=1.8.3",
+    "papermill>=2.6.0",
+    "nest_asyncio>=1.6.0",
 ]
