@@ -14,7 +14,7 @@ from typing import Literal
 from .errors import AuthenticationError, ConfigError
 
 # Default production URL
-PROD_BASE_URL = "https://www.api.usesynth.ai"
+PROD_BASE_URL = "https://api.usesynth.ai"
 PROD_BASE_URL_DEFAULT = PROD_BASE_URL  # Alias for backward compatibility
 
 
