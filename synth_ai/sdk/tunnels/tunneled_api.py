@@ -215,7 +215,7 @@ class TunneledLocalAPI:
     ) -> "TunneledLocalAPI":
         """Internal: Create a managed tunnel via Synth backend."""
         from synth_ai.core.integrations.cloudflare import (
-            open_managed_tunnel,
+            open_managed_tunnel_with_connection_wait,
             rotate_tunnel,
             verify_tunnel_dns_resolution,
         )
@@ -246,31 +246,35 @@ class TunneledLocalAPI:
             ctx={"hostname": hostname, "local_port": local_port},
         )
 
-        # Step 2: Start cloudflared process
+        # Step 2: Start cloudflared and WAIT for it to connect
+        # This is critical - DNS only resolves after cloudflared connects to Cloudflare's edge
         if progress:
             print(f"Starting cloudflared for {hostname}...")
+            print("Waiting for cloudflared to connect to Cloudflare edge...")
 
-        proc = open_managed_tunnel(tunnel_token)
+        proc = await open_managed_tunnel_with_connection_wait(
+            tunnel_token,
+            timeout_seconds=30.0,
+        )
         track_process(proc)
 
-        # Step 2.5: Wait for cloudflared to connect to Cloudflare's edge
-        # DNS records aren't active until cloudflared registers the tunnel.
-        # Without this delay, DNS verification fails because the record doesn't exist yet.
-        if progress:
-            print("Waiting for tunnel to establish...")
-        await asyncio.sleep(5.0)  # 5 seconds to allow cloudflared to connect
+        log_info(
+            "TunneledLocalAPI.create: cloudflared connected",
+            ctx={"hostname": hostname},
+        )
 
         # Step 3: Verify DNS resolution and connectivity (if requested)
+        # DNS should now resolve quickly since cloudflared is connected
         if verify_dns:
             dns_verified = tunnel_data.get("dns_verified", False)
             if not dns_verified:
                 if progress:
-                    print("Waiting for DNS propagation...")
+                    print("Verifying DNS propagation...")
 
                 await verify_tunnel_dns_resolution(
                     url,
                     name="tunnel",
-                    timeout_seconds=90.0,
+                    timeout_seconds=60.0,  # Reduced from 90s since cloudflared is already connected
                     api_key=env_api_key,
                 )
 

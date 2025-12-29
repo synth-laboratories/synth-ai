@@ -4,25 +4,25 @@ This module provides high-level abstractions for running evaluation jobs
 that route through the backend for trace capture and cost tracking.
 
 Example:
-    from synth_ai.sdk.api.eval import EvalJob
+    from synth_ai.sdk.api.eval import EvalJob, EvalResult
 
-    # Create job from config file
-    job = EvalJob.from_config(
-        config_path="banking77_eval.toml",
-        backend_url="https://api.usesynth.ai",
-        api_key="sk_live_...",
-    )
-
-    # Submit and poll
+    job = EvalJob(config)
     job.submit()
-    results = job.poll_until_complete()
 
-    # Get individual results
-    for result in results["results"]:
-        print(f"Seed {result['seed']}: {result['score']}")
+    # progress=True provides built-in status printing:
+    # [00:05] running | 3/10 completed
+    # [00:10] running | 7/10 completed
+    # [00:15] completed | mean_score: 0.85
+    result = job.poll_until_complete(progress=True)
 
-    # Download traces
-    job.download_traces("./traces")
+    # Typed result access (not raw dict)
+    if result.succeeded:
+        print(f"Mean score: {result.mean_score}")
+        print(f"Total cost: ${result.total_cost_usd:.4f}")
+        for seed_result in result.seed_results:
+            print(f"  Seed {seed_result['seed']}: {seed_result['score']}")
+    elif result.failed:
+        print(f"Error: {result.error}")
 
 See Also:
     - `synth_ai.cli.commands.eval`: CLI implementation
@@ -35,12 +35,120 @@ import asyncio
 import os
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import httpx
 
 from synth_ai.core.telemetry import log_info
+
+
+class EvalStatus(str, Enum):
+    """Status of an evaluation job."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def from_string(cls, status: str) -> "EvalStatus":
+        """Convert string to EvalStatus, defaulting to PENDING for unknown values."""
+        try:
+            return cls(status.lower())
+        except ValueError:
+            return cls.PENDING
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether this status is terminal (job won't change further)."""
+        return self in (EvalStatus.COMPLETED, EvalStatus.FAILED, EvalStatus.CANCELLED)
+
+    @property
+    def is_success(self) -> bool:
+        """Whether this status indicates success."""
+        return self == EvalStatus.COMPLETED
+
+
+@dataclass
+class EvalResult:
+    """Typed result from an evaluation job.
+
+    Provides clean accessors for common fields instead of raw dict access.
+
+    Example:
+        >>> result = job.poll_until_complete(progress=True)
+        >>> if result.succeeded:
+        ...     print(f"Mean score: {result.mean_score:.2%}")
+        ...     print(f"Total cost: ${result.total_cost_usd:.4f}")
+        >>> else:
+        ...     print(f"Failed: {result.error}")
+    """
+
+    job_id: str
+    status: EvalStatus
+    mean_score: Optional[float] = None
+    total_tokens: Optional[int] = None
+    total_cost_usd: Optional[float] = None
+    num_completed: int = 0
+    num_total: int = 0
+    seed_results: List[Dict[str, Any]] = field(default_factory=list)
+    error: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "EvalResult":
+        """Create result from API response dict."""
+        status_str = data.get("status", "pending")
+        status = EvalStatus.from_string(status_str)
+
+        # Extract summary metrics
+        summary = data.get("summary", {})
+        results_info = data.get("results", {})
+
+        # Handle both summary dict and inline fields
+        mean_score = summary.get("mean_score") or data.get("mean_score")
+        total_tokens = summary.get("total_tokens") or data.get("total_tokens")
+        total_cost_usd = summary.get("total_cost_usd") or data.get("total_cost_usd")
+
+        # Get completion progress
+        num_completed = results_info.get("completed", 0) if isinstance(results_info, dict) else 0
+        num_total = results_info.get("total", 0) if isinstance(results_info, dict) else 0
+
+        # Get per-seed results (can be in "results" list or nested)
+        seed_results = data.get("results", [])
+        if isinstance(seed_results, dict):
+            seed_results = seed_results.get("items", [])
+
+        return cls(
+            job_id=job_id,
+            status=status,
+            mean_score=mean_score,
+            total_tokens=total_tokens,
+            total_cost_usd=total_cost_usd,
+            num_completed=num_completed,
+            num_total=num_total,
+            seed_results=list(seed_results) if isinstance(seed_results, list) else [],
+            error=data.get("error"),
+            raw=data,
+        )
+
+    @property
+    def succeeded(self) -> bool:
+        """Whether the job completed successfully."""
+        return self.status.is_success
+
+    @property
+    def failed(self) -> bool:
+        """Whether the job failed."""
+        return self.status == EvalStatus.FAILED
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether the job has reached a terminal state."""
+        return self.status.is_terminal
 
 
 @dataclass
@@ -52,13 +160,13 @@ class EvalJobConfig:
 
     Attributes:
         task_app_url: URL of the task app to evaluate (e.g., "http://localhost:8103").
-            Required for job submission.
+            Required for job submission. Alias: local_api_url
         backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
             Can also be set via SYNTH_BASE_URL or BACKEND_BASE_URL environment variables.
         api_key: Synth API key for authentication with the backend.
             Can also be set via SYNTH_API_KEY environment variable.
         task_app_api_key: API key for authenticating with the task app.
-            Defaults to ENVIRONMENT_API_KEY env var if not provided.
+            Defaults to ENVIRONMENT_API_KEY env var if not provided. Alias: local_api_key
         app_id: Task app identifier (optional, for logging/tracking).
         env_name: Environment name within the task app.
         seeds: List of seeds/indices to evaluate.
@@ -78,9 +186,9 @@ class EvalJobConfig:
         ... )
     """
 
-    task_app_url: str
-    backend_url: str
-    api_key: str
+    task_app_url: str = field(default="")
+    backend_url: str = field(default="")
+    api_key: str = field(default="")
     task_app_api_key: Optional[str] = None
     app_id: Optional[str] = None
     env_name: Optional[str] = None
@@ -89,11 +197,20 @@ class EvalJobConfig:
     env_config: Dict[str, Any] = field(default_factory=dict)
     concurrency: int = 5
     timeout: float = 600.0
+    # Aliases for backwards compatibility (not stored, just used in __init__)
+    local_api_url: str = field(default="", repr=False)
+    local_api_key: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate configuration."""
+        """Validate configuration and handle aliases."""
+        # Handle aliases for backwards compatibility
+        if self.local_api_url and not self.task_app_url:
+            self.task_app_url = self.local_api_url
+        if self.local_api_key and not self.task_app_api_key:
+            self.task_app_api_key = self.local_api_key
+
         if not self.task_app_url:
-            raise ValueError("task_app_url is required")
+            raise ValueError("task_app_url (or local_api_url) is required")
         if not self.backend_url:
             raise ValueError("backend_url is required")
         if not self.api_key:
@@ -428,8 +545,9 @@ class EvalJob:
         *,
         timeout: float = 1200.0,
         interval: float = 2.0,
+        progress: bool = False,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
+    ) -> EvalResult:
         """Poll job until it reaches a terminal state, then return results.
 
         Polls the backend until the job completes or fails, then fetches
@@ -438,53 +556,90 @@ class EvalJob:
         Args:
             timeout: Maximum seconds to wait (default: 1200 = 20 minutes)
             interval: Seconds between poll attempts (default: 2)
-            on_status: Optional callback called on each status update
+            progress: If True, print status updates during polling (useful for notebooks)
+            on_status: Optional callback called on each status update (for custom progress handling)
 
         Returns:
-            Results dictionary with:
-            - job_id: Job identifier
-            - status: "completed" or "failed"
-            - summary: Aggregate metrics (mean_score, total_tokens, total_cost_usd)
-            - results: List of per-seed results with scores, tokens, costs
+            EvalResult with typed status, mean_score, seed_results, etc.
 
         Raises:
-            RuntimeError: If job hasn't been submitted yet or job fails
+            RuntimeError: If job hasn't been submitted yet
             TimeoutError: If timeout is exceeded
 
         Example:
-            >>> results = job.poll_until_complete(timeout=600.0)
-            >>> print(f"Mean score: {results['summary']['mean_score']}")
-            >>> for r in results["results"]:
-            ...     print(f"Seed {r['seed']}: {r['score']}")
+            >>> result = job.poll_until_complete(progress=True)
+            [00:05] running | 3/10 completed
+            [00:10] running | 7/10 completed
+            [00:15] completed | mean_score: 0.85
+            >>> result.succeeded
+            True
+            >>> result.mean_score
+            0.85
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
-        max_attempts = int(timeout / interval)
+        job_id = self._job_id
         start_time = time.time()
+        last_data: Dict[str, Any] = {}
 
-        for attempt in range(max_attempts):
-            status_data = self.get_status()
-            status = status_data.get("status", "")
-
-            if on_status:
-                on_status(status_data)
-
-            if status == "completed":
-                # Fetch full results
-                return self.get_results()
-
-            if status == "failed":
-                error = status_data.get("error", "Unknown error")
-                raise RuntimeError(f"Eval job {self._job_id} failed: {error}")
-
+        while True:
             elapsed = time.time() - start_time
             if elapsed >= timeout:
-                raise TimeoutError(f"Eval job {self._job_id} timed out after {elapsed:.0f}s")
+                if progress:
+                    print(f"[poll] timeout after {timeout:.0f}s")
+                # Return with whatever data we have
+                return EvalResult.from_response(job_id, last_data)
+
+            try:
+                status_data = self.get_status()
+                last_data = status_data
+
+                status = EvalStatus.from_string(status_data.get("status", "pending"))
+
+                # Extract progress info
+                results_info = status_data.get("results", {})
+                completed = results_info.get("completed", 0) if isinstance(results_info, dict) else 0
+                total = results_info.get("total", len(self.config.seeds)) if isinstance(results_info, dict) else len(self.config.seeds)
+
+                # Progress output
+                if progress:
+                    mins, secs = divmod(int(elapsed), 60)
+                    if status.is_terminal:
+                        # Get final results for mean_score
+                        try:
+                            final_results = self.get_results()
+                            mean_score = final_results.get("summary", {}).get("mean_score")
+                            score_str = f"mean_score: {mean_score:.2f}" if mean_score is not None else ""
+                            print(f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}")
+                            # Use final results for the return value
+                            last_data = final_results
+                        except Exception:
+                            print(f"[{mins:02d}:{secs:02d}] {status.value}")
+                    else:
+                        print(f"[{mins:02d}:{secs:02d}] {status.value} | {completed}/{total} completed")
+
+                # Callback for custom handling
+                if on_status:
+                    on_status(status_data)
+
+                # Check terminal state
+                if status.is_terminal:
+                    # Fetch full results if completed
+                    if status == EvalStatus.COMPLETED:
+                        try:
+                            final_results = self.get_results()
+                            return EvalResult.from_response(job_id, final_results)
+                        except Exception:
+                            pass
+                    return EvalResult.from_response(job_id, last_data)
+
+            except Exception as exc:
+                if progress:
+                    print(f"[poll] error: {exc}")
+                log_info("poll request failed", ctx={"error": str(exc), "job_id": job_id})
 
             time.sleep(interval)
-
-        raise TimeoutError(f"Eval job {self._job_id} timed out after {timeout}s")
 
     def get_results(self) -> Dict[str, Any]:
         """Get detailed job results.
@@ -574,4 +729,4 @@ class EvalJob:
             return output_path
 
 
-__all__ = ["EvalJob", "EvalJobConfig"]
+__all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

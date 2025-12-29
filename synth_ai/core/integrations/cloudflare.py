@@ -738,13 +738,20 @@ async def resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
     timeout = float(os.getenv("SYNTH_TUNNEL_DNS_TIMEOUT_PER_ATTEMPT_SECS", "5"))
     loop = asyncio.get_event_loop()
     
-    # Try Cloudflare / Google first via `dig`, then fall back to system resolver
-    for resolver_ip in ("1.1.1.1", "8.8.8.8"):
+    # Try various dig resolvers, then fall back to system resolver
+    # Order: 1.1.1.1, 8.8.8.8, then plain dig (uses system's configured DNS but bypasses cache)
+    resolvers = [
+        ("1.1.1.1", ["dig", "@1.1.1.1", "+short", hostname]),
+        ("8.8.8.8", ["dig", "@8.8.8.8", "+short", hostname]),
+        ("default", ["dig", "+short", hostname]),  # Plain dig bypasses negative cache
+    ]
+
+    for resolver_name, cmd in resolvers:
         try:
             result = await loop.run_in_executor(
                 None,
-                lambda ip=resolver_ip: subprocess.run(
-                    ["dig", f"@{ip}", "+short", hostname],
+                lambda c=cmd: subprocess.run(
+                    c,
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -753,17 +760,17 @@ async def resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
             if result.returncode == 0 and result.stdout.strip():
                 first = result.stdout.strip().splitlines()[0].strip()
                 if first:
-                    logger.debug(f"Resolved via {resolver_ip}: {hostname} -> {first}")
+                    logger.debug(f"Resolved via {resolver_name}: {hostname} -> {first}")
                     return first
         except FileNotFoundError:
-            logger.debug(f"dig not found, skipping {resolver_ip}")
+            logger.debug(f"dig not found, skipping {resolver_name}")
             continue
         except Exception as e:
-            logger.debug(f"Resolver {resolver_ip} failed: {e}")
+            logger.debug(f"Resolver {resolver_name} failed: {e}")
             continue
-    
-    # Fallback: system resolver
-    logger.debug(f"Falling back to system resolver for {hostname}")
+
+    # Final fallback: system resolver (may hit negative cache)
+    logger.debug(f"Falling back to socket.gethostbyname for {hostname}")
     return await loop.run_in_executor(
         None,
         socket.gethostbyname,
@@ -822,13 +829,23 @@ async def verify_tunnel_dns_resolution(
             resolved_ip = await resolve_hostname_with_explicit_resolvers(hostname)
             logger.info(f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}")
             
-            # 2. HTTP connectivity: hit the tunnel using the hostname (for proper SNI)
-            #    Cloudflare requires SNI, so we can't connect to raw IP addresses.
-            #    Now that DNS is resolved via explicit resolvers, system resolver should work.
+            # 2. HTTP connectivity: use curl with --resolve to bypass system DNS cache
+            #    The system resolver may have negative-cached the hostname, so we use
+            #    curl with explicit IP resolution to bypass it while maintaining proper SNI.
             try:
                 scheme = parsed.scheme or "https"
                 test_url = f"{scheme}://{hostname}/health"
-                headers: dict[str, str] = {}
+                port = 443 if scheme == "https" else 80
+
+                # Build curl command with --resolve to bypass system DNS
+                # Format: --resolve hostname:port:ip
+                curl_cmd = [
+                    "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+                    "--max-time", "5",
+                    "-k",  # Allow self-signed certs
+                    "--resolve", f"{hostname}:{port}:{resolved_ip}",
+                    test_url,
+                ]
 
                 # Include API key if provided (or from env var)
                 if api_key is None:
@@ -840,27 +857,34 @@ async def verify_tunnel_dns_resolution(
                         pass
                     api_key = os.getenv("ENVIRONMENT_API_KEY")
                 if api_key:
-                    headers["X-API-Key"] = api_key
+                    curl_cmd.extend(["-H", f"X-API-Key: {api_key}"])
 
-                # Use hostname-based URL for proper SNI (Cloudflare requires this)
-                async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
-                    resp = await client.get(test_url, headers=headers)
-                    # Accept various status codes that indicate the tunnel is working:
-                    # - 200: OK (service is running)
-                    # - 400/401/403: Auth required (server is reachable)
-                    # - 404/405: Not found / method not allowed (server is reachable)
-                    # - 502: Bad gateway (cloudflared connected but local service isn't running)
-                    if resp.status_code in (200, 400, 401, 403, 404, 405, 502):
-                        logger.info(f"HTTP connectivity verified: {test_url} -> {resp.status_code}")
-                        return
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(curl_cmd, capture_output=True, text=True, timeout=10),
+                )
+
+                status_code = int(result.stdout.strip()) if result.returncode == 0 and result.stdout.strip().isdigit() else 0
+
+                # Accept various status codes that indicate the tunnel is working:
+                # - 200: OK (service is running)
+                # - 400/401/403: Auth required (server is reachable)
+                # - 404/405: Not found / method not allowed (server is reachable)
+                # - 502: Bad gateway (cloudflared connected but local service isn't running)
+                if status_code in (200, 400, 401, 403, 404, 405, 502):
+                    logger.info(f"HTTP connectivity verified: {test_url} -> {status_code}")
+                    return
+                else:
+                    # 530 errors are common when tunnel is still establishing - retry
+                    if status_code == 530:
+                        logger.debug("HTTP 530 (tunnel establishing) - will retry")
+                        last_exc = RuntimeError("tunnel not ready yet (HTTP 530)")
+                    elif result.returncode != 0:
+                        logger.warning(f"curl failed: {result.stderr}")
+                        last_exc = RuntimeError(f"curl failed: {result.stderr}")
                     else:
-                        # 530 errors are common when tunnel is still establishing - retry
-                        if resp.status_code == 530:
-                            logger.debug("HTTP 530 (tunnel establishing) - will retry")
-                            last_exc = RuntimeError("tunnel not ready yet (HTTP 530)")
-                        else:
-                            logger.warning(f"HTTP check returned unexpected status: {resp.status_code}")
-                            last_exc = RuntimeError(f"unexpected HTTP status {resp.status_code}")
+                        logger.warning(f"HTTP check returned unexpected status: {status_code}")
+                        last_exc = RuntimeError(f"unexpected HTTP status {status_code}")
             except Exception as http_exc:
                 logger.warning(f"HTTP connectivity check failed (attempt {attempt}): {http_exc}")
                 last_exc = http_exc
@@ -1103,6 +1127,155 @@ def open_managed_tunnel(tunnel_token: str) -> subprocess.Popen:
         text=True,
         bufsize=1,
     )
+
+
+async def wait_for_cloudflared_connection(
+    proc: subprocess.Popen,
+    timeout_seconds: float = 30.0,
+) -> bool:
+    """
+    Wait for cloudflared to establish a connection to Cloudflare's edge.
+
+    This monitors cloudflared's stdout/stderr for connection success messages.
+    DNS records only resolve AFTER cloudflared has connected, so this function
+    must be called before attempting DNS verification.
+
+    Args:
+        proc: The cloudflared subprocess from open_managed_tunnel()
+        timeout_seconds: Maximum time to wait for connection
+
+    Returns:
+        True if connection was established, False if timeout or error
+
+    Raises:
+        RuntimeError: If cloudflared exits with an error before connecting
+    """
+    import select
+
+    # Patterns that indicate successful connection
+    # cloudflared outputs: "INF Registered tunnel connection connIndex=0 connection=..."
+    # We need to be specific - "connIndex=" alone triggers too early on curve preferences log
+    connection_patterns = [
+        "Registered tunnel connection",
+        "Connection registered",
+        # Don't use "connIndex=" alone - it matches curve preferences log before actual connection
+    ]
+
+    # Patterns that indicate fatal errors
+    error_patterns = [
+        "failed to connect",
+        "error connecting",
+        "tunnel credentials",
+        "invalid token",
+        "tunnel not found",
+        "unauthorized",
+    ]
+
+    loop = asyncio.get_event_loop()
+    start_time = loop.time()
+    output_lines: list[str] = []
+
+    logger.info(f"Waiting for cloudflared to connect (timeout {timeout_seconds}s)...")
+
+    while True:
+        elapsed = loop.time() - start_time
+        if elapsed >= timeout_seconds:
+            logger.warning(
+                f"cloudflared connection timeout after {elapsed:.1f}s. "
+                f"Output: {' | '.join(output_lines[-10:])}"
+            )
+            return False
+
+        # Check if process exited
+        if proc.poll() is not None:
+            # Process exited - read remaining output
+            remaining = proc.stdout.read() if proc.stdout else ""
+            if remaining:
+                output_lines.extend(remaining.splitlines())
+
+            all_output = "\n".join(output_lines)
+            logger.error(
+                f"cloudflared exited with code {proc.returncode} before connecting. "
+                f"Output:\n{all_output[:2000]}"
+            )
+            raise RuntimeError(
+                f"cloudflared exited with code {proc.returncode} before establishing connection. "
+                f"This usually means the tunnel token is invalid or the tunnel was deleted. "
+                f"Output: {all_output[:500]}"
+            )
+
+        # Try to read output (non-blocking)
+        if proc.stdout:
+            try:
+                # Use select for non-blocking read
+                ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+                if ready:
+                    line = proc.stdout.readline()
+                    if line:
+                        line = line.strip()
+                        output_lines.append(line)
+                        logger.debug(f"cloudflared: {line}")
+
+                        # Check for connection success
+                        line_lower = line.lower()
+                        for pattern in connection_patterns:
+                            if pattern.lower() in line_lower:
+                                logger.info(
+                                    f"cloudflared connected after {elapsed:.1f}s: {line}"
+                                )
+                                return True
+
+                        # Check for fatal errors
+                        for pattern in error_patterns:
+                            if pattern.lower() in line_lower:
+                                logger.error(f"cloudflared error detected: {line}")
+                                raise RuntimeError(
+                                    f"cloudflared connection failed: {line}"
+                                )
+            except (ValueError, OSError) as e:
+                logger.debug(f"Error reading cloudflared output: {e}")
+
+        # Small sleep to avoid busy loop
+        await asyncio.sleep(0.1)
+
+
+async def open_managed_tunnel_with_connection_wait(
+    tunnel_token: str,
+    timeout_seconds: float = 30.0,
+) -> subprocess.Popen:
+    """
+    Open a managed tunnel and wait for cloudflared to connect.
+
+    This is the preferred method for starting managed tunnels as it ensures
+    cloudflared has actually connected to Cloudflare's edge before returning.
+    DNS records only resolve after this connection is established.
+
+    Args:
+        tunnel_token: Cloudflare tunnel token from backend API
+        timeout_seconds: Maximum time to wait for connection
+
+    Returns:
+        Process handle for the connected tunnel
+
+    Raises:
+        RuntimeError: If cloudflared fails to connect within timeout
+    """
+    proc = open_managed_tunnel(tunnel_token)
+
+    try:
+        connected = await wait_for_cloudflared_connection(proc, timeout_seconds)
+        if not connected:
+            # Timeout - kill process and raise
+            stop_tunnel(proc)
+            raise RuntimeError(
+                f"cloudflared failed to connect within {timeout_seconds}s. "
+                "The tunnel may be invalid or Cloudflare may be experiencing issues."
+            )
+        return proc
+    except Exception:
+        # Cleanup on any error
+        stop_tunnel(proc)
+        raise
 
 
 def stop_tunnel(proc: Optional[subprocess.Popen]) -> None:
