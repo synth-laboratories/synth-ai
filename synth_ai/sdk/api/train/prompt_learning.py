@@ -36,8 +36,39 @@ from .utils import ensure_api_base, http_post
 
 @dataclass
 class PromptLearningJobConfig:
-    """Configuration for a prompt learning job."""
-    
+    """Configuration for a prompt learning job.
+
+    This dataclass holds all the configuration needed to submit and run
+    a prompt learning job (MIPRO or GEPA optimization).
+
+    Attributes:
+        config_path: Path to the TOML configuration file that defines the
+            optimization task, including Local API URL, model settings,
+            optimization parameters, and evaluation criteria.
+        backend_url: Base URL of the Synth API backend (e.g.,
+            "https://api.usesynth.ai"). Can also be set via BACKEND_BASE_URL
+            environment variable.
+        api_key: Synth API key for authentication. Can also be set via
+            SYNTH_API_KEY environment variable.
+        task_app_api_key: API key for authenticating with the Local API.
+            Defaults to ENVIRONMENT_API_KEY env var if not provided.
+            Required for Local APIs that use API key authentication.
+            (Alias: also known as "task app API key" in older documentation)
+        allow_experimental: If True, allows use of experimental models that
+            may not be fully supported. Defaults to None (uses config file setting).
+        overrides: Dictionary of config overrides that take precedence over
+            values in the TOML file. Useful for programmatic customization
+            without modifying the config file.
+
+    Example:
+        >>> config = PromptLearningJobConfig(
+        ...     config_path=Path("my_config.toml"),
+        ...     backend_url="https://api.usesynth.ai",
+        ...     api_key="sk_live_...",
+        ...     overrides={"optimizer.generations": 5}
+        ... )
+    """
+
     config_path: Path
     backend_url: str
     api_key: str

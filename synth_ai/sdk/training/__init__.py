@@ -30,7 +30,7 @@ Example:
 from __future__ import annotations
 
 # Pollers and utilities
-from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome, RLJobPoller
+from synth_ai.sdk.api.train.pollers import JobPoller, PollOutcome, RLJobPoller, EvalJobPoller
 
 # Re-export from existing locations
 from synth_ai.sdk.api.train.prompt_learning import (
@@ -98,5 +98,6 @@ __all__ = [
     # Utils
     "JobPoller",
     "PollOutcome",
+    "EvalJobPoller",
 ]
 

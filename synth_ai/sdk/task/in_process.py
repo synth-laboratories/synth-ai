@@ -409,40 +409,51 @@ async def _verify_preconfigured_url_ready(
 
 
 class InProcessTaskApp:
-    """
-    Context manager for running task apps in-process with automatic tunneling.
-    
+    """Context manager for running Local APIs in-process with automatic tunneling.
+
     This class simplifies local development and demos by:
-    1. Starting a task app server in a background thread
+    1. Starting a Local API server in a background thread
     2. Opening a tunnel automatically (Cloudflare by default, or use preconfigured URL)
-    3. Providing the tunnel URL for GEPA/MIPRO jobs
+    3. Providing the tunnel URL for GEPA/MIPRO/RL jobs
     4. Cleaning up everything on exit
-    
+
+    (Alias: also known as "task app" in older documentation)
+
     Supports multiple input methods:
     - FastAPI app instance (most direct)
     - TaskAppConfig object
     - Config factory function (Callable[[], TaskAppConfig])
-    - Task app file path (fallback for compatibility)
-    
+    - Local API file path (fallback for compatibility)
+
     Tunnel modes:
     - "quick": Cloudflare quick tunnel (default for local dev)
     - "named": Cloudflare named/managed tunnel
     - "local": No tunnel, use localhost URL directly
     - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
       SYNTH_TASK_APP_URL env var). Useful for ngrok or other external tunnel providers.
-    
+
+    Attributes:
+        url: The public URL of the running Local API (tunnel URL or localhost).
+            Available after entering the context manager.
+        local_url: The local URL (http://host:port) where the server is running.
+        port: The actual port the server is bound to (may differ from requested
+            port if auto_find_port=True).
+        host: The host the server is bound to.
+        tunnel_mode: The tunnel mode being used.
+        is_running: Whether the server is currently running.
+
     Example:
         ```python
         from synth_ai.sdk.task.in_process import InProcessTaskApp
         from heartdisease_task_app import build_config
-        
+
         # Default: use Cloudflare quick tunnel
         async with InProcessTaskApp(
             config_factory=build_config,
             port=8114,
         ) as task_app:
-            print(f"Task app running at: {task_app.url}")
-        
+            print(f"Local API running at: {task_app.url}")
+
         # Use preconfigured URL (e.g., from ngrok, localtunnel, etc.)
         async with InProcessTaskApp(
             config_factory=build_config,
@@ -450,7 +461,7 @@ class InProcessTaskApp:
             tunnel_mode="preconfigured",
             preconfigured_url="https://abc123.ngrok.io",
         ) as task_app:
-            print(f"Task app running at: {task_app.url}")
+            print(f"Local API running at: {task_app.url}")
         ```
     """
 
@@ -475,14 +486,13 @@ class InProcessTaskApp:
         on_start: Optional[Callable[[InProcessTaskApp], None]] = None,
         on_stop: Optional[Callable[[InProcessTaskApp], None]] = None,
     ):
-        """
-        Initialize in-process task app.
-        
+        """Initialize in-process Local API.
+
         Args:
             app: FastAPI app instance (most direct)
             config: TaskAppConfig object
             config_factory: Callable that returns TaskAppConfig
-            task_app_path: Path to task app .py file (fallback)
+            task_app_path: Path to Local API .py file (fallback, alias: task app)
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
             tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"

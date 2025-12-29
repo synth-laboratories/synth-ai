@@ -607,14 +607,73 @@ class GraphGenGraphVerifierResponse(GraphGenGraphJudgeResponse):
 
 
 class GraphGenJobConfig(BaseModel):
-    """Configuration for an GraphGen optimization job.
+    """Configuration for a GraphGen (Automated Design of Agentic Systems) optimization job.
+
+    GraphGen provides a simplified API for training optimized graphs/workflows without
+    managing task apps manually. It supports three graph types:
+    - **policy**: Standard input-to-output graphs for classification, QA, generation
+    - **verifier**: Trace-to-score graphs for judging/evaluating agent behavior
+    - **rlm**: Recursive Language Model graphs for massive contexts via tool-based search
 
     Example:
+        ```python
+        from synth_ai.sdk.api.train.graphgen_models import GraphGenJobConfig
+
         config = GraphGenJobConfig(
+            graph_type="policy",
             policy_model="gpt-4o-mini",
             rollout_budget=100,
             proposer_effort="medium",
+            problem_spec="Classify customer support messages into categories.",
         )
+        ```
+
+    Attributes:
+        graph_type: Type of graph - "policy", "verifier", or "rlm".
+        policy_model: Model for policy inference (e.g., "gpt-4o-mini", "claude-3-5-sonnet").
+        policy_provider: Provider for policy model (auto-detected if not specified).
+        rollout_budget: Total rollouts (evaluations) for optimization. Range: 10-10000.
+        proposer_effort: Mutation quality/cost level - "medium" or "high".
+            Note: "low" is not allowed (gpt-4.1-mini too weak for graph generation).
+        judge_model: Override judge model from dataset.
+        judge_provider: Override judge provider from dataset.
+        population_size: GEPA population size. Range: 2-20. Default: 4.
+        num_generations: Number of generations (auto-calculated from budget if not specified).
+        num_parents: Number of parents for selection. Range: 1-10. Default: 2.
+        evaluation_seeds: Specific seeds for evaluation (auto-generated if not specified).
+        problem_spec: Detailed problem specification for the graph proposer.
+            Include domain info like valid output labels, constraints, format requirements.
+        target_llm_calls: Target LLM calls per graph run (1-10). Default: 5.
+        configured_tools: Tool bindings for RLM graphs. Required for graph_type="rlm".
+
+    Returns:
+        After training completes via GraphGenJob, you receive a result dict:
+        ```python
+        {
+            "status": "succeeded",
+            "graphgen_job_id": "graphgen_abc123",
+            "best_score": 0.89,
+            "best_snapshot_id": "snap_xyz789",
+            "dataset_name": "My Classification Tasks",
+            "task_count": 50,
+        }
+        ```
+
+    Events:
+        During training, you'll receive streaming events via GraphGenJob.stream_until_complete():
+        - `graphgen.created` - Job created
+        - `graphgen.running` - Training started
+        - `graphgen.generation.started` - New generation of candidates started
+        - `graphgen.candidate.evaluated` - A candidate graph was evaluated
+        - `graphgen.generation.completed` - Generation finished with metrics
+        - `graphgen.optimization.completed` - Training finished successfully
+        - `graphgen.failed` - Job encountered an error
+
+    See Also:
+        - GraphGenJob: High-level SDK class for running jobs
+        - GraphGenTaskSet: Dataset format for tasks and gold outputs
+        - Training reference: /training/graph-evolve
+        - Quickstart: /quickstart/graph-evolve
     """
 
     # Graph type

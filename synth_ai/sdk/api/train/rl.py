@@ -38,8 +38,43 @@ from .utils import ensure_api_base, http_post
 
 @dataclass
 class RLJobConfig:
-    """Configuration for an RL training job."""
-    
+    """Configuration for an RL training job.
+
+    This dataclass holds all the configuration needed to submit and run
+    a reinforcement learning training job (GSPO, GRPO, PPO, etc.).
+
+    Attributes:
+        config_path: Path to the TOML configuration file that defines the
+            RL training task, including model settings, training hyperparameters,
+            reward configuration, and Local API URL.
+        backend_url: Base URL of the Synth API backend (e.g.,
+            "https://api.usesynth.ai"). Can also be set via BACKEND_BASE_URL
+            environment variable.
+        api_key: Synth API key for authentication. Can also be set via
+            SYNTH_API_KEY environment variable.
+        task_app_url: URL of the Local API that serves rollout environments.
+            Can be set via TASK_APP_URL env var if not provided.
+            (Alias: also known as "task app URL" in older documentation)
+        task_app_api_key: API key for authenticating with the Local API.
+            Defaults to ENVIRONMENT_API_KEY env var if not provided.
+            (Alias: also known as "task app API key" in older documentation)
+        allow_experimental: If True, allows use of experimental models and
+            features. Defaults to None (uses config file setting).
+        overrides: Dictionary of config overrides that take precedence over
+            values in the TOML file. Useful for programmatic customization.
+        idempotency_key: Optional key for idempotent job submission. If provided,
+            submitting the same key twice will return the existing job instead
+            of creating a new one.
+
+    Example:
+        >>> config = RLJobConfig(
+        ...     config_path=Path("rl_config.toml"),
+        ...     backend_url="https://api.usesynth.ai",
+        ...     api_key="sk_live_...",
+        ...     task_app_url="https://my-task-app.example.com",
+        ... )
+    """
+
     config_path: Path
     backend_url: str
     api_key: str
