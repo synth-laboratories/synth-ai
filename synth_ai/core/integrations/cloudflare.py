@@ -822,13 +822,14 @@ async def verify_tunnel_dns_resolution(
             resolved_ip = await resolve_hostname_with_explicit_resolvers(hostname)
             logger.info(f"DNS resolution successful (attempt {attempt}): {hostname} -> {resolved_ip}")
             
-            # 2. HTTP connectivity: hit the tunnel via the resolved IP, but keep Host header.
-            #    This avoids depending on the system resolver, which is what gave you EAI_NONAME.
+            # 2. HTTP connectivity: hit the tunnel using the hostname (for proper SNI)
+            #    Cloudflare requires SNI, so we can't connect to raw IP addresses.
+            #    Now that DNS is resolved via explicit resolvers, system resolver should work.
             try:
                 scheme = parsed.scheme or "https"
-                test_url = f"{scheme}://{resolved_ip}/health"
-                headers = {"Host": hostname}
-                
+                test_url = f"{scheme}://{hostname}/health"
+                headers: dict[str, str] = {}
+
                 # Include API key if provided (or from env var)
                 if api_key is None:
                     # Try to load .env file if available
@@ -840,18 +841,20 @@ async def verify_tunnel_dns_resolution(
                     api_key = os.getenv("ENVIRONMENT_API_KEY")
                 if api_key:
                     headers["X-API-Key"] = api_key
-                
-                # For Quick Tunnels, TLS cert is for *.trycloudflare.com, not the bare IP,
-                # so we disable verification here; this is just a readiness probe.
+
+                # Use hostname-based URL for proper SNI (Cloudflare requires this)
                 async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
                     resp = await client.get(test_url, headers=headers)
-                    # Accept 200 (OK), 400/401 (auth required - server is reachable), 404/405 (not found/method not allowed)
-                    # All of these indicate the tunnel is working and the server is responding
-                    if resp.status_code in (200, 400, 401, 404, 405):
-                        logger.info(f"HTTP connectivity verified via IP: {test_url} -> {resp.status_code}")
+                    # Accept various status codes that indicate the tunnel is working:
+                    # - 200: OK (service is running)
+                    # - 400/401/403: Auth required (server is reachable)
+                    # - 404/405: Not found / method not allowed (server is reachable)
+                    # - 502: Bad gateway (cloudflared connected but local service isn't running)
+                    if resp.status_code in (200, 400, 401, 403, 404, 405, 502):
+                        logger.info(f"HTTP connectivity verified: {test_url} -> {resp.status_code}")
                         return
                     else:
-                        # 530 errors are common when tunnel is still establishing - be lenient
+                        # 530 errors are common when tunnel is still establishing - retry
                         if resp.status_code == 530:
                             logger.debug("HTTP 530 (tunnel establishing) - will retry")
                             last_exc = RuntimeError("tunnel not ready yet (HTTP 530)")
