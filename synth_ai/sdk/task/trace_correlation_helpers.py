@@ -101,6 +101,24 @@ def extract_trace_correlation_id(
     
     try:
         parsed = urlparse(inference_url)
+
+        # 1. Try path-based extraction first (OpenAI SDK compatible format):
+        #    /v1/{trial_id}/{correlation_id}/chat/completions
+        path_segments = [s for s in parsed.path.split("/") if s]
+        if len(path_segments) >= 2:
+            # Check if path ends with chat/completions
+            if path_segments[-2:] == ["chat", "completions"] and len(path_segments) >= 3:
+                # correlation_id is the segment before chat/completions
+                potential_cid = path_segments[-3]
+                # Verify it looks like a correlation ID (starts with trace_ or cid_)
+                if potential_cid.startswith("trace_") or potential_cid.startswith("cid_"):
+                    logger.info(
+                        "extract_trace_correlation_id: extracted from URL path=%s",
+                        potential_cid,
+                    )
+                    return potential_cid.strip()
+
+        # 2. Fall back to query param extraction (legacy format)
         query_params = parse_qs(parsed.query or "")
         # Try multiple possible query param names
         for param_name in ["cid", "trace_correlation_id", "trace"]:
