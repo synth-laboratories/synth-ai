@@ -1,5 +1,7 @@
 """First-class SDK API for GraphGen (Automated Design of Agentic Systems).
 
+**Status:** Alpha
+
 GraphGen is a simplified "Workflows API" for prompt optimization that:
 - Uses a simple JSON dataset format (GraphGenTaskSet) instead of TOML configs
 - Auto-generates task apps from the dataset (no user-managed task apps)

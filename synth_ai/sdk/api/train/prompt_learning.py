@@ -1,5 +1,9 @@
 """First-class SDK API for prompt learning (MIPRO and GEPA).
 
+**Status:** Alpha
+
+Note: MIPRO is Experimental, GEPA is Alpha.
+
 This module provides high-level abstractions for running prompt optimization jobs
 both via CLI (`uvx synth-ai train`) and programmatically in Python scripts.
 

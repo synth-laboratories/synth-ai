@@ -1,4 +1,10 @@
-"""Graph completions client for graph inference (policies, verifiers, RLM)."""
+"""Graph completions client for graph inference (policies, verifiers, RLM).
+
+**Status:** Alpha
+
+This module provides the client for running inference on trained graphs,
+including policy graphs, verifier graphs, and Reasoning Language Models (RLM).
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,7 @@
 """Eval command CLI entry point for task app rollouts.
 
+**Status:** Alpha
+
 This module provides the Click command-line interface for the `synth-ai eval` command.
 
 **Command Overview:**

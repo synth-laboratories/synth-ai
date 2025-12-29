@@ -1,5 +1,7 @@
 """First-class SDK API for reinforcement learning (RL/GSPO).
 
+**Status:** Experimental
+
 This module provides high-level abstractions for running RL training jobs
 both via CLI (`uvx synth-ai train --type rl`) and programmatically in Python scripts.
 

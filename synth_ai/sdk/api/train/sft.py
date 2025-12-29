@@ -1,5 +1,7 @@
 """First-class SDK API for SFT (Supervised Fine-Tuning).
 
+**Status:** Experimental
+
 This module provides high-level abstractions for running SFT jobs
 both via CLI (`uvx synth-ai train`) and programmatically in Python scripts.
 
