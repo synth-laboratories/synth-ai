@@ -60,6 +60,9 @@ from synth_ai.sdk.training import (
     load_graphgen_taskset,
 )
 
+# Evaluation
+from synth_ai.sdk.api.eval import EvalJob, EvalJobConfig
+
 # Tunnels - commonly used functions for notebook/script usage
 from synth_ai.sdk.tunnels import (
     rotate_tunnel,
@@ -88,6 +91,9 @@ __all__ = [
     "GraphGenRubric",
     "GraphGenJudgeConfig",
     "load_graphgen_taskset",
+    # Evaluation
+    "EvalJob",
+    "EvalJobConfig",
     # Task Apps
     "InProcessTaskApp",
     "InProcessJobResult",

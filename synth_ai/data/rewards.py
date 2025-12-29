@@ -2,6 +2,43 @@
 
 This module defines pure data types for representing rewards in training
 and evaluation contexts. These are actual data records, not API abstractions.
+
+Synth AI uses two primary reward scopes:
+
+- **Event Rewards**: Fine-grained rewards attached to individual events within a session
+  (e.g., each tool call, each LLM response). Use `EventRewardRecord` to annotate specific
+  events with reward values.
+
+- **Outcome Rewards**: Episode-level rewards that summarize the overall success of a
+  complete session. Use `OutcomeRewardRecord` for aggregate metrics.
+
+Example usage:
+
+```python
+from synth_ai.data.rewards import EventRewardRecord, OutcomeRewardRecord
+
+# Annotate a specific event with a reward
+event_reward = EventRewardRecord(
+    event_id="evt_123",
+    session_id="sess_abc",
+    reward_value=0.8,
+    reward_type="evaluator",
+    annotation={"reason": "Correct tool selection"}
+)
+
+# Record episode-level outcome
+outcome = OutcomeRewardRecord(
+    session_id="sess_abc",
+    total_reward=0.85,
+    achievements_count=3,
+    total_steps=10,
+    metadata={"task": "code_generation"}
+)
+```
+
+See Also:
+- Event rewards SDK guide: /sdk/tracing/rewards/event-rewards
+- Outcome rewards SDK guide: /sdk/tracing/rewards/outcome-rewards
 """
 
 from __future__ import annotations
@@ -17,6 +54,20 @@ class RewardRecord:
 
     Represents a reward signal at a specific point in a trajectory,
     with metadata about its source and scope.
+
+    Attributes:
+        value: The numeric reward value (typically in range [0, 1] or unbounded).
+        reward_type: Category of reward - "shaped" (dense), "sparse" (terminal only),
+            "achievement" (milestone), "penalty" (negative signal), "evaluator"
+            (from LLM judge), or "human" (manual annotation).
+        scope: Granularity level - "step" (per action), "event" (per significant event),
+            or "outcome" (episode-level).
+        source: Origin of the reward - "environment" (task env), "runner" (framework),
+            "evaluator" (judge), or "human" (annotator).
+        key: Optional identifier like achievement name or rubric criterion ID.
+        turn: Turn number within the session where reward was earned.
+        timestamp: When the reward was recorded.
+        metadata: Additional context (e.g., rubric scores, evaluation details).
     """
 
     value: float
@@ -34,7 +85,29 @@ class OutcomeRewardRecord:
     """Episode-level reward summary.
 
     Aggregates reward information for a complete episode/session,
-    including total reward, achievements, and step counts.
+    including total reward, achievements, and step counts. This is the
+    primary data structure for outcome rewards used in training.
+
+    Attributes:
+        session_id: Unique identifier linking to the SessionTrace.
+        total_reward: Aggregate reward for the entire episode (typically 0.0-1.0).
+        achievements_count: Number of achievements/milestones reached.
+        total_steps: Total number of steps in the episode.
+        metadata: Task-specific metadata (e.g., {"task": "code_gen", "difficulty": "hard"}).
+        annotation: Human or evaluator annotations explaining the score.
+        created_at: When this record was created.
+
+    Example:
+        ```python
+        outcome = OutcomeRewardRecord(
+            session_id="sess_abc123",
+            total_reward=0.75,
+            achievements_count=2,
+            total_steps=8,
+            metadata={"task": "customer_support"},
+            annotation={"evaluator": "Resolved issue but could improve tone"}
+        )
+        ```
     """
 
     session_id: str
@@ -51,7 +124,32 @@ class EventRewardRecord:
     """Event-level reward annotation.
 
     Links a reward to a specific event in a trace, with optional
-    annotations and source information.
+    annotations and source information. Event rewards provide fine-grained
+    feedback on individual actions or decisions within a session.
+
+    Attributes:
+        event_id: Unique identifier of the event being rewarded.
+        session_id: Session containing this event.
+        reward_value: Reward for this specific event (typically 0.0-1.0).
+        reward_type: Category of reward (e.g., "tool_success", "reasoning", "progress").
+        key: Rubric criterion or achievement key this reward relates to.
+        turn_number: Turn/step within the session where event occurred.
+        source: Origin of the reward ("environment", "evaluator", "human").
+        annotation: Explanation or details about why this reward was given.
+        created_at: When this record was created.
+
+    Example:
+        ```python
+        event_reward = EventRewardRecord(
+            event_id="evt_tool_call_5",
+            session_id="sess_abc123",
+            reward_value=1.0,
+            reward_type="tool_success",
+            turn_number=3,
+            source="environment",
+            annotation={"tool": "search", "result": "found_answer"}
+        )
+        ```
     """
 
     event_id: str

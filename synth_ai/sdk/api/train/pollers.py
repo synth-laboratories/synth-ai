@@ -116,9 +116,45 @@ class PromptLearningJobPoller(JobPoller):
         return super().poll(f"/api/prompt-learning/online/jobs/{job_id}")
 
 
+class EvalJobPoller(JobPoller):
+    """Poller for evaluation jobs.
+
+    Polls the backend eval job API to check job status until completion.
+
+    Example:
+        >>> poller = EvalJobPoller(
+        ...     base_url="https://api.usesynth.ai",
+        ...     api_key="sk_live_...",
+        ...     interval=2.0,
+        ...     timeout=1200.0,
+        ... )
+        >>> outcome = poller.poll_job("eval-abc123")
+        >>> if outcome.status == "completed":
+        ...     print(outcome.payload)
+
+    See Also:
+        - `synth_ai.sdk.api.eval.EvalJob`: High-level eval job API
+        - Backend API: GET /api/eval/jobs/{job_id}
+    """
+
+    def poll_job(self, job_id: str) -> PollOutcome:
+        """Poll an eval job by ID.
+
+        Args:
+            job_id: Job ID (e.g., "eval-abc123")
+
+        Returns:
+            PollOutcome with status and payload
+        """
+        ctx: dict[str, Any] = {"job_id": job_id, "job_type": "eval"}
+        log_info("EvalJobPoller.poll_job invoked", ctx=ctx)
+        return super().poll(f"/api/eval/jobs/{job_id}")
+
+
 __all__ = [
     "PollOutcome",
     "RLJobPoller",
     "SFTJobPoller",
     "PromptLearningJobPoller",
+    "EvalJobPoller",
 ]

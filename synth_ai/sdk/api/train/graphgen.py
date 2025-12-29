@@ -55,7 +55,32 @@ from .utils import ensure_api_base, http_get, http_post
 
 @dataclass
 class GraphGenJobResult:
-    """Result from an GraphGen job."""
+    """Result from a GraphGen job.
+
+    Contains the final status and results of a completed GraphGen workflow
+    optimization job, including the best score and snapshot ID for the
+    optimized graph.
+
+    Attributes:
+        graphgen_job_id: Unique identifier for the GraphGen job (e.g.,
+            "graphgen_abc123def456").
+        status: Current job status. One of: "pending", "running", "succeeded",
+            "failed", "cancelled".
+        best_score: Best evaluation score achieved during optimization. Higher
+            is better. None if job hasn't completed successfully.
+        best_snapshot_id: ID of the graph snapshot with the best score. Use this
+            to download or deploy the optimized graph.
+        error: Error message if the job failed, None otherwise.
+        dataset_name: Name of the dataset used for optimization.
+        task_count: Number of tasks in the dataset.
+        graph_evolve_job_id: ID of the underlying graph evolution job, if applicable.
+
+    Example:
+        >>> result = job.get_result()
+        >>> if result.status == "succeeded":
+        ...     print(f"Best score: {result.best_score}")
+        ...     print(f"Snapshot ID: {result.best_snapshot_id}")
+    """
 
     graphgen_job_id: str
     status: str
@@ -69,7 +94,29 @@ class GraphGenJobResult:
 
 @dataclass
 class GraphGenSubmitResult:
-    """Result from submitting an GraphGen job."""
+    """Result from submitting a GraphGen job.
+
+    Returned immediately after job submission with initial job metadata
+    and configuration details.
+
+    Attributes:
+        graphgen_job_id: Unique identifier for the GraphGen job.
+        status: Initial job status (typically "pending" or "running").
+        dataset_name: Name of the dataset being used for optimization.
+        task_count: Number of tasks in the dataset.
+        rollout_budget: Total number of rollouts (evaluations) budgeted for
+            this optimization job.
+        policy_model: Name of the LLM model being used for the policy
+            (e.g., "gpt-4o-mini", "claude-3-5-sonnet").
+        judge_mode: Evaluation mode being used. One of: "rubric", "contrastive",
+            "gold_examples", "verifier_graph".
+        graph_evolve_job_id: ID of the underlying graph evolution job, if applicable.
+
+    Example:
+        >>> submit_result = job.submit()
+        >>> print(f"Job {submit_result.graphgen_job_id} started")
+        >>> print(f"Optimizing {submit_result.task_count} tasks with {submit_result.rollout_budget} rollouts")
+    """
 
     graphgen_job_id: str
     status: str

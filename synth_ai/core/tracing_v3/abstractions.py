@@ -32,6 +32,52 @@ Concepts:
   tool result back, and the agent sending a reply to the user. Do not confuse these with
   provider-specific LLM API "messages" (prompt formatting) — those belong inside an LMCAISEvent
   as part of its input/output content, not as SessionEventMessages.
+
+Example usage:
+
+```python
+from synth_ai.core.tracing_v3.abstractions import (
+    SessionTrace,
+    SessionTimeStep,
+    LMCAISEvent,
+    EnvironmentEvent,
+    TimeRecord,
+)
+import time
+
+# Create a simple trace with one turn
+trace = SessionTrace(
+    session_id="sess_example",
+    session_time_steps=[
+        SessionTimeStep(
+            step_id="turn_1",
+            step_index=0,
+            events=[
+                LMCAISEvent(
+                    system_instance_id="llm",
+                    time_record=TimeRecord(event_time=time.time()),
+                    model_name="gpt-4o",
+                    input_tokens=150,
+                    output_tokens=50,
+                ),
+                EnvironmentEvent(
+                    system_instance_id="tool_executor",
+                    time_record=TimeRecord(event_time=time.time()),
+                    reward=1.0,
+                    terminated=True,
+                ),
+            ],
+        )
+    ],
+)
+
+# Convert to dict for serialization
+trace_dict = trace.to_dict()
+```
+
+See Also:
+- V3 Traces SDK guide: /sdk/tracing/v3-traces
+- Event rewards: /sdk/tracing/rewards/event-rewards
 """
 
 from __future__ import annotations

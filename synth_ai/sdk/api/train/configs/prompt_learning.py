@@ -1,4 +1,40 @@
-"""Prompt Learning configuration models for MIPRO and GEPA."""
+"""Prompt Learning configuration models for MIPRO and GEPA.
+
+This module defines the configuration schema for prompt optimization jobs using:
+- **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
+- **MIPRO**: Meta-learning with bootstrap phase and TPE optimization
+
+Example TOML configuration (GEPA):
+    ```toml
+    [prompt_learning]
+    algorithm = "gepa"
+    task_app_url = "https://your-tunnel.trycloudflare.com"
+    task_app_api_key = "$ENVIRONMENT_API_KEY"
+
+    [prompt_learning.policy]
+    model = "gpt-4o-mini"
+    provider = "openai"
+
+    [prompt_learning.gepa]
+    env_name = "banking77"
+    proposer_effort = "LOW"
+
+    [prompt_learning.gepa.rollout]
+    budget = 100
+    max_concurrent = 20
+
+    [prompt_learning.gepa.evaluation]
+    seeds = {start = 0, end = 50}
+
+    [prompt_learning.gepa.population]
+    num_generations = 10
+    children_per_generation = 5
+    ```
+
+See Also:
+    - Training reference: /training/gepa, /training/mipro
+    - Quickstart: /quickstart/prompt-optimization-gepa
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -1483,7 +1519,83 @@ class GEPAConfig(ExtraModel):
 
 
 class PromptLearningConfig(ExtraModel):
-    """Top-level prompt learning configuration."""
+    """Root configuration for Prompt Learning jobs (GEPA and MIPRO).
+
+    This is the top-level config loaded from a TOML file. Use `PromptLearningConfig.from_path()`
+    to load from a file, or `PromptLearningConfig.from_mapping()` to load from a dict.
+
+    Prompt learning optimizes prompts for a given task app and dataset using one of
+    two algorithms:
+    - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
+      with crossover, mutation, and selection across generations
+    - **MIPRO**: Meta-learning with bootstrap phase and Tree-structured Parzen Estimator
+      (TPE) optimization for hyperparameter tuning
+
+    Example:
+        ```python
+        from synth_ai.sdk.api.train.configs.prompt_learning import PromptLearningConfig
+
+        # Load from file
+        config = PromptLearningConfig.from_path("prompt_learning.toml")
+
+        # Or from dict
+        config = PromptLearningConfig.from_mapping({
+            "algorithm": "gepa",
+            "task_app_url": "https://your-tunnel.trycloudflare.com",
+            "gepa": {
+                "env_name": "banking77",
+                "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                "generations": 5,
+                "population_size": 4,
+            },
+        })
+        ```
+
+    Attributes:
+        algorithm: Optimization algorithm - "gepa" or "mipro".
+        task_app_url: URL of your task app (typically a Cloudflare tunnel URL).
+        task_app_api_key: API key for authenticating with the task app.
+            Defaults to ENVIRONMENT_API_KEY env var.
+        task_app_id: Optional identifier for the task app (for logging).
+        initial_prompt: Initial prompt pattern to seed optimization.
+        policy: Policy (LLM) configuration for rollouts.
+        mipro: MIPRO-specific configuration (if algorithm="mipro").
+        gepa: GEPA-specific configuration (if algorithm="gepa").
+        judge: Optional judge configuration for LLM-based reward scoring.
+        proxy_models: Proxy models configuration for cost-effective evaluation.
+        env_config: Additional environment configuration passed to task app.
+        free_tier: Enable free tier mode with cost-effective OSS models.
+
+    Returns:
+        After training completes, you receive a result dict:
+        ```python
+        {
+            "status": "succeeded",
+            "best_score": 0.92,
+            "best_snapshot_id": "snap_abc123",
+            "final_prompt": "You are a helpful assistant...",
+            "metrics": {
+                "generations_completed": 5,
+                "total_rollouts": 200,
+                "improvement": 0.15,
+            },
+        }
+        ```
+
+    Events:
+        During training, you'll receive streaming events:
+        - `prompt_learning.created` - Job created
+        - `prompt_learning.running` - Training started
+        - `prompt_learning.generation.started` - New generation began
+        - `prompt_learning.candidate.evaluated` - Candidate prompt evaluated
+        - `prompt_learning.generation.completed` - Generation finished with best score
+        - `prompt_learning.frontier.updated` - Pareto frontier updated (new best found)
+        - `prompt_learning.succeeded` / `prompt_learning.failed` - Terminal states
+
+    See Also:
+        - Training reference: /training/gepa, /training/mipro
+        - Quickstart: /quickstart/prompt-optimization-gepa
+    """
     algorithm: str  # "mipro" or "gepa"
     task_app_url: str
     task_app_api_key: str | None = None
