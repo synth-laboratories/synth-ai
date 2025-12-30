@@ -4,12 +4,20 @@
 
 This module provides the client for running inference on trained graphs,
 including policy graphs, verifier graphs, and Reasoning Language Models (RLM).
+
+Provides both sync and async clients:
+- GraphCompletionsSyncClient: Synchronous client using httpx
+- GraphCompletionsAsyncClient: Asynchronous client using AsyncHttpClient
+- GraphCompletionsClient: Alias for GraphCompletionsAsyncClient (backward compat)
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any, Literal, List, Mapping, Optional, TypedDict, Union
+
+import httpx
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
@@ -48,8 +56,194 @@ class ListGraphsResponse(TypedDict):
     total: int
 
 
-class GraphCompletionsClient:
-    """Client for /api/graphs/completions with flexible graph targeting."""
+@dataclass
+class GraphCompletionResponse:
+    """Response from graph completion endpoint."""
+
+    output: dict[str, Any]
+    """The graph output data."""
+
+    usage: dict[str, Any] | None = None
+    """Token usage statistics."""
+
+    cache_status: str | None = None
+    """Cache hit status: 'warm', 'cold', or None."""
+
+    latency_ms: float | None = None
+    """Request latency in milliseconds."""
+
+    raw: dict[str, Any] | None = None
+    """Raw response dict for accessing additional fields."""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GraphCompletionResponse":
+        """Create from API response dict."""
+        return cls(
+            output=data.get("output", {}),
+            usage=data.get("usage"),
+            cache_status=data.get("cache_status"),
+            latency_ms=data.get("latency_ms"),
+            raw=data,
+        )
+
+
+class GraphCompletionsSyncClient:
+    """Synchronous client for graph completions using httpx.
+
+    Example:
+        ```python
+        client = GraphCompletionsSyncClient(base_url, api_key)
+
+        # Run inference on a GraphGen job
+        response = client.run(job_id="graphgen_xxx", input_data={"query": "hello"})
+        print(response.output)
+
+        # Just get the output
+        output = client.run_output(job_id="graphgen_xxx", input_data={"query": "hello"})
+        ```
+    """
+
+    def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
+        self._base = base_url.rstrip("/")
+        self._key = api_key
+        self._timeout = timeout
+
+    def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
+        if job_id:
+            return job_id
+        if not graph:
+            raise ValueError("graph_completions_missing_job_id")
+        if graph.get("job_id"):
+            return str(graph["job_id"])
+        kind = graph.get("kind")
+        if kind == "zero_shot":
+            verifier_type = graph.get("verifier_type") or graph.get("graph_name")
+            if not verifier_type:
+                raise ValueError("graph_completions_missing_verifier_type")
+            return str(verifier_type)
+        if kind == "graphgen":
+            graphgen_job_id = graph.get("graphgen_job_id")
+            if not graphgen_job_id:
+                raise ValueError("graph_completions_missing_graphgen_job_id")
+            return str(graphgen_job_id)
+        graph_name = graph.get("graph_name")
+        if graph_name:
+            return str(graph_name)
+        raise ValueError("graph_completions_missing_graph_target")
+
+    def run(
+        self,
+        *,
+        input_data: Mapping[str, Any],
+        job_id: str | None = None,
+        graph: GraphTarget | None = None,
+        model: str | None = None,
+        prompt_snapshot_id: str | None = None,
+        timeout: float | None = None,
+    ) -> GraphCompletionResponse:
+        """Run graph completion and return typed response.
+
+        Args:
+            input_data: Input data for the graph
+            job_id: GraphGen job ID or graph name
+            graph: Alternative graph target specification
+            model: Optional model override
+            prompt_snapshot_id: Specific snapshot to use
+            timeout: Request timeout (overrides client default)
+
+        Returns:
+            GraphCompletionResponse with output, usage, cache_status, etc.
+        """
+        payload: dict[str, Any] = {
+            "job_id": self._resolve_job_id(job_id=job_id, graph=graph),
+            "input": normalize_for_json(dict(input_data)),
+        }
+        if model:
+            payload["model"] = model
+        if prompt_snapshot_id:
+            payload["prompt_snapshot_id"] = prompt_snapshot_id
+
+        url = f"{self._base}/graphgen/graph/completions"
+        headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
+
+        with httpx.Client(timeout=timeout or self._timeout) as client:
+            resp = client.post(url, headers=headers, json=payload)
+
+            if resp.status_code == 400 or resp.status_code == 422:
+                raise ValueError(f"graph_completions_validation_error: {resp.text[:500]}")
+            if resp.status_code in (401, 403):
+                raise PermissionError(f"graph_completions_auth_error: {resp.text[:500]}")
+            if resp.status_code == 404:
+                raise FileNotFoundError(f"graph_completions_not_found: {resp.text[:500]}")
+            if resp.status_code == 429:
+                raise Exception("graph_completions_rate_limited")
+
+            resp.raise_for_status()
+            return GraphCompletionResponse.from_dict(resp.json())
+
+    def run_output(
+        self,
+        *,
+        input_data: Mapping[str, Any],
+        job_id: str | None = None,
+        graph: GraphTarget | None = None,
+        model: str | None = None,
+        prompt_snapshot_id: str | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """Run graph completion and return just the output dict.
+
+        Convenience method that returns only the output field.
+        """
+        result = self.run(
+            input_data=input_data,
+            job_id=job_id,
+            graph=graph,
+            model=model,
+            prompt_snapshot_id=prompt_snapshot_id,
+            timeout=timeout,
+        )
+        return result.output
+
+    def complete(
+        self,
+        graph_id: str,
+        input_data: Mapping[str, Any],
+        *,
+        model: str | None = None,
+        timeout: float | None = None,
+    ) -> GraphCompletionResponse:
+        """Execute any graph with arbitrary input.
+
+        Args:
+            graph_id: Built-in graph name, GraphGen job_id, or snapshot UUID
+            input_data: Graph-specific input data
+            model: Optional model override
+            timeout: Request timeout
+
+        Returns:
+            GraphCompletionResponse
+        """
+        return self.run(
+            input_data=input_data,
+            job_id=graph_id,
+            model=model,
+            timeout=timeout,
+        )
+
+
+class GraphCompletionsAsyncClient:
+    """Asynchronous client for graph completions.
+
+    Example:
+        ```python
+        client = GraphCompletionsAsyncClient(base_url, api_key)
+
+        # Run inference on a GraphGen job
+        result = await client.run(job_id="graphgen_xxx", input_data={"query": "hello"})
+        print(result["output"])
+        ```
+    """
 
     def __init__(self, base_url: str, api_key: str, *, timeout: float = 60.0) -> None:
         self._base = base_url.rstrip("/")
@@ -535,7 +729,7 @@ class GraphCompletionsClient:
         return result
 
 
-class VerifierClient(GraphCompletionsClient):
+class VerifierAsyncClient(GraphCompletionsAsyncClient):
     """Verifier graph client that builds standard verifier inputs."""
 
     async def evaluate(
@@ -574,3 +768,11 @@ class VerifierClient(GraphCompletionsClient):
             model=model,
             prompt_snapshot_id=prompt_snapshot_id,
         )
+
+
+# Backward-compatible aliases
+GraphCompletionsClient = GraphCompletionsAsyncClient
+"""Alias for GraphCompletionsAsyncClient (backward compatibility)."""
+
+VerifierClient = VerifierAsyncClient
+"""Alias for VerifierAsyncClient (backward compatibility)."""
