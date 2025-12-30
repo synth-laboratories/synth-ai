@@ -359,7 +359,9 @@ def main():
                         if key.endswith("_output") and isinstance(value, dict):
                             if "image_url" in value:
                                 candidate = value["image_url"]
-                                if isinstance(candidate, str) and len(candidate) > 100:  # Must be substantial
+                                # Placeholder images are ~114 chars (1x1 pixel)
+                                # Real images are typically 1M+ chars (1-2MB base64)
+                                if isinstance(candidate, str) and len(candidate) > 10000:  # Must be substantial (>10KB base64)
                                     image_url = candidate
                                     print(f'  Found image in {key}.image_url (length: {len(image_url)})')
                                     break
@@ -367,14 +369,14 @@ def main():
                     # Also check direct image_url in nested output
                     if not image_url:
                         candidate = nested_output.get("image_url", "")
-                        if isinstance(candidate, str) and len(candidate) > 100:
+                        if isinstance(candidate, str) and len(candidate) > 10000:
                             image_url = candidate
                             print(f'  Found image in output.image_url (length: {len(image_url)})')
                 
                 # Fallback to top-level (may be truncated by parse_output)
                 if not image_url:
                     candidate = output.get("image_url", "")
-                    if isinstance(candidate, str) and len(candidate) > 100:
+                    if isinstance(candidate, str) and len(candidate) > 10000:
                         image_url = candidate
                         print(f'  Found image in top-level image_url (length: {len(image_url)})')
                 
