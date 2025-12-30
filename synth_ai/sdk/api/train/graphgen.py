@@ -904,7 +904,7 @@ class GraphGenJob:
         model: Optional[str] = None,
         prompt_snapshot_id: Optional[str] = None,
         graph_snapshot_id: Optional[str] = None,
-        timeout: float = 180.0,
+        timeout: float = 120.0,
     ) -> Dict[str, Any]:
         """Run inference with the optimized graph/workflow.
 
@@ -915,7 +915,7 @@ class GraphGenJob:
             graph_snapshot_id: Specific GraphSnapshot to use (default: best).
                 Preferred for graph-first jobs. If provided, it is sent as
                 `prompt_snapshot_id` for backward-compatible backend routing.
-            timeout: Request timeout in seconds (default: 180.0 for image generation tasks)
+            timeout: Request timeout in seconds (default: 120.0 = 2 minutes for image generation tasks)
 
         Returns:
             Output dictionary containing 'output', 'usage', etc.

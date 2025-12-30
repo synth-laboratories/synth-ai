@@ -336,8 +336,8 @@ def main():
     for i, test_input in enumerate(test_inputs):
         print(f'\nTest {i+1}: {test_input["subject"]}')
         try:
-            # Use longer timeout for image generation (can take 2-3 minutes)
-            output = job.run_inference(test_input, timeout=180.0)
+            # Use longer timeout for image generation (can take up to 2 minutes)
+            output = job.run_inference(test_input, timeout=120.0)
             print(f'  Output type: {type(output)}')
             
             # Always save output as JSON first
