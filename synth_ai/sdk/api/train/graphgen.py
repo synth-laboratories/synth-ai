@@ -764,6 +764,88 @@ class GraphGenJob:
 
         return final_status
 
+    def poll_until_complete(
+        self,
+        *,
+        timeout: float = 3600.0,
+        interval: float = 5.0,
+        progress: bool = False,
+        on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """Poll job until it reaches a terminal state.
+
+        Similar to PromptLearningJob.poll_until_complete(), this method polls
+        the backend periodically instead of using SSE streaming. Useful for
+        notebooks and environments where SSE may not work reliably.
+
+        Args:
+            timeout: Maximum seconds to wait (default: 3600 = 1 hour)
+            interval: Seconds between poll attempts (default: 5)
+            progress: If True, print status updates during polling (useful for notebooks)
+            on_status: Optional callback called on each status update
+
+        Returns:
+            Final job status dictionary containing 'status', 'best_score', etc.
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+            TimeoutError: If timeout is exceeded
+
+        Example:
+            >>> result = job.poll_until_complete(progress=True)
+            [00:15] running | score: 0.72
+            [00:30] running | score: 0.78
+            [00:45] succeeded | score: 0.85
+        """
+        if not self.job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        import time
+
+        start_time = time.time()
+        elapsed = 0.0
+        last_data: Dict[str, Any] = {}
+
+        while elapsed <= timeout:
+            try:
+                status_data = self.get_status()
+                last_data = dict(status_data) if isinstance(status_data, dict) else {}
+
+                status = last_data.get("status", "unknown")
+                best_score = last_data.get("best_score")
+
+                # Progress output
+                if progress:
+                    mins, secs = divmod(int(elapsed), 60)
+                    score_str = f"score: {best_score:.2f}" if best_score is not None else "score: --"
+                    print(f"[{mins:02d}:{secs:02d}] {status} | {score_str}")
+
+                # Callback for custom handling
+                if on_status:
+                    on_status(last_data)
+
+                # Check terminal state
+                if status in ("succeeded", "completed", "failed", "error", "cancelled"):
+                    return last_data
+
+                # Sleep before next poll
+                time.sleep(interval)
+                elapsed = time.time() - start_time
+
+            except Exception as e:
+                # On error, continue polling (might be transient network issue)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error polling job status: {e}")
+                time.sleep(interval)
+                elapsed = time.time() - start_time
+
+        # Timeout exceeded
+        raise TimeoutError(
+            f"Job {self.job_id} did not complete within {timeout}s timeout. "
+            f"Current status: {last_data.get('status', 'unknown')}"
+        )
+
     def download_prompt(self) -> str:
         """Download the optimized prompt from a completed job.
 
@@ -822,6 +904,7 @@ class GraphGenJob:
         model: Optional[str] = None,
         prompt_snapshot_id: Optional[str] = None,
         graph_snapshot_id: Optional[str] = None,
+        timeout: float = 180.0,
     ) -> Dict[str, Any]:
         """Run inference with the optimized graph/workflow.
 
@@ -832,6 +915,7 @@ class GraphGenJob:
             graph_snapshot_id: Specific GraphSnapshot to use (default: best).
                 Preferred for graph-first jobs. If provided, it is sent as
                 `prompt_snapshot_id` for backward-compatible backend routing.
+            timeout: Request timeout in seconds (default: 180.0 for image generation tasks)
 
         Returns:
             Output dictionary containing 'output', 'usage', etc.
@@ -862,7 +946,8 @@ class GraphGenJob:
         if snapshot_id:
             payload["prompt_snapshot_id"] = snapshot_id
 
-        resp = http_post(url, headers=headers, json_body=payload, timeout=60.0)
+        # Use longer timeout for image generation tasks (can take 2-3 minutes)
+        resp = http_post(url, headers=headers, json_body=payload, timeout=timeout)
 
         if resp.status_code != 200:
             raise RuntimeError(
