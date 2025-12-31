@@ -239,8 +239,8 @@ def filter_command(config_path: str) -> None:
     models = set(filter_cfg.models)
     min_official = filter_cfg.min_official_score
     max_official = filter_cfg.max_official_score
-    min_judge_scores = filter_cfg.min_judge_scores
-    max_judge_scores = filter_cfg.max_judge_scores
+    min_verifier_scores = filter_cfg.min_verifier_scores
+    max_verifier_scores = filter_cfg.max_verifier_scores
     min_created = _parse_datetime_for_trace(raw_cfg.get("min_created_at"))
     max_created = _parse_datetime_for_trace(raw_cfg.get("max_created_at"))
     limit = filter_cfg.limit
@@ -311,16 +311,16 @@ def filter_command(config_path: str) -> None:
                 elif min_official is not None:
                     continue
 
-            judge_scores = metadata.get("judge_scores") or {}
+            verifier_scores = metadata.get("verifier_scores") or {}
             include = True
-            for judge_name, threshold in (min_judge_scores or {}).items():
-                if not _score_ok(judge_scores.get(judge_name), threshold, None):
+            for verifier_name, threshold in (min_verifier_scores or {}).items():
+                if not _score_ok(verifier_scores.get(verifier_name), threshold, None):
                     include = False
                     break
             if not include:
                 continue
-            for judge_name, threshold in (max_judge_scores or {}).items():
-                if not _score_ok(judge_scores.get(judge_name), None, threshold):
+            for verifier_name, threshold in (max_verifier_scores or {}).items():
+                if not _score_ok(verifier_scores.get(verifier_name), None, threshold):
                     include = False
                     break
             if not include:

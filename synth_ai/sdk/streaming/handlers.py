@@ -335,10 +335,10 @@ class IntegrationTestHandler(StreamHandler):
 
 
 class GraphGenHandler(StreamHandler):
-    """Handler for ADAS jobs that delegate child job streams to an underlying handler.
+    """Handler for Graph Opt jobs that delegate child job streams to an underlying handler.
     
-    ADAS jobs emit events from child jobs (GEPA, MIPRO, RL, SFT, etc.). This handler
-    provides light ADAS-aware filtering and routing while keeping child job output
+    Graph Opt jobs emit events from child jobs (GEPA, MIPRO, RL, SFT, etc.). This handler
+    provides light Graph Opt-aware filtering and routing while keeping child job output
     intact via a delegate handler. The delegate can be supplied directly or created
     via a factory; by default we choose a prompt-learning handler for GEPA/MIPRO and
     a basic CLI handler for other job types.
@@ -365,7 +365,7 @@ class GraphGenHandler(StreamHandler):
         self._pl_show_validation = show_validation
 
         self.filter_verbose_events = filter_verbose_events
-        # If False, skip ADAS-specific filtering/transformations and just pass through.
+        # If False, skip Graph Opt-specific filtering/transformations and just pass through.
         self.wrap_child_events = wrap_child_events
 
         # Detected child job type (gepa/mipro/rl/sft/etc.)
@@ -436,7 +436,7 @@ class GraphGenHandler(StreamHandler):
         elif event_type.startswith("sft.") or ".sft." in event_type:
             self.child_job_type = "sft"
         else:
-            # Fall back to the first segment as a hint (e.g., "adas.child_type")
+            # Fall back to the first segment as a hint (e.g., "graphgen.child_type")
             parts = event_type.split(".")
             if parts:
                 self.child_job_type = parts[0]
@@ -504,7 +504,7 @@ class GraphGenHandler(StreamHandler):
         return any(pattern in event_type_lower for pattern in verbose_patterns)
 
     def _transform_event_message(self, message: StreamMessage) -> StreamMessage:
-        """Transform event messages for ADAS context (currently passthrough)."""
+        """Transform event messages for Graph Opt context (currently passthrough)."""
         return message
 
     def flush(self) -> None:

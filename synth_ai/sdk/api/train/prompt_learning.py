@@ -12,13 +12,17 @@ Example CLI usage:
 
 Example SDK usage:
     from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-    
-    job = PromptLearningJob.from_config("my_config.toml")
-    job.submit()
-    result = job.poll_until_complete()
-    print(f"Best score: {result['best_score']}")
 
-For domain-specific judging, you can use **Verifier Graphs**. See `PromptLearningJudgeConfig` 
+    job = PromptLearningJob.from_dict(config_dict, api_key="sk_live_...")
+    job.submit()
+    result = job.poll_until_complete(progress=True)  # Built-in progress printing
+
+    if result.succeeded:
+        print(f"Best score: {result.best_score}")
+    else:
+        print(f"Failed: {result.error}")
+
+For domain-specific verification, you can use **Verifier Graphs**. See `PromptLearningVerifierConfig`
 in `synth_ai.sdk.api.train.configs.prompt_learning` for configuration details.
 """
 
@@ -26,16 +30,112 @@ from __future__ import annotations
 
 import asyncio
 import os
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from synth_ai.core.telemetry import log_info
 
-from .builders import PromptLearningBuildResult, build_prompt_learning_payload
+
+class JobStatus(str, Enum):
+    """Status of a prompt learning job."""
+
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def from_string(cls, status: str) -> "JobStatus":
+        """Convert string to JobStatus, defaulting to PENDING for unknown values."""
+        try:
+            return cls(status.lower())
+        except ValueError:
+            return cls.PENDING
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether this status is terminal (job won't change further)."""
+        return self in (JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED)
+
+    @property
+    def is_success(self) -> bool:
+        """Whether this status indicates success."""
+        return self == JobStatus.SUCCEEDED
+
+
+@dataclass
+class PromptLearningResult:
+    """Typed result from a prompt learning job.
+
+    Provides clean accessors for common fields instead of raw dict access.
+
+    Example:
+        >>> result = job.poll_until_complete()
+        >>> if result.succeeded:
+        ...     print(f"Best score: {result.best_score}")
+        ...     print(f"Best prompt: {result.best_prompt[:100]}...")
+        >>> else:
+        ...     print(f"Failed: {result.error}")
+    """
+
+    job_id: str
+    status: JobStatus
+    best_score: Optional[float] = None
+    best_prompt: Optional[str] = None
+    error: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_response(cls, job_id: str, data: Dict[str, Any]) -> "PromptLearningResult":
+        """Create result from API response dict."""
+        status_str = data.get("status", "pending")
+        status = JobStatus.from_string(status_str)
+
+        # Extract best score from various field names (backward compat)
+        best_score = (
+            data.get("best_score")
+            or data.get("best_reward")
+            or data.get("best_train_score")
+            or data.get("best_train_reward")
+        )
+
+        return cls(
+            job_id=job_id,
+            status=status,
+            best_score=best_score,
+            best_prompt=data.get("best_prompt"),
+            error=data.get("error"),
+            raw=data,
+        )
+
+    @property
+    def succeeded(self) -> bool:
+        """Whether the job succeeded."""
+        return self.status.is_success
+
+    @property
+    def failed(self) -> bool:
+        """Whether the job failed."""
+        return self.status == JobStatus.FAILED
+
+    @property
+    def is_terminal(self) -> bool:
+        """Whether the job has reached a terminal state."""
+        return self.status.is_terminal
+
+from .builders import (
+    PromptLearningBuildResult,
+    build_prompt_learning_payload,
+    build_prompt_learning_payload_from_mapping,
+)
 from .pollers import JobPoller, PollOutcome
 from .local_api import check_local_api_health
-from .utils import ensure_api_base, http_post
+from .utils import ensure_api_base, http_get, http_post
 
 
 @dataclass
@@ -45,50 +145,71 @@ class PromptLearningJobConfig:
     This dataclass holds all the configuration needed to submit and run
     a prompt learning job (MIPRO or GEPA optimization).
 
-    Attributes:
-        config_path: Path to the TOML configuration file that defines the
-            optimization task, including Local API URL, model settings,
-            optimization parameters, and evaluation criteria.
-        backend_url: Base URL of the Synth API backend (e.g.,
-            "https://api.usesynth.ai"). Can also be set via BACKEND_BASE_URL
-            environment variable.
-        api_key: Synth API key for authentication. Can also be set via
-            SYNTH_API_KEY environment variable.
-        task_app_api_key: API key for authenticating with the Local API.
-            Defaults to ENVIRONMENT_API_KEY env var if not provided.
-            Required for Local APIs that use API key authentication.
-            (Alias: also known as "task app API key" in older documentation)
-        allow_experimental: If True, allows use of experimental models that
-            may not be fully supported. Defaults to None (uses config file setting).
-        overrides: Dictionary of config overrides that take precedence over
-            values in the TOML file. Useful for programmatic customization
-            without modifying the config file.
+    Supports two modes:
+    1. **File-based**: Provide `config_path` pointing to a TOML file
+    2. **Programmatic**: Provide `config_dict` with the configuration directly
 
-    Example:
+    Both modes go through the same `PromptLearningConfig` Pydantic validation.
+
+    Attributes:
+        config_path: Path to the TOML configuration file. Mutually exclusive with config_dict.
+        config_dict: Dictionary with prompt learning configuration. Mutually exclusive with config_path.
+            Should have the same structure as the TOML file (with 'prompt_learning' section).
+        backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
+        api_key: Synth API key for authentication.
+        task_app_api_key: API key for authenticating with the Local API.
+        allow_experimental: If True, allows use of experimental models.
+        overrides: Dictionary of config overrides.
+
+    Example (file-based):
         >>> config = PromptLearningJobConfig(
         ...     config_path=Path("my_config.toml"),
         ...     backend_url="https://api.usesynth.ai",
         ...     api_key="sk_live_...",
-        ...     overrides={"optimizer.generations": 5}
+        ... )
+
+    Example (programmatic):
+        >>> config = PromptLearningJobConfig(
+        ...     config_dict={
+        ...         "prompt_learning": {
+        ...             "algorithm": "gepa",
+        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+        ...             "gepa": {...},
+        ...         }
+        ...     },
+        ...     backend_url="https://api.usesynth.ai",
+        ...     api_key="sk_live_...",
         ... )
     """
 
-    config_path: Path
     backend_url: str
     api_key: str
+    config_path: Optional[Path] = None
+    config_dict: Optional[Dict[str, Any]] = None
     task_app_api_key: Optional[str] = None
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
-    
+
     def __post_init__(self) -> None:
         """Validate configuration."""
-        if not self.config_path.exists():
+        # Must provide exactly one of config_path or config_dict
+        has_path = self.config_path is not None
+        has_dict = self.config_dict is not None
+
+        if has_path and has_dict:
+            raise ValueError("Provide either config_path OR config_dict, not both")
+        if not has_path and not has_dict:
+            raise ValueError("Either config_path or config_dict is required")
+
+        if has_path and not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
+
         if not self.backend_url:
             raise ValueError("backend_url is required")
         if not self.api_key:
             raise ValueError("api_key is required")
-        
+
         # Get task_app_api_key from environment if not provided
         if not self.task_app_api_key:
             self.task_app_api_key = os.environ.get("ENVIRONMENT_API_KEY")
@@ -219,9 +340,100 @@ class PromptLearningJob:
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
-        
+
         return cls(config)
-    
+
+    @classmethod
+    def from_dict(
+        cls,
+        config_dict: Dict[str, Any],
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        task_app_api_key: Optional[str] = None,
+        allow_experimental: Optional[bool] = None,
+        overrides: Optional[Dict[str, Any]] = None,
+        skip_health_check: bool = False,
+    ) -> PromptLearningJob:
+        """Create a job from a configuration dictionary (programmatic use).
+
+        This allows creating prompt learning jobs without a TOML file, enabling
+        programmatic use in notebooks, scripts, and applications.
+
+        The config_dict should have the same structure as a TOML file:
+        ```python
+        {
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "task_app_url": "https://...",
+                "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+                "gepa": {...},
+            }
+        }
+        ```
+
+        Args:
+            config_dict: Configuration dictionary with 'prompt_learning' section
+            backend_url: Backend API URL (defaults to env or production)
+            api_key: API key (defaults to SYNTH_API_KEY env var)
+            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
+            allow_experimental: Allow experimental models
+            overrides: Config overrides
+            skip_health_check: If True, skip task app health check before submission
+
+        Returns:
+            PromptLearningJob instance
+
+        Raises:
+            ValueError: If required config is missing or invalid
+
+        Example:
+            >>> job = PromptLearningJob.from_dict(
+            ...     config_dict={
+            ...         "prompt_learning": {
+            ...             "algorithm": "gepa",
+            ...             "task_app_url": "https://tunnel.example.com",
+            ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+            ...             "gepa": {
+            ...                 "rollout": {"budget": 50, "max_concurrent": 5},
+            ...                 "evaluation": {"train_seeds": [1, 2, 3], "val_seeds": [4, 5]},
+            ...                 "population": {"num_generations": 2, "children_per_generation": 2},
+            ...             },
+            ...         }
+            ...     },
+            ...     api_key="sk_live_...",
+            ... )
+            >>> job_id = job.submit()
+        """
+        import os
+
+        from synth_ai.core.env import get_backend_from_env
+
+        # Resolve backend URL
+        if not backend_url:
+            backend_url = os.environ.get("BACKEND_BASE_URL", "").strip()
+            if not backend_url:
+                base, _ = get_backend_from_env()
+                backend_url = f"{base}/api" if not base.endswith("/api") else base
+
+        # Resolve API key
+        if not api_key:
+            api_key = os.environ.get("SYNTH_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
+                )
+
+        config = PromptLearningJobConfig(
+            config_dict=config_dict,
+            backend_url=backend_url,
+            api_key=api_key,
+            task_app_api_key=task_app_api_key,
+            allow_experimental=allow_experimental,
+            overrides=overrides or {},
+        )
+
+        return cls(config, skip_health_check=skip_health_check)
+
     @classmethod
     def from_job_id(
         cls,
@@ -258,33 +470,59 @@ class PromptLearningJob:
                     "api_key is required (provide explicitly or set SYNTH_API_KEY env var)"
                 )
         
-        # Create minimal config (we don't need the config file for resuming)
+        # Create minimal config (we don't need the config for resuming - use empty dict)
+        # The config_dict is never used when resuming since we have the job_id
         config = PromptLearningJobConfig(
-            config_path=Path("/dev/null"),  # Dummy path
+            config_dict={"prompt_learning": {"_resumed": True}},  # Placeholder for resume mode
             backend_url=backend_url,
             api_key=api_key,
         )
-        
+
         return cls(config, job_id=job_id)
     
     def _build_payload(self) -> PromptLearningBuildResult:
-        """Build the job payload from config."""
+        """Build the job payload from config.
+
+        Supports both file-based (config_path) and programmatic (config_dict) modes.
+        Both modes route through the same PromptLearningConfig Pydantic validation.
+        """
         if self._build_result is None:
-            if not self.config.config_path.exists() or self.config.config_path.name == "/dev/null":
-                raise RuntimeError(
-                    "Cannot build payload: config_path is required for new jobs. "
-                    "Use from_job_id() to resume an existing job."
-                )
-            
             overrides = self.config.overrides or {}
             overrides["backend"] = self.config.backend_url
-            
-            self._build_result = build_prompt_learning_payload(
-                config_path=self.config.config_path,
-                task_url=None,  # Force using TOML only
-                overrides=overrides,
-                allow_experimental=self.config.allow_experimental,
-            )
+            # Pass task_app_api_key to builder via overrides
+            if self.config.task_app_api_key:
+                overrides["task_app_api_key"] = self.config.task_app_api_key
+
+            # Route to appropriate builder based on config mode
+            if self.config.config_dict is not None:
+                # Programmatic mode: use dict-based builder
+                self._build_result = build_prompt_learning_payload_from_mapping(
+                    raw_config=self.config.config_dict,
+                    task_url=None,
+                    overrides=overrides,
+                    allow_experimental=self.config.allow_experimental,
+                    source_label="PromptLearningJob.from_dict",
+                )
+            elif self.config.config_path is not None:
+                # File-based mode: use path-based builder
+                if not self.config.config_path.exists():
+                    raise RuntimeError(
+                        f"Config file not found: {self.config.config_path}. "
+                        "Use from_dict() for programmatic config or from_job_id() to resume."
+                    )
+
+                self._build_result = build_prompt_learning_payload(
+                    config_path=self.config.config_path,
+                    task_url=None,
+                    overrides=overrides,
+                    allow_experimental=self.config.allow_experimental,
+                )
+            else:
+                raise RuntimeError(
+                    "Cannot build payload: either config_path or config_dict is required. "
+                    "Use from_config() for file-based config, from_dict() for programmatic config, "
+                    "or from_job_id() to resume an existing job."
+                )
         return self._build_result
     
     def submit(self) -> str:
@@ -297,7 +535,11 @@ class PromptLearningJob:
             RuntimeError: If job submission fails
             ValueError: If task app health check fails
         """
-        ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
+        # Log context based on config mode
+        if self.config.config_path is not None:
+            ctx: Dict[str, Any] = {"config_path": str(self.config.config_path)}
+        else:
+            ctx = {"config_mode": "programmatic"}
         log_info("PromptLearningJob.submit invoked", ctx=ctx)
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
@@ -386,40 +628,92 @@ class PromptLearningJob:
         *,
         timeout: float = 3600.0,
         interval: float = 5.0,
+        progress: bool = False,
         on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
-    ) -> Dict[str, Any]:
+    ) -> PromptLearningResult:
         """Poll job until it reaches a terminal state.
-        
+
         Args:
             timeout: Maximum seconds to wait
             interval: Seconds between poll attempts
-            on_status: Optional callback called on each status update
-            
+            progress: If True, print status updates during polling (useful for notebooks)
+            on_status: Optional callback called on each status update (for custom progress handling)
+
         Returns:
-            Final job status dictionary
-            
+            PromptLearningResult with typed status, best_score, etc.
+
         Raises:
             RuntimeError: If job hasn't been submitted yet
             TimeoutError: If timeout is exceeded
+
+        Example:
+            >>> result = job.poll_until_complete(progress=True)
+            [00:15] running | score: 0.72
+            [00:30] running | score: 0.78
+            [00:45] succeeded | score: 0.85
+            >>> result.succeeded
+            True
+            >>> result.best_score
+            0.85
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
-        
-        poller = PromptLearningJobPoller(
-            base_url=self.config.backend_url,
-            api_key=self.config.api_key,
-            interval=interval,
-            timeout=timeout,
-        )
-        
-        outcome = poller.poll_job(self._job_id)  # type: ignore[arg-type]  # We check None above
-        
-        payload = dict(outcome.payload) if isinstance(outcome.payload, dict) else {}
-        
-        if on_status:
-            on_status(payload)
-        
-        return payload
+
+        job_id = self._job_id
+        base_url = ensure_api_base(self.config.backend_url)
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json",
+        }
+
+        start_time = time.time()
+        elapsed = 0.0
+        last_data: Dict[str, Any] = {}
+
+        while elapsed <= timeout:
+            try:
+                # Fetch job status
+                url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
+                resp = http_get(url, headers=headers)
+                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                last_data = dict(data) if isinstance(data, dict) else {}
+
+                status = JobStatus.from_string(last_data.get("status", "pending"))
+                best_score = (
+                    last_data.get("best_score")
+                    or last_data.get("best_reward")
+                    or last_data.get("best_train_score")
+                    or last_data.get("best_train_reward")
+                )
+
+                # Progress output
+                if progress:
+                    mins, secs = divmod(int(elapsed), 60)
+                    score_str = f"score: {best_score:.2f}" if best_score is not None else "score: --"
+                    print(f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}")
+
+                # Callback for custom handling
+                if on_status:
+                    on_status(last_data)
+
+                # Check terminal state
+                if status.is_terminal:
+                    return PromptLearningResult.from_response(job_id, last_data)
+
+            except Exception as exc:
+                if progress:
+                    print(f"[poll] error: {exc}")
+                log_info("poll request failed", ctx={"error": str(exc), "job_id": job_id})
+
+            time.sleep(interval)
+            elapsed = time.time() - start_time
+
+        # Timeout reached
+        if progress:
+            print(f"[poll] timeout after {timeout:.0f}s")
+
+        # Return with whatever data we have, status will indicate not complete
+        return PromptLearningResult.from_response(job_id, last_data)
     
     def get_results(self) -> Dict[str, Any]:
         """Get job results (prompts, scores, etc.).
@@ -498,7 +792,9 @@ class PromptLearningJob:
 
 
 __all__ = [
+    "JobStatus",
     "PromptLearningJob",
     "PromptLearningJobConfig",
     "PromptLearningJobPoller",
+    "PromptLearningResult",
 ]

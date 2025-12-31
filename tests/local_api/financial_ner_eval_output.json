@@ -21,7 +21,7 @@
     {
       "seed": 0,
       "score": 1.0,
-      "mean_return": 1.0,
+      "reward_mean": 1.0,
       "outcome_score": 1.0,
       "events_score": 1.0,
       "latency_ms": 562.300999998115,
@@ -33,7 +33,7 @@
     {
       "seed": 1,
       "score": 1.0,
-      "mean_return": 1.0,
+      "reward_mean": 1.0,
       "outcome_score": 1.0,
       "events_score": 1.0,
       "latency_ms": 445.39966600132175,
@@ -45,7 +45,7 @@
     {
       "seed": 2,
       "score": 0.7142857142857143,
-      "mean_return": 0.7142857142857143,
+      "reward_mean": 0.7142857142857143,
       "outcome_score": 0.7142857142857143,
       "events_score": 0.7142857142857143,
       "latency_ms": 1313.6587909830268,

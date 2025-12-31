@@ -68,8 +68,8 @@ class TestVerifierClientEvaluate:
                 return {
                     "output": {
                         "status": "ok",
-                        "outcome_reward": {"reward_value": 0.85, "criteria": {"accuracy": {"score": 0.85}}},
-                        "event_rewards": [],
+                        "outcome_review": {"total": 0.85, "criteria": {"accuracy": {"score": 0.85}}},
+                        "event_reviews": [],
                     }
                 }
 
@@ -90,7 +90,7 @@ class TestVerifierClientEvaluate:
         )
 
         assert result["output"]["status"] == "ok"
-        assert result["output"]["outcome_reward"]["reward_value"] == 0.85
+        assert result["output"]["outcome_review"]["total"] == 0.85
 
     @pytest.mark.asyncio
     async def test_evaluate_captures_request_params(self, client, monkeypatch) -> None:
@@ -105,7 +105,7 @@ class TestVerifierClientEvaluate:
 
             async def post_json(self, url, json):
                 captured_payload.update(json)
-                return {"output": {"status": "ok", "outcome_reward": {}, "event_rewards": []}}
+                return {"output": {"status": "ok", "outcome_review": {}, "event_reviews": []}}
 
         monkeypatch.setattr("synth_ai.sdk.graphs.completions.AsyncHttpClient", lambda *a, **kw: MockHTTPClient())
 
@@ -239,8 +239,8 @@ class TestGraphTarget:
 
         target: GraphTarget = {
             "kind": "zero_shot",
-            "verifier_type": "zero_shot_verifier_single",
+            "verifier_shape": "zero_shot_verifier_single",
         }
 
         assert target["kind"] == "zero_shot"
-        assert target["verifier_type"] == "zero_shot_verifier_single"
+        assert target["verifier_shape"] == "zero_shot_verifier_single"

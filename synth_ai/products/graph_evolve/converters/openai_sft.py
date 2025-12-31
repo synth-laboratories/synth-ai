@@ -1,6 +1,6 @@
-"""OpenAI SFT format to ADAS dataset converter.
+"""OpenAI SFT format to Graph Opt dataset converter.
 
-This module converts OpenAI SFT format (JSONL with messages array) to ADAS format
+This module converts OpenAI SFT format (JSONL with messages array) to Graph Opt format
 for use with Graph GEPA optimization.
 
 Example OpenAI SFT format:
@@ -10,7 +10,7 @@ Example OpenAI SFT format:
         {"role": "assistant", "content": "Paris"}
     ]}
 
-Example ADAS output:
+Example Graph Opt output:
     {
         "tasks": [{"task_id": "sft_0000", "input": {"user_message": "..."}}],
         "gold_outputs": [{"task_id": "sft_0000", "output": {"response": "..."}, "score": 1.0}],
@@ -59,10 +59,10 @@ class ConversionWarning:
 
 @dataclass
 class ConversionResult:
-    """Result of converting SFT to ADAS.
+    """Result of converting SFT to Graph Opt.
 
     Attributes:
-        dataset: The ADAS dataset dict
+        dataset: The Graph Opt dataset dict
         warnings: Non-fatal issues encountered
         stats: Conversion statistics
     """
@@ -343,7 +343,7 @@ def convert_openai_sft(
     detect_template: bool = True,
     max_examples: int | None = None,
 ) -> ConversionResult:
-    """Convert OpenAI SFT format to ADAS dataset.
+    """Convert OpenAI SFT format to Graph Opt dataset.
 
     Args:
         source: Path to JSONL file, or list of SFT example dicts
@@ -352,7 +352,7 @@ def convert_openai_sft(
         max_examples: Maximum number of examples to include (None for all)
 
     Returns:
-        ConversionResult containing the ADAS dataset, warnings, and stats
+        ConversionResult containing the Graph Opt dataset, warnings, and stats
 
     Raises:
         ConversionError: If no valid examples found

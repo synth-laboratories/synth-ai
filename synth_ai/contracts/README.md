@@ -59,7 +59,7 @@ openapi-generator generate \
 
 - `sft.yaml` - Supervised Fine-Tuning data submission
 - `rl.yaml` - Reinforcement Learning environment interface
-- `judge.yaml` - LLM Judge evaluation API
+- `verifier.yaml` - LLM verifier evaluation API
 
 ## Design Principles
 
@@ -67,4 +67,3 @@ openapi-generator generate \
 2. **Explicit schemas**: Every request/response is fully typed
 3. **Rich documentation**: Inline docs explain implementation details
 4. **Versioned**: Contracts are versioned for stability
-

@@ -1,14 +1,31 @@
-"""Helpers for building LocalAPI rollout responses."""
+"""Helpers for building LocalAPI rollout responses.
+
+## Usage
+
+    response = RolloutResponseBuilder.trace_only(
+        run_id=request.run_id,
+        reward=1.0,
+        trace=trace_payload,
+        trace_correlation_id="trace_abc123",
+        inference_url="https://api.usesynth.ai/v1/trial-xyz",
+    )
+
+## Key Fields
+
+- `reward`: The outcome reward (required) → `metrics.outcome_reward`
+- `trace_correlation_id`: Correlation ID for trace recovery (top-level)
+- `inference_url`: Inference URL used (top-level)
+"""
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any
 
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutResponse
 
 
 class RolloutResponseBuilder:
-    """Convenience builders for trace-only rollout responses."""
+    """Convenience builders for rollout responses."""
 
     @staticmethod
     def trace_only(
@@ -16,49 +33,38 @@ class RolloutResponseBuilder:
         run_id: str,
         reward: float,
         trace: dict[str, Any] | None,
-        details: dict[str, Any] | None = None,
-        metrics: RolloutMetrics | None = None,
-        num_steps: int | None = None,
-        num_episodes: int = 1,
-        aborted: bool = False,
+        event_rewards: list[float] | None = None,
         trace_correlation_id: str | None = None,
-        pipeline_metadata: Mapping[str, Any] | None = None,
-        branches: Mapping[str, list[str]] | None = None,
+        inference_url: str | None = None,
+        details: dict[str, Any] | None = None,
+        aborted: bool = False,
     ) -> RolloutResponse:
-        """Build a trace-only RolloutResponse with standardized metrics."""
+        """Build a RolloutResponse with standardized metrics.
 
-        reward_value = float(reward)
-        metrics_payload = metrics or RolloutMetrics(
-            episode_returns=[reward_value],
-            mean_return=reward_value,
-            num_steps=int(num_steps or 1),
-            num_episodes=int(num_episodes),
-            outcome_score=reward_value,
-            events_score=reward_value,
+        Args:
+            run_id: Request run_id to echo back
+            reward: Outcome reward for this rollout
+            trace: v3 trace payload
+            event_rewards: Optional per-step rewards for multi-step tasks
+            trace_correlation_id: Correlation ID for trace recovery
+            inference_url: Inference URL used for this rollout
+            details: Metadata dict (debugging info, not rewards)
+            aborted: Whether rollout was aborted early
+        """
+        metrics = RolloutMetrics(
+            outcome_reward=float(reward),
+            event_rewards=event_rewards,
             details=details or {},
         )
 
-        if details:
-            merged_details = dict(metrics_payload.details or {})
-            merged_details.update(details)
-            metrics_payload.details = merged_details
-
-        trace_payload = _with_trace_metadata(trace, trace_correlation_id)
-
-        pipeline_meta = dict(pipeline_metadata or {})
-        if trace_correlation_id:
-            pipeline_meta.setdefault("trace_correlation_id", trace_correlation_id)
-
-        response = RolloutResponse(
+        return RolloutResponse(
             run_id=run_id,
-            branches=dict(branches or {}),
-            metrics=metrics_payload,
-            aborted=aborted,
+            metrics=metrics,
+            trace=_with_trace_metadata(trace, trace_correlation_id),
             trace_correlation_id=trace_correlation_id,
-            trace=trace_payload,
-            pipeline_metadata=pipeline_meta,
+            inference_url=inference_url,
+            aborted=aborted,
         )
-        return response
 
 
 def _with_trace_metadata(

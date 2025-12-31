@@ -59,11 +59,11 @@ class RewardRecord:
         value: The numeric reward value (typically in range [0, 1] or unbounded).
         reward_type: Category of reward - "shaped" (dense), "sparse" (terminal only),
             "achievement" (milestone), "penalty" (negative signal), "evaluator"
-            (from LLM judge), or "human" (manual annotation).
+            (from LLM verifier), or "human" (manual annotation).
         scope: Granularity level - "step" (per action), "event" (per significant event),
             or "outcome" (episode-level).
         source: Origin of the reward - "environment" (task env), "runner" (framework),
-            "evaluator" (judge), or "human" (annotator).
+            "evaluator" (verifier), or "human" (annotator).
         key: Optional identifier like achievement name or rubric criterion ID.
         turn: Turn number within the session where reward was earned.
         timestamp: When the reward was recorded.
@@ -247,4 +247,3 @@ __all__ = [
     "CalibrationExample",
     "GoldExample",
 ]
-

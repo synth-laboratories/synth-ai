@@ -55,11 +55,11 @@ class RLServicesConfig(ExtraModel):
     Attributes:
         task_url: URL of your task app (typically a Cloudflare tunnel URL).
             Required for rollout execution.
-        judge_url: Optional URL for judge service. Defaults to Synth's
-            hosted judge at https://synth-backend.onrender.com/api.
+        verifier_url: Optional URL for verifier service. Defaults to Synth's
+            hosted verifier at https://synth-backend.onrender.com/api.
     """
     task_url: str
-    judge_url: str | None = None
+    verifier_url: str | None = None
 
 
 class ModelConfig(ExtraModel):
@@ -207,19 +207,19 @@ class EvaluationConfig(ExtraModel):
     seeds: list[int]
 
 
-class JudgeOptionsConfig(ExtraModel):
-    """Judge scoring options.
+class VerifierOptionsConfig(ExtraModel):
+    """Verifier scoring options.
 
     Attributes:
-        event: Enable event-level judging.
-        outcome: Enable outcome-level judging.
-        provider: Judge provider - "synth" for Synth's hosted judge.
-        model: Judge model identifier (e.g., "synth-judge-v1").
+        event: Enable event-level verification.
+        outcome: Enable outcome-level verification.
+        provider: Verifier provider - "synth" for Synth's hosted verifier.
+        model: Verifier model identifier.
         rubric_id: Optional rubric identifier.
         rubric_overrides: Override specific rubric parameters.
         tracks: Tracks to evaluate.
         weights: Per-track scoring weights.
-        max_concurrency: Maximum concurrent judge API calls.
+        max_concurrency: Maximum concurrent verifier API calls.
     """
     event: bool | None = None
     outcome: bool | None = None
@@ -243,23 +243,23 @@ class RubricConfig(ExtraModel):
     reward_blend: dict[str, float] | None = None  # env, event, outcome weights
 
 
-class JudgeConfig(ExtraModel):
-    """Judge configuration for LLM-based reward scoring.
+class VerifierConfig(ExtraModel):
+    """Verifier configuration for LLM-based reward scoring.
 
     Attributes:
-        type: Judge type - "synth" for Synth's hosted judge.
-        timeout_s: Timeout in seconds for judge API calls.
-        enabled: Master switch to enable/disable judge scoring.
+        type: Verifier type - "synth" for Synth's hosted verifier.
+        timeout_s: Timeout in seconds for verifier API calls.
+        enabled: Master switch to enable/disable verifier scoring.
         reward_blend: Reward source weights - {"env": 1.0, "event": 0.0, "outcome": 0.0}.
         rubric: Deprecated - use reward_blend instead.
-        options: Detailed judge options.
+        options: Detailed verifier options.
     """
     type: str | None = None
     timeout_s: int | None = None
-    enabled: bool | None = None  # Master switch for judge/rubric
+    enabled: bool | None = None  # Master switch for verifier/rubric
     reward_blend: dict[str, float] | None = None  # NEW: nested reward blending (replaces rubric.weights)
     rubric: RubricConfig | None = None  # DEPRECATED: use flat fields instead
-    options: JudgeOptionsConfig | None = None
+    options: VerifierOptionsConfig | None = None
 
 
 class SmokeConfig(ExtraModel):
@@ -337,7 +337,7 @@ class RLConfig(ExtraModel):
 
     Attributes:
         algorithm: Algorithm configuration (type, method, variety).
-        services: Service URLs (task_url, judge_url).
+        services: Service URLs (task_url, verifier_url).
         compute: GPU and compute configuration.
         topology: Deprecated - use compute.topology.
         vllm: vLLM inference server configuration.
@@ -348,8 +348,8 @@ class RLConfig(ExtraModel):
         rollout: Rollout/episode collection configuration.
         evaluation: Evaluation configuration.
         training: Training hyperparameters.
-        rubric: Deprecated - use judge.reward_blend.
-        judge: Judge/reward configuration.
+        rubric: Deprecated - use verifier.reward_blend.
+        verifier: Verifier/reward configuration.
         tags: Optional metadata tags.
         smoke: CLI-only smoke testing configuration.
 
@@ -387,8 +387,8 @@ class RLConfig(ExtraModel):
     rollout: RolloutConfig | None = None
     evaluation: EvaluationConfig | None = None
     training: RLTrainingConfig | None = None
-    rubric: dict[str, Any] | None = None  # DEPRECATED: use judge.reward_blend and judge.enabled instead
-    judge: JudgeConfig | None = None
+    rubric: dict[str, Any] | None = None  # DEPRECATED: use verifier.reward_blend and verifier.enabled instead
+    verifier: VerifierConfig | None = None
     tags: dict[str, Any] | None = None
     smoke: SmokeConfig | None = None  # CLI-only: local smoke testing config (ignored by trainer)
 
@@ -424,8 +424,8 @@ class RLConfig(ExtraModel):
 
 __all__ = [
     "EvaluationConfig",
-    "JudgeConfig",
-    "JudgeOptionsConfig",
+    "VerifierConfig",
+    "VerifierOptionsConfig",
     "ModelConfig",
     "RLConfig",
     "RLServicesConfig",

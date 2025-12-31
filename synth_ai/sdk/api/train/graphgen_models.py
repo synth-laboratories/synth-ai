@@ -1,8 +1,8 @@
-"""GraphGen (Automated Design of Agentic Systems) data models.
+"""GraphGen (Graph Opt) data models.
 
 This module provides Pydantic models for defining GraphGen datasets and job configurations.
 GraphGen is a simplified "Workflows API" for prompt optimization that wraps GEPA with
-auto-generated task apps and built-in judge configurations.
+auto-generated task apps and built-in verifier configurations.
 
 Example:
     from synth_ai.sdk.api.train.graphgen_models import (
@@ -11,6 +11,7 @@ Example:
         GraphGenGoldOutput,
         GraphGenRubric,
         GraphGenJobConfig,
+        GraphGenVerifierConfig,
     )
 
     # Create a dataset
@@ -24,7 +25,7 @@ Example:
             GraphGenGoldOutput(output={"answer": "4"}, task_id="task1"),
             GraphGenGoldOutput(output={"answer": "Paris"}, task_id="task2"),
         ],
-        judge_config=GraphGenJudgeConfig(mode="rubric"),
+        verifier_config=GraphGenVerifierConfig(mode="rubric"),
     )
 """
 
@@ -201,7 +202,7 @@ class GraphGenGoldOutput(BaseModel):
     """A gold/reference output.
 
     Can be linked to a specific task via task_id, or standalone (for reference examples).
-    Standalone gold outputs (no task_id) are used as reference pool for contrastive judging.
+    Standalone gold outputs (no task_id) are used as reference pool for contrastive verification.
     """
 
     output: Dict[str, Any] = Field(
@@ -217,16 +218,16 @@ class GraphGenGoldOutput(BaseModel):
 
 
 # Improvement 4: Define supported providers as a Literal type
-JudgeProviderType = Literal["groq", "openai", "google", "anthropic"]
+VerifierProviderType = Literal["groq", "openai", "google", "anthropic"]
 
 
-class GraphGenJudgeConfig(BaseModel):
-    """Configuration for the judge used during optimization."""
+class GraphGenVerifierConfig(BaseModel):
+    """Configuration for the verifier used during optimization."""
 
     mode: Literal["rubric", "contrastive", "gold_examples"] = Field(
         default="rubric",
         description=(
-            "Judge mode: "
+            "Verifier mode: "
             "'rubric' = evaluate against criteria, "
             "'contrastive' = compare to gold output, "
             "'gold_examples' = use gold examples as few-shot context"
@@ -234,12 +235,12 @@ class GraphGenJudgeConfig(BaseModel):
     )
     model: str = Field(
         default="llama-3.3-70b-versatile",
-        description="Model to use for judging",
+        description="Model to use for verification",
     )
     # Improvement 4: Changed from str to Literal type for better type safety
-    provider: JudgeProviderType = Field(
+    provider: VerifierProviderType = Field(
         default="groq",
-        description="Provider for judge model (groq, openai, google, anthropic)",
+        description="Provider for verifier model (groq, openai, google, anthropic)",
     )
 
 
@@ -247,7 +248,7 @@ class GraphGenTaskSet(BaseModel):
     """The complete GraphGen dataset format.
 
     Contains tasks with arbitrary JSON inputs, gold outputs (optionally linked to tasks),
-    rubrics (task-specific and/or default), and judge configuration.
+    rubrics (task-specific and/or default), and verifier configuration.
 
     Example:
         dataset = GraphGenTaskSet(
@@ -274,9 +275,9 @@ class GraphGenTaskSet(BaseModel):
         default=None,
         description="Default rubric applied to all tasks (merged with task-specific rubrics)",
     )
-    judge_config: GraphGenJudgeConfig = Field(
-        default_factory=GraphGenJudgeConfig,
-        description="Configuration for the judge",
+    verifier_config: GraphGenVerifierConfig = Field(
+        default_factory=GraphGenVerifierConfig,
+        description="Configuration for the verifier",
     )
     # Optional schemas (also accepted at top-level for backward/forward compatibility).
     input_schema: Optional[Dict[str, Any]] = Field(
@@ -417,7 +418,7 @@ class GraphGenTaskSet(BaseModel):
         return None
 
     def get_standalone_gold_outputs(self) -> List[GraphGenGoldOutput]:
-        """Get gold outputs not linked to any task (reference pool for contrastive judge)."""
+        """Get gold outputs not linked to any task (reference pool for contrastive verifier)."""
         return [gold for gold in self.gold_outputs if gold.task_id is None]
 
 
@@ -445,8 +446,8 @@ SUPPORTED_POLICY_MODELS = {
     "claude-3-5-haiku-latest",
 }
 
-# Supported judge models
-SUPPORTED_JUDGE_MODELS = {
+# Supported verifier models
+SUPPORTED_VERIFIER_MODELS = {
     # Groq (fast, cheap)
     "llama-3.3-70b-versatile",
     "llama-3.1-70b-versatile",
@@ -457,8 +458,8 @@ SUPPORTED_JUDGE_MODELS = {
 
 # Default models
 DEFAULT_POLICY_MODEL = "gpt-4o-mini"
-DEFAULT_JUDGE_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_JUDGE_PROVIDER = "groq"
+DEFAULT_VERIFIER_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_VERIFIER_PROVIDER = "groq"
 
 
 class EventInput(BaseModel):
@@ -484,7 +485,7 @@ class SessionTimeStepInput(BaseModel):
 
 
 class SessionTraceInput(BaseModel):
-    """V3-compatible session trace input for judge evaluation."""
+    """V3-compatible session trace input for verifier evaluation."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -505,7 +506,7 @@ class SessionTraceInput(BaseModel):
         return data
 
 
-class GraphGenGraphJudgeRequest(BaseModel):
+class GraphGenGraphVerifierRequest(BaseModel):
     """Request for verifier graph inference."""
 
     model_config = ConfigDict(extra="forbid")
@@ -576,7 +577,7 @@ class OutcomeRewardResponse(BaseModel):
     annotation: Optional[Dict[str, Any]] = Field(default=None, description="Additional annotations (free-form)")
 
 
-class GraphGenGraphJudgeResponse(BaseModel):
+class GraphGenGraphVerifierResponse(BaseModel):
     """Response from verifier graph inference."""
 
     started_at: datetime = Field(..., description="When inference request started (UTC)")
@@ -589,30 +590,20 @@ class GraphGenGraphJudgeResponse(BaseModel):
     event_rewards: List[EventRewardResponse] = Field(default_factory=list, description="Per-event rewards")
     outcome_reward: Optional[OutcomeRewardResponse] = Field(default=None, description="Episode-level outcome reward")
 
-    # Legacy fields (kept for backward compatibility)
-    score: float = Field(..., ge=0.0, le=1.0, description="Evaluation score (0-1)")
-    reasoning: Optional[str] = Field(default=None, description="Explanation for the score")
-    sub_scores: Optional[Dict[str, float]] = Field(default=None, description="Breakdown scores by criteria")
     raw_output: Optional[Dict[str, Any]] = Field(default=None, description="Full raw output from the verifier graph")
 
     usage: List[GraphGenGraphCompletionsModelUsage] = Field(default_factory=list, description="Token usage per model")
 
 
-class GraphGenGraphVerifierRequest(GraphGenGraphJudgeRequest):
-    """Alias for GraphGenGraphJudgeRequest with verifier terminology."""
-
-
-class GraphGenGraphVerifierResponse(GraphGenGraphJudgeResponse):
-    """Alias for GraphGenGraphJudgeResponse with verifier terminology."""
 
 
 class GraphGenJobConfig(BaseModel):
-    """Configuration for a GraphGen (Automated Design of Agentic Systems) optimization job.
+    """Configuration for a GraphGen (Graph Opt) optimization job.
 
     GraphGen provides a simplified API for training optimized graphs/workflows without
     managing task apps manually. It supports three graph types:
     - **policy**: Standard input-to-output graphs for classification, QA, generation
-    - **verifier**: Trace-to-score graphs for judging/evaluating agent behavior
+    - **verifier**: Trace-to-score graphs for verifying/evaluating agent behavior
     - **rlm**: Recursive Language Model graphs for massive contexts via tool-based search
 
     Example:
@@ -635,8 +626,8 @@ class GraphGenJobConfig(BaseModel):
         rollout_budget: Total rollouts (evaluations) for optimization. Range: 10-10000.
         proposer_effort: Mutation quality/cost level - "medium" or "high".
             Note: "low" is not allowed (gpt-4.1-mini too weak for graph generation).
-        judge_model: Override judge model from dataset.
-        judge_provider: Override judge provider from dataset.
+        verifier_model: Override verifier model from dataset.
+        verifier_provider: Override verifier provider from dataset.
         population_size: GEPA population size. Range: 2-20. Default: 4.
         num_generations: Number of generations (auto-calculated from budget if not specified).
         num_parents: Number of parents for selection. Range: 1-10. Default: 2.
@@ -715,14 +706,14 @@ class GraphGenJobConfig(BaseModel):
         ),
     )
 
-    # Judge settings (if not specified in dataset)
-    judge_model: Optional[str] = Field(
+    # Verifier settings (if not specified in dataset)
+    verifier_model: Optional[str] = Field(
         default=None,
-        description="Override judge model from dataset",
+        description="Override verifier model from dataset",
     )
-    judge_provider: Optional[str] = Field(
+    verifier_provider: Optional[str] = Field(
         default=None,
-        description="Override judge provider from dataset",
+        description="Override verifier provider from dataset",
     )
 
     # Advanced settings
@@ -851,7 +842,7 @@ GraphGenRubric = GraphGenRubric
 GraphGenRubricCriterion = GraphGenRubricCriterion
 GraphGenRubricOutcome = GraphGenRubricOutcome
 GraphGenRubricEvents = GraphGenRubricEvents
-GraphGenJudgeConfig = GraphGenJudgeConfig
+GraphGenVerifierConfig = GraphGenVerifierConfig
 GraphGenJobConfig = GraphGenJobConfig
 parse_graphgen_taskset = parse_graphgen_taskset
 load_graphgen_taskset = load_graphgen_taskset
@@ -859,7 +850,7 @@ load_graphgen_taskset = load_graphgen_taskset
 __all__ = [
     # Core types (new)
     "OutputConfig",
-    "JudgeProviderType",
+    "VerifierProviderType",
     # GraphGen names (preferred)
     "GraphGenTaskSet",
     "GraphGenTaskSetMetadata",
@@ -869,14 +860,14 @@ __all__ = [
     "GraphGenRubricCriterion",
     "GraphGenRubricOutcome",
     "GraphGenRubricEvents",
-    "GraphGenJudgeConfig",
+    "GraphGenVerifierConfig",
     "GraphGenJobConfig",
     "parse_graphgen_taskset",
     "load_graphgen_taskset",
     # Constants
     "SUPPORTED_POLICY_MODELS",
-    "SUPPORTED_JUDGE_MODELS",
+    "SUPPORTED_VERIFIER_MODELS",
     "DEFAULT_POLICY_MODEL",
-    "DEFAULT_JUDGE_MODEL",
-    "DEFAULT_JUDGE_PROVIDER",
+    "DEFAULT_VERIFIER_MODEL",
+    "DEFAULT_VERIFIER_PROVIDER",
 ]

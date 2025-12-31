@@ -125,24 +125,139 @@ class RolloutRequest(BaseModel):
 
 
 class RolloutMetrics(BaseModel):
-    episode_returns: list[float]
-    mean_return: float
-    num_steps: int
-    num_episodes: int = 0
-    outcome_score: float | None = None
-    events_score: float | None = None
-    details: dict[str, Any] = Field(default_factory=dict)
+    """Metrics from a rollout execution.
+
+    ## Preferred Fields (New - Normalized)
+
+    - `outcome_reward`: The reward for this rollout (PREFERRED)
+    - `event_rewards`: Optional per-step rewards
+
+    ## Legacy Fields (Backward Compatibility)
+
+    - `episode_rewards`, `reward_mean`, `num_steps`: Still supported for backward
+      compatibility. For new implementations, just use `outcome_reward`.
+    - `outcome_score`: Alias for `outcome_reward` (deprecated)
+
+    ## Example - Minimal (New Style)
+
+        metrics = RolloutMetrics(
+            outcome_reward=1.0,  # PREFERRED - just provide the reward
+        )
+
+    ## Example - Full (Backward Compatible)
+
+        metrics = RolloutMetrics(
+            episode_rewards=[1.0],
+            reward_mean=1.0,
+            num_steps=1,
+            outcome_reward=1.0,  # PREFERRED
+        )
+    """
+
+    # =========================================================================
+    # PREFERRED FIELDS (New - Normalized)
+    # =========================================================================
+    outcome_reward: float | None = Field(
+        default=None,
+        description="The reward for this rollout. PREFERRED field for scoring.",
+    )
+    event_rewards: list[float] | None = Field(
+        default=None,
+        description="Optional per-step/event rewards for multi-step tasks.",
+    )
+
+    # =========================================================================
+    # LEGACY FIELDS (Backward Compatibility)
+    # =========================================================================
+    episode_rewards: list[float] = Field(
+        default_factory=list,
+        description="[LEGACY] Per-episode rewards. Use outcome_reward instead.",
+    )
+    reward_mean: float = Field(
+        default=0.0,
+        description="[LEGACY] Mean reward. Use outcome_reward instead.",
+    )
+    num_steps: int = Field(
+        default=1,
+        description="[LEGACY] Step count. Can be derived from event_rewards or trace.",
+    )
+    num_episodes: int = Field(
+        default=1,
+        description="[LEGACY] Episode count. Usually 1 for GEPA tasks.",
+    )
+    outcome_score: float | None = Field(
+        default=None,
+        description="[DEPRECATED] Alias for outcome_reward. Use outcome_reward instead.",
+    )
+    events_score: float | None = Field(
+        default=None,
+        description="[LEGACY] Aggregate event score. Use event_rewards instead.",
+    )
+    details: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Metadata only. Do NOT use details.correct for rewards.",
+    )
 
 
 class RolloutResponse(BaseModel):
-    """Response from a rollout execution (trace-only)."""
+    """Response from a rollout execution.
+
+    ## Key Fields
+
+    - `run_id`: Echo from request (required)
+    - `metrics`: Rollout metrics with `outcome_reward` (required)
+    - `trace`: v3 trace payload (required for verifier scoring)
+
+    ## Canonical Locations (Top-Level)
+
+    - `trace_correlation_id`: Correlation ID for trace recovery (TOP-LEVEL CANONICAL)
+    - `inference_url`: Inference URL used for this rollout (TOP-LEVEL CANONICAL)
+
+    These fields SHOULD be at top-level. The monorepo parses from top-level first,
+    with fallback to nested locations for backward compatibility.
+
+    ## Example
+
+        response = RolloutResponse(
+            run_id=request.run_id,
+            metrics=RolloutMetrics(outcome_reward=1.0),
+            trace=trace_payload,
+            trace_correlation_id="trace_abc123",
+            inference_url="https://api.usesynth.ai/v1/trial-xyz",
+        )
+    """
+
     run_id: str
-    branches: dict[str, list[str]] = Field(default_factory=dict)
     metrics: RolloutMetrics
-    aborted: bool = False
-    trace_correlation_id: str | None = None
     trace: dict[str, Any] | None = None
-    pipeline_metadata: dict[str, Any] = Field(default_factory=dict)
+
+    # =========================================================================
+    # CANONICAL LOCATIONS (Top-Level - Preferred for Parsing)
+    # =========================================================================
+    trace_correlation_id: str | None = Field(
+        default=None,
+        description="Correlation ID for trace recovery. TOP-LEVEL CANONICAL location.",
+    )
+    inference_url: str | None = Field(
+        default=None,
+        description="Inference URL used for this rollout. TOP-LEVEL CANONICAL location.",
+    )
+
+    # =========================================================================
+    # LEGACY FIELDS (Backward Compatibility)
+    # =========================================================================
+    branches: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="[LEGACY] Branch tracking. Usually empty for single-path rollouts.",
+    )
+    aborted: bool = Field(
+        default=False,
+        description="Whether the rollout was aborted early.",
+    )
+    pipeline_metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="[LEGACY] Additional metadata. Prefer top-level fields instead.",
+    )
 
 
 class _ExtraAllowModel(BaseModel):
@@ -183,7 +298,7 @@ class RubricSection(_ExtraAllowModel):
 
 
 class RubricInfo(_ExtraAllowModel):
-    """Outcome and event scoring definitions used by judges."""
+    """Outcome and event scoring definitions used by verifiers."""
 
     outcome: RubricSection | None = None
     events: RubricSection | None = None
@@ -208,11 +323,17 @@ class TaskInfo(_ExtraAllowModel):
     """Static metadata describing the capabilities of a Task App task."""
 
     task: TaskDescriptor
-    environment: str
     dataset: DatasetInfo
-    rubric: RubricInfo
     inference: InferenceInfo
     limits: LimitsInfo
+    environment: str | None = Field(
+        default=None,
+        description="[DEPRECATED] Legacy field not read by server. Will be removed in future version.",
+    )
+    rubric: RubricInfo | None = Field(
+        default=None,
+        description="[DEPRECATED] Use LocalAPIConfig.rubrics (RubricBundle) instead. Server ignores this field.",
+    )
     task_metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Task-specific extras (e.g. prompt version info, documentation links).",

@@ -4,7 +4,7 @@ This module provides high-level APIs for running training jobs:
 - PromptLearningJob: GEPA and MIPRO prompt optimization
 - SFTJob: Supervised fine-tuning
 - RLJob: Reinforcement learning (GSPO, GRPO, PPO, etc.)
-- GraphGenJob: Automated Design of Agentic Systems (simplified workflows API)
+- GraphGenJob: Graph Opt (simplified workflows API)
 
 Example:
     from synth_ai.sdk.training import PromptLearningJob, RLJob, GraphGenJob
@@ -41,7 +41,7 @@ from synth_ai.sdk.api.train.prompt_learning import (
 from synth_ai.sdk.api.train.rl import RLJob, RLJobConfig
 from synth_ai.sdk.api.train.sft import SFTJob
 
-# GraphGen (formerly GraphGen)
+# GraphGen (Graph Opt)
 from synth_ai.sdk.api.train.graphgen import GraphGenJob, GraphGenJobResult, GraphGenSubmitResult
 from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenJobConfig,
@@ -49,16 +49,7 @@ from synth_ai.sdk.api.train.graphgen_models import (
     GraphGenTask,
     GraphGenGoldOutput,
     GraphGenRubric,
-    GraphGenJudgeConfig,
-    load_graphgen_taskset,
-    parse_graphgen_taskset,
-    # GraphGen aliases
-    GraphGenJobConfig,
-    GraphGenTaskSet,
-    GraphGenTask,
-    GraphGenGoldOutput,
-    GraphGenRubric,
-    GraphGenJudgeConfig,
+    GraphGenVerifierConfig,
     load_graphgen_taskset,
     parse_graphgen_taskset,
 )
@@ -80,7 +71,7 @@ __all__ = [
     "GraphGenTask",
     "GraphGenGoldOutput",
     "GraphGenRubric",
-    "GraphGenJudgeConfig",
+    "GraphGenVerifierConfig",
     "load_graphgen_taskset",
     "parse_graphgen_taskset",
     # GraphGen (legacy aliases)
@@ -92,7 +83,7 @@ __all__ = [
     "GraphGenTask",
     "GraphGenGoldOutput",
     "GraphGenRubric",
-    "GraphGenJudgeConfig",
+    "GraphGenVerifierConfig",
     "load_graphgen_taskset",
     "parse_graphgen_taskset",
     # Utils
@@ -100,4 +91,3 @@ __all__ = [
     "PollOutcome",
     "EvalJobPoller",
 ]
-

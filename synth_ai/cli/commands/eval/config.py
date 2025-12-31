@@ -102,7 +102,7 @@ class EvalRunConfig:
     metadata: dict[str, str] = field(default_factory=dict)
     output_txt: Path | None = None
     output_json: Path | None = None
-    judge_config: dict[str, Any] | None = None
+    verifier_config: dict[str, Any] | None = None
     backend_url: str | None = None
     backend_api_key: str | None = None
     wait: bool = False
@@ -174,12 +174,12 @@ def _from_prompt_learning(
             policy_cfg["inference_url"] = pl_cfg.policy.inference_url
 
     app_id = pl_cfg.task_app_id or (env_name or "")
-    judge_cfg = None
-    if pl_cfg.judge:
-        if isinstance(pl_cfg.judge, dict):
-            judge_cfg = dict(pl_cfg.judge)
+    verifier_cfg = None
+    if pl_cfg.verifier:
+        if isinstance(pl_cfg.verifier, dict):
+            verifier_cfg = dict(pl_cfg.verifier)
         else:
-            judge_cfg = pl_cfg.judge.model_dump(mode="python")
+            verifier_cfg = pl_cfg.verifier.model_dump(mode="python")
 
     return EvalRunConfig(
         app_id=app_id,
@@ -192,7 +192,7 @@ def _from_prompt_learning(
         seeds=seeds,
         ops=[],
         concurrency=(gepa.rollout.max_concurrent if gepa and gepa.rollout else 1),
-        judge_config=judge_cfg,
+        verifier_config=verifier_cfg,
     )
 
 

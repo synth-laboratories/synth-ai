@@ -110,8 +110,8 @@ from synth_ai.sdk.graphs import GraphCompletionsClient
 
 client = GraphCompletionsClient(base_url="https://api.usesynth.ai", api_key="...")
 resp = await client.run(
-    graph={"kind": "zero_shot", "verifier_type": "zero_shot_verifier_mapreduce"},
-    input_data={"session_trace": {"session_id": "s", "event_history": []}, "rubric": {"event": [], "outcome": []}},
+    graph={"kind": "zero_shot", "verifier_shape": "zero_shot_verifier_mapreduce"},
+    input_data={"trace": {"session_id": "s", "event_history": []}, "rubric": {"event": [], "outcome": []}},
 )
 ```
 
@@ -122,7 +122,7 @@ Train custom verifier and RLM graphs using GraphGen:
 ```python
 from synth_ai.sdk.api.train.graphgen import GraphGenJob
 
-# Train a verifier graph (judge/scorer)
+# Train a verifier graph
 verifier_job = GraphGenJob.from_dataset(
     dataset="verifier_dataset.json",
     graph_type="verifier",
@@ -134,7 +134,7 @@ verifier_job.submit()
 result = verifier_job.stream_until_complete(timeout=3600.0)
 
 # Run inference with trained verifier
-judgment = verifier_job.run_verifier(
+verification = verifier_job.run_verifier(
     session_trace=my_trace,
     context={"rubric": my_rubric},
 )
@@ -163,7 +163,7 @@ output = rlm_job.run_inference({"query": "Find relevant sections", "context": la
 ```
 
 **Graph Types:**
-- **`verifier`**: Trains a judge/scorer that evaluates traces and returns structured rewards
+- **`verifier`**: Trains a verifier graph that evaluates traces and returns structured rewards
 - **`rlm`**: Trains a graph optimized for massive contexts (1M+ tokens) using tool-based search
 - **`policy`**: Trains a standard input→output graph (default)
 

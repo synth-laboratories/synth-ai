@@ -33,8 +33,8 @@ def test_eval_in_process_and_remote_overrides(monkeypatch, tmp_path):
                 ],
                 "branches": {},
                 "metrics": {
-                    "episode_returns": [0.0],
-                    "mean_return": 0.0,
+                    "episode_rewards": [0.0],
+                    "reward_mean": 0.0,
                     "num_steps": 1,
                     "num_episodes": 1,
                 },

@@ -7,22 +7,27 @@ Example CLI usage:
     python -m synth_ai.cli eval --config banking77_eval.toml --backend http://localhost:8000
 
 Example SDK usage:
-    from synth_ai.sdk.api.eval import EvalJob
+    from synth_ai.sdk.api.eval import EvalJob, EvalResult
 
-    job = EvalJob.from_config(
-        config_path="banking77_eval.toml",
-        backend_url="https://api.usesynth.ai",
-        api_key="sk_live_...",
-    )
+    job = EvalJob(config)
     job.submit()
-    results = job.poll_until_complete()
-    print(f"Mean score: {results['summary']['mean_score']}")
+
+    # progress=True provides built-in status printing:
+    # [00:05] running | 3/10 completed
+    # [00:10] running | 7/10 completed
+    # [00:15] completed | mean_score: 0.85
+    result = job.poll_until_complete(progress=True)
+
+    # Typed result access (not raw dict)
+    if result.succeeded:
+        print(f"Mean score: {result.mean_score}")
+        print(f"Total cost: ${result.total_cost_usd:.4f}")
 
 See Also:
     - `synth_ai.cli.commands.eval`: CLI implementation
     - Backend API: POST /api/eval/jobs
 """
 
-from .job import EvalJob, EvalJobConfig
+from .job import EvalJob, EvalJobConfig, EvalResult, EvalStatus
 
-__all__ = ["EvalJob", "EvalJobConfig"]
+__all__ = ["EvalJob", "EvalJobConfig", "EvalResult", "EvalStatus"]

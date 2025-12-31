@@ -5,7 +5,7 @@ from typing import Any, Iterable, Sequence
 
 import pytest
 
-from synth_ai.sdk.judging.schemas import JudgeScoreResponse
+from synth_ai.sdk.graphs.verifier_schemas import VerifierScoreResponse
 
 
 def _merge_summaries(
@@ -82,8 +82,8 @@ def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     return num / (denom_x * denom_y)
 
 
-def _validate_and_aggregate_judge_response(response_dict: dict[str, Any]) -> tuple[JudgeScoreResponse, float | None, float | None]:
-    validated = JudgeScoreResponse.model_validate(response_dict)
+def _validate_and_aggregate_verifier_response(response_dict: dict[str, Any]) -> tuple[VerifierScoreResponse, float | None, float | None]:
+    validated = VerifierScoreResponse.model_validate(response_dict)
     event_reward = validated.aggregate_event_reward()
     outcome_reward = validated.aggregate_outcome_reward()
     return validated, event_reward, outcome_reward
@@ -142,8 +142,7 @@ def test_validate_and_aggregate_contract_parsing() -> None:
         "details": {},
         "metadata": {"provider": "x"},
     }
-    validated, event_reward, outcome_reward = _validate_and_aggregate_judge_response(response)
+    validated, event_reward, outcome_reward = _validate_and_aggregate_verifier_response(response)
     assert event_reward == pytest.approx(1.0)
     assert outcome_reward == pytest.approx(0.5)
-
 

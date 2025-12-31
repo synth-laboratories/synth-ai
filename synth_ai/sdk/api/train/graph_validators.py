@@ -1,7 +1,7 @@
-"""TOML schema + validation for ADAS/Graphs jobs.
+"""TOML schema + validation for Graph Opt (GraphGen) jobs.
 
-Graphs jobs (aka ADAS jobs) are JSON-dataset-first, but for convenience we also
-support a small TOML wrapper that points at an GraphGenTaskSet JSON file plus a few
+Graph Opt jobs are JSON-dataset-first, but for convenience we also
+support a small TOML wrapper that points at a GraphGenTaskSet JSON file plus a few
 optimization knobs.
 
 Example `graph.toml`:
@@ -16,7 +16,7 @@ auto_start = true                 # optional
 
 [graph.metadata]
 session_id = "sess_123"
-parent_job_id = "adas_parent"
+parent_job_id = "graph_opt_parent"
 population_size = 4
 num_generations = 5
 ```
@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast, Literal
 
-from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
+    from .graphgen_models import GraphGenJobConfig, GraphGenTaskSet, load_graphgen_taskset
 from .graphgen_validators import GraphGenValidationError, validate_graphgen_job_config
 
 
@@ -112,8 +112,8 @@ def validate_graph_job_section(
             policy_provider=section.get("policy_provider"),
             rollout_budget=int(rollout_budget) if rollout_budget is not None else 100,
             proposer_effort=cast(Literal["low", "medium", "high"], str(proposer_effort)) if proposer_effort is not None else "medium",
-            judge_model=section.get("judge_model"),
-            judge_provider=section.get("judge_provider"),
+            verifier_model=section.get("verifier_model"),
+            verifier_provider=section.get("verifier_provider"),
             population_size=section.get("population_size", 4),
             num_generations=section.get("num_generations"),
         )
@@ -151,17 +151,17 @@ def load_graph_job_toml(path: str | Path) -> GraphTomlResult:
     with open(path, "rb") as f:
         cfg = tomllib.load(f)
 
-    section = cfg.get("graph") or cfg.get("adas") or {}
+    section = cfg.get("graph") or {}
     return validate_graph_job_section(section, base_dir=path.parent)
 
 
 def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
-    """Validate a graph/ADAS job payload (matching backend create request).
+    """Validate a graph job payload (matching backend create request).
 
     Expected keys:
       - dataset: GraphGenTaskSet dict
       - policy_model, rollout_budget, proposer_effort
-      - optional judge_model/judge_provider
+      - optional verifier_model/verifier_provider
       - optional metadata (population_size/num_generations)
     """
     errors: List[Dict[str, Any]] = []
@@ -188,8 +188,8 @@ def validate_graph_job_payload(payload: Dict[str, Any]) -> None:
             policy_provider=payload.get("policy_provider"),
             rollout_budget=int(payload.get("rollout_budget") or 100),
             proposer_effort=cast(Literal["low", "medium", "high"], str(payload.get("proposer_effort") or "medium")),
-            judge_model=payload.get("judge_model"),
-            judge_provider=payload.get("judge_provider"),
+            verifier_model=payload.get("verifier_model"),
+            verifier_provider=payload.get("verifier_provider"),
             population_size=metadata.get("population_size", 4),
             num_generations=metadata.get("num_generations"),
         )

@@ -12,15 +12,15 @@ except Exception:
     # Silently fail if log filter can't be installed
     pass
 
-# Judge schemas moved to sdk/judging/schemas.py
-from synth_ai.sdk.judging.schemas import (
+# Verifier schemas live under sdk/graphs/verifier_schemas.py
+from synth_ai.sdk.graphs.verifier_schemas import (
     CriterionScorePayload,
-    JudgeOptions,
-    JudgeScoreRequest,
-    JudgeScoreResponse,
-    JudgeTaskApp,
-    JudgeTracePayload,
     ReviewPayload,
+    VerifierOptions,
+    VerifierScoreRequest,
+    VerifierScoreResponse,
+    VerifierTaskApp,
+    VerifierTracePayload,
 )
 
 try:  # Prefer the installed package metadata when available
@@ -45,12 +45,12 @@ EventPartitionElement = RewardSignal = SystemTrace = TrainingQuestion = None  # 
 trace_event_async = trace_event_sync = upload = None  # type: ignore
 
 __all__ = [
-    # Judge API contracts
-    "JudgeScoreRequest",
-    "JudgeScoreResponse",
-    "JudgeOptions",
-    "JudgeTaskApp",
-    "JudgeTracePayload",
+    # Verifier API contracts
+    "VerifierScoreRequest",
+    "VerifierScoreResponse",
+    "VerifierOptions",
+    "VerifierTaskApp",
+    "VerifierTracePayload",
     "ReviewPayload",
     "CriterionScorePayload",
 ]  # Explicitly define public API (v1 tracing omitted in minimal env)

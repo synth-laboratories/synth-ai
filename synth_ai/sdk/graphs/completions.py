@@ -21,7 +21,7 @@ import httpx
 
 from synth_ai.core.http import AsyncHttpClient, HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
-from synth_ai.sdk.judging.schemas import (
+from synth_ai.sdk.graphs.verifier_schemas import (
     CalibrationExampleInput,
     GoldExampleInput,
 )
@@ -34,7 +34,7 @@ class GraphTarget(TypedDict, total=False):
     job_id: str
     graph_name: str
     graphgen_job_id: str
-    verifier_type: str
+    verifier_shape: str
 
 
 class GraphInfo(TypedDict, total=False):
@@ -43,7 +43,7 @@ class GraphInfo(TypedDict, total=False):
     graph_id: str
     name: str
     version: int
-    kind: str  # "policy", "verifier", "judge"
+    kind: str  # "policy", "verifier"
     best_score: float | None
     job_id: str | None  # Source job that created this graph
     created_at: str
@@ -117,10 +117,10 @@ class GraphCompletionsSyncClient:
             return str(graph["job_id"])
         kind = graph.get("kind")
         if kind == "zero_shot":
-            verifier_type = graph.get("verifier_type") or graph.get("graph_name")
-            if not verifier_type:
-                raise ValueError("graph_completions_missing_verifier_type")
-            return str(verifier_type)
+            verifier_shape = graph.get("verifier_shape") or graph.get("graph_name")
+            if not verifier_shape:
+                raise ValueError("graph_completions_missing_verifier_shape")
+            return str(verifier_shape)
         if kind == "graphgen":
             graphgen_job_id = graph.get("graphgen_job_id")
             if not graphgen_job_id:
@@ -163,7 +163,7 @@ class GraphCompletionsSyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        url = f"{self._base}/graphgen/graph/completions"
+        url = f"{self._base}/api/graphs/completions"
         headers = {"X-API-Key": self._key, "Content-Type": "application/json"}
 
         with httpx.Client(timeout=timeout or self._timeout) as client:
@@ -263,7 +263,7 @@ class GraphCompletionsAsyncClient:
         (determined by API key).
 
         Args:
-            kind: Optional filter by graph kind ("policy", "verifier", "judge")
+            kind: Optional filter by graph kind ("policy", "verifier")
             limit: Maximum number of graphs to return (default: 50)
 
         Returns:
@@ -312,10 +312,10 @@ class GraphCompletionsAsyncClient:
             return str(graph["job_id"])
         kind = graph.get("kind")
         if kind == "zero_shot":
-            verifier_type = graph.get("verifier_type") or graph.get("graph_name")
-            if not verifier_type:
-                raise ValueError("graph_completions_missing_verifier_type")
-            return str(verifier_type)
+            verifier_shape = graph.get("verifier_shape") or graph.get("graph_name")
+            if not verifier_shape:
+                raise ValueError("graph_completions_missing_verifier_shape")
+            return str(verifier_shape)
         if kind == "graphgen":
             graphgen_job_id = graph.get("graphgen_job_id")
             if not graphgen_job_id:
@@ -428,7 +428,7 @@ class GraphCompletionsAsyncClient:
         rubric: Mapping[str, Any],
         system_prompt: str | None = None,
         user_prompt: str | None = None,
-        verifier_type: str | None = None,
+        verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
@@ -439,7 +439,7 @@ class GraphCompletionsAsyncClient:
             rubric: Rubric with event/outcome criteria
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
-            verifier_type: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options (event, outcome, etc.)
             model: Optional model override
             
@@ -447,11 +447,11 @@ class GraphCompletionsAsyncClient:
             Verification result with event_reviews, outcome_review, etc.
         """
         # Auto-select graph shape based on trace size
-        if verifier_type is None:
-            verifier_type = self._select_graph_shape(session_trace)
+        if verifier_shape is None:
+            verifier_shape = self._select_graph_shape(session_trace)
         
         # Use composable naming: zero_shot_verifier_{gold_output_format}_{graph_shape}
-        graph_id = f"zero_shot_verifier_rubric_{verifier_type}"
+        graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
         
         input_data: dict[str, Any] = {
             "session_trace": normalize_for_json(session_trace),
@@ -479,7 +479,7 @@ class GraphCompletionsAsyncClient:
         expected_rubric: str | None = None,
         system_prompt: str | None = None,
         user_prompt: str | None = None,
-        verifier_type: str | None = None,
+        verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
@@ -495,7 +495,7 @@ class GraphCompletionsAsyncClient:
             expected_rubric: Optional rubric/ground truth for the trace being evaluated
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
-            verifier_type: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
             
@@ -517,10 +517,10 @@ class GraphCompletionsAsyncClient:
                     f"and outcome_reward (float 0.0-1.0). event_rewards length must match trace events."
                 ) from e
         
-        if verifier_type is None:
-            verifier_type = self._select_graph_shape(session_trace)
+        if verifier_shape is None:
+            verifier_shape = self._select_graph_shape(session_trace)
         
-        graph_id = f"zero_shot_verifier_fewshot_{verifier_type}"
+        graph_id = f"zero_shot_verifier_fewshot_{verifier_shape}"
         
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
@@ -554,7 +554,7 @@ class GraphCompletionsAsyncClient:
         expected_rubric: str | None = None,
         system_prompt: str | None = None,
         user_prompt: str | None = None,
-        verifier_type: str | None = None,
+        verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
@@ -574,7 +574,7 @@ class GraphCompletionsAsyncClient:
             expected_rubric: Optional rubric/ground truth for this trace
             system_prompt: Optional custom system prompt
             user_prompt: Optional custom user prompt
-            verifier_type: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
             
@@ -608,10 +608,10 @@ class GraphCompletionsAsyncClient:
                 f"candidate_reasoning must be a non-empty string, got {type(candidate_reasoning).__name__}"
             )
         
-        if verifier_type is None:
-            verifier_type = self._select_graph_shape(session_trace)
+        if verifier_shape is None:
+            verifier_shape = self._select_graph_shape(session_trace)
         
-        graph_id = f"zero_shot_verifier_contrastive_{verifier_type}"
+        graph_id = f"zero_shot_verifier_contrastive_{verifier_shape}"
         
         # Convert validated examples back to dict for serialization
         input_data: dict[str, Any] = {
@@ -641,7 +641,7 @@ class GraphCompletionsAsyncClient:
         session_trace: Mapping[str, Any],
         system_prompt: str,
         user_prompt: str,
-        verifier_type: str | None = None,
+        verifier_shape: str | None = None,
         options: Mapping[str, Any] | None = None,
         model: str | None = None,
     ) -> dict[str, Any]:
@@ -651,19 +651,19 @@ class GraphCompletionsAsyncClient:
             session_trace: V3 trace format
             system_prompt: Custom system prompt (required)
             user_prompt: Custom user prompt (required)
-            verifier_type: "single", "mapreduce", or "rlm" (auto-detects if None)
+            verifier_shape: "single", "mapreduce", or "rlm" (auto-detects if None)
             options: Optional execution options
             model: Optional model override
             
         Returns:
             Verification result
         """
-        if verifier_type is None:
-            verifier_type = self._select_graph_shape(session_trace)
+        if verifier_shape is None:
+            verifier_shape = self._select_graph_shape(session_trace)
         
         # For custom prompts, use rubric single graph but with custom prompts
         # The graph will use the prompts instead of rubric
-        graph_id = f"zero_shot_verifier_rubric_{verifier_type}"
+        graph_id = f"zero_shot_verifier_rubric_{verifier_shape}"
         
         input_data: dict[str, Any] = {
             "session_trace": normalize_for_json(session_trace),
@@ -754,7 +754,6 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
         input_data: dict[str, Any] = {
             "policy_name": policy_name,
             "task_app": task_app_payload,
-            "session_trace": trace_payload,
             "trace": trace_payload,
             "options": dict(options or {}),
         }
@@ -770,9 +769,8 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
         )
 
 
-# Backward-compatible aliases
 GraphCompletionsClient = GraphCompletionsAsyncClient
-"""Alias for GraphCompletionsAsyncClient (backward compatibility)."""
+"""Alias for GraphCompletionsAsyncClient."""
 
 VerifierClient = VerifierAsyncClient
-"""Alias for VerifierAsyncClient (backward compatibility)."""
+"""Alias for VerifierAsyncClient."""

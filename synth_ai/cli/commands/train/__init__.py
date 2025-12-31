@@ -1,22 +1,21 @@
 from .core import register, train_command
 from .errors import (
-    InvalidJudgeConfigError,
     InvalidRubricConfigError,
+    InvalidVerifierConfigError,
     TrainCliError,
 )
-from .judge_schemas import (
-    JudgeConfig,
-    JudgeOptionsConfig,
-    JudgeRequestPayload,
+from .verifier_schemas import (
     RubricConfig,
     RubricWeightsConfig,
-    build_judge_http_options,
+    VerifierConfig,
+    VerifierOptionsConfig,
+    VerifierRequestPayload,
+    build_verifier_http_options,
 )
-from .judge_validation import (
-    check_for_deprecated_fields,
-    extract_and_validate_judge_rubric,
-    validate_judge_config,
+from .verifier_validation import (
+    extract_and_validate_verifier_rubric,
     validate_rubric_config,
+    validate_verifier_config,
 )
 from .validation import (
     load_and_validate_rl,
@@ -31,23 +30,22 @@ __all__ = [
     "train_command",
     # Errors
     "TrainCliError",
-    "InvalidJudgeConfigError",
+    "InvalidVerifierConfigError",
     "InvalidRubricConfigError",
     # SFT/RL validation
     "validate_sft_config",
     "validate_rl_config",
     "load_and_validate_sft",
     "load_and_validate_rl",
-    # Judge/Rubric schemas
+    # Verifier/Rubric schemas
     "RubricWeightsConfig",
     "RubricConfig",
-    "JudgeOptionsConfig",
-    "JudgeConfig",
-    "JudgeRequestPayload",
-    "build_judge_http_options",
-    # Judge/Rubric validation
+    "VerifierOptionsConfig",
+    "VerifierConfig",
+    "VerifierRequestPayload",
+    "build_verifier_http_options",
+    # Verifier/Rubric validation
     "validate_rubric_config",
-    "validate_judge_config",
-    "extract_and_validate_judge_rubric",
-    "check_for_deprecated_fields",
+    "validate_verifier_config",
+    "extract_and_validate_verifier_rubric",
 ]

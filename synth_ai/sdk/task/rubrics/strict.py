@@ -1,11 +1,11 @@
-"""Strict rubric validators for step-wise judges.
+"""Strict rubric validators for step-wise verifiers.
 
 These validators enforce stricter constraints than the general-purpose rubrics:
 - Weights must be ≤ 1.0 and sum to exactly 1.0
 - Only weighted_sum aggregation is allowed
 - All required fields must be non-empty
 
-Used primarily for validation in judge configurations.
+Used primarily for validation in verifier configurations.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ class StrictCriterion(pydantic.BaseModel):
 
 
 class StrictRubric(pydantic.BaseModel):
-    """Strict rubric definition for step-wise judges.
+    """Strict rubric definition for step-wise verifiers.
     
     Enforces:
     - Weights must sum to 1.0
@@ -146,4 +146,3 @@ def validate_rubric_files(paths: Iterable[Path]) -> list[StrictRubric]:
     for path in paths:
         validated.append(validate_rubric_file(path))
     return validated
-

@@ -547,37 +547,37 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
                 )
                 errors.extend(lo_errors)
     
-    # Validate judge config (shared by GEPA and MIPRO)
-    judge_section = pl_section.get("judge") or {}
-    if judge_section:
-        if not isinstance(judge_section, dict):
-            errors.append(f"prompt_learning.judge must be a table/dict, got {type(judge_section).__name__}")
+    # Validate verifier config (shared by GEPA and MIPRO)
+    verifier_section = pl_section.get("verifier") or {}
+    if verifier_section:
+        if not isinstance(verifier_section, dict):
+            errors.append(f"prompt_learning.verifier must be a table/dict, got {type(verifier_section).__name__}")
         else:
-            reward_source = str(judge_section.get("reward_source", "task_app")).strip().lower()
-            enabled = bool(judge_section.get("enabled"))
-            if reward_source and reward_source not in {"task_app", "judge", "fused"}:
-                errors.append("prompt_learning.judge.reward_source must be 'task_app', 'judge', or 'fused'")
-            backend_base = str(judge_section.get("backend_base", "") or "").strip()
-            backend_provider = str(judge_section.get("backend_provider", "") or "").strip()
-            backend_model = str(judge_section.get("backend_model", "") or "").strip()
+            reward_source = str(verifier_section.get("reward_source", "task_app")).strip().lower()
+            enabled = bool(verifier_section.get("enabled"))
+            if reward_source and reward_source not in {"task_app", "verifier", "fused"}:
+                errors.append("prompt_learning.verifier.reward_source must be 'task_app', 'verifier', or 'fused'")
+            backend_base = str(verifier_section.get("backend_base", "") or "").strip()
+            backend_provider = str(verifier_section.get("backend_provider", "") or "").strip()
+            backend_model = str(verifier_section.get("backend_model", "") or "").strip()
             if enabled:
                 pass
             if reward_source == "fused":
-                weight_event = judge_section.get("weight_event", 0.0)
-                weight_outcome = judge_section.get("weight_outcome", 0.0)
+                weight_event = verifier_section.get("weight_event", 0.0)
+                weight_outcome = verifier_section.get("weight_outcome", 0.0)
                 try:
                     weight_event_f = float(weight_event)
                 except (TypeError, ValueError):
-                    errors.append("prompt_learning.judge.weight_event must be numeric")
+                    errors.append("prompt_learning.verifier.weight_event must be numeric")
                     weight_event_f = 0.0
                 try:
                     weight_outcome_f = float(weight_outcome)
                 except (TypeError, ValueError):
-                    errors.append("prompt_learning.judge.weight_outcome must be numeric")
+                    errors.append("prompt_learning.verifier.weight_outcome must be numeric")
                     weight_outcome_f = 0.0
                 if weight_event_f <= 0 and weight_outcome_f <= 0:
                     errors.append(
-                        "prompt_learning.judge.reward_source='fused' requires weight_event > 0 or weight_outcome > 0"
+                        "prompt_learning.verifier.reward_source='fused' requires weight_event > 0 or weight_outcome > 0"
                     )
     
     # Check for multi-stage/multi-module pipeline config

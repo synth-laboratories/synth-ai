@@ -20,15 +20,15 @@ def test_validate_filter_options_normalizes_scores() -> None:
     options = {
         "min_official_score": "0.5",
         "max_official_score": "",
-        "min_judge_scores": {"quality": "0.7", "bad": "nan"},
-        "max_judge_scores": None,
+        "min_verifier_scores": {"quality": "0.7", "bad": "nan"},
+        "max_verifier_scores": None,
     }
 
     normalized = validate_filter_options(options)
     assert normalized["min_official_score"] == 0.5
     assert normalized["max_official_score"] is None
-    assert normalized["min_judge_scores"] == {"quality": 0.7}
-    assert normalized["max_judge_scores"] == {}
+    assert normalized["min_verifier_scores"] == {"quality": 0.7}
+    assert normalized["max_verifier_scores"] == {}
 
 
 def test_validate_filter_options_numeric_flags_and_shuffle() -> None:

@@ -2,7 +2,7 @@
 
 This module provides:
 - Flexible rubric models (Criterion, Rubric) for general task app use
-- Strict validators (StrictCriterion, StrictRubric) for step-wise judges
+- Strict validators (StrictCriterion, StrictRubric) for step-wise verifiers
 - Loading utilities supporting JSON, YAML, and HTTP sources
 - Blending utilities for composing rubrics
 - Scoring utilities for events and outcomes
@@ -16,7 +16,7 @@ from .models import Criterion, Rubric
 # Scoring
 from .scoring import score_events_against_rubric, score_outcome_against_rubric
 
-# Strict validators (for judge configs)
+# Strict validators (for verifier configs)
 from .strict import (
     StrictCriterion,
     StrictRubric,
@@ -49,7 +49,6 @@ __all__ = [
 # Old code may import these names expecting the flexible variants
 RubricCriterion = StrictCriterion
 RubricSpec = StrictRubric
-
 
 
 

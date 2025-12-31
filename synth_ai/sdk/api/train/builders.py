@@ -885,11 +885,192 @@ def build_prompt_learning_payload(
     return PromptLearningBuildResult(payload=payload, task_url=final_task_url)
 
 
+def build_prompt_learning_payload_from_mapping(
+    *,
+    raw_config: dict[str, Any],
+    task_url: str | None,
+    overrides: dict[str, Any],
+    allow_experimental: bool | None = None,
+    source_label: str = "programmatic",
+) -> PromptLearningBuildResult:
+    """Build payload for prompt learning job from a dictionary (programmatic use).
+
+    This is the same as build_prompt_learning_payload but accepts a dict instead of a file path.
+    Both functions route through the same PromptLearningConfig Pydantic validation.
+
+    Args:
+        raw_config: Configuration dictionary with the same structure as the TOML file.
+                   Should have a 'prompt_learning' section.
+        task_url: Override for task_app_url
+        overrides: Config overrides (merged into config)
+        allow_experimental: Allow experimental models
+        source_label: Label for logging/error messages (default: "programmatic")
+
+    Returns:
+        PromptLearningBuildResult with payload and task_url
+
+    Example:
+        >>> result = build_prompt_learning_payload_from_mapping(
+        ...     raw_config={
+        ...         "prompt_learning": {
+        ...             "algorithm": "gepa",
+        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
+        ...             "gepa": {...},
+        ...         }
+        ...     },
+        ...     task_url=None,
+        ...     overrides={},
+        ... )
+    """
+    ctx: dict[str, Any] = {"source": source_label}
+    log_info("build_prompt_learning_payload_from_mapping invoked", ctx=ctx)
+    from pydantic import ValidationError
+
+    # SDK-SIDE VALIDATION: Catch errors BEFORE sending to backend
+    from .validators import validate_prompt_learning_config
+
+    # Use a pseudo-path for error messages (validator expects Path object)
+    pseudo_path = Path(f"<{source_label}>")
+    validate_prompt_learning_config(raw_config, pseudo_path)
+
+    try:
+        pl_cfg = PromptLearningConfig.from_mapping(raw_config)
+    except ValidationError as exc:
+        # Format validation errors for dict-based config
+        lines: list[str] = []
+        for error in exc.errors():
+            loc = ".".join(str(part) for part in error.get("loc", ()))
+            msg = error.get("msg", "invalid value")
+            lines.append(f"{loc or '<root>'}: {msg}")
+        details = "\n".join(f"  - {line}" for line in lines) or "  - Invalid configuration"
+        raise click.ClickException(f"Config validation failed ({source_label}):\n{details}") from exc
+
+    # Early validation: Check required fields for GEPA
+    if pl_cfg.algorithm == "gepa":
+        if not pl_cfg.gepa:
+            raise click.ClickException(
+                "GEPA config missing: [prompt_learning.gepa] section is required"
+            )
+        if not pl_cfg.gepa.evaluation:
+            raise click.ClickException(
+                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
+            )
+        train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(pl_cfg.gepa.evaluation, "seeds", None)
+        if not train_seeds:
+            raise click.ClickException(
+                "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+            )
+        val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(pl_cfg.gepa.evaluation, "validation_seeds", None)
+        if not val_seeds:
+            raise click.ClickException(
+                "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+            )
+
+    cli_task_url = overrides.get("task_url") or task_url
+    env_task_url = os.environ.get("TASK_APP_URL")
+    config_task_url = (pl_cfg.task_app_url or "").strip() or None
+
+    # Resolve task_app_url with same precedence as file-based builder
+    if cli_task_url:
+        final_task_url = ConfigResolver.resolve(
+            "task_app_url",
+            cli_value=cli_task_url,
+            env_value=None,
+            config_value=config_task_url,
+            required=True,
+        )
+    elif config_task_url:
+        final_task_url = config_task_url
+    else:
+        final_task_url = ConfigResolver.resolve(
+            "task_app_url",
+            cli_value=None,
+            env_value=env_task_url,
+            config_value=None,
+            required=True,
+        )
+    assert final_task_url is not None
+
+    # Get task_app_api_key from config or environment
+    config_api_key = (pl_cfg.task_app_api_key or "").strip() or None
+    cli_api_key = overrides.get("task_app_api_key")
+    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
+    task_app_api_key = ConfigResolver.resolve(
+        "task_app_api_key",
+        cli_value=cli_api_key,
+        env_value=env_api_key,
+        config_value=config_api_key,
+        required=True,
+    )
+
+    # Build config dict for backend
+    config_dict = pl_cfg.to_dict()
+
+    # Ensure task_app_url and task_app_api_key are set
+    pl_section = config_dict.get("prompt_learning", {})
+    if isinstance(pl_section, dict):
+        pl_section["task_app_url"] = final_task_url
+        pl_section["task_app_api_key"] = task_app_api_key
+
+        # GEPA: Extract train_seeds from nested structure
+        if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
+            train_seeds = None
+            if pl_cfg.gepa.evaluation:
+                train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(pl_cfg.gepa.evaluation, "seeds", None)
+
+            if train_seeds and not pl_section.get("train_seeds"):
+                pl_section["train_seeds"] = train_seeds
+            if train_seeds and not pl_section.get("evaluation_seeds"):
+                pl_section["evaluation_seeds"] = train_seeds
+    else:
+        config_dict["prompt_learning"] = {
+            "task_app_url": final_task_url,
+            "task_app_api_key": task_app_api_key,
+        }
+
+    # Build payload matching backend API format
+    config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    config_overrides = {
+        k: v for k, v in config_overrides.items()
+        if k not in ("backend", "task_url", "metadata", "auto_start")
+    }
+
+    # Merge overrides into config_dict
+    if config_overrides:
+        from synth_ai.cli.local.experiment_queue.config_utils import _deep_update
+        _deep_update(config_dict, config_overrides)
+
+    # Final validation
+    if "prompt_learning" not in config_dict:
+        raise ValueError(
+            "config_dict must have 'prompt_learning' key. "
+            f"Found keys: {list(config_dict.keys())}"
+        )
+
+    payload: dict[str, Any] = {
+        "algorithm": pl_cfg.algorithm,
+        "config_body": config_dict,
+        "overrides": config_overrides,
+        "metadata": overrides.get("metadata", {}),
+        "auto_start": overrides.get("auto_start", True),
+    }
+
+    backend = overrides.get("backend")
+    if backend:
+        metadata_default: dict[str, Any] = {}
+        metadata = cast(dict[str, Any], payload.setdefault("metadata", metadata_default))
+        metadata["backend_base_url"] = ensure_api_base(str(backend))
+
+    return PromptLearningBuildResult(payload=payload, task_url=final_task_url)
+
+
 __all__ = [
     "PromptLearningBuildResult",
     "RLBuildResult",
     "SFTBuildResult",
     "build_prompt_learning_payload",
+    "build_prompt_learning_payload_from_mapping",
     "build_rl_payload",
     "build_sft_payload",
 ]

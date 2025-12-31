@@ -80,7 +80,7 @@ _MAX_POLL_ATTEMPTS = 600  # 20 minutes max
 class EvalResult:
     seed: int
     score: float | None
-    mean_return: float | None
+    reward_mean: float | None
     outcome_score: float | None
     events_score: float | None
     latency_ms: float | None
@@ -223,11 +223,11 @@ async def _eval_seed(
             latency_ms = (time.perf_counter() - start) * 1000.0
 
             metrics = response.metrics
-            mean_return = metrics.mean_return
+            reward_mean = metrics.reward_mean
             outcome_score = metrics.outcome_score
             events_score = metrics.events_score
 
-            score = outcome_score if outcome_score is not None else mean_return
+            score = outcome_score if outcome_score is not None else reward_mean
             verifier_score = None
             tokens = None
             cost_usd = None
@@ -254,7 +254,7 @@ async def _eval_seed(
             return EvalResult(
                 seed=seed,
                 score=score,
-                mean_return=mean_return,
+                reward_mean=reward_mean,
                 outcome_score=outcome_score,
                 events_score=events_score,
                 latency_ms=latency_ms,
@@ -269,7 +269,7 @@ async def _eval_seed(
             return EvalResult(
                 seed=seed,
                 score=None,
-                mean_return=None,
+                reward_mean=None,
                 outcome_score=None,
                 events_score=None,
                 latency_ms=latency_ms,
@@ -522,7 +522,7 @@ async def run_eval_via_backend(
             results.append(EvalResult(
                 seed=int(row.get("seed", 0)),
                 score=row.get("score"),
-                mean_return=row.get("mean_return"),
+                reward_mean=row.get("reward_mean"),
                 outcome_score=row.get("outcome_score"),
                 events_score=row.get("events_score"),
                 latency_ms=row.get("latency_ms"),
@@ -583,7 +583,7 @@ def format_eval_table(results: list[EvalResult]) -> str:
     headers = [
         "seed",
         "score",
-        "mean_return",
+        "reward_mean",
         "outcome",
         "events",
         "latency_ms",
@@ -604,7 +604,7 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             r.seed,
             _fmt(r.score),
-            _fmt(r.mean_return),
+            _fmt(r.reward_mean),
             _fmt(r.outcome_score),
             _fmt(r.events_score),
             _fmt(r.latency_ms),
@@ -620,7 +620,7 @@ def format_eval_table(results: list[EvalResult]) -> str:
         return sum(values) / len(values) if values else None
 
     scores = [r.score for r in results if isinstance(r.score, (int, float))]
-    mean_returns = [r.mean_return for r in results if isinstance(r.mean_return, (int, float))]
+    reward_means = [r.reward_mean for r in results if isinstance(r.reward_mean, (int, float))]
     outcomes = [r.outcome_score for r in results if isinstance(r.outcome_score, (int, float))]
     events = [r.events_score for r in results if isinstance(r.events_score, (int, float))]
     latencies = [r.latency_ms for r in results if isinstance(r.latency_ms, (int, float))]
@@ -632,7 +632,7 @@ def format_eval_table(results: list[EvalResult]) -> str:
         [
             "avg",
             _fmt(_avg(scores)),
-            _fmt(_avg(mean_returns)),
+            _fmt(_avg(reward_means)),
             _fmt(_avg(outcomes)),
             _fmt(_avg(events)),
             _fmt(_avg(latencies)),

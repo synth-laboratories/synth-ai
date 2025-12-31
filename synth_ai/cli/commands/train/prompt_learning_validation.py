@@ -29,7 +29,7 @@ KNOWN_PROMPT_LEARNING_FIELDS = {
     "policy",
     "mipro",
     "gepa",
-    "judge",
+    "verifier",
     "proxy_models",
     "env_config",
     "env_name",
@@ -87,7 +87,7 @@ KNOWN_GEPA_FIELDS = {
     "population",
     "archive",
     "token",
-    "judge",
+    "verifier",
     "proxy_models",
     "adaptive_pool",
     "adaptive_batch",
@@ -204,7 +204,7 @@ KNOWN_MIPRO_FIELDS = {
     "demo",
     "grounding",
     "meta_update",
-    "judge",
+    "verifier",
     "proxy_models",
     "adaptive_pool",
     "spec_path",
@@ -219,16 +219,15 @@ KNOWN_MIPRO_FIELDS = {
     "min_bootstrap_demos",
 }
 
-# Known fields in [prompt_learning.judge]
-KNOWN_JUDGE_FIELDS = {
+# Known fields in [prompt_learning.verifier]
+KNOWN_VERIFIER_FIELDS = {
     "enabled",
     "reward_source",
     "backend_base",
     "backend_api_key_env",
     "backend_provider",
     "backend_model",
-    "synth_verifier_id",
-    "backend_rubric_id",
+    "verifier_graph_id",
     "backend_event_enabled",
     "backend_outcome_enabled",
     "backend_options",
@@ -300,7 +299,7 @@ DEPRECATED_FIELDS = {
     "max_concurrent_rollouts": "Use [prompt_learning.gepa.rollout].max_concurrent instead.",
     "evaluation_seeds": "Use [prompt_learning.gepa.evaluation].seeds instead of flat evaluation_seeds.",
     "validation_seeds": "Use [prompt_learning.gepa.evaluation].validation_seeds instead.",
-    "backend_rubric_id": "Use 'synth_verifier_id' instead of 'backend_rubric_id' in [prompt_learning.judge].",
+    "backend_rubric_id": "Use 'verifier_graph_id' in [prompt_learning.verifier].",
 }
 
 
@@ -444,10 +443,10 @@ def validate_prompt_learning_config(
             "termination_config is supported and will create backend TerminationManager conditions"
         )
 
-    # Validate [prompt_learning.judge] if present
-    judge = pl_config.get("judge")
-    if judge and isinstance(judge, dict):
-        _check_unknown_fields(judge, KNOWN_JUDGE_FIELDS, "prompt_learning.judge", result)
+    # Validate [prompt_learning.verifier] if present
+    verifier = pl_config.get("verifier")
+    if verifier and isinstance(verifier, dict):
+        _check_unknown_fields(verifier, KNOWN_VERIFIER_FIELDS, "prompt_learning.verifier", result)
 
     # Validate [prompt_learning.proxy_models] if present
     proxy_models = pl_config.get("proxy_models")
@@ -553,9 +552,9 @@ def _validate_gepa_config(
             result,
         )
 
-    if "judge" in gepa and isinstance(gepa["judge"], dict):
+    if "verifier" in gepa and isinstance(gepa["verifier"], dict):
         _check_unknown_fields(
-            gepa["judge"], KNOWN_JUDGE_FIELDS, "prompt_learning.gepa.judge", result
+            gepa["verifier"], KNOWN_VERIFIER_FIELDS, "prompt_learning.gepa.verifier", result
         )
 
 
@@ -575,9 +574,9 @@ def _validate_mipro_config(
     _check_unknown_fields(mipro, KNOWN_MIPRO_FIELDS, "prompt_learning.mipro", result)
 
     # Validate nested sections
-    if "judge" in mipro and isinstance(mipro["judge"], dict):
+    if "verifier" in mipro and isinstance(mipro["verifier"], dict):
         _check_unknown_fields(
-            mipro["judge"], KNOWN_JUDGE_FIELDS, "prompt_learning.mipro.judge", result
+            mipro["verifier"], KNOWN_VERIFIER_FIELDS, "prompt_learning.mipro.verifier", result
         )
 
     if "adaptive_pool" in mipro and isinstance(mipro["adaptive_pool"], dict):

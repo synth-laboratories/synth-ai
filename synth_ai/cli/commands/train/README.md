@@ -239,13 +239,13 @@ every_n_iters = 1
 seeds = [0, 1]
 ```
 
-#### `[judge]`
+#### `[verifier]`
 ```toml
-[judge]
+[verifier]
 type = "llm"
 timeout_s = 30
 
-[judge.options]
+[verifier.options]
 event = true
 outcome = true
 provider = "openai"

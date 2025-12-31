@@ -102,11 +102,10 @@ mode = "direct"
 direct = true
 verify_every_k = 0
 
-[judge]
+[verifier]
 type = "env"
 timeout_s = 15  # Short timeout for CI
 
 [tags]
 experiment = "ci_test_rl_vision"
 purpose = "integration_test"
-

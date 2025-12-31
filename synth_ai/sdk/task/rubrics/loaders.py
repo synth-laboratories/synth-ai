@@ -62,7 +62,7 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
         Parsed Rubric instance or None if source is None
         
     Raises:
-        ValueError: If the rubric format is incorrect (e.g., backend judge format)
+        ValueError: If the rubric format is incorrect (e.g., backend verifier format)
         ValidationError: If the rubric fails schema validation
     """
     if source is None:
@@ -77,7 +77,7 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
         text, suffix = _load_text(str(source))
         data = _parse_structured(text, suffix)
     
-    # Check if this looks like a backend judge rubric (wrong format)
+    # Check if this looks like a backend verifier rubric (wrong format)
     if (
         isinstance(data, dict)
         and "event" in data
@@ -88,9 +88,9 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
     ):
         source_hint = f" ({source})" if isinstance(source, str) else ""
         raise ValueError(
-            f"Rubric appears to be in backend judge format (has 'event'/'outcome' keys){source_hint}. "
+            f"Rubric appears to be in backend verifier format (has 'event'/'outcome' keys){source_hint}. "
             f"Task apps require rubrics with 'version', 'goal_text', and 'criteria' fields. "
-            f"Backend judge rubrics should be named '*_backend_judge.json' and loaded by judge functions."
+            f"Backend verifier rubrics should be named '*_backend_verifier.json' and loaded by verifier functions."
         )
     
     return Rubric.model_validate(data)

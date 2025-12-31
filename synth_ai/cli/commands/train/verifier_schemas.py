@@ -1,7 +1,7 @@
 """
-Pydantic schemas for judge/rubric configuration.
+Pydantic schemas for verifier/rubric configuration.
 
-These models define the ACTUAL fields used by the backend judge service,
+These models define the ACTUAL fields used by the backend verifier service,
 with all dead code removed. This is the single source of truth for what
 gets sent in HTTP requests.
 """
@@ -17,9 +17,9 @@ from synth_ai.sdk.api.train.configs.shared import ExtraModel
 __all__ = [
     "RubricWeightsConfig",
     "RubricConfig",
-    "JudgeOptionsConfig",
-    "JudgeConfig",
-    "JudgeRequestPayload",
+    "VerifierOptionsConfig",
+    "VerifierConfig",
+    "VerifierRequestPayload",
 ]
 
 
@@ -27,8 +27,8 @@ class RubricWeightsConfig(ExtraModel):
     """
     Reward blending weights (client-side only, not sent to backend).
     
-    These weights control how env rewards, event judge scores, and outcome
-    judge scores are combined into a final reward signal for policy gradients.
+    These weights control how env rewards, event verifier scores, and outcome
+    verifier scores are combined into a final reward signal for policy gradients.
     
     Formula:
         total_reward = (env * env_return) + (event * sum(event_scores)) + (outcome * outcome_score)
@@ -40,12 +40,12 @@ class RubricWeightsConfig(ExtraModel):
     )
     event: float = Field(
         default=0.0,
-        description="Weight for per-event judge scores (step-level judging)",
+        description="Weight for per-event verifier scores (step-level verification)",
         ge=0.0,
     )
     outcome: float = Field(
         default=0.0,
-        description="Weight for outcome judge score (episode-level judging)",
+        description="Weight for outcome verifier score (episode-level verification)",
         ge=0.0,
     )
 
@@ -61,11 +61,11 @@ class RubricConfig(ExtraModel):
     """
     Top-level rubric configuration.
     
-    Controls whether rubric-based judging is enabled and how rewards are blended.
+    Controls whether rubric-based verification is enabled and how rewards are blended.
     """
     enabled: bool = Field(
         default=False,
-        description="Master switch for rubric-based judging",
+        description="Master switch for rubric-based verification",
     )
     weights: RubricWeightsConfig = Field(
         default_factory=RubricWeightsConfig,
@@ -73,16 +73,16 @@ class RubricConfig(ExtraModel):
     )
 
 
-class JudgeOptionsConfig(ExtraModel):
+class VerifierOptionsConfig(ExtraModel):
     """
-    Judge provider options (sent to backend in HTTP request).
+    Verifier provider options (sent to backend in HTTP request).
     
-    These fields are sent in the "options" object of the judge score request.
-    All fields here map directly to the backend JudgeOptions schema.
+    These fields are sent in the "options" object of the verifier request.
+    All fields here map directly to the backend verifier options schema.
     """
     provider: str = Field(
         ...,
-        description="Judge provider type ('openai', 'groq', 'gemini')",
+        description="Verifier provider type ('openai', 'groq', 'gemini')",
         pattern=r"^(openai|groq|gemini)$",
     )
     model: str = Field(
@@ -96,11 +96,11 @@ class JudgeOptionsConfig(ExtraModel):
     )
     event: bool = Field(
         default=True,
-        description="Enable per-event (step-level) judging",
+        description="Enable per-event (step-level) verification",
     )
     outcome: bool = Field(
         default=True,
-        description="Enable outcome (episode-level) judging",
+        description="Enable outcome (episode-level) verification",
     )
     timeout_s: Optional[float] = Field(
         default=None,
@@ -120,38 +120,38 @@ class JudgeOptionsConfig(ExtraModel):
     )
 
     @model_validator(mode="after")
-    def _validate_at_least_one_enabled(self) -> JudgeOptionsConfig:
-        """Ensure at least one judging type is enabled."""
+    def _validate_at_least_one_enabled(self) -> VerifierOptionsConfig:
+        """Ensure at least one verification type is enabled."""
         if not self.event and not self.outcome:
             raise ValueError("At least one of 'event' or 'outcome' must be enabled")
         return self
 
 
-class JudgeConfig(ExtraModel):
+class VerifierConfig(ExtraModel):
     """
-    Top-level judge configuration.
+    Top-level verifier configuration.
     
-    This is parsed from TOML [judge] section and contains all judge-related settings.
+    This is parsed from TOML [verifier] section and contains all verifier-related settings.
     """
-    options: JudgeOptionsConfig = Field(
+    options: VerifierOptionsConfig = Field(
         ...,
-        description="Judge provider options (sent to backend)",
+        description="Verifier provider options (sent to backend)",
     )
 
 
 # HTTP Request Payload Structures (for documentation/type safety)
 
-class JudgeRequestPayload(ExtraModel):
+class VerifierRequestPayload(ExtraModel):
     """
-    HTTP request payload structure for POST /api/judge/v1/score.
+    HTTP request payload structure for POST /api/graphs/verifiers/completions.
     
-    This is the ACTUAL payload sent to the backend judge service.
+    This is the ACTUAL payload sent to the backend verifier service.
     Used for type safety and documentation only.
     """
     policy_name: str = Field(..., description="Name of the policy being evaluated")
     task_app: dict[str, Any] = Field(..., description="Task app metadata (id, base_url)")
     trace: dict[str, Any] = Field(..., description="Tracing v3 payload (event_history, metadata)")
-    options: dict[str, Any] = Field(..., description="Judge options (provider, model, etc.)")
+    options: dict[str, Any] = Field(..., description="Verifier options (provider, model, etc.)")
 
     class Config:
         extra = "allow"  # Backend might add extra fields
@@ -159,16 +159,16 @@ class JudgeRequestPayload(ExtraModel):
 
 # Helper to convert to backend request format
 
-def build_judge_http_options(
-    options_config: JudgeOptionsConfig,
+def build_verifier_http_options(
+    options_config: VerifierOptionsConfig,
     *,
     rubric_overrides_from_task_info: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
-    Build the 'options' dict for HTTP request to backend judge.
+    Build the 'options' dict for HTTP request to backend verifier.
     
     Args:
-        options_config: Validated judge options from TOML
+        options_config: Validated verifier options from TOML
         rubric_overrides_from_task_info: Dynamic overrides fetched from TaskInfo (takes priority)
     
     Returns:
@@ -198,4 +198,3 @@ def build_judge_http_options(
         payload["rubric_overrides"] = options_config.rubric_overrides
     
     return payload
-
