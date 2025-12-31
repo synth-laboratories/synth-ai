@@ -22,6 +22,12 @@ Serverless Posttraining APIs for Developers
   <i>Average accuracy on <a href="https://arxiv.org/abs/2502.20315">LangProBe</a> prompt optimization benchmarks.</i>
 </p>
 
+## Demo Notebooks (Colab)
+
+- [GEPA Banking77 Prompt Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb)
+- [GEPA Crafter VLM Verifier Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_crafter_vlm/gepa_crafter_vlm_verifier_optimization.ipynb)
+- [GraphGen Image Style Matching](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/image_style_matching/graphgen_image_style_matching.ipynb)
+
 ## Highlights
 
 - 🚀 Train across sft, RL, and prompt opt by standing up a single cloudflared Fastapi wrapper around your code. No production code churn.
@@ -89,7 +95,7 @@ async def run_verifier():
     )
     result = await client.evaluate(
         job_id="zero_shot_verifier_single",
-        session_trace={"session_id": "s", "event_history": []},
+        trace={"session_id": "s", "session_time_steps": []},
         rubric={
             "event": [{"id": "accuracy", "weight": 1.0, "description": "Correctness"}],
             "outcome": [{"id": "task_completion", "weight": 1.0, "description": "Completed task"}],
@@ -110,8 +116,8 @@ from synth_ai.sdk.graphs import GraphCompletionsClient
 
 client = GraphCompletionsClient(base_url="https://api.usesynth.ai", api_key="...")
 resp = await client.run(
-    graph={"kind": "zero_shot", "verifier_shape": "zero_shot_verifier_mapreduce"},
-    input_data={"trace": {"session_id": "s", "event_history": []}, "rubric": {"event": [], "outcome": []}},
+    graph={"kind": "zero_shot", "verifier_shape": "mapreduce", "verifier_mode": "rubric"},
+    input_data={"trace": {"session_id": "s", "session_time_steps": []}, "rubric": {"event": [], "outcome": []}},
 )
 ```
 
@@ -135,10 +141,10 @@ result = verifier_job.stream_until_complete(timeout=3600.0)
 
 # Run inference with trained verifier
 verification = verifier_job.run_verifier(
-    session_trace=my_trace,
+    trace=my_trace,
     context={"rubric": my_rubric},
 )
-print(f"Score: {judgment.score}, Reasoning: {judgment.reasoning}")
+print(f"Score: {verification.score}, Reasoning: {verification.reasoning}")
 ```
 
 ```python
