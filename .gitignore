@@ -198,3 +198,6 @@ examples/blog_posts/**/task_specific/*/results/
 *.patch
 *.orig
 *~
+
+# Local dev scripts
+/dev/
