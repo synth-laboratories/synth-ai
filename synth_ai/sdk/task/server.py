@@ -71,7 +71,7 @@ class TaskAppConfig:
     
     A TaskAppConfig defines all the components needed to create a task app:
     - Task information (base_task_info)
-    - Task set description (describe_taskset)
+    - Task set description (provide_taskset_description)
     - Task instance provider (provide_task_instances)
     - Rollout executor (rollout)
     - Optional rubrics, datasets, proxy config, etc.
@@ -81,19 +81,18 @@ class TaskAppConfig:
     
     Example:
         >>> from synth_ai.sdk.task.server import TaskAppConfig, create_task_app
-        >>> from synth_ai.sdk.task.contracts import TaskInfo
-        >>> 
+        >>>
         >>> def build_config() -> TaskAppConfig:
         ...     return TaskAppConfig(
         ...         app_id="my_task",
         ...         name="My Task App",
         ...         description="A simple task app",
-        ...         base_task_info=TaskInfo(...),
-        ...         describe_taskset=lambda: {"splits": ["train", "val"]},
+        ...         provide_taskset_description=lambda: {"splits": ["train", "val"]},
         ...         provide_task_instances=lambda seeds: [...],
         ...         rollout=lambda req, r: {...},
+        ...         # base_task_info is optional - auto-derived from app_id/name
         ...     )
-        >>> 
+        >>>
         >>> app = create_task_app(build_config())
         >>> # app is a FastAPI instance ready to run
     
@@ -101,8 +100,8 @@ class TaskAppConfig:
         app_id: Unique identifier for this task app
         name: Human-readable name
         description: Description of what this task app does
-        base_task_info: Base TaskInfo that all instances inherit from
-        describe_taskset: Function that returns taskset metadata
+        base_task_info: Base TaskInfo (optional - auto-derived from app_id/name if not provided)
+        provide_taskset_description: Function that returns taskset metadata
         provide_task_instances: Function that yields TaskInfo instances for given seeds
         rollout: Function that executes a rollout request and returns response
         dataset_registry: Optional registry for task datasets
@@ -121,10 +120,10 @@ class TaskAppConfig:
     app_id: str
     name: str
     description: str
-    base_task_info: TaskInfo
-    describe_taskset: TasksetDescriptor
+    provide_taskset_description: TasksetDescriptor
     provide_task_instances: InstanceProvider
     rollout: RolloutExecutor
+    base_task_info: TaskInfo | None = None  # Auto-derived from app_id/name if not provided
     dataset_registry: TaskDatasetRegistry | None = None
     rubrics: RubricBundle | None = field(default_factory=RubricBundle)
     proxy: ProxyConfig | None = None
@@ -144,10 +143,10 @@ class TaskAppConfig:
             app_id=self.app_id,
             name=self.name,
             description=self.description,
-            base_task_info=self.base_task_info,
-            describe_taskset=self.describe_taskset,
+            provide_taskset_description=self.provide_taskset_description,
             provide_task_instances=self.provide_task_instances,
             rollout=self.rollout,
+            base_task_info=self.base_task_info,  # May be None - auto-derived in create_task_app
             dataset_registry=self.dataset_registry,
             rubrics=self.rubrics or RubricBundle(),
             proxy=self.proxy,
@@ -308,10 +307,10 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
         ...         app_id="my_task",
         ...         name="My Task",
         ...         description="A task app",
-        ...         base_task_info=TaskInfo(...),
-        ...         describe_taskset=lambda: {"splits": ["train"]},
+        ...         provide_taskset_description=lambda: {"splits": ["train"]},
         ...         provide_task_instances=lambda seeds: [...],
         ...         rollout=lambda req, r: {...},
+        ...         # base_task_info is optional - auto-derived from app_id/name
         ...     )
         >>>
         >>> app = create_task_app(build_config())
@@ -321,6 +320,16 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
     log_info("create_task_app invoked", ctx=ctx)
     cfg = config.clone()
     cfg.rubrics = cfg.rubrics or RubricBundle()
+
+    # Auto-derive base_task_info from app_id/name if not provided
+    if cfg.base_task_info is None:
+        cfg.base_task_info = TaskInfo(
+            task={"id": cfg.app_id, "name": cfg.name},
+            dataset={"id": cfg.app_id},
+            inference={},
+            limits={},
+        )
+
     app = FastAPI(title=cfg.name, description=cfg.description)
 
     for key, value in cfg.app_state.items():
@@ -440,7 +449,7 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
             all_seeds.extend(_normalise_seeds(seeds))
 
         if not all_seeds:
-            descriptor_result = await _maybe_await(cfg.describe_taskset())
+            descriptor_result = await _maybe_await(cfg.provide_taskset_description())
             return to_jsonable({"taskset": descriptor_result})
 
         instances = await _maybe_await(cfg.provide_task_instances(all_seeds))

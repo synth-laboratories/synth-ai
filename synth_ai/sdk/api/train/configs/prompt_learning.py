@@ -192,7 +192,7 @@ class MIPROSeedConfig(ExtraModel):
         return _parse_seeds(v) or []
 
 
-class PromptLearningJudgeConfig(ExtraModel):
+class PromptLearningVerifierConfig(ExtraModel):
     """Verifier configuration shared by GEPA and MIPRO.
     
     This configures LLM-based evaluation of agent trajectories during prompt optimization.
@@ -202,15 +202,13 @@ class PromptLearningJudgeConfig(ExtraModel):
         enabled: Whether to enable verifier-based scoring.
         reward_source: Source of the final reward for optimization.
             - "task_app": Use only environment rewards from task app (default).
-            - "judge": Use only verifier quality scores.
+            - "verifier": Use only verifier quality scores.
             - "fused": Weighted combination of environment and verifier rewards.
         backend_base: Base URL for the verifier service (e.g. "https://api.usesynth.ai").
         backend_api_key_env: Env var containing the Synth API key (default: "SYNTH_API_KEY").
         backend_provider: Provider for the verifier model (e.g. "openai", "groq").
         backend_model: Model used to execute the verifier rubric or graph (e.g. "gpt-4o-mini").
-        synth_verifier_id: ID or Name of a registered Verifier Graph or Rubric on the backend.
-            Use this to point to a specific, versioned verifier artifact.
-        backend_rubric_id: Legacy alias for synth_verifier_id.
+        verifier_graph_id: ID or name of a registered Verifier Graph on the backend.
         backend_event_enabled: Whether to enable fine-grained event-level scoring.
         backend_outcome_enabled: Whether to enable episode-level outcome scoring.
         weight_env: Weight for environment rewards in "fused" mode (default: 1.0).
@@ -218,13 +216,12 @@ class PromptLearningJudgeConfig(ExtraModel):
         weight_outcome: Weight for verifier outcome rewards in "fused" mode (default: 0.0).
     """
     enabled: bool = False
-    reward_source: Literal["task_app", "judge", "fused"] = "task_app"
+    reward_source: Literal["task_app", "verifier", "fused"] = "task_app"
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
     backend_model: str = ""
-    synth_verifier_id: str = ""  # Preferred field for Registered VerifierGraph or Rubric ID
-    backend_rubric_id: str = ""  # Legacy alias for synth_verifier_id
+    verifier_graph_id: str = ""
     backend_event_enabled: bool = True
     backend_outcome_enabled: bool = True
     backend_options: Dict[str, Any] = Field(default_factory=dict)
@@ -236,21 +233,6 @@ class PromptLearningJudgeConfig(ExtraModel):
     spec_path: Optional[str] = None
     spec_max_tokens: int = 5000
     spec_context: Optional[str] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _sync_verifier_ids(cls, data: Any) -> Any:
-        """Sync synth_verifier_id and backend_rubric_id."""
-        if isinstance(data, dict):
-            if not data.get("synth_verifier_id") and data.get("backend_rubric_id"):
-                data["synth_verifier_id"] = data["backend_rubric_id"]
-            elif not data.get("backend_rubric_id") and data.get("synth_verifier_id"):
-                data["backend_rubric_id"] = data["synth_verifier_id"]
-        return data
-
-
-class PromptLearningVerifierConfig(PromptLearningJudgeConfig):
-    """Alias for PromptLearningJudgeConfig with verifier terminology."""
 
 
 class ProxyModelsConfig(ExtraModel):
@@ -733,8 +715,8 @@ class MIPROConfig(ExtraModel):
     # Meta-update configuration
     meta_update: dict[str, Any] | None = None
 
-    # Judge configuration (shared with GEPA)
-    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    # Verifier configuration (shared with GEPA)
+    verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     
     # Proxy models configuration (optional, can also be at top-level)
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None
@@ -1201,7 +1183,7 @@ class GEPAConfig(ExtraModel):
     population: GEPAPopulationConfig | None = None
     archive: GEPAArchiveConfig | None = None
     token: GEPATokenConfig | None = None
-    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or gepa-specific)
     adaptive_pool: AdaptivePoolConfig | dict[str, Any] | None = None  # Adaptive pooling config
     adaptive_batch: GEPAAdaptiveBatchConfig | dict[str, Any] | None = None  # Adaptive batch config (GEPA only)
@@ -1443,7 +1425,7 @@ class GEPAConfig(ExtraModel):
         flat_data = {}
         
         for key, value in data.items():
-            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules", "proxy_models", "adaptive_pool", "adaptive_batch", "judge"):
+            if key in ("rollout", "evaluation", "mutation", "population", "archive", "token", "modules", "proxy_models", "adaptive_pool", "adaptive_batch", "verifier"):
                 nested_data[key] = value
             else:
                 flat_data[key] = value
@@ -1561,7 +1543,7 @@ class PromptLearningConfig(ExtraModel):
         policy: Policy (LLM) configuration for rollouts.
         mipro: MIPRO-specific configuration (if algorithm="mipro").
         gepa: GEPA-specific configuration (if algorithm="gepa").
-        judge: Optional judge configuration for LLM-based reward scoring.
+        verifier: Optional verifier configuration for LLM-based reward scoring.
         proxy_models: Proxy models configuration for cost-effective evaluation.
         env_config: Additional environment configuration passed to task app.
         free_tier: Enable free tier mode with cost-effective OSS models.
@@ -1604,7 +1586,7 @@ class PromptLearningConfig(ExtraModel):
     policy: PromptLearningPolicyConfig | None = None
     mipro: MIPROConfig | None = None
     gepa: GEPAConfig | None = None
-    judge: PromptLearningJudgeConfig | dict[str, Any] | None = None
+    verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = None  # Proxy models config (can be at top-level or algorithm-specific)
     env_config: dict[str, Any] | None = None
 
@@ -1777,8 +1759,8 @@ class PromptLearningConfig(ExtraModel):
                 mipro_data["proxy_models"] = ProxyModelsConfig.model_validate(mipro_data["proxy_models"])
             # If proxy_models not specified, leave as None (defaults to disabled)
         
-        if "judge" in pl_data and isinstance(pl_data["judge"], dict):
-            pl_data["judge"] = PromptLearningJudgeConfig.model_validate(pl_data["judge"])
+        if "verifier" in pl_data and isinstance(pl_data["verifier"], dict):
+            pl_data["verifier"] = PromptLearningVerifierConfig.model_validate(pl_data["verifier"])
         
         return cls.model_validate(pl_data)
 
@@ -1808,7 +1790,7 @@ __all__ = [
     "PromptLearningConfig",
     "PromptLearningPolicyConfig",
     "PromptPatternConfig",
-    "PromptLearningJudgeConfig",
+    "PromptLearningVerifierConfig",
     "ProxyModelsConfig",
     "AdaptivePoolConfig",
     "AdaptiveCurriculumLevel",

@@ -1,18 +1,17 @@
-"""Unit tests for judge/rubric configuration validation."""
+"""Unit tests for verifier/rubric configuration validation."""
 
 from __future__ import annotations
 
 import pytest
 
 from synth_ai.cli.commands.train import (
-    InvalidJudgeConfigError,
+    InvalidVerifierConfigError,
     InvalidRubricConfigError,
     RubricConfig,
-    JudgeConfig,
-    extract_and_validate_judge_rubric,
-    validate_judge_config,
+    VerifierConfig,
+    extract_and_validate_verifier_rubric,
+    validate_verifier_config,
     validate_rubric_config,
-    check_for_deprecated_fields,
 )
 
 
@@ -66,18 +65,18 @@ class TestRubricValidation:
                 },
             })
 
-    def test_deprecated_rubric_fields_warned(self):
-        """Deprecated fields should trigger warnings."""
-        with pytest.warns(DeprecationWarning, match="model"):
+    def test_deprecated_rubric_fields_rejected(self):
+        """Deprecated fields should be rejected."""
+        with pytest.raises(InvalidRubricConfigError, match="deprecated"):
             validate_rubric_config({
                 "enabled": True,
                 "model": "openai/gpt-oss-120b",  # Deprecated
                 "weights": {"env": 1.0},
             })
 
-    def test_deprecated_rubric_event_section_warned(self):
-        """Deprecated [rubric.event] section should trigger warning."""
-        with pytest.warns(DeprecationWarning, match="rubric.event"):
+    def test_deprecated_rubric_event_section_rejected(self):
+        """Deprecated [rubric.event] section should be rejected."""
+        with pytest.raises(InvalidRubricConfigError, match="rubric.event"):
             validate_rubric_config({
                 "enabled": True,
                 "weights": {"env": 1.0},
@@ -88,17 +87,17 @@ class TestRubricValidation:
             })
 
 
-class TestJudgeValidation:
-    """Test judge configuration validation."""
+class TestVerifierValidation:
+    """Test verifier configuration validation."""
 
-    def test_empty_judge_config_returns_none(self):
+    def test_empty_verifier_config_returns_none(self):
         """Empty config should return None."""
-        config = validate_judge_config({})
+        config = validate_verifier_config({})
         assert config is None
 
-    def test_valid_judge_config(self):
-        """Valid judge config should parse correctly."""
-        config = validate_judge_config({
+    def test_valid_verifier_config(self):
+        """Valid verifier config should parse correctly."""
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -114,25 +113,25 @@ class TestJudgeValidation:
         assert config.options.event is True
         assert config.options.outcome is True
 
-    def test_judge_missing_options_fails(self):
-        """Judge config without options should fail."""
-        with pytest.raises(InvalidJudgeConfigError, match="options.*required"):
-            validate_judge_config({"other": "value"})
+    def test_verifier_missing_options_fails(self):
+        """Verifier config without options should fail."""
+        with pytest.raises(InvalidVerifierConfigError, match="options.*required"):
+            validate_verifier_config({"other": "value"})
 
-    def test_judge_invalid_provider_fails(self):
+    def test_verifier_invalid_provider_fails(self):
         """Invalid provider should fail validation."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "invalid_provider",
                     "model": "gpt-5",
                 },
             })
 
-    def test_judge_both_disabled_fails(self):
+    def test_verifier_both_disabled_fails(self):
         """Both event and outcome disabled should fail."""
-        with pytest.raises(InvalidJudgeConfigError, match="(?i)at least one"):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError, match="(?i)at least one"):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -141,10 +140,10 @@ class TestJudgeValidation:
                 },
             })
 
-    def test_deprecated_judge_type_warned(self):
-        """Deprecated judge.type should trigger warning."""
-        with pytest.warns(DeprecationWarning, match="(?i)deprecated.*fields"):
-            validate_judge_config({
+    def test_deprecated_verifier_type_rejected(self):
+        """Deprecated verifier.type should be rejected."""
+        with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
+            validate_verifier_config({
                 "type": "groq",  # Deprecated
                 "options": {
                     "provider": "openai",
@@ -152,10 +151,10 @@ class TestJudgeValidation:
                 },
             })
 
-    def test_deprecated_max_concurrency_warned(self):
-        """Deprecated max_concurrency should trigger warning."""
-        with pytest.warns(DeprecationWarning, match="max_concurrency"):
-            validate_judge_config({
+    def test_deprecated_max_concurrency_rejected(self):
+        """Deprecated max_concurrency should be rejected."""
+        with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -163,31 +162,29 @@ class TestJudgeValidation:
                 },
             })
 
-    def test_timeout_migration(self):
-        """judge.timeout_s should auto-migrate to judge.options.timeout_s."""
-        with pytest.warns(DeprecationWarning, match="timeout_s"):
-            config = validate_judge_config({
+    def test_timeout_rejected(self):
+        """Top-level verifier.timeout_s should be rejected."""
+        with pytest.raises(InvalidVerifierConfigError, match="deprecated"):
+            validate_verifier_config({
                 "timeout_s": 60,  # Deprecated location
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
                 },
             })
-        assert config is not None
-        assert config.options.timeout_s == 60
 
 
-class TestJudgeRubricIntegration:
-    """Test integrated judge/rubric validation."""
+class TestVerifierRubricIntegration:
+    """Test integrated verifier/rubric validation."""
 
     def test_extract_both_valid(self):
-        """Both rubric and judge valid should parse."""
+        """Both rubric and verifier valid should parse."""
         toml_config = {
             "rubric": {
                 "enabled": True,
                 "weights": {"env": 0.2, "event": 0.4, "outcome": 0.4},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -196,31 +193,29 @@ class TestJudgeRubricIntegration:
                 },
             },
         }
-        rubric, judge = extract_and_validate_judge_rubric(toml_config)
+        rubric, verifier = extract_and_validate_verifier_rubric(toml_config)
         assert rubric.enabled is True
-        assert judge is not None
+        assert verifier is not None
 
-    def test_rubric_enabled_without_judge_warned(self):
-        """Rubric enabled but no judge should warn and disable rubric."""
+    def test_rubric_enabled_without_verifier_rejected(self):
+        """Rubric enabled but no verifier should be rejected."""
         toml_config = {
             "rubric": {
                 "enabled": True,
                 "weights": {"env": 0.2, "event": 0.4, "outcome": 0.4},
             },
         }
-        with pytest.warns(UserWarning, match="rubric.*enabled.*judge.*missing"):
-            rubric, judge = extract_and_validate_judge_rubric(toml_config)
-        assert rubric.enabled is False
-        assert judge is None
+        with pytest.raises(InvalidVerifierConfigError, match="requires a \\[verifier\\]"):
+            extract_and_validate_verifier_rubric(toml_config)
 
-    def test_event_weight_without_event_judging_warned(self):
-        """Event weight > 0 but event judging disabled should warn."""
+    def test_event_weight_without_event_verification_rejected(self):
+        """Event weight > 0 but event verification disabled should be rejected."""
         toml_config = {
             "rubric": {
                 "enabled": True,
                 "weights": {"env": 0.2, "event": 0.4, "outcome": 0.4},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -229,17 +224,17 @@ class TestJudgeRubricIntegration:
                 },
             },
         }
-        with pytest.warns(UserWarning, match=r"(?i)event.*>.*0.*but.*event=false"):
-            extract_and_validate_judge_rubric(toml_config)
+        with pytest.raises(InvalidVerifierConfigError, match=r"event.*requires"):
+            extract_and_validate_verifier_rubric(toml_config)
 
-    def test_outcome_weight_without_outcome_judging_warned(self):
-        """Outcome weight > 0 but outcome judging disabled should warn."""
+    def test_outcome_weight_without_outcome_verification_rejected(self):
+        """Outcome weight > 0 but outcome verification disabled should be rejected."""
         toml_config = {
             "rubric": {
                 "enabled": True,
                 "weights": {"env": 0.2, "event": 0.4, "outcome": 0.4},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -248,79 +243,8 @@ class TestJudgeRubricIntegration:
                 },
             },
         }
-        with pytest.warns(UserWarning, match=r"(?i)outcome.*>.*0.*but.*outcome=false"):
-            extract_and_validate_judge_rubric(toml_config)
-
-
-class TestDeprecatedFieldsChecker:
-    """Test deprecated fields detection."""
-
-    def test_no_deprecated_fields(self):
-        """Clean config should return empty dict."""
-        toml_config = {
-            "rubric": {
-                "enabled": True,
-                "weights": {"env": 1.0},
-            },
-            "judge": {
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                },
-            },
-        }
-        deprecated = check_for_deprecated_fields(toml_config)
-        assert deprecated == {}
-
-    def test_deprecated_rubric_fields_detected(self):
-        """Deprecated rubric fields should be detected."""
-        toml_config = {
-            "rubric": {
-                "enabled": True,
-                "model": "gpt-5",  # Deprecated
-                "api_base": "https://api.openai.com",  # Deprecated
-                "weights": {"env": 1.0},
-            },
-        }
-        deprecated = check_for_deprecated_fields(toml_config)
-        assert "rubric" in deprecated
-        assert "model" in deprecated["rubric"]
-        assert "api_base" in deprecated["rubric"]
-
-    def test_deprecated_rubric_sections_detected(self):
-        """Deprecated rubric sections should be detected."""
-        toml_config = {
-            "rubric": {
-                "enabled": True,
-                "weights": {"env": 1.0},
-                "event": {"rubric_id": "test"},  # Deprecated section
-                "outcome": {"rubric_id": "test"},  # Deprecated section
-            },
-        }
-        deprecated = check_for_deprecated_fields(toml_config)
-        assert "rubric" in deprecated
-        assert any("event" in field for field in deprecated["rubric"])
-        assert any("outcome" in field for field in deprecated["rubric"])
-
-    def test_deprecated_judge_options_detected(self):
-        """Deprecated judge.options fields should be detected."""
-        toml_config = {
-            "judge": {
-                "type": "groq",  # Deprecated
-                "options": {
-                    "provider": "openai",
-                    "model": "gpt-5",
-                    "max_concurrency": 10,  # Deprecated
-                    "tracks": ["process"],  # Deprecated
-                },
-            },
-        }
-        deprecated = check_for_deprecated_fields(toml_config)
-        assert "judge" in deprecated
-        assert "type" in deprecated["judge"]
-        assert "judge.options" in deprecated
-        assert "max_concurrency" in deprecated["judge.options"]
-        assert "tracks" in deprecated["judge.options"]
+        with pytest.raises(InvalidVerifierConfigError, match=r"outcome.*requires"):
+            extract_and_validate_verifier_rubric(toml_config)
 
 
 class TestBuildHTTPOptions:
@@ -328,15 +252,15 @@ class TestBuildHTTPOptions:
 
     def test_build_minimal_options(self):
         """Minimal options should build correctly."""
-        from synth_ai.cli.commands.train import build_judge_http_options
+        from synth_ai.cli.commands.train import build_verifier_http_options
         
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
             }
         )
-        options = build_judge_http_options(config.options)
+        options = build_verifier_http_options(config.options)
         
         assert options["provider"] == "openai"
         assert options["model"] == "gpt-5"
@@ -347,9 +271,9 @@ class TestBuildHTTPOptions:
 
     def test_build_full_options(self):
         """Full options should build correctly."""
-        from synth_ai.cli.commands.train import build_judge_http_options
+        from synth_ai.cli.commands.train import build_verifier_http_options
         
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "groq",
                 "model": "openai/gpt-oss-120b",
@@ -361,7 +285,7 @@ class TestBuildHTTPOptions:
                 "rubric_overrides": {"event": {}},
             }
         )
-        options = build_judge_http_options(config.options)
+        options = build_verifier_http_options(config.options)
         
         assert options["provider"] == "groq"
         assert options["model"] == "openai/gpt-oss-120b"
@@ -374,9 +298,9 @@ class TestBuildHTTPOptions:
 
     def test_task_info_overrides_static(self):
         """TaskInfo overrides should take priority over static config."""
-        from synth_ai.cli.commands.train import build_judge_http_options
+        from synth_ai.cli.commands.train import build_verifier_http_options
         
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -385,11 +309,10 @@ class TestBuildHTTPOptions:
         )
         
         task_info_overrides = {"event": {"dynamic": True}}
-        options = build_judge_http_options(
+        options = build_verifier_http_options(
             config.options,
             rubric_overrides_from_task_info=task_info_overrides,
         )
         
         # TaskInfo overrides should replace static config
         assert options["rubric_overrides"] == {"event": {"dynamic": True}}
-

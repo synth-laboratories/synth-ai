@@ -443,8 +443,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         }
 
         metrics = RolloutMetrics(
-            episode_returns=[final_reward],
-            mean_return=final_reward,
+            episode_rewards=[final_reward],
+            reward_mean=final_reward,
             num_steps=len(steps),
             num_episodes=1,
             outcome_score=final_reward,

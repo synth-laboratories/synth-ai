@@ -465,12 +465,9 @@ _logger.debug("[TRAIN_MODULE] Module synth_ai.sdk.api.train.cli imported")
 @click.option(
     "--type",
     "train_type_override",
-    type=click.Choice(["prompt", "rl", "sft", "graphgen", "adas", "context_learning"]),
+    type=click.Choice(["prompt", "rl", "sft", "graphgen", "context_learning"]),
     default=None,
-    help=(
-        "Explicitly set training type. Required for GraphGen (uses JSON datasets). "
-        "'adas' is a legacy alias."
-    ),
+    help="Explicitly set training type. Required for GraphGen (uses JSON datasets).",
 )
 @click.option(
     "--rollout-budget",
@@ -548,7 +545,7 @@ def train_command(
             click.echo(f"[TRAIN_CMD] Loaded explicit .env: {env_file}", err=True)
 
         # Handle GraphGen specially - it uses JSON datasets, not TOML configs
-        if train_type_override in ("graphgen", "adas"):
+        if train_type_override == "graphgen":
             # For GraphGen, dataset_path is required and cfg_path is ignored
             if not dataset_path:
                 raise click.ClickException(
@@ -618,7 +615,7 @@ def train_command(
                 click.echo(f"  (from BACKEND_BASE_URL={backend_base_url_env})")
 
         # Skip TOML-based validation for GraphGen (uses JSON datasets)
-        if train_type not in ("adas", "graphgen") and cfg_path:
+        if train_type != "graphgen" and cfg_path:
             _validate_openai_key_if_provider_is_openai(cfg_path)
 
         match train_type:
@@ -684,7 +681,7 @@ def train_command(
                     stream_format=stream_format,
                     examples_limit=examples_limit,
                 )
-            case "adas" | "graphgen":
+            case "graphgen":
                 if not dataset_path:
                     raise click.ClickException("GraphGen requires a dataset path.")
                 graphgen_dataset_path = Path(dataset_path).expanduser().resolve()
@@ -1215,7 +1212,7 @@ def handle_graphgen(
     click.echo(f"Dataset loaded: {dataset.metadata.name}")
     click.echo(f"  Tasks: {len(dataset.tasks)}")
     click.echo(f"  Gold outputs: {len(dataset.gold_outputs)}")
-    click.echo(f"  Judge mode: {dataset.judge_config.mode}")
+    click.echo(f"  Verifier mode: {dataset.verifier_config.mode}")
 
     # Create GraphGen job
     job = GraphGenJob.from_dataset(

@@ -1,11 +1,11 @@
-"""First-class SDK API for GraphGen (Automated Design of Agentic Systems).
+"""First-class SDK API for GraphGen (Graph Opt).
 
 **Status:** Alpha
 
 GraphGen is a simplified "Workflows API" for prompt optimization that:
 - Uses a simple JSON dataset format (GraphGenTaskSet) instead of TOML configs
 - Auto-generates task apps from the dataset (no user-managed task apps)
-- Has built-in judge configurations (rubric, contrastive, gold_examples)
+- Has built-in verifier configurations (rubric, contrastive, gold_examples)
 - Wraps GEPA internally for the actual optimization
 
 Example CLI usage:
@@ -48,7 +48,7 @@ from .graphgen_models import (
     load_graphgen_taskset,
     parse_graphgen_taskset,
     SessionTraceInput,
-    GraphGenGraphJudgeResponse,
+    GraphGenGraphVerifierResponse,
 )
 from .utils import ensure_api_base, http_get, http_post
 
@@ -108,7 +108,7 @@ class GraphGenSubmitResult:
             this optimization job.
         policy_model: Name of the LLM model being used for the policy
             (e.g., "gpt-4o-mini", "claude-3-5-sonnet").
-        judge_mode: Evaluation mode being used. One of: "rubric", "contrastive",
+        verifier_mode: Evaluation mode being used. One of: "rubric", "contrastive",
             "gold_examples", "verifier_graph".
         graph_evolve_job_id: ID of the underlying graph evolution job, if applicable.
 
@@ -124,20 +124,20 @@ class GraphGenSubmitResult:
     task_count: int
     rollout_budget: int
     policy_model: str
-    judge_mode: str
+    verifier_mode: str
     graph_evolve_job_id: Optional[str] = None
 
 
 class GraphGenJob:
     """High-level SDK class for running GraphGen workflow optimization jobs.
 
-    GraphGen (Automated Design of Agentic Systems) provides a simplified API for
+    GraphGen (Graph Opt) provides a simplified API for
     graph/workflow optimization that doesn't require users to manage task apps.
 
     Key differences from PromptLearningJob:
     - Uses JSON dataset format (GraphGenTaskSet) instead of TOML configs
     - No task app management required - GraphGen builds it internally
-    - Built-in judge modes (rubric, contrastive, gold_examples)
+    - Built-in verifier modes (rubric, contrastive, gold_examples)
     - Graph-first: trains multi-node workflows by default (Graph-GEPA)
     - Public graph downloads are redacted `.txt` exports only
     - Simpler configuration with sensible defaults
@@ -152,7 +152,7 @@ class GraphGenJob:
         ...     rollout_budget=100,
         ... )
         >>>
-        >>> # Train a verifier graph (judge)
+        >>> # Train a verifier graph
         >>> verifier_job = GraphGenJob.from_dataset(
         ...     dataset="verifier_dataset.json",
         ...     graph_type="verifier",
@@ -182,9 +182,9 @@ class GraphGenJob:
         >>> # Run inference with optimized prompt
         >>> output = job.run_inference({"question": "What is 2+2?"})
         >>>
-        >>> # Run judge with optimized verifier graph
-        >>> judgment = verifier_job.run_judge(trace_data)
-        >>> print(f"Score: {judgment.score}, Reasoning: {judgment.reasoning}")
+        >>> # Run verifier with optimized verifier graph
+        >>> verification = verifier_job.run_verifier(trace_data)
+        >>> print(f"Outcome reward: {verification.outcome_reward}")
     """
 
     def __init__(
@@ -227,8 +227,8 @@ class GraphGenJob:
         policy_model: str = "gpt-4o-mini",
         rollout_budget: int = 100,
         proposer_effort: Literal["low", "medium", "high"] = "medium",
-        judge_model: Optional[str] = None,
-        judge_provider: Optional[str] = None,
+        verifier_model: Optional[str] = None,
+        verifier_provider: Optional[str] = None,
         population_size: int = 4,
         num_generations: Optional[int] = None,
         problem_spec: Optional[str] = None,
@@ -245,15 +245,15 @@ class GraphGenJob:
             dataset: Dataset as file path, dict, or GraphGenTaskSet object
             graph_type: Type of graph to train:
                 - "policy": Maps inputs to outputs (default).
-                - "verifier": Judges/scores traces (requires verifier-compliant dataset).
+                - "verifier": Verifies/scores traces (requires verifier-compliant dataset).
                 - "rlm": Recursive Language Model - handles massive contexts via tool-based search
                   and recursive LLM calls. Requires configured_tools parameter.
             policy_model: Model to use for policy inference
             rollout_budget: Total number of rollouts for optimization
             proposer_effort: Proposer effort level ("medium" or "high").
                 "low" is not allowed as gpt-4.1-mini is too weak for graph generation.
-            judge_model: Override judge model from dataset
-            judge_provider: Override judge provider from dataset
+            verifier_model: Override verifier model from dataset
+            verifier_provider: Override verifier provider from dataset
             population_size: Population size for GEPA
             num_generations: Number of generations (auto-calculated if not specified)
             problem_spec: Detailed problem specification for the graph proposer.
@@ -319,8 +319,8 @@ class GraphGenJob:
             policy_model=policy_model,
             rollout_budget=rollout_budget,
             proposer_effort=proposer_effort,
-            judge_model=judge_model,
-            judge_provider=judge_provider,
+            verifier_model=verifier_model,
+            verifier_provider=verifier_provider,
             population_size=population_size,
             num_generations=num_generations,
             problem_spec=problem_spec,
@@ -454,8 +454,8 @@ class GraphGenJob:
             "policy_provider": self.config.policy_provider,
             "rollout_budget": self.config.rollout_budget,
             "proposer_effort": self.config.proposer_effort,
-            "judge_model": self.config.judge_model,
-            "judge_provider": self.config.judge_provider,
+            "verifier_model": self.config.verifier_model,
+            "verifier_provider": self.config.verifier_provider,
             "problem_spec": self.config.problem_spec,
             "target_llm_calls": self.config.target_llm_calls,
             "configured_tools": self.config.configured_tools,
@@ -472,10 +472,10 @@ class GraphGenJob:
             payload.pop("feedback_sample_size", None)
         if payload.get("policy_provider") is None:
             payload.pop("policy_provider", None)
-        if payload.get("judge_model") is None:
-            payload.pop("judge_model", None)
-        if payload.get("judge_provider") is None:
-            payload.pop("judge_provider", None)
+        if payload.get("verifier_model") is None:
+            payload.pop("verifier_model", None)
+        if payload.get("verifier_provider") is None:
+            payload.pop("verifier_provider", None)
         if payload.get("problem_spec") is None:
             payload.pop("problem_spec", None)
         if payload.get("target_llm_calls") is None:
@@ -507,7 +507,7 @@ class GraphGenJob:
 
         payload = self._build_payload()
 
-        # Submit job - use /graphgen/jobs endpoint (legacy: /adas/jobs)
+        # Submit job - use /graphgen/jobs endpoint
         create_url = f"{self.backend_url}/graphgen/jobs"
         headers = {
             "X-API-Key": self.api_key,
@@ -550,7 +550,7 @@ class GraphGenJob:
             task_count=js.get("task_count", len(self.dataset.tasks)),
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
             policy_model=js.get("policy_model", self.config.policy_model),
-            judge_mode=js.get("judge_mode", self.dataset.judge_config.mode),
+            verifier_mode=js.get("verifier_mode", self.dataset.verifier_config.mode),
             graph_evolve_job_id=self._graph_evolve_job_id,
         )
 
@@ -982,11 +982,11 @@ class GraphGenJob:
         context: Optional[Dict[str, Any]] = None,
         prompt_snapshot_id: Optional[str] = None,
         graph_snapshot_id: Optional[str] = None,
-    ) -> GraphGenGraphJudgeResponse:
+    ) -> GraphGenGraphVerifierResponse:
         """Run a verifier graph on an execution trace.
 
         This method is specifically for graphs trained with graph_type=\"verifier\".
-        It accepts a V3 trace and returns structured rewards (score, reasoning, per-event rewards).
+        It accepts a V3 trace and returns structured rewards.
 
         Args:
             session_trace: V3 session trace to evaluate. Can be a dict or SessionTraceInput.
@@ -996,7 +996,7 @@ class GraphGenJob:
                 Preferred for graph-first jobs.
 
         Returns:
-            GraphGenGraphJudgeResponse containing structured rewards and reasoning.
+            GraphGenGraphVerifierResponse containing structured rewards.
 
         Raises:
             RuntimeError: If job hasn't been submitted or inference fails.
@@ -1007,7 +1007,7 @@ class GraphGenJob:
         if prompt_snapshot_id and graph_snapshot_id:
             raise ValueError("Provide only one of prompt_snapshot_id or graph_snapshot_id.")
 
-        url = f"{self.backend_url}/graphgen/graph/judge"
+        url = f"{self.backend_url}/graphgen/graph/verifier"
         headers = {
             "X-API-Key": self.api_key,
             "Content-Type": "application/json",
@@ -1036,23 +1036,7 @@ class GraphGenJob:
                 f"Verifier inference failed: {resp.status_code} - {resp.text[:500]}"
             )
 
-        return GraphGenGraphJudgeResponse.model_validate(resp.json())
-
-    def run_judge(
-        self,
-        session_trace: Dict[str, Any] | SessionTraceInput,
-        *,
-        context: Optional[Dict[str, Any]] = None,
-        prompt_snapshot_id: Optional[str] = None,
-        graph_snapshot_id: Optional[str] = None,
-    ) -> GraphGenGraphJudgeResponse:
-        """Deprecated: use run_verifier instead."""
-        return self.run_verifier(
-            session_trace=session_trace,
-            context=context,
-            prompt_snapshot_id=prompt_snapshot_id,
-            graph_snapshot_id=graph_snapshot_id,
-        )
+        return GraphGenGraphVerifierResponse.model_validate(resp.json())
 
     def get_graph_record(
         self,

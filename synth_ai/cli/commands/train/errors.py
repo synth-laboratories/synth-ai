@@ -82,8 +82,8 @@ class InvalidTopologyError(TrainCliError):
 
 
 @dataclass(slots=True)
-class InvalidJudgeConfigError(TrainCliError):
-    """Raised when judge configuration validation fails."""
+class InvalidVerifierConfigError(TrainCliError):
+    """Raised when verifier configuration validation fails."""
     detail: str
 
     def __str__(self) -> str:
@@ -112,6 +112,6 @@ __all__ = [
     "UnsupportedAlgorithmError",
     "InvalidHyperparametersError",
     "InvalidTopologyError",
-    "InvalidJudgeConfigError",
+    "InvalidVerifierConfigError",
     "InvalidRubricConfigError",
 ]

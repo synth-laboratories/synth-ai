@@ -87,7 +87,7 @@ class UsageLimitError(SynthError):
 
     Attributes:
         limit_type: The type of limit exceeded (e.g., "inference_tokens_per_day")
-        api: The API that hit the limit (e.g., "inference", "judges", "prompt_opt")
+        api: The API that hit the limit (e.g., "inference", "verifiers", "prompt_opt")
         current: Current usage value
         limit: The limit value
         tier: The org's tier (e.g., "free", "starter", "growth")
@@ -123,4 +123,3 @@ __all__ = [
     "ModelNotSupportedError",
     "UsageLimitError",
 ]
-

@@ -582,7 +582,7 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         mode=request.mode,
     )
 
-    # Build V3 trace for judge evaluation
+    # Build V3 trace for verifier evaluation
     trace_id = str(uuid.uuid4())
     v3_event_history = [
         {
@@ -646,8 +646,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
             metadata_block["correlation_ids"] = corr_map
 
     metrics = RolloutMetrics(
-        episode_returns=[reward],
-        mean_return=reward,
+        episode_rewards=[reward],
+        reward_mean=reward,
         num_steps=1,
         num_episodes=1,
         outcome_score=reward,

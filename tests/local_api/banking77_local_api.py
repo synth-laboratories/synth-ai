@@ -182,13 +182,8 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
     inference_url = (request.policy.config or {}).get("inference_url")
 
     metrics = RolloutMetrics(
-        episode_returns=[reward],
-        mean_return=reward,
-        num_steps=1,
-        num_episodes=1,
-        outcome_score=reward,
-        events_score=reward,
-        details={"correct": is_correct},
+        outcome_reward=reward,
+        details={"predicted": predicted_intent, "expected": expected_intent},
     )
 
     policy_config = request.policy.config or {}
@@ -217,18 +212,12 @@ async def rollout_executor(request: RolloutRequest, fastapi_request: Request) ->
         metadata=trace_metadata,
     )
 
-    pipeline_metadata = {"inference_url": str(inference_url or "")}
-    if trace_correlation_id:
-        pipeline_metadata["trace_correlation_id"] = trace_correlation_id
-
     return RolloutResponse(
         run_id=request.run_id,
-        branches={},
         metrics=metrics,
-        aborted=False,
-        trace_correlation_id=trace_correlation_id,
         trace=trace_payload,
-        pipeline_metadata=pipeline_metadata,
+        trace_correlation_id=trace_correlation_id,
+        inference_url=str(inference_url or ""),
     )
 
 

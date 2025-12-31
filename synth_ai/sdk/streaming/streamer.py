@@ -157,10 +157,6 @@ class StreamEndpoints:
             timeline=None,
         )
 
-    @classmethod
-    def adas(cls, job_id: str) -> StreamEndpoints:
-        """Legacy alias for GraphGen workflow optimization jobs."""
-        return cls.graphgen(job_id)
 
 
 class JobStreamer:
@@ -508,10 +504,9 @@ class JobStreamer:
             except Exception as e:
                 error_str = str(e)
                 print(f"[DEBUG] Error polling {path}: {e}", file=sys.stderr)
-                # Fail fast if we get 404 on both ADAS and fallback endpoints (indicates job ID mapping issue)
+                # Fail fast if we get 404 on GraphGen and fallback endpoints (indicates job ID mapping issue)
                 if "404" in error_str and (
                     "graphgen" in path.lower()
-                    or "adas" in path.lower()
                     or "prompt-learning" in path.lower()
                 ):
                     # Check if this is the last fallback path - if so, raise to fail fast

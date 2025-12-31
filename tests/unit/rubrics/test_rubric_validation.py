@@ -10,10 +10,10 @@ RUBRICS_DIR = Path("examples/multi_step/rubrics")
 
 
 def _get_task_app_rubrics():
-    """Get rubrics in task app format (exclude backend judge rubrics)."""
+    """Get rubrics in task app format (exclude backend verifier rubrics)."""
     all_rubrics = sorted(RUBRICS_DIR.glob("*.json"))
-    # Exclude backend judge rubrics (different format)
-    return [p for p in all_rubrics if not p.name.endswith("_backend_judge.json")]
+    # Exclude backend verifier rubrics (different format)
+    return [p for p in all_rubrics if not p.name.endswith("_backend_verifier.json")]
 
 
 @pytest.mark.parametrize(
@@ -43,25 +43,25 @@ def test_invalid_weight_sum_rejected() -> None:
         validate_rubric_dict(payload)
 
 
-def _get_backend_judge_rubrics():
-    """Get rubrics in backend judge format."""
-    all_rubrics = sorted(RUBRICS_DIR.glob("*_backend_judge.json"))
+def _get_backend_verifier_rubrics():
+    """Get rubrics in backend verifier format."""
+    all_rubrics = sorted(RUBRICS_DIR.glob("*_backend_verifier.json"))
     return all_rubrics
 
 
 @pytest.mark.parametrize(
     "rubric_path",
-    _get_backend_judge_rubrics(),
+    _get_backend_verifier_rubrics(),
     ids=lambda p: p.name,
 )
-def test_backend_judge_rubrics_have_correct_format(rubric_path: Path) -> None:
-    """Backend judge rubrics should have event/outcome structure."""
+def test_backend_verifier_rubrics_have_correct_format(rubric_path: Path) -> None:
+    """Backend verifier rubrics should have event/outcome structure."""
     import json
     
     with open(rubric_path) as f:
         rubric = json.load(f)
     
-    # Backend judge rubrics must have 'event' and 'outcome' keys
+    # Backend verifier rubrics must have 'event' and 'outcome' keys
     assert "event" in rubric, f"{rubric_path.name} must have 'event' key"
     assert "outcome" in rubric, f"{rubric_path.name} must have 'outcome' key"
     assert isinstance(rubric["event"], list), f"{rubric_path.name} 'event' must be a list"
@@ -77,9 +77,9 @@ def test_backend_judge_rubrics_have_correct_format(rubric_path: Path) -> None:
         assert criterion["scale"] in ["bounded", "unbounded"], "Scale must be 'bounded' or 'unbounded'"
 
 
-def test_load_rubric_rejects_backend_judge_format_with_helpful_error() -> None:
-    """load_rubric should provide a clear error when given backend judge format."""
-    backend_judge_rubric = {
+def test_load_rubric_rejects_backend_verifier_format_with_helpful_error() -> None:
+    """load_rubric should provide a clear error when given backend verifier format."""
+    backend_verifier_rubric = {
         "event": [],
         "outcome": [
             {"id": "test", "description": "Test", "weight": 1.0, "scale": "bounded"}
@@ -87,10 +87,9 @@ def test_load_rubric_rejects_backend_judge_format_with_helpful_error() -> None:
     }
     
     with pytest.raises(ValueError) as exc_info:
-        load_rubric(backend_judge_rubric)
+        load_rubric(backend_verifier_rubric)
     
     error_msg = str(exc_info.value)
-    assert "backend judge format" in error_msg.lower()
+    assert "backend verifier format" in error_msg.lower()
     assert "event" in error_msg or "outcome" in error_msg
     assert "version" in error_msg or "goal_text" in error_msg or "criteria" in error_msg
-

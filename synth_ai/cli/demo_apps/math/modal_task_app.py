@@ -687,8 +687,8 @@ def fastapi_app():
             ],
             "branches": {},
             "metrics": {
-                "episode_returns": [total_reward],
-                "mean_return": float(total_reward),
+                "episode_rewards": [total_reward],
+                "reward_mean": float(total_reward),
                 "num_steps": len(steps),
                 "num_episodes": 1,
             },

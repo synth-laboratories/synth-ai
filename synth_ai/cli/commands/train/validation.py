@@ -12,10 +12,10 @@ from synth_ai.sdk.api.train.configs.sft import SFTConfig
 from synth_ai.sdk.api.train.utils import load_toml
 
 from .errors import (
-    InvalidJudgeConfigError,
     InvalidRLConfigError,
     InvalidRubricConfigError,
     InvalidSFTConfigError,
+    InvalidVerifierConfigError,
     MissingAlgorithmError,
     MissingComputeError,
     MissingDatasetError,
@@ -23,7 +23,7 @@ from .errors import (
     TomlParseError,
     UnsupportedAlgorithmError,
 )
-from .judge_validation import extract_and_validate_judge_rubric
+from .verifier_validation import extract_and_validate_verifier_rubric
 
 __all__ = [
     "validate_sft_config",
@@ -317,16 +317,16 @@ def validate_rl_config(config: MutableMapping[str, Any]) -> dict[str, Any]:
     if "reference_placement" not in config["compute"]["topology"]:
         config["compute"]["topology"]["reference_placement"] = "none"
     
-    # Validate judge/rubric configuration with formalized Pydantic models
+    # Validate verifier/rubric configuration with formalized Pydantic models
     # This will emit deprecation warnings for dead fields and validate structure
     try:
-        rubric_config, judge_config = extract_and_validate_judge_rubric(config)
+        rubric_config, verifier_config = extract_and_validate_verifier_rubric(config)
         # Validation passed - configs are clean and ready for use
         # The validated Pydantic models can be used by training code if needed
-    except (InvalidJudgeConfigError, InvalidRubricConfigError) as exc:
+    except (InvalidVerifierConfigError, InvalidRubricConfigError) as exc:
         raise InvalidRLConfigError(
-            detail=f"Judge/Rubric validation failed: {exc.detail}",
-            hint="Check JUDGE_RUBRIC_CLEANUP_GUIDE.md for migration help."
+            detail=f"Verifier/Rubric validation failed: {exc.detail}",
+            hint="Check the verifier/rubric cleanup guide for migration help."
         ) from exc
     
     # Validate using Pydantic model

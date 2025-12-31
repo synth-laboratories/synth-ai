@@ -878,10 +878,10 @@ async def _run_smoke_async(
                     metrics = response.metrics
                     if inferred_url:
                         click.echo(f"  rollout[{i}:{g}] inference_url: {inferred_url}")
-                    click.echo(f"  rollout[{i}:{g}] episodes={metrics.num_episodes} steps={metrics.num_steps} mean_return={metrics.mean_return:.4f}")
+                    click.echo(f"  rollout[{i}:{g}] episodes={metrics.num_episodes} steps={metrics.num_steps} reward_mean={metrics.reward_mean:.4f}")
 
                     total_steps += int(metrics.num_steps)
-                    if (metrics.mean_return or 0.0) != 0.0:
+                    if (metrics.reward_mean or 0.0) != 0.0:
                         nonzero_returns += 1
                     if response.trace is not None and isinstance(response.trace, dict):
                         v3_traces += 1
@@ -906,8 +906,8 @@ async def _run_smoke_async(
                             metrics_dump = response.metrics.model_dump()
                         except Exception:
                             metrics_dump = {
-                                "episode_returns": getattr(response.metrics, "episode_returns", None),
-                                "mean_return": getattr(response.metrics, "mean_return", None),
+                                "episode_rewards": getattr(response.metrics, "episode_rewards", None),
+                                "reward_mean": getattr(response.metrics, "reward_mean", None),
                                 "num_steps": getattr(response.metrics, "num_steps", None),
                                 "num_episodes": getattr(response.metrics, "num_episodes", None),
                                 "outcome_score": getattr(response.metrics, "outcome_score", None),

@@ -196,11 +196,11 @@ class ParetoFloorsConfig(BaseModel):
 
 
 # ============================================================================
-# ADAS Dataset Format Models
+# Graph Opt Dataset Format Models
 # ============================================================================
 
 class TaskInput(BaseModel):
-    """A single task/example in an ADAS dataset.
+    """A single task/example in a Graph Opt dataset.
 
     For POLICY graphs: Contains the problem to solve.
     For VERIFIER graphs: Contains a trace to evaluate.
@@ -267,8 +267,8 @@ class GoldOutput(BaseModel):
     score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Gold score (0.0-1.0)")
 
 
-class ADASDatasetMetadata(BaseModel):
-    """Metadata about an ADAS dataset.
+class GraphOptDatasetMetadata(BaseModel):
+    """Metadata about a Graph Opt dataset.
 
     Provides context for graph generation and optimization.
     """
@@ -279,8 +279,8 @@ class ADASDatasetMetadata(BaseModel):
     domain: Optional[str] = Field(default=None, description="Domain (qa, code, games, etc.)")
 
 
-class ADASDataset(BaseModel):
-    """Complete ADAS dataset format for inline upload.
+class GraphOptDataset(BaseModel):
+    """Complete Graph Opt dataset format for inline upload.
 
     This is the schema for the `dataset` field in GraphOptimizationConfig
     when uploading data directly instead of using a pre-registered dataset.
@@ -303,7 +303,7 @@ class ADASDataset(BaseModel):
     """
     tasks: List[TaskInput] = Field(..., min_length=1, description="List of tasks/examples")
     gold_outputs: List[GoldOutput] = Field(..., min_length=1, description="Ground truth for each task")
-    metadata: ADASDatasetMetadata = Field(default_factory=ADASDatasetMetadata)
+    metadata: GraphOptDatasetMetadata = Field(default_factory=GraphOptDatasetMetadata)
 
     @field_validator("tasks", mode="before")
     @classmethod
@@ -443,7 +443,7 @@ class GraphOptimizationConfig(BaseModel):
     # Format: {"name": str, "task_description": str, "examples": [...]}
     dataset: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Inline dataset for upload (ADAS format). If provided, dataset_name is used as identifier."
+        description="Inline dataset for upload (GraphGen format). If provided, dataset_name is used as identifier."
     )
     
     # Task context for initial graph generation (when dataset doesn't provide it)
@@ -464,8 +464,8 @@ class GraphOptimizationConfig(BaseModel):
     )
     
     # Scoring configuration
-    scoring_strategy: str = Field(default="rubric", description="Scoring strategy: 'default', 'rubric', 'mae'")
-    judge_model: str = Field(default="gpt-4o-mini", description="Model for LLM judge scoring")
+    verifier_mode: str = Field(default="rubric", description="Verifier mode: 'rubric', 'contrastive', 'fewshot'")
+    verifier_model: str = Field(default="gpt-4o-mini", description="Model for LLM verifier scoring")
     
     @field_validator("graph_type", mode="before")
     @classmethod
@@ -529,8 +529,8 @@ class GraphOptimizationConfig(BaseModel):
             "graph_structure": self.graph_structure.value,
             "allowed_policy_models": self.allowed_policy_models,
             "dataset_config": self.dataset_config,
-            "scoring_strategy": self.scoring_strategy,
-            "judge_model": self.judge_model,
+            "verifier_mode": self.verifier_mode,
+            "verifier_model": self.verifier_model,
         }
 
         if self.max_llm_calls_per_run is not None:
@@ -551,19 +551,19 @@ class GraphOptimizationConfig(BaseModel):
         if self.dataset:
             # Validate dataset structure using Pydantic model
             try:
-                validated = ADASDataset(**self.dataset)
+                validated = GraphOptDataset(**self.dataset)
                 # Check for task ID consistency (non-fatal warnings)
                 warnings = validated.validate_task_ids()
                 if warnings:
                     import logging
                     logger = logging.getLogger(__name__)
                     for w in warnings:
-                        logger.warning(f"[ADASDataset] {w}")
+                        logger.warning(f"[GraphOptDataset] {w}")
             except Exception as e:
                 raise ValueError(
-                    f"Invalid ADAS dataset format: {e}\n"
+                    f"Invalid Graph Opt dataset format: {e}\n"
                     f"Expected format: {{'tasks': [...], 'gold_outputs': [...], 'metadata': {{...}}}}\n"
-                    f"See ADASDataset model for full schema.\n"
+                    f"See GraphOptDataset model for full schema.\n"
                     f"Got keys: {list(self.dataset.keys())}"
                 )
             request["dataset"] = self.dataset

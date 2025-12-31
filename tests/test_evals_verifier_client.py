@@ -1,4 +1,4 @@
-"""Legacy judge tests now target verifier graph completions."""
+"""Verifier client tests for graph completions."""
 
 import asyncio
 from datetime import UTC, datetime

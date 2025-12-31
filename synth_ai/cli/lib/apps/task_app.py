@@ -265,27 +265,27 @@ def _validate_rollout_payload(payload: Any) -> None:
         )
 
     # Metrics can be either:
-    # 1. Full RolloutMetrics with episode_returns (list), mean_return, num_steps
-    # 2. Simple dict with scalar values (episode_returns as float, mean_return, num_steps)
-    required_metrics_fields = ["episode_returns", "mean_return", "num_steps"]
+    # 1. Full RolloutMetrics with episode_rewards (list), reward_mean, num_steps
+    # 2. Simple dict with scalar values (episode_rewards as float, reward_mean, num_steps)
+    required_metrics_fields = ["episode_rewards", "reward_mean", "num_steps"]
     for field in required_metrics_fields:
         if field not in metrics:
             raise ValueError(
                 f"`/rollout` metrics missing required field '{field}'. "
-                f"Metrics must include: episode_returns, mean_return, and num_steps."
+                f"Metrics must include: episode_rewards, reward_mean, and num_steps."
             )
 
-    # Validate types - episode_returns can be either a list or a scalar
-    episode_returns = metrics.get("episode_returns")
-    if not isinstance(episode_returns, list | int | float):
+    # Validate types - episode_rewards can be either a list or a scalar
+    episode_rewards = metrics.get("episode_rewards")
+    if not isinstance(episode_rewards, list | int | float):
         raise ValueError(
-            f"`/rollout` metrics.episode_returns must be a list or number, got {type(episode_returns).__name__}"
+            f"`/rollout` metrics.episode_rewards must be a list or number, got {type(episode_rewards).__name__}"
         )
 
-    mean_return = metrics.get("mean_return")
-    if not isinstance(mean_return, int | float):
+    reward_mean = metrics.get("reward_mean")
+    if not isinstance(reward_mean, int | float):
         raise ValueError(
-            f"`/rollout` metrics.mean_return must be a number, got {type(mean_return).__name__}"
+            f"`/rollout` metrics.reward_mean must be a number, got {type(reward_mean).__name__}"
         )
 
     num_steps = metrics.get("num_steps")

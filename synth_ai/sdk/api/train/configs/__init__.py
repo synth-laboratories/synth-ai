@@ -6,12 +6,11 @@ from .prompt_learning import (
     MIPROConfig,
     PromptLearningConfig,
     PromptLearningPolicyConfig,
+    PromptLearningVerifierConfig,
     PromptPatternConfig,
 )
 from .rl import (
     EvaluationConfig,
-    JudgeConfig,
-    JudgeOptionsConfig,
     ModelConfig,
     RewardsConfig,
     RLConfig,
@@ -19,6 +18,8 @@ from .rl import (
     RLTrainingConfig,
     RolloutConfig,
     RubricConfig,
+    VerifierConfig,
+    VerifierOptionsConfig,
     WeightSyncConfig,
 )
 from .sft import (
@@ -40,8 +41,9 @@ __all__ = [
     "HyperparametersConfig",
     "HyperparametersParallelism",
     "JobConfig",
-    "JudgeConfig",
-    "JudgeOptionsConfig",
+    "PromptLearningVerifierConfig",
+    "VerifierConfig",
+    "VerifierOptionsConfig",
     "LoraConfig",
     "MIPROConfig",
     "MessagePatternConfig",

@@ -4,7 +4,7 @@ This product provides tools for optimizing LLM-based workflow graphs
 using evolutionary algorithms. It can optimize both:
 
 - **Policy graphs**: Graphs that solve tasks (e.g., multi-hop QA, reasoning)
-- **Verifier graphs**: Graphs that judge/score existing results
+- **Verifier graphs**: Graphs that verify/score existing results
 
 Algorithms:
 - `graph_evolve`: Evolutionary optimization for graph structure
@@ -43,4 +43,3 @@ __all__ = [
     "ConversionWarning",
     "ConversionError",
 ]
-

@@ -149,11 +149,11 @@ class FilterConfig:
     # Optional: Maximum official score threshold
     max_official_score: float | None = None
     
-    # Optional: Minimum judge scores (judge_name -> min_score)
-    min_judge_scores: dict[str, float] = field(default_factory=dict)
+    # Optional: Minimum verifier scores (verifier_name -> min_score)
+    min_verifier_scores: dict[str, float] = field(default_factory=dict)
     
-    # Optional: Maximum judge scores (judge_name -> max_score)
-    max_judge_scores: dict[str, float] = field(default_factory=dict)
+    # Optional: Maximum verifier scores (verifier_name -> max_score)
+    max_verifier_scores: dict[str, float] = field(default_factory=dict)
     
     # Optional: Limit number of examples
     limit: int | None = None
@@ -218,8 +218,8 @@ class FilterConfig:
             "models": data.get("models", []),
             "min_official_score": data.get("min_official_score"),
             "max_official_score": data.get("max_official_score"),
-            "min_judge_scores": data.get("min_judge_scores", {}),
-            "max_judge_scores": data.get("max_judge_scores", {}),
+            "min_verifier_scores": data.get("min_verifier_scores", {}),
+            "max_verifier_scores": data.get("max_verifier_scores", {}),
             "limit": data.get("limit"),
             "offset": data.get("offset"),
             "shuffle": data.get("shuffle", False),
@@ -252,6 +252,5 @@ class FilterConfig:
         output_path = Path(self.output).expanduser().resolve()
         output_path.parent.mkdir(parents=True, exist_ok=True)
         return output_path
-
 
 

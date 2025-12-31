@@ -2,21 +2,21 @@
 Verifier API Contract Schemas
 
 These schemas define the expected structure for requests and responses
-to the verifier scoring endpoint at POST /api/judge/v1/score. Zero-shot
-verifier graphs use the same response format via POST /api/graphs/completions.
+to the verifier scoring endpoint at POST /api/graphs/verifiers/completions.
+Zero-shot verifier graphs use the same response format via POST /api/graphs/completions.
 
 This is the canonical contract that the backend MUST conform to.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
 
 class CriterionScorePayload(BaseModel):
-    """Per-criterion score returned by the judge."""
+    """Per-criterion score returned by the verifier."""
 
     score: float = Field(..., description="Numeric score for this criterion")
     reason: str = Field(default="", description="Explanation for the score")
@@ -35,11 +35,11 @@ class ReviewPayload(BaseModel):
     summary: Optional[str] = Field(None, description="Optional text summary")
 
 
-class JudgeScoreResponse(BaseModel):
+class VerifierScoreResponse(BaseModel):
     """
-    Response body for POST /api/judge/v1/score.
+    Response body for POST /api/graphs/verifiers/completions.
 
-    This is the canonical contract that judge backends MUST return and is
+    This is the canonical contract that verifier backends MUST return and is
     also used as the zero-shot verifier graph output.
     """
 
@@ -90,24 +90,24 @@ class JudgeScoreResponse(BaseModel):
 
 # Request schemas for completeness
 
-class JudgeTaskApp(BaseModel):
+class VerifierTaskApp(BaseModel):
     """Task application metadata."""
     
     id: str = Field(..., description="Task app identifier")
     base_url: Optional[str] = Field(None, description="Optional base URL for task app")
 
 
-class JudgeOptions(BaseModel):
-    """Judge provider and configuration options."""
+class VerifierOptions(BaseModel):
+    """Verifier provider and configuration options."""
     
-    provider: Optional[str] = Field(None, description="Judge provider (e.g., 'openai', 'groq')")
+    provider: Optional[str] = Field(None, description="Verifier provider (e.g., 'openai', 'groq')")
     model: Optional[str] = Field(None, description="Model identifier")
     rubric_id: Optional[str] = Field(None, description="Rubric identifier")
-    event: bool = Field(True, description="Enable event-level judging")
-    outcome: bool = Field(True, description="Enable outcome-level judging")
+    event: bool = Field(True, description="Enable event-level verification")
+    outcome: bool = Field(True, description="Enable outcome-level verification")
 
 
-class JudgeTracePayload(BaseModel):
+class VerifierTracePayload(BaseModel):
     """Trace payload containing trajectory context."""
     
     event_history: list[dict[str, Any]] = Field(..., description="List of events/steps")
@@ -118,13 +118,13 @@ class JudgeTracePayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Trace metadata")
 
 
-class JudgeScoreRequest(BaseModel):
-    """Request body for POST /api/judge/v1/score."""
+class VerifierScoreRequest(BaseModel):
+    """Request body for POST /api/graphs/verifiers/completions."""
     
     policy_name: str = Field(..., description="Name of the policy being evaluated")
-    task_app: JudgeTaskApp = Field(..., description="Task application metadata")
-    trace: JudgeTracePayload = Field(..., description="Trajectory trace to evaluate")
-    options: JudgeOptions = Field(default_factory=lambda: JudgeOptions(), description="Judge options")
+    task_app: VerifierTaskApp = Field(..., description="Task application metadata")
+    trace: VerifierTracePayload = Field(..., description="Trajectory trace to evaluate")
+    options: VerifierOptions = Field(default_factory=lambda: VerifierOptions(), description="Verifier options")
     rubric: Optional[dict[str, Any]] = Field(None, description="Optional explicit rubric criteria")
 
 
@@ -139,11 +139,11 @@ class CalibrationExampleInput(BaseModel):
     
     session_trace: dict[str, Any] = Field(..., description="V3 SessionTrace format (validated separately)")
     event_rewards: list[Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
-        ..., 
+        ...,
         description="List of rewards per event (0.0-1.0), must match number of events in trace"
     )
     outcome_reward: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
-        ..., 
+        ...,
         description="Overall outcome reward (0.0-1.0)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")
@@ -200,12 +200,12 @@ class GoldExampleInput(BaseModel):
     
     summary: str = Field(..., min_length=1, description="Summary of the trace being evaluated")
     gold_score: Annotated[float, Field(ge=0.0, le=1.0)] = Field(
-        ..., 
+        ...,
         description="Gold-standard score (0.0-1.0)"
     )
     gold_reasoning: str = Field(..., min_length=1, description="Gold-standard reasoning/explanation")
     session_trace: Optional[dict[str, Any]] = Field(
-        None, 
+        None,
         description="Optional full trace (for richer evaluation)"
     )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Optional metadata")

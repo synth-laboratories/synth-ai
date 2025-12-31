@@ -27,9 +27,9 @@ from synth_ai.sdk.inference import InferenceClient
 # Jobs API Client
 from synth_ai.sdk.jobs import JobsClient
 
-# Judging types and graph clients
-from synth_ai.sdk.judging import JudgeOptions, JudgeScoreResponse
+# Verifier types and graph clients
 from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
+from synth_ai.sdk.graphs.verifier_schemas import VerifierOptions, VerifierScoreResponse
 
 # Task Apps
 from synth_ai.sdk.task import (
@@ -56,7 +56,7 @@ from synth_ai.sdk.training import (
     GraphGenTask,
     GraphGenGoldOutput,
     GraphGenRubric,
-    GraphGenJudgeConfig,
+    GraphGenVerifierConfig,
     load_graphgen_taskset,
 )
 
@@ -89,7 +89,7 @@ __all__ = [
     "GraphGenTask",
     "GraphGenGoldOutput",
     "GraphGenRubric",
-    "GraphGenJudgeConfig",
+    "GraphGenVerifierConfig",
     "load_graphgen_taskset",
     # Evaluation
     "EvalJob",
@@ -105,10 +105,10 @@ __all__ = [
     "LocalAPIConfig",
     "TaskAppConfig",
     "create_task_app",
-    # Graphs / Judging
+    # Graphs / Verifier
     "VerifierClient",
-    "JudgeOptions",
-    "JudgeScoreResponse",
+    "VerifierOptions",
+    "VerifierScoreResponse",
     "GraphCompletionsClient",
     "GraphTarget",
     # Inference

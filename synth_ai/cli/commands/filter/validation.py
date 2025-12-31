@@ -44,8 +44,8 @@ def validate_filter_options(options: MutableMapping[str, Any]) -> MutableMapping
     _coerce_list("splits")
     _coerce_list("task_ids")
     _coerce_list("models")
-    _coerce_dict("min_judge_scores")
-    _coerce_dict("max_judge_scores")
+    _coerce_dict("min_verifier_scores")
+    _coerce_dict("max_verifier_scores")
 
     for duration_key in ("min_official_score", "max_official_score"):
         value = result.get(duration_key)

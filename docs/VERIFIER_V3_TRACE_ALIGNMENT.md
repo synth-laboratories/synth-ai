@@ -1,8 +1,8 @@
-# Judge/Verifier V3 Trace Alignment Plan
+# Verifier V3 Trace Alignment Plan
 
 ## Problem Statement
 
-The current judge/verifier implementation uses a simplified demo format that doesn't align with the actual synth-ai v3 trace structures. This creates:
+The current verifier implementation uses a simplified demo format that doesn't align with the actual synth-ai v3 trace structures. This creates:
 - Incompatibility with the real tracing system
 - Inability to properly link rewards to events
 - Potential data corruption/confusion
@@ -135,7 +135,7 @@ Create alembic migration to alter `outcome_rewards.total_reward` from INTEGER to
 ### 2. Backend (monorepo) Changes
 
 #### 2.1 Update API Models
-**File**: `backend/app/routes/adas/routes.py`
+**File**: `backend/app/routes/graphgen/routes.py`
 
 ```python
 # BEFORE - wrong format
@@ -167,20 +167,20 @@ class OutcomeRewardResponse(BaseModel):
     annotation: Optional[Dict[str, Any]] = None  # Add annotation field
 ```
 
-#### 2.2 Update Judge Request Model
-**File**: `backend/app/routes/adas/routes.py`
+#### 2.2 Update Verifier Request Model
+**File**: `backend/app/routes/graphgen/routes.py`
 
-The judge endpoint should accept a proper V3 SessionTrace, not the demo format:
+The verifier endpoint should accept a proper V3 SessionTrace, not the demo format:
 
 ```python
 # BEFORE
-class ADASGraphJudgeRequest(BaseModel):
+class GraphGenGraphVerifierRequest(BaseModel):
     job_id: str
     trace: Dict[str, Any]  # Accepts anything
     ...
 
 # AFTER
-class ADASGraphJudgeRequest(BaseModel):
+class GraphGenGraphVerifierRequest(BaseModel):
     job_id: str
     session_trace: SessionTraceInput  # Properly typed V3 trace
     ...
@@ -220,8 +220,8 @@ class EventInput(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 ```
 
-#### 2.3 Update Judge Response Parsing
-**File**: `backend/app/routes/adas/routes.py`
+#### 2.3 Update Verifier Response Parsing
+**File**: `backend/app/routes/graphgen/routes.py`
 
 The parsing logic needs to:
 1. Build a map of valid event_ids from the input trace
@@ -229,8 +229,8 @@ The parsing logic needs to:
 3. Parse event rewards keyed by event_id
 
 ```python
-# In graph_judge endpoint:
-def parse_judge_output(
+# In graph_verifier endpoint:
+def parse_verifier_output(
     raw_output: dict,
     session_trace: SessionTraceInput,
 ) -> Tuple[List[EventRewardResponse], OutcomeRewardResponse]:
@@ -396,5 +396,5 @@ def create_v3_test_trace() -> SessionTraceInput:
 ```
 
 #### 5.2 Integration Tests
-- Test judge endpoint with V3 traces
+- Test verifier endpoint with V3 traces
 - Test that EventReward.event_id links to actual events

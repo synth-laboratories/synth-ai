@@ -100,7 +100,7 @@ config = GraphOptimizationConfig(
 ```
 
 ### Verifier Graphs
-Score/judge outputs: calibrate against human labels.
+Score/verify outputs: calibrate against human labels.
 ```python
 config = GraphOptimizationConfig(
     graph_type="verifier",  # Input + Trace -> Score
@@ -161,7 +161,7 @@ The system automatically detects large fields (>4M chars / ~1M tokens) and uses 
 | `dag` | Multiple nodes in sequence | Complex reasoning, pipelines |
 | `conditional` | Branching logic | Routing, self-consistency |
 
-## Dataset Format (ADAS)
+## Dataset Format (Graph Opt)
 
 ### Policy Dataset Example
 ```json

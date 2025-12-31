@@ -73,7 +73,7 @@ class RewardSource(str, Enum):
     """Source of reward signal for training."""
 
     TASK_APP = "task_app"
-    JUDGE = "judge"
+    VERIFIER = "verifier"
     FUSED = "fused"
 
 
@@ -120,4 +120,3 @@ __all__ = [
     "SynthModelName",
     "SYNTH_MODEL_NAMES",
 ]
-

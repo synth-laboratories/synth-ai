@@ -9,7 +9,7 @@ The rubrics module is organized into focused submodules:
 - **`models.py`** - Core `Criterion` and `Rubric` Pydantic models with flexible validation
 - **`loaders.py`** - Loading from JSON/YAML/HTTP sources and rubric blending utilities
 - **`scoring.py`** - Scoring utilities for events and outcomes against rubrics
-- **`strict.py`** - Strict validators (`StrictCriterion`, `StrictRubric`) for step-wise judges
+- **`strict.py`** - Strict validators (`StrictCriterion`, `StrictRubric`) for step-wise verifiers
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ result = score_events_against_rubric(events, rubric)
 print(result["score"])  # Weighted average
 ```
 
-### Strict Validation (for Judge Configs)
+### Strict Validation (for Verifier Configs)
 
 ```python
 from synth_ai.task.rubrics import StrictRubric, validate_rubric_file, ValidationError
@@ -51,7 +51,7 @@ try:
     # - Weights sum to exactly 1.0
     # - All weights ≤ 1.0
     # - Only weighted_sum aggregation
-    rubric = validate_rubric_file("judge_rubric.json")
+    rubric = validate_rubric_file("verifier_rubric.json")
 except ValidationError as e:
     print(f"Invalid rubric: {e}")
 ```
@@ -69,11 +69,11 @@ Used by task apps for general scoring:
 
 ### Strict Models (`StrictCriterion`, `StrictRubric`)
 
-Used for step-wise judge validation:
+Used for step-wise verifier validation:
 - ✅ Weights must be ≤ 1.0 and sum to exactly 1.0
 - ✅ Only `weighted_sum` aggregation
 - ✅ Required `goal_text` and at least one criterion
-- ✅ Stricter validation for production judge configs
+- ✅ Stricter validation for production verifier configs
 
 ## API Reference
 
@@ -254,9 +254,7 @@ pytest tests/unit/rubrics/test_rubric_validation.py -v
 ## Related
 
 - **Trace Utils**: Moved to `synth_ai/tracing_v3/trace_utils.py` (was incorrectly in old rubrics dir)
-- **Judge Schemas**: See `synth_ai/judge_schemas.py` for judge API contracts
+- **Verifier Schemas**: See `synth_ai/sdk/graphs/verifier_schemas.py` for verifier API contracts
 - **Task Server**: See `synth_ai/task/server.py` for rubric integration in task apps
-
-
 
 

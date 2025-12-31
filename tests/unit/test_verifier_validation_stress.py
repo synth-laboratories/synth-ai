@@ -1,5 +1,5 @@
 """
-Stress tests for judge/rubric configuration validation.
+Stress tests for verifier/rubric configuration validation.
 
 These tests cover edge cases, error conditions, malformed input,
 and complex validation scenarios to ensure robustness.
@@ -10,14 +10,14 @@ from __future__ import annotations
 import pytest
 
 from synth_ai.cli.commands.train import (
-    InvalidJudgeConfigError,
+    InvalidVerifierConfigError,
     InvalidRubricConfigError,
     RubricConfig,
-    JudgeConfig,
-    extract_and_validate_judge_rubric,
-    validate_judge_config,
+    VerifierConfig,
+    extract_and_validate_verifier_rubric,
+    validate_verifier_config,
     validate_rubric_config,
-    build_judge_http_options,
+    build_verifier_http_options,
 )
 
 
@@ -164,97 +164,97 @@ class TestRubricValidationStress:
             })
 
 
-class TestJudgeValidationStress:
-    """Stress tests for judge configuration validation."""
+class TestVerifierValidationStress:
+    """Stress tests for verifier configuration validation."""
 
-    def test_judge_options_not_a_dict(self):
+    def test_verifier_options_not_a_dict(self):
         """Options as non-dict should fail."""
-        with pytest.raises(InvalidJudgeConfigError, match="must be a dictionary"):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError, match="must be a dictionary"):
+            validate_verifier_config({
                 "options": "not a dict",
             })
 
-    def test_judge_options_is_list(self):
+    def test_verifier_options_is_list(self):
         """Options as list should fail."""
-        with pytest.raises(InvalidJudgeConfigError, match="must be a dictionary"):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError, match="must be a dictionary"):
+            validate_verifier_config({
                 "options": ["provider", "model"],
             })
 
-    def test_judge_missing_provider(self):
+    def test_verifier_missing_provider(self):
         """Missing provider should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "model": "gpt-5",
                     # Missing provider
                 },
             })
 
-    def test_judge_missing_model(self):
+    def test_verifier_missing_model(self):
         """Missing model should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     # Missing model
                 },
             })
 
-    def test_judge_empty_provider(self):
+    def test_verifier_empty_provider(self):
         """Empty provider string should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "",  # Empty
                     "model": "gpt-5",
                 },
             })
 
-    def test_judge_empty_model(self):
+    def test_verifier_empty_model(self):
         """Empty model string should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "",  # Empty
                 },
             })
 
-    def test_judge_whitespace_only_provider(self):
+    def test_verifier_whitespace_only_provider(self):
         """Whitespace-only provider should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "   ",  # Whitespace
                     "model": "gpt-5",
                 },
             })
 
-    def test_judge_invalid_provider_case_sensitive(self):
+    def test_verifier_invalid_provider_case_sensitive(self):
         """Wrong case provider should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "OpenAI",  # Wrong case
                     "model": "gpt-5",
                 },
             })
 
-    def test_judge_provider_with_special_chars(self):
+    def test_verifier_provider_with_special_chars(self):
         """Provider with special chars should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "open-ai!",  # Special chars
                     "model": "gpt-5",
                 },
             })
 
-    def test_judge_negative_timeout(self):
+    def test_verifier_negative_timeout(self):
         """Negative timeout should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -262,10 +262,10 @@ class TestJudgeValidationStress:
                 },
             })
 
-    def test_judge_zero_timeout(self):
+    def test_verifier_zero_timeout(self):
         """Zero timeout should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -273,9 +273,9 @@ class TestJudgeValidationStress:
                 },
             })
 
-    def test_judge_extremely_large_timeout(self):
+    def test_verifier_extremely_large_timeout(self):
         """Very large timeout should work."""
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -284,10 +284,10 @@ class TestJudgeValidationStress:
         })
         assert config.options.timeout_s == 99999.0
 
-    def test_judge_timeout_as_string(self):
+    def test_verifier_timeout_as_string(self):
         """Timeout as string should be coerced."""
         # Pydantic coerces strings to floats
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -296,10 +296,10 @@ class TestJudgeValidationStress:
         })
         assert config.options.timeout_s == 60.0
 
-    def test_judge_event_and_outcome_both_string_false(self):
+    def test_verifier_event_and_outcome_both_string_false(self):
         """Both event and outcome as string 'false' should fail."""
-        with pytest.raises(InvalidJudgeConfigError, match="(?i)at least one"):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError, match="(?i)at least one"):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -308,10 +308,10 @@ class TestJudgeValidationStress:
                 },
             })
 
-    def test_judge_metadata_not_dict(self):
+    def test_verifier_metadata_not_dict(self):
         """Metadata as non-dict should fail."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -319,9 +319,9 @@ class TestJudgeValidationStress:
                 },
             })
 
-    def test_judge_metadata_deeply_nested(self):
+    def test_verifier_metadata_deeply_nested(self):
         """Deeply nested metadata should work."""
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -338,9 +338,9 @@ class TestJudgeValidationStress:
         })
         assert config.options.metadata["level1"]["level2"]["level3"]["level4"] == "deep value"
 
-    def test_judge_rubric_overrides_deeply_nested(self):
+    def test_verifier_rubric_overrides_deeply_nested(self):
         """Deeply nested rubric_overrides should work."""
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -364,10 +364,10 @@ class TestJudgeValidationStress:
         })
         assert "event" in config.options.rubric_overrides
 
-    def test_judge_rubric_id_very_long(self):
+    def test_verifier_rubric_id_very_long(self):
         """Very long rubric_id should work."""
         long_id = "a" * 1000
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -376,9 +376,9 @@ class TestJudgeValidationStress:
         })
         assert config.options.rubric_id == long_id
 
-    def test_judge_model_with_unicode(self):
+    def test_verifier_model_with_unicode(self):
         """Model name with unicode should work."""
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "模型-gpt-5",  # Unicode
@@ -388,28 +388,28 @@ class TestJudgeValidationStress:
 
 
 class TestCrossValidationStress:
-    """Stress tests for cross-validation between rubric and judge."""
+    """Stress tests for cross-validation between rubric and verifier."""
 
-    def test_rubric_enabled_judge_none_warns(self):
-        """Rubric enabled but no judge should warn and disable."""
-        with pytest.warns(UserWarning, match="rubric.*enabled.*judge.*missing"):
-            rubric, judge = extract_and_validate_judge_rubric({
+    def test_rubric_enabled_verifier_none_warns(self):
+        """Rubric enabled but no verifier should warn and disable."""
+        with pytest.warns(UserWarning, match="rubric.*enabled.*verifier.*missing"):
+            rubric, verifier = extract_and_validate_verifier_rubric({
                 "rubric": {
                     "enabled": True,
                     "weights": {"env": 0.2, "event": 0.4, "outcome": 0.4},
                 },
             })
         assert rubric.enabled is False
-        assert judge is None
+        assert verifier is None
 
-    def test_rubric_disabled_judge_present_ok(self):
-        """Rubric disabled with judge present should work."""
-        rubric, judge = extract_and_validate_judge_rubric({
+    def test_rubric_disabled_verifier_present_ok(self):
+        """Rubric disabled with verifier present should work."""
+        rubric, verifier = extract_and_validate_verifier_rubric({
             "rubric": {
                 "enabled": False,
                 "weights": {"env": 1.0},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -417,17 +417,17 @@ class TestCrossValidationStress:
             },
         })
         assert rubric.enabled is False
-        assert judge is not None
+        assert verifier is not None
 
-    def test_all_weights_zero_with_judge(self):
-        """All zero weights should fail even with judge present."""
+    def test_all_weights_zero_with_verifier(self):
+        """All zero weights should fail even with verifier present."""
         with pytest.raises(InvalidRubricConfigError):
-            extract_and_validate_judge_rubric({
+            extract_and_validate_verifier_rubric({
                 "rubric": {
                     "enabled": True,
                     "weights": {"env": 0.0, "event": 0.0, "outcome": 0.0},
                 },
-                "judge": {
+                "verifier": {
                     "options": {
                         "provider": "openai",
                         "model": "gpt-5",
@@ -438,12 +438,12 @@ class TestCrossValidationStress:
     def test_event_weight_high_but_event_disabled_warns(self):
         """High event weight but event disabled should warn."""
         with pytest.warns(UserWarning, match=r"(?i)event.*>.*0.*but.*event=false"):
-            extract_and_validate_judge_rubric({
+            extract_and_validate_verifier_rubric({
                 "rubric": {
                     "enabled": True,
                     "weights": {"env": 0.0, "event": 1.0, "outcome": 0.0},
                 },
-                "judge": {
+                "verifier": {
                     "options": {
                         "provider": "openai",
                         "model": "gpt-5",
@@ -456,12 +456,12 @@ class TestCrossValidationStress:
     def test_outcome_weight_high_but_outcome_disabled_warns(self):
         """High outcome weight but outcome disabled should warn."""
         with pytest.warns(UserWarning, match=r"(?i)outcome.*>.*0.*but.*outcome=false"):
-            extract_and_validate_judge_rubric({
+            extract_and_validate_verifier_rubric({
                 "rubric": {
                     "enabled": True,
                     "weights": {"env": 0.0, "event": 0.0, "outcome": 1.0},
                 },
-                "judge": {
+                "verifier": {
                     "options": {
                         "provider": "openai",
                         "model": "gpt-5",
@@ -473,12 +473,12 @@ class TestCrossValidationStress:
 
     def test_both_weights_zero_but_judging_enabled_ok(self):
         """Event/outcome weights zero but judging enabled is OK."""
-        rubric, judge = extract_and_validate_judge_rubric({
+        rubric, verifier = extract_and_validate_verifier_rubric({
             "rubric": {
                 "enabled": True,
                 "weights": {"env": 1.0, "event": 0.0, "outcome": 0.0},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -497,7 +497,7 @@ class TestHTTPOptionsBuildingStress:
 
     def test_build_options_with_none_optional_fields(self):
         """Building options with all optional fields None."""
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -507,7 +507,7 @@ class TestHTTPOptionsBuildingStress:
                 "rubric_overrides": {},
             }
         )
-        options = build_judge_http_options(config.options)
+        options = build_verifier_http_options(config.options)
         
         # Should not include None fields or empty dicts (exclude_none excludes defaults)
         assert "rubric_id" not in options
@@ -518,7 +518,7 @@ class TestHTTPOptionsBuildingStress:
 
     def test_build_options_task_info_overrides_empty_static(self):
         """TaskInfo overrides empty static config."""
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -527,7 +527,7 @@ class TestHTTPOptionsBuildingStress:
         )
         
         task_info_overrides = {"event": {"criteria": [{"id": "test"}]}}
-        options = build_judge_http_options(
+        options = build_verifier_http_options(
             config.options,
             rubric_overrides_from_task_info=task_info_overrides,
         )
@@ -538,7 +538,7 @@ class TestHTTPOptionsBuildingStress:
     def test_build_options_task_info_none_uses_static(self):
         """TaskInfo None uses static rubric_overrides."""
         static_overrides = {"outcome": {"criteria": []}}
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -546,7 +546,7 @@ class TestHTTPOptionsBuildingStress:
             }
         )
         
-        options = build_judge_http_options(
+        options = build_verifier_http_options(
             config.options,
             rubric_overrides_from_task_info=None,
         )
@@ -557,7 +557,7 @@ class TestHTTPOptionsBuildingStress:
     def test_build_options_task_info_empty_dict_uses_static(self):
         """TaskInfo empty dict uses static rubric_overrides."""
         static_overrides = {"outcome": {"criteria": []}}
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -565,7 +565,7 @@ class TestHTTPOptionsBuildingStress:
             }
         )
         
-        options = build_judge_http_options(
+        options = build_verifier_http_options(
             config.options,
             rubric_overrides_from_task_info={},  # Empty dict
         )
@@ -575,7 +575,7 @@ class TestHTTPOptionsBuildingStress:
 
     def test_build_options_metadata_with_special_types(self):
         """Metadata with various Python types."""
-        config = JudgeConfig(
+        config = VerifierConfig(
             options={
                 "provider": "openai",
                 "model": "gpt-5",
@@ -591,7 +591,7 @@ class TestHTTPOptionsBuildingStress:
             }
         )
         
-        options = build_judge_http_options(config.options)
+        options = build_verifier_http_options(config.options)
         metadata = options["metadata"]
         
         assert metadata["string"] == "value"
@@ -616,31 +616,31 @@ class TestMalformedInputStress:
         config = validate_rubric_config({})
         assert config.enabled is False
 
-    def test_judge_config_is_none(self):
-        """Judge config as None should return None."""
-        config = validate_judge_config(None)
+    def test_verifier_config_is_none(self):
+        """Verifier config as None should return None."""
+        config = validate_verifier_config(None)
         assert config is None
 
-    def test_judge_config_is_empty_dict(self):
-        """Empty judge config should return None."""
-        config = validate_judge_config({})
+    def test_verifier_config_is_empty_dict(self):
+        """Empty verifier config should return None."""
+        config = validate_verifier_config({})
         assert config is None
 
-    def test_extract_from_config_with_no_rubric_or_judge(self):
-        """Config with neither rubric nor judge."""
-        rubric, judge = extract_and_validate_judge_rubric({})
+    def test_extract_from_config_with_no_rubric_or_verifier(self):
+        """Config with neither rubric nor verifier."""
+        rubric, verifier = extract_and_validate_verifier_rubric({})
         assert rubric.enabled is False
-        assert judge is None
+        assert verifier is None
 
     def test_extract_from_config_with_other_sections(self):
-        """Config with other sections but no rubric/judge."""
-        rubric, judge = extract_and_validate_judge_rubric({
+        """Config with other sections but no rubric/verifier."""
+        rubric, verifier = extract_and_validate_verifier_rubric({
             "algorithm": {"type": "online"},
             "model": {"base": "Qwen"},
             "training": {"num_epochs": 1},
         })
         assert rubric.enabled is False
-        assert judge is None
+        assert verifier is None
 
     def test_weights_with_infinity(self):
         """Weights with infinity should work (Pydantic allows it)."""
@@ -674,9 +674,9 @@ class TestMalformedInputStress:
             pass
 
     def test_deeply_nested_invalid_provider(self):
-        """Judge config with valid structure but invalid provider value."""
-        with pytest.raises(InvalidJudgeConfigError):
-            validate_judge_config({
+        """Verifier config with valid structure but invalid provider value."""
+        with pytest.raises(InvalidVerifierConfigError):
+            validate_verifier_config({
                 "options": {
                     "provider": "anthropic",  # Not in allowed list
                     "model": "claude-3",
@@ -685,7 +685,7 @@ class TestMalformedInputStress:
 
     def test_unicode_everywhere(self):
         """Config with unicode in all string fields."""
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "模型-gpt-5-测试",
@@ -702,7 +702,7 @@ class TestMalformedInputStress:
     def test_extremely_large_config(self):
         """Config with hundreds of metadata fields."""
         large_metadata = {f"key_{i}": f"value_{i}" for i in range(1000)}
-        config = validate_judge_config({
+        config = validate_verifier_config({
             "options": {
                 "provider": "openai",
                 "model": "gpt-5",
@@ -717,8 +717,8 @@ class TestErrorMessagesStress:
 
     def test_missing_provider_error_message(self):
         """Error message for missing provider should be clear."""
-        with pytest.raises(InvalidJudgeConfigError) as exc_info:
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError) as exc_info:
+            validate_verifier_config({
                 "options": {
                     "model": "gpt-5",
                 },
@@ -729,8 +729,8 @@ class TestErrorMessagesStress:
 
     def test_invalid_provider_error_message(self):
         """Error message for invalid provider should list allowed values."""
-        with pytest.raises(InvalidJudgeConfigError) as exc_info:
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError) as exc_info:
+            validate_verifier_config({
                 "options": {
                     "provider": "anthropic",
                     "model": "claude",
@@ -755,8 +755,8 @@ class TestErrorMessagesStress:
 
     def test_both_judging_disabled_error_message(self):
         """Error message for both judging types disabled should be clear."""
-        with pytest.raises(InvalidJudgeConfigError) as exc_info:
-            validate_judge_config({
+        with pytest.raises(InvalidVerifierConfigError) as exc_info:
+            validate_verifier_config({
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -781,7 +781,7 @@ class TestPerformanceStress:
                 "enabled": True,
                 "weights": {"env": 0.5, "event": 0.3, "outcome": 0.2},
             },
-            "judge": {
+            "verifier": {
                 "options": {
                     "provider": "openai",
                     "model": "gpt-5",
@@ -792,13 +792,13 @@ class TestPerformanceStress:
         import time
         start = time.time()
         for _ in range(1000):
-            rubric, judge = extract_and_validate_judge_rubric(config_dict)
+            rubric, verifier = extract_and_validate_verifier_rubric(config_dict)
         elapsed = time.time() - start
         
         # Should complete in reasonable time (< 5 seconds)
         assert elapsed < 5.0, f"Validation too slow: {elapsed:.2f}s for 1000 iterations"
         assert rubric.enabled is True
-        assert judge is not None
+        assert verifier is not None
 
     def test_validate_many_warnings(self):
         """Config that triggers many warnings (performance check)."""
@@ -813,7 +813,7 @@ class TestPerformanceStress:
                     "event": {},  # Deprecated section
                     "outcome": {},  # Deprecated section
                 },
-                "judge": {
+                "verifier": {
                     "type": "groq",  # Deprecated
                     "timeout_s": 60,  # Deprecated location
                     "options": {
@@ -826,7 +826,7 @@ class TestPerformanceStress:
             }
             
             # Should still validate despite many warnings
-            rubric, judge = extract_and_validate_judge_rubric(config_dict)
+            rubric, verifier = extract_and_validate_verifier_rubric(config_dict)
             assert rubric.enabled is True
-            assert judge is not None
+            assert verifier is not None
 

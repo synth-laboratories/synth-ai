@@ -23,7 +23,7 @@ def _build_trace(
     split: str,
     task_id: str,
     model: str,
-    judge_scores: dict[str, float] | None = None,
+    verifier_scores: dict[str, float] | None = None,
     metadata_extra: dict | None = None,
     user_text: str = "user message",
     assistant_text: str = "assistant reply",
@@ -36,8 +36,8 @@ def _build_trace(
         "policy_name": "demo-policy",
         "seed": 0,
     }
-    if judge_scores:
-        metadata["judge_scores"] = judge_scores
+    if verifier_scores:
+        metadata["verifier_scores"] = verifier_scores
     if metadata_extra:
         metadata.update(metadata_extra)
 
@@ -207,7 +207,7 @@ min_official_score = 5.0
     assert _session_ids(records) == ["session-high"]
 
 
-def test_filter_by_judge_scores(tmp_path: Path) -> None:
+def test_filter_by_verifier_scores(tmp_path: Path) -> None:
     now = datetime.now(UTC)
     sessions = [
         _build_trace(
@@ -216,7 +216,7 @@ def test_filter_by_judge_scores(tmp_path: Path) -> None:
             split="train",
             task_id="task",
             model="model",
-            judge_scores={"quality": 0.9},
+            verifier_scores={"quality": 0.9},
         ),
         _build_trace(
             session_id="poor",
@@ -224,7 +224,7 @@ def test_filter_by_judge_scores(tmp_path: Path) -> None:
             split="train",
             task_id="task",
             model="model",
-            judge_scores={"quality": 0.5},
+            verifier_scores={"quality": 0.5},
         ),
     ]
 
@@ -232,7 +232,7 @@ def test_filter_by_judge_scores(tmp_path: Path) -> None:
 [filter]
 db = "{db_url}"
 output = "{output_path}"
-[filter.min_judge_scores]
+[filter.min_verifier_scores]
 quality = 0.8
 """
 
@@ -293,7 +293,7 @@ limit = 1
     assert _session_ids(records) == ["recent"]
 
 
-def test_filter_by_max_official_and_max_judge(tmp_path: Path) -> None:
+def test_filter_by_max_official_and_max_verifier(tmp_path: Path) -> None:
     now = datetime.now(UTC)
     sessions = [
         _build_trace(
@@ -302,7 +302,7 @@ def test_filter_by_max_official_and_max_judge(tmp_path: Path) -> None:
             split="train",
             task_id="task",
             model="m",
-            judge_scores={"toxicity": 0.1},
+            verifier_scores={"toxicity": 0.1},
         ),
         _build_trace(
             session_id="bad",
@@ -310,7 +310,7 @@ def test_filter_by_max_official_and_max_judge(tmp_path: Path) -> None:
             split="train",
             task_id="task",
             model="m",
-            judge_scores={"toxicity": 0.7},
+            verifier_scores={"toxicity": 0.7},
         ),
     ]
 
@@ -324,7 +324,7 @@ def test_filter_by_max_official_and_max_judge(tmp_path: Path) -> None:
 db = "{db_url}"
 output = "{output_path}"
 max_official_score = 5.0
-[filter.max_judge_scores]
+[filter.max_verifier_scores]
 toxicity = 0.2
 """
 

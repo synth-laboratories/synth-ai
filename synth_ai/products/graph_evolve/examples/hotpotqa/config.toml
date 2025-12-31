@@ -7,7 +7,7 @@ algorithm = "graph_gepa"
 
 # What we're optimizing
 dataset_name = "hotpotqa"
-graph_type = "policy"         # "policy" (solves tasks), "verifier" (judges results), or "rlm" (massive context via tools)
+graph_type = "policy"         # "policy" (solves tasks), "verifier" (verifies results), or "rlm" (massive context via tools)
 graph_structure = "dag"       # "single_prompt", "dag", or "conditional"
 
 # Custom topology guidance (optional - adds detail to graph_structure)
