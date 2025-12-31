@@ -26,7 +26,7 @@ def main():
         import papermill as pm
 
     notebook_dir = Path(__file__).parent
-    input_notebook = notebook_dir / "demo_prod.ipynb"
+    input_notebook = notebook_dir / "graphgen_image_style_matching.ipynb"
     output_notebook = notebook_dir / "demo_prod_executed.ipynb"
 
     # Parameters to pass to the notebook

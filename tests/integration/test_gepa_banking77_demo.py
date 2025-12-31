@@ -2,7 +2,7 @@
 """
 Integration test for the GEPA Banking77 demo notebook.
 
-This test executes the demo_prod.ipynb notebook and verifies:
+This test executes the gepa_banking77_prompt_optimization.ipynb notebook and verifies:
 1. All cells execute without errors
 2. GEPA optimization completes successfully
 3. Eval scores are extracted and optimized >= baseline
@@ -35,7 +35,7 @@ import pytest
 
 # Get the repo root
 REPO_ROOT = Path(__file__).parent.parent.parent
-NOTEBOOK_PATH = REPO_ROOT / "demos" / "gepa_banking77" / "demo_prod.ipynb"
+NOTEBOOK_PATH = REPO_ROOT / "demos" / "gepa_banking77" / "gepa_banking77_prompt_optimization.ipynb"
 
 PROD_BACKEND = "https://api.usesynth.ai"
 DEV_BACKEND = "https://synth-backend-dev-docker.onrender.com"

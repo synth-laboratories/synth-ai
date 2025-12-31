@@ -60,7 +60,7 @@ export SYNTH_API_KEY=your_api_key_here
 uv run python demos/gepa_crafter_vlm/run_notebook.py
 ```
 
-This executes `demo_prod.ipynb` using papermill and saves:
+This executes `gepa_crafter_vlm_verifier_optimization.ipynb` using papermill and saves:
 - Executed notebook to `demo_prod_executed.ipynb`
 - Optimized prompt to `results/optimized_prompt.txt`
 - Eval results to `results/eval_results.json`
@@ -69,7 +69,7 @@ This executes `demo_prod.ipynb` using papermill and saves:
 
 ```bash
 cd /Users/joshpurtell/Documents/GitHub/synth-ai
-jupyter notebook demos/gepa_crafter_vlm/demo_prod.ipynb
+jupyter notebook demos/gepa_crafter_vlm/gepa_crafter_vlm_verifier_optimization.ipynb
 ```
 
 ### Option 3: Run Legacy Script Directly

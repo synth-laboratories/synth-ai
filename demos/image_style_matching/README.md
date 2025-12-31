@@ -14,7 +14,7 @@ export LOCAL_BACKEND=true  # Optional - use local backend at http://127.0.0.1:80
 uv run python demos/image_style_matching/run_notebook.py
 ```
 
-This executes `demo_prod.ipynb` using papermill and saves:
+This executes `graphgen_image_style_matching.ipynb` using papermill and saves:
 - Executed notebook to `demo_prod_executed.ipynb`
 - Generated images to `results/`
 
@@ -22,7 +22,7 @@ This executes `demo_prod.ipynb` using papermill and saves:
 
 ```bash
 cd /Users/joshpurtell/Documents/GitHub/synth-ai
-jupyter notebook demos/image_style_matching/demo_prod.ipynb
+jupyter notebook demos/image_style_matching/graphgen_image_style_matching.ipynb
 ```
 
 ## What the Demo Does

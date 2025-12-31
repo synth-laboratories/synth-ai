@@ -59,7 +59,7 @@ def main():
     args = parser.parse_args()
 
     notebook_dir = Path(__file__).parent
-    input_notebook = notebook_dir / "demo_prod.ipynb"
+    input_notebook = notebook_dir / "gepa_crafter_vlm_verifier_optimization.ipynb"
     output_notebook = notebook_dir / "demo_prod_executed.ipynb"
 
     use_tunnel = args.use_tunnel and not args.no_tunnel
