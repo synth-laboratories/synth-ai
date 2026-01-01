@@ -1,0 +1,14 @@
+{
+  "model": "gpt-5-nano",
+  "run": 2,
+  "job_id": "pl_947f53cbd7c14a7e",
+  "best_score": null,
+  "train_accuracy": 1.0,
+  "val_accuracy": null,
+  "optimized_prompt_text": "{'rank': 0, 'train_accuracy': 1.0, 'val_accuracy': None}",
+  "raw_prompt_data": {
+    "rank": 0,
+    "train_accuracy": 1.0,
+    "val_accuracy": null
+  }
+}

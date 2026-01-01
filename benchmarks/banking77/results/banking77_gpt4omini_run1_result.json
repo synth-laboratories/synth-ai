@@ -1,0 +1,11 @@
+{
+  "model": "gpt-4o-mini",
+  "run": 1,
+  "job_id": "pl_55ebad00a6224304",
+  "status": "succeeded",
+  "best_score": 0.55,
+  "error": null,
+  "elapsed_seconds": 160.41508293151855,
+  "timestamp": "2025-12-31T03:38:57.345384",
+  "backend_url": "http://localhost:8000"
+}

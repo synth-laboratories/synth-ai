@@ -1,0 +1,12 @@
+{
+  "model": "gpt-4o-mini",
+  "run": 1,
+  "job_id": "pl_375d288824044d04",
+  "status": "succeeded",
+  "best_score": null,
+  "error": null,
+  "elapsed_seconds": 405.6981129646301,
+  "timestamp": "2025-12-31T12:55:26.306312",
+  "backend_url": "https://api.usesynth.ai",
+  "prompt_file": "/Users/joshpurtell/Documents/GitHub/cookbooks/dev/blog_posts/langprobe_dec31/iris/results/iris_gpt_4o_mini_run1_prompt.json"
+}

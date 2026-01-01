@@ -1,0 +1,12 @@
+{
+  "model": "gpt-4.1-nano",
+  "run": 3,
+  "job_id": "pl_872021ec006b46f8",
+  "status": "succeeded",
+  "best_score": 0.75,
+  "error": null,
+  "elapsed_seconds": 223.76583695411682,
+  "timestamp": "2026-01-01T06:33:02.978102",
+  "backend_url": "http://localhost:8000",
+  "prompt_file": "/Users/joshpurtell/Documents/GitHub/cookbooks/dev/blog_posts/langprobe_dec31/hover/results/hover_gpt_4.1_nano_run3_prompt.json"
+}

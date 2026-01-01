@@ -1,0 +1,11 @@
+{
+  "model": "gpt-5-nano",
+  "run": 3,
+  "job_id": "pl_c629ecfd4b024f67",
+  "status": "succeeded",
+  "best_score": 0.8,
+  "error": null,
+  "elapsed_seconds": 879.9148581027985,
+  "timestamp": "2025-12-31T03:34:37.620271",
+  "backend_url": "http://localhost:8000"
+}

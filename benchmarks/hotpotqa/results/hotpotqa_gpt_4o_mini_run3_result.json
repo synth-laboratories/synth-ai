@@ -1,0 +1,12 @@
+{
+  "model": "gpt-4o-mini",
+  "run": 3,
+  "job_id": "pl_69ef3242b6e54a13",
+  "status": "succeeded",
+  "best_score": 0.5,
+  "error": null,
+  "elapsed_seconds": 257.0896997451782,
+  "timestamp": "2025-12-31T18:20:46.566893",
+  "backend_url": "http://localhost:8000",
+  "prompt_file": "/Users/joshpurtell/Documents/GitHub/cookbooks/dev/blog_posts/langprobe_dec31/hotpotqa/results/hotpotqa_gpt_4o_mini_run3_prompt.json"
+}

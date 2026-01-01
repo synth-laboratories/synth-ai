@@ -1,0 +1,14 @@
+{
+  "model": "gpt-4o-mini",
+  "run": 3,
+  "job_id": "pl_ca5ea2c10803473b",
+  "best_score": null,
+  "train_accuracy": 0.95,
+  "val_accuracy": null,
+  "optimized_prompt_text": "{'rank': 0, 'train_accuracy': 0.95, 'val_accuracy': None}",
+  "raw_prompt_data": {
+    "rank": 0,
+    "train_accuracy": 0.95,
+    "val_accuracy": null
+  }
+}

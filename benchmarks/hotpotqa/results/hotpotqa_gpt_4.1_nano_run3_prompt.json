@@ -1,0 +1,14 @@
+{
+  "model": "gpt-4.1-nano",
+  "run": 3,
+  "job_id": "pl_18797bcc468f4477",
+  "best_score": 0.35,
+  "train_accuracy": 0.3,
+  "val_accuracy": null,
+  "optimized_prompt_text": null,
+  "raw_prompt_data": {
+    "rank": 0,
+    "train_accuracy": 0.3,
+    "val_accuracy": null
+  }
+}
