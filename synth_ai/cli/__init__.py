@@ -96,6 +96,9 @@ except Exception:
 # Register help command
 _maybe_call("synth_ai.cli.commands.help.core", "register", cli)
 
+# Register TUI command group
+_maybe_call("synth_ai.cli.commands.tui", "register", cli)
+
 # Register scan command
 _maybe_call("synth_ai.cli.commands.scan", "register", cli)
 

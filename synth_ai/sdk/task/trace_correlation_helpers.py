@@ -22,7 +22,7 @@ def extract_trace_correlation_id(
     mode: Any = None
 ) -> str | None:
     """
-    Extract trace_correlation_id from policy config or inference URL.
+    Extract trace_correlation_id from inference URL only.
     
     This is the standardized method for all task apps to extract the correlation ID
     that the RL trainer generates and passes to the task app.
@@ -37,33 +37,10 @@ def extract_trace_correlation_id(
         trace_correlation_id if found, None otherwise
         
     Extraction order:
-        1. policy_config["trace_correlation_id"] (preferred)
-        2. policy_config["trace"] (legacy fallback)
-        3. URL query param ?cid=... (fallback)
-        4. URL query param ?trace_correlation_id=... (fallback)
+        1. URL path segment (trace_*/cid_*)
+        2. URL query param ?cid=...
+        3. URL query param ?trace_correlation_id=...
     """
-    # Try policy_config first (preferred method)
-    candidates: list[Any] = [
-        policy_config.get("trace_correlation_id"),
-        policy_config.get("trace"),
-    ]
-    
-    logger.debug(
-        "extract_trace_correlation_id: policy_cfg keys=%s candidates=%s",
-        sorted(policy_config.keys()),
-        candidates,
-    )
-    
-    for candidate in candidates:
-        if isinstance(candidate, str):
-            stripped = candidate.strip()
-            if stripped:
-                logger.info(
-                    "extract_trace_correlation_id: extracted from policy_config=%s",
-                    stripped
-                )
-                return stripped
-    
     # Determine if we're in EVAL mode (trace_correlation_id not required for eval)
     rollout_mode_cls: Any | None = None
     try:
@@ -85,17 +62,16 @@ def extract_trace_correlation_id(
     else:
         is_eval_mode = mode == "eval" or getattr(mode, "value", None) == "eval"
     
-    # Fallback: try to extract from inference_url query params
+    # Require inference_url (canonical trace source)
     if not inference_url or not isinstance(inference_url, str):
         if is_eval_mode:
             logger.debug(
-                "extract_trace_correlation_id: no correlation ID found in policy_config "
-                "and no inference_url provided (EVAL mode - expected)"
+                "extract_trace_correlation_id: no inference_url provided "
+                "(EVAL mode - expected)"
             )
         else:
             logger.warning(
-                "extract_trace_correlation_id: no correlation ID found in policy_config "
-                "and no inference_url provided"
+                "extract_trace_correlation_id: no inference_url provided"
             )
         return None
     
@@ -117,6 +93,15 @@ def extract_trace_correlation_id(
                         potential_cid,
                     )
                     return potential_cid.strip()
+
+        # 1b. Fallback: look for any path segment that looks like a correlation ID
+        for segment in reversed(path_segments):
+            if segment.startswith("trace_") or segment.startswith("cid_"):
+                logger.info(
+                    "extract_trace_correlation_id: extracted from URL path segment=%s",
+                    segment,
+                )
+                return segment.strip()
 
         # 2. Fall back to query param extraction (legacy format)
         query_params = parse_qs(parsed.query or "")
@@ -140,17 +125,17 @@ def extract_trace_correlation_id(
             inference_url,
             e,
         )
-    
+
     if is_eval_mode:
         logger.debug(
             "extract_trace_correlation_id: no trace_correlation_id found in "
-            "policy_config or inference_url=%s (EVAL mode - expected)",
+            "inference_url=%s (EVAL mode - expected)",
             inference_url,
         )
     else:
         logger.warning(
             "extract_trace_correlation_id: no trace_correlation_id found in "
-            "policy_config or inference_url=%s",
+            "inference_url=%s",
             inference_url,
         )
     return None
@@ -182,13 +167,11 @@ def validate_trace_correlation_id(
             f"🚨 CRITICAL: Cannot extract trace_correlation_id!\n"
             "\n"
             f"Run ID: {run_id}\n"
-            f"Policy config keys: {sorted(policy_config.keys())}\n"
             f"Inference URL: {policy_config.get('inference_url', 'NOT_SET')}\n"
             "\n"
             "Checked:\n"
-            f"1. policy_config['trace_correlation_id']: {policy_config.get('trace_correlation_id')}\n"
-            f"2. policy_config['trace']: {policy_config.get('trace')}\n"
-            f"3. inference_url query params\n"
+            "1. inference_url path segments\n"
+            "2. inference_url query params\n"
             "\n"
             "Task app CANNOT proceed without trace_correlation_id.\n"
             "This indicates the RL trainer is not sending it correctly.\n"

@@ -135,6 +135,7 @@ include-package-data = true
 "synth_ai" = [
     "demos/demo_task_apps/math/config.toml",
     "demos/demo_task_apps/math/deploy_task_app.sh",
+    "_tui/dist/*",
 ]
 
 [tool.pytest.ini_options]

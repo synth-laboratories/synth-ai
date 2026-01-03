@@ -33,6 +33,7 @@ from synth_ai.sdk.learning.rl import mint_environment_api_key, setup_environment
 from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
 from synth_ai.sdk.task import run_server_background
 from synth_ai.sdk.task.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai.sdk.task.trace_correlation_helpers import extract_trace_correlation_id
 from synth_ai.sdk.tunnels import TunnelBackend, TunneledLocalAPI, cleanup_all, kill_port, wait_for_health_check
 
 # Production backend
@@ -197,17 +198,18 @@ def create_banking77_local_api(system_prompt: str, env_api_key: str):
 
         sample = dataset.sample(split=split, index=seed)
 
-        inference_url = request.policy.config.get("inference_url")
+        policy_config = request.policy.config or {}
+        inference_url = policy_config.get("inference_url")
         print(f"DEBUG: inference_url={inference_url}")
-        print(f"DEBUG: policy.config keys={list(request.policy.config.keys())}")
+        print(f"DEBUG: policy.config keys={list(policy_config.keys())}")
         os.environ["OPENAI_BASE_URL"] = inference_url
-        api_key = request.policy.config.get("api_key")
+        api_key = policy_config.get("api_key")
 
         predicted_intent = await classify_banking77_query(
             query=sample["text"],
             system_prompt=system_prompt,
             available_intents=format_available_intents(dataset.label_names),
-            model=request.policy.config.get("model", "gpt-4o-mini"),
+            model=policy_config.get("model", "gpt-4o-mini"),
             api_key=api_key,
         )
 
@@ -218,11 +220,23 @@ def create_banking77_local_api(system_prompt: str, env_api_key: str):
         )
         reward = 1.0 if is_correct else 0.0
 
+        policy_cfg_for_trace = {
+            key: value
+            for key, value in policy_config.items()
+            if key not in {"trace_correlation_id", "trace"}
+        }
+        trace_correlation_id = extract_trace_correlation_id(
+            policy_config=policy_cfg_for_trace,
+            inference_url=str(inference_url or ""),
+            mode=request.mode,
+        )
+
         return RolloutResponse(
             run_id=request.run_id,
             metrics=RolloutMetrics(outcome_reward=reward),
             trace=None,
-            trace_correlation_id=request.policy.config.get("trace_correlation_id"),
+            trace_correlation_id=trace_correlation_id,
+            inference_url=str(inference_url or ""),
         )
 
     def provide_taskset_description():
@@ -309,7 +323,7 @@ async def main():
             'env_config': {'split': 'train'},
             'gepa': {
                 'env_name': 'banking77',
-                'evaluation': {'seeds': list(range(30)), 'validation_seeds': list(range(50, 56))},
+                'evaluation': {'seeds': list(range(30)), 'validation_seeds': list(range(50, 70))},
                 'rollout': {'budget': 50, 'max_concurrent': 5, 'minibatch_size': 5},
                 'mutation': {'rate': 0.3},
                 'population': {'initial_size': 3, 'num_generations': 2, 'children_per_generation': 2},

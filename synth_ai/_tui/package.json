@@ -1,0 +1,11 @@
+{
+  "name": "synth-ai-tui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --bundle --target bun --entry-naming=[name].mjs"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.0"
+  }
+}

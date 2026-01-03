@@ -77,6 +77,10 @@ test_output.log
 logs/
 **/logs/
 
+# Ship prebuilt OpenTUI bundle assets
+!synth_ai/_tui/dist/
+!synth_ai/_tui/dist/**
+
 # Temporary files and snapshots
 *.snapshot.gz
 **/*.snapshot.gz
