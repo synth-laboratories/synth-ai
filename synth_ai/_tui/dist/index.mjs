@@ -19612,22 +19612,23 @@ function formatTimestamp(value) {
     return new Date(ms).toLocaleString();
   }
   if (typeof value === "string") {
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
+    const trimmed = value.trim();
+    const parsed = Date.parse(trimmed);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toLocaleString();
+    }
+    if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+      const numeric = Number(trimmed);
       const ms = numeric > 1000000000000 ? numeric : numeric * 1000;
       return new Date(ms).toLocaleString();
     }
-    const numericMatch = value.match(/-?\d+(?:\.\d+)?/);
+    const numericMatch = trimmed.match(/-?\d+(?:\.\d+)?/);
     if (numericMatch) {
-      const parsed2 = Number(numericMatch[0]);
-      if (Number.isFinite(parsed2)) {
-        const ms = parsed2 > 1000000000000 ? parsed2 : parsed2 * 1000;
+      const parsedNumber = Number(numericMatch[0]);
+      if (Number.isFinite(parsedNumber)) {
+        const ms = parsedNumber > 1000000000000 ? parsedNumber : parsedNumber * 1000;
         return new Date(ms).toLocaleString();
       }
-    }
-    const parsed = Date.parse(value);
-    if (Number.isFinite(parsed)) {
-      return new Date(parsed).toLocaleString();
     }
   }
   return String(value);
