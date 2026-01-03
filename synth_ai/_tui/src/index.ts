@@ -92,6 +92,7 @@ let activePane: "jobs" | "events" = "jobs"
 let eventWindowStart = 0
 let eventModalOffset = 0
 let jobSelectToken = 0
+let eventsToken = 0
 let eventFilter = ""
 let jobStatusFilter = new Set<string>()
 let jobFilterOptions: Array<{ status: string; count: number }> = []
@@ -327,6 +328,7 @@ async function refreshJobs(): Promise<boolean> {
 
 async function selectJob(jobId: string): Promise<void> {
   const token = ++jobSelectToken
+  eventsToken++
   lastSeq = 0
   snapshot.events = []
   snapshot.metrics = {}
@@ -424,10 +426,15 @@ async function fetchBestSnapshot(token?: number): Promise<void> {
 async function refreshEvents(): Promise<boolean> {
   const job = snapshot.selectedJob
   if (!job) return true
+  const jobId = job.job_id
+  const token = eventsToken
   try {
     const payload = await apiGet(
       `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
     )
+    if (token !== eventsToken || snapshot.selectedJob?.job_id !== jobId) {
+      return true
+    }
     const { events, nextSeq } = extractEvents(payload)
     if (events.length > 0) {
       snapshot.events.push(...events)
@@ -449,12 +456,11 @@ async function refreshEvents(): Promise<boolean> {
     if (typeof nextSeq === "number" && Number.isFinite(nextSeq)) {
       lastSeq = Math.max(lastSeq, nextSeq)
     }
+    renderSnapshot()
     return true
   } catch {
     return false
   }
-  renderSnapshot()
-  return true
 }
 
 async function cancelSelected(): Promise<void> {
