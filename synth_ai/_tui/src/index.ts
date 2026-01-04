@@ -1098,8 +1098,15 @@ function toggleResultsModal(visible: boolean): void {
   ui.resultsModalTitle.visible = visible
   ui.resultsModalText.visible = visible
   ui.resultsModalHint.visible = visible
-  if (!visible) {
+  if (visible) {
+    // Blur jobs select to prevent background scrolling
+    ui.jobsSelect.blur()
+  } else {
     ui.resultsModalText.content = ""
+    // Refocus jobs select when closing
+    if (activePane === "jobs") {
+      ui.jobsSelect.focus()
+    }
   }
   renderer.requestRender()
 }
@@ -1186,19 +1193,26 @@ function formatResultsExpanded(): string | null {
       if (promptId) lines.push(`Prompt ID: ${promptId}`)
       lines.push("")
 
-      // Extract sections from best_prompt
+      // Extract sections from best_prompt (each section = a stage)
       const sections = bestPrompt.sections || bestPrompt.prompt_sections || []
       if (Array.isArray(sections) && sections.length > 0) {
-        lines.push("=== PROMPT TEMPLATE SECTIONS ===")
+        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`)
         lines.push("")
-        for (const section of sections) {
+        for (let i = 0; i < sections.length; i++) {
+          const section = sections[i]
           const role = section.role || "stage"
           const name = section.name || section.id || ""
           const content = section.content || ""
-          lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`)
+          const order = section.order !== undefined ? section.order : i
+          lines.push(`┌─ Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} ─┐`)
+          lines.push("")
           if (content) {
             lines.push(content)
+          } else {
+            lines.push("(empty)")
           }
+          lines.push("")
+          lines.push(`└${"─".repeat(40)}┘`)
           lines.push("")
         }
       }
@@ -1206,13 +1220,17 @@ function formatResultsExpanded(): string | null {
 
     // Show rendered messages (best_prompt_messages)
     if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-      lines.push("=== RENDERED MESSAGES ===")
+      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`)
       lines.push("")
-      for (const msg of bestPromptMessages) {
+      for (let i = 0; i < bestPromptMessages.length; i++) {
+        const msg = bestPromptMessages[i]
         const role = msg.role || "unknown"
         const content = msg.content || ""
-        lines.push(`[${role}]`)
+        lines.push(`┌─ Message ${i + 1}: [${role}] ─┐`)
+        lines.push("")
         lines.push(content)
+        lines.push("")
+        lines.push(`└${"─".repeat(40)}┘`)
         lines.push("")
       }
     }
@@ -1225,23 +1243,27 @@ function formatResultsExpanded(): string | null {
       if (legacyPrompt) {
         const sections = extractPromptSections(legacyPrompt)
         if (sections.length > 0) {
-          lines.push("=== PROMPT SECTIONS (legacy) ===")
+          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`)
           lines.push("")
-          for (const section of sections) {
+          for (let i = 0; i < sections.length; i++) {
+            const section = sections[i]
             const role = section.role || "stage"
             const name = section.name || section.id || ""
             const content = section.content || ""
-            lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`)
+            lines.push(`┌─ Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} ─┐`)
+            lines.push("")
             if (content) {
               lines.push(content)
             }
+            lines.push("")
+            lines.push(`└${"─".repeat(40)}┘`)
             lines.push("")
           }
         }
       }
 
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT (legacy) ===")
+        lines.push("=== RENDERED PROMPT ===")
         lines.push("")
         lines.push(legacyText)
       }

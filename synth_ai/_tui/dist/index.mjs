@@ -20011,8 +20011,13 @@ function toggleResultsModal(visible) {
   ui.resultsModalTitle.visible = visible;
   ui.resultsModalText.visible = visible;
   ui.resultsModalHint.visible = visible;
-  if (!visible) {
+  if (visible) {
+    ui.jobsSelect.blur();
+  } else {
     ui.resultsModalText.content = "";
+    if (activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
   }
   renderer.requestRender();
 }
@@ -20095,28 +20100,39 @@ Press 'p' to try loading the best snapshot.`;
       lines.push("");
       const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
       if (Array.isArray(sections) && sections.length > 0) {
-        lines.push("=== PROMPT TEMPLATE SECTIONS ===");
+        lines.push(`=== PROMPT TEMPLATE (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
         lines.push("");
-        for (const section of sections) {
+        for (let i = 0;i < sections.length; i++) {
+          const section = sections[i];
           const role = section.role || "stage";
           const name = section.name || section.id || "";
           const content = section.content || "";
-          lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`);
+          const order = section.order !== undefined ? section.order : i;
+          lines.push(`\u250C\u2500 Stage ${order + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
+          lines.push("");
           if (content) {
             lines.push(content);
+          } else {
+            lines.push("(empty)");
           }
+          lines.push("");
+          lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
           lines.push("");
         }
       }
     }
     if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
-      lines.push("=== RENDERED MESSAGES ===");
+      lines.push(`=== RENDERED MESSAGES (${bestPromptMessages.length} message${bestPromptMessages.length > 1 ? "s" : ""}) ===`);
       lines.push("");
-      for (const msg of bestPromptMessages) {
+      for (let i = 0;i < bestPromptMessages.length; i++) {
+        const msg = bestPromptMessages[i];
         const role = msg.role || "unknown";
         const content = msg.content || "";
-        lines.push(`[${role}]`);
+        lines.push(`\u250C\u2500 Message ${i + 1}: [${role}] \u2500\u2510`);
+        lines.push("");
         lines.push(content);
+        lines.push("");
+        lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
         lines.push("");
       }
     }
@@ -20126,22 +20142,26 @@ Press 'p' to try loading the best snapshot.`;
       if (legacyPrompt) {
         const sections = extractPromptSections(legacyPrompt);
         if (sections.length > 0) {
-          lines.push("=== PROMPT SECTIONS (legacy) ===");
+          lines.push(`=== PROMPT SECTIONS (${sections.length} stage${sections.length > 1 ? "s" : ""}) ===`);
           lines.push("");
-          for (const section of sections) {
+          for (let i = 0;i < sections.length; i++) {
+            const section = sections[i];
             const role = section.role || "stage";
             const name = section.name || section.id || "";
             const content = section.content || "";
-            lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`);
+            lines.push(`\u250C\u2500 Stage ${i + 1}: ${role}${name ? ` (${name})` : ""} \u2500\u2510`);
+            lines.push("");
             if (content) {
               lines.push(content);
             }
+            lines.push("");
+            lines.push(`\u2514${"\u2500".repeat(40)}\u2518`);
             lines.push("");
           }
         }
       }
       if (legacyText) {
-        lines.push("=== RENDERED PROMPT (legacy) ===");
+        lines.push("=== RENDERED PROMPT ===");
         lines.push("");
         lines.push(legacyText);
       }
