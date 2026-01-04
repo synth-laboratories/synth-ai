@@ -19173,7 +19173,8 @@ var snapshot = {
   balanceDollars: null,
   status: "Loading jobs...",
   lastError: null,
-  lastRefresh: null
+  lastRefresh: null,
+  allCandidates: []
 };
 var lastSeq = 0;
 var autoSelected = false;
@@ -19189,6 +19190,8 @@ var activePane = "jobs";
 var eventWindowStart = 0;
 var eventModalOffset = 0;
 var resultsModalOffset = 0;
+var promptBrowserIndex = 0;
+var promptBrowserOffset = 0;
 var jobSelectToken = 0;
 var eventsToken = 0;
 var eventFilter = "";
@@ -19249,6 +19252,10 @@ renderer.keyInput.on("keypress", (key) => {
     }
     if (ui.configModalVisible) {
       toggleConfigModal(false);
+      return;
+    }
+    if (ui.promptBrowserVisible) {
+      togglePromptBrowserModal(false);
       return;
     }
     if (ui.modalVisible) {
@@ -19363,6 +19370,33 @@ renderer.keyInput.on("keypress", (key) => {
     }
     return;
   }
+  if (ui.promptBrowserVisible) {
+    if (key.name === "up" || key.name === "k") {
+      movePromptBrowserScroll(-1);
+    }
+    if (key.name === "down" || key.name === "j") {
+      movePromptBrowserScroll(1);
+    }
+    if (key.name === "left" || key.name === "h") {
+      movePromptBrowserCandidate(-1);
+    }
+    if (key.name === "right" || key.name === "l") {
+      movePromptBrowserCandidate(1);
+    }
+    if (key.name === "y") {
+      const content = getPromptBrowserClipboardContent();
+      if (content) {
+        copyToClipboard(content).then(() => {
+          snapshot.status = "Prompt copied to clipboard";
+          renderSnapshot();
+        });
+      }
+    }
+    if (key.name === "return" || key.name === "enter") {
+      togglePromptBrowserModal(false);
+    }
+    return;
+  }
   if (ui.settingsModalVisible) {
     if (key.name === "up" || key.name === "k") {
       moveSettingsSelection(-1);
@@ -19464,6 +19498,9 @@ renderer.keyInput.on("keypress", (key) => {
   }
   if (key.name === "i") {
     openConfigModal();
+  }
+  if (key.shift && key.name === "p") {
+    openPromptBrowserModal();
   }
   if (activePane === "events" && (key.name === "up" || key.name === "k")) {
     moveEventSelection(-1);
@@ -19619,6 +19656,7 @@ async function selectJob(jobId) {
   snapshot.bestSnapshot = null;
   snapshot.evalSummary = null;
   snapshot.evalResultRows = [];
+  snapshot.allCandidates = [];
   selectedEventIndex = 0;
   eventWindowStart = 0;
   const immediate = snapshot.jobs.find((job) => job.job_id === jobId);
@@ -19752,6 +19790,128 @@ async function fetchBestSnapshot(token) {
     snapshot.status = "Failed to load best snapshot";
   }
   renderSnapshot();
+}
+async function fetchAllCandidates(token) {
+  const job = snapshot.selectedJob;
+  if (!job || job.job_source === "learning" || isEvalJob(job))
+    return;
+  const jobId = job.job_id;
+  const candidates = [];
+  const meta = job.metadata || {};
+  const initialSnapshot = meta.prompt_initial_snapshot;
+  if (initialSnapshot && typeof initialSnapshot === "object") {
+    const initialPrompt = initialSnapshot.initial_prompt;
+    const rawConfig = initialSnapshot.raw_config;
+    candidates.push({
+      id: "baseline",
+      isBaseline: true,
+      score: null,
+      payload: {
+        source: "initial_config",
+        initial_prompt: initialPrompt,
+        raw_config: rawConfig,
+        ...initialSnapshot
+      },
+      createdAt: job.created_at || null,
+      tag: "baseline"
+    });
+  }
+  const relevantEvents = snapshot.events.filter((ev) => {
+    const t2 = ev.type || "";
+    return t2.includes("candidate.evaluated") || t2.includes("proposal.scored") || t2.includes("optimized.scored");
+  });
+  const seenVersionIds = new Set(["baseline", "baseline_transformation"]);
+  for (const ev of relevantEvents) {
+    const payload = ev.payload || ev.data || {};
+    const versionId = payload.version_id || payload.program_candidate?.candidate_id;
+    if (!versionId || seenVersionIds.has(versionId))
+      continue;
+    seenVersionIds.add(versionId);
+    const pc = payload.program_candidate || {};
+    const score = pc.reward ?? pc.accuracy ?? payload.accuracy ?? payload.full_score ?? null;
+    const promptText = pc.prompt_text || payload.prompt_text || "";
+    const stages = pc.stages || payload.stages || {};
+    const hasPromptContent = promptText && promptText.length > 0 || Object.keys(stages).length > 0;
+    if (!hasPromptContent)
+      continue;
+    const status = pc.status || payload.status || "evaluated";
+    const generation = pc.generation ?? payload.generation ?? null;
+    const mutationType = pc.mutation_type || payload.mutation_type || "";
+    const parentId = pc.parent_id || payload.parent_id || null;
+    const seedScores = pc.seed_scores || payload.seed_scores || [];
+    candidates.push({
+      id: versionId,
+      isBaseline: false,
+      score: typeof score === "number" ? score : null,
+      payload: {
+        prompt_text: promptText,
+        stages,
+        status,
+        generation,
+        mutation_type: mutationType,
+        parent_id: parentId,
+        seed_scores: seedScores,
+        program_candidate: pc,
+        ...payload
+      },
+      createdAt: ev.created_at || null,
+      tag: status === "accepted" ? "accepted" : status === "rejected" ? "rejected" : null
+    });
+  }
+  if (snapshot.bestSnapshot && snapshot.bestSnapshotId) {
+    const hasBest = candidates.some((c) => c.id === snapshot.bestSnapshotId);
+    if (!hasBest) {
+      candidates.push({
+        id: snapshot.bestSnapshotId,
+        isBaseline: false,
+        score: job.best_score ?? null,
+        payload: snapshot.bestSnapshot,
+        createdAt: null,
+        tag: "best"
+      });
+    }
+  }
+  try {
+    const artifacts = await apiGet(`/prompt-learning/online/jobs/${jobId}/artifacts`);
+    if (token != null && token !== jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
+      return;
+    }
+    if (Array.isArray(artifacts)) {
+      for (const art of artifacts) {
+        const snapId = art.snapshot_id;
+        if (!snapId || seenVersionIds.has(snapId))
+          continue;
+        try {
+          const snapData = await apiGet(`/prompt-learning/online/jobs/${jobId}/snapshots/${snapId}`);
+          if (token != null && token !== jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
+            return;
+          }
+          if (snapData && typeof snapData === "object") {
+            seenVersionIds.add(snapId);
+            const isBest = snapId === snapshot.bestSnapshotId;
+            candidates.push({
+              id: snapId,
+              isBaseline: false,
+              score: snapData.score ?? null,
+              payload: snapData.payload || snapData,
+              createdAt: snapData.created_at || null,
+              tag: isBest ? "best" : snapData.tag || null
+            });
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  candidates.sort((a, b) => {
+    if (a.isBaseline)
+      return -1;
+    if (b.isBaseline)
+      return 1;
+    const aScore = a.score ?? -Infinity;
+    const bScore = b.score ?? -Infinity;
+    return bScore - aScore;
+  });
+  snapshot.allCandidates = candidates;
 }
 async function refreshEvents() {
   const job = snapshot.selectedJob;
@@ -19999,21 +20159,15 @@ function formatPromptLearningDetails(job) {
     `Status: ${job.status}`,
     `Type: ${job.training_type || "prompt-learning"}`,
     `Env: ${envName || "-"}`,
+    `Started: ${formatTimestamp(job.started_at)}`,
+    `Finished: ${formatTimestamp(job.finished_at)}`,
+    `Last Event: ${lastEventTs}`,
     "",
     "\u2550\u2550\u2550 Progress \u2550\u2550\u2550",
     `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
-    `  Best Snapshot: ${snapshot.bestSnapshotId || "-"}`,
     `  Events: ${snapshot.events.length}`,
-    `  Last Event: ${lastEventTs}`,
-    "",
-    "\u2550\u2550\u2550 Usage \u2550\u2550\u2550",
     `  Tokens: ${tokensDisplay}`,
-    `  Cost: ${costDisplay}`,
-    "",
-    "\u2550\u2550\u2550 Timing \u2550\u2550\u2550",
-    `  Created: ${formatTimestamp(job.created_at)}`,
-    `  Started: ${formatTimestamp(job.started_at)}`,
-    `  Finished: ${formatTimestamp(job.finished_at)}`
+    `  Cost: ${costDisplay}`
   ];
   if (job.error) {
     lines.push("");
@@ -20461,7 +20615,7 @@ function formatStatus() {
 function footerText() {
   const filterLabel = eventFilter ? `filter=${eventFilter}` : "filter=off";
   const jobFilterLabel = jobStatusFilter.size ? `status=${Array.from(jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | o best prompt | i config | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | shift+p prompts | o best prompt | i config | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
 }
 function toggleModal(visible) {
   ui.modalVisible = visible;
@@ -20560,6 +20714,7 @@ function applyJobFilterSelection() {
     snapshot.metrics = {};
     snapshot.bestSnapshotId = null;
     snapshot.bestSnapshot = null;
+    snapshot.allCandidates = [];
     selectedEventIndex = 0;
     eventWindowStart = 0;
     snapshot.status = jobStatusFilter.size ? "No jobs with selected status" : "No prompt-learning jobs found";
@@ -20674,6 +20829,7 @@ async function switchBackend(nextBackend) {
   snapshot.evalSummary = null;
   snapshot.evalResultRows = [];
   snapshot.artifacts = [];
+  snapshot.allCandidates = [];
   snapshot.orgId = null;
   snapshot.userId = null;
   snapshot.balanceDollars = null;
@@ -21339,6 +21495,14 @@ ${content}`;
   }
   return null;
 }
+async function copyToClipboard(text) {
+  const proc = Bun.spawn(["pbcopy"], {
+    stdin: "pipe"
+  });
+  proc.stdin.write(text);
+  proc.stdin.end();
+  await proc.exited;
+}
 async function copyPromptToClipboard() {
   const promptText = getPromptForClipboard();
   if (!promptText) {
@@ -21347,12 +21511,7 @@ async function copyPromptToClipboard() {
     return;
   }
   try {
-    const proc = Bun.spawn(["pbcopy"], {
-      stdin: "pipe"
-    });
-    proc.stdin.write(promptText);
-    proc.stdin.end();
-    await proc.exited;
+    await copyToClipboard(promptText);
     snapshot.status = "Prompt copied to clipboard!";
   } catch (err) {
     snapshot.lastError = err?.message || "Failed to copy to clipboard";
@@ -21427,6 +21586,377 @@ function getConfigModalLayout() {
   const maxLines = Math.max(1, height - 4);
   const textWidth = Math.max(30, width - 4);
   return { width, height, left, top, maxLines, textWidth };
+}
+function togglePromptBrowserModal(visible) {
+  ui.promptBrowserVisible = visible;
+  ui.promptBrowserBox.visible = visible;
+  ui.promptBrowserTitle.visible = visible;
+  ui.promptBrowserText.visible = visible;
+  ui.promptBrowserHint.visible = visible;
+  if (visible) {
+    ui.jobsSelect.blur();
+  } else {
+    ui.promptBrowserText.content = "";
+    if (activePane === "jobs") {
+      ui.jobsSelect.focus();
+    }
+  }
+  renderer.requestRender();
+}
+async function openPromptBrowserModal() {
+  const job = snapshot.selectedJob;
+  if (!job || job.job_source === "learning" || isEvalJob(job)) {
+    snapshot.status = "Prompt browser not available for this job type";
+    return;
+  }
+  if (snapshot.allCandidates.length === 0) {
+    snapshot.status = "Loading prompt candidates...";
+    renderSnapshot();
+    await fetchAllCandidates();
+  }
+  if (snapshot.allCandidates.length === 0) {
+    snapshot.status = "No prompt candidates found for this job";
+    return;
+  }
+  promptBrowserIndex = 0;
+  promptBrowserOffset = 0;
+  togglePromptBrowserModal(true);
+  updatePromptBrowserContent();
+}
+function movePromptBrowserScroll(delta) {
+  const { maxLines, textWidth } = getPromptBrowserLayout();
+  const content = formatCandidateContent(snapshot.allCandidates[promptBrowserIndex]);
+  const lines = wrapModalText(content, textWidth);
+  const maxOffset = Math.max(0, lines.length - maxLines);
+  promptBrowserOffset = clamp(promptBrowserOffset + delta, 0, maxOffset);
+  updatePromptBrowserContent();
+}
+function movePromptBrowserCandidate(delta) {
+  const total = snapshot.allCandidates.length;
+  if (total === 0)
+    return;
+  promptBrowserIndex = ((promptBrowserIndex + delta) % total + total) % total;
+  promptBrowserOffset = 0;
+  updatePromptBrowserContent();
+}
+function updatePromptBrowserContent() {
+  if (!ui.promptBrowserVisible)
+    return;
+  const candidates = snapshot.allCandidates;
+  if (candidates.length === 0) {
+    ui.promptBrowserText.content = "No candidates available.";
+    return;
+  }
+  const { width, height, left, top, maxLines, textWidth } = getPromptBrowserLayout();
+  ui.promptBrowserBox.width = width;
+  ui.promptBrowserBox.height = height;
+  ui.promptBrowserBox.left = left;
+  ui.promptBrowserBox.top = top;
+  ui.promptBrowserTitle.left = left + 2;
+  ui.promptBrowserTitle.top = top + 1;
+  ui.promptBrowserText.left = left + 2;
+  ui.promptBrowserText.top = top + 2;
+  ui.promptBrowserText.width = width - 4;
+  ui.promptBrowserHint.left = left + 2;
+  ui.promptBrowserHint.top = top + height - 2;
+  const candidate = candidates[promptBrowserIndex];
+  const content = formatCandidateContent(candidate);
+  const lines = wrapModalText(content, textWidth);
+  const sliced = lines.slice(promptBrowserOffset, promptBrowserOffset + maxLines);
+  ui.promptBrowserText.content = sliced.join(`
+`);
+  const idx = promptBrowserIndex + 1;
+  const total = candidates.length;
+  const label = candidate.isBaseline ? " [BASELINE]" : candidate.tag === "best" ? " [BEST]" : "";
+  const scoreStr = candidate.score != null ? ` | Score: ${candidate.score.toFixed(3)}` : "";
+  ui.promptBrowserTitle.content = `Prompt Browser (${idx}/${total})${label}${scoreStr}`;
+  const scrollPos = lines.length <= maxLines ? "end" : `${promptBrowserOffset + 1}-${Math.min(promptBrowserOffset + maxLines, lines.length)}`;
+  ui.promptBrowserHint.content = `(${scrollPos} of ${lines.length}) | h/l prev/next | j/k scroll | y copy | esc close`;
+  renderer.requestRender();
+}
+function formatCandidateContent(candidate) {
+  if (!candidate)
+    return "No candidate selected.";
+  const lines = [];
+  if (candidate.isBaseline) {
+    lines.push("\u2550\u2550\u2550 BASELINE PROMPT \u2550\u2550\u2550");
+    lines.push("");
+    lines.push("This is the initial prompt configuration before optimization.");
+  } else {
+    const scoreStr = candidate.score != null ? candidate.score.toFixed(4) : "N/A";
+    lines.push(`\u2550\u2550\u2550 CANDIDATE: ${candidate.id.slice(0, 12)}... \u2550\u2550\u2550`);
+    lines.push("");
+    lines.push(`Score: ${scoreStr}`);
+    if (candidate.tag) {
+      lines.push(`Tag: ${candidate.tag}`);
+    }
+    const payload2 = candidate.payload;
+    if (payload2) {
+      if (payload2.generation != null)
+        lines.push(`Generation: ${payload2.generation}`);
+      if (payload2.mutation_type)
+        lines.push(`Mutation: ${payload2.mutation_type}`);
+      if (payload2.status)
+        lines.push(`Status: ${payload2.status}`);
+    }
+  }
+  lines.push("");
+  const payload = candidate.payload;
+  if (!payload || typeof payload !== "object") {
+    lines.push("(No payload data)");
+    return lines.join(`
+`);
+  }
+  const promptText = payload.prompt_text;
+  if (promptText && typeof promptText === "string" && promptText.length > 0) {
+    lines.push("=== PROMPT TEXT ===");
+    lines.push("");
+    lines.push(promptText);
+    lines.push("");
+    const stages2 = payload.stages;
+    if (stages2 && typeof stages2 === "object" && Object.keys(stages2).length > 0) {
+      lines.push("");
+      lines.push("=== STAGES (STRUCTURED) ===");
+      for (const [stageId, stageData] of Object.entries(stages2)) {
+        if (!stageData || typeof stageData !== "object")
+          continue;
+        const sd = stageData;
+        const instruction = sd.instruction || "";
+        lines.push(`\u250C\u2500 [${stageId.toUpperCase()}] \u2500\u2510`);
+        lines.push(instruction || "(empty)");
+        lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+        lines.push("");
+      }
+    }
+    return lines.join(`
+`);
+  }
+  const stages = payload.stages;
+  if (stages && typeof stages === "object" && Object.keys(stages).length > 0) {
+    const stageKeys = Object.keys(stages);
+    lines.push(`=== STAGES (${stageKeys.length}) ===`);
+    lines.push("");
+    for (const stageId of stageKeys) {
+      const stageData = stages[stageId];
+      if (!stageData || typeof stageData !== "object")
+        continue;
+      const instruction = stageData.instruction || "";
+      const rules = stageData.rules || {};
+      lines.push(`\u250C\u2500 [${stageId.toUpperCase()}] \u2500\u2510`);
+      lines.push(instruction || "(empty)");
+      if (Object.keys(rules).length > 0) {
+        lines.push("");
+        lines.push("Rules:");
+        for (const [ruleKey, ruleVal] of Object.entries(rules)) {
+          lines.push(`  \u2022 ${ruleKey}: ${ruleVal}`);
+        }
+      }
+      lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+      lines.push("");
+    }
+    return lines.join(`
+`);
+  }
+  const bestPromptMessages = payload.best_prompt_messages;
+  if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+    lines.push(`=== MESSAGES (${bestPromptMessages.length}) ===`);
+    lines.push("");
+    for (let i = 0;i < bestPromptMessages.length; i++) {
+      const msg = bestPromptMessages[i];
+      const role = msg.role || "unknown";
+      const content = msg.content || "";
+      lines.push(`\u250C\u2500 [${role}] \u2500\u2510`);
+      lines.push(content);
+      lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+      lines.push("");
+    }
+    return lines.join(`
+`);
+  }
+  const bestPrompt = payload.best_prompt;
+  if (bestPrompt && typeof bestPrompt === "object") {
+    const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
+    if (Array.isArray(sections) && sections.length > 0) {
+      lines.push(`=== PROMPT SECTIONS (${sections.length}) ===`);
+      lines.push("");
+      for (let i = 0;i < sections.length; i++) {
+        const section = sections[i];
+        const role = section.role || "stage";
+        const name = section.name || "";
+        const content = section.content || "";
+        lines.push(`\u250C\u2500 ${role}${name ? `: ${name}` : ""} \u2500\u2510`);
+        lines.push(content || "(empty)");
+        lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+        lines.push("");
+      }
+      return lines.join(`
+`);
+    }
+  }
+  if (candidate.isBaseline) {
+    const initialPrompt = payload.initial_prompt;
+    if (initialPrompt) {
+      let promptObj = initialPrompt;
+      if (typeof initialPrompt === "string") {
+        try {
+          promptObj = JSON.parse(initialPrompt);
+        } catch {
+          lines.push("=== INITIAL PROMPT ===");
+          lines.push("");
+          lines.push(initialPrompt);
+          return lines.join(`
+`);
+        }
+      }
+      if (promptObj && typeof promptObj === "object") {
+        const dataMessages = promptObj.data?.messages;
+        if (Array.isArray(dataMessages) && dataMessages.length > 0) {
+          const sortedMessages = [...dataMessages].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+          lines.push(`=== INITIAL PROMPT MESSAGES (${sortedMessages.length}) ===`);
+          lines.push("");
+          for (const msg of sortedMessages) {
+            const role = msg.role || "unknown";
+            const pattern = msg.pattern || msg.content || "";
+            lines.push(`\u250C\u2500 [${role.toUpperCase()}] \u2500\u2510`);
+            lines.push(pattern || "(empty)");
+            lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+            lines.push("");
+          }
+          return lines.join(`
+`);
+        }
+        const promptStages = promptObj.stages || {};
+        if (Object.keys(promptStages).length > 0) {
+          lines.push(`=== INITIAL PROMPT STAGES (${Object.keys(promptStages).length}) ===`);
+          lines.push("");
+          for (const [stageId, stageData] of Object.entries(promptStages)) {
+            if (!stageData || typeof stageData !== "object")
+              continue;
+            const sd = stageData;
+            const instruction = sd.instruction || "";
+            lines.push(`\u250C\u2500 [${stageId.toUpperCase()}] \u2500\u2510`);
+            lines.push(instruction || "(empty)");
+            lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+            lines.push("");
+          }
+          return lines.join(`
+`);
+        }
+        const sections = promptObj.sections || promptObj.prompt_sections || [];
+        if (Array.isArray(sections) && sections.length > 0) {
+          lines.push(`=== INITIAL PROMPT SECTIONS (${sections.length}) ===`);
+          lines.push("");
+          for (const section of sections) {
+            const role = section.role || "stage";
+            const name = section.name || section.id || "";
+            const content = section.content || section.template || "";
+            lines.push(`\u250C\u2500 ${role}${name ? `: ${name}` : ""} \u2500\u2510`);
+            lines.push(content || "(empty)");
+            lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+            lines.push("");
+          }
+          return lines.join(`
+`);
+        }
+        if (promptObj.instruction) {
+          lines.push("=== INITIAL PROMPT ===");
+          lines.push("");
+          lines.push(promptObj.instruction);
+          return lines.join(`
+`);
+        }
+      }
+    }
+    const promptConfig = payload.prompt_config;
+    if (promptConfig && typeof promptConfig === "object") {
+      const sections = promptConfig.sections || promptConfig.prompt_sections || [];
+      if (Array.isArray(sections) && sections.length > 0) {
+        lines.push(`=== INITIAL PROMPT SECTIONS (${sections.length}) ===`);
+        lines.push("");
+        for (const section of sections) {
+          const role = section.role || "stage";
+          const name = section.name || section.id || "";
+          const content = section.content || section.template || "";
+          lines.push(`\u250C\u2500 ${role}${name ? `: ${name}` : ""} \u2500\u2510`);
+          lines.push(content || "(empty)");
+          lines.push(`\u2514${"\u2500".repeat(30)}\u2518`);
+          lines.push("");
+        }
+        return lines.join(`
+`);
+      }
+      if (promptConfig.name || promptConfig.template) {
+        lines.push("=== INITIAL PROMPT ===");
+        lines.push("");
+        if (promptConfig.name)
+          lines.push(`Name: ${promptConfig.name}`);
+        if (promptConfig.template) {
+          lines.push("");
+          lines.push(promptConfig.template);
+        }
+        return lines.join(`
+`);
+      }
+    }
+  }
+  lines.push("=== RAW PAYLOAD ===");
+  lines.push("");
+  try {
+    const simplified = { ...payload };
+    delete simplified.program_candidate;
+    lines.push(JSON.stringify(simplified, null, 2));
+  } catch {
+    lines.push(String(payload));
+  }
+  return lines.join(`
+`);
+}
+function getPromptBrowserLayout() {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const width = Math.max(60, Math.floor(cols * 0.9));
+  const height = Math.max(12, Math.floor(rows * 0.8));
+  const left = Math.max(0, Math.floor((cols - width) / 2));
+  const top = Math.max(1, Math.floor((rows - height) / 2));
+  const maxLines = Math.max(1, height - 4);
+  const textWidth = Math.max(30, width - 4);
+  return { width, height, left, top, maxLines, textWidth };
+}
+function getPromptBrowserClipboardContent() {
+  const candidates = snapshot.allCandidates;
+  if (candidates.length === 0)
+    return null;
+  const candidate = candidates[promptBrowserIndex];
+  if (!candidate)
+    return null;
+  const messages = candidate.payload?.best_prompt_messages;
+  if (Array.isArray(messages) && messages.length > 0) {
+    return messages.map((msg) => {
+      const role = msg.role || "unknown";
+      const content = msg.content || "";
+      return `[${role}]
+${content}`;
+    }).join(`
+
+`);
+  }
+  const sections = candidate.payload?.best_prompt?.sections || candidate.payload?.prompt_config?.sections;
+  if (Array.isArray(sections) && sections.length > 0) {
+    return sections.map((s) => {
+      const role = s.role || "stage";
+      const name = s.name || "";
+      const content = s.content || s.template || "";
+      return `--- ${role}${name ? `: ${name}` : ""} ---
+${content}`;
+    }).join(`
+
+`);
+  }
+  try {
+    return JSON.stringify(candidate.payload, null, 2);
+  } catch {
+    return null;
+  }
 }
 function formatConfigMetadata() {
   const job = snapshot.selectedJob;
@@ -21979,7 +22509,7 @@ function buildLayout(renderer2) {
   const detailBox = new BoxRenderable(renderer2, {
     id: "detail-box",
     width: "auto",
-    height: 9,
+    height: 12,
     borderStyle: "single",
     borderColor: "#334155",
     title: "Details",
@@ -22363,6 +22893,54 @@ function buildLayout(renderer2) {
   renderer2.root.add(configModalTitle);
   renderer2.root.add(configModalText);
   renderer2.root.add(configModalHint);
+  const promptBrowserBox = new BoxRenderable(renderer2, {
+    id: "prompt-browser-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#a855f7",
+    border: true,
+    zIndex: 10
+  });
+  const promptBrowserTitle = new TextRenderable(renderer2, {
+    id: "prompt-browser-title",
+    content: "Prompt Browser",
+    fg: "#a855f7",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 11
+  });
+  const promptBrowserText = new TextRenderable(renderer2, {
+    id: "prompt-browser-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 11
+  });
+  const promptBrowserHint = new TextRenderable(renderer2, {
+    id: "prompt-browser-hint",
+    content: "Prompts | h/l prev/next | j/k scroll | y copy | esc close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 11
+  });
+  promptBrowserBox.visible = false;
+  promptBrowserTitle.visible = false;
+  promptBrowserText.visible = false;
+  promptBrowserHint.visible = false;
+  renderer2.root.add(promptBrowserBox);
+  renderer2.root.add(promptBrowserTitle);
+  renderer2.root.add(promptBrowserText);
+  renderer2.root.add(promptBrowserHint);
   const settingsBox = new BoxRenderable(renderer2, {
     id: "settings-modal-box",
     width: 64,
@@ -22579,6 +23157,11 @@ function buildLayout(renderer2) {
     configModalHint,
     configModalVisible: false,
     configModalPayload: "",
+    promptBrowserBox,
+    promptBrowserTitle,
+    promptBrowserText,
+    promptBrowserHint,
+    promptBrowserVisible: false,
     settingsBox,
     settingsTitle,
     settingsHelp,
