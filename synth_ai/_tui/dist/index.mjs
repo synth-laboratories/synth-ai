@@ -20442,7 +20442,7 @@ function coerceJob(payload) {
   return {
     job_id: String(payload?.job_id || payload?.id || ""),
     status: String(payload?.status || "unknown"),
-    training_type: payload?.training_type || null,
+    training_type: payload?.algorithm || payload?.training_type || null,
     created_at: payload?.created_at || null,
     started_at: payload?.started_at || null,
     finished_at: payload?.finished_at || null,
