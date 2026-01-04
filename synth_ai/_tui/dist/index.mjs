@@ -19065,6 +19065,7 @@ var selectedEventIndex = 0;
 var activePane = "jobs";
 var eventWindowStart = 0;
 var eventModalOffset = 0;
+var resultsModalOffset = 0;
 var jobSelectToken = 0;
 var eventsToken = 0;
 var eventFilter = "";
@@ -19096,6 +19097,10 @@ renderer.keyInput.on("keypress", (key) => {
       toggleEventModal(false);
       return;
     }
+    if (ui.resultsModalVisible) {
+      toggleResultsModal(false);
+      return;
+    }
     if (ui.modalVisible) {
       toggleModal(false);
     } else {
@@ -19113,6 +19118,18 @@ renderer.keyInput.on("keypress", (key) => {
     }
     if (key.name === "return" || key.name === "enter") {
       toggleEventModal(false);
+    }
+    return;
+  }
+  if (ui.resultsModalVisible) {
+    if (key.name === "up" || key.name === "k") {
+      moveResultsModal(-1);
+    }
+    if (key.name === "down" || key.name === "j") {
+      moveResultsModal(1);
+    }
+    if (key.name === "return" || key.name === "enter") {
+      toggleResultsModal(false);
     }
     return;
   }
@@ -19182,6 +19199,9 @@ renderer.keyInput.on("keypress", (key) => {
   if (key.name === "s") {
     if (snapshot.selectedJob)
       toggleModal(true);
+  }
+  if (key.name === "o") {
+    openResultsModal();
   }
   if (activePane === "events" && (key.name === "up" || key.name === "k")) {
     moveEventSelection(-1);
@@ -19405,6 +19425,16 @@ async function refreshEvents() {
     const { events, nextSeq } = extractEvents(payload);
     if (events.length > 0) {
       snapshot.events.push(...events);
+      const filter = eventFilter.trim().toLowerCase();
+      const newMatchCount = filter.length === 0 ? events.length : events.filter((event) => eventMatchesFilter(event, filter)).length;
+      if (activePane === "events" && newMatchCount > 0) {
+        if (selectedEventIndex > 0) {
+          selectedEventIndex += newMatchCount;
+        }
+        if (eventWindowStart > 0) {
+          eventWindowStart += newMatchCount;
+        }
+      }
       if (eventHistoryLimit > 0 && snapshot.events.length > eventHistoryLimit) {
         snapshot.events = snapshot.events.slice(-eventHistoryLimit);
         selectedEventIndex = clamp(selectedEventIndex, 0, Math.max(0, snapshot.events.length - 1));
@@ -19713,17 +19743,17 @@ function formatEventData(data) {
 }
 function getFilteredEvents() {
   const filter = eventFilter.trim().toLowerCase();
-  if (!filter)
-    return snapshot.events;
-  return snapshot.events.filter((event) => {
-    const haystack = [
-      event.type,
-      event.message,
-      event.timestamp,
-      event.data ? safeEventDataText(event.data) : ""
-    ].filter(Boolean).join(" ").toLowerCase();
-    return haystack.includes(filter);
-  });
+  const list = filter.length ? snapshot.events.filter((event) => eventMatchesFilter(event, filter)) : snapshot.events;
+  return [...list].reverse();
+}
+function eventMatchesFilter(event, filter) {
+  const haystack = [
+    event.type,
+    event.message,
+    event.timestamp,
+    event.data ? safeEventDataText(event.data) : ""
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(filter);
 }
 function safeEventDataText(data) {
   if (data == null)
@@ -19850,7 +19880,7 @@ function formatStatus() {
 function footerText() {
   const filterLabel = eventFilter ? `filter=${eventFilter}` : "filter=off";
   const jobFilterLabel = jobStatusFilter.size ? `status=${Array.from(jobStatusFilter).join(",")}` : "status=all";
-  return `Keys: e events | b jobs | tab toggle | j/k or arrows navigate | enter view event | r refresh | m metrics | p best | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
+  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | o results | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`;
 }
 function toggleModal(visible) {
   ui.modalVisible = visible;
@@ -19972,8 +20002,132 @@ function toggleEventModal(visible) {
   }
   renderer.requestRender();
 }
+function toggleResultsModal(visible) {
+  ui.resultsModalVisible = visible;
+  ui.resultsModalBox.visible = visible;
+  ui.resultsModalTitle.visible = visible;
+  ui.resultsModalText.visible = visible;
+  ui.resultsModalHint.visible = visible;
+  if (!visible) {
+    ui.resultsModalText.content = "";
+  }
+  renderer.requestRender();
+}
+function openResultsModal() {
+  const payload = formatResultsExpanded();
+  if (!payload)
+    return;
+  resultsModalOffset = 0;
+  ui.resultsModalPayload = payload;
+  toggleResultsModal(true);
+  updateResultsModalContent();
+}
+function moveResultsModal(delta) {
+  if (!ui.resultsModalPayload)
+    return;
+  const { maxLines } = getResultsModalLayout();
+  const lines = wrapModalText(ui.resultsModalPayload, getResultsModalLayout().textWidth);
+  const maxOffset = Math.max(0, lines.length - maxLines);
+  resultsModalOffset = clamp(resultsModalOffset + delta, 0, maxOffset);
+  updateResultsModalContent();
+}
+function updateResultsModalContent() {
+  if (!ui.resultsModalVisible || !ui.resultsModalPayload)
+    return;
+  const { width, height, left, top, maxLines, textWidth } = getResultsModalLayout();
+  ui.resultsModalBox.width = width;
+  ui.resultsModalBox.height = height;
+  ui.resultsModalBox.left = left;
+  ui.resultsModalBox.top = top;
+  ui.resultsModalTitle.left = left + 2;
+  ui.resultsModalTitle.top = top + 1;
+  ui.resultsModalText.left = left + 2;
+  ui.resultsModalText.top = top + 2;
+  ui.resultsModalText.width = width - 4;
+  ui.resultsModalHint.left = left + 2;
+  ui.resultsModalHint.top = top + height - 2;
+  const lines = wrapModalText(ui.resultsModalPayload, textWidth);
+  const sliced = lines.slice(resultsModalOffset, resultsModalOffset + maxLines);
+  ui.resultsModalText.content = sliced.join(`
+`);
+  const pos = lines.length <= maxLines ? "end" : `${resultsModalOffset + 1}-${Math.min(resultsModalOffset + maxLines, lines.length)}`;
+  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | esc/q/enter close`;
+}
+function getResultsModalLayout() {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120;
+  const width = Math.max(60, Math.floor(cols * 0.9));
+  const height = Math.max(12, Math.floor(rows * 0.8));
+  const left = Math.max(0, Math.floor((cols - width) / 2));
+  const top = Math.max(1, Math.floor((rows - height) / 2));
+  const maxLines = Math.max(1, height - 4);
+  const textWidth = Math.max(30, width - 4);
+  return { width, height, left, top, maxLines, textWidth };
+}
+function formatResultsExpanded() {
+  const job = snapshot.selectedJob;
+  if (!job)
+    return null;
+  if (!snapshot.bestSnapshot && !snapshot.bestSnapshotId) {
+    return `No best snapshot available yet.
+
+Press 'p' to try loading the best snapshot.`;
+  }
+  const lines = [];
+  lines.push(`Job: ${job.job_id}`);
+  lines.push(`Status: ${job.status}`);
+  lines.push(`Best Score: ${job.best_score ?? "-"}`);
+  lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`);
+  lines.push("");
+  if (snapshot.bestSnapshot) {
+    const bestPrompt = extractBestPrompt(snapshot.bestSnapshot);
+    if (bestPrompt) {
+      const promptId = bestPrompt.id || bestPrompt.template_id;
+      const promptName = bestPrompt.name;
+      if (promptName)
+        lines.push(`Prompt Name: ${promptName}`);
+      if (promptId)
+        lines.push(`Prompt ID: ${promptId}`);
+      lines.push("");
+      const sections = extractPromptSections(bestPrompt);
+      if (sections.length > 0) {
+        lines.push("=== PROMPT SECTIONS ===");
+        lines.push("");
+        for (const section of sections) {
+          const role = section.role || "stage";
+          const name = section.name || section.id || "";
+          const content = section.content || "";
+          lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`);
+          if (content) {
+            lines.push(content);
+          }
+          lines.push("");
+        }
+      }
+    }
+    const bestPromptText = extractBestPromptText(snapshot.bestSnapshot);
+    if (bestPromptText) {
+      lines.push("=== RENDERED PROMPT ===");
+      lines.push("");
+      lines.push(bestPromptText);
+    }
+    if (!extractBestPrompt(snapshot.bestSnapshot) && !bestPromptText) {
+      lines.push("=== RAW SNAPSHOT DATA ===");
+      lines.push("");
+      try {
+        lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2));
+      } catch {
+        lines.push(String(snapshot.bestSnapshot));
+      }
+    }
+  } else {
+    lines.push("Best snapshot data not loaded. Press 'p' to load.");
+  }
+  return lines.join(`
+`);
+}
 function openSelectedEventModal() {
-  const recent = getFilteredEvents().slice(-eventHistoryLimit);
+  const recent = getFilteredEvents();
   const event = recent[selectedEventIndex];
   if (!event)
     return;
@@ -20626,6 +20780,54 @@ function buildLayout(renderer2) {
   renderer2.root.add(eventModalTitle);
   renderer2.root.add(eventModalText);
   renderer2.root.add(eventModalHint);
+  const resultsModalBox = new BoxRenderable(renderer2, {
+    id: "results-modal-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 8
+  });
+  const resultsModalTitle = new TextRenderable(renderer2, {
+    id: "results-modal-title",
+    content: "Results - Best Prompt",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9
+  });
+  const resultsModalText = new TextRenderable(renderer2, {
+    id: "results-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9
+  });
+  const resultsModalHint = new TextRenderable(renderer2, {
+    id: "results-modal-hint",
+    content: "Results | j/k scroll | esc/q/enter close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 9
+  });
+  resultsModalBox.visible = false;
+  resultsModalTitle.visible = false;
+  resultsModalText.visible = false;
+  resultsModalHint.visible = false;
+  renderer2.root.add(resultsModalBox);
+  renderer2.root.add(resultsModalTitle);
+  renderer2.root.add(resultsModalText);
+  renderer2.root.add(resultsModalHint);
   return {
     jobsBox,
     eventsBox,
@@ -20659,6 +20861,12 @@ function buildLayout(renderer2) {
     eventModalHint,
     eventModalVisible: false,
     eventModalPayload: "",
+    resultsModalBox,
+    resultsModalTitle,
+    resultsModalText,
+    resultsModalHint,
+    resultsModalVisible: false,
+    resultsModalPayload: "",
     eventCards: []
   };
 }

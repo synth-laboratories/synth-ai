@@ -91,6 +91,7 @@ let selectedEventIndex = 0
 let activePane: "jobs" | "events" = "jobs"
 let eventWindowStart = 0
 let eventModalOffset = 0
+let resultsModalOffset = 0
 let jobSelectToken = 0
 let eventsToken = 0
 let eventFilter = ""
@@ -124,6 +125,10 @@ renderer.keyInput.on("keypress", (key: any) => {
       toggleEventModal(false)
       return
     }
+    if (ui.resultsModalVisible) {
+      toggleResultsModal(false)
+      return
+    }
     if (ui.modalVisible) {
       toggleModal(false)
     } else {
@@ -141,6 +146,18 @@ renderer.keyInput.on("keypress", (key: any) => {
     }
     if (key.name === "return" || key.name === "enter") {
       toggleEventModal(false)
+    }
+    return
+  }
+  if (ui.resultsModalVisible) {
+    if (key.name === "up" || key.name === "k") {
+      moveResultsModal(-1)
+    }
+    if (key.name === "down" || key.name === "j") {
+      moveResultsModal(1)
+    }
+    if (key.name === "return" || key.name === "enter") {
+      toggleResultsModal(false)
     }
     return
   }
@@ -198,6 +215,9 @@ renderer.keyInput.on("keypress", (key: any) => {
   if (key.name === "a") fetchArtifacts()
   if (key.name === "s") {
     if (snapshot.selectedJob) toggleModal(true)
+  }
+  if (key.name === "o") {
+    openResultsModal()
   }
   if (activePane === "events" && (key.name === "up" || key.name === "k")) {
     moveEventSelection(-1)
@@ -438,6 +458,17 @@ async function refreshEvents(): Promise<boolean> {
     const { events, nextSeq } = extractEvents(payload)
     if (events.length > 0) {
       snapshot.events.push(...events)
+      const filter = eventFilter.trim().toLowerCase()
+      const newMatchCount =
+        filter.length === 0 ? events.length : events.filter((event) => eventMatchesFilter(event, filter)).length
+      if (activePane === "events" && newMatchCount > 0) {
+        if (selectedEventIndex > 0) {
+          selectedEventIndex += newMatchCount
+        }
+        if (eventWindowStart > 0) {
+          eventWindowStart += newMatchCount
+        }
+      }
       if (eventHistoryLimit > 0 && snapshot.events.length > eventHistoryLimit) {
         snapshot.events = snapshot.events.slice(-eventHistoryLimit)
         selectedEventIndex = clamp(
@@ -766,19 +797,23 @@ function formatEventData(data: unknown): string {
 
 function getFilteredEvents(): JobEvent[] {
   const filter = eventFilter.trim().toLowerCase()
-  if (!filter) return snapshot.events
-  return snapshot.events.filter((event) => {
-    const haystack = [
-      event.type,
-      event.message,
-      event.timestamp,
-      event.data ? safeEventDataText(event.data) : "",
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-    return haystack.includes(filter)
-  })
+  const list = filter.length
+    ? snapshot.events.filter((event) => eventMatchesFilter(event, filter))
+    : snapshot.events
+  return [...list].reverse()
+}
+
+function eventMatchesFilter(event: JobEvent, filter: string): boolean {
+  const haystack = [
+    event.type,
+    event.message,
+    event.timestamp,
+    event.data ? safeEventDataText(event.data) : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+  return haystack.includes(filter)
 }
 
 function safeEventDataText(data: unknown): string {
@@ -922,7 +957,7 @@ function footerText(): string {
   const jobFilterLabel = jobStatusFilter.size
     ? `status=${Array.from(jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k or arrows navigate | enter view event | r refresh | m metrics | p best | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
+  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | o results | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
 }
 
 function toggleModal(visible: boolean): void {
@@ -1054,8 +1089,135 @@ function toggleEventModal(visible: boolean): void {
   renderer.requestRender()
 }
 
+function toggleResultsModal(visible: boolean): void {
+  ui.resultsModalVisible = visible
+  ui.resultsModalBox.visible = visible
+  ui.resultsModalTitle.visible = visible
+  ui.resultsModalText.visible = visible
+  ui.resultsModalHint.visible = visible
+  if (!visible) {
+    ui.resultsModalText.content = ""
+  }
+  renderer.requestRender()
+}
+
+function openResultsModal(): void {
+  const payload = formatResultsExpanded()
+  if (!payload) return
+  resultsModalOffset = 0
+  ui.resultsModalPayload = payload
+  toggleResultsModal(true)
+  updateResultsModalContent()
+}
+
+function moveResultsModal(delta: number): void {
+  if (!ui.resultsModalPayload) return
+  const { maxLines } = getResultsModalLayout()
+  const lines = wrapModalText(ui.resultsModalPayload, getResultsModalLayout().textWidth)
+  const maxOffset = Math.max(0, lines.length - maxLines)
+  resultsModalOffset = clamp(resultsModalOffset + delta, 0, maxOffset)
+  updateResultsModalContent()
+}
+
+function updateResultsModalContent(): void {
+  if (!ui.resultsModalVisible || !ui.resultsModalPayload) return
+  const { width, height, left, top, maxLines, textWidth } = getResultsModalLayout()
+  ui.resultsModalBox.width = width
+  ui.resultsModalBox.height = height
+  ui.resultsModalBox.left = left
+  ui.resultsModalBox.top = top
+  ui.resultsModalTitle.left = left + 2
+  ui.resultsModalTitle.top = top + 1
+  ui.resultsModalText.left = left + 2
+  ui.resultsModalText.top = top + 2
+  ui.resultsModalText.width = width - 4
+  ui.resultsModalHint.left = left + 2
+  ui.resultsModalHint.top = top + height - 2
+  const lines = wrapModalText(ui.resultsModalPayload, textWidth)
+  const sliced = lines.slice(resultsModalOffset, resultsModalOffset + maxLines)
+  ui.resultsModalText.content = sliced.join("\n")
+  const pos = lines.length <= maxLines ? "end" : `${resultsModalOffset + 1}-${Math.min(resultsModalOffset + maxLines, lines.length)}`
+  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | esc/q/enter close`
+}
+
+function getResultsModalLayout(): {
+  width: number
+  height: number
+  left: number
+  top: number
+  maxLines: number
+  textWidth: number
+} {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
+  const width = Math.max(60, Math.floor(cols * 0.9))
+  const height = Math.max(12, Math.floor(rows * 0.8))
+  const left = Math.max(0, Math.floor((cols - width) / 2))
+  const top = Math.max(1, Math.floor((rows - height) / 2))
+  const maxLines = Math.max(1, height - 4)
+  const textWidth = Math.max(30, width - 4)
+  return { width, height, left, top, maxLines, textWidth }
+}
+
+function formatResultsExpanded(): string | null {
+  const job = snapshot.selectedJob
+  if (!job) return null
+  if (!snapshot.bestSnapshot && !snapshot.bestSnapshotId) {
+    return "No best snapshot available yet.\n\nPress 'p' to try loading the best snapshot."
+  }
+  const lines: string[] = []
+  lines.push(`Job: ${job.job_id}`)
+  lines.push(`Status: ${job.status}`)
+  lines.push(`Best Score: ${job.best_score ?? "-"}`)
+  lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`)
+  lines.push("")
+  if (snapshot.bestSnapshot) {
+    const bestPrompt = extractBestPrompt(snapshot.bestSnapshot)
+    if (bestPrompt) {
+      const promptId = bestPrompt.id || bestPrompt.template_id
+      const promptName = bestPrompt.name
+      if (promptName) lines.push(`Prompt Name: ${promptName}`)
+      if (promptId) lines.push(`Prompt ID: ${promptId}`)
+      lines.push("")
+      const sections = extractPromptSections(bestPrompt)
+      if (sections.length > 0) {
+        lines.push("=== PROMPT SECTIONS ===")
+        lines.push("")
+        for (const section of sections) {
+          const role = section.role || "stage"
+          const name = section.name || section.id || ""
+          const content = section.content || ""
+          lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`)
+          if (content) {
+            lines.push(content)
+          }
+          lines.push("")
+        }
+      }
+    }
+    const bestPromptText = extractBestPromptText(snapshot.bestSnapshot)
+    if (bestPromptText) {
+      lines.push("=== RENDERED PROMPT ===")
+      lines.push("")
+      lines.push(bestPromptText)
+    }
+    if (!extractBestPrompt(snapshot.bestSnapshot) && !bestPromptText) {
+      lines.push("=== RAW SNAPSHOT DATA ===")
+      lines.push("")
+      try {
+        lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2))
+      } catch {
+        lines.push(String(snapshot.bestSnapshot))
+      }
+    }
+  } else {
+    lines.push("Best snapshot data not loaded. Press 'p' to load.")
+  }
+  return lines.join("\n")
+}
+
 function openSelectedEventModal(): void {
-  const recent = getFilteredEvents().slice(-eventHistoryLimit)
+  const recent = getFilteredEvents()
   const event = recent[selectedEventIndex]
   if (!event) return
   const header = `${event.type}`
@@ -1161,7 +1323,7 @@ function moveEventSelection(delta: number): void {
 }
 
 function toggleSelectedEventExpanded(): void {
-  const recent = getFilteredEvents().slice(-eventHistoryLimit)
+  const recent = getFilteredEvents()
   const event = recent[selectedEventIndex]
   if (!event) return
   const detail = event.message ?? formatEventData(event.data)
@@ -1762,6 +1924,55 @@ function buildLayout(renderer: any) {
   renderer.root.add(eventModalText)
   renderer.root.add(eventModalHint)
 
+  const resultsModalBox = new BoxRenderable(renderer, {
+    id: "results-modal-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#22c55e",
+    border: true,
+    zIndex: 8,
+  })
+  const resultsModalTitle = new TextRenderable(renderer, {
+    id: "results-modal-title",
+    content: "Results - Best Prompt",
+    fg: "#22c55e",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9,
+  })
+  const resultsModalText = new TextRenderable(renderer, {
+    id: "results-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9,
+  })
+  const resultsModalHint = new TextRenderable(renderer, {
+    id: "results-modal-hint",
+    content: "Results | j/k scroll | esc/q/enter close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 9,
+  })
+  resultsModalBox.visible = false
+  resultsModalTitle.visible = false
+  resultsModalText.visible = false
+  resultsModalHint.visible = false
+  renderer.root.add(resultsModalBox)
+  renderer.root.add(resultsModalTitle)
+  renderer.root.add(resultsModalText)
+  renderer.root.add(resultsModalHint)
+
   return {
     jobsBox,
     eventsBox,
@@ -1795,6 +2006,12 @@ function buildLayout(renderer: any) {
     eventModalHint,
     eventModalVisible: false,
     eventModalPayload: "",
+    resultsModalBox,
+    resultsModalTitle,
+    resultsModalText,
+    resultsModalHint,
+    resultsModalVisible: false,
+    resultsModalPayload: "",
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
   }
 }
