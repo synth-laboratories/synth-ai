@@ -86,8 +86,8 @@ def extract_trace_correlation_id(
             if path_segments[-2:] == ["chat", "completions"] and len(path_segments) >= 3:
                 # correlation_id is the segment before chat/completions
                 potential_cid = path_segments[-3]
-                # Verify it looks like a correlation ID (starts with trace_ or cid_)
-                if potential_cid.startswith("trace_") or potential_cid.startswith("cid_"):
+                # Verify it looks like a correlation ID (starts with trace_, cid_, or eval_)
+                if potential_cid.startswith(("trace_", "cid_", "eval_")):
                     logger.info(
                         "extract_trace_correlation_id: extracted from URL path=%s",
                         potential_cid,
@@ -96,7 +96,7 @@ def extract_trace_correlation_id(
 
         # 1b. Fallback: look for any path segment that looks like a correlation ID
         for segment in reversed(path_segments):
-            if segment.startswith("trace_") or segment.startswith("cid_"):
+            if segment.startswith(("trace_", "cid_", "eval_")):
                 logger.info(
                     "extract_trace_correlation_id: extracted from URL path segment=%s",
                     segment,
