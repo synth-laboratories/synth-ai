@@ -19131,6 +19131,9 @@ renderer.keyInput.on("keypress", (key) => {
     if (key.name === "return" || key.name === "enter") {
       toggleResultsModal(false);
     }
+    if (key.name === "y") {
+      copyPromptToClipboard();
+    }
     return;
   }
   if (ui.filterModalVisible) {
@@ -20051,7 +20054,7 @@ function updateResultsModalContent() {
   ui.resultsModalText.content = sliced.join(`
 `);
   const pos = lines.length <= maxLines ? "end" : `${resultsModalOffset + 1}-${Math.min(resultsModalOffset + maxLines, lines.length)}`;
-  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | esc/q/enter close`;
+  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | y copy | esc/q/enter close`;
 }
 function getResultsModalLayout() {
   const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40;
@@ -20080,8 +20083,9 @@ Press 'p' to try loading the best snapshot.`;
   lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`);
   lines.push("");
   if (snapshot.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot.bestSnapshot);
-    if (bestPrompt) {
+    const bestPrompt = snapshot.bestSnapshot.best_prompt;
+    const bestPromptMessages = snapshot.bestSnapshot.best_prompt_messages;
+    if (bestPrompt && typeof bestPrompt === "object") {
       const promptId = bestPrompt.id || bestPrompt.template_id;
       const promptName = bestPrompt.name;
       if (promptName)
@@ -20089,9 +20093,9 @@ Press 'p' to try loading the best snapshot.`;
       if (promptId)
         lines.push(`Prompt ID: ${promptId}`);
       lines.push("");
-      const sections = extractPromptSections(bestPrompt);
-      if (sections.length > 0) {
-        lines.push("=== PROMPT SECTIONS ===");
+      const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
+      if (Array.isArray(sections) && sections.length > 0) {
+        lines.push("=== PROMPT TEMPLATE SECTIONS ===");
         lines.push("");
         for (const section of sections) {
           const role = section.role || "stage";
@@ -20105,19 +20109,50 @@ Press 'p' to try loading the best snapshot.`;
         }
       }
     }
-    const bestPromptText = extractBestPromptText(snapshot.bestSnapshot);
-    if (bestPromptText) {
-      lines.push("=== RENDERED PROMPT ===");
+    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+      lines.push("=== RENDERED MESSAGES ===");
       lines.push("");
-      lines.push(bestPromptText);
+      for (const msg of bestPromptMessages) {
+        const role = msg.role || "unknown";
+        const content = msg.content || "";
+        lines.push(`[${role}]`);
+        lines.push(content);
+        lines.push("");
+      }
     }
-    if (!extractBestPrompt(snapshot.bestSnapshot) && !bestPromptText) {
-      lines.push("=== RAW SNAPSHOT DATA ===");
-      lines.push("");
-      try {
-        lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2));
-      } catch {
-        lines.push(String(snapshot.bestSnapshot));
+    if (!bestPrompt && !bestPromptMessages) {
+      const legacyPrompt = extractBestPrompt(snapshot.bestSnapshot);
+      const legacyText = extractBestPromptText(snapshot.bestSnapshot);
+      if (legacyPrompt) {
+        const sections = extractPromptSections(legacyPrompt);
+        if (sections.length > 0) {
+          lines.push("=== PROMPT SECTIONS (legacy) ===");
+          lines.push("");
+          for (const section of sections) {
+            const role = section.role || "stage";
+            const name = section.name || section.id || "";
+            const content = section.content || "";
+            lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`);
+            if (content) {
+              lines.push(content);
+            }
+            lines.push("");
+          }
+        }
+      }
+      if (legacyText) {
+        lines.push("=== RENDERED PROMPT (legacy) ===");
+        lines.push("");
+        lines.push(legacyText);
+      }
+      if (!legacyPrompt && !legacyText) {
+        lines.push("=== RAW SNAPSHOT DATA ===");
+        lines.push("");
+        try {
+          lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2));
+        } catch {
+          lines.push(String(snapshot.bestSnapshot));
+        }
       }
     }
   } else {
@@ -20125,6 +20160,58 @@ Press 'p' to try loading the best snapshot.`;
   }
   return lines.join(`
 `);
+}
+function getPromptForClipboard() {
+  if (!snapshot.bestSnapshot)
+    return null;
+  const messages = snapshot.bestSnapshot.best_prompt_messages;
+  if (Array.isArray(messages) && messages.length > 0) {
+    return messages.map((msg) => {
+      const role = msg.role || "unknown";
+      const content = msg.content || "";
+      return `[${role}]
+${content}`;
+    }).join(`
+
+`);
+  }
+  const bestPrompt = snapshot.bestSnapshot.best_prompt;
+  if (bestPrompt && typeof bestPrompt === "object") {
+    const sections = bestPrompt.sections || bestPrompt.prompt_sections || [];
+    if (Array.isArray(sections) && sections.length > 0) {
+      return sections.map((section) => {
+        const role = section.role || "stage";
+        const name = section.name || "";
+        const content = section.content || "";
+        return `--- ${role}${name ? `: ${name}` : ""} ---
+${content}`;
+      }).join(`
+
+`);
+    }
+  }
+  return null;
+}
+async function copyPromptToClipboard() {
+  const promptText = getPromptForClipboard();
+  if (!promptText) {
+    snapshot.status = "No prompt to copy";
+    renderSnapshot();
+    return;
+  }
+  try {
+    const proc = Bun.spawn(["pbcopy"], {
+      stdin: "pipe"
+    });
+    proc.stdin.write(promptText);
+    proc.stdin.end();
+    await proc.exited;
+    snapshot.status = "Prompt copied to clipboard!";
+  } catch (err) {
+    snapshot.lastError = err?.message || "Failed to copy to clipboard";
+    snapshot.status = "Copy failed";
+  }
+  renderSnapshot();
 }
 function openSelectedEventModal() {
   const recent = getFilteredEvents();

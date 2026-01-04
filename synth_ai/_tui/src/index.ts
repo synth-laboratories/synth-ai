@@ -159,6 +159,9 @@ renderer.keyInput.on("keypress", (key: any) => {
     if (key.name === "return" || key.name === "enter") {
       toggleResultsModal(false)
     }
+    if (key.name === "y") {
+      void copyPromptToClipboard()
+    }
     return
   }
   if (ui.filterModalVisible) {
@@ -1137,7 +1140,7 @@ function updateResultsModalContent(): void {
   const sliced = lines.slice(resultsModalOffset, resultsModalOffset + maxLines)
   ui.resultsModalText.content = sliced.join("\n")
   const pos = lines.length <= maxLines ? "end" : `${resultsModalOffset + 1}-${Math.min(resultsModalOffset + maxLines, lines.length)}`
-  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | esc/q/enter close`
+  ui.resultsModalHint.content = `Results (${pos} of ${lines.length}) | j/k scroll | y copy | esc/q/enter close`
 }
 
 function getResultsModalLayout(): {
@@ -1172,16 +1175,21 @@ function formatResultsExpanded(): string | null {
   lines.push(`Best Snapshot ID: ${snapshot.bestSnapshotId || "-"}`)
   lines.push("")
   if (snapshot.bestSnapshot) {
-    const bestPrompt = extractBestPrompt(snapshot.bestSnapshot)
-    if (bestPrompt) {
+    // GEPA stores best_prompt and best_prompt_messages directly in the snapshot
+    const bestPrompt = snapshot.bestSnapshot.best_prompt
+    const bestPromptMessages = snapshot.bestSnapshot.best_prompt_messages
+
+    if (bestPrompt && typeof bestPrompt === "object") {
       const promptId = bestPrompt.id || bestPrompt.template_id
       const promptName = bestPrompt.name
       if (promptName) lines.push(`Prompt Name: ${promptName}`)
       if (promptId) lines.push(`Prompt ID: ${promptId}`)
       lines.push("")
-      const sections = extractPromptSections(bestPrompt)
-      if (sections.length > 0) {
-        lines.push("=== PROMPT SECTIONS ===")
+
+      // Extract sections from best_prompt
+      const sections = bestPrompt.sections || bestPrompt.prompt_sections || []
+      if (Array.isArray(sections) && sections.length > 0) {
+        lines.push("=== PROMPT TEMPLATE SECTIONS ===")
         lines.push("")
         for (const section of sections) {
           const role = section.role || "stage"
@@ -1195,25 +1203,118 @@ function formatResultsExpanded(): string | null {
         }
       }
     }
-    const bestPromptText = extractBestPromptText(snapshot.bestSnapshot)
-    if (bestPromptText) {
-      lines.push("=== RENDERED PROMPT ===")
+
+    // Show rendered messages (best_prompt_messages)
+    if (Array.isArray(bestPromptMessages) && bestPromptMessages.length > 0) {
+      lines.push("=== RENDERED MESSAGES ===")
       lines.push("")
-      lines.push(bestPromptText)
+      for (const msg of bestPromptMessages) {
+        const role = msg.role || "unknown"
+        const content = msg.content || ""
+        lines.push(`[${role}]`)
+        lines.push(content)
+        lines.push("")
+      }
     }
-    if (!extractBestPrompt(snapshot.bestSnapshot) && !bestPromptText) {
-      lines.push("=== RAW SNAPSHOT DATA ===")
-      lines.push("")
-      try {
-        lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2))
-      } catch {
-        lines.push(String(snapshot.bestSnapshot))
+
+    // Fallback: check for legacy extractors if nothing found
+    if (!bestPrompt && !bestPromptMessages) {
+      const legacyPrompt = extractBestPrompt(snapshot.bestSnapshot)
+      const legacyText = extractBestPromptText(snapshot.bestSnapshot)
+
+      if (legacyPrompt) {
+        const sections = extractPromptSections(legacyPrompt)
+        if (sections.length > 0) {
+          lines.push("=== PROMPT SECTIONS (legacy) ===")
+          lines.push("")
+          for (const section of sections) {
+            const role = section.role || "stage"
+            const name = section.name || section.id || ""
+            const content = section.content || ""
+            lines.push(`--- ${role}${name ? `: ${name}` : ""} ---`)
+            if (content) {
+              lines.push(content)
+            }
+            lines.push("")
+          }
+        }
+      }
+
+      if (legacyText) {
+        lines.push("=== RENDERED PROMPT (legacy) ===")
+        lines.push("")
+        lines.push(legacyText)
+      }
+
+      // Last resort: show raw data
+      if (!legacyPrompt && !legacyText) {
+        lines.push("=== RAW SNAPSHOT DATA ===")
+        lines.push("")
+        try {
+          lines.push(JSON.stringify(snapshot.bestSnapshot, null, 2))
+        } catch {
+          lines.push(String(snapshot.bestSnapshot))
+        }
       }
     }
   } else {
     lines.push("Best snapshot data not loaded. Press 'p' to load.")
   }
   return lines.join("\n")
+}
+
+function getPromptForClipboard(): string | null {
+  if (!snapshot.bestSnapshot) return null
+
+  // Try best_prompt_messages first (rendered format)
+  const messages = snapshot.bestSnapshot.best_prompt_messages
+  if (Array.isArray(messages) && messages.length > 0) {
+    return messages.map((msg: any) => {
+      const role = msg.role || "unknown"
+      const content = msg.content || ""
+      return `[${role}]\n${content}`
+    }).join("\n\n")
+  }
+
+  // Fall back to best_prompt sections
+  const bestPrompt = snapshot.bestSnapshot.best_prompt
+  if (bestPrompt && typeof bestPrompt === "object") {
+    const sections = bestPrompt.sections || bestPrompt.prompt_sections || []
+    if (Array.isArray(sections) && sections.length > 0) {
+      return sections.map((section: any) => {
+        const role = section.role || "stage"
+        const name = section.name || ""
+        const content = section.content || ""
+        return `--- ${role}${name ? `: ${name}` : ""} ---\n${content}`
+      }).join("\n\n")
+    }
+  }
+
+  return null
+}
+
+async function copyPromptToClipboard(): Promise<void> {
+  const promptText = getPromptForClipboard()
+  if (!promptText) {
+    snapshot.status = "No prompt to copy"
+    renderSnapshot()
+    return
+  }
+
+  try {
+    // Use pbcopy on macOS
+    const proc = Bun.spawn(["pbcopy"], {
+      stdin: "pipe",
+    })
+    proc.stdin.write(promptText)
+    proc.stdin.end()
+    await proc.exited
+    snapshot.status = "Prompt copied to clipboard!"
+  } catch (err: any) {
+    snapshot.lastError = err?.message || "Failed to copy to clipboard"
+    snapshot.status = "Copy failed"
+  }
+  renderSnapshot()
 }
 
 function openSelectedEventModal(): void {
