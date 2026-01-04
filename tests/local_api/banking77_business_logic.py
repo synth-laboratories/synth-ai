@@ -121,12 +121,15 @@ class Banking77Dataset:
         return len(dataset)
 
     def sample(self, *, split: str, index: int) -> dict[str, Any]:
-        """Get a sample from the dataset by index."""
+        """Get a sample from the dataset using seed-based random sampling."""
+        import random
         dataset = self._load_split(split)
         size = len(dataset)
         if size == 0:
             raise RuntimeError(f"Banking77 split '{split}' is empty")
-        idx = int(index) % size
+        # Use seed-based random sampling to get diverse samples across labels
+        rng = random.Random(index)
+        idx = rng.randint(0, size - 1)
         row = dataset[int(idx)]
 
         label_idx = int(row.get("label", 0))
