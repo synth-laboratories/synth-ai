@@ -387,7 +387,7 @@ def build_config() -> LocalAPIConfig:
         name="Banking77 Intent Classification Task",
         description="Banking77 dataset local API for classifying customer queries into banking intents.",
         base_task_info=base_info,
-        describe_taskset=lambda: describe_taskset(dataset),
+        provide_taskset_description=lambda: describe_taskset(dataset),
         provide_task_instances=lambda seeds: provide_task_instances(dataset, seeds),
         rollout=rollout_executor,
         dataset_registry=registry,
