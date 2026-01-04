@@ -19530,6 +19530,9 @@ function formatDetails() {
     return event.timestamp > latest.timestamp ? event : latest;
   }, null) : null;
   const lastEventTs = formatTimestamp(lastEvent?.timestamp);
+  const totalTokens = job.total_tokens ?? calculateTotalTokensFromEvents();
+  const tokensDisplay = totalTokens > 0 ? totalTokens.toLocaleString() : "-";
+  const costDisplay = job.total_cost_usd != null ? `$${job.total_cost_usd.toFixed(4)}` : "-";
   const lines = [
     `Job: ${job.job_id}`,
     `Status: ${job.status}`,
@@ -19539,8 +19542,8 @@ function formatDetails() {
     `Finished: ${formatTimestamp(job.finished_at)}`,
     `Last event: ${lastEventTs}`,
     `Best score: ${job.best_score ?? "-"}`,
-    `Tokens: ${job.total_tokens ?? "-"}`,
-    `Cost: ${job.total_cost_usd ?? "-"}`
+    `Tokens: ${tokensDisplay}`,
+    `Cost: ${costDisplay}`
   ];
   if (job.error)
     lines.push(`Error: ${job.error}`);
@@ -20464,6 +20467,23 @@ function int(value) {
     return null;
   const n = parseInt(String(value), 10);
   return Number.isFinite(n) ? n : null;
+}
+function calculateTotalTokensFromEvents() {
+  let total = 0;
+  for (const event of snapshot.events) {
+    const data = event.data;
+    if (!data)
+      continue;
+    if (typeof data.prompt_tokens === "number")
+      total += data.prompt_tokens;
+    if (typeof data.completion_tokens === "number")
+      total += data.completion_tokens;
+    if (typeof data.reasoning_tokens === "number")
+      total += data.reasoning_tokens;
+    if (typeof data.total_tokens === "number")
+      total += data.total_tokens;
+  }
+  return total;
 }
 function ensureApiBase(base) {
   let out = base.replace(/\/+$/, "");
