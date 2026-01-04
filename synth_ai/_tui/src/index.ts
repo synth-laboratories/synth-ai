@@ -7,28 +7,23 @@ import {
   SelectRenderableEvents,
   InputRenderableEvents,
 } from "@opentui/core"
+import path from "node:path"
+import { promises as fs } from "node:fs"
+import {
+  coerceJob,
+  extractEvents,
+  extractJobs,
+  isEvalJob,
+  mergeJobs,
+  num,
+  type JobEvent,
+  type JobSummary,
+} from "./tui_data"
 
-type JobSummary = {
-  job_id: string
-  status: string
-  training_type?: string | null
-  created_at?: string | null
-  started_at?: string | null
-  finished_at?: string | null
-  best_score?: number | null
-  best_snapshot_id?: string | null
-  total_tokens?: number | null
-  total_cost_usd?: number | null
-  error?: string | null
-}
-
-type JobEvent = {
-  seq: number
-  type: string
-  message?: string | null
-  data?: unknown
-  timestamp?: string | null
-  expanded?: boolean
+type EnvKeyOption = {
+  key: string
+  sources: string[]
+  varNames: string[]
 }
 
 type Snapshot = {
@@ -38,6 +33,8 @@ type Snapshot = {
   metrics: Record<string, unknown>
   bestSnapshotId: string | null
   bestSnapshot: Record<string, any> | null
+  evalSummary: Record<string, any> | null
+  evalResultRows: Array<Record<string, any>>
   artifacts: Array<Record<string, unknown>>
   orgId: string | null
   userId: string | null
@@ -47,11 +44,58 @@ type Snapshot = {
   lastRefresh: number | null
 }
 
-const baseUrl = ensureApiBase(
-  process.env.SYNTH_TUI_API_BASE || "https://api.usesynth.ai/api",
+type BackendId = "prod" | "dev" | "local"
+
+type BackendConfig = {
+  id: BackendId
+  label: string
+  baseUrl: string
+}
+
+type BackendKeySource = {
+  sourcePath: string | null
+  varName: string | null
+}
+
+const backendConfigs: Record<BackendId, BackendConfig> = {
+  prod: {
+    id: "prod",
+    label: "Prod",
+    baseUrl: ensureApiBase(
+      process.env.SYNTH_TUI_PROD_API_BASE || "https://api.usesynth.ai/api",
+    ),
+  },
+  dev: {
+    id: "dev",
+    label: "Dev",
+    baseUrl: ensureApiBase(
+      process.env.SYNTH_TUI_DEV_API_BASE || "https://agent-learning.onrender.com/api",
+    ),
+  },
+  local: {
+    id: "local",
+    label: "Local",
+    baseUrl: ensureApiBase(
+      process.env.SYNTH_TUI_LOCAL_API_BASE || "http://localhost:8000/api",
+    ),
+  },
+}
+
+const backendKeys: Record<BackendId, string> = {
+  prod: process.env.SYNTH_TUI_API_KEY_PROD || process.env.SYNTH_API_KEY || "",
+  dev: process.env.SYNTH_TUI_API_KEY_DEV || "",
+  local: process.env.SYNTH_TUI_API_KEY_LOCAL || "",
+}
+
+const backendKeySources: Record<BackendId, BackendKeySource> = {
+  prod: { sourcePath: null, varName: null },
+  dev: { sourcePath: null, varName: null },
+  local: { sourcePath: null, varName: null },
+}
+
+let currentBackend: BackendId = normalizeBackendId(
+  process.env.SYNTH_TUI_BACKEND || "prod",
 )
-const baseRoot = baseUrl.replace(/\/api$/, "")
-const apiKey = process.env.SYNTH_API_KEY || ""
 const initialJobId = process.env.SYNTH_TUI_JOB_ID || ""
 const refreshInterval = parseFloat(process.env.SYNTH_TUI_REFRESH_INTERVAL || "5")
 const eventInterval = parseFloat(process.env.SYNTH_TUI_EVENT_INTERVAL || "2")
@@ -61,6 +105,10 @@ const eventHistoryLimit = parseInt(process.env.SYNTH_TUI_EVENT_CARDS || "200", 1
 const eventCollapseLimit = parseInt(process.env.SYNTH_TUI_EVENT_COLLAPSE || "160", 10)
 const eventVisibleCount = parseInt(process.env.SYNTH_TUI_EVENT_VISIBLE || "6", 10)
 const jobLimit = parseInt(process.env.SYNTH_TUI_LIMIT || "50", 10)
+const envKeyVisibleCount = parseInt(process.env.SYNTH_TUI_ENV_KEYS_VISIBLE || "8", 10)
+const envKeyScanRoot = process.env.SYNTH_TUI_ENV_SCAN_ROOT || process.cwd()
+const settingsFilePath =
+  process.env.SYNTH_TUI_SETTINGS_FILE || path.join(process.cwd(), ".env.synth")
 
 const snapshot: Snapshot = {
   jobs: [],
@@ -69,6 +117,8 @@ const snapshot: Snapshot = {
   metrics: {},
   bestSnapshotId: null,
   bestSnapshot: null,
+  evalSummary: null,
+  evalResultRows: [],
   artifacts: [],
   orgId: null,
   userId: null,
@@ -100,6 +150,18 @@ let jobFilterOptions: Array<{ status: string; count: number }> = []
 let jobFilterCursor = 0
 let jobFilterWindowStart = 0
 const jobFilterVisibleCount = 6
+let settingsCursor = 0
+let settingsOptions: BackendConfig[] = []
+let keyModalBackend: BackendId = "prod"
+let keyPasteActive = false
+let keyPasteBuffer = ""
+let envKeyOptions: EnvKeyOption[] = []
+let envKeyCursor = 0
+let envKeyWindowStart = 0
+let envKeyScanInProgress = false
+let envKeyError: string | null = null
+
+await loadPersistedSettings()
 
 const renderer = await createCliRenderer({
   useConsole: false,
@@ -117,8 +179,20 @@ renderer.keyInput.on("keypress", (key: any) => {
     process.exit(0)
   }
   if (key.name === "q" || key.name === "escape") {
+    if (ui.keyModalVisible) {
+      toggleKeyModal(false)
+      return
+    }
+    if (ui.envKeyModalVisible) {
+      toggleEnvKeyModal(false)
+      return
+    }
     if (ui.jobFilterModalVisible) {
       toggleJobFilterModal(false)
+      return
+    }
+    if (ui.settingsModalVisible) {
+      toggleSettingsModal(false)
       return
     }
     if (ui.eventModalVisible) {
@@ -129,6 +203,10 @@ renderer.keyInput.on("keypress", (key: any) => {
       toggleResultsModal(false)
       return
     }
+    if (ui.configModalVisible) {
+      toggleConfigModal(false)
+      return
+    }
     if (ui.modalVisible) {
       toggleModal(false)
     } else {
@@ -136,6 +214,71 @@ renderer.keyInput.on("keypress", (key: any) => {
       renderer.destroy()
       process.exit(0)
     }
+  }
+  if (ui.keyModalVisible) {
+    if (key.name === "q") {
+      toggleKeyModal(false)
+      return
+    }
+    if (key.name === "return" || key.name === "enter") {
+      applyKeyModal(ui.keyModalInput.value || "")
+      return
+    }
+    if (key.name === "v" && (key.ctrl || key.meta)) {
+      pasteKeyFromClipboard()
+      return
+    }
+    if (key.name === "backspace" || key.name === "delete") {
+      const current = ui.keyModalInput.value || ""
+      ui.keyModalInput.value = current.slice(0, Math.max(0, current.length - 1))
+      renderer.requestRender()
+      return
+    }
+    const seq = key.sequence || ""
+    if (seq) {
+      if (seq.includes("\u001b[200~")) {
+        beginPasteCapture(seq)
+        return
+      }
+      if (keyPasteActive) {
+        continuePasteCapture(seq)
+        return
+      }
+      if (!seq.startsWith("\u001b") && !key.ctrl && !key.meta) {
+        ui.keyModalInput.value = (ui.keyModalInput.value || "") + seq
+        renderer.requestRender()
+        return
+      }
+    }
+    return
+  }
+  if (ui.envKeyModalVisible) {
+    if (key.name === "q") {
+      toggleEnvKeyModal(false)
+      return
+    }
+    if (key.name === "return" || key.name === "enter") {
+      applyEnvKeySelection()
+      return
+    }
+    if (key.name === "m") {
+      toggleEnvKeyModal(false)
+      openKeyModal()
+      return
+    }
+    if (key.name === "r") {
+      void rescanEnvKeys()
+      return
+    }
+    if (key.name === "up" || key.name === "k") {
+      moveEnvKeySelection(-1)
+      return
+    }
+    if (key.name === "down" || key.name === "j") {
+      moveEnvKeySelection(1)
+      return
+    }
+    return
   }
   if (ui.eventModalVisible) {
     if (key.name === "up" || key.name === "k") {
@@ -161,6 +304,45 @@ renderer.keyInput.on("keypress", (key: any) => {
     }
     if (key.name === "y") {
       void copyPromptToClipboard()
+    }
+    return
+  }
+  if (ui.configModalVisible) {
+    if (key.name === "up" || key.name === "k") {
+      moveConfigModal(-1)
+    }
+    if (key.name === "down" || key.name === "j") {
+      moveConfigModal(1)
+    }
+    if (key.name === "return" || key.name === "enter" || key.name === "i") {
+      toggleConfigModal(false)
+    }
+    return
+  }
+  if (ui.settingsModalVisible) {
+    if (key.name === "up" || key.name === "k") {
+      moveSettingsSelection(-1)
+      return
+    }
+    if (key.name === "down" || key.name === "j") {
+      moveSettingsSelection(1)
+      return
+    }
+    if (key.name === "a") {
+      void openEnvKeyModal()
+      return
+    }
+    if (key.name === "m") {
+      openKeyModal()
+      return
+    }
+    if (key.name === "return" || key.name === "enter") {
+      void applySettingsSelection()
+      return
+    }
+    if (key.name === "q") {
+      toggleSettingsModal(false)
+      return
     }
     return
   }
@@ -213,6 +395,7 @@ renderer.keyInput.on("keypress", (key: any) => {
   if (key.name === "m") fetchMetrics()
   if (key.name === "p") fetchBestSnapshot()
   if (key.name === "f") toggleFilterModal(true)
+  if (key.name === "t") toggleSettingsModal(true)
   if (key.shift && key.name === "j") toggleJobFilterModal(true)
   if (key.name === "c") cancelSelected()
   if (key.name === "a") fetchArtifacts()
@@ -221,6 +404,9 @@ renderer.keyInput.on("keypress", (key: any) => {
   }
   if (key.name === "o") {
     openResultsModal()
+  }
+  if (key.name === "i") {
+    openConfigModal()
   }
   if (activePane === "events" && (key.name === "up" || key.name === "k")) {
     moveEventSelection(-1)
@@ -231,6 +417,19 @@ renderer.keyInput.on("keypress", (key: any) => {
   if (activePane === "events" && (key.name === "return" || key.name === "enter")) {
     openSelectedEventModal()
   }
+})
+
+renderer.keyInput.on("paste", (key: any) => {
+  if (!ui.keyModalVisible) return
+  const seq = typeof key?.sequence === "string" ? key.sequence : ""
+  if (!seq) return
+  const cleaned = seq
+    .replace("\u001b[200~", "")
+    .replace("\u001b[201~", "")
+    .replace(/\s+/g, "")
+  if (!cleaned) return
+  ui.keyModalInput.value = (ui.keyModalInput.value || "") + cleaned
+  renderer.requestRender()
 })
 
 ui.jobsSelect.on(SelectRenderableEvents.SELECTION_CHANGED, (_idx: number, option: any) => {
@@ -257,6 +456,10 @@ ui.filterInput.on(InputRenderableEvents.CHANGE, (value: string) => {
 
 // job filter list is rendered manually
 
+ui.keyModalInput.on(InputRenderableEvents.ENTER, (value: string) => {
+  applyKeyModal(value)
+})
+
 ui.modalInput.on(InputRenderableEvents.ENTER, (value: string) => {
   if (!value.trim()) {
     toggleModal(false)
@@ -269,8 +472,8 @@ ui.modalInput.on(InputRenderableEvents.ENTER, (value: string) => {
 ui.jobsSelect.focus()
 renderSnapshot()
 
-if (!apiKey) {
-  snapshot.lastError = "Missing SYNTH_API_KEY"
+if (!getActiveApiKey()) {
+  snapshot.lastError = `Missing API key for ${getBackendConfig().label}`
   snapshot.status = "Auth required"
   renderSnapshot()
 } else {
@@ -307,10 +510,10 @@ async function refreshIdentity(): Promise<void> {
     snapshot.userId = snapshot.userId || null
   }
   try {
-    const balance = await apiGetV1("/balance/current")
-    const dollars = balance?.balance_dollars
-    snapshot.balanceDollars =
-      typeof dollars === "number" && Number.isFinite(dollars) ? dollars : null
+    const balance = await apiGetV1("/balance/autumn-normalized")
+    const cents = balance?.remaining_credits_cents
+    const dollars = typeof cents === "number" && Number.isFinite(cents) ? cents / 100 : null
+    snapshot.balanceDollars = dollars
   } catch (err: any) {
     snapshot.balanceDollars = snapshot.balanceDollars || null
   }
@@ -320,11 +523,23 @@ async function refreshIdentity(): Promise<void> {
 async function refreshJobs(): Promise<boolean> {
   try {
     snapshot.status = "Refreshing jobs..."
-    const payload = await apiGet(`/prompt-learning/online/jobs?limit=${jobLimit}&offset=0`)
-    const jobs = extractJobs(payload)
+    const promptPayload = await apiGet(`/prompt-learning/online/jobs?limit=${jobLimit}&offset=0`)
+    const promptJobs = extractJobs(promptPayload, "prompt-learning")
+
+    // Fetch learning jobs (includes both eval and graph_gepa/GEPA jobs)
+    let learningJobs: JobSummary[] = []
+    let learningError: string | null = null
+    try {
+      const learningPayload = await apiGet(`/learning/jobs?limit=${jobLimit}`)
+      learningJobs = extractJobs(learningPayload, "learning")
+    } catch (err: any) {
+      learningError = err?.message || "Failed to load learning jobs"
+    }
+
+    const jobs = mergeJobs(promptJobs, learningJobs)
     snapshot.jobs = jobs
     snapshot.lastRefresh = Date.now()
-    snapshot.lastError = null
+    snapshot.lastError = learningError
     if (!snapshot.selectedJob && jobs.length > 0 && !autoSelected) {
       autoSelected = true
       await selectJob(jobs[0].job_id)
@@ -332,12 +547,20 @@ async function refreshJobs(): Promise<boolean> {
     }
     if (snapshot.selectedJob) {
       const match = jobs.find((j) => j.job_id === snapshot.selectedJob?.job_id)
-      if (match) snapshot.selectedJob = match
+      // Only update if match has more data than current (preserve metadata)
+      if (match && !snapshot.selectedJob.metadata) {
+        snapshot.selectedJob = match
+      }
     }
     if (jobs.length === 0) {
-      snapshot.status = "No prompt-learning jobs found"
+      snapshot.status = "No jobs found"
     } else {
-      snapshot.status = `Loaded ${jobs.length} prompt-learning job(s)`
+      const promptCount = promptJobs.length
+      const learningCount = learningJobs.length
+      snapshot.status =
+        learningCount > 0
+          ? `Loaded ${promptCount} prompt-learning, ${learningCount} learning job(s)`
+          : `Loaded ${promptCount} prompt-learning job(s)`
     }
     return true
   } catch (err: any) {
@@ -357,6 +580,8 @@ async function selectJob(jobId: string): Promise<void> {
   snapshot.metrics = {}
   snapshot.bestSnapshotId = null
   snapshot.bestSnapshot = null
+  snapshot.evalSummary = null
+  snapshot.evalResultRows = []
   selectedEventIndex = 0
   eventWindowStart = 0
   const immediate = snapshot.jobs.find((job) => job.job_id === jobId)
@@ -374,26 +599,55 @@ async function selectJob(jobId: string): Promise<void> {
       total_tokens: null,
       total_cost_usd: null,
       error: null,
+      job_source: null,
     } as JobSummary)
   snapshot.status = `Loading job ${jobId}...`
   renderSnapshot()
+  const jobSource = immediate?.job_source ?? null
   try {
-    const job = await apiGet(
-      `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false`,
-    )
+    const path =
+      jobSource === "eval"
+        ? `/eval/jobs/${jobId}`
+        : jobSource === "learning"
+          ? `/learning/jobs/${jobId}?include_metadata=true`
+        : `/prompt-learning/online/jobs/${jobId}?include_events=false&include_snapshot=false&include_metadata=true`
+    const job = await apiGet(path)
     if (token !== jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
-    snapshot.selectedJob = coerceJob(job)
-    snapshot.bestSnapshotId = extractBestSnapshotId(job)
+    const coerced = coerceJob(job, jobSource ?? "prompt-learning")
+    // Extract metadata for learning and prompt-learning jobs
+    if (jobSource !== "eval") {
+      // Extract metadata - prompt_initial_snapshot is already nested inside metadata
+      const jobMeta = job?.metadata ?? {}
+      // If prompt_initial_snapshot exists at top level, merge it (fallback)
+      if (job?.prompt_initial_snapshot && !jobMeta.prompt_initial_snapshot) {
+        coerced.metadata = { ...jobMeta, prompt_initial_snapshot: job.prompt_initial_snapshot }
+      } else {
+        coerced.metadata = jobMeta
+      }
+      snapshot.bestSnapshotId = extractBestSnapshotId(job)
+    }
+    if (jobSource === "eval" || isEvalJob(coerced)) {
+      snapshot.evalSummary =
+        job?.results && typeof job.results === "object" ? job.results : null
+    }
+    snapshot.selectedJob = coerced
     snapshot.status = `Selected job ${jobId}`
   } catch (err: any) {
     if (token !== jobSelectToken || snapshot.selectedJob?.job_id !== jobId) {
       return
     }
-    snapshot.lastError = err?.message || `Failed to load job ${jobId}`
+    const errMsg = err?.message || `Failed to load job ${jobId}`
+    snapshot.lastError = errMsg
+    snapshot.status = `Error: ${errMsg}`
   }
-  await fetchBestSnapshot(token)
+  if (jobSource !== "learning" && jobSource !== "eval" && !isEvalJob(snapshot.selectedJob)) {
+    await fetchBestSnapshot(token)
+  }
+  if (jobSource === "eval" || isEvalJob(snapshot.selectedJob)) {
+    await fetchEvalResults(token)
+  }
   renderSnapshot()
 }
 
@@ -402,8 +656,16 @@ async function fetchMetrics(): Promise<void> {
   if (!job) return
   const jobId = job.job_id
   try {
+    if (isEvalJob(job)) {
+      await fetchEvalResults()
+      return
+    }
     snapshot.status = "Loading metrics..."
-    const payload = await apiGet(`/prompt-learning/online/jobs/${job.job_id}/metrics`)
+    const path =
+      job.job_source === "learning"
+        ? `/learning/jobs/${job.job_id}/metrics`
+        : `/prompt-learning/online/jobs/${job.job_id}/metrics`
+    const payload = await apiGet(path)
     if (snapshot.selectedJob?.job_id !== jobId) {
       return
     }
@@ -419,9 +681,33 @@ async function fetchMetrics(): Promise<void> {
   renderSnapshot()
 }
 
+async function fetchEvalResults(token?: number): Promise<void> {
+  const job = snapshot.selectedJob
+  if (!job || !isEvalJob(job)) return
+  const jobId = job.job_id
+  try {
+    snapshot.status = "Loading eval results..."
+    const payload = await apiGet(`/eval/jobs/${job.job_id}/results`)
+    if ((token != null && token !== jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
+      return
+    }
+    snapshot.evalSummary =
+      payload?.summary && typeof payload.summary === "object" ? payload.summary : null
+    snapshot.evalResultRows = Array.isArray(payload?.results) ? payload.results : []
+    snapshot.status = `Loaded eval results for ${job.job_id}`
+  } catch (err: any) {
+    if ((token != null && token !== jobSelectToken) || snapshot.selectedJob?.job_id !== jobId) {
+      return
+    }
+    snapshot.lastError = err?.message || "Failed to load eval results"
+    snapshot.status = "Failed to load eval results"
+  }
+  renderSnapshot()
+}
+
 async function fetchBestSnapshot(token?: number): Promise<void> {
   const job = snapshot.selectedJob
-  if (!job) return
+  if (!job || job.job_source === "learning" || isEvalJob(job)) return
   const jobId = job.job_id
   try {
     snapshot.status = "Loading best snapshot..."
@@ -452,9 +738,40 @@ async function refreshEvents(): Promise<boolean> {
   const jobId = job.job_id
   const token = eventsToken
   try {
-    const payload = await apiGet(
-      `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
-    )
+    // Build list of event endpoints to try (with fallbacks)
+    const isGepa = job.training_type === "gepa" || job.training_type === "graph_gepa"
+    const paths =
+      isEvalJob(job)
+        ? [
+            `/eval/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
+            `/learning/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
+          ]
+        : job.job_source === "learning"
+          ? [`/learning/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`]
+          : isGepa
+            ? [
+                `/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
+                `/learning/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`,
+              ]
+            : [`/prompt-learning/online/jobs/${job.job_id}/events?since_seq=${lastSeq}&limit=200`]
+    let payload: any = null
+    let lastErr: any = null
+    for (const path of paths) {
+      try {
+        payload = await apiGet(path)
+        lastErr = null
+        break
+      } catch (err: any) {
+        lastErr = err
+      }
+    }
+    if (lastErr) {
+      if (token !== eventsToken || snapshot.selectedJob?.job_id !== jobId) {
+        return true
+      }
+      snapshot.lastError = lastErr?.message || "Failed to load events"
+      return false
+    }
     if (token !== eventsToken || snapshot.selectedJob?.job_id !== jobId) {
       return true
     }
@@ -543,7 +860,12 @@ function renderSnapshot(): void {
     ? filteredJobs.map((job) => {
         const shortId = job.job_id.slice(-8)
         const score = job.best_score == null ? "-" : job.best_score.toFixed(4)
-        const desc = `${job.status} | ${job.training_type || "prompt"} | best=${score}`
+        const label =
+          job.training_type || (job.job_source === "learning" ? "eval" : "prompt")
+        const envName = extractEnvName(job)
+        const desc = envName
+          ? `${job.status} | ${label} | ${envName} | ${score}`
+          : `${job.status} | ${label} | ${score}`
         return { name: shortId, description: desc, value: job.job_id }
       })
     : [
@@ -566,12 +888,127 @@ function renderSnapshot(): void {
   ui.footerText.content = footerText()
   ui.eventsBox.title = eventFilter ? `Events (filter: ${eventFilter})` : "Events"
   updateEventModalContent()
+  if (ui.settingsModalVisible) {
+    renderSettingsList()
+  }
+  // Auto-refresh config modal if it's visible
+  if (ui.configModalVisible) {
+    const newPayload = formatConfigMetadata()
+    if (newPayload && newPayload !== ui.configModalPayload) {
+      ui.configModalPayload = newPayload
+      updateConfigModalContent()
+    }
+  }
   renderer.requestRender()
 }
 
 function formatDetails(): string {
   const job = snapshot.selectedJob
   if (!job) return "No job selected."
+
+  // Eval jobs get specialized rendering
+  if (isEvalJob(job)) {
+    return formatEvalDetails(job)
+  }
+
+  // Learning jobs (graph_gepa, etc.) - but not eval jobs
+  if (job.job_source === "learning") {
+    return formatLearningDetails(job)
+  }
+
+  // Default: prompt-learning jobs
+  return formatPromptLearningDetails(job)
+}
+
+function formatEvalDetails(job: JobSummary): string {
+  const summary = snapshot.evalSummary ?? {}
+  const rows = snapshot.evalResultRows ?? []
+
+  const lines = [
+    `Job: ${job.job_id}`,
+    `Status: ${job.status}`,
+    `Type: eval`,
+    "",
+    "═══ Eval Summary ═══",
+  ]
+
+  // Extract key metrics from summary
+  if (summary.mean_score != null) {
+    lines.push(`  Mean Score: ${formatValue(summary.mean_score)}`)
+  }
+  if (summary.accuracy != null) {
+    lines.push(`  Accuracy: ${(summary.accuracy * 100).toFixed(1)}%`)
+  }
+  if (summary.pass_rate != null) {
+    lines.push(`  Pass Rate: ${(summary.pass_rate * 100).toFixed(1)}%`)
+  }
+  if (summary.completed != null && summary.total != null) {
+    lines.push(`  Progress: ${summary.completed}/${summary.total}`)
+  } else if (summary.completed != null) {
+    lines.push(`  Completed: ${summary.completed}`)
+  }
+  if (summary.failed != null && summary.failed > 0) {
+    lines.push(`  Failed: ${summary.failed}`)
+  }
+
+  // Show row count
+  if (rows.length > 0) {
+    lines.push(`  Results: ${rows.length} rows`)
+    // Calculate score distribution
+    const scores = rows
+      .map((row) => num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed))
+      .filter((val) => typeof val === "number")
+    if (scores.length > 0) {
+      const mean = scores.reduce((sum, val) => sum + val, 0) / scores.length
+      const passed = scores.filter((s) => s >= 0.5 || s === 1).length
+      lines.push(`  Avg Score: ${mean.toFixed(4)}`)
+      lines.push(`  Pass Rate: ${((passed / scores.length) * 100).toFixed(1)}%`)
+    }
+  }
+
+  lines.push("")
+  lines.push("═══ Timing ═══")
+  lines.push(`  Created: ${formatTimestamp(job.created_at)}`)
+  lines.push(`  Started: ${formatTimestamp(job.started_at)}`)
+  lines.push(`  Finished: ${formatTimestamp(job.finished_at)}`)
+
+  if (job.error) {
+    lines.push("")
+    lines.push("═══ Error ═══")
+    lines.push(`  ${job.error}`)
+  }
+
+  return lines.join("\n")
+}
+
+function formatLearningDetails(job: JobSummary): string {
+  const envName = extractEnvName(job)
+  const lines = [
+    `Job: ${job.job_id}`,
+    `Status: ${job.status}`,
+    `Type: ${job.training_type || "learning"}`,
+    `Env: ${envName || "-"}`,
+    "",
+    "═══ Progress ═══",
+    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Snapshot: ${job.best_snapshot_id || "-"}`,
+    "",
+    "═══ Timing ═══",
+    `  Created: ${formatTimestamp(job.created_at)}`,
+    `  Started: ${formatTimestamp(job.started_at)}`,
+    `  Finished: ${formatTimestamp(job.finished_at)}`,
+  ]
+
+  if (job.error) {
+    lines.push("")
+    lines.push("═══ Error ═══")
+    lines.push(`  ${job.error}`)
+  }
+
+  return lines.join("\n")
+}
+
+function formatPromptLearningDetails(job: JobSummary): string {
   const lastEvent = snapshot.events.length
     ? snapshot.events
         .filter((event) => event.timestamp)
@@ -582,24 +1019,43 @@ function formatDetails(): string {
         }, null as JobEvent | null)
     : null
   const lastEventTs = formatTimestamp(lastEvent?.timestamp)
-  // Calculate tokens from events if not provided by API
   const totalTokens = job.total_tokens ?? calculateTotalTokensFromEvents()
   const tokensDisplay = totalTokens > 0 ? totalTokens.toLocaleString() : "-"
   const costDisplay = job.total_cost_usd != null ? `$${job.total_cost_usd.toFixed(4)}` : "-"
+  const envName = extractEnvName(job)
+
   const lines = [
     `Job: ${job.job_id}`,
     `Status: ${job.status}`,
-    `Type: ${job.training_type || "-"}`,
-    `Created: ${formatTimestamp(job.created_at)}`,
-    `Started: ${formatTimestamp(job.started_at)}`,
-    `Finished: ${formatTimestamp(job.finished_at)}`,
-    `Last event: ${lastEventTs}`,
-    `Best score: ${job.best_score ?? "-"}`,
-    `Tokens: ${tokensDisplay}`,
-    `Cost: ${costDisplay}`,
+    `Type: ${job.training_type || "prompt-learning"}`,
+    `Env: ${envName || "-"}`,
+    "",
+    "═══ Progress ═══",
+    `  Best Score: ${job.best_score != null ? job.best_score.toFixed(4) : "-"}`,
+    `  Best Snapshot: ${snapshot.bestSnapshotId || "-"}`,
+    `  Events: ${snapshot.events.length}`,
+    `  Last Event: ${lastEventTs}`,
+    "",
+    "═══ Usage ═══",
+    `  Tokens: ${tokensDisplay}`,
+    `  Cost: ${costDisplay}`,
+    "",
+    "═══ Timing ═══",
+    `  Created: ${formatTimestamp(job.created_at)}`,
+    `  Started: ${formatTimestamp(job.started_at)}`,
+    `  Finished: ${formatTimestamp(job.finished_at)}`,
   ]
-  if (job.error) lines.push(`Error: ${job.error}`)
-  if (snapshot.artifacts.length) lines.push(`Artifacts: ${snapshot.artifacts.length}`)
+
+  if (job.error) {
+    lines.push("")
+    lines.push("═══ Error ═══")
+    lines.push(`  ${job.error}`)
+  }
+  if (snapshot.artifacts.length) {
+    lines.push("")
+    lines.push(`Artifacts: ${snapshot.artifacts.length}`)
+  }
+
   return lines.join("\n")
 }
 
@@ -636,6 +1092,9 @@ function formatMetrics(): string {
 function formatResults(): string {
   const job = snapshot.selectedJob
   if (!job) return "Results: -"
+  if (job.job_source === "eval" || job.training_type === "eval") {
+    return formatEvalResults()
+  }
   const lines: string[] = []
   const bestId = snapshot.bestSnapshotId || "-"
   if (bestId === "-") {
@@ -671,12 +1130,91 @@ function formatResults(): string {
   return ["Results:", ...lines].join("\n")
 }
 
+function formatEvalResults(): string {
+  const summary = snapshot.evalSummary ?? {}
+  const rows = snapshot.evalResultRows ?? []
+  const lines: string[] = []
+
+  // Show overall summary if available
+  if (Object.keys(summary).length > 0) {
+    lines.push("═══ Summary ═══")
+    const keyOrder = ["mean_score", "accuracy", "pass_rate", "completed", "failed", "total"]
+    const shown = new Set<string>()
+
+    for (const key of keyOrder) {
+      if (summary[key] != null) {
+        const val = summary[key]
+        if (key === "accuracy" || key === "pass_rate") {
+          lines.push(`  ${key}: ${(val * 100).toFixed(1)}%`)
+        } else {
+          lines.push(`  ${key}: ${formatValue(val)}`)
+        }
+        shown.add(key)
+      }
+    }
+    // Show remaining keys
+    for (const [key, value] of Object.entries(summary)) {
+      if (shown.has(key)) continue
+      if (typeof value === "object") continue
+      lines.push(`  ${key}: ${formatValue(value)}`)
+    }
+    lines.push("")
+  }
+  if (summary.mean_score == null && rows.length > 0) {
+    const scores = rows
+      .map((row) => row.outcome_reward ?? row.score ?? row.reward_mean ?? row.events_score)
+      .filter((val) => typeof val === "number" && Number.isFinite(val)) as number[]
+    if (scores.length > 0) {
+      const mean = scores.reduce((acc, val) => acc + val, 0) / scores.length
+      if (lines.length === 0 || lines[0] !== "═══ Summary ═══") {
+        lines.unshift("═══ Summary ═══")
+      }
+      lines.splice(1, 0, `  mean_score: ${formatValue(mean)}`)
+      lines.push("")
+    }
+  }
+
+  // Show per-task results
+  if (rows.length > 0) {
+    lines.push("═══ Results by Task ═══")
+    const limit = 15
+    const displayRows = rows.slice(0, limit)
+
+    for (const row of displayRows) {
+      const taskId = row.task_id || row.id || row.name || "?"
+      const score = num(row.score ?? row.reward_mean ?? row.outcome_reward ?? row.passed)
+      const passed = row.passed != null ? (row.passed ? "✓" : "✗") : ""
+      const status = row.status || ""
+      const scoreStr = score != null ? score.toFixed(3) : "-"
+
+      if (passed) {
+        lines.push(`  ${passed} ${taskId}: ${scoreStr}`)
+      } else if (status) {
+        lines.push(`  [${status}] ${taskId}: ${scoreStr}`)
+      } else {
+        lines.push(`  ${taskId}: ${scoreStr}`)
+      }
+    }
+
+    if (rows.length > limit) {
+      lines.push(`  ... +${rows.length - limit} more tasks`)
+    }
+  } else if (Object.keys(summary).length === 0) {
+    lines.push("No eval results yet.")
+    lines.push("")
+    lines.push("Results will appear after the eval completes.")
+  }
+
+  return lines.length > 0 ? lines.join("\n") : "Results: -"
+}
+
 function formatHeaderMeta(): string {
   const org = snapshot.orgId || "-"
   const user = snapshot.userId || "-"
   const balance =
     snapshot.balanceDollars == null ? "-" : `$${snapshot.balanceDollars.toFixed(2)}`
-  return `org: ${org}  user: ${user}  balance: ${balance}`
+  const backendLabel = getBackendConfig().label
+  return `backend: ${backendLabel}  org: ${org}  user: ${user}  balance: ${balance}`
 }
 
 function formatTimestamp(value: any): string {
@@ -698,7 +1236,10 @@ function formatTimestamp(value: any): string {
   }
   if (typeof value === "string") {
     const trimmed = value.trim()
-    const parsed = Date.parse(trimmed)
+    const normalized = trimmed
+      .replace(" ", "T")
+      .replace(/(\.\d{3})\d+/, "$1")
+    const parsed = Date.parse(normalized)
     if (Number.isFinite(parsed)) {
       return new Date(parsed).toLocaleString()
     }
@@ -725,7 +1266,17 @@ function renderEventCards(): void {
   if (recentAll.length === 0) {
     ui.eventsList.visible = false
     ui.eventsEmptyText.visible = true
-    ui.eventsEmptyText.content = eventFilter ? "No events match filter." : "No events yet."
+    // Show contextual message based on job state
+    const job = snapshot.selectedJob
+    if (eventFilter) {
+      ui.eventsEmptyText.content = "No events match filter."
+    } else if (job?.status === "succeeded" || job?.status === "failed" || job?.status === "completed") {
+      ui.eventsEmptyText.content = "No events recorded for this job.\n\nEvents may not have been persisted during execution."
+    } else if (job?.status === "running" || job?.status === "queued") {
+      ui.eventsEmptyText.content = "Waiting for events...\n\nEvents will appear as the job progresses."
+    } else {
+      ui.eventsEmptyText.content = "No events yet."
+    }
     return
   }
   const total = recentAll.length
@@ -807,7 +1358,7 @@ function getFilteredEvents(): JobEvent[] {
   const list = filter.length
     ? snapshot.events.filter((event) => eventMatchesFilter(event, filter))
     : snapshot.events
-  return [...list].reverse()
+  return [...list].sort((a, b) => eventSortKey(b) - eventSortKey(a))
 }
 
 function eventMatchesFilter(event: JobEvent, filter: string): boolean {
@@ -821,6 +1372,21 @@ function eventMatchesFilter(event: JobEvent, filter: string): boolean {
     .join(" ")
     .toLowerCase()
   return haystack.includes(filter)
+}
+
+function eventSortKey(event: JobEvent): number {
+  if (Number.isFinite(event.seq)) {
+    return Number(event.seq)
+  }
+  const ts = event.timestamp
+  if (typeof ts === "string") {
+    const normalized = ts.trim().replace(" ", "T").replace(/(\.\d{3})\d+/, "$1")
+    const parsed = Date.parse(normalized)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return 0
 }
 
 function safeEventDataText(data: unknown): string {
@@ -951,7 +1517,7 @@ function isRecord(value: any): value is Record<string, any> {
 
 function formatStatus(): string {
   const ts = snapshot.lastRefresh ? new Date(snapshot.lastRefresh).toLocaleTimeString() : "-"
-  const baseLabel = baseRoot.replace(/^https?:\/\//, "")
+  const baseLabel = getActiveBaseRoot().replace(/^https?:\/\//, "")
   const health = `health=${healthStatus}`
   if (snapshot.lastError) {
     return `Last refresh: ${ts} | ${health} | ${baseLabel} | Error: ${snapshot.lastError}`
@@ -964,7 +1530,7 @@ function footerText(): string {
   const jobFilterLabel = jobStatusFilter.size
     ? `status=${Array.from(jobStatusFilter).join(",")}`
     : "status=all"
-  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | o results | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
+  return `Keys: e events | b jobs | tab toggle | j/k navigate | enter view | r refresh | m metrics | p best | o best prompt | i config | t settings | f ${filterLabel} | shift+j ${jobFilterLabel} | c cancel | a artifacts | s snapshot | q quit`
 }
 
 function toggleModal(visible: boolean): void {
@@ -1082,6 +1648,595 @@ function applyJobFilterSelection(): void {
     return
   }
   renderSnapshot()
+}
+
+function buildSettingsOptions(): BackendConfig[] {
+  return [backendConfigs.prod, backendConfigs.dev, backendConfigs.local]
+}
+
+function toggleSettingsModal(visible: boolean): void {
+  ui.settingsModalVisible = visible
+  ui.settingsBox.visible = visible
+  ui.settingsTitle.visible = visible
+  ui.settingsHelp.visible = visible
+  ui.settingsListText.visible = visible
+  ui.settingsInfoText.visible = visible
+  if (visible) {
+    settingsOptions = buildSettingsOptions()
+    settingsCursor = Math.max(
+      0,
+      settingsOptions.findIndex((opt) => opt.id === currentBackend),
+    )
+    ui.jobsSelect.blur()
+    renderSettingsList()
+  } else {
+    if (ui.keyModalVisible) {
+      toggleKeyModal(false)
+    }
+    if (ui.envKeyModalVisible) {
+      toggleEnvKeyModal(false)
+    }
+    if (activePane === "jobs") {
+    ui.jobsSelect.focus()
+    }
+  }
+  renderer.requestRender()
+}
+
+function moveSettingsSelection(delta: number): void {
+  const max = Math.max(0, settingsOptions.length - 1)
+  settingsCursor = clamp(settingsCursor + delta, 0, max)
+  renderSettingsList()
+}
+
+function renderSettingsList(): void {
+  if (!ui.settingsModalVisible) return
+  const lines: string[] = []
+  for (let idx = 0; idx < settingsOptions.length; idx++) {
+    const option = settingsOptions[idx]
+    const cursor = idx === settingsCursor ? ">" : " "
+    const active = option.id === currentBackend ? "*" : " "
+    lines.push(`${cursor} [${active}] ${option.label}`)
+  }
+  if (!lines.length) {
+    lines.push("  (no backends available)")
+  }
+  ui.settingsListText.content = lines.join("\n")
+  const selected = settingsOptions[settingsCursor]
+  if (selected) {
+    const key = backendKeys[selected.id]
+    const masked = maskKey(key)
+    const baseRoot = selected.baseUrl.replace(/\/api$/, "")
+    const devNote =
+      selected.id === "prod" ? null : "Note: Dev/Local are for Synth devs only"
+    const source = backendKeySources[selected.id]
+    const sourceLine = source?.sourcePath
+      ? `Source: ${truncatePath(source.sourcePath, 44)}`
+      : source?.varName
+        ? `Source: ${source.varName}`
+        : "Source: -"
+    const varLine =
+      source?.varName && source.varName !== "manual"
+        ? `Var: ${source.varName}`
+        : null
+    ui.settingsInfoText.content = [
+      `Base: ${baseRoot}`,
+      `Key: ${masked}`,
+      devNote,
+      sourceLine,
+      varLine,
+    ]
+      .filter(Boolean)
+      .join("\n")
+  } else {
+    ui.settingsInfoText.content = "Base: -\nKey: -"
+  }
+}
+
+function maskKey(key: string): string {
+  if (!key) return "(missing)"
+  if (key.length <= 8) return "****"
+  return `${key.slice(0, 4)}...${key.slice(-4)}`
+}
+
+async function applySettingsSelection(): Promise<void> {
+  const option = settingsOptions[settingsCursor]
+  if (!option) return
+  if (option.id !== currentBackend) {
+    await switchBackend(option.id)
+  }
+  toggleSettingsModal(false)
+}
+
+async function switchBackend(nextBackend: BackendId): Promise<void> {
+  if (currentBackend === nextBackend) return
+  currentBackend = nextBackend
+  void persistSettings()
+  snapshot.lastError = null
+  snapshot.status = `Switching to ${getBackendConfig().label}...`
+  snapshot.jobs = []
+  snapshot.selectedJob = null
+  snapshot.events = []
+  snapshot.metrics = {}
+  snapshot.bestSnapshotId = null
+  snapshot.bestSnapshot = null
+  snapshot.evalSummary = null
+  snapshot.evalResultRows = []
+  snapshot.artifacts = []
+  snapshot.orgId = null
+  snapshot.userId = null
+  snapshot.balanceDollars = null
+  lastSeq = 0
+  selectedEventIndex = 0
+  eventWindowStart = 0
+  autoSelected = false
+  renderSnapshot()
+  if (!getActiveApiKey()) {
+    snapshot.lastError = `Missing API key for ${getBackendConfig().label}`
+    snapshot.status = "Auth required"
+    renderSnapshot()
+    return
+  }
+  await refreshIdentity()
+  await refreshJobs()
+  if (snapshot.jobs.length > 0) {
+    await selectJob(snapshot.jobs[0].job_id)
+  }
+  scheduleJobsPoll(0)
+  scheduleEventsPoll(0)
+}
+
+function openKeyModal(): void {
+  const option = settingsOptions[settingsCursor]
+  if (!option) return
+  keyModalBackend = option.id
+  toggleKeyModal(true)
+}
+
+function toggleKeyModal(visible: boolean): void {
+  ui.keyModalVisible = visible
+  ui.keyModalBox.visible = visible
+  ui.keyModalLabel.visible = visible
+  ui.keyModalInput.visible = visible
+  ui.keyModalHelp.visible = visible
+  if (visible) {
+    ui.keyModalInput.value = ""
+    keyPasteActive = false
+    keyPasteBuffer = ""
+    ui.keyModalInput.focus()
+  } else {
+    ui.keyModalInput.value = ""
+    ui.keyModalInput.blur()
+    if (ui.settingsModalVisible) {
+      renderSettingsList()
+    }
+  }
+  renderer.requestRender()
+}
+
+function applyKeyModal(value: string): void {
+  const trimmed = value.trim()
+  backendKeys[keyModalBackend] = trimmed
+  backendKeySources[keyModalBackend] = trimmed
+    ? { sourcePath: "manual", varName: null }
+    : { sourcePath: null, varName: null }
+  toggleKeyModal(false)
+  void persistSettings()
+  if (!getActiveApiKey()) {
+    snapshot.lastError = `Missing API key for ${getBackendConfig().label}`
+    snapshot.status = "Auth required"
+  } else if (keyModalBackend === currentBackend) {
+    void switchBackend(currentBackend)
+  }
+  renderSnapshot()
+}
+
+async function openEnvKeyModal(): Promise<void> {
+  const option = settingsOptions[settingsCursor]
+  if (!option) return
+  keyModalBackend = option.id
+  toggleEnvKeyModal(true)
+  await rescanEnvKeys()
+}
+
+function toggleEnvKeyModal(visible: boolean): void {
+  ui.envKeyModalVisible = visible
+  ui.envKeyModalBox.visible = visible
+  ui.envKeyModalTitle.visible = visible
+  ui.envKeyModalHelp.visible = visible
+  ui.envKeyModalListText.visible = visible
+  ui.envKeyModalInfoText.visible = visible
+  if (visible) {
+    envKeyCursor = 0
+    envKeyWindowStart = 0
+    envKeyOptions = []
+    envKeyError = null
+    envKeyScanInProgress = false
+    ui.envKeyModalTitle.content = `Settings - API Key (${getBackendConfig().label})`
+    ui.jobsSelect.blur()
+    renderEnvKeyList()
+  } else {
+    if (ui.settingsModalVisible) {
+      renderSettingsList()
+    }
+  }
+  renderer.requestRender()
+}
+
+async function rescanEnvKeys(): Promise<void> {
+  if (envKeyScanInProgress) return
+  envKeyScanInProgress = true
+  envKeyError = null
+  ui.envKeyModalInfoText.content = `Scan: ${envKeyScanRoot}`
+  ui.envKeyModalListText.content = "Scanning for SYNTH_API_KEY..."
+  renderer.requestRender()
+  try {
+    envKeyOptions = await scanEnvKeys(envKeyScanRoot)
+    envKeyCursor = 0
+    envKeyWindowStart = 0
+  } catch (err: any) {
+    envKeyError = err?.message || "Failed to scan .env files"
+    envKeyOptions = []
+  } finally {
+    envKeyScanInProgress = false
+    renderEnvKeyList()
+  }
+}
+
+function moveEnvKeySelection(delta: number): void {
+  const max = Math.max(0, envKeyOptions.length - 1)
+  envKeyCursor = clamp(envKeyCursor + delta, 0, max)
+  if (envKeyCursor < envKeyWindowStart) {
+    envKeyWindowStart = envKeyCursor
+  } else if (envKeyCursor >= envKeyWindowStart + envKeyVisibleCount) {
+    envKeyWindowStart = envKeyCursor - envKeyVisibleCount + 1
+  }
+  renderEnvKeyList()
+}
+
+function renderEnvKeyList(): void {
+  if (!ui.envKeyModalVisible) return
+  const max = Math.max(0, envKeyOptions.length - 1)
+  envKeyCursor = clamp(envKeyCursor, 0, max)
+  envKeyWindowStart = clamp(envKeyWindowStart, 0, Math.max(0, max))
+  const start = envKeyWindowStart
+  const end = Math.min(envKeyOptions.length, start + envKeyVisibleCount)
+  const lines: string[] = []
+  const activeKey = backendKeys[keyModalBackend]
+  for (let idx = start; idx < end; idx++) {
+    const option = envKeyOptions[idx]
+    const cursor = idx === envKeyCursor ? ">" : " "
+    const active = option.key === activeKey ? "x" : " "
+    lines.push(
+      `${cursor} [${active}] ${maskKeyPrefix(option.key)}  ${formatEnvKeySource(option)}`,
+    )
+  }
+  if (!lines.length) {
+    if (envKeyScanInProgress) {
+      lines.push("  Scanning...")
+    } else if (envKeyError) {
+      lines.push("  (scan failed)")
+    } else {
+      lines.push("  (no SYNTH_API_KEY entries found)")
+    }
+  }
+  ui.envKeyModalListText.content = lines.join("\n")
+  const infoLines = [`Scan: ${envKeyScanRoot}`]
+  infoLines.push(`Save: ${settingsFilePath}`)
+  if (envKeyError) {
+    infoLines.push(`Error: ${envKeyError}`)
+  } else {
+    infoLines.push(`Found: ${envKeyOptions.length}`)
+  }
+  ui.envKeyModalInfoText.content = infoLines.join("\n")
+  renderer.requestRender()
+}
+
+function applyEnvKeySelection(): void {
+  const option = envKeyOptions[envKeyCursor]
+  if (!option) return
+  backendKeys[keyModalBackend] = option.key
+  backendKeySources[keyModalBackend] = {
+    sourcePath: option.sources[0] || null,
+    varName: option.varNames[0] || null,
+  }
+  toggleEnvKeyModal(false)
+  void persistSettings()
+  if (!getActiveApiKey()) {
+    snapshot.lastError = `Missing API key for ${getBackendConfig().label}`
+    snapshot.status = "Auth required"
+  } else if (keyModalBackend === currentBackend) {
+    void switchBackend(currentBackend)
+  }
+  renderSnapshot()
+}
+
+async function scanEnvKeys(rootDir: string): Promise<EnvKeyOption[]> {
+  const results = new Map<string, EnvKeyOption>()
+  await walkEnvDir(rootDir, results)
+  return Array.from(results.values()).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+async function loadPersistedSettings(): Promise<void> {
+  try {
+    const content = await fs.readFile(settingsFilePath, "utf8")
+    const values = parseEnvFile(content)
+    const backend = values.SYNTH_TUI_BACKEND
+    if (backend) {
+      currentBackend = normalizeBackendId(backend)
+    }
+    const prodKey = values.SYNTH_TUI_API_KEY_PROD
+    const devKey = values.SYNTH_TUI_API_KEY_DEV
+    const localKey = values.SYNTH_TUI_API_KEY_LOCAL
+    if (typeof prodKey === "string") backendKeys.prod = prodKey
+    if (typeof devKey === "string") backendKeys.dev = devKey
+    if (typeof localKey === "string") backendKeys.local = localKey
+    backendKeySources.prod = {
+      sourcePath: values.SYNTH_TUI_API_KEY_PROD_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_PROD_VAR || null,
+    }
+    backendKeySources.dev = {
+      sourcePath: values.SYNTH_TUI_API_KEY_DEV_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_DEV_VAR || null,
+    }
+    backendKeySources.local = {
+      sourcePath: values.SYNTH_TUI_API_KEY_LOCAL_SOURCE || null,
+      varName: values.SYNTH_TUI_API_KEY_LOCAL_VAR || null,
+    }
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") {
+      // Ignore missing file, keep other errors silent for now.
+    }
+  }
+}
+
+async function persistSettings(): Promise<void> {
+  try {
+    await fs.mkdir(path.dirname(settingsFilePath), { recursive: true })
+    const lines = [
+      "# synth-ai tui settings",
+      formatEnvLine("SYNTH_TUI_BACKEND", currentBackend),
+      formatEnvLine("SYNTH_TUI_API_KEY_PROD", backendKeys.prod),
+      formatEnvLine(
+        "SYNTH_TUI_API_KEY_PROD_SOURCE",
+        backendKeySources.prod.sourcePath || "",
+      ),
+      formatEnvLine("SYNTH_TUI_API_KEY_PROD_VAR", backendKeySources.prod.varName || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_DEV", backendKeys.dev),
+      formatEnvLine(
+        "SYNTH_TUI_API_KEY_DEV_SOURCE",
+        backendKeySources.dev.sourcePath || "",
+      ),
+      formatEnvLine("SYNTH_TUI_API_KEY_DEV_VAR", backendKeySources.dev.varName || ""),
+      formatEnvLine("SYNTH_TUI_API_KEY_LOCAL", backendKeys.local),
+      formatEnvLine(
+        "SYNTH_TUI_API_KEY_LOCAL_SOURCE",
+        backendKeySources.local.sourcePath || "",
+      ),
+      formatEnvLine(
+        "SYNTH_TUI_API_KEY_LOCAL_VAR",
+        backendKeySources.local.varName || "",
+      ),
+    ]
+    await fs.writeFile(settingsFilePath, `${lines.join("\n")}\n`, "utf8")
+  } catch (err: any) {
+    snapshot.lastError = `Failed to save settings: ${err?.message || "unknown"}`
+    renderer.requestRender()
+  }
+}
+
+function parseEnvFile(content: string): Record<string, string> {
+  const values: Record<string, string> = {}
+  const lines = content.split(/\r?\n/)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#")) continue
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/)
+    if (!match) continue
+    const key = match[1]
+    let value = match[2].trim()
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      const quoted = value
+      value = value.slice(1, -1)
+      if (quoted.startsWith("\"")) {
+        value = value.replace(/\\\\/g, "\\").replace(/\\"/g, "\"")
+      }
+    } else {
+      value = value.split(/\s+#/)[0].trim()
+    }
+    values[key] = value
+  }
+  return values
+}
+
+function formatEnvLine(key: string, value: string): string {
+  return `${key}=${escapeEnvValue(value)}`
+}
+
+function escapeEnvValue(value: string): string {
+  const safe = value ?? ""
+  return `"${safe.replace(/\\/g, "\\\\").replace(/\"/g, '\\"')}"`
+}
+
+async function walkEnvDir(
+  dir: string,
+  results: Map<string, EnvKeyOption>,
+): Promise<void> {
+  const ignoreDirs = new Set([
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".next",
+    ".turbo",
+    ".cache",
+    "dist",
+    "build",
+    "out",
+  ])
+  let entries: Array<import("node:fs").Dirent>
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      if (ignoreDirs.has(entry.name)) continue
+      await walkEnvDir(fullPath, results)
+      continue
+    }
+    if (!entry.isFile()) continue
+    if (!/^\.env(\.|$)/.test(entry.name)) continue
+    try {
+      const stat = await fs.stat(fullPath)
+      if (stat.size > 256 * 1024) continue
+      const content = await fs.readFile(fullPath, "utf8")
+      const found = parseEnvKeys(content, fullPath)
+      for (const item of found) {
+        const existing = results.get(item.key)
+        if (existing) {
+          if (!existing.sources.includes(item.source)) {
+            existing.sources.push(item.source)
+          }
+          if (!existing.varNames.includes(item.varName)) {
+            existing.varNames.push(item.varName)
+          }
+        } else {
+          results.set(item.key, {
+            key: item.key,
+            sources: [item.source],
+            varNames: [item.varName],
+          })
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+}
+
+function parseEnvKeys(
+  content: string,
+  sourcePath: string,
+): Array<{ key: string; source: string; varName: string }> {
+  const results: Array<{ key: string; source: string; varName: string }> = []
+  const lines = content.split(/\r?\n/)
+  const keyNames = new Set([
+    "SYNTH_API_KEY",
+    "SYNTH_TUI_API_KEY_PROD",
+    "SYNTH_TUI_API_KEY_DEV",
+    "SYNTH_TUI_API_KEY_LOCAL",
+  ])
+  const relPath = path.relative(envKeyScanRoot, sourcePath) || sourcePath
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#")) continue
+    const match = trimmed.match(/^(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.+)$/)
+    if (!match) continue
+    const varName = match[1]
+    if (!keyNames.has(varName)) continue
+    let value = match[2].trim()
+    if (!value || value.startsWith("$")) continue
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    } else {
+      value = value.split(/\s+#/)[0].trim()
+    }
+    if (!value) continue
+    results.push({ key: value, source: relPath, varName })
+  }
+  return results
+}
+
+function formatEnvKeySource(option: EnvKeyOption): string {
+  if (!option.sources.length) return "-"
+  const first = option.sources[0]
+  if (option.sources.length === 1) return truncatePath(first, 36)
+  return `${truncatePath(first, 28)} +${option.sources.length - 1}`
+}
+
+function truncatePath(value: string, max: number): string {
+  if (value.length <= max) return value
+  return `...${value.slice(Math.max(0, value.length - max + 3))}`
+}
+
+function maskKeyPrefix(key: string): string {
+  if (!key) return "(missing)"
+  return `${key.slice(0, 5)}...`
+}
+
+function beginPasteCapture(sequence: string): void {
+  keyPasteActive = true
+  keyPasteBuffer = ""
+  const stripped = sequence.replace("\u001b[200~", "")
+  if (stripped) {
+    continuePasteCapture(stripped)
+  }
+}
+
+function continuePasteCapture(sequence: string): void {
+  const endIndex = sequence.indexOf("\u001b[201~")
+  if (endIndex !== -1) {
+    keyPasteBuffer += sequence.slice(0, endIndex)
+    finalizePasteCapture()
+    const remainder = sequence.slice(endIndex + "\u001b[201~".length)
+    if (remainder) {
+      ui.keyModalInput.value = (ui.keyModalInput.value || "") + remainder
+    }
+    renderer.requestRender()
+    return
+  }
+  keyPasteBuffer += sequence
+}
+
+function finalizePasteCapture(): void {
+  keyPasteActive = false
+  const sanitized = keyPasteBuffer.replace(/\s+/g, "")
+  if (sanitized) {
+    ui.keyModalInput.value = (ui.keyModalInput.value || "") + sanitized
+  }
+  keyPasteBuffer = ""
+}
+
+function pasteKeyFromClipboard(): void {
+  try {
+    if (process.platform !== "darwin") return
+    const result = execCommandSync("pbpaste")
+    if (!result) return
+    const sanitized = result.replace(/\s+/g, "")
+    if (!sanitized) return
+    const current = ui.keyModalInput.value || ""
+    ui.keyModalInput.value = current + sanitized
+  } catch {
+    // Ignore clipboard errors
+  }
+  renderer.requestRender()
+}
+
+function execCommandSync(cmd: string): string | null {
+  try {
+    const proc = require("child_process").spawnSync(cmd, [], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+    if (proc.status !== 0) return null
+    return proc.stdout ? String(proc.stdout) : null
+  } catch {
+    return null
+  }
 }
 
 function toggleEventModal(visible: boolean): void {
@@ -1343,6 +2498,269 @@ async function copyPromptToClipboard(): Promise<void> {
   renderSnapshot()
 }
 
+// Config modal state
+let configModalOffset = 0
+
+function toggleConfigModal(visible: boolean): void {
+  ui.configModalVisible = visible
+  ui.configModalBox.visible = visible
+  ui.configModalTitle.visible = visible
+  ui.configModalText.visible = visible
+  ui.configModalHint.visible = visible
+  if (visible) {
+    ui.jobsSelect.blur()
+  } else {
+    ui.configModalText.content = ""
+    if (activePane === "jobs") {
+      ui.jobsSelect.focus()
+    }
+  }
+  renderer.requestRender()
+}
+
+function openConfigModal(): void {
+  const payload = formatConfigMetadata()
+  if (!payload) return
+  configModalOffset = 0
+  ui.configModalPayload = payload
+  toggleConfigModal(true)
+  updateConfigModalContent()
+}
+
+function moveConfigModal(delta: number): void {
+  if (!ui.configModalPayload) return
+  const { maxLines } = getConfigModalLayout()
+  const lines = wrapModalText(ui.configModalPayload, getConfigModalLayout().textWidth)
+  const maxOffset = Math.max(0, lines.length - maxLines)
+  configModalOffset = clamp(configModalOffset + delta, 0, maxOffset)
+  updateConfigModalContent()
+}
+
+function updateConfigModalContent(): void {
+  if (!ui.configModalVisible || !ui.configModalPayload) return
+  const { width, height, left, top, maxLines, textWidth } = getConfigModalLayout()
+  ui.configModalBox.width = width
+  ui.configModalBox.height = height
+  ui.configModalBox.left = left
+  ui.configModalBox.top = top
+  ui.configModalTitle.left = left + 2
+  ui.configModalTitle.top = top + 1
+  ui.configModalText.left = left + 2
+  ui.configModalText.top = top + 2
+  ui.configModalText.width = width - 4
+  ui.configModalHint.left = left + 2
+  ui.configModalHint.top = top + height - 2
+  const lines = wrapModalText(ui.configModalPayload, textWidth)
+  const sliced = lines.slice(configModalOffset, configModalOffset + maxLines)
+  ui.configModalText.content = sliced.join("\n")
+  const pos = lines.length <= maxLines ? "end" : `${configModalOffset + 1}-${Math.min(configModalOffset + maxLines, lines.length)}`
+  ui.configModalHint.content = `Config (${pos} of ${lines.length}) | j/k scroll | esc/q/enter close`
+}
+
+function getConfigModalLayout(): {
+  width: number
+  height: number
+  left: number
+  top: number
+  maxLines: number
+  textWidth: number
+} {
+  const rows = typeof process.stdout?.rows === "number" ? process.stdout.rows : 40
+  const cols = typeof process.stdout?.columns === "number" ? process.stdout.columns : 120
+  const width = Math.max(60, Math.floor(cols * 0.9))
+  const height = Math.max(12, Math.floor(rows * 0.8))
+  const left = Math.max(0, Math.floor((cols - width) / 2))
+  const top = Math.max(1, Math.floor((rows - height) / 2))
+  const maxLines = Math.max(1, height - 4)
+  const textWidth = Math.max(30, width - 4)
+  return { width, height, left, top, maxLines, textWidth }
+}
+
+function formatConfigMetadata(): string | null {
+  const job = snapshot.selectedJob
+  if (!job) return null
+
+  const lines: string[] = []
+  lines.push(`Job: ${job.job_id}`)
+  lines.push(`Status: ${job.status}`)
+  lines.push(`Type: ${job.training_type || "-"}`)
+  lines.push(`Source: ${job.job_source || "unknown"}`)
+  lines.push("")
+
+  // Check for errors
+  if (snapshot.lastError && snapshot.status?.includes("Error")) {
+    lines.push("═══ Error Loading Metadata ═══")
+    lines.push(snapshot.lastError)
+    lines.push("")
+    lines.push("The job details could not be loaded.")
+    return lines.join("\n")
+  }
+
+  const meta = job.metadata
+  if (!meta || Object.keys(meta).length === 0) {
+    // Check if job details are still loading
+    if (snapshot.status?.includes("Loading")) {
+      lines.push("Loading job configuration...")
+      lines.push("")
+      lines.push("Modal will auto-update when loaded.")
+    } else if (!job.training_type) {
+      lines.push("Loading job configuration...")
+      lines.push("")
+      lines.push("Press 'i' again after job details finish loading.")
+    } else {
+      lines.push("No metadata available for this job.")
+      lines.push("")
+      lines.push(`(job_source: ${job.job_source}, training_type: ${job.training_type})`)
+    }
+    return lines.join("\n")
+  }
+
+  // Extract description
+  const desc = meta.request_metadata?.description || meta.description
+  if (desc) {
+    lines.push(`Description: ${desc}`)
+    lines.push("")
+  }
+
+  // Extract algorithm config (nested under different paths for different job types)
+  // Prompt-learning jobs: meta.prompt_initial_snapshot.raw_config.prompt_learning
+  // Learning/GEPA jobs: meta.config, meta.job_config, or top-level
+  const rawConfig =
+    meta.prompt_initial_snapshot?.raw_config?.prompt_learning ||
+    meta.config?.prompt_learning ||
+    meta.job_config?.prompt_learning ||
+    meta.prompt_learning ||
+    meta.config ||
+    meta.job_config ||
+    null
+  const optimizerConfig =
+    meta.prompt_initial_snapshot?.optimizer_config ||
+    meta.optimizer_config ||
+    null
+
+  // Policy / Model info
+  const policy = rawConfig?.policy || optimizerConfig?.policy_config
+  if (policy) {
+    lines.push("═══ Model Configuration ═══")
+    if (policy.model) lines.push(`  Model: ${policy.model}`)
+    if (policy.provider) lines.push(`  Provider: ${policy.provider}`)
+    if (policy.temperature != null) lines.push(`  Temperature: ${policy.temperature}`)
+    if (policy.max_completion_tokens) lines.push(`  Max Tokens: ${policy.max_completion_tokens}`)
+    lines.push("")
+  }
+
+  // GEPA-specific config
+  const gepa = rawConfig?.gepa
+  if (gepa) {
+    lines.push("═══ GEPA Configuration ═══")
+
+    // Population
+    const pop = gepa.population
+    if (pop) {
+      lines.push("  Population:")
+      if (pop.initial_size != null) lines.push(`    Initial Size: ${pop.initial_size}`)
+      if (pop.num_generations != null) lines.push(`    Generations: ${pop.num_generations}`)
+      if (pop.children_per_generation != null) lines.push(`    Children/Gen: ${pop.children_per_generation}`)
+      if (pop.crossover_rate != null) lines.push(`    Crossover Rate: ${pop.crossover_rate}`)
+      if (pop.selection_pressure != null) lines.push(`    Selection Pressure: ${pop.selection_pressure}`)
+      if (pop.patience_generations != null) lines.push(`    Patience: ${pop.patience_generations}`)
+    }
+
+    // Rollout
+    const rollout = gepa.rollout
+    if (rollout) {
+      lines.push("  Rollout:")
+      if (rollout.budget != null) lines.push(`    Budget: ${rollout.budget}`)
+      if (rollout.max_concurrent != null) lines.push(`    Max Concurrent: ${rollout.max_concurrent}`)
+      if (rollout.minibatch_size != null) lines.push(`    Minibatch Size: ${rollout.minibatch_size}`)
+    }
+
+    // Mutation
+    const mutation = gepa.mutation
+    if (mutation) {
+      lines.push("  Mutation:")
+      if (mutation.rate != null) lines.push(`    Rate: ${mutation.rate}`)
+    }
+
+    // Archive
+    const archive = gepa.archive
+    if (archive) {
+      lines.push("  Archive:")
+      if (archive.size != null) lines.push(`    Size: ${archive.size}`)
+      if (archive.pareto_set_size != null) lines.push(`    Pareto Set Size: ${archive.pareto_set_size}`)
+    }
+
+    // Evaluation
+    const evaluation = gepa.evaluation
+    if (evaluation) {
+      lines.push("  Evaluation:")
+      if (evaluation.seeds) {
+        const seeds = Array.isArray(evaluation.seeds) ? evaluation.seeds : []
+        lines.push(`    Seeds: [${seeds.slice(0, 5).join(", ")}${seeds.length > 5 ? `, ... (${seeds.length} total)` : ""}]`)
+      }
+      if (evaluation.validation_seeds) {
+        const vseeds = Array.isArray(evaluation.validation_seeds) ? evaluation.validation_seeds : []
+        lines.push(`    Validation Seeds: [${vseeds.slice(0, 5).join(", ")}${vseeds.length > 5 ? `, ... (${vseeds.length} total)` : ""}]`)
+      }
+      if (evaluation.validation_top_k != null) lines.push(`    Validation Top-K: ${evaluation.validation_top_k}`)
+    }
+
+    // Proposer
+    if (gepa.proposer_type) lines.push(`  Proposer Type: ${gepa.proposer_type}`)
+    if (gepa.proposer_effort) lines.push(`  Proposer Effort: ${gepa.proposer_effort}`)
+
+    lines.push("")
+  }
+
+  // Verifier config
+  const verifier = rawConfig?.verifier || optimizerConfig?.verifier
+  if (verifier && verifier.enabled) {
+    lines.push("═══ Verifier Configuration ═══")
+    if (verifier.backend_model) lines.push(`  Model: ${verifier.backend_model}`)
+    if (verifier.backend_provider) lines.push(`  Provider: ${verifier.backend_provider}`)
+    if (verifier.verifier_graph_id) lines.push(`  Graph ID: ${verifier.verifier_graph_id}`)
+    if (verifier.reward_source) lines.push(`  Reward Source: ${verifier.reward_source}`)
+    if (verifier.concurrency != null) lines.push(`  Concurrency: ${verifier.concurrency}`)
+    if (verifier.timeout != null) lines.push(`  Timeout: ${verifier.timeout}s`)
+    lines.push("")
+  }
+
+  // Environment config
+  const envName = rawConfig?.env_name || optimizerConfig?.env_name || gepa?.env_name
+  const envConfig = rawConfig?.env_config || optimizerConfig?.env_config
+  if (envName || envConfig) {
+    lines.push("═══ Environment ═══")
+    if (envName) lines.push(`  Name: ${envName}`)
+    if (envConfig?.env_params) {
+      const params = envConfig.env_params
+      if (params.max_steps != null) lines.push(`  Max Steps: ${params.max_steps}`)
+    }
+    lines.push("")
+  }
+
+  // Task app
+  const taskAppUrl = meta.task_app_url || rawConfig?.task_app_url
+  const taskAppId = rawConfig?.task_app_id
+  if (taskAppUrl || taskAppId) {
+    lines.push("═══ Task App ═══")
+    if (taskAppId) lines.push(`  ID: ${taskAppId}`)
+    if (taskAppUrl) lines.push(`  URL: ${taskAppUrl}`)
+    lines.push("")
+  }
+
+  // Fallback: show raw metadata structure
+  if (lines.length <= 5) {
+    lines.push("═══ Raw Metadata ═══")
+    try {
+      lines.push(JSON.stringify(meta, null, 2))
+    } catch {
+      lines.push(String(meta))
+    }
+  }
+
+  return lines.join("\n")
+}
+
 function openSelectedEventModal(): void {
   const recent = getFilteredEvents()
   const event = recent[selectedEventIndex]
@@ -1506,6 +2924,10 @@ async function pollEvents(): Promise<void> {
 }
 
 async function apiGet(path: string): Promise<any> {
+  const { baseUrl, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
   const res = await fetch(`${baseUrl}${path}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   })
@@ -1518,6 +2940,10 @@ async function apiGet(path: string): Promise<any> {
 }
 
 async function apiGetV1(path: string): Promise<any> {
+  const { baseRoot, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
   const res = await fetch(`${baseRoot}/api/v1${path}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   })
@@ -1530,6 +2956,10 @@ async function apiGetV1(path: string): Promise<any> {
 }
 
 async function apiPost(path: string, body: any): Promise<any> {
+  const { baseUrl, apiKey, label } = getBackendConfig()
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${label}`)
+  }
   const res = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers: {
@@ -1548,69 +2978,24 @@ async function apiPost(path: string, body: any): Promise<any> {
 
 async function refreshHealth(): Promise<void> {
   try {
-    const res = await fetch(`${baseRoot}/health`)
+    const res = await fetch(`${getActiveBaseRoot()}/health`)
     healthStatus = res.ok ? "ok" : `bad(${res.status})`
   } catch (err: any) {
     healthStatus = `err(${err?.message || "unknown"})`
   }
 }
 
-function extractJobs(payload: any): JobSummary[] {
-  const list = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.jobs)
-      ? payload.jobs
-      : Array.isArray(payload?.data)
-        ? payload.data
-        : []
-  return list.map(coerceJob)
-}
-
-function extractEvents(payload: any): { events: JobEvent[]; nextSeq: number | null } {
-  const list = Array.isArray(payload)
-    ? payload
-    : Array.isArray(payload?.events)
-      ? payload.events
-      : []
-  const events = list.map((e: any, idx: number) => ({
-    seq: Number(e.seq ?? e.sequence ?? e.id ?? idx),
-    type: String(e.type || e.event_type || "event"),
-    message: e.message || null,
-    data: e.data ?? e.payload ?? null,
-    timestamp: e.timestamp || e.created_at || null,
-  }))
-  const nextSeq = typeof payload?.next_seq === "number" ? payload.next_seq : null
-  return { events, nextSeq }
-}
-
-function coerceJob(payload: any): JobSummary {
-  return {
-    job_id: String(payload?.job_id || payload?.id || ""),
-    status: String(payload?.status || "unknown"),
-    // API uses 'algorithm' field, not 'training_type'
-    training_type: payload?.algorithm || payload?.training_type || null,
-    created_at: payload?.created_at || null,
-    started_at: payload?.started_at || null,
-    finished_at: payload?.finished_at || null,
-    best_score: num(payload?.best_score),
-    best_snapshot_id:
-      payload?.best_snapshot_id || payload?.prompt_best_snapshot_id || payload?.best_snapshot?.id || null,
-    total_tokens: int(payload?.total_tokens),
-    total_cost_usd: num(payload?.total_cost_usd || payload?.total_cost),
-    error: payload?.error || null,
-  }
-}
-
-function num(value: any): number | null {
-  if (value == null) return null
-  const n = Number(value)
-  return Number.isFinite(n) ? n : null
-}
-
-function int(value: any): number | null {
-  if (value == null) return null
-  const n = parseInt(String(value), 10)
-  return Number.isFinite(n) ? n : null
+// Helper to extract environment name from job metadata
+function extractEnvName(job: JobSummary | null): string | null {
+  if (!job?.metadata) return null
+  const meta = job.metadata
+  return (
+    meta.prompt_initial_snapshot?.raw_config?.prompt_learning?.env_name ||
+    meta.prompt_initial_snapshot?.optimizer_config?.env_name ||
+    meta.config?.env_name ||
+    meta.env_name ||
+    null
+  )
 }
 
 function calculateTotalTokensFromEvents(): number {
@@ -1634,6 +3019,43 @@ function ensureApiBase(base: string): string {
     out = `${out}/api`
   }
   return out
+}
+
+function normalizeBackendId(value: string): BackendId {
+  const lowered = value.toLowerCase()
+  if (lowered === "prod" || lowered === "dev" || lowered === "local") {
+    return lowered
+  }
+  return "prod"
+}
+
+function getBackendConfig(id: BackendId = currentBackend): {
+  id: BackendId
+  label: string
+  baseUrl: string
+  baseRoot: string
+  apiKey: string
+} {
+  const config = backendConfigs[id]
+  return {
+    id,
+    label: config.label,
+    baseUrl: config.baseUrl,
+    baseRoot: config.baseUrl.replace(/\/api$/, ""),
+    apiKey: backendKeys[id],
+  }
+}
+
+function getActiveApiKey(): string {
+  return getBackendConfig().apiKey
+}
+
+function getActiveBaseUrl(): string {
+  return getBackendConfig().baseUrl
+}
+
+function getActiveBaseRoot(): string {
+  return getBackendConfig().baseRoot
 }
 
 function buildLayout(renderer: any) {
@@ -2116,6 +3538,229 @@ function buildLayout(renderer: any) {
   renderer.root.add(resultsModalText)
   renderer.root.add(resultsModalHint)
 
+  const configModalBox = new BoxRenderable(renderer, {
+    id: "config-modal-box",
+    width: 100,
+    height: 24,
+    position: "absolute",
+    left: 6,
+    top: 4,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#f59e0b",
+    border: true,
+    zIndex: 8,
+  })
+  const configModalTitle = new TextRenderable(renderer, {
+    id: "config-modal-title",
+    content: "Job Configuration",
+    fg: "#f59e0b",
+    position: "absolute",
+    left: 8,
+    top: 5,
+    zIndex: 9,
+  })
+  const configModalText = new TextRenderable(renderer, {
+    id: "config-modal-text",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 6,
+    zIndex: 9,
+  })
+  const configModalHint = new TextRenderable(renderer, {
+    id: "config-modal-hint",
+    content: "Config | j/k scroll | esc/q/enter close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 26,
+    zIndex: 9,
+  })
+  configModalBox.visible = false
+  configModalTitle.visible = false
+  configModalText.visible = false
+  configModalHint.visible = false
+  renderer.root.add(configModalBox)
+  renderer.root.add(configModalTitle)
+  renderer.root.add(configModalText)
+  renderer.root.add(configModalHint)
+
+  const settingsBox = new BoxRenderable(renderer, {
+    id: "settings-modal-box",
+    width: 64,
+    height: 14,
+    position: "absolute",
+    left: 6,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#38bdf8",
+    border: true,
+    zIndex: 8,
+  })
+  const settingsTitle = new TextRenderable(renderer, {
+    id: "settings-modal-title",
+    content: "Settings - Backend",
+    fg: "#38bdf8",
+    position: "absolute",
+    left: 8,
+    top: 7,
+    zIndex: 9,
+  })
+  const settingsHelp = new TextRenderable(renderer, {
+    id: "settings-modal-help",
+    content: "Enter apply | j/k navigate | a pick key | m manual | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 8,
+    zIndex: 9,
+  })
+  const settingsListText = new TextRenderable(renderer, {
+    id: "settings-modal-list",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 8,
+    top: 9,
+    zIndex: 9,
+  })
+  const settingsInfoText = new TextRenderable(renderer, {
+    id: "settings-modal-info",
+    content: "",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 8,
+    top: 12,
+    zIndex: 9,
+  })
+  settingsBox.visible = false
+  settingsTitle.visible = false
+  settingsHelp.visible = false
+  settingsListText.visible = false
+  settingsInfoText.visible = false
+  renderer.root.add(settingsBox)
+  renderer.root.add(settingsTitle)
+  renderer.root.add(settingsHelp)
+  renderer.root.add(settingsListText)
+  renderer.root.add(settingsInfoText)
+
+  const keyModalBox = new BoxRenderable(renderer, {
+    id: "key-modal-box",
+    width: 70,
+    height: 7,
+    position: "absolute",
+    left: 8,
+    top: 8,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#7dd3fc",
+    border: true,
+    zIndex: 10,
+  })
+  const keyModalLabel = new TextRenderable(renderer, {
+    id: "key-modal-label",
+    content: "Set API key (saved for this session only)",
+    fg: "#7dd3fc",
+    position: "absolute",
+    left: 10,
+    top: 9,
+    zIndex: 11,
+  })
+  const keyModalInput = new InputRenderable(renderer, {
+    id: "key-modal-input",
+    width: 62,
+    height: 1,
+    position: "absolute",
+    left: 10,
+    top: 10,
+    backgroundColor: "#0f172a",
+    borderStyle: "single",
+    borderColor: "#1d4ed8",
+    border: true,
+    fg: "#e2e8f0",
+    zIndex: 11,
+  })
+  const keyModalHelp = new TextRenderable(renderer, {
+    id: "key-modal-help",
+    content: "Paste any way | enter save | q close | empty clears",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 12,
+    zIndex: 11,
+  })
+  keyModalBox.visible = false
+  keyModalLabel.visible = false
+  keyModalInput.visible = false
+  keyModalHelp.visible = false
+  renderer.root.add(keyModalBox)
+  renderer.root.add(keyModalLabel)
+  renderer.root.add(keyModalInput)
+  renderer.root.add(keyModalHelp)
+
+  const envKeyModalBox = new BoxRenderable(renderer, {
+    id: "env-key-modal-box",
+    width: 78,
+    height: 14,
+    position: "absolute",
+    left: 8,
+    top: 6,
+    backgroundColor: "#0b1220",
+    borderStyle: "single",
+    borderColor: "#7dd3fc",
+    border: true,
+    zIndex: 11,
+  })
+  const envKeyModalTitle = new TextRenderable(renderer, {
+    id: "env-key-modal-title",
+    content: "Settings - API Key",
+    fg: "#7dd3fc",
+    position: "absolute",
+    left: 10,
+    top: 7,
+    zIndex: 12,
+  })
+  const envKeyModalHelp = new TextRenderable(renderer, {
+    id: "env-key-modal-help",
+    content: "Enter apply | j/k navigate | r rescan | m manual | q close",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 8,
+    zIndex: 12,
+  })
+  const envKeyModalListText = new TextRenderable(renderer, {
+    id: "env-key-modal-list",
+    content: "",
+    fg: "#e2e8f0",
+    position: "absolute",
+    left: 10,
+    top: 9,
+    zIndex: 12,
+  })
+  const envKeyModalInfoText = new TextRenderable(renderer, {
+    id: "env-key-modal-info",
+    content: "",
+    fg: "#94a3b8",
+    position: "absolute",
+    left: 10,
+    top: 13,
+    zIndex: 12,
+  })
+  envKeyModalBox.visible = false
+  envKeyModalTitle.visible = false
+  envKeyModalHelp.visible = false
+  envKeyModalListText.visible = false
+  envKeyModalInfoText.visible = false
+  renderer.root.add(envKeyModalBox)
+  renderer.root.add(envKeyModalTitle)
+  renderer.root.add(envKeyModalHelp)
+  renderer.root.add(envKeyModalListText)
+  renderer.root.add(envKeyModalInfoText)
+
   return {
     jobsBox,
     eventsBox,
@@ -2155,6 +3800,29 @@ function buildLayout(renderer: any) {
     resultsModalHint,
     resultsModalVisible: false,
     resultsModalPayload: "",
+    configModalBox,
+    configModalTitle,
+    configModalText,
+    configModalHint,
+    configModalVisible: false,
+    configModalPayload: "",
+    settingsBox,
+    settingsTitle,
+    settingsHelp,
+    settingsListText,
+    settingsInfoText,
+    settingsModalVisible: false,
+    keyModalBox,
+    keyModalLabel,
+    keyModalInput,
+    keyModalHelp,
+    keyModalVisible: false,
+    envKeyModalBox,
+    envKeyModalTitle,
+    envKeyModalHelp,
+    envKeyModalListText,
+    envKeyModalInfoText,
+    envKeyModalVisible: false,
     eventCards: [] as Array<{ box: BoxRenderable; text: TextRenderable }>,
   }
 }

@@ -103,6 +103,17 @@ jobs:
             exit 1
           fi
 
+  tui-tests:
+    name: TUI Tests (bun)
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - name: Run TUI parsing tests
+        run: |
+          cd synth_ai/_tui
+          bun test
+
   integration-dev:
     name: Integration (dev endpoints)
     runs-on: blacksmith-4vcpu-ubuntu-2404

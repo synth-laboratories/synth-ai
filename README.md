@@ -52,6 +52,15 @@ uvx synth-ai codex
 uvx synth-ai opencode
 ```
 
+## Testing
+
+Run the TUI integration tests:
+
+```bash
+cd synth_ai/_tui
+bun test
+```
+
 Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
 
 ## Documentation
