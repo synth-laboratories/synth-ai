@@ -30,7 +30,7 @@ def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
     """
     Resolve hostname using explicit resolvers (1.1.1.1, 8.8.8.8) first,
     then fall back to system resolver.
-    
+
     This fixes resolver path issues where system DNS is slow or blocking.
     """
     # Try Cloudflare / Google first via `dig`, then fall back to system resolver
@@ -48,9 +48,106 @@ def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
                     return first
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
             continue
-    
+
     # Fallback: system resolver
     return socket.gethostbyname(hostname)
+
+
+@dataclass(slots=True)
+class CurlResponse:
+    """Minimal response object from curl to match requests.Response interface."""
+    status_code: int
+    text: str
+    _json: dict | None = None
+
+    def json(self) -> dict:
+        import json
+        if self._json is None:
+            self._json = json.loads(self.text) if self.text else {}
+        return self._json
+
+
+def _curl_with_resolve(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: float = 10.0,
+) -> CurlResponse | None:
+    """
+    Make an HTTPS request using curl with --resolve to bypass system DNS.
+
+    This resolves the hostname using explicit DNS resolvers (1.1.1.1, 8.8.8.8)
+    and then uses curl's --resolve flag to connect directly to the resolved IP
+    while maintaining proper SNI for SSL/TLS.
+
+    Args:
+        url: The URL to fetch (must be HTTPS)
+        headers: Optional headers to include
+        timeout: Request timeout in seconds
+
+    Returns:
+        CurlResponse with status_code and text, or None if curl fails
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    if not hostname or hostname in ("localhost", "127.0.0.1"):
+        return None  # Use regular requests for localhost
+
+    # Resolve hostname using explicit resolvers
+    try:
+        resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
+    except (socket.gaierror, Exception):
+        return None  # DNS resolution failed, caller should fall back
+
+    # Build curl command with --resolve to bypass system DNS
+    scheme = parsed.scheme or "https"
+    port = parsed.port or (443 if scheme == "https" else 80)
+
+    curl_cmd = [
+        "curl", "-s",
+        "-w", "\n%{http_code}",  # Append status code on new line
+        "--max-time", str(int(timeout)),
+        "-k",  # Allow self-signed certs (tunnel certs)
+        "--resolve", f"{hostname}:{port}:{resolved_ip}",
+        url,
+    ]
+
+    # Add headers
+    if headers:
+        for key, value in headers.items():
+            curl_cmd.extend(["-H", f"{key}: {value}"])
+
+    try:
+        result = subprocess.run(
+            curl_cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout + 5,  # Allow some buffer
+        )
+
+        if result.returncode != 0:
+            return None
+
+        # Parse output: body followed by status code on last line
+        output = result.stdout
+        lines = output.rsplit("\n", 1)
+
+        if len(lines) == 2:
+            body = lines[0]
+            status_str = lines[1].strip()
+        else:
+            body = ""
+            status_str = lines[0].strip() if lines else "0"
+
+        try:
+            status_code = int(status_str)
+        except ValueError:
+            return None
+
+        return CurlResponse(status_code=status_code, text=body)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return None
 
 
 def _resolve_url_to_ip(url: str) -> tuple[str, str]:
@@ -136,23 +233,52 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
             "[errno 8]",
         ])
 
-    health_resp: requests.Response | None = None
+    health_resp: requests.Response | CurlResponse | None = None
     health_ok = False
 
     # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
     health_url = f"{base}/health"
+    is_https = health_url.startswith("https://")
 
     # Retry health check with exponential backoff for DNS errors
     # Re-resolve DNS on each retry attempt to handle DNS propagation delays
     for attempt in range(max_retries):
-        # Re-resolve DNS on each attempt (DNS might not be ready yet)
+        # For HTTPS URLs, try curl with --resolve first to bypass system DNS
+        # This handles cases where explicit resolvers (1.1.1.1) work but system DNS doesn't
+        if is_https:
+            curl_resp = _curl_with_resolve(health_url, headers=headers, timeout=timeout)
+            if curl_resp is not None:
+                health_resp = curl_resp
+                health_ok, note = _health_response_ok(health_resp)
+                suffix = f" ({note})" if note else ""
+                if not health_ok and health_resp is not None:
+                    try:
+                        hjs = health_resp.json()
+                        expected = hjs.get("expected_api_key_prefix")
+                        authorized = hjs.get("authorized")
+                        detail = hjs.get("detail")
+                        extras = []
+                        if authorized is not None:
+                            extras.append(f"authorized={authorized}")
+                        if expected:
+                            extras.append(f"expected_prefix={expected}")
+                        if detail:
+                            extras.append(f"detail={str(detail)[:80]}")
+                        if extras:
+                            suffix += " [" + ", ".join(extras) + "]"
+                    except Exception:
+                        pass
+                detail_parts.append(f"/health={health_resp.status_code}{suffix}")
+                break  # Success via curl, exit retry loop
+
+        # Fall back to requests-based approach (works for HTTP, or HTTPS if curl failed)
         ip_health_url, original_hostname = _resolve_url_to_ip(health_url)
         use_ip_directly = ip_health_url != health_url  # True if we resolved to IP
-        
+
         # Ensure Host header is set if we resolved to IP
         if use_ip_directly and original_hostname and original_hostname not in ("localhost", "127.0.0.1"):
             headers["Host"] = original_hostname
-        
+
         try:
             # If using IP directly, disable SSL verification (cert is for hostname, not IP)
             if use_ip_directly:
@@ -193,7 +319,7 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
             detail_parts.append(f"/health_error={exc}")
             break
 
-    task_resp: requests.Response | None = None
+    task_resp: requests.Response | CurlResponse | None = None
     task_ok = False
 
     # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
@@ -203,14 +329,31 @@ def check_task_app_health(base_url: str, api_key: str, *, timeout: float = 10.0,
     # Retry task_info check with exponential backoff for DNS errors
     # Re-resolve DNS on each retry attempt to handle DNS propagation delays
     for attempt in range(max_retries):
-        # Re-resolve DNS on each attempt (DNS might not be ready yet)
+        # For HTTPS URLs, try curl with --resolve first to bypass system DNS
+        if is_https:
+            curl_resp = _curl_with_resolve(task_info_url, headers=headers, timeout=timeout)
+            if curl_resp is not None:
+                task_resp = curl_resp
+                task_ok = bool(task_resp.status_code == 200)
+                if not task_ok and task_resp is not None:
+                    try:
+                        tjs = task_resp.json()
+                        msg = tjs.get("detail") or tjs.get("status")
+                        detail_parts.append(f"/task_info={task_resp.status_code} ({str(msg)[:80]})")
+                    except Exception:
+                        detail_parts.append(f"/task_info={task_resp.status_code}")
+                else:
+                    detail_parts.append(f"/task_info={task_resp.status_code}")
+                break  # Success via curl, exit retry loop
+
+        # Fall back to requests-based approach
         ip_task_info_url, task_info_hostname = _resolve_url_to_ip(task_info_url)
         use_ip_directly_task = ip_task_info_url != task_info_url  # True if we resolved to IP
-        
+
         # Ensure Host header is set if we resolved to IP
         if use_ip_directly_task and task_info_hostname and task_info_hostname not in ("localhost", "127.0.0.1"):
             headers["Host"] = task_info_hostname
-        
+
         try:
             # If using IP directly, disable SSL verification (cert is for hostname, not IP)
             if use_ip_directly_task:
