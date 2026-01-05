@@ -322,7 +322,7 @@ async def main():
     print('\nProvisioning Cloudflare tunnel for baseline...')
     baseline_tunnel = await TunneledLocalAPI.create(
         local_port=LOCAL_API_PORT,
-        backend=TunnelBackend.CloudflareManagedTunnel,
+        backend=TunnelBackend.CloudflareQuickTunnel,
         progress=True,
     )
     BASELINE_LOCAL_API_URL = baseline_tunnel.url
@@ -367,6 +367,8 @@ async def main():
 
     pl_job = PromptLearningJob.from_dict(
         config_dict=config_body,
+        backend_url=SYNTH_API_BASE,
+        api_key=API_KEY,
     )
 
     job_id = pl_job.submit()
@@ -458,7 +460,7 @@ async def main():
         print('\nProvisioning Cloudflare tunnel for optimized...')
         optimized_tunnel = await TunneledLocalAPI.create(
             local_port=OPTIMIZED_LOCAL_API_PORT,
-            backend=TunnelBackend.CloudflareManagedTunnel,
+            backend=TunnelBackend.CloudflareQuickTunnel,
             progress=True,
         )
         OPTIMIZED_LOCAL_API_URL = optimized_tunnel.url
