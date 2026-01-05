@@ -4499,7 +4499,7 @@ function buildLayout(renderer: any) {
   })
   const loginModalText = new TextRenderable(renderer, {
     id: "login-modal-text",
-    content: "fto open browser and sign in...",
+    content: "Press Enter to open browser and sign in...",
     fg: "#e2e8f0",
     position: "absolute",
     left: 12,
